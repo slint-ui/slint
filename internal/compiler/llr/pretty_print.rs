@@ -30,6 +30,11 @@ struct PrettyPrinter<'a> {
 
 impl<'a> PrettyPrinter<'a> {
     fn print_root(&mut self, root: &CompilationUnit) -> Result {
+        for g in &root.globals {
+            if !g.is_builtin {
+                self.print_global(root, g)?;
+            }
+        }
         for c in &root.sub_components {
             self.print_component(root, c, None)?
         }
@@ -105,6 +110,51 @@ impl<'a> PrettyPrinter<'a> {
         for w in &sc.popup_windows {
             self.indent()?;
             self.print_component(root, &w.root, Some(ParentCtx::new(&ctx, None)))?
+        }
+        self.indentation -= 1;
+        self.indent()?;
+        writeln!(self.writer, "}}")
+    }
+
+    fn print_global(&mut self, root: &CompilationUnit, global: &super::GlobalComponent) -> Result {
+        let ctx = EvaluationContext::new_global(root, global, ());
+        if global.exported {
+            write!(self.writer, "export ")?;
+        }
+        let aliases = global.aliases.join(",");
+        let aliases = if aliases.is_empty() { String::new() } else { format!(" /*{aliases}*/") };
+        writeln!(self.writer, "global {} {{{aliases}", global.name)?;
+        self.indentation += 1;
+        for ((p, init), is_const) in
+            std::iter::zip(&global.properties, &global.init_values).zip(&global.const_properties)
+        {
+            self.indent()?;
+            let init = init.as_ref().map_or(String::new(), |init| {
+                format!(
+                    ": {}{}",
+                    DisplayExpression(&init.expression.borrow(), &ctx,),
+                    if init.is_constant { "/*const*/" } else { "" }
+                )
+            });
+            writeln!(
+                self.writer,
+                "property <{}> {}{init}; //use={}{}",
+                p.ty,
+                p.name,
+                p.use_count.get(),
+                if *is_const { "  const" } else { "" }
+            )?;
+        }
+        for f in &global.functions {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "function {} ({}) -> {} {{ {} }}; ",
+                f.name,
+                f.args.iter().map(ToString::to_string).join(", "),
+                f.ret_ty,
+                DisplayExpression(&f.code, &ctx)
+            )?;
         }
         self.indentation -= 1;
         self.indent()?;

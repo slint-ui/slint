@@ -181,8 +181,11 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         env!("CARGO_PKG_VERSION_PATCH"),
     );
 
-    let globals =
-        llr.globals.iter().filter(|glob| !glob.is_builtin).map(|glob| generate_global(glob, &llr));
+    let globals = llr
+        .globals
+        .iter()
+        .filter(|glob| glob.must_generate())
+        .map(|glob| generate_global(glob, &llr));
     let shared_globals = generate_shared_globals(&llr);
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
@@ -310,12 +313,20 @@ fn generate_public_component(
 }
 
 fn generate_shared_globals(llr: &llr::CompilationUnit) -> TokenStream {
-    let global_names =
-        llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
-    let global_types = llr.globals.iter().map(global_inner_name).collect::<Vec<_>>();
+    let global_names = llr
+        .globals
+        .iter()
+        .filter(|g| g.is_builtin || g.must_generate())
+        .map(|g| format_ident!("global_{}", ident(&g.name)))
+        .collect::<Vec<_>>();
+    let global_types = llr
+        .globals
+        .iter()
+        .filter(|g| g.is_builtin || g.must_generate())
+        .map(global_inner_name)
+        .collect::<Vec<_>>();
 
     quote! {
-        #[allow(dead_code)] // FIXME: some global are unused because of optimization, we should then remove them completely
         struct SharedGlobals {
             #(#global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
