@@ -2425,6 +2425,21 @@ impl ExportedName {
             .map(|n| n.to_string())
             .unwrap_or_else(|| self.name.clone())
     }
+
+    pub fn from_export_scpecifier(
+        export_specifier: &syntax_nodes::ExportSpecifier,
+    ) -> (String, ExportedName) {
+        let internal_name = parser::identifier_text(&export_specifier.ExportIdentifier())
+            .unwrap_or_else(|| String::new());
+
+        let (name, name_ident): (String, SyntaxNode) = export_specifier
+            .ExportName()
+            .and_then(|ident| {
+                parser::identifier_text(&ident).map(|text| (text, ident.clone().into()))
+            })
+            .unwrap_or_else(|| (internal_name.clone(), export_specifier.ExportIdentifier().into()));
+        (internal_name, ExportedName { name, name_ident })
+    }
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
@@ -2474,34 +2489,23 @@ impl Exports {
             };
 
         extend_exports(
-            &mut doc.ExportsList().flat_map(|exports| exports.ExportSpecifier()).filter_map(
-                |export_specifier| {
-                    let internal_name =
-                        parser::identifier_text(&export_specifier.ExportIdentifier())
-                            .unwrap_or_else(|| {
-                                debug_assert!(diag.has_error());
-                                String::new()
-                            });
-
-                    let (name, name_ident): (String, SyntaxNode) = export_specifier
-                        .ExportName()
-                        .and_then(|ident| {
-                            parser::identifier_text(&ident).map(|text| (text, ident.clone().into()))
-                        })
-                        .unwrap_or_else(|| {
-                            (internal_name.clone(), export_specifier.ExportIdentifier().into())
-                        });
-
+            &mut doc
+                .ExportsList()
+                // re-export are handled in the TypeLoader::load_dependencies_recursively_impl
+                .filter(|exports| exports.ExportModule().is_none())
+                .flat_map(|exports| exports.ExportSpecifier())
+                .filter_map(|export_specifier| {
+                    let (internal_name, exported_name) =
+                        ExportedName::from_export_scpecifier(&export_specifier);
                     Some((
-                        ExportedName { name, name_ident },
+                        exported_name,
                         resolve_export_to_inner_component_or_import(
                             &internal_name,
                             &export_specifier.ExportIdentifier(),
                             diag,
                         )?,
                     ))
-                },
-            ),
+                }),
         );
 
         extend_exports(&mut doc.ExportsList().flat_map(|exports| exports.Component()).filter_map(
