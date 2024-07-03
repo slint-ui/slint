@@ -62,6 +62,7 @@ pub fn lower_to_item_tree(
                 state.sub_components[&ByAddress(tree_sub_compo.clone())].sub_component.clone()
             })
             .collect(),
+        has_debug_info: compiler_config.debug_info,
     };
     super::optim_passes::run_passes(&root);
     root

@@ -330,6 +330,7 @@ pub struct CompilationUnit {
     pub public_components: Vec<PublicComponent>,
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
+    pub has_debug_info: bool,
 }
 
 impl CompilationUnit {

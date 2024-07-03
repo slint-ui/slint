@@ -1463,6 +1463,15 @@ fn generate_item_tree(
     let item_tree_array_len = item_tree_array.len();
     let item_array_len = item_array.len();
 
+    let element_info_body = if root.has_debug_info {
+        quote!(
+            *_result = self.item_element_infos(_index).unwrap_or_default();
+            true
+        )
+    } else {
+        quote!(false)
+    };
+
     quote!(
         #sub_comp
 
@@ -1597,15 +1606,10 @@ fn generate_item_tree(
 
             fn item_element_infos(
                 self: ::core::pin::Pin<&Self>,
-                index: u32,
-                result: &mut sp::SharedString,
+                _index: u32,
+                _result: &mut sp::SharedString,
             ) -> bool {
-                if let Some(infos) = self.item_element_infos(index) {
-                    *result = infos;
-                    true
-                } else {
-                    false
-                }
+                #element_info_body
             }
 
             fn window_adapter(
