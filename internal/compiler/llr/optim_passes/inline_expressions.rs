@@ -38,7 +38,13 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::BinaryExpression { .. } => 1,
         Expression::UnaryOp { .. } => 1,
         Expression::ImageReference { .. } => 1,
-        Expression::Condition { .. } => 10,
+        Expression::Condition { condition, true_expr, false_expr } => {
+            return expression_cost(condition, ctx)
+                .saturating_add(
+                    expression_cost(true_expr, ctx).max(expression_cost(false_expr, ctx)),
+                )
+                .saturating_add(10);
+        }
         // Never inline an array because it is a model and when shared it needs to keep its identity
         // (cf #5249)  (otherwise it would be `ALLOC_COST`)
         Expression::Array { .. } => return isize::MAX,
