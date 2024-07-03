@@ -144,6 +144,37 @@ component.clicked = function() { console.log("hello"); };
 component.clicked();
 ```
 
+### Functions
+
+Functions in Slint can be defined using the `function` keyword.
+
+**`ui/my-component.slint`**
+
+```slint
+export component MyComponent inherits Window {
+    width: 400px;
+    height: 200px;
+
+    public function my-function() -> int {
+        return 42;
+    }
+}
+```
+
+If the function is marked `public`, it can also be called from JavaScript.
+
+**`main.js`**
+
+```js
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile("ui/my-component.slint");
+let component = new ui.MyComponent();
+
+// call a public function
+let result = component.my_function();
+```
+
 ### Type Mappings
 
 The types used for properties in .slint design markup each translate to specific types in JavaScript. The follow table summarizes the entire mapping:

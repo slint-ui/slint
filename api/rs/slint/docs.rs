@@ -23,13 +23,16 @@ pub mod generated_code {
 
     /// This an example of the API that is generated for a component in `.slint` design markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
+    ///
     /// This is the source code:
+    ///
     /// ```slint,no-preview
     /// export component SampleComponent inherits Window {
     ///     in-out property<int> counter;
     ///     // note that dashes will be replaced by underscores in the generated code
     ///     in-out property<string> user-name;
-    ///     callback hello();
+    ///     callback hello;
+    ///     public function do-something(x: int) -> bool { return x > 0; }
     ///     // ... maybe more elements here
     /// }
     /// ```
@@ -77,6 +80,13 @@ pub mod generated_code {
         ///     });
         /// ```
         pub fn on_hello(&self, f: impl Fn() + 'static) {}
+
+        /// For each public function declared at the root of the component, a function to call
+        /// that function is generated. This is the function that calls the `do-something` function
+        /// declared in the `.slint` design markup.
+        pub fn invoke_do_something(&self, d: i32) -> bool {
+            unimplemented!()
+        }
     }
 
     impl ComponentHandle for SampleComponent {
