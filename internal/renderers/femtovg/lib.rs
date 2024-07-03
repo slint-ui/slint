@@ -175,11 +175,28 @@ impl FemtoVGRenderer {
     ///
     /// Use this to transfer a renderer between different window surfaces.
     pub fn suspend(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        // Ensure the context is current before the renderer is destroyed
         if self.opengl_context.borrow().ensure_current().is_ok() {
+            // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
+            if !self.rendering_first_time.get() {
+                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                    self.with_graphics_api(|api| {
+                        callback.notify(RenderingState::RenderingTeardown, &api)
+                    })
+                    .ok();
+                }
+            }
+
             self.graphics_cache.clear_all();
             self.texture_cache.borrow_mut().clear();
         }
-        drop(self.canvas.borrow_mut().take());
+
+        if let Some(canvas) = self.canvas.borrow_mut().take() {
+            if Rc::strong_count(&canvas) != 1 {
+                i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
+            }
+        }
+
         *self.opengl_context.borrow_mut() = Box::new(SuspendedRenderer {});
         Ok(())
     }
@@ -234,6 +251,7 @@ impl FemtoVGRenderer {
 
         *self.canvas.borrow_mut() = canvas.into();
         *self.opengl_context.borrow_mut() = opengl_context;
+        self.rendering_first_time.set(true);
         Ok(())
     }
 
@@ -637,27 +655,7 @@ impl RendererSealed for FemtoVGRenderer {
 
 impl Drop for FemtoVGRenderer {
     fn drop(&mut self) {
-        // Ensure the context is current before the renderer is destroyed
-        if self.opengl_context.borrow().ensure_current().is_ok() {
-            drop(self.rendering_metrics_collector.borrow_mut().take());
-
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                self.with_graphics_api(|api| {
-                    callback.notify(RenderingState::RenderingTeardown, &api)
-                })
-                .ok();
-            }
-        }
-
-        // Clear these manually to drop any Rc<Canvas>.
-        self.graphics_cache.clear_all();
-        self.texture_cache.borrow_mut().clear();
-
-        if let Some(canvas) = self.canvas.borrow_mut().take() {
-            if Rc::strong_count(&canvas) != 1 {
-                i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
-            }
-        }
+        self.suspend().ok();
     }
 }
 
