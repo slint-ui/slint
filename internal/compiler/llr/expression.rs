@@ -489,7 +489,7 @@ impl<'a, T> EvaluationContext<'a, T> {
             prop: &PropertyReference,
             map: ContextMap,
         ) -> PropertyInfoResult<'b> {
-            let property_decl =
+            let property_decl = || {
                 if let PropertyReference::Local { property_index, sub_component_path } = &prop {
                     let mut sc = sc;
                     for i in sub_component_path {
@@ -498,21 +498,27 @@ impl<'a, T> EvaluationContext<'a, T> {
                     Some(&sc.properties[*property_index])
                 } else {
                     None
-                };
+                }
+            };
             let animation = sc.animations.get(prop).map(|a| (a, map.clone()));
-            if let Some(a) = sc.prop_analysis.get(prop) {
-                let binding = a.property_init.map(|i| (&sc.property_init[i].1, map));
-                return PropertyInfoResult {
-                    analysis: Some(&a.analysis),
-                    binding,
-                    animation,
-                    property_decl,
-                };
+            let analysis = sc.prop_analysis.get(prop);
+            if let Some(a) = &analysis {
+                if let Some(init) = a.property_init {
+                    return PropertyInfoResult {
+                        analysis: Some(&a.analysis),
+                        binding: Some((&sc.property_init[init].1, map)),
+                        animation,
+                        property_decl: property_decl(),
+                    };
+                }
             }
-            let apply_animation = |mut r: PropertyInfoResult<'b>| -> PropertyInfoResult<'b> {
+            let apply_analysis = |mut r: PropertyInfoResult<'b>| -> PropertyInfoResult<'b> {
                 if animation.is_some() {
                     r.animation = animation
                 };
+                if let Some(a) = analysis {
+                    r.analysis = Some(&a.analysis);
+                }
                 r
             };
             match prop {
@@ -523,7 +529,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                             property_index: *property_index,
                         };
                         let idx = sub_component_path[0];
-                        return apply_animation(match_in_sub_component(
+                        return apply_analysis(match_in_sub_component(
                             &sc.sub_components[idx].ty,
                             &prop2,
                             map.deeper_in_sub_component(idx),
@@ -538,7 +544,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                             item_index: *item_index,
                         };
                         let idx = sub_component_path[0];
-                        return apply_animation(match_in_sub_component(
+                        return apply_analysis(match_in_sub_component(
                             &sc.sub_components[idx].ty,
                             &prop2,
                             map.deeper_in_sub_component(idx),
@@ -547,7 +553,10 @@ impl<'a, T> EvaluationContext<'a, T> {
                 }
                 _ => unreachable!(),
             }
-            apply_animation(PropertyInfoResult { property_decl, ..Default::default() })
+            apply_analysis(PropertyInfoResult {
+                property_decl: property_decl(),
+                ..Default::default()
+            })
         }
 
         match prop {
@@ -674,7 +683,7 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct PropertyInfoResult<'a> {
     pub analysis: Option<&'a crate::object_tree::PropertyAnalysis>,
     pub binding: Option<(&'a super::BindingExpression, ContextMap)>,
