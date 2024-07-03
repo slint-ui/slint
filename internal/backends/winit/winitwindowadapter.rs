@@ -431,15 +431,6 @@ impl WinitWindowAdapter {
         Ok(())
     }
 
-    fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) -> bool {
-        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
-            callback(&winit_window);
-            true
-        } else {
-            false
-        }
-    }
-
     pub fn winit_window(&self) -> Option<Rc<winit::window::Window>> {
         self.winit_window_or_none.borrow().as_window()
     }
@@ -925,15 +916,15 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
             MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
         };
-        self.with_window_handle(&mut |winit_window| {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             winit_window.set_cursor_visible(cursor != MouseCursor::None);
             winit_window.set_cursor(winit_cursor);
-        });
+        }
     }
 
     fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
         #[cfg(not(target_arch = "wasm32"))]
-        self.with_window_handle(&mut |winit_window| {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             let props = match &request {
                 corelib::window::InputMethodRequest::Enable(props) => {
                     winit_window.set_ime_allowed(true);
@@ -953,7 +944,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 position_to_winit(&props.cursor_rect_origin.into()),
                 window_size_to_winit(&props.cursor_rect_size.into()),
             );
-        });
+        }
 
         #[cfg(target_arch = "wasm32")]
         match request {
