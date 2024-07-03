@@ -240,30 +240,7 @@ impl Document {
     }
 
     pub fn exported_roots(&self) -> impl DoubleEndedIterator<Item = Rc<Component>> + '_ {
-        let mut iter = self
-            .exports
-            .iter()
-            .filter_map(|e| e.1.as_ref().left())
-            .filter(|c| !c.is_global())
-            .cloned()
-            .peekable();
-        // If that is empty, we return the last import. (We need to chain because we need to return the same type for `impl Iterator`)
-        let extra = if iter.peek().is_some() {
-            None
-        } else {
-            self.node
-                .as_ref()
-                .and_then(|n| n.ImportSpecifier().last())
-                .and_then(|import| {
-                    crate::typeloader::ImportedName::extract_imported_names(&import).last()
-                })
-                .and_then(|import| self.local_registry.lookup_element(&import.internal_name).ok())
-                .and_then(|c| match c {
-                    ElementType::Component(c) => Some(c),
-                    _ => None,
-                })
-        };
-        iter.chain(extra)
+        self.exports.iter().filter_map(|e| e.1.as_ref().left()).filter(|c| !c.is_global()).cloned()
     }
 
     /// This is the component that is going to be instantiated by the interpreter

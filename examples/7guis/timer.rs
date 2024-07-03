@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 use slint::{Timer, TimerMode};
 
-slint::slint!(import { MainWindow } from "timer.slint";);
+slint::slint!(export { MainWindow } from "timer.slint";);
 
 pub fn main() {
     let main_window = MainWindow::new().unwrap();

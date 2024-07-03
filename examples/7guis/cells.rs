@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
-slint::slint!(import { MainWindow } from "cells.slint";);
+slint::slint!(export { MainWindow } from "cells.slint";);
 
 const ROW_COUNT: usize = 100;
 const COL_COUNT: usize = 26;

@@ -75,13 +75,13 @@ identifiers, so `-` is replaced with `_`.
 <details data-snippet-language="rust">
 <summary>Rust code</summary>
 
-For technical reasons, this example uses `import {Recipe}` in the `slint!` macro.
+For technical reasons, this example uses `export {Recipe}` in the `slint!` macro.
 In real code, you can put the whole Slint code in the `slint!` macro, or use
 an external `.slint` file together with a build script.
 
 
 ```rust,no_run
-slint::slint!(import { Recipe } from "docs/reference/src/recipes/button_native.slint";);
+slint::slint!(export { Recipe } from "docs/reference/src/recipes/button_native.slint";);
 
 fn main() {
     let recipe = Recipe::new().unwrap();
