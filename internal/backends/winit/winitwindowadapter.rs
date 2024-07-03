@@ -676,10 +676,15 @@ impl WindowAdapter for WinitWindowAdapter {
                         winit::dpi::Position::Physical(phys_pos) => {
                             Some(corelib::api::PhysicalPosition::new(phys_pos.x, phys_pos.y))
                         }
-                        winit::dpi::Position::Logical(_) => {
-                            // User requested a logical position before the window was known, and the window hasn't been created yet. We don't really
-                            // have a scale factor to convert this to a proper physical position :()
-                            None
+                        winit::dpi::Position::Logical(logical_pos) => {
+                            // Best effort: Use the last known scale factor
+                            Some(
+                                corelib::api::LogicalPosition::new(
+                                    logical_pos.x as _,
+                                    logical_pos.y as _,
+                                )
+                                .to_physical(self.window().scale_factor()),
+                            )
                         }
                     }
                 })
