@@ -556,10 +556,6 @@ fn duplicate_transition(
 // Some components need to be inlined to avoid increased complexity in handling them
 // in the code generators and subsequent passes.
 fn component_requires_inlining(component: &Rc<Component>) -> bool {
-    if component.child_insertion_point.borrow().is_some() {
-        return true;
-    }
-
     let root_element = &component.root_element;
     if super::flickable::is_flickable_element(root_element)
         || super::lower_layout::is_layout_element(root_element)
