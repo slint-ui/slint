@@ -837,7 +837,7 @@ impl TypeLoader {
                                     .ExportSpecifier()
                                     .filter_map(|e| {
                                         let (imported_name, exported_name) =
-                                            ExportedName::from_export_scpecifier(&e);
+                                            ExportedName::from_export_specifier(&e);
                                         let Some(r) = doc.exports.find(&imported_name) else {
                                             state.diag.push_error(format!("No exported type called '{imported_name}' found in {doc_path:?}"), &e);
                                             return None;

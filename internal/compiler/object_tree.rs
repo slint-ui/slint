@@ -2426,7 +2426,7 @@ impl ExportedName {
             .unwrap_or_else(|| self.name.clone())
     }
 
-    pub fn from_export_scpecifier(
+    pub fn from_export_specifier(
         export_specifier: &syntax_nodes::ExportSpecifier,
     ) -> (String, ExportedName) {
         let internal_name = parser::identifier_text(&export_specifier.ExportIdentifier())
@@ -2496,7 +2496,7 @@ impl Exports {
                 .flat_map(|exports| exports.ExportSpecifier())
                 .filter_map(|export_specifier| {
                     let (internal_name, exported_name) =
-                        ExportedName::from_export_scpecifier(&export_specifier);
+                        ExportedName::from_export_specifier(&export_specifier);
                     Some((
                         exported_name,
                         resolve_export_to_inner_component_or_import(
