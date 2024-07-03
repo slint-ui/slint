@@ -34,10 +34,10 @@ pub struct SlintUserEvent(CustomEvent);
 /// Returned by callbacks passed to [`Window::on_winit_window_event`](WinitWindowAccessor::on_winit_window_event)
 /// to determine if winit events should propagate to the Slint event loop.
 pub enum WinitWindowEventResult {
-    /// The event was rejected by the window event filter and may propagate normally.
-    Reject,
-    /// The event was accepted by the window event filter and won't be processed further.
-    Accept,
+    /// The winit event should propagate normally.
+    Propagate,
+    /// The winit event shouldn't be processed further.
+    PreventDefault,
 }
 
 mod renderer {

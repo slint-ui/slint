@@ -299,8 +299,8 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                 window.window_event_filter.set(Some(window_event_filter));
 
                 match event_result {
-                    WinitWindowEventResult::Accept => return,
-                    WinitWindowEventResult::Reject => (),
+                    WinitWindowEventResult::PreventDefault => return,
+                    WinitWindowEventResult::Propagate => (),
                 }
             }
 
