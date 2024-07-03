@@ -26,8 +26,7 @@ These classes have the same name as the component will have the following public
   * `invoke_<callback_name>` function which takes the callback argument as parameter and call the callback.
   * `on_<callback_name>` function which takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
-* For each public function declared in the root component, an `invoke_<function_name>` function which
-  takes the function arguments as parameters and calls the function.
+* For each public function declared in the root component, an `invoke_<function_name>` function to call the function.
 * A `global` function to access exported global singletons.
 
 The `create` function creates a new instance of the component, which is wrapped
