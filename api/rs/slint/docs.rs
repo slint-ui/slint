@@ -25,7 +25,7 @@ pub mod generated_code {
     /// what functions you can call and how you can pass data in and out.
     ///
     /// This is the source code:
-    /// 
+    ///
     /// ```slint,no-preview
     /// export component SampleComponent inherits Window {
     ///     in-out property<int> counter;
