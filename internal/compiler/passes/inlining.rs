@@ -139,7 +139,7 @@ fn inline_element(
                         if Rc::ptr_eq(&cip.0, elem) {
                             *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
                         }
-                    } else {
+                    } else if Rc::ptr_eq(elem, &root_component.root_element) {
                         *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
                     };
                 } else {
