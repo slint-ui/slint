@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 mod wasm_backend;
 
 slint::slint! {
-    import { MainWindow } from "plotter.slint";
+    export { MainWindow } from "plotter.slint";
 }
 
 fn pdf(x: f64, y: f64, a: f64) -> f64 {

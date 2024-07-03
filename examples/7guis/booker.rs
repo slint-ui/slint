@@ -4,7 +4,7 @@
 use chrono::NaiveDate;
 use slint::SharedString;
 
-slint::slint!(import { Booker } from "booker.slint";);
+slint::slint!(export { Booker } from "booker.slint";);
 
 pub fn main() {
     let booker = Booker::new().unwrap();

@@ -6,8 +6,9 @@
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
-use crate::object_tree::{Component, Document, PropertyVisibility};
-use crate::CompilerConfiguration;
+use crate::langtype::ElementType;
+use crate::object_tree::{Component, Document, ExportedName, PropertyVisibility};
+use crate::{CompilerConfiguration, ComponentsToGenerate};
 use itertools::Either;
 
 pub fn check_public_api(
@@ -17,8 +18,25 @@ pub fn check_public_api(
 ) {
     let last = doc.last_exported_component();
 
+    if last.is_none()
+        && !matches!(&config.components_to_generate, ComponentsToGenerate::ComponentWithName(_))
+    {
+        let last_imported = doc
+            .node
+            .as_ref()
+            .and_then(|n| {
+                let import_node = n.ImportSpecifier().last()?;
+                let import = crate::typeloader::ImportedName::extract_imported_names(&import_node).last()?;
+                let ElementType::Component(c) = doc.local_registry.lookup_element(&import.internal_name).ok()? else { return None };
+                diag.push_warning(format!("No component is exported. The last imported component '{}' will be used. This is deprecated", import.internal_name), &import_node);
+                let exported_name = ExportedName{ name: import.internal_name, name_ident: import_node.into() };
+                Some((exported_name, Either::Left(c)))
+            });
+        doc.exports.add_reexports(last_imported, diag);
+    }
+
     match &config.components_to_generate {
-        crate::ComponentsToGenerate::AllExportedWindows => doc.exports.retain(|export| {
+        ComponentsToGenerate::AllExportedWindows => doc.exports.retain(|export| {
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1 {
                 if !c.is_global() && !super::ensure_window::inherits_window(c) {
@@ -34,14 +52,15 @@ pub fn check_public_api(
             true
         }),
         // Only keep the last component if there is one
-        crate::ComponentsToGenerate::LastComponent => doc.exports.retain(|export| {
+        ComponentsToGenerate::LastComponent => doc.exports.retain(|export| {
             if let Either::Left(c) = &export.1 {
                 c.is_global() || last.as_ref().map_or(true, |last| Rc::ptr_eq(last, c))
             } else {
                 true
-            } }),
+            }
+        }),
         // Only keep the component with the given name
-        crate::ComponentsToGenerate::ComponentWithName(name) => doc.exports.retain(|export| {
+        ComponentsToGenerate::ComponentWithName(name) => doc.exports.retain(|export| {
             if let Either::Left(c) = &export.1 {
                 c.is_global() || &c.id == name
             } else {
