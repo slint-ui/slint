@@ -10,7 +10,9 @@ use event_loop::CustomEvent;
 use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
+#[cfg(not(target_arch = "wasm32"))]
+use std::rc::Weak;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;

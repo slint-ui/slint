@@ -292,9 +292,9 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             return;
         };
 
-        if let Some(winit_window) = window.winit_window() {
+        if let Some(_winit_window) = window.winit_window() {
             #[cfg(enable_accesskit)]
-            window.accesskit_adapter.borrow_mut().process_event(&winit_window, &event);
+            _winit_window.accesskit_adapter.borrow_mut().process_event(&_winit_window, &event);
         } else {
             return;
         }
