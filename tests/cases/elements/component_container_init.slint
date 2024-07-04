@@ -23,7 +23,7 @@ use slint::ComponentHandle;
 let inner_instance = std::rc::Rc::<core::cell::RefCell<Option<slint_interpreter::ComponentInstance>>>::default();
 let inner_instance_clone = inner_instance.clone();
 let factory = slint::ComponentFactory::new(move |ctx| {
-    let mut compiler = slint_interpreter::ComponentCompiler::new();
+    let compiler = slint_interpreter::Compiler::new();
     let e = spin_on::spin_on(compiler.build_from_source(
         r#"export component Inner {
                 preferred-height: 42px;
@@ -39,7 +39,7 @@ let factory = slint::ComponentFactory::new(move |ctx| {
                 out property cursor <=> b.cursor_position_byte_offset ;
             }"#.into(),
         std::path::PathBuf::from("embedded.slint"),
-     )).unwrap_or_else(|| panic!("compile error {:?}", compiler.diagnostics()));
+     )).component("Inner").unwrap();
 
     let inner = e.create_embedded(ctx).unwrap();
     inner_instance_clone.replace(Some(inner.clone_strong()));

@@ -73,6 +73,7 @@ pub async fn compile_from_string_with_style(
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
+    #[allow(deprecated)]
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     if !style.is_empty() {
         compiler.set_style(style)
