@@ -831,7 +831,7 @@ pub fn generate(
     for glob in &llr.globals {
         let ty = if glob.is_builtin {
             format!("slint::cbindgen_private::{}", glob.name)
-        } else {
+        } else if glob.must_generate() {
             generate_global(&mut file, &conditional_includes, glob, &llr);
             file.definitions.extend(glob.aliases.iter().map(|name| {
                 Declaration::TypeAlias(TypeAlias {
@@ -840,6 +840,8 @@ pub fn generate(
                 })
             }));
             ident(&glob.name)
+        } else {
+            continue;
         };
 
         globals_struct.members.push((
@@ -954,12 +956,12 @@ fn generate_public_component(
         }),
     ));
 
-    for glob in unit.globals.iter().filter(|glob| !glob.is_builtin) {
+    for glob in unit.globals.iter().filter(|glob| glob.must_generate()) {
         component_struct.friends.push(ident(&glob.name));
     }
 
     let mut global_accessor_function_body = Vec::new();
-    for glob in unit.globals.iter().filter(|glob| glob.exported && !glob.is_builtin) {
+    for glob in unit.globals.iter().filter(|glob| glob.exported && glob.must_generate()) {
         let accessor_statement = format!(
             "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
             if global_accessor_function_body.is_empty() { "" } else { "else " },
@@ -1437,10 +1439,18 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "element_infos".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::SharedString *result) -> bool"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] slint::SharedString *result) -> bool"
                     .into(),
             is_static: true,
-            statements: Some(vec![format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; return true; }};", item_tree_class_name), "return false;".into()]),
+            statements: Some(if root.has_debug_info {
+                vec![
+                    format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; }};",
+                    item_tree_class_name),
+                    "return true;".into()
+                ]
+            } else {
+                vec!["return false;".into()]
+            }),
             ..Default::default()
         }),
     ));

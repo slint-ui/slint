@@ -8,7 +8,7 @@ use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, ElementRc, PropertyVisibility};
+use crate::object_tree::{Component, ElementRc, PropertyAnalysis, PropertyVisibility};
 use crate::CompilerConfiguration;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -62,6 +62,7 @@ pub fn lower_to_item_tree(
                 state.sub_components[&ByAddress(tree_sub_compo.clone())].sub_component.clone()
             })
             .collect(),
+        has_debug_info: compiler_config.debug_info,
     };
     super::optim_passes::run_passes(&root);
     root
@@ -447,6 +448,11 @@ fn lower_sub_component(
 
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n));
+        // ensure that all const properties have analysis
+        sub_component.prop_analysis.entry(x.clone()).or_insert_with(|| PropAnalysis {
+            property_init: None,
+            analysis: get_property_analysis(elem, n),
+        });
         sub_component.const_properties.push(x);
     });
 
@@ -764,16 +770,18 @@ fn lower_global(
             state
                 .global_properties
                 .insert(nr, PropertyReference::Global { global_index, property_index });
-            prop_analysis.push(
-                global
+            prop_analysis.push(PropertyAnalysis {
+                // Assume that a builtin global property can always be set from the builtin code
+                is_set_externally: true,
+                ..global
                     .root_element
                     .borrow()
                     .property_analysis
                     .borrow()
                     .get(p)
                     .cloned()
-                    .unwrap_or_default(),
-            );
+                    .unwrap_or_default()
+            });
         }
         true
     } else {

@@ -40,6 +40,7 @@ slint-viewer path/to/myfile.slint
  - `--style <style>`: Set the style. Defaults to `native` if the Qt backend is compiled, otherwise `fluent`
  - `--backend <backend>`: Override the Slint rendering backend
  - `--on <callback> <handler>`: Set a callback handler, see [callback handler](#callback-handlers)
+ - `--component <name>`: Load the component with the given name. If not specified, load the last exported component
 
 Instead of a path to a file, one can use `-` for the standard input or the standard output.
 

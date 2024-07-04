@@ -85,13 +85,23 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let generated_headers_dir = docs_build_dir.join("generated_include");
     let enabled_features = cbindgen::EnabledFeatures {
         interpreter: true,
-        backend_qt: false,
-        freestanding: false,
-        renderer_software: true,
-        renderer_skia: true,
-        experimental: false,
-        gettext: true,
         testing: true,
+        backend_qt: false,
+        backend_winit: true,
+        backend_winit_x11: false,
+        backend_winit_wayland: false,
+        backend_linuxkms: false,
+        backend_linuxkms_noseat: false,
+        renderer_femtovg: true,
+        renderer_skia: true,
+        renderer_skia_opengl: false,
+        renderer_skia_vulkan: false,
+        renderer_software: true,
+        gettext: true,
+        accessibility: true,
+        system_testing: false,
+        freestanding: false,
+        experimental: false,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 

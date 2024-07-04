@@ -7,7 +7,7 @@
 //! in the calling expression
 
 use crate::expression_tree::BuiltinFunction;
-use crate::llr::{CompilationUnit, EvaluationContext, Expression, PropertyInfoResult};
+use crate::llr::{CompilationUnit, EvaluationContext, Expression};
 
 const PROPERTY_ACCESS_COST: isize = 1000;
 const ALLOC_COST: isize = 700;
@@ -38,7 +38,13 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::BinaryExpression { .. } => 1,
         Expression::UnaryOp { .. } => 1,
         Expression::ImageReference { .. } => 1,
-        Expression::Condition { .. } => 10,
+        Expression::Condition { condition, true_expr, false_expr } => {
+            return expression_cost(condition, ctx)
+                .saturating_add(
+                    expression_cost(true_expr, ctx).max(expression_cost(false_expr, ctx)),
+                )
+                .saturating_add(10);
+        }
         // Never inline an array because it is a model and when shared it needs to keep its identity
         // (cf #5249)  (otherwise it would be `ALLOC_COST`)
         Expression::Array { .. } => return isize::MAX,
@@ -128,19 +134,22 @@ pub fn inline_simple_expressions(root: &CompilationUnit) {
 
 fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &EvaluationContext) {
     if let Expression::PropertyReference(prop) = expr {
-        if let PropertyInfoResult { analysis: Some(a), binding: Some((binding, map)), .. } =
-            ctx.property_info(prop)
-        {
-            if !a.is_set
-                && !a.is_set_externally
-                // State info binding are special and the binding cannot be inlined or used.
-                && !binding.is_state_info
-                && binding.animation.is_none()
-                && expression_cost(&binding.expression.borrow(), &map.map_context(ctx)) < INLINE_THRESHOLD
-            {
-                // Perform inlining
-                *expr = binding.expression.borrow().clone();
-                map.map_expression(expr);
+        let prop_info = ctx.property_info(prop);
+        if prop_info.analysis.as_ref().is_some_and(|a| !a.is_set && !a.is_set_externally) {
+            if let Some((binding, map)) = prop_info.binding {
+                if binding.animation.is_none()
+                    // State info binding are special and the binding cannot be inlined or used.
+                    && !binding.is_state_info
+                    && expression_cost(&binding.expression.borrow(), &map.map_context(ctx)) < INLINE_THRESHOLD
+                {
+                    // Perform inlining
+                    *expr = binding.expression.borrow().clone();
+                    map.map_expression(expr);
+                }
+            } else if let Some(prop_decl) = prop_info.property_decl {
+                if let Some(e) = Expression::default_value_for_type(&prop_decl.ty) {
+                    *expr = e;
+                }
             }
         }
     };

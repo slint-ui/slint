@@ -15,7 +15,7 @@ All notable changes to this project are documented in this file.
  - Gettext translation: clear internal gettext cache when changing translations at runtime
  - Winit backend: Fixed setting the size with set_size before showing the window (#6489)
  - Winit backend: upgraded to winit 0.30, accesskit 0.22, glutin
- - Winit backend: added winit window event filter
+ - Winit backend: Fixed Window::hide on wayland
  - Qt backend: fix PopupWindow exiting the application with recent Qt6
  - LinuxKMS backend: software renderer support
  - Software renderer: added API to rotate the buffer by multiple of 90 degrees.
@@ -25,8 +25,11 @@ All notable changes to this project are documented in this file.
  - Added `resize-border` to Window
  - Support several exported component that inherits Window pr Dialog from the main .slint file
  - Mark exported component that doesn't inherit from Window or Dialog as deprecated
+ - Deprecated generating the last import if there is no component in a file
+ - Added `export { ... } from "...";` syntax
  - Add the `accessible-placeholder-text` property (PR #5464)
  - Added `char-wrap` variant to the `TextWrap` enum (PR #5381)
+ - `Text` can be rotated
 
 ### Widgets
 
@@ -68,6 +71,7 @@ All notable changes to this project are documented in this file.
  - Added ability to rename components.
  - Design mode: only allow to move element within the same component.
  - Design mode: Added the property editor pane.
+ - viewer: added the `--component` command line arg to preview a specific component
 
 
 ## [1.6.0] - 2024-05-13

@@ -14,6 +14,12 @@ function(SLINT_TARGET_SOURCES target)
     # Parse the NAMESPACE argument
     cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE" "LIBRARY_PATHS" ${ARGN})
 
+    get_target_property(enabled_features Slint::Slint SLINT_ENABLED_FEATURES)
+    if (("EXPERIMENTAL" IN_LIST enabled_features) AND ("SYSTEM_TESTING" IN_LIST enabled_features))
+        set(SLINT_COMPILER_ENV ${CMAKE_COMMAND} -E env)
+        set(SLINT_COMPILER_ENV ${SLINT_COMPILER_ENV} SLINT_EMIT_DEBUG_INFO=1)
+    endif()
+
     if (DEFINED SLINT_TARGET_SOURCES_NAMESPACE)
         # Remove the NAMESPACE argument from the list
         list(FIND ARGN "NAMESPACE" _index)
@@ -41,7 +47,7 @@ function(SLINT_TARGET_SOURCES target)
 
         add_custom_command(
             OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
-            COMMAND Slint::slint-compiler ${_SLINT_ABSOLUTE}
+            COMMAND ${SLINT_COMPILER_ENV} $<TARGET_FILE:Slint::slint-compiler> ${_SLINT_ABSOLUTE}
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                 --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
                 --style ${_SLINT_STYLE}

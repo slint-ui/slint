@@ -73,6 +73,15 @@ pub struct GlobalComponent {
     pub prop_analysis: Vec<crate::object_tree::PropertyAnalysis>,
 }
 
+impl GlobalComponent {
+    pub fn must_generate(&self) -> bool {
+        !self.is_builtin
+            && (self.exported
+                || !self.functions.is_empty()
+                || self.properties.iter().any(|p| p.use_count.get() > 0))
+    }
+}
+
 /// a Reference to a property, in the context of a SubComponent
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PropertyReference {
@@ -330,6 +339,7 @@ pub struct CompilationUnit {
     pub public_components: Vec<PublicComponent>,
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
+    pub has_debug_info: bool,
 }
 
 impl CompilationUnit {

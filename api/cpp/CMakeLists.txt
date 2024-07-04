@@ -34,6 +34,7 @@ function(define_cargo_feature cargo_feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo_feature}" cmake_option)
     string(REPLACE "-" "_" cmake_option "${cmake_option}")
+    list(APPEND public_cmake_features ${cmake_option})
     set(cmake_option "SLINT_FEATURE_${cmake_option}")
     option("${cmake_option}" "${description}" ${default})
 
@@ -42,6 +43,7 @@ function(define_cargo_feature cargo_feature description default)
     endif()
 
     set(features "${features}" PARENT_SCOPE)
+    set(public_cmake_features "${public_cmake_features}" PARENT_SCOPE)
     add_feature_info(${cmake_option} ${cmake_option} ${description})
 endfunction()
 
@@ -49,6 +51,7 @@ function(define_cargo_dependent_feature cargo_feature description default depend
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo_feature}" cmake_option)
     string(REPLACE "-" "_" cmake_option "${cmake_option}")
+    list(APPEND public_cmake_features ${cmake_option})
     set(cmake_option "SLINT_FEATURE_${cmake_option}")
     cmake_dependent_option("${cmake_option}" "${description}" ${default} ${depends_condition} OFF)
 
@@ -57,11 +60,12 @@ function(define_cargo_dependent_feature cargo_feature description default depend
     endif()
 
     set(features "${features}" PARENT_SCOPE)
+    set(public_cmake_features "${public_cmake_features}" PARENT_SCOPE)
     add_feature_info(${cmake_option} ${cmake_option} ${description})
 endfunction()
 
 # Features that are mapped to features in the Rust crate. These and their
-# defaults need to be kept in sync with the Rust bit.
+# defaults need to be kept in sync with the Rust bit (cpp/Cargo.toml and cbindgen.rs)
 
 define_cargo_feature(freestanding "Enable use of freestanding environment. This is only for bare-metal systems. Most other features are incompatible with this one" OFF)
 
@@ -157,6 +161,19 @@ if (SLINT_BUILD_RUNTIME)
     if (MSVC)
         target_compile_options(Slint INTERFACE /bigobj)
     endif()
+
+    foreach(feature ${public_cmake_features})
+        set(cmake_option "SLINT_FEATURE_${feature}")
+        if(${cmake_option})
+            list(APPEND enabled_features ${feature})
+        else()
+            list(APPEND disabled_features ${feature})
+        endif()
+    endforeach()
+    set_property(TARGET Slint APPEND PROPERTY SLINT_ENABLED_FEATURES "${enabled_features}")
+    set_property(TARGET Slint APPEND PROPERTY SLINT_DISABLED_FEATURES "${disabled_features}")
+    set_property(TARGET Slint APPEND PROPERTY EXPORT_PROPERTIES "SLINT_ENABLED_FEATURES")
+    set_property(TARGET Slint APPEND PROPERTY EXPORT_PROPERTIES "SLINT_DISABLED_FEATURES")
 
     if (SLINT_FEATURE_FREESTANDING)
         if (ESP_PLATFORM)
