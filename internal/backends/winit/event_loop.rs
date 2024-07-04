@@ -10,6 +10,7 @@
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WinitWindowAdapter;
 use crate::SlintUserEvent;
+use crate::WinitWindowEventResult;
 use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
@@ -293,6 +294,16 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
         };
 
         if let Some(_winit_window) = window.winit_window() {
+            if let Some(mut window_event_filter) = window.window_event_filter.take() {
+                let event_result = window_event_filter(window.window(), &event);
+                window.window_event_filter.set(Some(window_event_filter));
+
+                match event_result {
+                    WinitWindowEventResult::PreventDefault => return,
+                    WinitWindowEventResult::Propagate => (),
+                }
+            }
+
             #[cfg(enable_accesskit)]
             window.accesskit_adapter.borrow_mut().process_event(&_winit_window, &event);
         } else {
