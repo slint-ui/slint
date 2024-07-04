@@ -65,7 +65,7 @@ function(define_cargo_dependent_feature cargo_feature description default depend
 endfunction()
 
 # Features that are mapped to features in the Rust crate. These and their
-# defaults need to be kept in sync with the Rust bit.
+# defaults need to be kept in sync with the Rust bit (cpp/Cargo.toml and cbindgen.rs)
 
 define_cargo_feature(freestanding "Enable use of freestanding environment. This is only for bare-metal systems. Most other features are incompatible with this one" OFF)
 
