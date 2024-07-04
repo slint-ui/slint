@@ -8,7 +8,7 @@ use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, ElementRc, PropertyVisibility};
+use crate::object_tree::{Component, ElementRc, PropertyAnalysis, PropertyVisibility};
 use crate::CompilerConfiguration;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -770,16 +770,18 @@ fn lower_global(
             state
                 .global_properties
                 .insert(nr, PropertyReference::Global { global_index, property_index });
-            prop_analysis.push(
-                global
+            prop_analysis.push(PropertyAnalysis {
+                // Assume that a builtin global property can always be set from the builtin code
+                is_set_externally: true,
+                ..global
                     .root_element
                     .borrow()
                     .property_analysis
                     .borrow()
                     .get(p)
                     .cloned()
-                    .unwrap_or_default(),
-            );
+                    .unwrap_or_default()
+            });
         }
         true
     } else {
