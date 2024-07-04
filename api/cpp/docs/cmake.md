@@ -93,6 +93,17 @@ to discover and toggle features.
 This works when compiling Slint as a package, using `cmake --build` and
 `cmake --install`, or when including Slint using `FetchContent`.
 
+If you need to check in your application's `CMakeLists.txt` whether a feature is enabled
+or disabled, read the `SLINT_ENABLED_FEATURES` and `SLINT_DISABLED_FEATURES` target
+properties from the `Slint::Slint` cmake target:
+
+```cmake
+get_target_property(slint_enabled_features Slint::Slint SLINT_ENABLED_FEATURES)
+if ("BACKEND_WINIT" IN_LIST slint_enabled_features)
+    ...
+endif()
+```
+
 ### Rust Flags
 
 Slint uses [Corrosion](https://github.com/corrosion-rs/corrosion) to build Slint, which is developed in Rust. You can utilize [Corrosion's global CMake variables](https://corrosion-rs.github.io/corrosion/usage.html#global-corrosion-options) to control certain aspects of the Rust build process.
