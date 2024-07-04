@@ -557,9 +557,7 @@ fn duplicate_transition(
 // in the code generators and subsequent passes.
 fn component_requires_inlining(component: &Rc<Component>) -> bool {
     let root_element = &component.root_element;
-    if super::flickable::is_flickable_element(root_element)
-        || super::lower_layout::is_layout_element(root_element)
-    {
+    if super::flickable::is_flickable_element(root_element) {
         return true;
     }
 
