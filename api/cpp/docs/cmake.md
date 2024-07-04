@@ -104,6 +104,17 @@ if ("BACKEND_WINIT" IN_LIST slint_enabled_features)
 endif()
 ```
 
+Similarly, if you need to check for features at compile-time, check for the existence
+of `SLINT_FEATURE_<NAME>` pre-processor macros:
+
+```
+#include <slint.h>
+
+#if defined(SLINT_FEATURE_BACKEND_WINIT)
+// ...
+#endif
+```
+
 ### Rust Flags
 
 Slint uses [Corrosion](https://github.com/corrosion-rs/corrosion) to build Slint, which is developed in Rust. You can utilize [Corrosion's global CMake variables](https://corrosion-rs.github.io/corrosion/usage.html#global-corrosion-options) to control certain aspects of the Rust build process.

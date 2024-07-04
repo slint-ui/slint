@@ -961,7 +961,26 @@ macro_rules! declare_features {
     };
 }
 
-declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia experimental gettext testing}
+declare_features! {
+    interpreter
+    testing
+    backend_qt
+    backend_winit
+    backend_winit_x11
+    backend_winit_wayland
+    backend_linuxkms
+    backend_linuxkms_noseat
+    renderer_femtovg
+    renderer_skia
+    renderer_skia_opengl
+    renderer_skia_vulkan
+    renderer_software
+    gettext
+    accessibility
+    system_testing
+    freestanding
+    experimental
+}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
