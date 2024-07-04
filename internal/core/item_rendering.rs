@@ -6,7 +6,7 @@
 
 use super::graphics::RenderingCache;
 use super::items::*;
-use crate::graphics::{CachedGraphicsData, Image, IntRect};
+use crate::graphics::{CachedGraphicsData, FontRequest, Image, IntRect};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
@@ -14,7 +14,8 @@ use crate::lengths::{
     LogicalVector,
 };
 use crate::properties::PropertyTracker;
-use crate::{Brush, Coord};
+use crate::window::WindowInner;
+use crate::{Brush, Coord, SharedString};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
@@ -304,6 +305,20 @@ pub trait RenderImage {
     fn tiling(self: Pin<&Self>) -> (ImageTiling, ImageTiling);
 }
 
+/// Trait for an item that represents an Text towards the renderer
+#[allow(missing_docs)]
+pub trait RenderText {
+    fn target_size(self: Pin<&Self>) -> LogicalSize;
+    fn text(self: Pin<&Self>) -> SharedString;
+    fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest;
+    fn color(self: Pin<&Self>) -> Brush;
+    fn alignment(self: Pin<&Self>) -> (TextHorizontalAlignment, TextVerticalAlignment);
+    fn wrap(self: Pin<&Self>) -> TextWrap;
+    fn overflow(self: Pin<&Self>) -> TextOverflow;
+    fn letter_spacing(self: Pin<&Self>) -> LogicalLength;
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
+}
+
 /// Trait used to render each items.
 ///
 /// The item needs to be rendered relative to its (x,y) position. For example,
@@ -325,7 +340,13 @@ pub trait ItemRenderer {
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     );
-    fn draw_text(&mut self, text: Pin<&Text>, _self_rc: &ItemRc, _size: LogicalSize);
+    fn draw_text(
+        &mut self,
+        text: Pin<&dyn RenderText>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+        _cache: &CachedRenderingData,
+    );
     fn draw_text_input(
         &mut self,
         text_input: Pin<&TextInput>,
@@ -799,7 +820,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     forward_rendering_call!(fn draw_rectangle(Rectangle));
     forward_rendering_call2!(fn draw_border_rectangle(dyn RenderBorderRectangle));
     forward_rendering_call2!(fn draw_image(dyn RenderImage));
-    forward_rendering_call!(fn draw_text(Text));
+    forward_rendering_call2!(fn draw_text(dyn RenderText));
     forward_rendering_call!(fn draw_text_input(TextInput));
     #[cfg(feature = "std")]
     forward_rendering_call!(fn draw_path(Path));

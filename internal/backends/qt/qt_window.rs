@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage, RenderText,
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
@@ -636,7 +636,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_border_rectangle(
         &mut self,
-        rect: std::pin::Pin<&dyn RenderBorderRectangle>,
+        rect: Pin<&dyn RenderBorderRectangle>,
         _: &ItemRc,
         size: LogicalSize,
         _: &CachedRenderingData,
@@ -661,17 +661,23 @@ impl ItemRenderer for QtItemRenderer<'_> {
         self.draw_image_impl(item_rc, size, image);
     }
 
-    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
+    fn draw_text(
+        &mut self,
+        text: Pin<&dyn RenderText>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _: &CachedRenderingData,
+    ) {
         let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
-        let stroke_brush: qttypes::QBrush = into_qbrush(text.stroke(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request(WindowInner::from_pub(self.window)));
-        let alignment = match text.horizontal_alignment() {
+        let (horizontal_alignment, vertical_alignment) = text.alignment();
+        let alignment = match horizontal_alignment {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
             TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
-        } | match text.vertical_alignment() {
+        } | match vertical_alignment {
             TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
@@ -679,11 +685,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let wrap = text.wrap() != TextWrap::NoWrap;
         let word_wrap = text.wrap() == TextWrap::WordWrap;
         let elide = text.overflow() == TextOverflow::Elide;
-        let stroke_visible = !text.stroke().is_transparent();
-        let stroke_outside = text.stroke_style() == TextStrokeStyle::Outside;
-        let stroke_width = match text.stroke_style() {
-            TextStrokeStyle::Outside => text.stroke_width().get() * 2.0,
-            TextStrokeStyle::Center => text.stroke_width().get(),
+        let (stroke_brush, stroke_width, stroke_style) = text.stroke();
+        let stroke_visible = !stroke_brush.is_transparent();
+        let stroke_brush: qttypes::QBrush = into_qbrush(stroke_brush, rect.width, rect.height);
+        let stroke_outside = stroke_style == TextStrokeStyle::Outside;
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => stroke_width.get() * 2.0,
+            TextStrokeStyle::Center => stroke_width.get(),
         };
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", stroke_brush as "QBrush", mut string as "QString", font as "QFont", elide as "bool", alignment as "Qt::Alignment", wrap as "bool", word_wrap as "bool", stroke_visible as "bool", stroke_outside as "bool", stroke_width as "float"] {
@@ -832,7 +840,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_text_input(
         &mut self,
-        text_input: std::pin::Pin<&items::TextInput>,
+        text_input: Pin<&items::TextInput>,
         _: &ItemRc,
         size: LogicalSize,
     ) {

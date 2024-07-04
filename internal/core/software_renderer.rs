@@ -2250,7 +2250,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_text(&mut self, text: Pin<&crate::items::Text>, _: &ItemRc, size: LogicalSize) {
+    fn draw_text(
+        &mut self,
+        text: Pin<&dyn crate::item_rendering::RenderText>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
         let string = text.text();
         if string.trim().is_empty() {
             return;
@@ -2281,14 +2287,15 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         match font {
             fonts::Font::PixelFont(pf) => {
                 let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
+                let (horizontal_alignment, vertical_alignment) = text.alignment();
 
                 let paragraph = TextParagraphLayout {
                     string: &string,
                     layout,
                     max_width: max_size.width_length(),
                     max_height: max_size.height_length(),
-                    horizontal_alignment: text.horizontal_alignment(),
-                    vertical_alignment: text.vertical_alignment(),
+                    horizontal_alignment,
+                    vertical_alignment,
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
@@ -2299,14 +2306,15 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
+                let (horizontal_alignment, vertical_alignment) = text.alignment();
 
                 let paragraph = TextParagraphLayout {
                     string: &string,
                     layout,
                     max_width: max_size.width_length(),
                     max_height: max_size.height_length(),
-                    horizontal_alignment: text.horizontal_alignment(),
-                    vertical_alignment: text.vertical_alignment(),
+                    horizontal_alignment,
+                    vertical_alignment,
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
