@@ -657,8 +657,9 @@ pub struct Diagnostic {
 }
 
 #[repr(transparent)]
-pub struct ComponentCompilerOpaque(NonNull<ComponentCompiler>);
+pub struct ComponentCompilerOpaque(#[allow(deprecated)] NonNull<ComponentCompiler>);
 
+#[allow(deprecated)]
 impl ComponentCompilerOpaque {
     fn as_component_compiler(&self) -> &ComponentCompiler {
         // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
@@ -671,6 +672,7 @@ impl ComponentCompilerOpaque {
 }
 
 #[no_mangle]
+#[allow(deprecated)]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_new(
     compiler: *mut ComponentCompilerOpaque,
 ) {
@@ -742,6 +744,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_get_diagnostics(
     compiler: &ComponentCompilerOpaque,
     out_diags: &mut SharedVector<Diagnostic>,
 ) {
+    #[allow(deprecated)]
     out_diags.extend(compiler.as_component_compiler().diagnostics.iter().map(|diagnostic| {
         let (line, column) = diagnostic.line_column();
         Diagnostic {

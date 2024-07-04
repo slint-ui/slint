@@ -494,7 +494,7 @@ impl FromIterator<(String, Value)> for Struct {
 }
 
 /// ComponentCompiler is deprecated, use [`Compiler`] instead
-// #[deprecated(note = "Use slint_interpreter::Complier instead")]
+#[deprecated(note = "Use slint_interpreter::Complier instead")]
 pub struct ComponentCompiler {
     config: i_slint_compiler::CompilerConfiguration,
     diagnostics: Vec<Diagnostic>,
@@ -1604,7 +1604,7 @@ pub mod testing {
 #[test]
 fn component_definition_properties() {
     i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = ComponentCompiler::default();
+    let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
@@ -1618,6 +1618,7 @@ fn component_definition_properties() {
             "".into(),
         ),
     )
+    .component("Dummy")
     .unwrap();
 
     let props = comp_def.properties().collect::<Vec<(_, _)>>();
@@ -1652,7 +1653,7 @@ fn component_definition_properties() {
 #[test]
 fn component_definition_properties2() {
     i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = ComponentCompiler::default();
+    let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
@@ -1668,6 +1669,7 @@ fn component_definition_properties2() {
             "".into(),
         ),
     )
+    .component("Dummy")
     .unwrap();
 
     let props = comp_def.properties().collect::<Vec<(_, _)>>();
@@ -1703,7 +1705,7 @@ fn component_definition_properties2() {
 #[test]
 fn globals() {
     i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = ComponentCompiler::default();
+    let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
     let definition = spin_on::spin_on(
         compiler.build_from_source(
@@ -1719,6 +1721,7 @@ fn globals() {
             "".into(),
         ),
     )
+    .component("Dummy")
     .unwrap();
 
     assert_eq!(definition.globals().collect::<Vec<_>>(), vec!["My-Super_Global", "AliasedGlobal"]);
@@ -1821,7 +1824,7 @@ fn globals() {
 #[test]
 fn call_functions() {
     i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = ComponentCompiler::default();
+    let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
     let definition = spin_on::spin_on(
         compiler.build_from_source(
@@ -1844,6 +1847,7 @@ fn call_functions() {
             "".into(),
         ),
     )
+    .component("Test")
     .unwrap();
 
     assert_eq!(definition.functions().collect::<Vec<_>>(), ["foo-bar"]);
@@ -1872,7 +1876,7 @@ fn call_functions() {
 #[test]
 fn component_definition_struct_properties() {
     i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = ComponentCompiler::default();
+    let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
@@ -1887,6 +1891,7 @@ fn component_definition_struct_properties() {
             "".into(),
         ),
     )
+    .component("Dummy")
     .unwrap();
 
     let props = comp_def.properties().collect::<Vec<(_, _)>>();
@@ -1923,12 +1928,13 @@ fn component_definition_struct_properties() {
 fn component_definition_model_properties() {
     use i_slint_core::model::*;
     i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = ComponentCompiler::default();
+    let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(compiler.build_from_source(
         "export component Dummy { in-out property <[int]> prop: [42, 12]; }".into(),
         "".into(),
     ))
+    .component("Dummy")
     .unwrap();
 
     let props = comp_def.properties().collect::<Vec<(_, _)>>();

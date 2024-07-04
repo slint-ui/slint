@@ -5,7 +5,7 @@
 #[test]
 fn reuse_window() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::{ComponentCompiler, ComponentHandle, SharedString, Value};
+    use crate::{Compiler, ComponentHandle, SharedString, Value};
     let code = r#"
         export component MainWindow inherits Window {
             in-out property<string> text_text: "foo";
@@ -16,12 +16,12 @@ fn reuse_window() {
         }
     "#;
     let handle = {
-        let mut compiler = ComponentCompiler::default();
+        let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
-        let definition =
-            spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
-        assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
-        let instance = definition.unwrap().create().unwrap();
+        let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+        assert!(!result.has_error(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+        let definition = result.component("MainWindow").unwrap();
+        let instance = definition.create().unwrap();
         assert_eq!(
             instance.get_property("text_alias").unwrap(),
             Value::from(SharedString::from("foo"))
@@ -30,12 +30,12 @@ fn reuse_window() {
     };
 
     let _handle2 = {
-        let mut compiler = ComponentCompiler::default();
+        let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
-        let definition =
-            spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
-        assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
-        let instance = definition.unwrap().create_with_existing_window(handle.window()).unwrap();
+        let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+        assert!(!result.has_error(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+        let definition = result.component("MainWindow").unwrap();
+        let instance = definition.create_with_existing_window(handle.window()).unwrap();
         drop(handle);
         assert_eq!(
             instance.get_property("text_alias").unwrap(),

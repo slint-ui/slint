@@ -40,7 +40,7 @@ let embedded_instance: Rc<RefCell<Option<ComponentInstance>>> = Default::default
 let ei = embedded_instance.clone();
 
 let dyn_factory = slint::ComponentFactory::new(move |ctx| {
-    let mut compiler = slint_interpreter::ComponentCompiler::new();
+    let compiler = slint_interpreter::Compiler::new();
     let e = spin_on::spin_on(compiler.build_from_source(
         r#"export component E1 inherits Rectangle {
     out property <length> embedded-width <=> self.width;
@@ -57,7 +57,7 @@ let dyn_factory = slint::ComponentFactory::new(move |ctx| {
 
 }"#.into(),
         std::path::PathBuf::from("embedded.slint"),
-     )).unwrap();
+     )).component("E1").unwrap();
      let instance = e.create_embedded(ctx).ok();
 
      ei.replace(instance.as_ref().map(|i| i.clone_strong()));
@@ -130,7 +130,7 @@ let embedded_instance: Rc<RefCell<Option<ComponentInstance>>> = Default::default
 let ei = embedded_instance.clone();
 
 let fixed_factory = slint::ComponentFactory::new(move |ctx| {
-    let mut compiler = slint_interpreter::ComponentCompiler::new();
+    let compiler = slint_interpreter::Compiler::new();
     let e = spin_on::spin_on(compiler.build_from_source(
         r#"export component E1 inherits Rectangle {
     out property <length> embedded-width <=> self.width;
@@ -142,7 +142,7 @@ let fixed_factory = slint::ComponentFactory::new(move |ctx| {
     height: 100px;
 }"#.into(),
         std::path::PathBuf::from("embedded.slint"),
-     )).unwrap();
+     )).component("E1").unwrap();
      let instance = e.create_embedded(ctx).ok();
 
      ei.replace(instance.as_ref().map(|i| i.clone_strong()));
