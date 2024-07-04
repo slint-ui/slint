@@ -274,7 +274,9 @@ fn fix_percent_size(
     };
 
     if binding.borrow().ty() != Type::Percent {
-        return false;
+        let Some(parent) = parent.as_ref() else { return false };
+        // Pattern match to check it was already parent.<property>
+        return matches!(&binding.borrow().expression, Expression::PropertyReference(nr) if nr.name() == property && Rc::ptr_eq(&nr.element(), parent));
     }
     let mut b = binding.borrow_mut();
     if let Some(parent) = parent {
@@ -446,4 +448,63 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
         elem.borrow_mut()
             .set_binding_if_not_set("source-clip-height".into(), || make_expr("height", y));
     }
+}
+
+#[test]
+fn test_no_property_for_100pc() {
+    //! Test that we don't generate x or y property to center elements if the size is filling the parent
+    let mut compiler_config =
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+        export component Foo inherits Window {
+            r1 := Rectangle {
+                r2 := Rectangle {
+                    width: 100%;
+                    background: blue;
+                }
+                r3 := Rectangle {
+                    height: parent.height;
+                    width: 50%;
+                    background: red;
+                }
+            }
+
+            out property <length> r2x: r2.x;
+            out property <length> r2y: r2.y;
+            out property <length> r3x: r3.x;
+            out property <length> r3y: r3.y;
+        }
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        None,
+        &mut test_diags,
+    );
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+    assert!(!diag.has_error(), "{:?}", diag.to_string_vec());
+
+    let root_elem = doc.inner_components.last().unwrap().root_element.borrow();
+
+    // const propagation must have seen that the x and y property are literal 0
+    assert!(matches!(
+        &root_elem.bindings.get("r2x").unwrap().borrow().expression,
+        Expression::NumberLiteral(v, _) if *v == 0.
+    ));
+    assert!(matches!(
+        &root_elem.bindings.get("r2y").unwrap().borrow().expression,
+        Expression::NumberLiteral(v, _) if *v == 0.
+    ));
+    assert!(matches!(
+        &root_elem.bindings.get("r3y").unwrap().borrow().expression,
+        Expression::NumberLiteral(v, _) if *v == 0.
+    ));
+    // this one is 50% so it should be set to be in the center
+    assert!(!matches!(
+        &root_elem.bindings.get("r3x").unwrap().borrow().expression,
+        Expression::BinaryExpression { .. }
+    ));
 }
