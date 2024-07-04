@@ -12,7 +12,7 @@ use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage, RenderText,
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
@@ -294,7 +294,13 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         self.draw_image_impl(item_rc, image, size);
     }
 
-    fn draw_text(&mut self, text: Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
+    fn draw_text(
+        &mut self,
+        text: Pin<&dyn RenderText>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
         let max_width = size.width_length() * self.scale_factor;
         let max_height = size.height_length() * self.scale_factor;
 
@@ -322,9 +328,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             None => return,
         };
 
-        let stroke_style = text.stroke_style();
-        let stroke_width = if text.stroke_width().get() != 0.0 {
-            (text.stroke_width() * self.scale_factor).get()
+        let (stroke_brush, stroke_width, stroke_style) = text.stroke();
+        let stroke_width = if stroke_width.get() != 0.0 {
+            (stroke_width * self.scale_factor).get()
         } else {
             // Hairline stroke
             1.0
@@ -333,9 +339,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             TextStrokeStyle::Outside => stroke_width * 2.0,
             TextStrokeStyle::Center => stroke_width,
         };
-        let stroke_paint = match self.brush_to_paint(text.stroke(), &text_path) {
+        let stroke_paint = match self.brush_to_paint(stroke_brush.clone(), &text_path) {
             Some(mut paint) => {
-                if text.stroke().is_transparent() {
+                if stroke_brush.is_transparent() {
                     None
                 } else {
                     paint.set_line_width(stroke_width);
@@ -350,7 +356,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             string,
             &font,
             PhysicalSize::from_lengths(max_width, max_height),
-            (text.horizontal_alignment(), text.vertical_alignment()),
+            text.alignment(),
             text.wrap(),
             text.overflow(),
             false,

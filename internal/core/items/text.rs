@@ -17,7 +17,7 @@ use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
-use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::platform::Clipboard;
@@ -166,7 +166,7 @@ impl Item for Text {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_text(self, self_rc, size);
+        (*backend).draw_text(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -176,8 +176,16 @@ impl ItemConsts for Text {
         Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl Text {
-    pub fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
+impl RenderText for Text {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
+
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+
+    fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
         let window_item = window.window_item();
 
         FontRequest {
@@ -208,6 +216,32 @@ impl Text {
             letter_spacing: Some(self.letter_spacing()),
             italic: self.font_italic(),
         }
+    }
+
+    fn color(self: Pin<&Self>) -> Brush {
+        self.color()
+    }
+
+    fn alignment(
+        self: Pin<&Self>,
+    ) -> (super::TextHorizontalAlignment, super::TextVerticalAlignment) {
+        (self.horizontal_alignment(), self.vertical_alignment())
+    }
+
+    fn wrap(self: Pin<&Self>) -> TextWrap {
+        self.wrap()
+    }
+
+    fn overflow(self: Pin<&Self>) -> TextOverflow {
+        self.overflow()
+    }
+
+    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
+        todo!()
+    }
+
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        (self.stroke(), self.stroke_width(), self.stroke_style())
     }
 }
 
