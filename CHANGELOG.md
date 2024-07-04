@@ -26,8 +26,10 @@ All notable changes to this project are documented in this file.
  - Support several exported component that inherits Window pr Dialog from the main .slint file
  - Mark exported component that doesn't inherit from Window or Dialog as deprecated
  - Deprecated generating the last import if there is no component in a file
+ - Added `export { ... } from "...";` syntax
  - Add the `accessible-placeholder-text` property (PR #5464)
  - Added `char-wrap` variant to the `TextWrap` enum (PR #5381)
+ - `Text` can be rotated
 
 ### Widgets
 
