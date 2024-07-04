@@ -133,10 +133,6 @@ fn lower_element_layout(
     }
 }
 
-pub fn is_layout_element(element: &ElementRc) -> bool {
-    matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "GridLayout" || n.name == "HorizontalLayout" || n.name == "VerticalLayout")
-}
-
 fn lower_grid_layout(
     component: &Rc<Component>,
     grid_layout_element: &ElementRc,
