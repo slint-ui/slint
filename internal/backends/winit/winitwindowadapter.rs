@@ -874,26 +874,6 @@ impl WindowAdapter for WinitWindowAdapter {
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
-
-    #[cfg(feature = "raw-window-handle-06")]
-    fn window_handle_06_rc(
-        &self,
-    ) -> Result<Rc<dyn raw_window_handle::HasWindowHandle>, raw_window_handle::HandleError> {
-        self.winit_window_or_none
-            .borrow()
-            .as_window()
-            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
-    }
-
-    #[cfg(feature = "raw-window-handle-06")]
-    fn display_handle_06_rc(
-        &self,
-    ) -> Result<Rc<dyn raw_window_handle::HasDisplayHandle>, raw_window_handle::HandleError> {
-        self.winit_window_or_none
-            .borrow()
-            .as_window()
-            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
-    }
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
@@ -1026,6 +1006,26 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         if let Ok(mut a) = self.accesskit_adapter.try_borrow_mut() {
             a.unregister_item_tree(component);
         }
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    fn window_handle_06_rc(
+        &self,
+    ) -> Result<Rc<dyn raw_window_handle::HasWindowHandle>, raw_window_handle::HandleError> {
+        self.winit_window_or_none
+            .borrow()
+            .as_window()
+            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    fn display_handle_06_rc(
+        &self,
+    ) -> Result<Rc<dyn raw_window_handle::HasDisplayHandle>, raw_window_handle::HandleError> {
+        self.winit_window_or_none
+            .borrow()
+            .as_window()
+            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
     }
 }
 
