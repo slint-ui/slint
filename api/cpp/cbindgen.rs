@@ -942,7 +942,7 @@ macro_rules! declare_features {
                 let mut defines = String::new();
                 $(
                     if self.$f {
-                        defines = format!("{defines}#define SLINT_FEATURE_{}\n", stringify!($f).to_ascii_uppercase());
+                        defines = format!("{defines}///This macro is defined when Slint was configured with the SLINT_FEATURE_{0} flag enabled\n#define SLINT_FEATURE_{0}\n", stringify!($f).to_ascii_uppercase());
                     };
                 )*
                 defines
