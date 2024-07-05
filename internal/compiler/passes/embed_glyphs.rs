@@ -434,7 +434,7 @@ pub fn collect_font_sizes_used(
         .to_string()
         .as_str()
     {
-        "TextInput" | "Text" => {
+        "TextInput" | "Text" | "SimpleText" | "ComplexText" => {
             if let Some(font_size) = try_extract_font_size_from_element(elem, "font-size") {
                 add_font_size(font_size)
             }

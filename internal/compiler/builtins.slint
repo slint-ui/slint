@@ -88,17 +88,21 @@ export component Rotate inherits Empty {
     //-is_internal
 }
 
-export component Text inherits Empty {
+component SimpleText inherits Empty {
     in property <length> width;
     in property <length> height;
     in property <string> text;
-    in property <string> font-family;
     in property <length> font-size;
-    in property <bool> font-italic;
     in property <int> font-weight;
     in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
+    //-default_size_binding:implicit_size
+}
+
+component ComplexText inherits SimpleText {
+    in property <string> font-family;
+    in property <bool> font-italic;
     in property <TextOverflow> overflow;
     in property <TextWrap> wrap;
     in property <length> letter-spacing;
@@ -107,6 +111,8 @@ export component Text inherits Empty {
     in property <TextStrokeStyle> stroke-style;
     //-default_size_binding:implicit_size
 }
+
+export { ComplexText as Text }
 
 export component TouchArea {
     in property <bool> enabled: true;
@@ -420,7 +426,7 @@ export component NativeSpinBox {
     in-out property <int> value;
     in property <int> minimum;
     in property <int> maximum: 100;
-    in property <int> step-size: 1;    
+    in property <int> step-size: 1;
     callback edited(int /* value */);
     //-is_internal
     //-accepts_focus
