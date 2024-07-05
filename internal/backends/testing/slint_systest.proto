@@ -57,7 +57,7 @@ message RequestSetElementAccessibleValue {
     string value = 2;
 }
 
-message RequestGrabWindow {
+message RequestTakeSnapshot {
     Handle window_handle = 1;
 }
 
@@ -75,7 +75,7 @@ message RequestToAUT {
         RequestElementProperties request_element_properties = 4;
         RequestInvokeElementAccessibilityAction request_invoke_element_accessibility_action = 5;
         RequestSetElementAccessibleValue request_set_element_accessible_value = 6;
-        RequestGrabWindow request_grab_window = 7;
+        RequestTakeSnapshot request_take_snapshot = 7;
         RequestElementClick request_element_click = 8;
     }
 }
@@ -169,7 +169,7 @@ message InvokeElementAccessibilityActionResponse {
 message SetElementAccessibleValueResponse {
 }
 
-message GrabWindowResponse {
+message TakeSnapshotResponse {
     bytes window_contents_as_png = 1;
 }
 
@@ -185,7 +185,7 @@ message AUTResponse {
         ElementPropertiesResponse element_properties = 5;
         InvokeElementAccessibilityActionResponse invoke_element_accessibility_action_response = 6;
         SetElementAccessibleValueResponse set_element_accessible_value_response = 7;
-        GrabWindowResponse grab_window_response = 8;
+        TakeSnapshotResponse take_snapshot_response = 8;
         ElementClickResponse element_click_response = 9;
     }
 }

@@ -13,7 +13,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
-use i_slint_core::graphics::{BorderRadius, FontRequest, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
@@ -580,7 +580,9 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     }
 
     /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
-    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+    fn take_snapshot(
+        &self,
+    ) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
         let size = window_adapter.window().size();
@@ -603,7 +605,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
 
         self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, None, window, None);
 
-        Ok(SharedImageBuffer::RGBA8(target_buffer))
+        Ok(target_buffer)
     }
 }
 

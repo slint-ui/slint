@@ -6,7 +6,6 @@ use futures_lite::AsyncReadExt;
 use futures_lite::AsyncWriteExt;
 use i_slint_core::api::EventLoopError;
 use i_slint_core::debug_log;
-use i_slint_core::graphics::SharedImageBuffer;
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
@@ -132,10 +131,10 @@ impl TestingClient {
                     proto::SetElementAccessibleValueResponse {},
                 )
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_grab_window(proto::RequestGrabWindow {
-                window_handle,
-            }) => proto::mod_AUTResponse::OneOfmsg::grab_window_response(
-                self.grab_window(handle_to_index(
+            proto::mod_RequestToAUT::OneOfmsg::request_take_snapshot(
+                proto::RequestTakeSnapshot { window_handle },
+            ) => proto::mod_AUTResponse::OneOfmsg::take_snapshot_response(
+                self.take_snapshot(handle_to_index(
                     window_handle
                         .ok_or_else(|| "grab window request missing window handle".to_string())?,
                 ))?,
@@ -172,25 +171,30 @@ impl TestingClient {
         })
     }
 
-    fn grab_window(
+    fn take_snapshot(
         &self,
         window_index: generational_arena::Index,
-    ) -> Result<proto::GrabWindowResponse, String> {
+    ) -> Result<proto::TakeSnapshotResponse, String> {
         use image::ImageEncoder;
 
         let adapter = self.window_adapter(window_index)?;
         let window = adapter.window();
         let buffer =
-            window.grab_window().map_err(|e| format!("Error grabbing window screenshot: {e}"))?;
+            window.take_snapshot().map_err(|e| format!("Error grabbing window screenshot: {e}"))?;
         let mut window_contents_as_png: Vec<u8> = Vec::new();
         let cursor = std::io::Cursor::new(&mut window_contents_as_png);
         let encoder = image::codecs::png::PngEncoder::new(cursor);
-        match buffer {
-            SharedImageBuffer::RGB8(buffer) => encoder.write_image(buffer.as_bytes(), buffer.width(), buffer.height(), image::ColorType::Rgb8),
-            SharedImageBuffer::RGBA8(buffer) => encoder.write_image(buffer.as_bytes(), buffer.width(), buffer.height(), image::ColorType::Rgba8),
-            SharedImageBuffer::RGBA8Premultiplied(_) => return Err("window screenshot produced screenshot with pre-multiplied alpha; this is currently not supported".into()),
-        }.map_err(|encode_err| format!("error encoding png image after screenshot: {encode_err}"))?;
-        Ok(proto::GrabWindowResponse { window_contents_as_png })
+        encoder
+            .write_image(
+                buffer.as_bytes(),
+                buffer.width(),
+                buffer.height(),
+                image::ColorType::Rgba8,
+            )
+            .map_err(|encode_err| {
+                format!("error encoding png image after screenshot: {encode_err}")
+            })?;
+        Ok(proto::TakeSnapshotResponse { window_contents_as_png })
     }
 
     fn find_elements_by_id(
