@@ -22,7 +22,7 @@ All notable changes to this project are documented in this file.
 
 ### Slint Language
 
- - Added `resize-border` to Window
+ - Added `resize-border-width` to Window
  - Support several exported component that inherits Window pr Dialog from the main .slint file
  - Mark exported component that doesn't inherit from Window or Dialog as deprecated
  - Deprecated generating the last import if there is no component in a file
