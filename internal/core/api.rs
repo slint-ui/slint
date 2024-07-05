@@ -643,7 +643,9 @@ impl Window {
     pub fn window_handle(&self) -> WindowHandle {
         let adapter = self.0.window_adapter();
         if let Some((window_handle_provider, display_handle_provider)) =
-            adapter.window_handle_06_rc().ok().zip(adapter.display_handle_06_rc().ok())
+            adapter.internal(crate::InternalToken).and_then(|internal| {
+                internal.window_handle_06_rc().ok().zip(internal.display_handle_06_rc().ok())
+            })
         {
             WindowHandle {
                 inner: WindowHandleInner::HandleByRcRWH {
