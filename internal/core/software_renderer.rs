@@ -14,7 +14,9 @@ mod fonts;
 use self::fonts::GlyphRenderer;
 use crate::api::{PlatformError, Window};
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use crate::graphics::{BorderRadius, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
+use crate::graphics::{
+    BorderRadius, PixelFormat, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
+};
 use crate::item_rendering::{CachedRenderingData, DirtyRegion, RenderBorderRectangle, RenderImage};
 use crate::items::{ItemRc, TextOverflow, TextWrap};
 use crate::lengths::{
@@ -792,7 +794,7 @@ impl RendererSealed for SoftwareRenderer {
         self.partial_cache.borrow_mut().clear();
     }
 
-    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+    fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         let Some(window_adapter) =
             self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
@@ -807,7 +809,7 @@ impl RendererSealed for SoftwareRenderer {
         let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
         else {
             // Nothing to render
-            return Err("grab_window() called on window with invalid size".into());
+            return Err("take_snapshot() called on window with invalid size".into());
         };
 
         let mut target_buffer = SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(width, height);
@@ -817,7 +819,16 @@ impl RendererSealed for SoftwareRenderer {
         // ensure that caches are clear for the next call
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
 
-        Ok(SharedImageBuffer::RGB8(target_buffer))
+        let mut target_buffer_with_alpha =
+            SharedPixelBuffer::<Rgba8Pixel>::new(target_buffer.width(), target_buffer.height());
+        for (target_pixel, source_pixel) in target_buffer_with_alpha
+            .make_mut_slice()
+            .iter_mut()
+            .zip(target_buffer.as_slice().iter())
+        {
+            *target_pixel.rgb_mut() = *source_pixel;
+        }
+        Ok(target_buffer_with_alpha)
     }
 }
 

@@ -8,7 +8,8 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    euclid, Brush, Color, FontRequest, IntRect, Point, SharedImageBuffer,
+    euclid, Brush, Color, FontRequest, IntRect, Point, Rgba8Pixel, SharedImageBuffer,
+    SharedPixelBuffer,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
@@ -2324,26 +2325,26 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         // No-op because QtWindow is also the WindowAdapter
     }
 
-    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+    fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         let widget_ptr = self.widget_ptr();
 
         let size = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
             return widget_ptr->size();
         }};
 
-        let rgb8_data = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QByteArray as "QByteArray" {
+        let rgba8_data = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QByteArray as "QByteArray" {
             QPixmap pixmap = widget_ptr->grab();
             QImage image = pixmap.toImage();
-            image.convertTo(QImage::Format_RGB888);
+            image.convertTo(QImage::Format_ARGB32);
             return QByteArray(reinterpret_cast<const char *>(image.constBits()), image.sizeInBytes());
         }};
 
-        let buffer = i_slint_core::graphics::SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::clone_from_slice(
-            rgb8_data.to_slice(),
+        let buffer = i_slint_core::graphics::SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::clone_from_slice(
+            rgba8_data.to_slice(),
             size.width,
             size.height,
         );
-        Ok(i_slint_core::graphics::SharedImageBuffer::RGB8(buffer))
+        Ok(buffer)
     }
 }
 

@@ -210,8 +210,7 @@ pub use i_slint_core::component_factory::ComponentFactory;
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
 // keep in sync with internal/interpreter/api.rs
 pub use i_slint_core::graphics::{
-    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedImageBuffer,
-    SharedPixelBuffer,
+    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,

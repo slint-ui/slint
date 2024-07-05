@@ -9,7 +9,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
-use crate::graphics::SharedImageBuffer;
+use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
 use crate::item_tree::ItemTreeVTable;
 use crate::window::{WindowAdapter, WindowInner};
@@ -656,12 +656,12 @@ impl Window {
         }
     }
 
-    /// Returns an image buffer with the rendered contents.
+    /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
     ///
     /// Note that this function may be slow to call. Reading from the framebuffer previously
     /// rendered, too, may take a long time.
-    pub fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
-        self.0.window_adapter().renderer().screenshot()
+    pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
+        self.0.window_adapter().renderer().take_snapshot()
     }
 }
 

@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 use i_slint_common::sharedfontdb;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
-use i_slint_core::graphics::{BorderRadius, SharedImageBuffer};
+use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::items::TextWrap;
@@ -634,7 +634,7 @@ impl RendererSealed for FemtoVGRenderer {
     }
 
     /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
-    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+    fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.opengl_context.borrow().ensure_current()?;
         let Some(canvas) = self.canvas.borrow().as_ref().cloned() else {
             return Err("FemtoVG renderer cannot take screenshot without a window".into());
@@ -645,11 +645,11 @@ impl RendererSealed for FemtoVGRenderer {
             .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
 
         use rgb::ComponentBytes;
-        Ok(SharedImageBuffer::RGBA8(SharedPixelBuffer::clone_from_slice(
+        Ok(SharedPixelBuffer::clone_from_slice(
             screenshot.buf().as_bytes(),
             screenshot.width() as u32,
             screenshot.height() as u32,
-        )))
+        ))
     }
 }
 

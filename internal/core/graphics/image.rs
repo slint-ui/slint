@@ -667,6 +667,86 @@ impl Image {
         })
     }
 
+    /// Returns the pixel buffer for the Image if available in RGB format without alpha.
+    /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
+    pub fn to_rgb8(&self) -> Option<SharedPixelBuffer<Rgb8Pixel>> {
+        self.0.render_to_buffer(None).and_then(|image| match image {
+            SharedImageBuffer::RGB8(buffer) => Some(buffer),
+            _ => None,
+        })
+    }
+
+    /// Returns the pixel buffer for the Image if available in RGBA format.
+    /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
+    pub fn to_rgba8(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        self.0.render_to_buffer(None).and_then(|image| match image {
+            SharedImageBuffer::RGB8(buffer) => Some(SharedPixelBuffer::<Rgba8Pixel> {
+                width: buffer.width,
+                height: buffer.height,
+                data: buffer.data.into_iter().map(Into::into).collect(),
+            }),
+            SharedImageBuffer::RGBA8(buffer) => Some(buffer),
+            SharedImageBuffer::RGBA8Premultiplied(buffer) => {
+                Some(SharedPixelBuffer::<Rgba8Pixel> {
+                    width: buffer.width,
+                    height: buffer.height,
+                    data: buffer
+                        .data
+                        .into_iter()
+                        .map(|rgba_premul| {
+                            if rgba_premul.a == 0 {
+                                Rgba8Pixel::new(0, 0, 0, 0)
+                            } else {
+                                let af = rgba_premul.a as f32 / 255.0;
+                                Rgba8Pixel {
+                                    r: (rgba_premul.r as f32 * 255. / af) as u8,
+                                    g: (rgba_premul.g as f32 * 255. / af) as u8,
+                                    b: (rgba_premul.b as f32 * 255. / af) as u8,
+                                    a: rgba_premul.a,
+                                }
+                            }
+                        })
+                        .collect(),
+                })
+            }
+        })
+    }
+
+    /// Returns the pixel buffer for the Image if available in RGBA format, with the alpha channel pre-multiplied
+    /// to the red, green, and blue channels.
+    /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
+    pub fn to_rgba8_premultiplied(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        self.0.render_to_buffer(None).and_then(|image| match image {
+            SharedImageBuffer::RGB8(buffer) => Some(SharedPixelBuffer::<Rgba8Pixel> {
+                width: buffer.width,
+                height: buffer.height,
+                data: buffer.data.into_iter().map(Into::into).collect(),
+            }),
+            SharedImageBuffer::RGBA8(buffer) => Some(SharedPixelBuffer::<Rgba8Pixel> {
+                width: buffer.width,
+                height: buffer.height,
+                data: buffer
+                    .data
+                    .into_iter()
+                    .map(|rgba| {
+                        if rgba.a == 255 {
+                            rgba
+                        } else {
+                            let af = rgba.a as f32 / 255.0;
+                            Rgba8Pixel {
+                                r: (rgba.r as f32 * af / 255.) as u8,
+                                g: (rgba.g as f32 * af / 255.) as u8,
+                                b: (rgba.b as f32 * af / 255.) as u8,
+                                a: rgba.a,
+                            }
+                        }
+                    })
+                    .collect(),
+            }),
+            SharedImageBuffer::RGBA8Premultiplied(buffer) => Some(buffer),
+        })
+    }
+
     /// Creates a new Image from an existing OpenGL texture. The texture remains borrowed by Slint
     /// for the duration of being used for rendering, such as when assigned as source property to
     /// an `Image` element. It's the application's responsibility to delete the texture when it is
@@ -757,12 +837,6 @@ impl Image {
             _ => None,
         }
     }
-
-    /// Returns the pixel buffer for the Image, if available. Returns None if the pixels cannot
-    /// be obtained, for example when the image was created from borrowed OpenGL textures.    
-    pub fn image_buffer(&self) -> Option<SharedImageBuffer> {
-        self.0.render_to_buffer(None)
-    }
 }
 
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
@@ -848,13 +922,15 @@ pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_,
 fn test_image_size_from_buffer_without_backend() {
     {
         assert_eq!(Image::default().size(), Default::default());
-        assert!(Image::default().image_buffer().is_none());
+        assert!(Image::default().to_rgb8().is_none());
+        assert!(Image::default().to_rgba8().is_none());
+        assert!(Image::default().to_rgba8_premultiplied().is_none());
     }
     {
         let buffer = SharedPixelBuffer::<Rgb8Pixel>::new(320, 200);
         let image = Image::from_rgb8(buffer.clone());
         assert_eq!(image.size(), [320, 200].into());
-        assert_eq!(image.image_buffer(), Some(SharedImageBuffer::RGB8(buffer)));
+        assert_eq!(image.to_rgb8().as_ref().map(|b| b.as_slice()), Some(buffer.as_slice()));
     }
 }
 
@@ -864,7 +940,7 @@ fn test_image_size_from_svg() {
     let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
     let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
     assert_eq!(image.size(), [320, 200].into());
-    assert_eq!(image.image_buffer().unwrap().size(), image.size());
+    assert_eq!(image.to_rgba8().unwrap().size(), image.size());
 }
 
 #[cfg(feature = "svg")]

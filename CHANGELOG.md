@@ -53,7 +53,7 @@ All notable changes to this project are documented in this file.
  - allow all clippy warnings in generated code
  - Add `slint::Image::image_buffer()` getter to obtain pixels for a `slint::Image` if available.
  - Fix panic in `slint::Timer` when a new timer is started while stopping another.
- - Added `slint::Window::grab_window()`
+ - Added `slint::Window::take_snapshot()`
 
 ### Interpreter
  - Track model lenght change when accessing a model out of bounds
