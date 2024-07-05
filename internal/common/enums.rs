@@ -44,7 +44,7 @@ macro_rules! for_each_enums {
             enum TextWrap {
                 /// The text won't wrap, but instead will overflow.
                 NoWrap,
-                /// The text will be wrapped at word boundaries.
+                /// The text will be wrapped at word boundaries if possible, or at any location for very long words.
                 WordWrap,
                 /// The text will be wrapped at any character. Currently only supported by the Qt and Software renderers.
                 CharWrap,
