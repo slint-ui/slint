@@ -1727,9 +1727,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "]")
         }
         Expression::Struct { ty: _, values } => {
+            let mut keys: Vec<_> = values.keys().collect();
+            keys.sort();
             write!(f, "{{ ")?;
-            for (name, e) in values {
-                write!(f, "{}: ", name)?;
+            for k in keys {
+                let e = values.get(k).unwrap();
+                write!(f, "{}: ", k)?;
                 pretty_print(f, e)?;
                 write!(f, ", ")?;
             }
