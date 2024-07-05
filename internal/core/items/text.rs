@@ -35,31 +35,33 @@ use core::pin::Pin;
 use euclid::num::Ceil;
 use i_slint_core_macros::*;
 use unicode_segmentation::UnicodeSegmentation;
+
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct Text {
+pub struct ComplexText {
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub text: Property<SharedString>,
-    pub font_family: Property<SharedString>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
-    pub font_italic: Property<bool>,
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+
+    pub font_family: Property<SharedString>,
+    pub font_italic: Property<bool>,
     pub wrap: Property<TextWrap>,
     pub overflow: Property<TextOverflow>,
     pub letter_spacing: Property<LogicalLength>,
     pub stroke: Property<Brush>,
     pub stroke_width: Property<LogicalLength>,
     pub stroke_style: Property<TextStrokeStyle>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for Text {
+impl Item for ComplexText {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -67,61 +69,12 @@ impl Item for Text {
         orientation: Orientation,
         window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let implicit_size = |max_width, text_wrap| {
-            window_adapter.renderer().text_size(
-                self.font_request(window_inner),
-                self.text().as_str(),
-                max_width,
-                ScaleFactor::new(window_adapter.window().scale_factor()),
-                text_wrap,
-            )
-        };
-
-        // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
-        // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
-        // letters will be cut off, apply the ceiling here.
-        match orientation {
-            Orientation::Horizontal => {
-                let implicit_size = implicit_size(None, TextWrap::NoWrap);
-                let min = match self.overflow() {
-                    TextOverflow::Elide => implicit_size.width.min(
-                        window_adapter
-                            .renderer()
-                            .text_size(
-                                self.font_request(window_inner),
-                                "…",
-                                None,
-                                ScaleFactor::new(window_inner.scale_factor()),
-                                TextWrap::NoWrap,
-                            )
-                            .width,
-                    ),
-                    TextOverflow::Clip => match self.wrap() {
-                        TextWrap::NoWrap => implicit_size.width,
-                        TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
-                    },
-                };
-                LayoutInfo {
-                    min: min.ceil(),
-                    preferred: implicit_size.width.ceil(),
-                    ..LayoutInfo::default()
-                }
-            }
-            Orientation::Vertical => {
-                let h = match self.wrap() {
-                    TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
-                    TextWrap::WordWrap => {
-                        implicit_size(Some(self.width()), TextWrap::WordWrap).height
-                    }
-                    TextWrap::CharWrap => {
-                        implicit_size(Some(self.width()), TextWrap::CharWrap).height
-                    }
-                }
-                .ceil();
-                LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
-            }
-        }
+        text_layout_info(
+            self,
+            window_adapter,
+            orientation,
+            Self::FIELD_OFFSETS.width.apply_pin(self),
+        )
     }
 
     fn input_event_filter_before_children(
@@ -171,12 +124,14 @@ impl Item for Text {
     }
 }
 
-impl ItemConsts for Text {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Text, CachedRenderingData> =
-        Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+impl ItemConsts for ComplexText {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        ComplexText,
+        CachedRenderingData,
+    > = ComplexText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl RenderText for Text {
+impl RenderText for ComplexText {
     fn target_size(self: Pin<&Self>) -> LogicalSize {
         LogicalSize::from_lengths(self.width(), self.height())
     }
@@ -237,11 +192,216 @@ impl RenderText for Text {
     }
 
     fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
-        todo!()
+        self.letter_spacing()
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         (self.stroke(), self.stroke_width(), self.stroke_style())
+    }
+}
+
+/// The implementation of the `Text` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct SimpleText {
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
+    pub text: Property<SharedString>,
+    pub font_size: Property<LogicalLength>,
+    pub font_weight: Property<i32>,
+    pub color: Property<Brush>,
+    pub horizontal_alignment: Property<TextHorizontalAlignment>,
+    pub vertical_alignment: Property<TextVerticalAlignment>,
+
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for SimpleText {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> LayoutInfo {
+        text_layout_info(
+            self,
+            window_adapter,
+            orientation,
+            Self::FIELD_OFFSETS.width.apply_pin(self),
+        )
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut &mut dyn ItemRenderer,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+    ) -> RenderingResult {
+        (*backend).draw_text(self, self_rc, size, &self.cached_rendering_data);
+        RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl ItemConsts for SimpleText {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        SimpleText,
+        CachedRenderingData,
+    > = SimpleText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+impl RenderText for SimpleText {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
+
+    fn text(self: Pin<&Self>) -> SharedString {
+        self.text()
+    }
+
+    fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
+        let window_item = window.window_item();
+
+        FontRequest {
+            family: window_item.as_ref().and_then(|item| item.as_pin_ref().font_family()),
+            weight: {
+                let weight = self.font_weight();
+                if weight == 0 {
+                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_weight())
+                } else {
+                    Some(weight)
+                }
+            },
+            pixel_size: {
+                let font_size = self.font_size();
+                if font_size.get() == 0 as Coord {
+                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
+                } else {
+                    Some(font_size)
+                }
+            },
+            letter_spacing: None,
+            italic: false,
+        }
+    }
+
+    fn color(self: Pin<&Self>) -> Brush {
+        self.color()
+    }
+
+    fn alignment(
+        self: Pin<&Self>,
+    ) -> (super::TextHorizontalAlignment, super::TextVerticalAlignment) {
+        (self.horizontal_alignment(), self.vertical_alignment())
+    }
+
+    fn wrap(self: Pin<&Self>) -> TextWrap {
+        TextWrap::default()
+    }
+
+    fn overflow(self: Pin<&Self>) -> TextOverflow {
+        TextOverflow::default()
+    }
+
+    fn letter_spacing(self: Pin<&Self>) -> LogicalLength {
+        LogicalLength::default()
+    }
+
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        Default::default()
+    }
+}
+
+fn text_layout_info(
+    text: Pin<&dyn RenderText>,
+    window_adapter: &Rc<dyn WindowAdapter>,
+    orientation: Orientation,
+    width: Pin<&Property<LogicalLength>>,
+) -> LayoutInfo {
+    let window_inner = WindowInner::from_pub(window_adapter.window());
+    let text_string = text.text();
+    let font_request = text.font_request(window_inner);
+    let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+    let implicit_size = |max_width, text_wrap| {
+        window_adapter.renderer().text_size(
+            font_request.clone(),
+            text_string.as_str(),
+            max_width,
+            scale_factor,
+            text_wrap,
+        )
+    };
+
+    // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
+    // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
+    // letters will be cut off, apply the ceiling here.
+    match orientation {
+        Orientation::Horizontal => {
+            let implicit_size = implicit_size(None, TextWrap::NoWrap);
+            let min = match text.overflow() {
+                TextOverflow::Elide => implicit_size.width.min(
+                    window_adapter
+                        .renderer()
+                        .text_size(font_request, "…", None, scale_factor, TextWrap::NoWrap)
+                        .width,
+                ),
+                TextOverflow::Clip => match text.wrap() {
+                    TextWrap::NoWrap => implicit_size.width,
+                    TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
+                },
+            };
+            LayoutInfo {
+                min: min.ceil(),
+                preferred: implicit_size.width.ceil(),
+                ..LayoutInfo::default()
+            }
+        }
+        Orientation::Vertical => {
+            let h = match text.wrap() {
+                TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
+                TextWrap::WordWrap => implicit_size(Some(width.get()), TextWrap::WordWrap).height,
+                TextWrap::CharWrap => implicit_size(Some(width.get()), TextWrap::CharWrap).height,
+            }
+            .ceil();
+            LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
+        }
     }
 }
 

@@ -15,8 +15,7 @@ pub fn check_rotation(doc: &crate::object_tree::Document, diag: &mut BuildDiagno
                 .iter()
                 .any(|(property_name, _)| is_property_set(&e, property_name))
             {
-                if matches!(e.native_class(), Some(native) if native.class_name != "ClippedImage" && native.class_name != "Text")
-                {
+                if !e.builtin_type().is_some_and(|b| matches!(b.name.as_str(), "Image" | "Text")) {
                     let span = e
                         .bindings
                         .get("rotation-angle")

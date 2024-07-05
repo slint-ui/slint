@@ -1444,7 +1444,11 @@ declare_item_vtable! {
 }
 
 declare_item_vtable! {
-    fn slint_get_TextVTable() -> TextVTable for Text
+    fn slint_get_ComplexTextVTable() -> ComplexTextVTable for ComplexText
+}
+
+declare_item_vtable! {
+    fn slint_get_SimpleTextVTable() -> SimpleTextVTable for SimpleText
 }
 
 declare_item_vtable! {
