@@ -427,8 +427,19 @@ fn convert_pointer_event_button(
 
 #[test]
 fn test_accessibility_role_mapping_complete() {
-    use strum::IntoEnumIterator;
-    for role in i_slint_core::items::AccessibleRole::iter() {
-        assert!(convert_accessible_role(role).is_some());
+    macro_rules! test_accessiblity_enum_mapping_inner {
+        (AccessibleRole, $($Value:ident,)*) => {
+            $(assert!(convert_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
+        };
+        ($_:ident, $($Value:ident,)*) => {};
     }
+
+    macro_rules! test_accessiblity_enum_mapping {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+            $(
+                test_accessiblity_enum_mapping_inner!($Name, $($Value,)*);
+            )*
+        };
+    }
+    i_slint_common::for_each_enums!(test_accessiblity_enum_mapping);
 }
