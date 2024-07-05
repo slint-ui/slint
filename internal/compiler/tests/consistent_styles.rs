@@ -132,7 +132,7 @@ fn load_style(style_name: String) -> Style {
     // ensure that the style is loaded
     spin_on::spin_on(loader.import_component("std-widgets.slint", "Button", &mut diag));
 
-    if diag.has_error() {
+    if diag.has_errors() {
         #[cfg(feature = "display-diagnostics")]
         diag.print();
         panic!("error parsing style {}", loader.compiler_config.style.as_ref().unwrap());

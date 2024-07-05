@@ -222,7 +222,7 @@ export component Foo {
     );
     let (doc, diag, _) =
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
-    assert!(!diag.has_error());
+    assert!(!diag.has_errors());
 
     let out_binding = doc
         .inner_components

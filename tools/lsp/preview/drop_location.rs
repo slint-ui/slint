@@ -780,7 +780,7 @@ pub fn workspace_edit_compiles(
         let _ = preview::poll_once(document_cache.load_url(&u, None, c, &mut diag));
     }
 
-    !diag.has_error()
+    !diag.has_errors()
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.

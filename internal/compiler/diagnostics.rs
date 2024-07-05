@@ -367,7 +367,7 @@ impl BuildDiagnostics {
     }
 
     /// Return true if there is at least one compilation error for this file
-    pub fn has_error(&self) -> bool {
+    pub fn has_errors(&self) -> bool {
         self.inner.iter().any(|diag| diag.level == DiagnosticLevel::Error)
     }
 
@@ -467,7 +467,7 @@ impl BuildDiagnostics {
         span_map: &[crate::parser::Token],
     ) -> proc_macro::TokenStream {
         let mut result = proc_macro::TokenStream::default();
-        let mut needs_error = self.has_error();
+        let mut needs_error = self.has_errors();
         self.call_diagnostics(
             &mut (),
             Some(&mut |diag| {
@@ -543,7 +543,7 @@ impl BuildDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     #[must_use]
     pub fn check_and_exit_on_error(self) -> Self {
-        if self.has_error() {
+        if self.has_errors() {
             self.print();
             std::process::exit(-1);
         }
@@ -552,7 +552,7 @@ impl BuildDiagnostics {
 
     #[cfg(feature = "display-diagnostics")]
     pub fn print_warnings_and_exit_on_error(self) {
-        let has_error = self.has_error();
+        let has_error = self.has_errors();
         self.print();
         if has_error {
             std::process::exit(-1);

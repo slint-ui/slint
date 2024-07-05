@@ -1104,7 +1104,7 @@ impl TypeLoader {
 
         let mut state = state.borrow_mut();
         let state = &mut *state;
-        let raw_type_loader = if !state.diag.has_error() {
+        let raw_type_loader = if !state.diag.has_errors() {
             crate::passes::run_passes(&mut doc, state.tl, keep_raw, state.diag).await
         } else {
             None
@@ -1135,7 +1135,7 @@ impl TypeLoader {
 
         let mut state = state.borrow_mut();
         let state = &mut *state;
-        if !state.diag.has_error() {
+        if !state.diag.has_errors() {
             crate::passes::run_import_passes(&doc, state.tl, state.diag);
         }
         state.tl.all_documents.docs.insert(path, doc);
@@ -1165,7 +1165,7 @@ impl TypeLoader {
         )
         .await;
 
-        if state.borrow().diag.has_error() {
+        if state.borrow().diag.has_errors() {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
             // But we still want to create a document to give better error messages in the root document.
@@ -1304,7 +1304,7 @@ impl TypeLoader {
                 let import_uri = match maybe_import_uri {
                     Some(import_uri) => import_uri,
                     None => {
-                        debug_assert!(state.borrow().diag.has_error());
+                        debug_assert!(state.borrow().diag.has_errors());
                         return None;
                     }
                 };
@@ -1451,8 +1451,8 @@ fn test_dependency_loading() {
         &registry,
     ));
 
-    assert!(!test_diags.has_error());
-    assert!(!build_diagnostics.has_error());
+    assert!(!test_diags.has_errors());
+    assert!(!build_diagnostics.has_errors());
     assert!(foreign_imports.is_empty());
 }
 
@@ -1493,9 +1493,9 @@ fn test_dependency_loading_from_rust() {
         &registry,
     ));
 
-    assert!(!test_diags.has_error());
+    assert!(!test_diags.has_errors());
     assert!(test_diags.is_empty()); // also no warnings
-    assert!(!build_diagnostics.has_error());
+    assert!(!build_diagnostics.has_errors());
     assert!(build_diagnostics.is_empty()); // also no warnings
     assert!(foreign_imports.is_empty());
 }
@@ -1542,8 +1542,8 @@ X := XX {}
         &registry,
     ));
     assert!(ok.get());
-    assert!(!test_diags.has_error());
-    assert!(!build_diagnostics.has_error());
+    assert!(!test_diags.has_errors());
+    assert!(!build_diagnostics.has_errors());
 }
 
 #[test]
@@ -1575,8 +1575,8 @@ component Foo { XX {} }
         &mut build_diagnostics,
         &registry,
     ));
-    assert!(!test_diags.has_error());
-    assert!(build_diagnostics.has_error());
+    assert!(!test_diags.has_errors());
+    assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(
         diags,
@@ -1589,7 +1589,7 @@ component Foo { XX {} }
         &mut build_diagnostics,
         &registry,
     ));
-    assert!(build_diagnostics.has_error());
+    assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(
         diags,
@@ -1612,7 +1612,7 @@ fn test_manual_import() {
         &mut build_diagnostics,
     ));
 
-    assert!(!build_diagnostics.has_error());
+    assert!(!build_diagnostics.has_errors());
     assert!(maybe_button_type.is_some());
 }
 
@@ -1632,7 +1632,7 @@ fn test_builtin_style() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    assert!(!build_diagnostics.has_error());
+    assert!(!build_diagnostics.has_errors());
 }
 
 #[test]
@@ -1651,7 +1651,7 @@ fn test_user_style() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    assert!(!build_diagnostics.has_error());
+    assert!(!build_diagnostics.has_errors());
 }
 
 #[test]
@@ -1670,7 +1670,7 @@ fn test_unknown_style() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let _loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    assert!(build_diagnostics.has_error());
+    assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(diags.len(), 1);
     assert!(diags[0].starts_with("Style FooBar in not known. Use one of the builtin styles ["));
@@ -1714,8 +1714,8 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
         &mut build_diagnostics,
         &registry,
     ));
-    assert!(!test_diags.has_error());
-    assert!(!build_diagnostics.has_error());
+    assert!(!test_diags.has_errors());
+    assert!(!build_diagnostics.has_errors());
 }
 
 #[test]
@@ -1759,8 +1759,8 @@ import { E } from "@unknown/lib.slint";
         &mut build_diagnostics,
         &registry,
     ));
-    assert!(!test_diags.has_error());
-    assert!(build_diagnostics.has_error());
+    assert!(!test_diags.has_errors());
+    assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(diags.len(), 5);
     assert!(diags[0].starts_with(&format!(

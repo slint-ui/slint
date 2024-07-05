@@ -980,7 +980,7 @@ pub fn parse_expression_as_bindingexpression(
         };
         let node = rowan::SyntaxNode::new_root(p.builder.finish());
 
-        if !build_diagnostics.has_error() && token.kind() != SyntaxKind::Eof {
+        if !build_diagnostics.has_errors() && token.kind() != SyntaxKind::Eof {
             build_diagnostics.push_error_with_span(
                 format!("Expected end of string, found \"{}\"", &token.kind()),
                 crate::diagnostics::SourceLocation {

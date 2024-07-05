@@ -388,7 +388,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     };
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
-    if diag.has_error() {
+    if diag.has_errors() {
         return diag.report_macro_diagnostic(&tokens);
     }
 
@@ -397,7 +397,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
-    if diag.has_error() {
+    if diag.has_errors() {
         return diag.report_macro_diagnostic(&tokens);
     }
 

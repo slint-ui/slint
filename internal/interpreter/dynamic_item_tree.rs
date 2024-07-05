@@ -840,8 +840,11 @@ pub async fn load(
     let (path, mut diag, loader) =
         i_slint_compiler::load_root_file(&path, version, &path, source, diag, compiler_config)
             .await;
-    if diag.has_error() {
-        return CompilationResult { components: HashMap::new(), diagnostics: diag };
+    if diag.has_errors() {
+        return CompilationResult {
+            components: HashMap::new(),
+            diagnostics: diag.into_iter().collect(),
+        };
     }
 
     #[cfg(feature = "highlight")]
@@ -870,7 +873,7 @@ pub async fn load(
         diag.push_error_with_span("No component found".into(), Default::default());
     };
 
-    CompilationResult { diagnostics: diag, components }
+    CompilationResult { diagnostics: diag.into_iter().collect(), components }
 }
 
 pub(crate) fn generate_item_tree<'id>(

@@ -479,7 +479,7 @@ fn set_binding_on_existing_property(
     new_expression: String,
     diag: &mut BuildDiagnostics,
 ) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let workspace_edit = (!diag.has_error())
+    let workspace_edit = (!diag.has_errors())
         .then(|| {
             create_workspace_edit_for_set_binding_on_existing_property(
                 uri,
@@ -585,7 +585,7 @@ fn set_binding_on_known_property(
     new_expression: &str,
     diag: &mut BuildDiagnostics,
 ) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let workspace_edit = if diag.has_error() {
+    let workspace_edit = if diag.has_errors() {
         None
     } else {
         create_workspace_edit_for_set_binding_on_known_property(

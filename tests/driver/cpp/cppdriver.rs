@@ -31,7 +31,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
-    if diag.has_error() {
+    if diag.has_errors() {
         let vec = diag.to_string_vec();
         return Err(vec.join("\n").into());
     }
@@ -45,7 +45,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         &loader.compiler_config,
     )?;
 
-    if diag.has_error() {
+    if diag.has_errors() {
         let vec = diag.to_string_vec();
         return Err(vec.join("\n").into());
     }

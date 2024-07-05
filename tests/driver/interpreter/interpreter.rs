@@ -23,7 +23,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let result =
         spin_on::spin_on(compiler.build_from_source(source, testcase.absolute_path.clone()));
 
-    if result.has_error() {
+    if result.has_errors() {
         let diagnostics = result.diagnostics().collect::<Vec<_>>();
         slint_interpreter::print_diagnostics(&diagnostics);
 

@@ -48,7 +48,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file)?;
-        if diag.has_error() {
+        if diag.has_errors() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
         }
@@ -78,7 +78,7 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file)?;
-        if diag.has_error() {
+        if diag.has_errors() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
         }
@@ -95,7 +95,7 @@ fn process_slint_file(
     let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(&path), None, &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node, &mut file)?;
-    if diag.has_error() {
+    if diag.has_errors() {
         file.write_all(&source.as_bytes()[len..])?;
         diag.print();
     }

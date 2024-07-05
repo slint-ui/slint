@@ -30,7 +30,7 @@ let compiler = Compiler::default();
 let result = spin_on::spin_on(compiler.build_from_path("hello.slint"));
 let diagnostics : Vec<_> = result.diagnostics().collect();
 # #[cfg(feature="print_diagnostics")]
-slint_interpreter::print_diagnostics(&diagnostics);
+diagnostics.print();
 if let Some(definition) = result.component("Foo") {
     let instance = definition.create().unwrap();
     instance.run().unwrap();

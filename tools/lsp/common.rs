@@ -172,7 +172,7 @@ impl DocumentCache {
         // Always load the widgets so we can auto-complete them
         let mut diag = BuildDiagnostics::default();
         self.0.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
-        assert!(!diag.has_error());
+        assert!(!diag.has_errors());
     }
 
     pub async fn load_url(

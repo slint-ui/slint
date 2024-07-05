@@ -77,7 +77,7 @@ fn process_tabwidget(
             continue;
         }
         if child.borrow().base_type.to_string() != "Tab" {
-            assert!(diag.has_error());
+            assert!(diag.has_errors());
             continue;
         }
         let index = tabs.len();

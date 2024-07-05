@@ -506,7 +506,7 @@ impl Default for ComponentCompiler {
         let mut config = i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
-        config.components_to_generate = i_slint_compiler::ComponentsToGenerate::LastComponent;
+        config.components_to_generate = i_slint_compiler::ComponentSelection::LastExported;
         Self { config, diagnostics: vec![] }
     }
 }
@@ -791,7 +791,6 @@ impl Compiler {
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
     /// after the call using [`CompilationResult::diagnostics()`].
-    /// The [`print_diagnostics`] function can be used to display the diagnostics to the users.
     ///
     /// If the file was compiled without error, the list of component names can be obtained with
     /// [`CompilationResult::component_names`], and the compiled components themselves with
@@ -811,7 +810,10 @@ impl Compiler {
             Err(d) => {
                 let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
                 diagnostics.push_compiler_error(d);
-                return CompilationResult { components: HashMap::new(), diagnostics };
+                return CompilationResult {
+                    components: HashMap::new(),
+                    diagnostics: diagnostics.into_iter().collect(),
+                };
             }
         };
 
@@ -825,7 +827,6 @@ impl Compiler {
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
     /// after the call using [`CompilationResult::diagnostics()`].
-    /// The [`print_diagnostics`] function can be used to display the diagnostics to the users.
     ///
     /// This function is `async` but in practice, this is only asynchronous if
     /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
@@ -838,26 +839,52 @@ impl Compiler {
 
 /// The result of a compilation
 ///
-/// If [`Self::has_error``] is true, then the compilation failed.
-/// The [`Self::diagnostics`] function can be used to retrieve the diagnostics (errors and/or warnings).
-/// The components names and their definitions can be retrieved using the [`Self::component_names`]
-/// and [`Self::component`] functions.
+/// If [`Self::has_errors()`] is true, then the compilation failed.
+/// The [`Self::diagnostics()`] function can be used to retrieve the diagnostics (errors and/or warnings)
+/// or [`Self::print_diagnostics()`] can be used to print them to stderr.
+/// The components can be retrieved using [`Self::components()`]
+#[derive(Clone)]
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
-    pub(crate) diagnostics: i_slint_compiler::diagnostics::BuildDiagnostics,
+    pub(crate) diagnostics: Vec<Diagnostic>,
+}
+
+impl core::fmt::Debug for CompilationResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompilationResult")
+            .field("components", &self.components.keys())
+            .field("diagnostics", &self.diagnostics)
+            .finish()
+    }
 }
 
 impl CompilationResult {
     /// Returns true if the compilation failed.
-    /// The errors can be retrieved using the [`Self::diagnostics`] function.
-    /// And printed to the console using the [`print_diagnostics`] function.
-    pub fn has_error(&self) -> bool {
-        self.diagnostics.has_error()
+    /// The errors can be retrieved using the [`Self::diagnostics()`] function.
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics().any(|diag| diag.level() == DiagnosticLevel::Error)
     }
 
     /// Return an iterator over the diagnostics.
+    ///
+    /// You can also call [`Self::print_diagnostics()`] to output the diagnostics to stderr
     pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
         self.diagnostics.iter().cloned()
+    }
+
+    /// Print the diagnostics to stderr
+    ///
+    /// The diagnostics are printed in the same style as rustc errors
+    ///
+    /// This function is available when the `display-diagnostics` is enabled.
+    #[cfg(feature = "display-diagnostics")]
+    pub fn print_diagnostics(&self) {
+        print_diagnostics(&self.diagnostics)
+    }
+
+    /// Returns an iterator over the compiled components.
+    pub fn components(&self) -> impl Iterator<Item = ComponentDefinition> + '_ {
+        self.components.values().cloned()
     }
 
     /// Returns the names of the components that were compiled.
@@ -2040,7 +2067,7 @@ fn test_multi_components() {
         ),
     );
 
-    assert!(!result.has_error(), "Error {:?}", result.diagnostics().collect::<Vec<_>>());
+    assert!(!result.has_errors(), "Error {:?}", result.diagnostics().collect::<Vec<_>>());
     let mut components = result.component_names().collect::<Vec<_>>();
     components.sort();
     assert_eq!(components, vec!["Bar", "Xyz"]);

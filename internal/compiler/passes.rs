@@ -189,7 +189,7 @@ pub async fn run_passes(
     remove_return::remove_return(doc);
 
     doc.visit_all_used_components(|component| {
-        if !diag.has_error() {
+        if !diag.has_errors() {
             // binding loop causes panics in const_propagation
             const_propagation::const_propagation(component);
         }

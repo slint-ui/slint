@@ -71,7 +71,7 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
         let len = syntax_node.text_range().end().into();
         let mut state = init_state(&syntax_node, &mut diag);
         visit_node(syntax_node, &mut file, &mut state, args)?;
-        if diag.has_error() {
+        if diag.has_errors() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
         }
@@ -103,7 +103,7 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
         let len = syntax_node.text_range().end().into();
         let mut state = init_state(&syntax_node, &mut diag);
         visit_node(syntax_node, &mut file, &mut state, args)?;
-        if diag.has_error() {
+        if diag.has_errors() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
         }
@@ -128,7 +128,7 @@ fn process_file(
     let len = syntax_node.node.text_range().end().into();
     let mut state = init_state(&syntax_node, &mut diag);
     visit_node(syntax_node, &mut file, &mut state, args)?;
-    if diag.has_error() {
+    if diag.has_errors() {
         file.write_all(&source.as_bytes()[len..])?;
         diag.print();
     }

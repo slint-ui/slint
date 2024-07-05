@@ -362,7 +362,7 @@ pub fn compile_with_config(
     let mut diag = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse_file(&path, &mut diag);
 
-    if diag.has_error() {
+    if diag.has_errors() {
         let vec = diag.to_string_vec();
         diag.print();
         return Err(CompileError::CompileError(vec));
@@ -377,7 +377,7 @@ pub fn compile_with_config(
     let (doc, diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
-    if diag.has_error() {
+    if diag.has_errors() {
         let vec = diag.to_string_vec();
         diag.print();
         return Err(CompileError::CompileError(vec));
