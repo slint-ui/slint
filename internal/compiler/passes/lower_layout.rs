@@ -97,7 +97,7 @@ fn lower_element_layout(
             // We shouldn't lower layout if we have a Row in there. Unless the Row is the root of a repeated item,
             // in which case another error has been reported
             assert!(
-                diag.has_error()
+                diag.has_errors()
                     && Rc::ptr_eq(&component.root_element, elem)
                     && component
                         .parent_element

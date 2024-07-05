@@ -71,7 +71,7 @@ fn resolve_alias(
                 Type::InferredCallback | Type::InferredProperty
             ));
             // It is still unresolved because there is an error in that component
-            assert!(diag.has_error());
+            assert!(diag.has_errors());
             return;
         }
     };
@@ -79,14 +79,14 @@ fn resolve_alias(
 
     let borrow = elem.borrow();
     let Some(binding) = borrow.bindings.get(prop) else {
-        assert!(diag.has_error());
+        assert!(diag.has_errors());
         return;
     };
     let nr = match &binding.borrow().expression {
         Expression::Uncompiled(node) => {
             let Some(node) = syntax_nodes::TwoWayBinding::new(node.clone()) else {
                 assert!(
-                    diag.has_error(),
+                    diag.has_errors(),
                     "The parser only avoid missing types for two way bindings"
                 );
                 return;
@@ -135,7 +135,7 @@ fn resolve_alias(
     } else if old_type == Type::InferredCallback {
         if !matches!(ty, Type::Callback { .. }) {
             if nr.is_some() && ty == Type::Invalid {
-                debug_assert!(diag.has_error());
+                debug_assert!(diag.has_errors());
             } else {
                 diag.push_error(
                     format!("Binding to callback '{}' must bind to another callback", prop),

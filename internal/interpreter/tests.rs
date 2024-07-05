@@ -19,7 +19,7 @@ fn reuse_window() {
         let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
         let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
-        assert!(!result.has_error(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+        assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let definition = result.component("MainWindow").unwrap();
         let instance = definition.create().unwrap();
         assert_eq!(
@@ -33,7 +33,7 @@ fn reuse_window() {
         let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
         let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
-        assert!(!result.has_error(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+        assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let definition = result.component("MainWindow").unwrap();
         let instance = definition.create_with_existing_window(handle.window()).unwrap();
         drop(handle);

@@ -106,7 +106,7 @@ impl JsComponentCompiler {
     pub fn build_from_path(&mut self, path: String) -> HashMap<String, JsComponentDefinition> {
         let r = spin_on::spin_on(self.internal.build_from_path(PathBuf::from(path)));
         self.diagnostics = r.diagnostics().collect();
-        r.component_names().filter_map(|n| Some((n.to_owned(), r.component(n)?.into()))).collect()
+        r.components().map(|c| (c.name().to_owned(), c.into())).collect()
     }
 
     /// Compile some .slint code into a ComponentDefinition
@@ -118,6 +118,6 @@ impl JsComponentCompiler {
     ) -> HashMap<String, JsComponentDefinition> {
         let r = spin_on::spin_on(self.internal.build_from_source(source_code, PathBuf::from(path)));
         self.diagnostics = r.diagnostics().collect();
-        r.component_names().filter_map(|n| Some((n.to_owned(), r.component(n)?.into()))).collect()
+        r.components().map(|c| (c.name().to_owned(), c.into())).collect()
     }
 }

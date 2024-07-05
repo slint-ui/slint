@@ -116,7 +116,7 @@ pub fn recompile_test_with_sources(
     for d in diagnostics.iter() {
         i_slint_core::debug_log!("    {d}");
     }
-    assert!(!diagnostics.has_error());
+    assert!(!diagnostics.has_errors());
     if !allow_warnings {
         assert!(diagnostics.is_empty());
     }

@@ -99,7 +99,7 @@ impl<'a> LocalFocusForwards<'a> {
             let Expression::ElementReference(focus_target) = &forward_focus_binding.expression
             else {
                 // resolve expressions pass has produced type errors
-                debug_assert!(diag.has_error());
+                debug_assert!(diag.has_errors());
                 return;
             };
 
@@ -178,7 +178,7 @@ impl<'a> LocalFocusForwards<'a> {
                     }
                     if arguments.len() != 1 {
                         assert!(
-                            self.diag.has_error(),
+                            self.diag.has_errors(),
                             "Invalid argument generated for {} call",
                             focus_function.name()
                         );

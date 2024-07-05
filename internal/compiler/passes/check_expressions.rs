@@ -20,7 +20,7 @@ fn check_expression(component: &Rc<Component>, e: &Expression, diag: &mut BuildD
     match e {
         Expression::MemberFunction { .. } => {
             // Must already have been be reported.
-            debug_assert!(diag.has_error());
+            debug_assert!(diag.has_errors());
         }
         Expression::BuiltinMacroReference(_, node) => {
             diag.push_error("Builtin function must be called".into(), node);

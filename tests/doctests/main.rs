@@ -11,7 +11,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
     let diagnostics = result.diagnostics().collect::<Vec<_>>();
     slint_interpreter::print_diagnostics(&diagnostics);
 
-    if result.has_error() {
+    if result.has_errors() {
         return Err(format!("Error when loading {snippet:?} in {path:?}: {diagnostics:?}").into());
     }
     Ok(())

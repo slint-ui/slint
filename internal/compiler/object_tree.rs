@@ -31,7 +31,7 @@ macro_rules! unwrap_or_continue {
         match $e {
             Some(x) => x,
             None => {
-                debug_assert!($diag.has_error()); // error should have been reported at parsing time
+                debug_assert!($diag.has_errors()); // error should have been reported at parsing time
                 continue;
             }
         }
@@ -91,7 +91,7 @@ impl Document {
             if let Type::Struct { name, .. } = &mut ty {
                 *name = parser::identifier_text(&n.DeclaredIdentifier());
             } else {
-                assert!(diag.has_error());
+                assert!(diag.has_errors());
                 return;
             }
             local_registry.insert_type(ty.clone());
@@ -102,7 +102,7 @@ impl Document {
                             local_registry: &mut TypeRegister,
                             inner_types: &mut Vec<Type>| {
             let Some(name) = parser::identifier_text(&n.DeclaredIdentifier()) else {
-                assert!(diag.has_error());
+                assert!(diag.has_errors());
                 return;
             };
             let mut existing_names = HashSet::new();
@@ -929,7 +929,7 @@ impl Element {
             ElementType::Global
         } else if parent_type != ElementType::Error {
             // This should normally never happen because the parser does not allow for this
-            assert!(diag.has_error());
+            assert!(diag.has_errors());
             return ElementRc::default();
         } else {
             tr.empty_type()
@@ -1195,7 +1195,7 @@ impl Element {
                 .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
                 .is_some()
             {
-                assert!(diag.has_error());
+                assert!(diag.has_errors());
             }
 
             let mut visibility = PropertyVisibility::Private;
@@ -1868,7 +1868,7 @@ pub fn type_from_node(
     } else if let Some(array_node) = node.ArrayType() {
         Type::Array(Box::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
-        assert!(diag.has_error());
+        assert!(diag.has_errors());
         Type::Invalid
     }
 }
@@ -2490,7 +2490,7 @@ impl Exports {
                 let name_ident: SyntaxNode = component.DeclaredIdentifier().into();
                 let name =
                     parser::identifier_text(&component.DeclaredIdentifier()).unwrap_or_else(|| {
-                        debug_assert!(diag.has_error());
+                        debug_assert!(diag.has_errors());
                         String::new()
                     });
 
@@ -2512,7 +2512,7 @@ impl Exports {
                 })
                 .filter_map(|name_ident| {
                     let name = parser::identifier_text(&name_ident).unwrap_or_else(|| {
-                        debug_assert!(diag.has_error());
+                        debug_assert!(diag.has_errors());
                         String::new()
                     });
 

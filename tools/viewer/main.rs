@@ -4,7 +4,7 @@
 #![doc = include_str!("README.md")]
 
 use clap::Parser;
-use i_slint_compiler::ComponentsToGenerate;
+use i_slint_compiler::ComponentSelection;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::SharedVector;
 use itertools::Itertools;
@@ -104,11 +104,11 @@ fn main() -> Result<()> {
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
     let compiler = init_compiler(&args, fswatcher);
     let r = spin_on::spin_on(compiler.build_from_path(&args.path));
-    slint_interpreter::print_diagnostics(&r.diagnostics().collect::<Vec<_>>());
-    if r.has_error() {
+    r.print_diagnostics();
+    if r.has_errors() {
         std::process::exit(-1);
     }
-    let Some(c) = r.component_names().next().and_then(|n| r.component(n)) else {
+    let Some(c) = r.components().next() else {
         match args.component {
             Some(name) => {
                 eprintln!("Component '{name}' not found in file '{}'", args.path.display());
@@ -208,8 +208,8 @@ fn init_compiler(
 
     compiler.compiler_configuration(i_slint_core::InternalToken).components_to_generate =
         match &args.component {
-            Some(component) => ComponentsToGenerate::ComponentWithName(component.clone()),
-            None => ComponentsToGenerate::LastComponent,
+            Some(component) => ComponentSelection::Named(component.clone()),
+            None => ComponentSelection::LastExported,
         };
 
     compiler
@@ -297,8 +297,8 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
 async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
     let compiler = init_compiler(&args, Some(fswatcher));
     let r = compiler.build_from_path(&args.path).await;
-    slint_interpreter::print_diagnostics(&r.diagnostics().collect::<Vec<_>>());
-    if let Some(c) = r.component_names().next().and_then(|n| r.component(n)) {
+    r.print_diagnostics();
+    if let Some(c) = r.components().next() {
         CURRENT_INSTANCE.with(|current| {
             let mut current = current.borrow_mut();
             if let Some(handle) = current.take() {
@@ -317,7 +317,7 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
             }
             eprintln!("Successful reload of {}", args.path.display());
         });
-    } else if !r.has_error() {
+    } else if !r.has_errors() {
         match &args.component {
             Some(name) => println!("Component {name} not found"),
             None => println!("No component found"),

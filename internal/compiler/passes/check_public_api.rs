@@ -8,7 +8,7 @@ use std::rc::Rc;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use crate::langtype::ElementType;
 use crate::object_tree::{Component, Document, ExportedName, PropertyVisibility};
-use crate::{CompilerConfiguration, ComponentsToGenerate};
+use crate::{CompilerConfiguration, ComponentSelection};
 use itertools::Either;
 
 pub fn check_public_api(
@@ -18,9 +18,7 @@ pub fn check_public_api(
 ) {
     let last = doc.last_exported_component();
 
-    if last.is_none()
-        && !matches!(&config.components_to_generate, ComponentsToGenerate::ComponentWithName(_))
-    {
+    if last.is_none() && !matches!(&config.components_to_generate, ComponentSelection::Named(_)) {
         let last_imported = doc
             .node
             .as_ref()
@@ -36,7 +34,7 @@ pub fn check_public_api(
     }
 
     match &config.components_to_generate {
-        ComponentsToGenerate::AllExportedWindows => doc.exports.retain(|export| {
+        ComponentSelection::ExportedWindows => doc.exports.retain(|export| {
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1 {
                 if !c.is_global() && !super::ensure_window::inherits_window(c) {
@@ -52,7 +50,7 @@ pub fn check_public_api(
             true
         }),
         // Only keep the last component if there is one
-        ComponentsToGenerate::LastComponent => doc.exports.retain(|export| {
+        ComponentSelection::LastExported => doc.exports.retain(|export| {
             if let Either::Left(c) = &export.1 {
                 c.is_global() || last.as_ref().map_or(true, |last| Rc::ptr_eq(last, c))
             } else {
@@ -60,7 +58,7 @@ pub fn check_public_api(
             }
         }),
         // Only keep the component with the given name
-        ComponentsToGenerate::ComponentWithName(name) => {
+        ComponentSelection::Named(name) => {
             doc.exports.retain(|export| {
                 if let Either::Left(c) = &export.1 {
                     c.is_global() || &c.id == name

@@ -1005,9 +1005,9 @@ async fn parse_source(
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = if let Some(name) = component {
-        i_slint_compiler::ComponentsToGenerate::ComponentWithName(name)
+        i_slint_compiler::ComponentSelection::Named(name)
     } else {
-        i_slint_compiler::ComponentsToGenerate::LastComponent
+        i_slint_compiler::ComponentSelection::LastExported
     };
     #[cfg(target_arch = "wasm32")]
     {
@@ -1023,7 +1023,7 @@ async fn parse_source(
 
     let result = builder.build_from_source(source_code, path).await;
 
-    let compiled = result.component_names().next().and_then(|name| result.component(name));
+    let compiled = result.components().next();
     (result.diagnostics().collect(), compiled)
 }
 

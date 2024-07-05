@@ -54,20 +54,24 @@ pub enum EmbedResourcesKind {
     EmbedTextures,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ComponentsToGenerate {
-    /// All exported Windows.
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[non_exhaustive]
+pub enum ComponentSelection {
+    /// All components that inherit from Window.
     ///
-    /// When set, there will be a warning if an exported component is not a window.
-    AllExportedWindows,
+    /// Note: Components marked for export but lacking Window inheritance are not selected (this will produce a warning),
+    /// For compatibility reason, the last exported component is still selected even if it doesn't inherit Window,
+    /// and if no component is exported, the last component is selected
+    #[default]
+    ExportedWindows,
     /// The Last component (legacy for the viewer / interpreter)
 
     /// Only the last exported component is generated, regardless if this is a Window or not,
     /// (and it will be transformed in a Window)
-    LastComponent,
+    LastExported,
 
     /// The component with the given name is generated
-    ComponentWithName(String),
+    Named(String),
 }
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
@@ -120,7 +124,7 @@ pub struct CompilerConfiguration {
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
-    pub components_to_generate: ComponentsToGenerate,
+    pub components_to_generate: ComponentSelection,
 }
 
 impl CompilerConfiguration {
@@ -195,7 +199,7 @@ impl CompilerConfiguration {
             translation_domain: None,
             cpp_namespace,
             debug_info,
-            components_to_generate: ComponentsToGenerate::AllExportedWindows,
+            components_to_generate: ComponentSelection::ExportedWindows,
         }
     }
 }
@@ -244,7 +248,7 @@ pub async fn compile_syntax_node(
         &type_registry,
     );
 
-    if !diagnostics.has_error() {
+    if !diagnostics.has_errors() {
         passes::run_passes(&mut doc, &mut loader, false, &mut diagnostics).await;
     } else {
         // Don't run all the passes in case of errors because because some invariants are not met.

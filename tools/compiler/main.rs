@@ -74,7 +74,7 @@ fn main() -> std::io::Result<()> {
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_file(&args.path, &mut diag);
     //println!("{:#?}", syntax_node);
-    if diag.has_error() {
+    if diag.has_errors() {
         diag.print();
         std::process::exit(-1);
     }

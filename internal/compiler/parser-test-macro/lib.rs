@@ -68,7 +68,7 @@ fn generate_test(fn_name: &str, doc: &str, extra_args: usize) -> String {
             let mut diag = Default::default();
             let mut p = DefaultParser::new("{line}", &mut diag);
             {fn_name}(&mut p{follow_args});
-            let has_error = p.diags.has_error();
+            let has_error = p.diags.has_errors();
             //#[cfg(feature = "display-diagnostics")]
             //p.diags.print();
             assert!(!has_error);

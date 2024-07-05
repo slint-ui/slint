@@ -166,7 +166,7 @@ fn generate_source(
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
-    if diag.has_error() {
+    if diag.has_errors() {
         diag.print_warnings_and_exit_on_error();
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,

@@ -63,11 +63,11 @@ fn resolve_expression(
                 &mut lookup_ctx,
             ),
             SyntaxKind::TwoWayBinding => {
-                assert!(diag.has_error(), "Two way binding should have been resolved already  (property: {property_name:?})");
+                assert!(diag.has_errors(), "Two way binding should have been resolved already  (property: {property_name:?})");
                 Expression::Invalid
             }
             _ => {
-                debug_assert!(diag.has_error());
+                debug_assert!(diag.has_errors());
                 Expression::Invalid
             }
         };
@@ -166,7 +166,7 @@ impl Expression {
             e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag)
         } else {
             // Binding to a callback or function shouldn't happen
-            assert!(ctx.diag.has_error());
+            assert!(ctx.diag.has_errors());
             e
         }
     }
@@ -395,7 +395,7 @@ impl Expression {
             [x, y, z, w] => Some([*x, *y, *z, *w]),
             [] => None,
             _ => {
-                assert!(ctx.diag.has_error());
+                assert!(ctx.diag.has_errors());
                 None
             }
         };
@@ -748,7 +748,7 @@ impl Expression {
             first
         } else {
             // There must be at least one member (parser should ensure that)
-            debug_assert!(ctx.diag.has_error());
+            debug_assert!(ctx.diag.has_errors());
             return Self::Invalid;
         };
 
@@ -936,7 +936,7 @@ impl Expression {
                 }
             }
             Type::Invalid => {
-                debug_assert!(ctx.diag.has_error());
+                debug_assert!(ctx.diag.has_errors());
                 arguments.into_iter().map(|x| x.0).collect()
             }
             _ => {
@@ -1125,7 +1125,7 @@ impl Expression {
                 exp
             }
             _ => {
-                assert!(ctx.diag.has_error());
+                assert!(ctx.diag.has_errors());
                 exp
             }
         };
@@ -1443,7 +1443,7 @@ fn continue_lookup_within_element(
                 ElementType::Builtin(b) => format!("Element '{}'", b.name),
                 ElementType::Native(_) => unreachable!("the native pass comes later"),
                 ElementType::Error => {
-                    assert!(ctx.diag.has_error());
+                    assert!(ctx.diag.has_errors());
                     return;
                 }
             };
@@ -1522,7 +1522,7 @@ fn resolve_two_way_bindings(
                         let lhs_lookup = elem.borrow().lookup_property(prop_name);
                         if lhs_lookup.property_type == Type::Invalid {
                             // An attempt to resolve this already failed when trying to resolve the property type
-                            assert!(diag.has_error());
+                            assert!(diag.has_errors());
                             continue;
                         }
                         let mut lookup_ctx = LookupCtx {
@@ -1674,7 +1674,7 @@ pub fn resolve_two_way_binding(
             None
         }
         Expression::Invalid => {
-            debug_assert!(ctx.diag.has_error());
+            debug_assert!(ctx.diag.has_errors());
             None
         }
         _ => {

@@ -243,7 +243,7 @@ fn compiled(
         &mut crate::lookup::LookupCtx::empty_context(type_register, &mut diag),
     )
     .maybe_convert_to(ty, &node, &mut diag);
-    if diag.has_error() {
+    if diag.has_errors() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();
