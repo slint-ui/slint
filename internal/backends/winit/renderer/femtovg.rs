@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
-use i_slint_renderer_femtovg::FemtoVGRenderer;
+use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -23,7 +23,10 @@ pub struct GlutinFemtoVGRenderer {
 
 impl GlutinFemtoVGRenderer {
     pub fn new_suspended() -> Box<dyn WinitCompatibleRenderer> {
-        Box::new(Self { renderer: FemtoVGRenderer::new_suspended(), suspended: Cell::new(true) })
+        Box::new(Self {
+            renderer: FemtoVGRenderer::new_without_context(),
+            suspended: Cell::new(true),
+        })
     }
 }
 
@@ -56,7 +59,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             })
         })?);
 
-        self.renderer.resume(
+        self.renderer.set_opengl_context(
             #[cfg(not(target_arch = "wasm32"))]
             opengl_context,
             #[cfg(target_arch = "wasm32")]
@@ -71,7 +74,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
-        self.renderer.suspend()
+        self.renderer.clear_opengl_context()
     }
 
     fn is_suspended(&self) -> bool {

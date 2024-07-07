@@ -140,119 +140,14 @@ impl FemtoVGRenderer {
         #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
         #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<Self, PlatformError> {
-        let this = Self::new_suspended();
-        this.resume(
+        let this = Self::new_without_context();
+        this.set_opengl_context(
             #[cfg(not(target_arch = "wasm32"))]
             opengl_context,
             #[cfg(target_arch = "wasm32")]
             html_canvas,
         )?;
         Ok(this)
-    }
-
-    /// Creates a new renderer in suspended state. Any attempts at rendering, etc. will produce an error,
-    /// until [`Self::resume()`] was called successfully.
-    pub fn new_suspended() -> Self {
-        let opengl_context = Box::new(SuspendedRenderer {});
-
-        Self {
-            maybe_window_adapter: Default::default(),
-            rendering_notifier: Default::default(),
-            canvas: RefCell::new(None),
-            graphics_cache: Default::default(),
-            texture_cache: Default::default(),
-            rendering_metrics_collector: Default::default(),
-            rendering_first_time: Cell::new(true),
-            opengl_context: RefCell::new(opengl_context),
-            #[cfg(target_arch = "wasm32")]
-            canvas_id: Default::default(),
-        }
-    }
-
-    /// Suspends the renderer by deleting all OpenGL sources moving into a suspended state.
-    /// All subsequence attempt at rendering will produce an error, until [`Self::resume()`]
-    /// is called successfully.
-    ///
-    /// Use this to transfer a renderer between different window surfaces.
-    pub fn suspend(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        // Ensure the context is current before the renderer is destroyed
-        if self.opengl_context.borrow().ensure_current().is_ok() {
-            // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
-            if !self.rendering_first_time.get() {
-                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                    self.with_graphics_api(|api| {
-                        callback.notify(RenderingState::RenderingTeardown, &api)
-                    })
-                    .ok();
-                }
-            }
-
-            self.graphics_cache.clear_all();
-            self.texture_cache.borrow_mut().clear();
-        }
-
-        if let Some(canvas) = self.canvas.borrow_mut().take() {
-            if Rc::strong_count(&canvas) != 1 {
-                i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
-            }
-        }
-
-        *self.opengl_context.borrow_mut() = Box::new(SuspendedRenderer {});
-        Ok(())
-    }
-
-    /// Resumes a previously suspended renderer.
-    pub fn resume(
-        &self,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
-        #[cfg(target_arch = "wasm32")]
-        let opengl_context = WebGLNeedsNoCurrentContext {};
-
-        let opengl_context = Box::new(opengl_context);
-        #[cfg(not(target_arch = "wasm32"))]
-        let gl_renderer = unsafe {
-            femtovg::renderer::OpenGl::new_from_function_cstr(|name| {
-                opengl_context.get_proc_address(name)
-            })
-            .unwrap()
-        };
-
-        #[cfg(target_arch = "wasm32")]
-        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
-            Ok(gl_renderer) => gl_renderer,
-            Err(_) => {
-                use wasm_bindgen::JsCast;
-
-                // I don't believe that there's a way of disabling the 2D canvas.
-                let context_2d = html_canvas
-                    .get_context("2d")
-                    .unwrap()
-                    .unwrap()
-                    .dyn_into::<web_sys::CanvasRenderingContext2d>()
-                    .unwrap();
-                context_2d.set_font("20px serif");
-                // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
-                context_2d.set_fill_style(&wasm_bindgen::JsValue::from_str("red"));
-                context_2d
-                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
-                    .unwrap();
-                panic!("Cannot proceed without WebGL - aborting")
-            }
-        };
-
-        let femtovg_canvas = femtovg::Canvas::new_with_text_context(
-            gl_renderer,
-            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
-        )
-        .unwrap();
-        let canvas = Rc::new(RefCell::new(femtovg_canvas));
-
-        *self.canvas.borrow_mut() = canvas.into();
-        *self.opengl_context.borrow_mut() = opengl_context;
-        self.rendering_first_time.set(true);
-        Ok(())
     }
 
     /// Render the scene using OpenGL.
@@ -655,12 +550,19 @@ impl RendererSealed for FemtoVGRenderer {
 
 impl Drop for FemtoVGRenderer {
     fn drop(&mut self) {
-        self.suspend().ok();
+        self.clear_opengl_context().ok();
     }
 }
 
 #[doc(hidden)]
 pub trait FemtoVGRendererExt {
+    fn new_without_context() -> Self;
+    fn set_opengl_context(
+        &self,
+        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    fn clear_opengl_context(&self) -> Result<(), i_slint_core::platform::PlatformError>;
     fn render_transformed_with_post_callback(
         &self,
         rotation_angle_degrees: f32,
@@ -672,6 +574,106 @@ pub trait FemtoVGRendererExt {
 
 #[doc(hidden)]
 impl FemtoVGRendererExt for FemtoVGRenderer {
+    /// Creates a new renderer in suspended state without OpenGL. Any attempts at rendering, etc. will produce an error,
+    /// until [`Self::set_opengl_context()`] was called successfully.
+    fn new_without_context() -> Self {
+        let opengl_context = Box::new(SuspendedRenderer {});
+
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            canvas: RefCell::new(None),
+            graphics_cache: Default::default(),
+            texture_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
+            opengl_context: RefCell::new(opengl_context),
+            #[cfg(target_arch = "wasm32")]
+            canvas_id: Default::default(),
+        }
+    }
+
+    fn clear_opengl_context(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        // Ensure the context is current before the renderer is destroyed
+        if self.opengl_context.borrow().ensure_current().is_ok() {
+            // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
+            if !self.rendering_first_time.get() {
+                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                    self.with_graphics_api(|api| {
+                        callback.notify(RenderingState::RenderingTeardown, &api)
+                    })
+                    .ok();
+                }
+            }
+
+            self.graphics_cache.clear_all();
+            self.texture_cache.borrow_mut().clear();
+        }
+
+        if let Some(canvas) = self.canvas.borrow_mut().take() {
+            if Rc::strong_count(&canvas) != 1 {
+                i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
+            }
+        }
+
+        *self.opengl_context.borrow_mut() = Box::new(SuspendedRenderer {});
+
+        Ok(())
+    }
+
+    fn set_opengl_context(
+        &self,
+        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        #[cfg(target_arch = "wasm32")]
+        let opengl_context = WebGLNeedsNoCurrentContext {};
+
+        let opengl_context = Box::new(opengl_context);
+        #[cfg(not(target_arch = "wasm32"))]
+        let gl_renderer = unsafe {
+            femtovg::renderer::OpenGl::new_from_function_cstr(|name| {
+                opengl_context.get_proc_address(name)
+            })
+            .unwrap()
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
+            Ok(gl_renderer) => gl_renderer,
+            Err(_) => {
+                use wasm_bindgen::JsCast;
+
+                // I don't believe that there's a way of disabling the 2D canvas.
+                let context_2d = html_canvas
+                    .get_context("2d")
+                    .unwrap()
+                    .unwrap()
+                    .dyn_into::<web_sys::CanvasRenderingContext2d>()
+                    .unwrap();
+                context_2d.set_font("20px serif");
+                // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
+                context_2d.set_fill_style(&wasm_bindgen::JsValue::from_str("red"));
+                context_2d
+                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
+                    .unwrap();
+                panic!("Cannot proceed without WebGL - aborting")
+            }
+        };
+
+        let femtovg_canvas = femtovg::Canvas::new_with_text_context(
+            gl_renderer,
+            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .unwrap();
+        let canvas = Rc::new(RefCell::new(femtovg_canvas));
+
+        *self.canvas.borrow_mut() = canvas.into();
+        *self.opengl_context.borrow_mut() = opengl_context;
+        self.rendering_first_time.set(true);
+        Ok(())
+    }
+
     fn render_transformed_with_post_callback(
         &self,
         rotation_angle_degrees: f32,
