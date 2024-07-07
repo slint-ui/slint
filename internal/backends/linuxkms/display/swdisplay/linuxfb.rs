@@ -14,6 +14,7 @@ pub struct LinuxFBDisplay {
     height: u32,
     presenter: Rc<crate::display::timeranimations::TimerBasedAnimationDriver>,
     first_frame: Cell<bool>,
+    format: drm::buffer::DrmFourcc,
 }
 
 impl LinuxFBDisplay {
@@ -55,8 +56,18 @@ impl LinuxFBDisplay {
             finfo
         };
 
-        if vinfo.bits_per_pixel != 32 {
-            return Err(format!("Error using linux framebuffer: Only 32-bpp framebuffers are supported right now, found {}", vinfo.bits_per_pixel).into());
+        let format = if vinfo.bits_per_pixel == 32 {
+            drm::buffer::DrmFourcc::Xrgb8888
+        } else if vinfo.bits_per_pixel == 16 {
+            if vinfo.red != RGB565_EXPECTED_RED_CHANNEL
+                || vinfo.green != RGB565_EXPECTED_GREEN_CHANNEL
+                || vinfo.blue != RGB565_EXPECTED_BLUE_CHANNEL
+            {
+                return Err(format!("Error using linux framebuffer: 16-bpp framebuffer does not have expected 565 format. Found {}/{}/{}", vinfo.red.length, vinfo.green.length, vinfo.blue.length).into());
+            }
+            drm::buffer::DrmFourcc::Rgb565
+        } else {
+            return Err(format!("Error using linux framebuffer: Only 32- and 16-bpp framebuffers are supported right now, found {}", vinfo.bits_per_pixel).into());
         };
 
         let bpp = vinfo.bits_per_pixel / 8;
@@ -89,6 +100,7 @@ impl LinuxFBDisplay {
             height,
             presenter: crate::display::timeranimations::TimerBasedAnimationDriver::new(),
             first_frame: Cell::new(true),
+            format,
         }))
     }
 }
@@ -100,11 +112,15 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
 
     fn map_back_buffer(
         &self,
-        callback: &mut dyn FnMut(&'_ mut [u8], u8) -> Result<(), PlatformError>,
+        callback: &mut dyn FnMut(
+            &'_ mut [u8],
+            u8,
+            drm::buffer::DrmFourcc,
+        ) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError> {
         let age = if self.first_frame.get() { 0 } else { 1 };
         self.first_frame.set(false);
-        callback(self.back_buffer.borrow_mut().as_mut(), age)?;
+        callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
 
         let mut fb = self.fb.borrow_mut();
         fb.as_mut().copy_from_slice(&self.back_buffer.borrow());
@@ -116,10 +132,19 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
     }
 }
 
+const RGB565_EXPECTED_RED_CHANNEL: fb_bitfield =
+    fb_bitfield { offset: 11, length: 5, msb_right: 0 };
+
+const RGB565_EXPECTED_GREEN_CHANNEL: fb_bitfield =
+    fb_bitfield { offset: 5, length: 6, msb_right: 0 };
+
+const RGB565_EXPECTED_BLUE_CHANNEL: fb_bitfield =
+    fb_bitfield { offset: 0, length: 5, msb_right: 0 };
+
 const FBIOGET_VSCREENINFO: u32 = 0x4600;
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 
 pub struct fb_bitfield {

@@ -20,11 +20,11 @@ pub struct SoftwareRendererAdapter {
 
 #[repr(transparent)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct DumbBufferPixel(pub u32);
+struct DumbBufferPixelXrgb888(pub u32);
 
-impl From<DumbBufferPixel> for PremultipliedRgbaColor {
+impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
     #[inline]
-    fn from(pixel: DumbBufferPixel) -> Self {
+    fn from(pixel: DumbBufferPixelXrgb888) -> Self {
         let v = pixel.0;
         PremultipliedRgbaColor {
             red: (v >> 16) as u8,
@@ -35,7 +35,7 @@ impl From<DumbBufferPixel> for PremultipliedRgbaColor {
     }
 }
 
-impl From<PremultipliedRgbaColor> for DumbBufferPixel {
+impl From<PremultipliedRgbaColor> for DumbBufferPixelXrgb888 {
     #[inline]
     fn from(pixel: PremultipliedRgbaColor) -> Self {
         Self(
@@ -47,7 +47,7 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixel {
     }
 }
 
-impl TargetPixel for DumbBufferPixel {
+impl TargetPixel for DumbBufferPixelXrgb888 {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let mut x = PremultipliedRgbaColor::from(*self);
         x.blend(color);
@@ -100,7 +100,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         _draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
-        self.display.map_back_buffer(&mut |pixels, age| {
+        self.display.map_back_buffer(&mut |pixels, age, format| {
             self.renderer.set_repaint_buffer_type(match age {
                 1 => RepaintBufferType::ReusedBuffer,
                 2 => RepaintBufferType::SwappedBuffers,
@@ -122,8 +122,24 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                 }
             });
 
-            let buffer: &mut [DumbBufferPixel] = bytemuck::cast_slice_mut(pixels.as_mut());
-            self.renderer.render(buffer, self.size.width as usize);
+            match format {
+                drm::buffer::DrmFourcc::Xrgb8888 => {
+                    let buffer: &mut [DumbBufferPixelXrgb888] =
+                        bytemuck::cast_slice_mut(pixels.as_mut());
+                    self.renderer.render(buffer, self.size.width as usize);
+                }
+                drm::buffer::DrmFourcc::Rgb565 => {
+                    let buffer: &mut [i_slint_core::software_renderer::Rgb565Pixel] =
+                        bytemuck::cast_slice_mut(pixels.as_mut());
+                    self.renderer.render(buffer, self.size.width as usize);
+                }
+                _ => {
+                    return Err(format!(
+                        "Unsupported frame buffer format {format} used with software renderer"
+                    )
+                    .into())
+                }
+            }
 
             Ok(())
         })?;
