@@ -22,8 +22,16 @@ impl DumbBufferDisplay {
 
         //eprintln!("mode {}/{}", width, height);
 
-        let front_buffer = DumbBuffer::allocate(&drm_output.drm_device, drm_output.size())?.into();
-        let back_buffer = DumbBuffer::allocate(&drm_output.drm_device, drm_output.size())?.into();
+        let front_buffer: RefCell<DumbBuffer> =
+            DumbBuffer::allocate(&drm_output.drm_device, drm_output.size())?.into();
+        let back_buffer = DumbBuffer::allocate_with_format(
+            &drm_output.drm_device,
+            drm_output.size(),
+            front_buffer.borrow().format,
+            front_buffer.borrow().depth,
+            front_buffer.borrow().bpp,
+        )?
+        .into();
 
         Ok(Rc::new(Self { drm_output, front_buffer, back_buffer }))
     }
@@ -36,15 +44,20 @@ impl super::SoftwareBufferDisplay for DumbBufferDisplay {
 
     fn map_back_buffer(
         &self,
-        callback: &mut dyn FnMut(&'_ mut [u8], u8) -> Result<(), PlatformError>,
+        callback: &mut dyn FnMut(
+            &'_ mut [u8],
+            u8,
+            drm::buffer::DrmFourcc,
+        ) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError> {
         let mut back_buffer = self.back_buffer.borrow_mut();
         let age = back_buffer.age;
+        let format = back_buffer.format;
         self.drm_output
             .drm_device
             .map_dumb_buffer(&mut back_buffer.buffer_handle)
             .map_err(|e| PlatformError::Other(format!("Error mapping dumb buffer: {e}").into()))
-            .and_then(|mut buffer| callback(buffer.as_mut(), age))
+            .and_then(|mut buffer| callback(buffer.as_mut(), age, format))
     }
 
     fn as_presenter(self: Rc<Self>) -> Rc<dyn crate::display::Presenter> {
@@ -90,6 +103,9 @@ struct DumbBuffer {
     fb_handle: drm::control::framebuffer::Handle,
     buffer_handle: drm::control::dumbbuffer::DumbBuffer,
     age: u8,
+    format: drm::buffer::DrmFourcc,
+    depth: u32,
+    bpp: u32,
 }
 
 impl DumbBuffer {
@@ -97,13 +113,37 @@ impl DumbBuffer {
         device: &impl drm::control::Device,
         (width, height): (u32, u32),
     ) -> Result<Self, PlatformError> {
-        let buffer_handle = device
-            .create_dumb_buffer((width, height), drm::buffer::DrmFourcc::Xrgb8888, 32)
-            .map_err(|e| format!("Error creating dumb buffer ({}/{}): {}", width, height, e))?;
-        let fb_handle = device
-            .add_framebuffer(&buffer_handle, 24, 32)
-            .map_err(|e| format!("Error creating framebuffer for dumb buffer: {e}"))?;
+        let mut last_err = None;
+        for (format, depth, bpp) in
+            [(drm::buffer::DrmFourcc::Xrgb8888, 24, 32), (drm::buffer::DrmFourcc::Rgb565, 16, 16)]
+        {
+            match Self::allocate_with_format(device, (width, height), format, depth, bpp) {
+                Ok(buf) => return Ok(buf),
+                Err(err) => last_err = Some(err),
+            }
+        }
 
-        Ok(Self { fb_handle, buffer_handle, age: 0 })
+        Err(last_err.unwrap_or_else(|| "Could not allocate drm dumb buffer".into()))
+    }
+
+    fn allocate_with_format(
+        device: &impl drm::control::Device,
+        (width, height): (u32, u32),
+        format: drm::buffer::DrmFourcc,
+        depth: u32,
+        bpp: u32,
+    ) -> Result<Self, PlatformError> {
+        let buffer_handle =
+            device.create_dumb_buffer((width, height), format, bpp).map_err(|e| {
+                format!(
+                    "Error creating dumb buffer ({}/{}): {} for format {format}",
+                    width, height, e
+                )
+            })?;
+        let fb_handle = device.add_framebuffer(&buffer_handle, depth, bpp).map_err(|e| {
+            format!("Error creating framebuffer for dumb buffer for format {format}: {e}")
+        })?;
+
+        Ok(Self { fb_handle, buffer_handle, age: 0, format, depth, bpp })
     }
 }

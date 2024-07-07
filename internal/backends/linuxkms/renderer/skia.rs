@@ -184,8 +184,22 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
             return Ok(());
         };
 
-        self.display.map_back_buffer(&mut |pixels, _age| {
-            render_callback(width, height, skia_safe::ColorType::BGRA8888, pixels.as_mut())
+        self.display.map_back_buffer(&mut |pixels, _age, format| {
+            render_callback(
+                width,
+                height,
+                match format {
+                    drm::buffer::DrmFourcc::Xrgb8888 => skia_safe::ColorType::BGRA8888,
+                    drm::buffer::DrmFourcc::Rgb565 => skia_safe::ColorType::RGB565,
+                    _ => {
+                        return Err(format!(
+                        "Unsupported frame buffer format {format} used with skia software renderer"
+                    )
+                        .into())
+                    }
+                },
+                pixels.as_mut(),
+            )
         })
     }
 }

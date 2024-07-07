@@ -9,7 +9,11 @@ pub trait SoftwareBufferDisplay {
     fn size(&self) -> (u32, u32);
     fn map_back_buffer(
         &self,
-        callback: &mut dyn FnMut(&'_ mut [u8], u8) -> Result<(), PlatformError>,
+        callback: &mut dyn FnMut(
+            &'_ mut [u8],
+            u8,
+            drm::buffer::DrmFourcc,
+        ) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError>;
     fn as_presenter(self: Rc<Self>) -> Rc<dyn super::Presenter>;
 }
