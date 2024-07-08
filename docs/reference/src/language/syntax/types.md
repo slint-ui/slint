@@ -214,7 +214,7 @@ The default value of a struct, is initialized with all its fields set to their d
 
 ### Anonymous Structures
 
-Declare anonymous structures using `{ identifier1: type2, identifier1: type2 }`
+Declare anonymous structures using `{ identifier1: type1, identifier2: type2 }`
 syntax, and initialize them using
 `{ identifier1: expression1, identifier2: expression2  }`.
 

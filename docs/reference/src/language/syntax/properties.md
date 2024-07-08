@@ -18,7 +18,7 @@ The default value of a property is the default value of the type.
 For example a boolean property defaults to `false`, an `int` property to zero, etc.
 
 In addition to the existing properties, define extra properties by specifying the
-name, the type, and optionally a default value:
+type, the name, and optionally a default value:
 
 ```slint,no-preview
 export component Example {

@@ -9,7 +9,7 @@ values in the surrounding `Window` element apply, such as `default-font-family`.
 The fonts chosen for rendering are automatically picked up from the system. It's also possible to include custom
 fonts in your design. A custom font must be a TrueType font (`.ttf`), a TrueType font collection (`.ttc`) or an OpenType font (`.otf`).
 You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .slint file. This
-instructions the Slint compiler to include the font and makes the font families globally available for use with
+instructs the Slint compiler to include the font and makes the font families globally available for use with
 `font-family` properties.
 
 For example:
