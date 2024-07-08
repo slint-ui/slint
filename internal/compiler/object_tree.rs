@@ -243,6 +243,10 @@ impl Document {
         self.exports.iter().filter_map(|e| e.1.as_ref().left()).filter(|c| !c.is_global()).cloned()
     }
 
+    pub fn exposed_structs_and_enums(&self) -> Vec<Type> {
+        self.used_types.borrow().structs_and_enums.clone()
+    }
+
     /// This is the component that is going to be instantiated by the interpreter
     pub fn last_exported_component(&self) -> Option<Rc<Component>> {
         self.exports

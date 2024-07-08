@@ -264,3 +264,34 @@ When sub-classing `slint.Model`, provide the following methods:
 When adding/inserting rows, call `notify_row_added(row, count)` on the super class. Similarly, removal
 requires notifying Slint by calling `notify_row_removed(row, count)`.
 
+### Structs
+
+Structs declared in Slint and exposed to Python via `export` are accessible in the namespace returned
+when [instantiating a component](#instantiating-a-component).
+
+**`app.slint`**
+
+```slint
+export struct MyData {
+    name: string,
+    age: int
+}
+
+export component MainWindow inherits Window {
+    in-out property <MyData> data;
+}
+```
+
+**`main.py`**
+
+The exported `MyData` struct can be constructed
+
+```python
+import slint
+# Look for for `app.slint` in `sys.path`:
+main_window = slint.loader.app.MainWindow()
+
+data = slint.loader.app.MyData(name = "Simon")
+data.age = 10
+main_window.data = data
+```
