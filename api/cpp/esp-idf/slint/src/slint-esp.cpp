@@ -48,7 +48,7 @@ struct EspPlatform : public slint::platform::Platform
 private:
     slint::PhysicalSize size;
     esp_lcd_panel_handle_t panel_handle;
-    std::optional<esp_lcd_touch_handle_t> touch_handle;
+    esp_lcd_touch_handle_t touch_handle;
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1;
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2;
     bool color_swap_16;
@@ -127,7 +127,7 @@ void EspPlatform::run_event_loop()
 
     if (touch_handle) {
         if (esp_lcd_touch_register_interrupt_callback(
-                    *touch_handle, [](auto) { vTaskNotifyGiveFromISR(task, nullptr); })
+                    touch_handle, [](auto) { vTaskNotifyGiveFromISR(task, nullptr); })
             != ESP_OK) {
 
             // No touch interrupt assigned or supported? Fall back to polling like esp_lvgl_port.
@@ -179,11 +179,11 @@ void EspPlatform::run_event_loop()
                 uint8_t touchpad_cnt = 0;
 
                 /* Read touch controller data */
-                esp_lcd_touch_read_data(*touch_handle);
+                esp_lcd_touch_read_data(touch_handle);
 
                 /* Get coordinates */
                 bool touchpad_pressed = esp_lcd_touch_get_coordinates(
-                        *touch_handle, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
+                        touch_handle, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
 
                 if (touchpad_pressed && touchpad_cnt > 0) {
                     // ESP_LOGI(TAG, "x: %i, y: %i", touchpad_x[0], touchpad_y[0]);
@@ -328,7 +328,7 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
     SlintPlatformConfiguration config {
         .size = size,
         .panel = panel,
-        .touch = touch,
+        .touch = touch ? *touch : nullptr,
         .buffer1 = buffer1,
         .buffer2 = buffer2,
         // For compatibility with earlier versions of Slint, we compute the value of
@@ -345,7 +345,7 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
 {
     SlintPlatformConfiguration config { .size = size,
                                         .panel = panel,
-                                        .touch = touch,
+                                        .touch = touch ? *touch : nullptr,
                                         .buffer1 = std::nullopt,
                                         .buffer2 = std::nullopt,
                                         .rotation = rotation,

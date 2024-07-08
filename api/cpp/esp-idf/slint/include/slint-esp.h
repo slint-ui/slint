@@ -38,9 +38,9 @@ struct SlintPlatformConfiguration
     slint::PhysicalSize size;
     /// The handle to the display as previously initialized by `bsp_display_new` or
     /// `esp_lcd_panel_init`.
-    esp_lcd_panel_handle_t panel;
+    esp_lcd_panel_handle_t panel = nullptr;
     /// The touch screen handle, if the device is equipped with a touch screen.
-    std::optional<esp_lcd_touch_handle_t> touch;
+    esp_lcd_touch_handle_t touch = nullptr;
     /// The buffer Slint will render into. It must have have the size of at least one frame. Slint
     /// calls esp_lcd_panel_draw_bitmap to flush the buffer to the screen.
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1 = {};
