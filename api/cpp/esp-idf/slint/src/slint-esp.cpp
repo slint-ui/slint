@@ -22,8 +22,8 @@ struct EspPlatform : public slint::platform::Platform
 {
     EspPlatform(const SlintPlatformConfiguration &config)
         : size(config.size),
-          panel_handle(config.panel),
-          touch_handle(config.touch),
+          panel_handle(config.panel_handle),
+          touch_handle(config.touch_handle),
           buffer1(config.buffer1),
           buffer2(config.buffer2),
           color_swap_16(config.color_swap_16),
@@ -327,8 +327,8 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
 
     SlintPlatformConfiguration config {
         .size = size,
-        .panel = panel,
-        .touch = touch ? *touch : nullptr,
+        .panel_handle = panel,
+        .touch_handle = touch ? *touch : nullptr,
         .buffer1 = buffer1,
         .buffer2 = buffer2,
         // For compatibility with earlier versions of Slint, we compute the value of
@@ -344,8 +344,8 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     slint::platform::SoftwareRenderer::RenderingRotation rotation)
 {
     SlintPlatformConfiguration config { .size = size,
-                                        .panel = panel,
-                                        .touch = touch ? *touch : nullptr,
+                                        .panel_handle = panel,
+                                        .touch_handle = touch ? *touch : nullptr,
                                         .buffer1 = std::nullopt,
                                         .buffer2 = std::nullopt,
                                         .rotation = rotation,
