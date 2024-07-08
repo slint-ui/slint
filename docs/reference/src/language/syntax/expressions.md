@@ -20,7 +20,7 @@ export component Example {
 
 When `my-property` changes, the width changes automatically, too.
 
-Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
+Arithmetic in expression with numbers works like in most programming languages with the operators `*`, `+`, `-`, `/`:
 
 ```slint,no-preview
 export component Example {

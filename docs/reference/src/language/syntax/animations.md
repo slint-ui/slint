@@ -18,13 +18,13 @@ export component Example inherits Window {
 }
 ```
 
-This will animate the color property for 100ms whenever it changes.
+This will animate the color property for 250ms whenever it changes.
 
 Fine-tune animations using the following parameters:
 
 -   `delay`: the amount of time to wait before starting the animation
 -   `duration`: the amount of time it takes for the animation to complete
--   `iteration-count`: The number of times a animation should run. A negative value specifies
+-   `iteration-count`: The number of times an animation should run. A negative value specifies
     infinite reruns. Fractual values are possible.
     For permanently running animations, see [`animation-tick()`](../builtins/functions.md#animation-tick-duration).
 -   `easing`: can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
