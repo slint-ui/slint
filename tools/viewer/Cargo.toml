@@ -48,7 +48,7 @@ renderer-winit-software = ["renderer-software"]
 ## so that the viewer can find the translation
 gettext = ["i-slint-core/gettext-rs"]
 
-default = ["backend-default", "renderer-femtovg"]
+default = ["backend-default", "renderer-femtovg", "renderer-software"]
 
 [dependencies]
 i-slint-compiler = { workspace = true }
