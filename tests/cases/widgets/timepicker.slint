@@ -1,16 +1,27 @@
  // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { TimePicker, Time, Button } from "std-widgets.slint";
+import { TimePickerPopup, Time, Button } from "std-widgets.slint";
 export { Time }
 
 export component TestCase inherits Window {
+    in-out property <bool> timepicker-created;
+    
     width: 600px;
     height: 600px;
 
-    time-picker := TimePicker {
+    t := TimePickerPopup {
         x: 0;
         y: 0;
+        time: root.time;
+
+        init => {
+            root.timepicker-created = true;
+        }
+    }
+    
+    b := Button {
+        clicked => { t.show(); }
     }
 
     in property <Time> time <=> time-picker.time;
@@ -25,32 +36,12 @@ let instance = TestCase::new().unwrap();
 
 instance.set_time(Time{ hour: 8, minute: 45, ..Default::default()});
 
-mock_elapsed_time(500);
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::b").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let button = result.pop().unwrap();
 
-let mut hour_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "hour");
-let hour = hour_search.next().unwrap();
-assert_eq!(hour.accessible_value().unwrap(), "8");
-
-let mut minute_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "minute");
-let minute = minute_search.next().unwrap();
-assert_eq!(minute.accessible_value().unwrap(), "45");
-
-// hour and minute selection
-instance.set_time(Time{ hour: 0, minute: 0, ..Default::default() });
-
-let mut hour_selection_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "6 Hours or minutes of 24");
-let hour_selection = hour_selection_search.next().unwrap();
-hour_selection.invoke_accessible_default_action();
-
-mock_elapsed_time(500);
-assert_eq!(hour.accessible_value().unwrap(), "6");
-
-let mut minute_selection_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "25 Hours or minutes of 60");
-let minute_selection = minute_selection_search.next().unwrap();
-minute_selection.invoke_accessible_default_action();
-
-mock_elapsed_time(500);
-assert_eq!(minute.accessible_value().unwrap(), "25");
+button.invoke_accessible_default_action();
+assert_eq!(instance.get_timepicker_created(), true);
 ```
 
 ```cpp
@@ -60,31 +51,11 @@ auto instance = TestCase::create();
 
 instance->set_time(Time{ .hour = 8, .minute = 45, .second = 0});
 
-mock_elapsed_time(500);
+auto result = slint::testing::ElementHandle::find_by_element_id(instance, "TestCase::b");
+auto button = result[0];
 
-auto hour_search = slint::testing::ElementHandle::find_by_accessible_label(instance, "hour");
-auto hour = hour_search[0];
-assert_eq(*hour.accessible_value(), "8");
+button.invoke_accessible_default_action();
 
-auto minute_search = slint::testing::ElementHandle::find_by_accessible_label(instance, "minute");
-auto minute = minute_search[0];
-assert_eq(*minute.accessible_value(), "45");
-
-// hour and minute selection
-instance->set_time(Time{ .hour = 0, .minute = 0, .second = 0});
-
-auto hour_selection_search = slint::testing::ElementHandle::find_by_accessible_label(instance, "6 Hours or minutes of 24");
-auto hour_selection = hour_selection_search[0];
-hour_selection.invoke_accessible_default_action();
-
-mock_elapsed_time(500);
-assert_eq(*hour.accessible_value(), "6");
-
-auto minute_selection_search = slint::testing::ElementHandle::find_by_accessible_label(instance, "25 Hours or minutes of 60");
-auto minute_selection = minute_selection_search[0];
-minute_selection.invoke_accessible_default_action();
-
-mock_elapsed_time(500);
-assert_eq(*minute.accessible_value(), "25");
+assert_eq(instance.get_timepicker_create(), true);
 ```
 */

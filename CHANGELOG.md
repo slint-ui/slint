@@ -38,7 +38,7 @@ All notable changes to this project are documented in this file.
  - Fixed set current-index of ComboBox to -1 does not reset current-value
  - Fixed issue where the text of `SpinBox` is not updated after value is changed from outside
  - Added `step-size` to `SpinBox`
- - Added `TimePicker` and `DatePicker` widget.
+ - Added `TimePickerPopup` and `DatePickerPopup`.
  - Fixed accessible value and actions on ProgressIndicator, Spinner, Spinbox, CheckBox, Switch
 
 ### C++ API

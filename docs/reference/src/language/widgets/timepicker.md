@@ -18,8 +18,6 @@ Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/P
 
 -   **`use-24-hour-format`**: (_in_ _bool_): If set to `true` 24 hours are displayed otherwise it is displayed in AM/PM mode. (default: system default, if cannot be determined then `true`) 
 -   **`title`** (_in_ _string_): The text that is displayed at the top of the picker.
--   **`cancel-label`** (_in_ _string_): The text written in the cancel button.
--   **`ok-label`** (_in_ _string_): The text written in the ok button.
 -   **`time`**: (_in_ _Time_): Set the initial displayed time.
 
 ### Callbacks
@@ -30,7 +28,7 @@ Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/P
 ### Example
 
 ```slint
-import { TimePicker, Button } from "std-widgets.slint";
+import { TimePickerPopup, Button } from "std-widgets.slint";
 export component Example inherits Window {
     width: 600px;
     height: 600px;
@@ -43,20 +41,14 @@ export component Example inherits Window {
         }
     }
 
-    time-picker := PopupWindow {
-        width: 340px;
-        height: 500px;
-        close-on-click: false;
+    time-picker := TimePickerPopup {
+        canceled => {
+            time-picker.close();
+        }
 
-        TimePicker { 
-            canceled => {
-                time-picker.close();
-            }
-
-            accepted(time) => {
-                debug(time);
-                time-picker.close();
-            }
+        accepted(time) => {
+            debug(time);
+            time-picker.close();
         }
     }
 }

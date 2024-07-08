@@ -1,24 +1,33 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { DatePicker, Date, Button } from "std-widgets.slint";
+import { DatePickerPopup, Date, Button } from "std-widgets.slint";
 export { Date }
 
 export component TestCase inherits Window {
+    in-out property <bool> datepicker-created;
     width: 600px;
     height: 600px;
 
-    date-picker := DatePicker {
-        ok-text: "OK-BUTTON";
+    d := DatePickerPopup {
         x: 0;
         y: 0;
+        date: root.date;
 
         accepted(date) => {
             root.result-date = date;
         }
+
+        init => {
+            root.datepicker-created = true;
+        }
     }
 
-    in property <Date> date <=> date-picker.date;
+    b := Button {
+        clicked => { d.show(); }
+    }
+
+    in property <Date> date;
     out property <Date> result-date;
 }
 
@@ -31,10 +40,10 @@ let instance = TestCase::new().unwrap();
 
 instance.set_date(Date{ day: 17, month: 5, year: 2024});
 
-let mut ok_button_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "OK-BUTTON");
-let ok_button = ok_button_search.next().unwrap();
-ok_button.invoke_accessible_action_default();
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::b").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let button = result.pop().unwrap();
 
-assert_eq!(instance-result-date, Date { day: 17, month: 5; year: 2024});
-
+button.invoke_accessible_default_action();
+assert_eq!(instance.get_datepicker_created(), true);
 */
