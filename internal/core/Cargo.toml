@@ -67,7 +67,7 @@ once_cell = { version = "1.5", default-features = false, features = ["critical-s
 pin-project = "1"
 pin-weak = { version = "1.1", default-features = false }
 # Note: the rgb version is extracted in ci.yaml for rustdoc builds
-rgb = "0.8.27"
+rgb = "0.8.42"
 scoped-tls-hkt = { version = "0.1", optional = true }
 scopeguard =  { version = "1.1.0", default-features = false }
 slab = { version = "0.4.3", default-features = false }

@@ -91,7 +91,7 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
 
 impl<Pixel: Clone + rgb::Pod> SharedPixelBuffer<Pixel>
 where
-    [Pixel]: rgb::ComponentBytes<u8>,
+    [Pixel]: rgb::ComponentBytes<Pixel>,
 {
     /// Returns the pixels interpreted as raw bytes.
     pub fn as_bytes(&self) -> &[u8] {
