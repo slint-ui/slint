@@ -51,27 +51,33 @@ impl SlintImageData {
     /// Returns the image as buffer.
     /// A Buffer is a subclass of Uint8Array.
     #[napi(getter)]
-    pub fn data(&self) -> Buffer {
+    pub fn data(&self) -> napi::Result<Buffer> {
         let image_inner: &ImageInner = (&self.inner).into();
         if let Some(buffer) = image_inner.render_to_buffer(None) {
             match buffer {
                 SharedImageBuffer::RGB8(buffer) => {
-                    return Buffer::from(rgb_to_rgba(
+                    return Ok(Buffer::from(rgb_to_rgba(
                         buffer.as_bytes(),
                         (self.width() * self.height()) as usize,
-                    ))
+                    )))
                 }
-                SharedImageBuffer::RGBA8(buffer) => return Buffer::from(buffer.as_bytes()),
+                SharedImageBuffer::RGBA8(buffer) => return Ok(Buffer::from(buffer.as_bytes())),
                 SharedImageBuffer::RGBA8Premultiplied(buffer) => {
-                    return Buffer::from(rgb_to_rgba(
+                    return Ok(Buffer::from(rgb_to_rgba(
                         buffer.as_bytes(),
                         (self.width() * self.height()) as usize,
+                    )))
+                }
+                buf @ _ => {
+                    return Err(napi::Error::from_reason(
+                        format!("internal error in slint nodejs binding: attempting to convert an unsupported image format: {:#?}",
+                        buf)
                     ))
                 }
             }
         }
 
-        Buffer::from(vec![0; (self.width() * self.height() * 4) as usize])
+        Ok(Buffer::from(vec![0; (self.width() * self.height() * 4) as usize]))
     }
 
     #[napi(getter)]

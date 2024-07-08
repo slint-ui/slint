@@ -71,6 +71,10 @@ pub(crate) fn as_skia_image(
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
+                buf @ _ => {
+                    i_slint_core::debug_log!("internal error in slint skia renderer: attempting to convert an unsupported image format: {:#?}", buf);
+                    return None;
+                }
             };
 
             let image_info = skia_safe::ImageInfo::new(
@@ -166,6 +170,10 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
         ),
+        buf @ _ => {
+            i_slint_core::debug_log!("internal error in slint skia renderer: attempting to convert an unsupported image format: {:#?}", buf);
+            return None;
+        }
     };
     let image_info = skia_safe::ImageInfo::new(
         skia_safe::ISize::new(size.width as i32, size.height as i32),

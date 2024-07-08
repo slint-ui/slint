@@ -151,7 +151,7 @@ impl Texture {
             }
             _ => {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
-                let (image_source, flags) = image_buffer_to_image_source(&buffer);
+                let (image_source, flags) = image_buffer_to_image_source(&buffer)?;
                 canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()
             }
         };
@@ -233,8 +233,8 @@ impl TextureCache {
 
 fn image_buffer_to_image_source(
     buffer: &SharedImageBuffer,
-) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
-    match buffer {
+) -> Option<(femtovg::ImageSource<'_>, femtovg::ImageFlags)> {
+    Some(match buffer {
         SharedImageBuffer::RGB8(buffer) => (
             {
                 imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
@@ -256,5 +256,9 @@ fn image_buffer_to_image_source(
             },
             femtovg::ImageFlags::PREMULTIPLIED,
         ),
-    }
+        buf @ _ => {
+            i_slint_core::debug_log!("internal error in slint femtovg renderer: attempting to convert an unsupported image format: {:#?}", buf);
+            return None;
+        }
+    })
 }

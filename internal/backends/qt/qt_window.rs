@@ -1289,6 +1289,10 @@ fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::
         SharedImageBuffer::RGB8(img) => {
             (qttypes::ImageFormat::RGB888, img.width() * 3, img.as_bytes().as_ptr())
         }
+        buf @ _ => {
+            i_slint_core::debug_log!("internal error in slint qt backend: attempting to convert an unsupported image format: {:#?}", buf);
+            return None;
+        }
     };
     let width: i32 = buffer.width() as _;
     let height: i32 = buffer.height() as _;

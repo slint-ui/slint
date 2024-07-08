@@ -100,6 +100,10 @@ fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> 
                     .chain(std::iter::once(alpha as u8))
             })
             .collect(),
+        buf @ _ => {
+            i_slint_core::debug_log!("internal error in winit backend: attempting to convert an unsupported image format: {:#?}", buf);
+            return None;
+        }
     };
 
     winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
