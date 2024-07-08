@@ -165,6 +165,12 @@ impl PyStruct {
     }
 }
 
+impl From<slint_interpreter::Struct> for PyStruct {
+    fn from(data: slint_interpreter::Struct) -> Self {
+        Self { data }
+    }
+}
+
 #[pyclass(unsendable)]
 struct PyStructFieldIterator {
     inner: std::collections::hash_map::IntoIter<String, slint_interpreter::Value>,

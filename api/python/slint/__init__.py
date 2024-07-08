@@ -8,6 +8,7 @@ from . import slint as native
 import types
 import logging
 import importlib
+import copy
 from . import models
 
 
@@ -191,6 +192,23 @@ def _build_class(compdef):
     return type("SlintClassWrapper", (Component,), properties_and_callbacks)
 
 
+def _build_struct(name, struct_prototype):
+
+    def new_struct(cls, *args, **kwargs):
+        inst = copy.copy(struct_prototype)
+
+        for prop, val in kwargs.items():
+            setattr(inst, prop, val)
+
+        return inst
+
+    type_dict = {
+        "__new__": new_struct,
+    }
+
+    return type(name, (), type_dict)
+
+
 def load_file(path, quiet=False, style=None, include_paths=None, library_paths=None, translation_domain=None):
     compiler = native.Compiler()
 
@@ -222,6 +240,10 @@ def load_file(path, quiet=False, style=None, include_paths=None, library_paths=N
         wrapper_class = _build_class(result.component(comp_name))
 
         setattr(module, comp_name, wrapper_class)
+
+    for name, struct_or_enum_prototype in result.structs_and_enums.items():
+        struct_wrapper = _build_struct(name, struct_or_enum_prototype)
+        setattr(module, name, struct_wrapper)
 
     return module
 

@@ -844,6 +844,7 @@ pub async fn load(
         return CompilationResult {
             components: HashMap::new(),
             diagnostics: diag.into_iter().collect(),
+            structs_and_enums: Vec::new(),
         };
     }
 
@@ -873,7 +874,11 @@ pub async fn load(
         diag.push_error_with_span("No component found".into(), Default::default());
     };
 
-    CompilationResult { diagnostics: diag.into_iter().collect(), components }
+    CompilationResult {
+        diagnostics: diag.into_iter().collect(),
+        components,
+        structs_and_enums: doc.exposed_structs_and_enums(),
+    }
 }
 
 pub(crate) fn generate_item_tree<'id>(

@@ -12,13 +12,21 @@ def test_load_file(caplog):
 
     assert "The property 'color' has been deprecated. Please use 'background' instead" in caplog.text
 
-    assert len(list(module.__dict__.keys())) == 2
+    assert len(list(module.__dict__.keys())) == 3
     assert "App" in module.__dict__
     assert "Diag" in module.__dict__
+    assert "MyData" in module.__dict__
     instance = module.App()
     del instance
     instance = module.Diag()
     del instance
+
+    struct_instance = module.MyData()
+    struct_instance.name = "Test"
+    struct_instance.age = 42
+
+    struct_instance = module.MyData(name="testing")
+    assert struct_instance.name == "testing"
 
 
 def test_load_file_fail():
