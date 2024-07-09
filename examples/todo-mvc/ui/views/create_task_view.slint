@@ -34,6 +34,7 @@ export component CreateTaskView {
         HorizontalLayout {
             IconButton {
                 icon: Icons.close;
+                accessible-label: @tr("close");
 
                 clicked => {
                     root.reset();
@@ -72,7 +73,6 @@ export component CreateTaskView {
                 accessible-label: title-label.text;
             }
         }
-
 
         Text {
             text: @tr("Due date");

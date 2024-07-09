@@ -48,6 +48,7 @@ export component SelectionListViewItemDelegate {
         check-box := CheckBox {
             horizontal-stretch: 0;
             y: (parent.height - self.height) / 2;
+            accessible-label: @tr("selected");
             
             toggled => {
                 root.toggle();
@@ -72,11 +73,11 @@ export component SelectionListViewItemDelegate {
                 overflow: elide;
             }
         }     
-
            
         IconButton {
             y: (parent.height - self.height) / 2;
             icon: Icons.remove;
+            accessible-label: @tr("remove");
         
             clicked => {
                 root.remove();
@@ -90,6 +91,8 @@ export component SelectionListView inherits ListView {
 
     callback toggle(/* index */ int);
     callback remove(/* index */ int);
+
+    accessible-role: list;
 
     for item[index] in root.model : SelectionListViewItemDelegate {
         width: root.visible-width;

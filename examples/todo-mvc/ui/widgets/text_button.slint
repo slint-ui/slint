@@ -15,6 +15,10 @@ export component TextButton {
     min-width: content-layer.min-width;
     min-height: max(content-layer.min-height, SizeSettings.control-height);
 
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { touch-area.clicked(); }
+
     touch-area := FocusTouchArea {
         width: 100%;
         height: 100%;

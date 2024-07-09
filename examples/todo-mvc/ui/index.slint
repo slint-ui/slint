@@ -26,15 +26,18 @@ export component MainWindow inherits Window {
     preferred-height: 600px;
     title: "Slint todo mvc example";
 
-    layout := HorizontalLayout {
+    Rectangle {
         x: -(NavigationAdapter.current-page * root.width);
+        width: 2 * root.width;
 
-        TaskListView {
+        if self.x > -root.width : TaskListView {
+            x: 0;
             width: root.width;
             height: root.height;
         }
 
-        CreateTaskView {
+        if self.x < 0 : CreateTaskView {
+            x: root.width;
             width: root.width;
             height: root.height;
         }
