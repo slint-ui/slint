@@ -36,12 +36,10 @@ extern "C" void app_main(void)
         .max_transfer_sz = DRAW_BUF_SIZE * sizeof(uint16_t),
     };
     bsp_display_new(&bsp_disp_cfg, &panel_handle, &io_handle);
-#if defined(EXAMPLE_TARGET_S3_BOX)
     esp_lcd_touch_handle_t touch_handle = NULL;
+#if defined(EXAMPLE_TARGET_S3_BOX)
     const bsp_touch_config_t bsp_touch_cfg = {};
     bsp_touch_new(&bsp_touch_cfg, &touch_handle);
-#else
-    std::optional<esp_lcd_touch_handle_t> touch_handle;
 #endif
 
     /* Set display brightness to 100% */
