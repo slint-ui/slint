@@ -4,6 +4,7 @@
 import { CosmicFontSettings, CosmicPalette, Icons } from "styling.slint";
 import { MenuBorder, ListItem, StateLayerBase } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ListView } from "../common/listview.slint";
 
 export component ComboBox {
     in property <[string]> model <=> base.model;
@@ -13,6 +14,9 @@ export component ComboBox {
     in-out property <string> current-value <=> base.current-value;
 
     callback selected <=> base.selected;
+    
+    property <length> item-height: 40px;
+    property <length> popup-padding: 4px;
 
     min-width: max(160px, layout.min-height);
     min-height: max(32px, layout.min-height);
@@ -75,21 +79,26 @@ export component ComboBox {
             enabled: root.enabled;
         }
     }
-
+    
     popup := PopupWindow {
         x: 0;
+        // Position the popup so that the first element is over the popup.
+        // Ideally it should be so that the current element is over the popup.
         y: root.height + 4px;
         width: root.width;
+        height: base.popup-height(5, root.item-height) + 2 * root.popup-padding;
 
         MenuBorder {
-            VerticalLayout {
-                padding: 8px;
+            ListView {
+                width: parent.width - 2 * root.popup-padding;
+                height: parent.height - 2 * root.popup-padding;
 
                 for value[index] in root.model : ListItem {
                     item: { text: value };
                     is-selected: index == root.current-index;
                     has-hover: touch-area.has-hover;
                     pressed: touch-area.pressed;
+                    height: root.item-height;
 
                     touch-area := TouchArea {
                         clicked => {
@@ -100,4 +109,4 @@ export component ComboBox {
             }
         }
     }
-}
+ }
