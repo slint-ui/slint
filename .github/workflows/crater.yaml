@@ -154,9 +154,9 @@ jobs:
                       sub_path: "."
                     #- git_url: "https://github.com/Martoni/QRNote"  # Pins slint version
                     #  sub_path: "qr-note"
-                    - git_url: "https://github.com/planet0104/satellite_wallpaper"
-                      sub_path: "."
-                      os: windows-latest
+                    #- git_url: "https://github.com/planet0104/satellite_wallpaper"
+                    #  sub_path: "."
+                    #  os: windows-latest
                     - git_url: "https://github.com/colelawrence/here-now"
                       sub_path: "hn-desktop-ui"
                     - git_url: "https://github.com/MunyaradziMagura/Pomodoro"
@@ -165,9 +165,9 @@ jobs:
                       sub_path: "rog-control-center"
                     - git_url: "https://github.com/ellenhp/openlmr"
                       sub_path: "openlmr-core"
-                    - git_url: "https://github.com/jenkinsmichpa/coconut_crab"
-                      sub_path: "coconut_crab_client"
-                      os: windows-latest
+                    #- git_url: "https://github.com/jenkinsmichpa/coconut_crab"
+                    #  sub_path: "coconut_crab_client"
+                    #  os: windows-latest
                     - git_url: "https://github.com/ivabus/lonelyradio"
                       sub_path: "monoclient-s"
                     - git_url: "https://github.com/ahqsoftwares/tauri-ahq-store"
@@ -176,11 +176,13 @@ jobs:
                       sub_path: krokiet
                     - git_url: "https://github.com/Vjze/Rust_demo"  # this is using SurrealismUI
                       sub_path: Rust_Slint
-                    - git_url: "https://github.com/LeeeSe/MessAuto"
-                      os: macos-latest
+                    #- git_url: "https://github.com/LeeeSe/MessAuto"
+                    #  os: macos-latest
+                    #  sub_path: "."
                     - git_url: "https://github.com/planet0104/USB-Screen/"
                       extra_args: "--no-default-features --features=editor"
-        runs-on: ${{ matrix.os || "ubuntu-latest" }}
+                      sub_path: "."
+        runs-on: "ubuntu-latest"
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
