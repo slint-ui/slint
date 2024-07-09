@@ -248,17 +248,67 @@ impl PhysicalRegion {
 
     /// Returns an iterator over the rectangles in this region.
     /// Each rectangle is represented by its position and its size.
+    /// They do not overlap.
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = (crate::api::PhysicalPosition, crate::api::PhysicalSize)> + '_ {
-        self.iter_box().map(|r| {
-            let r = r.to_rect();
-            (
-                crate::api::PhysicalPosition { x: r.origin.x as _, y: r.origin.y as _ },
-                crate::api::PhysicalSize { width: r.width() as _, height: r.height() as _ },
-            )
+        let mut line_ranges = Vec::<core::ops::Range<i16>>::new();
+        let mut begin_line = 0;
+        let mut end_line = 0;
+        core::iter::from_fn(move || loop {
+            match line_ranges.pop() {
+                Some(r) => {
+                    return Some((
+                        crate::api::PhysicalPosition { x: r.start as _, y: begin_line as _ },
+                        crate::api::PhysicalSize {
+                            width: r.len() as _,
+                            height: (end_line - begin_line) as _,
+                        },
+                    ));
+                }
+                None => {
+                    begin_line = end_line;
+                    end_line = match region_line_ranges(self, begin_line, &mut line_ranges) {
+                        Some(end_line) => end_line,
+                        None => return None,
+                    };
+                    line_ranges.reverse();
+                }
+            }
         })
     }
+}
+
+#[test]
+fn region_iter() {
+    let mut region = PhysicalRegion::default();
+    assert_eq!(region.iter().next(), None);
+    region.rectangles[0] =
+        euclid::Box2D::from_origin_and_size(euclid::point2(1, 1), euclid::size2(2, 3));
+    region.rectangles[1] =
+        euclid::Box2D::from_origin_and_size(euclid::point2(6, 2), euclid::size2(3, 20));
+    region.rectangles[2] =
+        euclid::Box2D::from_origin_and_size(euclid::point2(0, 10), euclid::size2(10, 5));
+    assert_eq!(region.iter().next(), None);
+    region.count = 1;
+    let r = |x, y, width, height| {
+        (crate::api::PhysicalPosition { x, y }, crate::api::PhysicalSize { width, height })
+    };
+
+    let mut iter = region.iter();
+    assert_eq!(iter.next(), Some(r(1, 1, 2, 3)));
+    assert_eq!(iter.next(), None);
+    drop(iter);
+
+    region.count = 3;
+    let mut iter = region.iter();
+    assert_eq!(iter.next(), Some(r(1, 1, 2, 1))); // the two first rectangle could have been merged
+    assert_eq!(iter.next(), Some(r(1, 2, 2, 2)));
+    assert_eq!(iter.next(), Some(r(6, 2, 3, 2)));
+    assert_eq!(iter.next(), Some(r(6, 4, 3, 6)));
+    assert_eq!(iter.next(), Some(r(0, 10, 10, 5)));
+    assert_eq!(iter.next(), Some(r(6, 15, 3, 7)));
+    assert_eq!(iter.next(), None);
 }
 
 /// Computes what are the x ranges that intersects the region for specified y line.
