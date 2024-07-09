@@ -18,12 +18,10 @@ export component TimePickerPopup inherits PopupWindow {
 
     callback canceled();
     callback accepted(/* current-time */ Time);
-    
-    width: 340px;
-    height: 500px;
+
     close-on-click: false;
 
-    background-layer := MenuBorder { 
+    background-layer := MenuBorder {
         width: dialog.width;
         height: dialog.height;
     }
@@ -75,7 +73,7 @@ export component TimePickerPopup inherits PopupWindow {
                 },
             };
         }
- 
+
         Button {
             icon: base.selection-mode ? Icons.keyboard : Icons.clock;
             colorize-icon: true;
@@ -86,7 +84,7 @@ export component TimePickerPopup inherits PopupWindow {
                 base.selection-mode = !base.selection-mode;
             }
         }
-        
+
         StandardButton {
             kind: cancel;
 

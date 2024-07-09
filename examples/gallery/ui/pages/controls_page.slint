@@ -229,17 +229,12 @@ export component ControlsPage inherits Page {
     }
 
     time-picker := TimePickerPopup {
-        x: (root.width - 340px) / 2;
-        y: (root.height - 500px) / 2;
-        width: 340px;
-        height: 500px;
-        
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
     }
 
     date-picker := DatePickerPopup {
-        x: (root.width - 360px) / 2;
-        y: (root.height - 360px) / 2;
-        width: 360px;
-        height: 524px;       
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
     }
 }
