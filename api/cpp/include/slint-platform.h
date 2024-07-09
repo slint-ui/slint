@@ -590,6 +590,7 @@ public:
         }
 
         /// Returns a view on all the rectangles in this region.
+        /// The rectangles do not overlap.
         /// The returned type is a C++ view over PhysicalRegion::Rect structs.
         ///
         /// It can be used like so:
@@ -600,14 +601,27 @@ public:
         /// ```
         auto rectangles() const
         {
-            return std::views::counted(inner.rectangles, inner.count)
-                    | std::views::transform([](const auto &box) {
-                          return Rect {
-                              .origin = PhysicalPosition({ .x = box.min.x, .y = box.min.y }),
-                              .size = PhysicalSize({ .width = uint32_t(box.max.x - box.min.x),
-                                                     .height = uint32_t(box.max.y - box.min.y) })
-                          };
-                      });
+            SharedVector<cbindgen_private::IntRect> rectangles;
+            slint_software_renderer_region_to_rects(&inner, &rectangles);
+#    if __cpp_lib_ranges >= 202110L // DR20 P2415R2
+            using std::ranges::owning_view;
+#    else
+            struct owning_view : std::ranges::view_interface<owning_view>
+            {
+                SharedVector<cbindgen_private::IntRect> rectangles;
+                owning_view(SharedVector<cbindgen_private::IntRect> &&rectangles)
+                    : rectangles(rectangles)
+                {
+                }
+                auto begin() const { return rectangles.begin(); }
+                auto end() const { return rectangles.end(); }
+            };
+#    endif
+            return owning_view(std::move(rectangles)) | std::views::transform([](const auto &r) {
+                       return Rect { .origin = PhysicalPosition({ .x = r.x, .y = r.y }),
+                                     .size = PhysicalSize({ .width = uint32_t(r.width),
+                                                            .height = uint32_t(r.height) }) };
+                   });
         }
 
         /// A Rectangle defined with an origin and a size.
