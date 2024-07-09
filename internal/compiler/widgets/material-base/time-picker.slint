@@ -17,10 +17,8 @@ export component TimePickerPopup inherits PopupWindow {
     callback canceled();
     callback accepted(/* current-time */ Time);
 
-    width: 340px;
-    height: 500px;
     close-on-click: false;
-   
+
     background-layer := Rectangle {
         width: dialog.width;
         height: dialog.height;
@@ -30,7 +28,7 @@ export component TimePickerPopup inherits PopupWindow {
 
     dialog := Dialog {
         padding: 8px;
-        
+
         base := TimePickerBase {
             title: root.title;
             style: {
@@ -76,7 +74,6 @@ export component TimePickerPopup inherits PopupWindow {
             };
         }
 
-        
         IconButton {
             icon: base.selection-mode ? Icons.keyboard : Icons.clock;
             accessible-label: "Toggle input picker";
@@ -86,7 +83,7 @@ export component TimePickerPopup inherits PopupWindow {
                 base.selection-mode = !base.selection-mode;
             }
         }
-        
+
         TextButton {
             text: @tr("Cancel");
             dialog-button-role: reject;

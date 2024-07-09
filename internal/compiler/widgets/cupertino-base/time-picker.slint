@@ -17,12 +17,10 @@ export component TimePickerPopup inherits PopupWindow {
 
     callback canceled();
     callback accepted(/* current-time */ Time);
-    
-    width: 340px;
-    height: 500px;
+
     close-on-click: false;
 
-    background-layer := MenuBorder { 
+    background-layer := MenuBorder {
         width: dialog.width;
         height: dialog.height;
     }
@@ -68,9 +66,9 @@ export component TimePickerPopup inherits PopupWindow {
                     }
                 },
                 title-style: {
-                      font-size: CupertinoFontSettings.body.font-size,
-                      font-weight: CupertinoFontSettings.body.font-weight,
-                      foreground: CupertinoPalette.foreground,
+                    font-size: CupertinoFontSettings.body.font-size,
+                    font-weight: CupertinoFontSettings.body.font-weight,
+                    foreground: CupertinoPalette.foreground,
                 },
             };
         }
