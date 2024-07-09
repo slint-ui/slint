@@ -118,6 +118,18 @@ pub fn count_property_use(root: &CompilationUnit) {
             visit_property(p, ctx);
             e.visit_recursive(&mut |e| visit_expression(e, ctx));
         }
+
+        // 10. popup x/y coordinates
+        for popup in &sc.popup_windows {
+            let popup_ctx = EvaluationContext::new_sub_component(
+                root,
+                &popup.item_tree.root,
+                (),
+                Some(ParentCtx::new(&ctx, None)),
+            );
+            visit_property(&popup.x_prop, &popup_ctx);
+            visit_property(&popup.y_prop, &popup_ctx);
+        }
     });
 
     // TODO: only visit used function

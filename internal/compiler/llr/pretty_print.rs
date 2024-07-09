@@ -109,7 +109,7 @@ impl<'a> PrettyPrinter<'a> {
         }
         for w in &sc.popup_windows {
             self.indent()?;
-            self.print_component(root, &w.root, Some(ParentCtx::new(&ctx, None)))?
+            self.print_component(root, &w.item_tree.root, Some(ParentCtx::new(&ctx, None)))?
         }
         self.indentation -= 1;
         self.indent()?;

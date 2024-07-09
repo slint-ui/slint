@@ -2234,7 +2234,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 /// Show the popup at the given location
 pub fn show_popup(
     popup: &object_tree::PopupWindow,
-    pos: i_slint_core::graphics::Point,
+    pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> i_slint_core::graphics::Point,
     close_on_click: bool,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
@@ -2251,6 +2251,13 @@ pub fn show_popup(
         Default::default(),
     );
     inst.run_setup_code();
+
+    let pos = {
+        generativity::make_guard!(guard);
+        let compo_box = inst.unerase(guard);
+        let instance_ref = compo_box.borrow_instance();
+        pos_getter(instance_ref)
+    };
     WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst),
         pos,

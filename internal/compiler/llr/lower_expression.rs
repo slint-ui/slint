@@ -370,8 +370,6 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
             .enumerate()
             .find(|(_, p)| Rc::ptr_eq(&p.component, &pop_comp))
             .unwrap();
-        let x = llr_Expression::PropertyReference(ctx.map_property_reference(&popup.x));
-        let y = llr_Expression::PropertyReference(ctx.map_property_reference(&popup.y));
         let item_ref = lower_expression(
             &tree_Expression::ElementReference(Rc::downgrade(&popup.parent_element)),
             ctx,
@@ -380,8 +378,6 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
             function: BuiltinFunction::ShowPopupWindow,
             arguments: vec![
                 llr_Expression::NumberLiteral(popup_index as _),
-                x,
-                y,
                 llr_Expression::BoolLiteral(popup.close_on_click),
                 item_ref,
             ],

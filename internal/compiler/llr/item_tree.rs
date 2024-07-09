@@ -240,7 +240,7 @@ pub struct SubComponent {
     pub items: Vec<Item>,
     pub repeated: Vec<RepeatedElement>,
     pub component_containers: Vec<ComponentContainerElement>,
-    pub popup_windows: Vec<ItemTree>,
+    pub popup_windows: Vec<PopupWindow>,
     pub sub_components: Vec<SubComponentInstance>,
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.
@@ -266,6 +266,13 @@ pub struct SubComponent {
     pub element_infos: BTreeMap<u32, String>,
 
     pub prop_analysis: HashMap<PropertyReference, PropAnalysis>,
+}
+
+#[derive(Debug)]
+pub struct PopupWindow {
+    pub item_tree: ItemTree,
+    pub x_prop: PropertyReference,
+    pub y_prop: PropertyReference,
 }
 
 #[derive(Debug, Clone)]
@@ -363,8 +370,13 @@ impl CompilationUnit {
                     Some(ParentCtx::new(&ctx, Some(idx as u32))),
                 );
             }
-            for x in &c.popup_windows {
-                visit_component(root, &x.root, visitor, Some(ParentCtx::new(&ctx, None)));
+            for popup in &c.popup_windows {
+                visit_component(
+                    root,
+                    &popup.item_tree.root,
+                    visitor,
+                    Some(ParentCtx::new(&ctx, None)),
+                );
             }
         }
         for c in &self.sub_components {

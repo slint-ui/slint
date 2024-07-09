@@ -587,18 +587,6 @@ fn call_builtin_function(
                 let popup_list = parent_component.popup_windows.borrow();
                 let popup =
                     popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
-                let x = load_property_helper(
-                    local_context.component_instance,
-                    &popup.x.element(),
-                    popup.x.name(),
-                )
-                .unwrap();
-                let y = load_property_helper(
-                    local_context.component_instance,
-                    &popup.y.element(),
-                    popup.y.name(),
-                )
-                .unwrap();
 
                 generativity::make_guard!(guard);
                 let enclosing_component =
@@ -614,10 +602,17 @@ fn call_builtin_function(
 
                 crate::dynamic_item_tree::show_popup(
                     popup,
-                    i_slint_core::graphics::Point::new(
-                        x.try_into().unwrap(),
-                        y.try_into().unwrap(),
-                    ),
+                    |instance_ref| {
+                        let comp = ComponentInstance::InstanceRef(instance_ref);
+                        let x =
+                            load_property_helper(comp, &popup.x.element(), popup.x.name()).unwrap();
+                        let y =
+                            load_property_helper(comp, &popup.y.element(), popup.y.name()).unwrap();
+                        i_slint_core::graphics::Point::new(
+                            x.try_into().unwrap(),
+                            y.try_into().unwrap(),
+                        )
+                    },
                     popup.close_on_click,
                     component.self_weak().get().unwrap().clone(),
                     component.window_adapter(),

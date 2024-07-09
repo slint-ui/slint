@@ -641,7 +641,9 @@ fn generate_sub_component(
     let mut extra_components = component
         .popup_windows
         .iter()
-        .map(|c| generate_item_tree(c, root, Some(ParentCtx::new(&ctx, None)), None))
+        .map(|popup| {
+            generate_item_tree(&popup.item_tree, root, Some(ParentCtx::new(&ctx, None)), None)
+        })
         .collect::<Vec<_>>();
 
     let mut declared_property_vars = vec![];
@@ -2450,7 +2452,7 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [Expression::NumberLiteral(popup_index), x, y, close_on_click, Expression::PropertyReference(parent_ref)] =
+            if let [Expression::NumberLiteral(popup_index), close_on_click, Expression::PropertyReference(parent_ref)] =
                 arguments
             {
                 let mut parent_ctx = ctx;
@@ -2463,26 +2465,42 @@ fn compile_builtin_function_call(
                     }
                 }
                 let current_sub_component = parent_ctx.current_sub_component.unwrap();
-                let popup_window_id = inner_component_id(
-                    &current_sub_component.popup_windows[*popup_index as usize].root,
-                );
+                let popup = &current_sub_component.popup_windows[*popup_index as usize];
+                let popup_window_id = inner_component_id(&popup.item_tree.root);
                 let parent_component = access_item_rc(parent_ref, ctx);
-                let x = compile_expression(x, ctx);
-                let y = compile_expression(y, ctx);
+
+                let popup_ctx = EvaluationContext::new_sub_component(
+                    ctx.compilation_unit,
+                    &popup.item_tree.root,
+                    RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                    Some(ParentCtx::new(&ctx, None)),
+                );
+                let x = primitive_property_value(
+                    &Type::LogicalLength,
+                    access_member(&popup.x_prop, &popup_ctx),
+                );
+                let y = primitive_property_value(
+                    &Type::LogicalLength,
+                    access_member(&popup.y_prop, &popup_ctx),
+                );
+
                 let close_on_click = compile_expression(close_on_click, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(
+                quote!({
+                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
+                    let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
+                    #popup_window_id::user_init(popup_instance_vrc.clone());
+                    let x = { let _self = popup_instance_vrc.as_pin_ref(); #x };
+                    let y = { let _self = popup_instance_vrc.as_pin_ref(); #y };
                     sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                         &sp::VRc::into_dyn({
-                            let instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
-                            #popup_window_id::user_init(sp::VRc::map(instance.clone(), |x| x));
-                            instance.into()
+                            popup_instance.into()
                         }),
-                        sp::Point::new(#x as sp::Coord, #y as sp::Coord),
+                        sp::Point::new(x as sp::Coord, y as sp::Coord),
                         #close_on_click,
                         #parent_component
                     )
-                )
+                })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
             }

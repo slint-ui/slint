@@ -122,8 +122,8 @@ fn lower_popup_window(
 
     // Generate a x and y property, relative to the window coordinate
     // FIXME: this is a hack that doesn't always work, perhaps should we store an item ref or something
-    let coord_x = create_coordinate(&popup_comp, parent_element, "x");
-    let coord_y = create_coordinate(&popup_comp, parent_element, "y");
+    let coord_x = create_coordinate(&popup_comp.root_element, "x");
+    let coord_y = create_coordinate(&popup_comp.root_element, "y");
 
     // Throw error when accessing the popup from outside
     // FIXME:
@@ -150,26 +150,16 @@ fn lower_popup_window(
     });
 }
 
-fn create_coordinate(
-    popup_comp: &Rc<Component>,
-    parent_element: &ElementRc,
-    coord: &str,
-) -> NamedReference {
-    let expression = popup_comp
-        .root_element
-        .borrow_mut()
+fn create_coordinate(popup_root_element: &ElementRc, coord: &str) -> NamedReference {
+    let mut elem = popup_root_element.borrow_mut();
+    let expression = elem
         .bindings
         .remove(coord)
         .map(|e| e.into_inner().expression)
         .unwrap_or(Expression::NumberLiteral(0., crate::expression_tree::Unit::Phx));
-    let property_name = format!("{}-popup-{}", popup_comp.root_element.borrow().id, coord);
-    parent_element
-        .borrow_mut()
-        .property_declarations
-        .insert(property_name.clone(), Type::LogicalLength.into());
-    parent_element
-        .borrow_mut()
-        .bindings
-        .insert(property_name.clone(), RefCell::new(expression.into()));
-    NamedReference::new(parent_element, &property_name)
+    let property_name = format!("{}-popup-{}", elem.id, coord);
+    elem.property_declarations.insert(property_name.clone(), Type::LogicalLength.into());
+    elem.bindings.insert(property_name.clone(), RefCell::new(expression.into()));
+    drop(elem);
+    NamedReference::new(popup_root_element, &property_name)
 }
