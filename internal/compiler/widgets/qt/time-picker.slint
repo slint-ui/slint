@@ -10,7 +10,7 @@ import { StandardButton } from "../common/standardbutton.slint";
 
 export { Time }
 
-export component DatePickerPopup inherits PopupWindow {
+export component TimePickerPopup inherits PopupWindow {
     in property <bool> use-24-hour-format <=> base.use-24-hour-format;
     in property <string> title: "Select time";
     in property <Time> time <=> base.time;
@@ -87,7 +87,7 @@ export component DatePickerPopup inherits PopupWindow {
                 base.selection-mode = !base.selection-mode;
             }
         }
-        
+
         StandardButton {
             kind: cancel;
 

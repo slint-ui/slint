@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Date, Time, LineEdit, TimePicker, DatePicker, VerticalBox, Button } from "std-widgets.slint";
+import { Date, Time, LineEdit, TimePickerPopup, DatePickerPopup, VerticalBox, Button } from "std-widgets.slint";
 import { IconButton } from "../widgets/icon_button.slint";
 import { TextButton } from "../widgets/text_button.slint";
 import { Icons, FontSettings, TodoPalette, SpaceSettings } from "../widgets/styling.slint";
@@ -108,41 +108,25 @@ export component CreateTaskView {
         Rectangle {}
     }
 
-     date-picker := PopupWindow {
+     date-picker := DatePickerPopup {
         x: (root.width - 360px) / 2;
         y: (root.height - 524px) / 2;
         width: 360px;
         height: 524px;
-        close-on-click: false;
 
-        DatePicker {
-            canceled => {
-                date-picker.close();
-            }
-
-            accepted(date) => {
-                CreateTaskAdapter.due-date = date;
-                date-picker.close();
-            }
+        accepted(date) => {
+            CreateTaskAdapter.due-date = date;
         }
     }
 
-    time-picker := PopupWindow {
+    time-picker := TimePickerPopup {
         x: (root.width - 340px) / 2;
         y: (root.height - 500px) / 2;
         width: 340px;
         height: 500px;
-        close-on-click: false;
 
-        TimePicker {
-            canceled => {
-                time-picker.close();
-            }
-
-            accepted(time) => {
-                CreateTaskAdapter.due-time = time;
-                time-picker.close();
-            }
+        accepted(time) => {
+            CreateTaskAdapter.due-time = time;
         }
     }
 

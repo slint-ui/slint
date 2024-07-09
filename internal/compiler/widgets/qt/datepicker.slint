@@ -19,22 +19,22 @@ export component DatePickerPopup inherits PopupWindow  {
     callback canceled();
     callback accepted(/* current-date */ Date);
 
-    min-width: content-layer.min-width;
-    min-height: content-layer.min-height;
+    width: 360px;
+    height: 524px;
+    close-on-click: false;
 
     background-layer := Rectangle {
         border-radius: 8px;
         background: Palette.control-background;
+        width: dialog.width;
+        height: dialog.height;
     }
 
-    Dialog {
-        padding: 0;
-        
+    dialog := Dialog {
+        padding: 8px;
+
         base := DatePickerBase {
             title: root.title;
-            input-title: root.input-title;
-            input-placeholder-text: root.input-placeholder-text;
-            input-format: root.input-format;
             style: {
                   border-brush: Palette.border,
                   vertical-spacing: 8px,

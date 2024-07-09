@@ -6,7 +6,7 @@ export { Time }
 
 export component TestCase inherits Window {
     in-out property <bool> timepicker-created;
-    
+
     width: 600px;
     height: 600px;
 
@@ -19,19 +19,17 @@ export component TestCase inherits Window {
             root.timepicker-created = true;
         }
     }
-    
+
     b := Button {
         clicked => { t.show(); }
     }
 
-    in property <Time> time <=> time-picker.time;
+    in property <Time> time;
 }
 
 /*
 
 ```rust
-use i_slint_backend_testing::mock_elapsed_time;
-
 let instance = TestCase::new().unwrap();
 
 instance.set_time(Time{ hour: 8, minute: 45, ..Default::default()});
@@ -56,6 +54,6 @@ auto button = result[0];
 
 button.invoke_accessible_default_action();
 
-assert_eq(instance.get_timepicker_create(), true);
+assert_eq(instance.get_timepicker_created(), true);
 ```
 */
