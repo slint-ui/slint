@@ -82,12 +82,11 @@ export component PropertyEditor inherits SideBarElement {
                         complexity-icon := TouchArea {
                             width: complexity-icon-icon.width;
 
-                            complexity-icon-icon := Text {
+                            complexity-icon-icon := Image {
                                 width: self.preferred-width;
-                                vertical-alignment: center;
-                                color: property-row.text-foreground;
+                                colorize: property-row.is-simple ? Palette.foreground.transparentize(0.7) : Palette.foreground;
 
-                                text: property-row.is-simple ? "S" : "K";
+                                source: @image-url("assets/function.svg");
                             }
 
                             clicked() => { property-row.force-to-complex = !property-row.force-to-complex; }
