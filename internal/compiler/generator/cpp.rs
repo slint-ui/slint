@@ -1082,7 +1082,7 @@ fn generate_public_component(
             add_friends(friends, &repeater.sub_tree.root, false)
         }
         for popup in &sc.popup_windows {
-            add_friends(friends, &popup.root, false)
+            add_friends(friends, &popup.item_tree.root, false)
         }
     }
 
@@ -1650,12 +1650,12 @@ fn generate_sub_component(
         parent_ctx,
     );
 
-    component.popup_windows.iter().for_each(|c| {
-        let component_id = ident(&c.root.name);
+    component.popup_windows.iter().for_each(|popup| {
+        let component_id = ident(&popup.item_tree.root.name);
         let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
         generate_item_tree(
             &mut popup_struct,
-            c,
+            &popup.item_tree,
             root,
             Some(ParentCtx::new(&ctx, None)),
             component_id,
@@ -3304,7 +3304,7 @@ fn compile_builtin_function_call(
             format!("{}.text_input_focused()", access_window_field(ctx))
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [llr::Expression::NumberLiteral(popup_index), x, y, close_on_click, llr::Expression::PropertyReference(parent_ref)] =
+            if let [llr::Expression::NumberLiteral(popup_index), close_on_click, llr::Expression::PropertyReference(parent_ref)] =
                 arguments
             {
                 let mut parent_ctx = ctx;
@@ -3319,14 +3319,24 @@ fn compile_builtin_function_call(
 
                 let window = access_window_field(ctx);
                 let current_sub_component = parent_ctx.current_sub_component.unwrap();
+                let popup = &current_sub_component.popup_windows[*popup_index as usize];
                 let popup_window_id =
-                    ident(&current_sub_component.popup_windows[*popup_index as usize].root.name);
+                    ident(&popup.item_tree.root.name);
                 let parent_component = access_item_rc(parent_ref, ctx);
-                let x = compile_expression(x, ctx);
-                let y = compile_expression(y, ctx);
+
+                let popup_ctx = EvaluationContext::new_sub_component(
+                    ctx.compilation_unit,
+                    &popup.item_tree.root,
+                    CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
+                    Some(ParentCtx::new(&ctx, None)),
+                );
+
+                let x = access_member(&popup.x_prop, &popup_ctx);
+                let y = access_member(&popup.y_prop, &popup_ctx);
+
                 let close_on_click = compile_expression(close_on_click, ctx);
                 format!(
-                    "{window}.show_popup<{popup_window_id}>({component_access}, {{ static_cast<float>({x}), static_cast<float>({y}) }}, {close_on_click}, {{ {parent_component} }})"
+                    "{window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {x}.get(); }}, [=](auto self) {{ return {y}.get(); }}, {close_on_click}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)

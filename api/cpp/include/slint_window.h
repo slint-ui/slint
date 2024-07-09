@@ -105,12 +105,14 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    template<typename Component, typename Parent>
-    void show_popup(const Parent *parent_component, cbindgen_private::Point p, bool close_on_click,
-                    cbindgen_private::ItemRc parent_item) const
+    template<typename Component, typename Parent, typename XGetter, typename YGetter>
+    void show_popup(const Parent *parent_component, XGetter x_getter, YGetter y_getter,
+                    bool close_on_click, cbindgen_private::ItemRc parent_item) const
     {
-        auto popup = Component::create(parent_component).into_dyn();
-        cbindgen_private::slint_windowrc_show_popup(&inner, &popup, p, close_on_click,
+        auto popup = Component::create(parent_component);
+        cbindgen_private::Point p { x_getter(popup), y_getter(popup) };
+        auto popup_dyn = popup.into_dyn();
+        cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_on_click,
                                                     &parent_item);
     }
 

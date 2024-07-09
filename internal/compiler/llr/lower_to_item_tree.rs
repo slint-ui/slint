@@ -4,11 +4,12 @@
 use by_address::ByAddress;
 
 use super::lower_expression::ExpressionContext;
+use super::PopupWindow as llr_PopupWindow;
 use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, ElementRc, PropertyAnalysis, PropertyVisibility};
+use crate::object_tree::{Component, ElementRc, PopupWindow, PropertyAnalysis, PropertyVisibility};
 use crate::CompilerConfiguration;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -443,7 +444,7 @@ fn lower_sub_component(
         .popup_windows
         .borrow()
         .iter()
-        .map(|popup| lower_popup_component(&popup.component, &ctx, &compiler_config))
+        .map(|popup| lower_popup_component(&popup, &ctx, &compiler_config))
         .collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
@@ -644,16 +645,17 @@ fn lower_component_container(
 }
 
 fn lower_popup_component(
-    component: &Rc<Component>,
+    popup: &PopupWindow,
     ctx: &ExpressionContext,
     compiler_config: &CompilerConfiguration,
-) -> ItemTree {
-    let sc = lower_sub_component(component, ctx.state, Some(ctx), compiler_config);
-    ItemTree {
-        tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
+) -> llr_PopupWindow {
+    let sc = lower_sub_component(&popup.component, ctx.state, Some(ctx), compiler_config);
+    let item_tree = ItemTree {
+        tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: Rc::try_unwrap(sc.sub_component).unwrap(),
         parent_context: Some(
-            component
+            popup
+                .component
                 .parent_element
                 .upgrade()
                 .unwrap()
@@ -664,6 +666,12 @@ fn lower_popup_component(
                 .id
                 .clone(),
         ),
+    };
+
+    llr_PopupWindow {
+        item_tree,
+        x_prop: sc.mapping.map_property_reference(&popup.x, ctx.state),
+        y_prop: sc.mapping.map_property_reference(&popup.y, ctx.state),
     }
 }
 

@@ -14,10 +14,12 @@ export component TestCase {
     out property <length> last-underneath-mouse-y: ta.mouse-y;
 
     context-menu := PopupWindow {
-        x: 10px;
+        x: self.popup-center;
         y: 10px;
         width: parent.width - 20px;
         height: parent.height - 20px;
+
+        property <length> popup-center: 10px;
 
         Rectangle {
             border-width: 2px;
