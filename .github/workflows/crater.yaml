@@ -33,7 +33,7 @@ jobs:
                     - "https://github.com/bjorn/raccoin"
                     - "https://gitlab.com/floers/ordinary"
                     - "https://github.com/parchlinux/parch-welcome/"
-                    - "https://github.com/boclair/fractal-explorer"
+                    #- "https://github.com/boclair/fractal-explorer"  # RE-ENABLE WHEN https://github.com/arturoc/color-rs/pull/2 is released
                     - "https://github.com/arunpkio/tymoz"
                     - "https://github.com/Surrealism-All/surrealism-ui-template"
 
@@ -47,12 +47,12 @@ jobs:
                     - "https://github.com/zzq0097/mmm_rs"
                     - "https://github.com/aka-deVOID/blog"
                     - "https://github.com/CMahaff/lasim" # many stars
-                    - "https://github.com/spades9/image-tools"
+                    #- "https://github.com/spades9/image-tools"  # compile error
                     - "https://github.com/studylessshape/calculator-by-rs"
                     - "https://github.com/gleb-skobinsky/system-metrics"
                     - "https://github.com/AccAutomaton/ECJTU-CAN-Helper"
                     - "https://github.com/Vadoola/pv-unlocker"
-                    - "https://github.com/zzoe/liando"
+                    #- "https://github.com/zzoe/liando" # compile error in zstd-safe https://github.com/gyscos/zstd-rs/issues/270
                     - "https://github.com/Knowit-Objectnet/infoskjerm-trondheim"
                     - "https://github.com/CaleGlisson/Zelda_pattern_rust"
                     - "https://github.com/dweiss96/rf2_league_mod_tool"
@@ -63,7 +63,6 @@ jobs:
 
                     - "https://github.com/lechos22/p2ptun"
                     - "https://github.com/ChronosWS/asma"
-                    - "https://github.com/LeeeSe/MessAuto"
                     - "https://github.com/jpnurmi/jpos-weather"
                     #- "https://github.com/osp-project/RizPackageTools" 404
                     - "https://github.com/xenein/CountMeDown-rs"
@@ -74,16 +73,16 @@ jobs:
                     - "https://github.com/Heng30/rssbox"
                     - "https://github.com/Heng30/rssbox-android"
                     - "https://github.com/Heng30/uibox"
-                    - "https://github.com/Heng30/bitbox"
+                    #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     - "https://github.com/Heng30/solana-wallet-sollet"
                     - "https://github.com/Heng30/vtbox"
                     - "https://github.com/ilmai/plugin-things"
                     - "https://github.com/Risuleia/Tranquilo"
                     - "https://github.com/hambooooo/hamboo-rs"
                     - "https://github.com/hambooooo/hamboo-embassy"
-                    - "https://github.com/Kllngii/Wetterstation"
+                    #- "https://github.com/Kllngii/Wetterstation"  # can't check submodules
                     - "https://github.com/tredeneo/simple-inventary-management"
-                    - "https://github.com/xcodes2cn/Xviewer"
+                    # - "https://github.com/xcodes2cn/Xviewer" #copies slint
                     - "https://github.com/olishmollie/radix"
                     - "https://github.com/zivit/watchlist"
                     - "https://github.com/FelgoSDK/RustyWeather"
@@ -92,11 +91,9 @@ jobs:
                     - "https://github.com/PlanetTeamSpeakk/Thermostat"
                     - "https://github.com/develcooking/Reelix"
                     - "https://github.com/Albino-Client/AlbinoLauncher"
-                    - "https://github.com/duvenagep/slint-calculator"
                     - "https://github.com/radev1924/profit-first-income-calculator-desktop"
                     - "https://github.com/JarrodDoyle/slint-fmeditor"
                     - "https://github.com/planet0104/slint-noframe-window"
-                    - "https://github.com/planet0104/USB-Screen/"
                     - "https://github.com/Obscurely/falion"
                     - "https://github.com/Dusk-Labs/kira"
                     - "https://github.com/arihant2math/prontus"
@@ -105,6 +102,8 @@ jobs:
                     - "https://github.com/sloganking/quick-assistant"
                     - "https://github.com/clay-6/baze64"
                     - "https://github.com/zilongyang/rust_slint_todos"
+                    - "https://github.com/qhua948/anubis"
+                    - "https://github.com/Surrealism-All/slimk"
 
                     # Missing images
                     # - "https://github.com/rurishigeo/Probe-Downloader"
@@ -153,8 +152,8 @@ jobs:
                     - git_url: "https://github.com/malwaredb/malwaredb-rs"
                       extra_args: "--features=admin,admin-gui"
                       sub_path: "."
-                    - git_url: "https://github.com/Martoni/QRNote"
-                      sub_path: "qr-note"
+                    #- git_url: "https://github.com/Martoni/QRNote"  # Pins slint version
+                    #  sub_path: "qr-note"
                     - git_url: "https://github.com/planet0104/satellite_wallpaper"
                       sub_path: "."
                       os: windows-latest
@@ -168,28 +167,38 @@ jobs:
                       sub_path: "openlmr-core"
                     - git_url: "https://github.com/jenkinsmichpa/coconut_crab"
                       sub_path: "coconut_crab_client"
+                      os: windows-latest
                     - git_url: "https://github.com/ivabus/lonelyradio"
                       sub_path: "monoclient-s"
                     - git_url: "https://github.com/ahqsoftwares/tauri-ahq-store"
                       sub_path: "src-setup"
-        runs-on: ubuntu-latest
+                    - git_url: "https://github.com/qarmin/czkawka"
+                      sub_path: krokiet
+                    - git_url: "https://github.com/Vjze/Rust_demo"  # this is using SurrealismUI
+                      sub_path: Rust_Slint
+                    - git_url: "https://github.com/LeeeSe/MessAuto"
+                      os: macos-latest
+                    - git_url: "https://github.com/planet0104/USB-Screen/"
+                      extra_args: "--no-default-features --features=editor"
+        runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev
-            # Don't use the cache because we don't run this job often, and it would cache the .cargo/config with extra keys
+                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev
+            # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
                   toolchain: stable
             - name: setup patch
               run: |
-                  echo "" >> ~/.cargo/config
-                  echo [patch.crates-io] >> ~/.cargo/config
-                  echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config
-                  echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config
-                  echo slint-interpreter = { path = \"$GITHUB_WORKSPACE/internal/interpreter\" }  >> ~/.cargo/config
-                  echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config
+                  echo "" >> ~/.cargo/config.toml
+                  echo [patch.crates-io] >> ~/.cargo/config.toml
+                  echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config.toml
+                  echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config.toml
+                  echo slint-interpreter = { path = \"$GITHUB_WORKSPACE/internal/interpreter\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
             - name: Checkout the repo
               run: |
                   cd $HOME
@@ -199,7 +208,9 @@ jobs:
             - name: build
               run: |
                   cd $HOME/the_repo
+                  rm -r rust-toolchain.toml .cargo/config.toml || true
                   cd ${{ matrix.sub_path }}
+                  sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   cargo update
                   cargo check ${{ matrix.extra_args }}
 
