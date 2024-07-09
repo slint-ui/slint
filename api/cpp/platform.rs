@@ -355,10 +355,11 @@ pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
 mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
-    use i_slint_core::graphics::Rgb8Pixel;
+    use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_core::software_renderer::{
         PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
+    use i_slint_core::SharedVector;
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(
@@ -504,6 +505,17 @@ mod software_renderer {
     ) -> RendererPtr {
         let r = (r as *const SoftwareRenderer) as *const dyn Renderer;
         core::mem::transmute(r)
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_software_renderer_region_to_rects(
+        region: &PhysicalRegion,
+        out: &mut SharedVector<IntRect>,
+    ) {
+        *out = region
+            .iter()
+            .map(|r| euclid::rect(r.0.x, r.0.y, r.1.width as i32, r.1.height as i32))
+            .collect();
     }
 }
 
