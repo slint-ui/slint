@@ -383,7 +383,6 @@ fn evaluate_binding(
     let element_offset = u32::try_from(element_offset).ok()?;
     let property_name = property_name.to_string();
     let property_value = property_value.to_string();
-    eprintln!("evaluate_binding({element_url}, {element_version:?}, {element_offset}, {property_name}, {property_value})");
 
     let document_cache = document_cache()?;
     let element = document_cache.element_at_offset(&element_url, element_offset)?;
@@ -488,6 +487,14 @@ fn set_simple_binding(
         )
     } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
         let property_value = format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into();
+        set_binding(element_url, element_version, element_offset, property_name, property_value)
+    } else if simple_property_value.row_data(0) == Some("enum".to_string().into()) {
+        let property_value = format!(
+            "{}.{}",
+            String::from(simple_property_value.row_data(1).unwrap()),
+            String::from(simple_property_value.row_data(2).unwrap())
+        )
+        .into();
         set_binding(element_url, element_version, element_offset, property_name, property_value)
     }
 }
