@@ -250,7 +250,8 @@ component YearSelection {
 
 export struct DatePickerStyle {
     border-brush: brush,
-    padding: length,
+    horizontal-spacing: length,
+    vertical-spacing: length,
     calendar-style: CalendarStyle,
     icon-button-style: IconButtonStyle,
     selection-button-style: SelectionButtonStyle,
@@ -267,9 +268,9 @@ export component DatePickerBase {
     in property <Date> date : { day: today[0], month: today[1], year: today[2] };
     in property <DatePickerStyle> style;
     in property <string> title;
-    in property <string> input-title;
-    in property <string> input-placeholder-text;
-    in property <string> input-format;
+    in property <string> input-title: @tr("Enter date");
+    in property <string> input-placeholder-text: "mm/dd/yyyy";
+    in property <string> input-format: "%m/%d/%Y";
 
     // this is used for the navigation between months
     property <Date> display-date: root.date;
@@ -309,25 +310,19 @@ export component DatePickerBase {
     min-height: content-layer.min-height;
 
     content-layer := VerticalLayout {
-        spacing: root.style.padding;
-
-        HorizontalLayout {
-            padding-left: root.style.padding;
-            padding-right: root.style.padding;
-
-            Text {
-                text: root.title;
-                horizontal-alignment: left;
-                overflow: elide;
-                font-size: root.style.title-style.font-size;
-                font-weight: root.style.title-style.font-weight;
-                color: root.style.title-style.foreground;
-            }
+        spacing: root.style.vertical-spacing;
+        
+        Text {
+            text: root.title;
+            horizontal-alignment: left;
+            overflow: elide;
+            font-size: root.style.title-style.font-size;
+            font-weight: root.style.title-style.font-weight;
+            color: root.style.title-style.foreground;
         }
 
         header := HorizontalLayout {
-            padding-left: root.style.padding;
-            padding-right: root.style.padding;
+            spacing: root.style.horizontal-spacing;
 
             Text {
                 text: root.selection-mode ? root.current-day : root.input-title;
@@ -350,15 +345,13 @@ export component DatePickerBase {
         }
 
         Rectangle {
-            width: 100%;
             height: 1px;
             background: root.style.border-brush;
         }
 
         if root.selection-mode : HorizontalLayout {
-            padding-left: root.style.padding;
-            padding-right: root.style.padding;
-
+            spacing: root.style.horizontal-spacing;
+            
             VerticalLayout {
                 horizontal-stretch: 0;
                 alignment: center;
@@ -394,10 +387,9 @@ export component DatePickerBase {
             }
         }
 
-        if root.selection-mode : VerticalLayout {
-            padding-left: root.style.padding;
-            padding-right: root.style.padding;
-
+        if root.selection-mode : VerticalLayout {        
+            spacing: root.style.vertical-spacing;
+            
             if !root.year-selection : Calendar {
                 min-width: root.calendar-min-width;
                 min-height: root.calendar-min-height;
@@ -438,22 +430,14 @@ export component DatePickerBase {
         }
 
         Rectangle {
-            width: 100%;
             height: 1px;
             background: root.style.border-brush;
             visible: root.year-selection;
         }
 
-
-        if !root.selection-mode : HorizontalLayout {
-            padding-left: root.style.padding;
-            padding-right: root.style.padding;
-            padding-bottom: root.style.padding;
-
-            LineEdit {
-                text <=> root.current-input;
-                placeholder-text: root.input-placeholder-text;
-            }
+        if !root.selection-mode : LineEdit {
+            text <=> root.current-input;
+            placeholder-text: root.input-placeholder-text;
         }
     }
 
@@ -487,7 +471,6 @@ export component DatePickerBase {
     }
 
     pure function input-as-date() -> Date {
-
         { day: root.input-formatted[0], month: root.input-formatted[1], year: root.input-formatted[2] }
     }
 

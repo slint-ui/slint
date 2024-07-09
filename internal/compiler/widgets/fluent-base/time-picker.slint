@@ -6,26 +6,30 @@ import { VerticalBox } from "./layouts.slint";
 import { Button } from "./button.slint";
 import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
 import { MenuBorder } from "./components.slint";
+import { StandardButton } from "../common/standardbutton.slint";
 
 export { Time }
 
-export component TimePicker {
+export component TimePickerPopup inherits PopupWindow {
     in property <bool> use-24-hour-format <=> base.use-24-hour-format;
     in property <string> title: "Select time";
-    in property <string> cancel-text: "Cancel";
-    in property <string> ok-text: "Ok";
     in property <Time> time <=> base.time;
 
     callback canceled();
     callback accepted(/* current-time */ Time);
 
-    min-width: content-layer.min-width;
-    min-height: content-layer.min-height;
-    background-layer := MenuBorder { }
+    width: 340px;
+    height: 500px;
+    close-on-click: false;
 
-    content-layer := VerticalBox {
-        spacing: 8px;
+    background-layer := MenuBorder { 
+        width: dialog.width;
+        height: dialog.height;
+    }
 
+    dialog := Dialog {
+        padding: 8px;
+        
         base := TimePickerBase {
             title: root.title;
             style: {
@@ -33,7 +37,7 @@ export component TimePicker {
                 vertical-spacing: 8px,
                 horizontal-spacing: 4px,
                 clock-style: {
-                    background: FluentPalette.control-background,
+                    background: FluentPalette.background,
                     foreground: FluentPalette.accent-background,
                     time-selector-style: {
                         foreground: FluentPalette.foreground,
@@ -46,7 +50,7 @@ export component TimePicker {
                     background: FluentPalette.control-background,
                     background-selected: FluentPalette.accent-background,
                     foreground: FluentPalette.foreground,
-                    foreground-selected: FluentPalette.foreground,
+                    foreground-selected: FluentPalette.accent-foreground,
                     border-radius: 8px,
                     font-size: 57 * 0.0625rem,
                     font-weight: 400
@@ -70,37 +74,34 @@ export component TimePicker {
                 },
             };
         }
+        
+        Button {
+            icon: base.selection-mode ? Icons.keyboard : Icons.clock;
+            colorize-icon: true;
+            accessible-label: "Toggle input picker";
+            dialog-button-role: action;
 
-        HorizontalLayout {
-            spacing: 8px;
-
-            Button {
-                icon: base.selection-mode ? Icons.keyboard : Icons.clock;
-                colorize-icon: true;
-
-                clicked => {
-                    base.selection-mode = !base.selection-mode;
-                }
+            clicked => {
+                base.selection-mode = !base.selection-mode;
             }
+        }
+        
+        StandardButton {
+            kind: cancel;
 
-            Rectangle { }
-
-            Button {
-                text: root.cancel-text;
-
-                clicked => {
-                    root.canceled();
-                }
+            clicked => {
+                root.close();
+                root.canceled();
             }
+        }
 
-            Button {
-                text: root.ok-text;
-                enabled: base.ok-enabled();
-                accessible-label: "Toggle input picker";
+        StandardButton {
+            enabled: base.ok-enabled();
+            kind: ok;
 
-                clicked => {
-                    root.accepted(base.get-current-time());
-                }
+            clicked => {
+                root.close();
+                root.accepted(base.get-current-time());
             }
         }
     }

@@ -17,12 +17,7 @@ Use a date picker to let the user select a date.
 ### Properties
 
 -   **`title`** (_in_ _string_): The text that is displayed at the top of the picker.
--   **`cancel-label`** (_in_ _string_): The text written in the cancel button.
--   **`ok-label`** (_in_ _string_): The text written in the ok button.
 -   **`date`**: (_in_ _Date_): Set the initial displayed date.
--   **`input-title`**: (_in_ _string_): Title that displayed on the date input `LineEdit`.
--   **`input-placeholder`**: (_in_ _string_): Placeholder text that is displayed on the date input `LineEdit`.
--   **`input-format`**: (_in_ _string_): Defines the format that is used to parse the text of `LineEdit`. For more details check the <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>. (default `"%m/%d/%Y"`)
 
 ### Callbacks
 
@@ -32,7 +27,7 @@ Use a date picker to let the user select a date.
 ### Example
 
 ```slint
-import { DatePicker, Button } from "std-widgets.slint";
+import { DatePickerPopup, Button } from "std-widgets.slint";
 export component Example inherits Window {
     width: 600px;
     height: 600px;
@@ -45,20 +40,13 @@ export component Example inherits Window {
         }
     }
 
-    date-picker := PopupWindow {
+    date-picker := DatePickerPopup {
         width: 360px;
         height: 524px;
         close-on-click: false;
 
-        DatePicker {
-            canceled => {
-                date-picker.close();
-            }
-
-            accepted(date) => {
-                debug(date);
-                date-picker.close();
-            }
+        accepted(date) => {
+            date-picker.close();
         }
     }
 }

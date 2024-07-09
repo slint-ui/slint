@@ -6,26 +6,29 @@ import { VerticalBox } from "./layouts.slint";
 import { Button } from "./button.slint";
 import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
 import { MenuBorder } from "./components.slint";
+import { StandardButton } from "../common/standardbutton.slint";
 
 export { Time }
 
-export component TimePicker {
+export component TimePickerPopup inherits PopupWindow {
     in property <bool> use-24-hour-format <=> base.use-24-hour-format;
     in property <string> title: "Select time";
-    in property <string> cancel-text: "Cancel";
-    in property <string> ok-text: "Ok";
     in property <Time> time <=> base.time;
 
     callback canceled();
     callback accepted(/* current-time */ Time);
+    
+    width: 340px;
+    height: 500px;
+    close-on-click: false;
 
-    min-width: content-layer.min-width;
-    min-height: content-layer.min-height;
+    background-layer := MenuBorder { 
+        width: dialog.width;
+        height: dialog.height;
+    }
 
-    background-layer := MenuBorder { }
-
-    content-layer := VerticalBox {
-        spacing: 8px;
+    dialog := Dialog {
+        padding: 8px;
 
         base := TimePickerBase {
             title: root.title;
@@ -72,36 +75,33 @@ export component TimePicker {
             };
         }
 
-        HorizontalLayout {
-            spacing: 8px;
+        Button {
+            icon: base.selection-mode ? Icons.keyboard : Icons.clock;
+            colorize-icon: true;
+            accessible-label: "Toggle input picker";
+            dialog-button-role: action;
 
-            Button {
-                icon: base.selection-mode ? Icons.keyboard : Icons.clock;
-                colorize-icon: true;
-                accessible-label: "Toggle input picker";
-
-                clicked => {
-                    base.selection-mode = !base.selection-mode;
-                }
+            clicked => {
+                base.selection-mode = !base.selection-mode;
             }
+        }
 
-            Rectangle { }
+        StandardButton {
+            kind: cancel;
 
-            Button {
-                text: root.cancel-text;
-
-                clicked => {
-                    root.canceled();
-                }
+            clicked => {
+                root.close();
+                root.canceled();
             }
+        }
 
-            Button {
-                text: root.ok-text;
-                enabled: base.ok-enabled();
+        StandardButton {
+            enabled: base.ok-enabled();
+            kind: ok;
 
-                clicked => {
-                    root.accepted(base.get-current-time());
-                }
+            clicked => {
+                root.close();
+                root.accepted(base.get-current-time());
             }
         }
     }

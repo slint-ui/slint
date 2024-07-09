@@ -5,39 +5,36 @@ import { VerticalBox } from "./layouts.slint";
 import { Button } from "./button.slint";
 import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
 import { MenuBorder } from "./components.slint";
+import { StandardButton } from "../common/standardbutton.slint";
 
 import { Date, DatePickerBase } from "../common/datepicker_base.slint";
 export { Date } 
 
-export component DatePicker {
+export component DatePickerPopup inherits PopupWindow {
     in property <string> title: "Select date";
-    in property <string> cancel-text: "Cancel";
-    in property <string> ok-text: "Ok";
     in property <Date> date <=> base.date;
-    in property <string> input-title: "Enter date";
-    in property <string> input-placeholder-text: "mm/dd/yyyy";
-    in property <string> input-format: "%m/%d/%Y";
 
     callback canceled();
     callback accepted(/* current-date */ Date);
+    
+    width: 360px;
+    height: 524px;
+    close-on-click: false;
 
-    min-width: content-layer.min-width;
-    min-height: content-layer.min-height;
+    background-layer := MenuBorder {       
+        width: dialog.width;
+        height: dialog.height;
+    }
 
-    background-layer := MenuBorder { }
-
-    content-layer := VerticalBox { 
-        padding-left: 0;
-        padding-right: 0;
+    dialog := Dialog { 
+        padding: 8px;
 
         base := DatePickerBase {
             title: root.title;
-            input-title: root.input-title;
-            input-placeholder-text: root.input-placeholder-text;
-            input-format: root.input-format;
             style: {
                   border-brush: CupertinoPalette.border,
-                  padding: 8px,
+                  vertical-spacing: 8px,
+                  horizontal-spacing: 4px,
                   calendar-style: {
                       spacing: 8px,
                       delegate-style: {
@@ -81,30 +78,24 @@ export component DatePicker {
                       font-weight: CupertinoFontSettings.body.font-weight
                   }
             };
+        } 
+        
+        StandardButton {
+            kind: cancel;
+
+            clicked => {
+                root.close();
+                root.canceled();
+            }
         }
 
-        HorizontalLayout {
-            spacing: 8px;
-            padding-left: 8px;
-            padding-right: 8px;
-        
-            Rectangle { }
+        StandardButton {
+            enabled: base.ok-enabled();
+            kind: ok;
 
-            Button {
-                text: root.cancel-text;
-
-                clicked => {
-                    root.canceled();
-                }
-            }
-
-            Button {
-                text: root.ok-text;
-                enabled: base.ok-enabled();
-
-                clicked => {
-                    root.accepted(base.get-current-date());
-                }
+            clicked => {
+                root.close();
+                root.accepted(base.get-current-date());
             }
         }
     }

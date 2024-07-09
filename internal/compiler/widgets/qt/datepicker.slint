@@ -4,18 +4,14 @@
 import { VerticalBox } from "./layouts.slint";
 import { Button } from "./button.slint";
 import { Palette } from "./std-widgets-impl.slint";
+import { StandardButton } from "../common/standardbutton.slint";
 
 import { Date, DatePickerBase } from "../common/datepicker_base.slint";
 export { Date }
 
-export component DatePicker {
+export component DatePickerPopup inherits PopupWindow  {
     in property <string> title: "Select date";
-    in property <string> cancel-text: "Cancel";
-    in property <string> ok-text: "Ok";
     in property <Date> date <=> base.date;
-    in property <string> input-title: "Enter date";
-    in property <string> input-placeholder-text: "mm/dd/yyyy";
-    in property <string> input-format: "%m/%d/%Y";
 
     property <brush> state: Palette.color-scheme == ColorScheme.dark ? #ffffff : #000000;
     property <brush> state-secondary: Palette.color-scheme == ColorScheme.dark ? #000000 : #ffffff;
@@ -23,27 +19,26 @@ export component DatePicker {
     callback canceled();
     callback accepted(/* current-date */ Date);
 
-    min-width: content-layer.min-width;
-    min-height: content-layer.min-height;
+    width: 360px;
+    height: 524px;
+    close-on-click: false;
 
     background-layer := Rectangle {
         border-radius: 8px;
         background: Palette.control-background;
+        width: dialog.width;
+        height: dialog.height;
     }
 
-    content-layer := VerticalBox {
-        spacing: 8px;
-        padding-left: 0;
-        padding-right: 0;
+    dialog := Dialog {
+        padding: 8px;
 
         base := DatePickerBase {
             title: root.title;
-            input-title: root.input-title;
-            input-placeholder-text: root.input-placeholder-text;
-            input-format: root.input-format;
             style: {
                   border-brush: Palette.border,
-                  padding: 8px,
+                  vertical-spacing: 8px,
+                  horizontal-spacing: 4px,
                   calendar-style: {
                       spacing: 8px,
                       delegate-style: {
@@ -89,29 +84,23 @@ export component DatePicker {
             };
         }
 
-        HorizontalLayout {
-            spacing: 8px;
-            padding-left: 8px;
-            padding-right: 8px;
+        StandardButton {
+                kind: cancel;
 
-            Rectangle { }
-
-            Button {
-                text: root.cancel-text;
-
-                clicked => {
-                    root.canceled();
-                }
-            }
-
-            Button {
-                text: root.ok-text;
-                enabled: base.ok-enabled();
-
-                clicked => {
-                    root.accepted(base.get-current-date());
-                }
+            clicked => {
+                root.close();
+                root.canceled();
             }
         }
-    }
+
+        StandardButton {
+            enabled: base.ok-enabled();
+            kind: ok;
+
+            clicked => {
+                root.close();
+                root.accepted(base.get-current-date());
+            }
+        }
+     }
 }
