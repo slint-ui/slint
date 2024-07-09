@@ -15,6 +15,9 @@ export component IconButton {
     forward-focus: touch-area;
     width: self.height;
     height: SizeSettings.control-height;
+    
+    accessible-role: button;
+    accessible-action-default => { touch-area.clicked(); }
 
     touch-area := FocusTouchArea {
         width: 100%;
