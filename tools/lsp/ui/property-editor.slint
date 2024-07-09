@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEdit, Palette, VerticalBox, CheckBox } from "std-widgets.slint";
+import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox } from "std-widgets.slint";
 
-import { Api, ElementInformation } from "api.slint";
+import { Api, ElementInformation, SimpleValueData } from "api.slint";
 import { ListHead } from "list-head.slint";
 import { SideBarElement} from "side-bar.slint";
 
@@ -54,9 +54,10 @@ export component PropertyEditor inherits SideBarElement {
                         private property <string> property-name: property.name;
                         private property <string> property-type: property.type-name;
                         private property <string> property-value: property.defined-at.expression-value;
-
+                        private property <SimpleValueData> simple-value: property.simple-value;
+                        
                         private property <bool> is-defined: self.property-value != "";
-                        private property <bool> is-simple: property.defined-at.simple-expression-value[0] != "" && !self.force-to-complex;
+                        private property <bool> is-simple: simple-value.widget != "" && !self.force-to-complex;
 
                         private property <bool> force-to-complex: false;
 
@@ -98,8 +99,8 @@ export component PropertyEditor inherits SideBarElement {
 
                             private property <bool> have-simple-ui: false;
 
-                            if property-row.is-simple && property.defined-at.simple-expression-value[0] == "bool": CheckBox {
-                                checked: property.defined-at.simple-expression-value[1] == "true";
+                            if property-row.is-simple && property-row.simple-value.widget == "bool": CheckBox {
+                                checked: property-row.simple-value.meta-data[0] == "true";
 
                                 toggled() => {
                                     Api.set-simple-binding(
@@ -111,10 +112,10 @@ export component PropertyEditor inherits SideBarElement {
                                     );
                                 }
                             }
-                            if property-row.is-simple && property.defined-at.simple-expression-value[0] == "string": LineEdit {
+                            if property-row.is-simple && property-row.simple-value.widget == "string": LineEdit {
                                 width: 100%;
                                 height: 100%; // otherwise this gets too high and covers several rows.
-                                text: property.defined-at.simple-expression-value[1];
+                                text: property-row.simple-value.meta-data[0];
 
                                 edited(text) => {
                                     overlay.visible = !Api.test-simple-binding(
@@ -136,6 +137,25 @@ export component PropertyEditor inherits SideBarElement {
                                     );
                                 }
                             }
+                            if property-row.is-simple && property-row.simple-value.widget == "enum": ComboBox {
+                                width: 100%;
+                                height: 100%; // otherwise this gets too high and covers several rows.
+
+                                current-index: property-row.simple-value.meta-data[2].to-float();
+
+                                model: property-row.simple-value.visual-items;
+
+                                selected(value) => {
+                                    Api.set-simple-binding(
+                                        root.current-element.source-uri,
+                                        root.current-element.source-version,
+                                        root.current-element.range.start,
+                                        property.name,
+                                        ["enum", property-row.simple-value.meta-data[0], value],
+                                    )
+                                }
+                            }
+
 
                             if !property-row.is-simple: LineEdit {
                                 width: 100%;

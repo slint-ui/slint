@@ -64,6 +64,13 @@ export struct Range {
     end: int,
 }
 
+/// Data about the property value for use in "simple" mode
+export struct SimpleValueData {
+    widget: string,
+    visual-items: [string],
+    meta-data: [string],
+}
+
 /// Important Ranges in the property definition
 ///
 /// The URL and version is the same as in the Element it belongs to
@@ -72,7 +79,6 @@ export struct PropertyDefinition {
     selection-range: Range,
     expression-range: Range,
     expression-value: string,
-    simple-expression-value: [string],
 }
 
 /// The Property Declaration
@@ -88,6 +94,7 @@ export struct PropertyInformation {
     type-name: string,
     declared-at: PropertyDeclaration,
     defined-at: PropertyDefinition,
+    simple-value: SimpleValueData,
 }
 
 /// Information on one Property

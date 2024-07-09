@@ -249,32 +249,67 @@ fn simplify_string(value: &str) -> Option<String> {
 }
 
 fn simplify_value(
+    document_cache: &common::DocumentCache,
     property_type: &str,
     property_value: &str,
-) -> Rc<slint::VecModel<slint::SharedString>> {
-    let result = if property_type == "bool" {
-        if property_value == "true" || property_value == "false" {
-            vec!["bool".to_string().into(), property_value.to_string().into()]
+) -> SimpleValueData {
+    if property_type == "bool"
+        && (property_value == "true" || property_value == "false" || property_value.is_empty())
+    {
+        let value: slint::SharedString = if property_value == "true" {
+            "true".to_string().into()
         } else {
-            vec![]
-        }
+            "false".to_string().into()
+        };
+        return SimpleValueData {
+            widget: "bool".to_string().into(),
+            meta_data: Rc::new(VecModel::from(vec![value])).into(),
+            visual_items: Rc::new(VecModel::default()).into(),
+        };
     } else if property_type == "string" {
         if let Some(simple) = simplify_string(property_value) {
-            vec!["string".to_string().into(), simple.into()]
-        } else {
-            vec![]
+            return SimpleValueData {
+                widget: "string".to_string().into(),
+                meta_data: Rc::new(VecModel::from(vec![simple.into()])).into(),
+                visual_items: Rc::new(VecModel::default()).into(),
+            };
         }
-    } else {
-        vec![]
-    };
+    } else if property_type.starts_with("enum ") {
+        let property_type = &property_type["enum ".len()..];
+        if let i_slint_compiler::langtype::Type::Enumeration(enumeration) =
+            &document_cache.global_type_registry().lookup(property_type)
+        {
+            let short_property_value =
+                property_value.strip_prefix(&format!("{property_type}.")).unwrap_or(property_value);
+            let type_name: slint::SharedString = property_type.to_string().into();
+            let default_value: slint::SharedString = enumeration.default_value.to_string().into();
+            let current_value = enumeration
+                .values
+                .iter()
+                .position(|v| v == short_property_value)
+                .map(|p| slint::SharedString::from(p.to_string()))
+                .unwrap_or_else(|| default_value.clone());
+            let visual_values: Vec<_> =
+                enumeration.values.iter().map(|v| slint::SharedString::from(v)).collect();
+            return SimpleValueData {
+                widget: "enum".to_string().into(),
+                meta_data: Rc::new(VecModel::from(vec![type_name, default_value, current_value]))
+                    .into(),
+                visual_items: Rc::new(VecModel::from(visual_values)).into(),
+            };
+        }
+    }
 
-    Rc::new(VecModel::from(result).into())
+    SimpleValueData {
+        widget: slint::SharedString::new(),
+        meta_data: Rc::new(VecModel::default()).into(),
+        visual_items: Rc::new(VecModel::default()).into(),
+    }
 }
 
 fn map_property_definition(
     document: &i_slint_compiler::parser::syntax_nodes::Document,
     defined_at: &Option<properties::DefinitionInformation>,
-    property_type: &str,
 ) -> Option<PropertyDefinition> {
     let da = defined_at.as_ref()?;
 
@@ -289,7 +324,6 @@ fn map_property_definition(
             da.expression_range,
         ))?,
         expression_value: da.expression_value.clone().into(),
-        simple_expression_value: simplify_value(property_type, &da.expression_value).into(),
     })
 }
 
@@ -326,14 +360,22 @@ fn map_properties_to_ui(
                 range: Range { start: 0, end: 0 },
             },
         );
-        let defined_at = map_property_definition(doc_node, &pi.defined_at, &pi.type_name)
-            .unwrap_or(PropertyDefinition {
+        let defined_at =
+            map_property_definition(doc_node, &pi.defined_at).unwrap_or(PropertyDefinition {
                 definition_range: Range { start: 0, end: 0 },
                 selection_range: Range { start: 0, end: 0 },
                 expression_range: Range { start: 0, end: 0 },
                 expression_value: String::new().into(),
-                simple_expression_value: Rc::new(VecModel::default()).into(),
             });
+
+        let simple_value = {
+            let value = if let Some(da) = &pi.defined_at {
+                da.expression_value.clone()
+            } else {
+                String::new()
+            };
+            simplify_value(document_cache, &pi.type_name, &value)
+        };
 
         if pi.group != current_group {
             if !current_group_properties.is_empty() {
@@ -348,6 +390,7 @@ fn map_properties_to_ui(
             type_name: pi.type_name.clone().into(),
             declared_at,
             defined_at,
+            simple_value,
         });
     }
 

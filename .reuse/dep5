@@ -76,7 +76,7 @@ Files: api/node/__test__/resources/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Files: examples/carousel/icons/*.svg tools/lsp/ui/asserts/*.svg
+Files: examples/carousel/icons/*.svg tools/lsp/ui/assets/*.svg
 Copyright: Material Icons <https://fonts.google.com/icons?selected=Material+Iconse>
 License: Apache-2.0
 
