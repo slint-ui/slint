@@ -180,7 +180,7 @@ jobs:
                       os: macos-latest
                     - git_url: "https://github.com/planet0104/USB-Screen/"
                       extra_args: "--no-default-features --features=editor"
-        runs-on: ${{ matrix.os }}
+        runs-on: ${{ matrix.os || "ubuntu-latest" }}
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
