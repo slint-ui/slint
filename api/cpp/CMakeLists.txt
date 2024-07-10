@@ -95,7 +95,7 @@ define_cargo_dependent_feature(renderer-femtovg "Enable support for the OpenGL E
 define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based rendering engine." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_feature(renderer-software "Enable support for the software renderer" OFF)
+define_cargo_feature(renderer-software "Enable support for the software renderer" ON)
 
 set(SLINT_BACKEND_QT_DEFAULT OFF)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
