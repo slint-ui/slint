@@ -1912,7 +1912,7 @@ fn generate_sub_component(
 
     let mut properties_init_code = Vec::new();
     for (prop, expression) in &component.property_init {
-        if expression.use_count.get() > 0 {
+        if expression.use_count.get() > 0 && component.prop_used(prop) {
             handle_property_init(prop, expression, &mut properties_init_code, &ctx)
         }
     }

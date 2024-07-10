@@ -39,10 +39,6 @@ pub fn count_property_use(root: &CompilationUnit) {
     root.for_each_sub_components(&mut |sc, ctx| {
         // 2. the native items and bindings of used properties
         for (pr, expr) in &sc.property_init {
-            let c = expr.use_count.get();
-            if c > 0 {
-                continue;
-            }
             match pr {
                 PropertyReference::Local { sub_component_path, property_index } => {
                     let mut sc = sc;
@@ -56,16 +52,19 @@ pub fn count_property_use(root: &CompilationUnit) {
                 PropertyReference::InNativeItem { .. } => {}
                 _ => unreachable!(),
             }
+            let c = expr.use_count.get();
             expr.use_count.set(c + 1);
-            visit_binding_expression(expr, ctx)
+            if c == 0 {
+                visit_binding_expression(expr, ctx)
+            }
         }
         // 3. the init code
         for expr in &sc.init_code {
-            expr.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
+            expr.borrow().visit_property_references(ctx, &mut visit_property);
         }
         // 4. the models
         for (idx, r) in sc.repeated.iter().enumerate() {
-            r.model.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
+            r.model.borrow().visit_property_references(ctx, &mut visit_property);
             if let Some(lv) = &r.listview {
                 visit_property(&lv.viewport_y, ctx);
                 visit_property(&lv.viewport_width, ctx);
@@ -91,15 +90,15 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
 
         // 5. the layout info
-        sc.layout_info_h.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
-        sc.layout_info_v.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
+        sc.layout_info_h.borrow().visit_property_references(ctx, &mut visit_property);
+        sc.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);
 
         // 6. accessibility props and geometries
         for b in sc.accessible_prop.values() {
-            b.borrow().visit_recursive(&mut |e| visit_expression(e, ctx))
+            b.borrow().visit_property_references(ctx, &mut visit_property)
         }
         for i in sc.geometries.iter().filter_map(Option::as_ref) {
-            i.borrow().visit_recursive(&mut |e| visit_expression(e, ctx))
+            i.borrow().visit_property_references(ctx, &mut visit_property)
         }
 
         // 7. aliases (if they were not optimize, they are probably used)
@@ -110,13 +109,13 @@ pub fn count_property_use(root: &CompilationUnit) {
 
         // 8.functions (TODO: only visit used function)
         for f in &sc.functions {
-            f.code.visit_recursive(&mut |e| visit_expression(e, ctx));
+            f.code.visit_property_references(ctx, &mut visit_property);
         }
 
         // 9. change callbacks
         for (p, e) in &sc.change_callbacks {
             visit_property(p, ctx);
-            e.visit_recursive(&mut |e| visit_expression(e, ctx));
+            e.borrow().visit_property_references(ctx, &mut visit_property);
         }
 
         // 10. popup x/y coordinates
@@ -127,13 +126,13 @@ pub fn count_property_use(root: &CompilationUnit) {
                 (),
                 Some(ParentCtx::new(&ctx, None)),
             );
-            popup.position.borrow().visit_recursive(&mut |e| visit_expression(e, &popup_ctx))
+            popup.position.borrow().visit_property_references(&popup_ctx, &mut visit_property)
         }
         // 11. timer
         for timer in &sc.timers {
-            timer.interval.borrow().visit_recursive(&mut |e| visit_expression(e, &ctx));
-            timer.running.borrow().visit_recursive(&mut |e| visit_expression(e, &ctx));
-            timer.triggered.borrow().visit_recursive(&mut |e| visit_expression(e, &ctx));
+            timer.interval.borrow().visit_property_references(ctx, &mut visit_property);
+            timer.running.borrow().visit_property_references(ctx, &mut visit_property);
+            timer.triggered.borrow().visit_property_references(ctx, &mut visit_property);
         }
     });
 
@@ -141,9 +140,11 @@ pub fn count_property_use(root: &CompilationUnit) {
     for g in root.globals.iter() {
         let ctx = EvaluationContext::new_global(root, g, ());
         for f in &g.functions {
-            f.code.visit_recursive(&mut |e| visit_expression(e, &ctx));
+            f.code.visit_property_references(&ctx, &mut visit_property);
         }
     }
+
+    clean_unused_bindings(root);
 }
 
 fn visit_property(pr: &PropertyReference, ctx: &EvaluationContext) {
@@ -162,30 +163,31 @@ fn visit_property(pr: &PropertyReference, ctx: &EvaluationContext) {
 }
 
 fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext) {
-    binding.expression.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
+    binding.expression.borrow().visit_property_references(ctx, &mut visit_property);
     match &binding.animation {
         Some(Animation::Static(e) | Animation::Transition(e)) => {
-            e.visit_recursive(&mut |e| visit_expression(e, ctx))
+            e.visit_property_references(ctx, &mut visit_property)
         }
         None => (),
     }
 }
 
-fn visit_expression(expr: &Expression, ctx: &EvaluationContext) {
-    let p = match expr {
-        Expression::PropertyReference(p) => p,
-        Expression::CallBackCall { callback, .. } => callback,
-        Expression::PropertyAssignment { property, .. } => {
-            if let Some((a, map)) = &ctx.property_info(property).animation {
-                let ctx2 = map.map_context(ctx);
-                a.visit_recursive(&mut |e| visit_expression(e, &ctx2))
+/// Bindings which have a use_count of zero can be cleared so that we won't ever visit them later.
+fn clean_unused_bindings(root: &CompilationUnit) {
+    root.for_each_sub_components(&mut |sc, _| {
+        for (_, e) in &sc.property_init {
+            if e.use_count.get() == 0 {
+                e.expression.replace(Expression::CodeBlock(vec![]));
             }
-            property
         }
-        // FIXME  (should be fine anyway because we mark these as not optimizable)
-        Expression::ModelDataAssignment { .. } => return,
-        Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
-        _ => return,
-    };
-    visit_property(p, ctx)
+    });
+    for g in &root.globals {
+        for e in &g.init_values {
+            if let Some(e) = e {
+                if e.use_count.get() == 0 {
+                    e.expression.replace(Expression::CodeBlock(vec![]));
+                }
+            }
+        }
+    }
 }
