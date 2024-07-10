@@ -1,11 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { PropertyQuery, SetBindingResponse } from "./properties";
-
 import {
     OptionalVersionedTextDocumentIdentifier,
-    Position as LspPosition,
     Range as LspRange,
     URI as LspURI,
     WorkspaceEdit,
@@ -14,7 +11,6 @@ import {
 import * as vscode from "vscode";
 
 export type WorkspaceEditor = (_we: WorkspaceEdit) => boolean;
-export type SetPropertiesHelper = (_p: PropertyQuery) => void;
 
 // Use the auto-registered VSCode command for the custom executables offered
 // by our language server.
@@ -33,25 +29,8 @@ export type SetPropertiesHelper = (_p: PropertyQuery) => void;
 export async function showPreview(
     url: LspURI,
     component: string,
-): Promise<SetBindingResponse> {
+): Promise<unknown> {
     return vscode.commands.executeCommand("slint/showPreview", url, component);
-}
-
-export async function setBinding(
-    doc: OptionalVersionedTextDocumentIdentifier,
-    element_range: LspRange,
-    property_name: string,
-    current_text: string,
-    dry_run: boolean,
-): Promise<SetBindingResponse> {
-    return vscode.commands.executeCommand(
-        "slint/setBinding",
-        doc,
-        element_range,
-        property_name,
-        current_text,
-        dry_run,
-    );
 }
 
 export async function removeBinding(
@@ -64,16 +43,5 @@ export async function removeBinding(
         doc,
         element_range,
         property_name,
-    );
-}
-
-export async function queryProperties(
-    uri: LspURI,
-    position: LspPosition,
-): Promise<PropertyQuery> {
-    return vscode.commands.executeCommand(
-        "slint/queryProperties",
-        { uri: uri.toString() },
-        position,
     );
 }

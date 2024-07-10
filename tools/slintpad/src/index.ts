@@ -8,7 +8,6 @@ import { LspWaiter, Lsp } from "./lsp";
 import { LspRange, LspPosition } from "./lsp_integration";
 import { OutlineWidget } from "./outline_widget";
 import { PreviewWidget } from "./preview_widget";
-import { PropertiesWidget } from "./properties_widget";
 import { WelcomeWidget } from "./welcome_widget";
 
 import {
@@ -428,30 +427,12 @@ function setup(lsp: Lsp) {
             },
             { mode: "tab-after", ref: "Welcome" },
         ],
-        [
-            () => {
-                const properties = new PropertiesWidget();
-
-                const pos = editor.position;
-                properties.position_changed(pos.uri, pos.version, pos.position);
-
-                properties.on_goto_position = (uri, pos) => {
-                    editor.goto_position(uri, pos);
-                };
-
-                return properties;
-            },
-            { mode: "tab-after", ref: "Welcome" },
-        ],
     );
 
     editor.onPositionChange = (pos) => {
         (dock_widgets.widget("Outline") as OutlineWidget)?.position_changed(
             pos,
         );
-        (
-            dock_widgets.widget("Properties") as PropertiesWidget
-        )?.position_changed(pos.uri, pos.version, pos.position);
     };
 
     const menu_bar = new MenuBar();
