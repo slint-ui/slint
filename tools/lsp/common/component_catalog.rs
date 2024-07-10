@@ -9,12 +9,9 @@ use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformation {
-    let (category, is_layout) = match name {
-        "GridLayout" | "HorizontalLayout" | "VerticalLayout" => ("Layout", true),
-        "Dialog" | "Window" | "PopupWindow" => ("Window Management", false),
-        "FocusScope" | "TouchArea" => ("Event Handling", false),
-        "Text" => ("Text Handling", false),
-        _ => ("Primitives", false),
+    let is_layout = match name {
+        "GridLayout" | "HorizontalLayout" | "VerticalLayout" => true,
+        _ => false,
     };
 
     let default_properties = match name {
@@ -25,7 +22,7 @@ fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformatio
 
     ComponentInformation {
         name: name.to_string(),
-        category: category.to_string(),
+        category: "Builtin Elements".to_string(),
         is_global: false,
         is_builtin: true,
         is_std_widget: false,
@@ -38,13 +35,9 @@ fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformatio
 }
 
 fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
-    let (category, is_layout) = match name {
-        "GridBox" | "HorizontalBox" | "VerticalBox" => ("Layout", true),
-        "LineEdit" | "TextEdit" => ("Text Handling", false),
-        "Button" | "CheckBox" | "ComboBox" | "Slider" | "SpinBox" | "Switch" => ("Input", false),
-        "ProgressIndicator" | "Spinner" => ("Status", false),
-        "ListView" | "StandardListView" | "StandardTableView" => ("Views", false),
-        _ => ("Widgets", false),
+    let is_layout = match name {
+        "GridBox" | "HorizontalBox" | "VerticalBox" => true,
+        _ => false,
     };
 
     let default_properties = match name {
@@ -65,7 +58,7 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
 
     ComponentInformation {
         name: name.to_string(),
-        category: category.to_string(),
+        category: "Widgets".to_string(),
         is_global,
         is_builtin: false,
         is_std_widget: true,
@@ -84,7 +77,7 @@ fn exported_project_component_info(
 ) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
-        category: "User Defined".to_string(),
+        category: position.url.to_string(),
         is_global,
         is_builtin: false,
         is_std_widget: false,
@@ -104,7 +97,7 @@ fn file_local_component_info(
 ) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
-        category: "User Defined".to_string(),
+        category: position.url.to_string(),
         is_global,
         is_builtin: false,
         is_std_widget: false,

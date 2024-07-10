@@ -11,8 +11,11 @@ export struct ComponentItem {
 }
 
 /// A `category` with a lost of `ComponentItem`s that belong into it.
+///
+/// Fiel url is either an empty string or a URL to some document
 export struct ComponentListItem {
     category: string,
+    file_url: string,
     components: [ComponentItem]
 }
 
