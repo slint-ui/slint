@@ -561,7 +561,7 @@ impl WindowInner {
 
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
-        let last_top_item = mouse_input_state.top_item();
+        let last_top_item = mouse_input_state.top_item_including_delayed();
         if released_event {
             mouse_input_state =
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
@@ -623,7 +623,7 @@ impl WindowInner {
             mouse_input_state
         };
 
-        if last_top_item != mouse_input_state.top_item() {
+        if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
             self.click_state.check_repeat(event, self.ctx.0.platform.click_interval());
         }
