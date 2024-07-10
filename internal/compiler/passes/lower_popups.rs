@@ -8,7 +8,6 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn lower_popups(
@@ -120,10 +119,24 @@ fn lower_popup_window(
         e.borrow_mut().enclosing_component = weak.clone()
     });
 
-    // Generate a x and y property, relative to the window coordinate
-    // FIXME: this is a hack that doesn't always work, perhaps should we store an item ref or something
-    let coord_x = create_coordinate(&popup_comp.root_element, "x");
-    let coord_y = create_coordinate(&popup_comp.root_element, "y");
+    // Take a reference to the x/y coordinates, to be read when calling show_popup(), and
+    // converted to absolute coordinates in the run-time library.
+    let coord_x = NamedReference::new(&popup_comp.root_element, "x");
+    let coord_y = NamedReference::new(&popup_comp.root_element, "y");
+
+    // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
+    // children should be rendered starting with a (0, 0) offset.
+    {
+        let mut popup_mut = popup_comp.root_element.borrow_mut();
+        let name = format!("popup-{}-dummy", popup_mut.id);
+        popup_mut.property_declarations.insert(name.clone(), Type::LogicalLength.into());
+        drop(popup_mut);
+        let dummy1 = NamedReference::new(&popup_comp.root_element, &name);
+        let dummy2 = NamedReference::new(&popup_comp.root_element, &name);
+        let mut popup_mut = popup_comp.root_element.borrow_mut();
+        popup_mut.geometry_props.as_mut().unwrap().x = dummy1;
+        popup_mut.geometry_props.as_mut().unwrap().y = dummy2;
+    }
 
     // Throw error when accessing the popup from outside
     // FIXME:
@@ -148,18 +161,4 @@ fn lower_popup_window(
         close_on_click,
         parent_element: parent_element.clone(),
     });
-}
-
-fn create_coordinate(popup_root_element: &ElementRc, coord: &str) -> NamedReference {
-    let mut elem = popup_root_element.borrow_mut();
-    let expression = elem
-        .bindings
-        .remove(coord)
-        .map(|e| e.into_inner().expression)
-        .unwrap_or(Expression::NumberLiteral(0., crate::expression_tree::Unit::Phx));
-    let property_name = format!("{}-popup-{}", elem.id, coord);
-    elem.property_declarations.insert(property_name.clone(), Type::LogicalLength.into());
-    elem.bindings.insert(property_name.clone(), RefCell::new(expression.into()));
-    drop(elem);
-    NamedReference::new(popup_root_element, &property_name)
 }
