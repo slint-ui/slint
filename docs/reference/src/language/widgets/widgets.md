@@ -6,5 +6,5 @@ The widget appearance depends on the selected style.
 See [Selecting a Widget Style](../../advanced/style.md#selecting-a-widget-style) for details how to select the style. If no style is selected, `native` is the default. If `native` isn't available, `fluent` is the default.
 
 
-All widgets support all [properties common to builtin elements](../builtins/elements.md#common-properties).
+All widgets support all [properties common to primitive elements](../builtins/elements.md#common-properties).
 

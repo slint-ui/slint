@@ -35,7 +35,7 @@ The Slint language describes extensible graphical user interfaces using the
 - Declare animations on properties and states to make the user interface feel alive.
 - Build your own re-usable components and share them in `.slint` module files.
 - Define data structures and models and access them from programming languages.
-- Build highly customized user interfaces with the :ref:`builtin elements <Builtin Elements>`
+- Build highly customized user interfaces with the :ref:`primitive elements <Primitive Elements>`
   and pre-built :ref:`widgets <Widgets>` provided.
 
 It only describes the user interface and it is not a programming language. The business
