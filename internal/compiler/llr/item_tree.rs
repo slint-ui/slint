@@ -271,8 +271,7 @@ pub struct SubComponent {
 #[derive(Debug)]
 pub struct PopupWindow {
     pub item_tree: ItemTree,
-    pub x_prop: PropertyReference,
-    pub y_prop: PropertyReference,
+    pub position: MutExpression,
 }
 
 #[derive(Debug, Clone)]

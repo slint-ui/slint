@@ -127,8 +127,7 @@ pub fn count_property_use(root: &CompilationUnit) {
                 (),
                 Some(ParentCtx::new(&ctx, None)),
             );
-            visit_property(&popup.x_prop, &popup_ctx);
-            visit_property(&popup.y_prop, &popup_ctx);
+            popup.position.borrow().visit_recursive(&mut |e| visit_expression(e, &popup_ctx))
         }
     });
 

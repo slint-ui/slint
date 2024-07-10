@@ -668,11 +668,16 @@ fn lower_popup_component(
         ),
     };
 
-    llr_PopupWindow {
-        item_tree,
-        x_prop: sc.mapping.map_property_reference(&popup.x, ctx.state),
-        y_prop: sc.mapping.map_property_reference(&popup.y, ctx.state),
-    }
+    use super::Expression::PropertyReference as PR;
+    let position = super::lower_expression::make_struct(
+        "Point",
+        [
+            ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
+            ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
+        ],
+    );
+
+    llr_PopupWindow { item_tree, position: position.into() }
 }
 
 fn lower_global(

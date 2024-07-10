@@ -2475,14 +2475,7 @@ fn compile_builtin_function_call(
                     RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
                     Some(ParentCtx::new(&ctx, None)),
                 );
-                let x = primitive_property_value(
-                    &Type::LogicalLength,
-                    access_member(&popup.x_prop, &popup_ctx),
-                );
-                let y = primitive_property_value(
-                    &Type::LogicalLength,
-                    access_member(&popup.y_prop, &popup_ctx),
-                );
+                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
 
                 let close_on_click = compile_expression(close_on_click, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
@@ -2490,13 +2483,10 @@ fn compile_builtin_function_call(
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     #popup_window_id::user_init(popup_instance_vrc.clone());
-                    let x = { let _self = popup_instance_vrc.as_pin_ref(); #x };
-                    let y = { let _self = popup_instance_vrc.as_pin_ref(); #y };
+                    let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                        &sp::VRc::into_dyn({
-                            popup_instance.into()
-                        }),
-                        sp::Point::new(x as sp::Coord, y as sp::Coord),
+                        &sp::VRc::into_dyn(popup_instance.into()),
+                        position,
                         #close_on_click,
                         #parent_component
                     )
