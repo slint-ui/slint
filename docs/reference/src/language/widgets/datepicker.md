@@ -10,7 +10,7 @@ Defines a date with day, month, and year
 -   **`month`(int)**: The month value (range from 1 to 12).
 -   **`year`(int)**: The year value.
 
-## `DatePicker`
+## `DatePickerPopup`
 
 Use a date picker to let the user select a date.
 

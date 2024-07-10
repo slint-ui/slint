@@ -10,7 +10,7 @@ Defines a time with hours, minutes, and seconds.
 -   **`minute`(int)**: The minute value (range from 1 to 59).
 -   **`second`(int)**: The second value (range form 1 to 59).
 
-## `TimePicker`
+## `TimePickerPopup`
 
 Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/PM). 
 
