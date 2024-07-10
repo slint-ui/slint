@@ -783,7 +783,7 @@ public:
     MapModel(std::shared_ptr<Model<SourceModelData>> source_model,
              std::function<MappedModelData(const SourceModelData &)> map_fn)
         : inner(std::make_shared<private_api::MapModelInner<SourceModelData, MappedModelData>>(
-                *this)),
+                  *this)),
           model(source_model),
           map_fn(map_fn)
     {
