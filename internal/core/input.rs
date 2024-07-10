@@ -549,8 +549,13 @@ pub struct MouseInputState {
 
 impl MouseInputState {
     /// Return the item in the top of the stack
-    pub fn top_item(&self) -> Option<ItemRc> {
+    fn top_item(&self) -> Option<ItemRc> {
         self.item_stack.last().and_then(|x| x.0.upgrade())
+    }
+
+    /// Returns the item in the top of the stack, if there is a delayed event, this would be the top of the delayed stack
+    pub fn top_item_including_delayed(&self) -> Option<ItemRc> {
+        self.delayed_exit_items.last().and_then(|x| x.upgrade()).or_else(|| self.top_item())
     }
 }
 

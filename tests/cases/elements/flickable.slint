@@ -31,6 +31,9 @@ TestCase := Window {
             clicked => {
                 root.clicked = mouse_x/1phx * 100000 + mouse_y/1phx;
             }
+            double-clicked => {
+                root.double-clicked = mouse_x/1phx * 100000 + mouse_y/1phx;
+            }
         }
 
     }
@@ -40,6 +43,7 @@ TestCase := Window {
     property<bool> inner_ta_pressed: inner_ta.pressed;
     property<bool> inner_ta_has_hover: inner_ta.has_hover;
     property<int> clicked;
+    property<int> double-clicked;
     property <int> flicked;
 }
 
@@ -85,6 +89,7 @@ assert_eq!(instance.get_offset_y(), 112.5);
 assert!(!instance.get_inner_ta_pressed());
 assert!(!instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
 ```
 
 ```rust
@@ -95,21 +100,25 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
 slint_testing::mock_elapsed_time(5000);
 assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
 
 // Start a press
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
 //assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
 // Release almost immediately
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(178.0, 173.0), button: PointerEventButton::Left });
 assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 18_00013);
+assert_eq!(instance.get_double_clicked(), 0);
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 
@@ -135,6 +144,7 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 5_00014);
+assert_eq!(instance.get_double_clicked(), 0);
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 
@@ -145,6 +155,7 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), -1);
+assert_eq!(instance.get_double_clicked(), 0);
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 
@@ -153,6 +164,7 @@ slint_testing::mock_elapsed_time(300);
 assert!(instance.get_inner_ta_pressed()); // only now we are pressed
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), -1);
+assert_eq!(instance.get_double_clicked(), 0);
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 
@@ -170,6 +182,7 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), -1); // not clicked
+assert_eq!(instance.get_double_clicked(), 0);
 assert_eq!(instance.get_offset_x(), 75.);
 assert_eq!(instance.get_offset_y(), 55.);
 
@@ -179,9 +192,9 @@ slint_testing::mock_elapsed_time(1000);
 assert!(!instance.get_inner_ta_pressed());
 assert!(!instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), -1);
+assert_eq!(instance.get_double_clicked(), 0);
 assert!((instance.get_offset_x() - 75.).abs() < 5.); // only small animation on release
 assert!((instance.get_offset_y() - 55.).abs() < 5.);
-
 ```
 
 ```rust
@@ -228,4 +241,50 @@ assert_eq!(instance.get_flicked(), -10500105); //flicked got called after drag
 instance.set_flicked(0);
 
 ```
+
+```rust
+// Test double click
+// Test interaction with inner mouse area
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
+assert!(instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
+slint_testing::mock_elapsed_time(5000);
+assert!(!instance.get_inner_ta_pressed());
+assert!(instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
+
+// Start a press
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
+slint_testing::mock_elapsed_time(50);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(178.0, 173.0), button: PointerEventButton::Left });
+assert!(!instance.get_inner_ta_pressed());
+assert!(instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_clicked(), 18_00013);
+assert_eq!(instance.get_double_clicked(), 0);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+instance.set_clicked(0);
+
+// second press after 50ms
+slint_testing::mock_elapsed_time(50);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(176.0, 174.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
+slint_testing::mock_elapsed_time(50);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(175.0, 176.0), button: PointerEventButton::Left });
+assert!(!instance.get_inner_ta_pressed());
+assert!(instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_clicked(), 15_00016);
+assert_eq!(instance.get_double_clicked(), 15_00016);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+```
+
 */
+
