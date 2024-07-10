@@ -1,0 +1,174 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView, HorizontalBox, Palette } from "std-widgets.slint";
+import { ComponentListItem, ComponentItem } from "../api.slint";
+import { StateLayer } from "./state-layer.slint";
+import { EditorSizeSettings, EditorAnimationSettings, Icons } from "./styling.slint";
+import { BodyText } from "./body-text.slint";
+import { BodyStrongText } from "./body-strong-text.slint";
+
+
+component HeaderItemTemplate {
+    in property <bool> enabled: true;
+    in property <string> text;
+    out property <bool> open: true;
+    out property <length> offset: icon-image.width + content-layer.spacing;
+
+    min-width: content-layer.min-width;
+    min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
+
+    touch-area := TouchArea {
+        clicked => {
+            root.open = !root.open;
+        }
+    }
+
+    state-layer := StateLayer {
+        width: 100%;
+        height: 100%;
+        has-hover: touch-area.has-hover;
+        pressed: touch-area.pressed;
+    }
+
+    content-layer := HorizontalBox {
+        icon-image := Image {
+            width: EditorSizeSettings.default-icon-width;
+            colorize: Palette.foreground;
+            source: Icons.drop-down;
+            rotation-origin-x: self.width / 2;
+            rotation-origin-y: self.height / 2;
+    
+            states [
+                closed when !root.open : {
+                    rotation-angle: -0.25turn;
+                }
+            ]
+
+            animate rotation-angle { duration: EditorAnimationSettings.roation-duration; }
+        }
+        
+        BodyStrongText {
+            text: root.text;
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+    ]
+}
+
+component ItemTemplate {
+    in property <bool> enabled: true;
+    in property <string> text;
+    in property <bool> can-drop-here;
+    in property <length> offset;
+    out property <length> mouse-x <=> touch-area.mouse-x;
+    out property <length> mouse-y <=> touch-area.mouse-y;
+    out property <bool> pressed <=> touch-area.pressed;
+
+    callback clicked <=> touch-area.clicked;
+    callback pointer-event <=> touch-area.pointer-event;
+
+    min-width: content-layer.min-width;
+    min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
+
+    touch-area := TouchArea {        
+        states [
+            dragging-no-drop when self.pressed && !root.can-drop-here: {
+                mouse-cursor: MouseCursor.no-drop;
+            }
+            dragging-can-drop when self.pressed && root.can-drop-here: {
+                mouse-cursor: MouseCursor.copy;
+            }
+            normal when !self.pressed: {
+                mouse-cursor: MouseCursor.default;
+            }
+        ]
+    }
+
+    state-layer := StateLayer {
+        width: 100%;
+        height: 100%;
+        has-hover: touch-area.has-hover;
+        pressed: touch-area.pressed;
+    }
+
+    content-layer := HorizontalBox {
+        padding-left: self.padding + root.offset;
+        
+        BodyText {
+            text: root.text;
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+    ]
+}
+
+export component ExpandableListView inherits ListView {
+    in property <[ComponentListItem]> known-components;
+    in property <length> preview-area-position-x;
+    in property <length> preview-area-position-y;
+    in property <length> preview-area-width;
+    in property <length> preview-area-height;
+    in-out property <ComponentItem> visible-component: {
+        name: "",
+        defined-at: "",
+        pretty-location: "",
+        is-user-defined: false,
+        is-currently-shown: false,
+    };
+
+    pure callback can-drop(/* name */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
+    callback drop(/* name */ string, /* x */ length, /* y */ length);
+    callback show-preview-for(/* name */ string, /* defined-at */ string);
+
+    property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
+    property <length> list-spacing: 10px;
+    
+    for cli[index] in root.known-components: VerticalLayout {
+        property <int> my-category-index: index;
+        
+        header-item := HeaderItemTemplate {
+            text: cli.category;
+        }
+
+        if header-item.open : VerticalLayout {
+            for ci[index] in cli.components: ItemTemplate {
+                property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
+                property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
+                property <bool> on-drop-area:
+                            drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
+                property <ComponentItem> data: ci;
+
+                can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
+                enabled: root.preview-visible;
+                text: ci.name;
+                offset: header-item.offset;
+                height: self.min-height;
+
+                clicked => {
+                    if ci.is_user_defined && !ci.is_currently_shown {
+                        root.show-preview-for(self.data.name, self.data.defined_at)
+                    }
+                }
+
+                pointer-event(event) => {
+                    if self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                        root.drop(self.data.name, drop-x, drop-y);
+                    }
+                }
+
+                init() => {
+                    root.visible-component = ci;
+                }
+            }   
+        }
+    }
+}

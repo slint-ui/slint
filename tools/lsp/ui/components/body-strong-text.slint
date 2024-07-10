@@ -4,9 +4,9 @@
 import { Palette } from "std-widgets.slint";
 import { EditorFontSettings } from "./styling.slint";
 
-export component BodyText inherits Text {
+export component BodyStrongText inherits Text {
     vertical-alignment: center;
     color: Palette.foreground;
-    font-size: EditorFontSettings.body.font-size;
-    font-weight: EditorFontSettings.body.font-weight;
+    font-size: EditorFontSettings.body-strong.font-size;
+    font-weight: EditorFontSettings.body-strong.font-weight;
 }

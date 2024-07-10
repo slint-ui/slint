@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Group, GroupHeader } from "../components/group.slint";
+import { ExpandableListView } from "../components/expandable-listview.slint";
+import { Icons, EditorSizeSettings } from "../components/styling.slint";
+import { ComponentListItem, ComponentItem } from "../api.slint";
+import { Button } from "std-widgets.slint";
+
+export component LibraryView {
+    in property <[ComponentListItem]> known-components <=> component-list-view.known-components;
+    in property <length> preview-area-position-x <=> component-list-view.preview-area-position-x;
+    in property <length> preview-area-position-y <=> component-list-view.preview-area-position-y;
+    in property <length> preview-area-width <=> component-list-view.preview-area-width;
+    in property <length> preview-area-height <=> component-list-view.preview-area-height;
+    in-out property <ComponentItem> visible-component <=> component-list-view.visible-component;
+
+    callback add-component <=> add-button.clicked;
+    pure callback can-drop <=> component-list-view.can-drop;
+    callback drop <=> component-list-view.drop;
+    callback show-preview-for <=> component-list-view.show-preview-for;
+
+    width: EditorSizeSettings.side-bar-width;
+    min-height: side-bar.min-height;
+
+    side-bar := Group {   
+        width: 100%;
+        height: 100%;  
+
+        GroupHeader {
+            title: @tr("Library");
+
+            add-button := Button {
+                horizontal-stretch: 0;
+                icon: Icons.add;
+                accessible-label: @tr("Add component");
+            }
+        }
+        
+        component-list-view := ExpandableListView {
+            vertical-stretch: 1;
+        }
+    }
+}
