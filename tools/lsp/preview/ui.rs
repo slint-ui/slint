@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
 use lsp_types::Url;
@@ -114,30 +115,77 @@ pub fn ui_set_known_components(
     known_components: &[crate::common::ComponentInformation],
     current_component_index: usize,
 ) {
-    let mut map: HashMap<String, Vec<ComponentItem>> = Default::default();
+    let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
+    let mut path_map: HashMap<PathBuf, (SharedString, Vec<ComponentItem>)> = Default::default();
+    let mut longest_path_prefix = PathBuf::new();
+
     for (idx, ci) in known_components.iter().enumerate() {
         if ci.is_global {
             continue;
         }
         let (url, pretty_location) = extract_definition_location(ci);
-        map.entry(ci.category.clone()).or_default().push(ComponentItem {
+        let item = ComponentItem {
             name: ci.name.clone().into(),
-            defined_at: url,
+            defined_at: url.clone(),
             pretty_location,
             is_user_defined: !(ci.is_builtin || ci.is_std_widget),
             is_currently_shown: idx == current_component_index,
-        });
+        };
+
+        if let Some(position) = &ci.defined_at {
+            let path = i_slint_compiler::pathutils::clean_path(
+                &(position.url.to_file_path().unwrap_or_default()),
+            );
+            if path != PathBuf::new() {
+                if longest_path_prefix == PathBuf::new() {
+                    longest_path_prefix = path.clone();
+                } else {
+                    longest_path_prefix =
+                        std::iter::zip(longest_path_prefix.components(), path.components())
+                            .take_while(|(l, p)| l == p)
+                            .map(|(l, _)| l)
+                            .collect();
+                }
+            }
+            path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
+        } else {
+            builtins_map.entry(ci.category.clone()).or_default().push(item);
+        }
     }
-    let mut result = map
-        .into_iter()
-        .map(|(k, v)| {
+
+    let mut builtin_components = builtins_map
+        .drain()
+        .map(|(k, mut v)| {
+            v.sort_by_key(|i| i.name.clone());
             let model = Rc::new(VecModel::from(v));
-            ComponentListItem { category: k.into(), components: model.into() }
+            ComponentListItem {
+                category: k.into(),
+                file_url: SharedString::new(),
+                components: model.into(),
+            }
         })
         .collect::<Vec<_>>();
-    result.sort_by_key(|k| k.category.clone());
+    builtin_components.sort_by_key(|k| k.category.clone());
 
-    let result = Rc::new(VecModel::from(result));
+    let mut file_components = path_map
+        .drain()
+        .map(|(p, (file_url, mut v))| {
+            v.sort_by_key(|i| i.name.clone());
+            let model = Rc::new(VecModel::from(v));
+            let name = if p == longest_path_prefix {
+                p.file_name().unwrap_or_default().to_string_lossy().to_string()
+            } else {
+                p.strip_prefix(&longest_path_prefix).unwrap_or(&p).to_string_lossy().to_string()
+            };
+            ComponentListItem { category: name.into(), file_url, components: model.into() }
+        })
+        .collect::<Vec<_>>();
+    file_components.sort_by_key(|k| PathBuf::from(k.category.to_string()));
+
+    let mut all_components = builtin_components;
+    all_components.extend_from_slice(&file_components);
+
+    let result = Rc::new(VecModel::from(all_components));
     let api = ui.global::<Api>();
     api.set_known_components(result.into());
 }
