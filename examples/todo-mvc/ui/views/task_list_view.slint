@@ -46,7 +46,7 @@ export component TaskListView {
         SelectionListView {
             width: 100%;
             model: TaskListAdapter.tasks;
-            accessible-label: @tr("task listview");
+            accessible-label: @tr("List of Tasks");
 
             toggle(index) => {
                 TaskListAdapter.toggle-task-checked(index);
@@ -62,7 +62,7 @@ export component TaskListView {
 
             ActionButton {
                 icon: Icons.add;
-                accessible-label: @tr("add");
+                accessible-label: @tr("Create New Task");
 
                 clicked => {
                     TaskListAdapter.show-create-task();
