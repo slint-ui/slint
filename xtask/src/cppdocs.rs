@@ -101,7 +101,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         accessibility: true,
         system_testing: true,
         freestanding: true,
-        experimental: true,
+        experimental: false,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 
