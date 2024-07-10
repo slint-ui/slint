@@ -6,7 +6,7 @@ import { BodyText } from "../components/body-text.slint";
 
 
 export component HeaderView {
-    in-out property <bool> edit-mode;
+    in-out property <bool> edit-mode <=> interaction-switch.checked;
     in-out property <string> current-style <=> style-combobox.current-value;
     in property <[string]> known-styles <=> style-combobox.model;
 
@@ -30,21 +30,18 @@ export component HeaderView {
             spacing: 4px;
             
             BodyText {
-                text: @tr("Edit");
+                text: @tr("Interact");
             }
             
             interaction-switch := Switch {
-                checked: !root.edit-mode;
-                
                 toggled => {
-                    root.edit-mode = !self.checked;
                     root.edit-mode-toggled();
                 }
             }
             
             BodyText {
-                text: @tr("Interact");
-            }
+                text: @tr("Edit");
+            }      
         }
     }
 }
