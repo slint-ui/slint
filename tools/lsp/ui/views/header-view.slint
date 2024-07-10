@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
+import { BodyText } from "../components/body-text.slint";
+
+
+export component HeaderView {
+    in-out property <bool> edit-mode;
+    in-out property <string> current-style <=> style-combobox.current-value;
+    in property <[string]> known-styles <=> style-combobox.model;
+
+    callback style-selected();
+    callback edit-mode-toggled();
+    
+    content-layer := HorizontalBox {
+        alignment: end;
+
+        BodyText {
+            text: @tr("Style");
+        }
+
+        style-combobox := ComboBox {
+            selected => {
+                root.style-selected();
+            }
+        }
+        
+        HorizontalLayout {
+            spacing: 4px;
+            
+            BodyText {
+                text: @tr("Edit");
+            }
+            
+            interaction-switch := Switch {
+                checked: !root.edit-mode;
+                
+                toggled => {
+                    root.edit-mode = !self.checked;
+                    root.edit-mode-toggled();
+                }
+            }
+            
+            BodyText {
+                text: @tr("Interact");
+            }
+        }
+    }
+}

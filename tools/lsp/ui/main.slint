@@ -12,6 +12,8 @@ import { DiagnosticsOverlay } from "diagnostics-overlay.slint";
 import { PropertyEditor } from "property-editor.slint";
 import { SideBar } from "side-bar.slint";
 
+import { HeaderView } from "./views/header-view.slint";
+
 export { Api }
 
 export component PreviewUi inherits Window {
@@ -41,67 +43,24 @@ export component PreviewUi inherits Window {
         }
         if (Api.show-preview-ui): Rectangle {
             VerticalLayout {
-                HeaderBar {
-                    vertical-stretch: 0.0;
+                header-view := HeaderView {
+                    edit-mode <=> Api.design-mode;
+                    current-style <=> Api.current-style;
+                    known-styles <=> Api.known-styles;
 
-                    height: self.preferred-height;
-
-                    pick-button := Button {
-                        text: @tr("Design Mode");
-                        checkable: true;
-                        checked <=> Api.design-mode;
-                        clicked() => {
-                            key-handler.focus();
-                        }
+                    edit-mode-toggled() => {
+                        key-handler.focus();
                     }
 
-                    Text {
-                        text: @tr("Style:");
-                        vertical-alignment: center;
-                    }
-
-                    style-select := ComboBox {
-                        model: Api.known-styles;
-                        current-value <=> Api.current-style;
-                        selected(value) => {
-                            Api.style-changed();
-                        }
-                    }
-
-                    Rectangle {
-                        width: 10px;
-                    }
-
-                    prev-button := Button {
-                        text: "<";
-                        enabled: Api.can-navigate-back;
-                        clicked() => {
-                            Api.navigate(-1);
-                        }
-                    }
-
-                    next-button := Button {
-                        text: ">";
-                        enabled: Api.can-navigate-forward;
-                        clicked() => {
-                            Api.navigate(1);
-                        }
-                    }
-
-                    Rectangle {
-                        width: 10px;
-                    }
-
-                    Text {
-                        text: Api.status-text;
-                        vertical-alignment: center;
+                    style-selected => {
+                        Api.style-changed();
                     }
                 }
-
+                
                 HorizontalLayout {
                     left-sidebar := SideBar {
                         default-width: root.side-bar-width;
-                        show-side-bar: pick-button.checked;
+                        show-side-bar: Api.design-mode;
 
                         component-list := ComponentList {
                             preview-area-position-x: draw-area.preview-area-position-x;
@@ -117,7 +76,7 @@ export component PreviewUi inherits Window {
 
                     right-sidebar := SideBar {
                         default-width: root.side-bar-width;
-                        show-side-bar: pick-button.checked;
+                        show-side-bar: Api.design-mode;
 
                         property-editor := PropertyEditor { }
                     }
