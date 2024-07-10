@@ -3323,20 +3323,16 @@ fn compile_builtin_function_call(
                 let popup_window_id =
                     ident(&popup.item_tree.root.name);
                 let parent_component = access_item_rc(parent_ref, ctx);
-
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     &popup.item_tree.root,
                     CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
                     Some(ParentCtx::new(&ctx, None)),
                 );
-
-                let x = access_member(&popup.x_prop, &popup_ctx);
-                let y = access_member(&popup.y_prop, &popup_ctx);
-
+                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_on_click = compile_expression(close_on_click, ctx);
                 format!(
-                    "{window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {x}.get(); }}, [=](auto self) {{ return {y}.get(); }}, {close_on_click}, {{ {parent_component} }})"
+                    "{window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {position}; }}, {close_on_click}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)

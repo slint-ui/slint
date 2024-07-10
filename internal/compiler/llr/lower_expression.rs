@@ -975,7 +975,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
     }
 }
 
-fn make_struct(
+pub fn make_struct(
     name: &str,
     it: impl IntoIterator<Item = (&'static str, Type, llr_Expression)>,
 ) -> llr_Expression {
