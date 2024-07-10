@@ -17,18 +17,19 @@ use std::rc::Rc;
 pub fn materialize_fake_properties(component: &Rc<Component>) {
     let mut to_materialize = std::collections::HashMap::new();
 
-    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        visit_all_named_references_in_element(elem, |nr| {
-            let elem = nr.element();
-            let elem = elem.borrow();
-            if !to_materialize.contains_key(nr) {
-                if let Some(ty) =
-                    should_materialize(&elem.property_declarations, &elem.base_type, nr.name())
-                {
-                    to_materialize.insert(nr.clone(), ty);
-                }
+    visit_all_named_references(component, &mut |nr| {
+        let elem = nr.element();
+        let elem = elem.borrow();
+        if !to_materialize.contains_key(nr) {
+            if let Some(ty) =
+                should_materialize(&elem.property_declarations, &elem.base_type, nr.name())
+            {
+                to_materialize.insert(nr.clone(), ty);
             }
-        });
+        }
+    });
+
+    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
             let nr = NamedReference::new(elem, prop);
             if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
