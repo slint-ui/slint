@@ -378,7 +378,7 @@ fn evaluate_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) -> Option<lsp_types::WorkspaceEdit> {
-    let element_url = Url::parse(&element_url.to_string()).ok()?;
+    let element_url = Url::parse(element_url.as_ref()).ok()?;
     let element_version = if element_version < 0 { None } else { Some(element_version) };
     let element_offset = u32::try_from(element_offset).ok()?;
     let property_name = property_name.to_string();

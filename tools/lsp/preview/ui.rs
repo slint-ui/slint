@@ -96,9 +96,7 @@ pub fn convert_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Vec
         .collect::<Vec<_>>()
 }
 
-fn extract_definition_location(
-    ci: &ComponentInformation,
-) -> (slint::SharedString, slint::SharedString) {
+fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
     let Some(url) = ci.defined_at.as_ref().map(|da| &da.url) else {
         return (Default::default(), Default::default());
     };
@@ -256,43 +254,38 @@ fn simplify_value(
     if property_type == "bool"
         && (property_value == "true" || property_value == "false" || property_value.is_empty())
     {
-        let value: slint::SharedString = if property_value == "true" {
-            "true".to_string().into()
-        } else {
-            "false".to_string().into()
-        };
+        let value: SharedString =
+            if property_value == "true" { "true".into() } else { "false".into() };
         return SimpleValueData {
-            widget: "bool".to_string().into(),
+            widget: "bool".into(),
             meta_data: Rc::new(VecModel::from(vec![value])).into(),
             visual_items: Rc::new(VecModel::default()).into(),
         };
     } else if property_type == "string" {
         if let Some(simple) = simplify_string(property_value) {
             return SimpleValueData {
-                widget: "string".to_string().into(),
+                widget: "string".into(),
                 meta_data: Rc::new(VecModel::from(vec![simple.into()])).into(),
                 visual_items: Rc::new(VecModel::default()).into(),
             };
         }
-    } else if property_type.starts_with("enum ") {
-        let property_type = &property_type["enum ".len()..];
+    } else if let Some(property_type) = property_type.strip_prefix("enum ") {
         if let i_slint_compiler::langtype::Type::Enumeration(enumeration) =
             &document_cache.global_type_registry().lookup(property_type)
         {
             let short_property_value =
                 property_value.strip_prefix(&format!("{property_type}.")).unwrap_or(property_value);
-            let type_name: slint::SharedString = property_type.to_string().into();
-            let default_value: slint::SharedString = enumeration.default_value.to_string().into();
+            let type_name: SharedString = property_type.into();
+            let default_value: SharedString = enumeration.default_value.to_string().into();
             let current_value = enumeration
                 .values
                 .iter()
                 .position(|v| v == short_property_value)
-                .map(|p| slint::SharedString::from(p.to_string()))
+                .map(|p| SharedString::from(p.to_string()))
                 .unwrap_or_else(|| default_value.clone());
-            let visual_values: Vec<_> =
-                enumeration.values.iter().map(|v| slint::SharedString::from(v)).collect();
+            let visual_values: Vec<_> = enumeration.values.iter().map(SharedString::from).collect();
             return SimpleValueData {
-                widget: "enum".to_string().into(),
+                widget: "enum".into(),
                 meta_data: Rc::new(VecModel::from(vec![type_name, default_value, current_value]))
                     .into(),
                 visual_items: Rc::new(VecModel::from(visual_values)).into(),
@@ -301,7 +294,7 @@ fn simplify_value(
     }
 
     SimpleValueData {
-        widget: slint::SharedString::new(),
+        widget: SharedString::new(),
         meta_data: Rc::new(VecModel::default()).into(),
         visual_items: Rc::new(VecModel::default()).into(),
     }
@@ -335,7 +328,7 @@ fn map_properties_to_ui(
     let element = properties.element.as_ref()?;
 
     let raw_source_uri = Url::parse(&properties.source_uri).ok()?;
-    let source_uri: slint::SharedString = raw_source_uri.to_string().into();
+    let source_uri: SharedString = raw_source_uri.to_string().into();
     let source_version = properties.source_version;
 
     let doc = document_cache.get_document(&raw_source_uri)?;
@@ -347,7 +340,7 @@ fn map_properties_to_ui(
 
     fn property_group_from(name: &str, properties: Vec<PropertyInformation>) -> PropertyGroup {
         PropertyGroup {
-            group_name: name.to_string().into(),
+            group_name: name.into(),
             properties: Rc::new(VecModel::from(properties)).into(),
         }
     }
