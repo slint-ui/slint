@@ -1,15 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-## struct `Date`
-
-Defines a date with day, month, and year
-
-### Fields
-
--   **`day`(int)**: The day value (range from 1 to 31).
--   **`month`(int)**: The month value (range from 1 to 12).
--   **`year`(int)**: The year value.
-
 ## `DatePickerPopup`
 
 Use a date picker to let the user select a date.
@@ -17,7 +7,7 @@ Use a date picker to let the user select a date.
 ### Properties
 
 -   **`title`** (_in_ _string_): The text that is displayed at the top of the picker.
--   **`date`**: (_in_ _Date_): Set the initial displayed date.
+-   **`date`**: (_in_ _struct [`Date`](#struct-date)_): Set the initial displayed date.
 
 ### Callbacks
 
@@ -51,3 +41,13 @@ export component Example inherits Window {
     }
 }
 ```
+
+### Struct `Date`
+
+Defines a date with day, month, and year.
+
+#### Fields
+
+-   **`day`(int)**: The day value (range from 1 to 31).
+-   **`month`(int)**: The month value (range from 1 to 12).
+-   **`year`(int)**: The year value.
