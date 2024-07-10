@@ -174,14 +174,11 @@ fn press_add_adds_one_todo() {
     use i_slint_backend_testing::ElementHandle;
     let state = init();
     state.todo_model.set_vec(vec![TodoItem { checked: false, title: "first".into() }]);
-    let line_edit = ElementHandle::visit_elements(&state.main_window, |element| {
-        if element.accessible_placeholder_text().as_deref() == Some("What needs to be done?") {
-            std::ops::ControlFlow::Break(element)
-        } else {
-            std::ops::ControlFlow::Continue(())
-        }
-    })
-    .unwrap();
+    let line_edit = i_slint_backend_testing::ElementRoot::root_element(&state.main_window)
+        .match_descendants()
+        .match_id("MainWindow::text-edit")
+        .find_first()
+        .unwrap();
     assert_eq!(line_edit.accessible_value().unwrap(), "");
     line_edit.set_accessible_value("second");
 
