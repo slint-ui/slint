@@ -7,7 +7,7 @@ Start with an introduction to the tutorial. Include the following:
 -   What will the reader learn by the end of it?
 -   What hardware, and architecture combination is this tutorial designed for?
 
-## Limitations
+## Known limitations
 
 Does this platform and architecture combination have any limitations, issues, etc?
 
@@ -34,3 +34,9 @@ Suggest following the getting started tutorial. Note any special build steps req
 ## Debugging techniques
 
 Detail how people can test and debug an application running on another device.
+
+## Conclusion and summary
+
+- What did the reader learn in this tutorial and what should they read or do next?
+- Does this platform and/or software combination require licensing? Then provide details on how to get in touch.
+- Is there any other reason someone should get in touch with the Slint team about this platform and software combination? Then provide details on how to get in touch.
