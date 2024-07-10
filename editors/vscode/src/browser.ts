@@ -10,12 +10,10 @@ import {
     LanguageClient,
 } from "vscode-languageclient/browser";
 
-import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
 import * as common from "./common";
 
 let statusBar: vscode.StatusBarItem;
-let properties_provider: PropertiesViewProvider;
 
 function startClient(
     client: common.ClientHandle,
@@ -63,7 +61,7 @@ function startClient(
 
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
-    [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
+    statusBar = common.activate(context, (cl, ctx) =>
         startClient(cl, ctx),
     );
 }

@@ -24,7 +24,6 @@
     "onLanguage:slint",
     "onLanguage:rust",
     "onWebviewPanel:slint-preview",
-    "onView:slint.propertiesView",
     "workspaceContains:{**/CMakeLists.txt,**/Cargo.toml,**/*.slint}"
   ],
   "main": "./out/extension.js",
@@ -138,16 +137,6 @@
         }
       }
     },
-    "views": {
-      "explorer": [
-        {
-          "type": "webview",
-          "id": "slint.propertiesView",
-          "name": "Properties",
-          "contextualTitle": "Slint Properties"
-        }
-      ]
-    },
     "walkthroughs": [
       {
         "id": "slint.welcomeWalkthrough",
@@ -172,17 +161,6 @@
             },
             "completionEvents": [
               "onCommand:slint.showPreview"
-            ]
-          },
-          {
-            "id": "property_editor",
-            "title": "Edit Properties",
-            "description": "When your cursor is on an Slint element in your editor, the property editor shows all possible properties defined on the Element.\n[Open Properties Editor](command:slint.propertiesView.focus)",
-            "media": {
-              "markdown": "static/walkthroughs/welcome/properties_editor.md"
-            },
-            "completionEvents": [
-              "onView:slint.propertiesView"
             ]
           },
           {
