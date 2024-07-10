@@ -121,7 +121,7 @@ public:
 
     Image() : data(Data::ImageInner_None()) { }
 
-#ifndef SLINT_FEATURE_FREESTANDING
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Load an image from an image file
     [[nodiscard]] static Image load_from_path(const SharedString &file_path)
     {
@@ -173,24 +173,24 @@ public:
     /// Construct an image from a SharedPixelBuffer of RGB pixels.
     Image(SharedPixelBuffer<Rgb8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::RGB8(
-                          cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+                cbindgen_private::types::ImageCacheKey::Invalid(),
+                cbindgen_private::types::SharedImageBuffer::RGB8(
+                        cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
+                                .width = buffer.width(),
+                                .height = buffer.height(),
+                                .data = buffer.m_data })))
     {
     }
 
     /// Construct an image from a SharedPixelBuffer of RGBA pixels.
     Image(SharedPixelBuffer<Rgba8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::RGBA8(
-                          cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+                cbindgen_private::types::ImageCacheKey::Invalid(),
+                cbindgen_private::types::SharedImageBuffer::RGBA8(
+                        cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
+                                .width = buffer.width(),
+                                .height = buffer.height(),
+                                .data = buffer.m_data })))
     {
     }
 

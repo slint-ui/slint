@@ -86,11 +86,11 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let enabled_features = cbindgen::EnabledFeatures {
         interpreter: true,
         testing: true,
-        backend_qt: false,
+        backend_qt: true,
         backend_winit: true,
         backend_winit_x11: false,
         backend_winit_wayland: false,
-        backend_linuxkms: false,
+        backend_linuxkms: true,
         backend_linuxkms_noseat: false,
         renderer_femtovg: true,
         renderer_skia: true,
@@ -99,9 +99,9 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         renderer_software: true,
         gettext: true,
         accessibility: true,
-        system_testing: false,
-        freestanding: false,
-        experimental: false,
+        system_testing: true,
+        freestanding: true,
+        experimental: true,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 

@@ -695,7 +695,7 @@ public:
     FilterModel(std::shared_ptr<Model<ModelData>> source_model,
                 std::function<bool(const ModelData &)> filter_fn)
         : inner(std::make_shared<private_api::FilterModelInner<ModelData>>(
-                  std::move(source_model), std::move(filter_fn), *this))
+                std::move(source_model), std::move(filter_fn), *this))
     {
         inner->source_model->attach_peer(inner);
     }
@@ -783,7 +783,7 @@ public:
     MapModel(std::shared_ptr<Model<SourceModelData>> source_model,
              std::function<MappedModelData(const SourceModelData &)> map_fn)
         : inner(std::make_shared<private_api::MapModelInner<SourceModelData, MappedModelData>>(
-                  *this)),
+                *this)),
           model(source_model),
           map_fn(map_fn)
     {
@@ -1398,7 +1398,7 @@ void invoke_from_event_loop(Functor f)
             [](void *data) { delete reinterpret_cast<Functor *>(data); });
 }
 
-#ifndef SLINT_FEATURE_FREESTANDING
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
 
 /// Blocking version of invoke_from_event_loop()
 ///
