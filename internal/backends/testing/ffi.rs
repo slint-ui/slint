@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{ElementHandle, ElementRoot};
-use core::ops::ControlFlow;
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::slice::Slice;
 use i_slint_core::{SharedString, SharedVector};
@@ -29,14 +28,12 @@ pub unsafe extern "C" fn slint_testing_element_visit_elements(
     user_data: *mut c_void,
     visitor: unsafe extern "C" fn(*mut c_void, &ElementHandle) -> bool,
 ) -> bool {
-    ElementHandle::visit_elements(&RootWrapper(root), |element| {
-        if visitor(user_data, &element) {
-            ControlFlow::Break(())
-        } else {
-            ControlFlow::Continue(())
-        }
-    })
-    .is_some()
+    RootWrapper(root)
+        .root_element()
+        .match_descendants()
+        .match_predicate(move |element| visitor(user_data, &element))
+        .find_first()
+        .is_some()
 }
 
 #[no_mangle]
