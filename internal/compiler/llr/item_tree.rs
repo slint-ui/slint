@@ -21,9 +21,6 @@ impl From<Expression> for MutExpression {
 }
 
 impl MutExpression {
-    pub fn visit_recursive(&self, visitor: &mut dyn FnMut(&Expression)) {
-        self.0.borrow().visit_recursive(visitor)
-    }
     pub fn ty(&self, ctx: &dyn super::TypeResolutionContext) -> Type {
         self.0.borrow().ty(ctx)
     }
@@ -307,6 +304,21 @@ impl SubComponent {
         }
         count
     }
+
+    /// Return if a local property is used. (unused property shouldn't be generated)
+    pub fn prop_used(&self, prop: &PropertyReference) -> bool {
+        if let PropertyReference::Local { property_index, sub_component_path } = prop {
+            let mut sc = self;
+            for i in sub_component_path {
+                sc = &sc.sub_components[*i].ty;
+            }
+            if sc.properties[*property_index].use_count.get() == 0 {
+                return false;
+            }
+        }
+        true
+    }
+
 }
 
 pub struct SubComponentInstance {

@@ -995,22 +995,15 @@ fn generate_sub_component(
     }
 
     for (prop, expression) in &component.property_init {
-        if expression.use_count.get() > 0 {
+        if expression.use_count.get() > 0 && component.prop_used(prop) {
             handle_property_init(prop, expression, &mut init, &ctx)
         }
     }
     for prop in &component.const_properties {
-        if let llr::PropertyReference::Local { property_index, sub_component_path } = prop {
-            let mut sc = component;
-            for i in sub_component_path {
-                sc = &sc.sub_components[*i].ty;
-            }
-            if sc.properties[*property_index].use_count.get() == 0 {
-                continue;
-            }
+        if component.prop_used(prop) {
+            let rust_property = access_member(prop, &ctx).unwrap();
+            init.push(quote!(#rust_property.set_constant();))
         }
-        let rust_property = access_member(prop, &ctx).unwrap();
-        init.push(quote!(#rust_property.set_constant();))
     }
 
     let parent_component_type = parent_ctx.iter().map(|parent| {

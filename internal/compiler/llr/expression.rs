@@ -406,6 +406,31 @@ impl Expression {
         visitor(self);
         self.visit(|e| e.visit_recursive(visitor));
     }
+
+    pub fn visit_property_references(
+        &self,
+        ctx: &EvaluationContext,
+        visitor: &mut dyn FnMut(&PropertyReference, &EvaluationContext),
+    ) {
+        self.visit_recursive(&mut |expr| {
+            let p = match expr {
+                Expression::PropertyReference(p) => p,
+                Expression::CallBackCall { callback, .. } => callback,
+                Expression::PropertyAssignment { property, .. } => {
+                    if let Some((a, map)) = &ctx.property_info(property).animation {
+                        let ctx2 = map.map_context(ctx);
+                        a.visit_property_references(&ctx2, visitor);
+                    }
+                    property
+                }
+                // FIXME  (should be fine anyway because we mark these as not optimizable)
+                Expression::ModelDataAssignment { .. } => return,
+                Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
+                _ => return,
+            };
+            visitor(p, ctx)
+        });
+    }
 }
 
 pub trait TypeResolutionContext {

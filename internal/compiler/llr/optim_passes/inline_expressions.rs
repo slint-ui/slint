@@ -12,7 +12,11 @@ use crate::llr::{CompilationUnit, EvaluationContext, Expression};
 const PROPERTY_ACCESS_COST: isize = 1000;
 const ALLOC_COST: isize = 700;
 const ARRAY_INDEX_COST: isize = 500;
+/// The threshold from which we consider an expression to be worth inlining.
+/// less than two allocations. (since property access usually cost one allocation)
 const INLINE_THRESHOLD: isize = ALLOC_COST * 2 - 10;
+/// Property that are used only once should almost always be inlined unless it is really expensive to compute and we want to cache the result
+const INLINE_SINGLE_THRESHOLD: isize = ALLOC_COST * 10;
 
 // The cost of an expression.
 fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
@@ -141,14 +145,36 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
                 if binding.animation.is_none()
                     // State info binding are special and the binding cannot be inlined or used.
                     && !binding.is_state_info
-                    && expression_cost(&binding.expression.borrow(), &map.map_context(ctx)) < INLINE_THRESHOLD
                 {
-                    // Perform inlining
-                    *expr = binding.expression.borrow().clone();
-                    map.map_expression(expr);
+                    let mapped_ctx = map.map_context(ctx);
+                    let cost = expression_cost(&binding.expression.borrow(), &mapped_ctx);
+                    let use_count = binding.use_count.get();
+                    debug_assert!(
+                        use_count > 0,
+                        "We use a property and its count is zero: {}",
+                        crate::llr::pretty_print::DisplayPropertyRef(prop, ctx)
+                    );
+                    if cost <= INLINE_THRESHOLD
+                        || (use_count == 1 && cost <= INLINE_SINGLE_THRESHOLD)
+                    {
+                        // Perform inlining
+                        *expr = binding.expression.borrow().clone();
+                        map.map_expression(expr);
+                        // adjust use count
+                        binding.use_count.set(use_count - 1);
+                        if let Some(prop_decl) = prop_info.property_decl {
+                            prop_decl.use_count.set(prop_decl.use_count.get() - 1);
+                        }
+                        if use_count == 1 {
+                            binding.expression.replace(Expression::CodeBlock(vec![]));
+                        } else {
+                            adjust_use_count(expr, &ctx, 1);
+                        }
+                    }
                 }
             } else if let Some(prop_decl) = prop_info.property_decl {
                 if let Some(e) = Expression::default_value_for_type(&prop_decl.ty) {
+                    prop_decl.use_count.set(prop_decl.use_count.get() - 1);
                     *expr = e;
                 }
             }
@@ -156,4 +182,19 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
     };
 
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx));
+}
+
+fn adjust_use_count(expr: &Expression, ctx: &EvaluationContext, adjust: isize) {
+    expr.visit_property_references(ctx, &mut |p, ctx| {
+        let prop_info = ctx.property_info(p);
+        if let Some(property_decl) = prop_info.property_decl {
+            property_decl
+                .use_count
+                .set(property_decl.use_count.get().checked_add_signed(adjust).unwrap());
+        }
+        if let Some((binding, _)) = prop_info.binding {
+            let use_count = binding.use_count.get().checked_add_signed(adjust).unwrap();
+            binding.use_count.set(use_count);
+        }
+    });
 }
