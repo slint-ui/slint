@@ -1,15 +1,12 @@
 .. Copyright © SixtyFPS GmbH <info@slint.dev>
 .. SPDX-License-Identifier: MIT
 
-.. A lot of repitition
-
 Introduction
 ============
 
 Slint is an easy to learn and use language to describe user
 interfaces. It is readable to both humans and machines.
 
-.. ???
 This way, we have excellent tooling on one side, while also enabling
 designers and developers to know exactly what happens, by reading the code
 their machine uses to display the user interfaces.
@@ -40,7 +37,3 @@ The Slint language describes extensible graphical user interfaces using the
 - Build highly customized user interfaces with the :ref:`builtin elements <Builtin Elements>`
   and pre-built :ref:`widgets <Widgets>` provided.
 
-.. Again, repitition
-
-Slint only describes the user interface and is not a programming language. The business
-logic is written in a different programming language using the Slint API.

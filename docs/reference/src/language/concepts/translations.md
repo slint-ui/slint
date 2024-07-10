@@ -4,7 +4,9 @@
 
 Slint's translation infrastructure makes your application available in different languages.
 
-## Prerequisites
+## Overview
+
+:::tip Prerequisite
 
 Install the `slint-tr-extractor` tool to extract translatable strings from `.slint` files:
 
@@ -12,22 +14,18 @@ Install the `slint-tr-extractor` tool to extract translatable strings from `.sli
 cargo install slint-tr-extractor
 ```
 
-## Overview
+:::
 
 Complete the following steps to translate your application:
 
-<!-- TODO: Link up -->
 
 1. Identify all user visible strings that need translation and annotate them with the `@tr()` macro.
 2. Extract annotated strings by running the `slint-tr-extractor` tool and generate `.pot` files.
-
- <!-- TODO: More? -->
-
 3. Use a third-party tool to translate the strings into a target language, as `.po` files.
 4. Use [gettext's `msgfmt`](https://www.gnu.org/software/gettext/manual/gettext.html) tool to convert `.po` files into run-time loadable `.mo` files.
 5. Use Slint's API to select and load `.mo` files at run-time, based on the user's locale settings.
 
-    At this point, all strings marked for translation will automatically be rendered in the target language.
+At this point, all strings marked for translation are automatically rendered in the target language.
 
 ## Annotating Translatable Strings
 
@@ -159,9 +157,7 @@ Read the [Gettext documentation](https://www.gnu.org/software/gettext/manual/get
 
 ### Select and Load Translations with Rust
 
-<!-- TODO: Do people know how to do this? -->
-
-First, enable the `gettext` feature of the `slint` crate to gain access to the translations API
+First, enable the `gettext` feature of the `slint` crate in the `features` section to gain access to the translations API
 and activate run-time translation support.
 
 Next, use the `slint::init_translations!` macro to specify the base location of your `.mo` files. This is
@@ -185,8 +181,6 @@ name = "gallery"
 With these settings, Slint looks for `gallery.mo` in the `lang/fr/LC_MESSAGES/gallery.mo`.
 
 ### Select and Load Translations with C++
-
-<!-- TODO: Again, should show this? -->
 
 First, enable the `SLINT_FEATURE_GETTEXT` cmake option when compiling Slint to gain access to
 the translations API and activate run-time translation support.
@@ -228,13 +222,15 @@ Slint looks for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 
 ## Previewing Translations with `slint-viewer`
 
-<!-- TODO: Again, is this obvious? I see no instructions -->
+:::tip Prerequisite
 
 Use `slint-viewer` to preview translations when previewing `.slint` files:
 
-```rust
+```sh
 cargo install slint-viewer
 ```
+
+:::
 
 1. Enable the `gettext` feature when compiling `slint-viewer`.
 2. Use the `--translation-domain` and `translation-dir` command line options to
