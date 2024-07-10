@@ -34,7 +34,7 @@ export component CreateTaskView {
         HorizontalLayout {
             IconButton {
                 icon: Icons.close;
-                accessible-label: @tr("close");
+                accessible-label: @tr("Cancel New Task Creation");
 
                 clicked => {
                     root.reset();
@@ -43,7 +43,7 @@ export component CreateTaskView {
             }
 
             // spacer
-            Rectangle {}
+            Rectangle { }
 
             Button {
                 text: @tr("Create");
@@ -94,7 +94,6 @@ export component CreateTaskView {
                 }
             }
 
-
             TextButton {
                 text: CreateTaskAdapter.time-string(CreateTaskAdapter.due-time);
                 horizontal-stretch: 0;
@@ -105,10 +104,10 @@ export component CreateTaskView {
             }
         }
 
-        Rectangle {}
+        Rectangle { }
     }
 
-     date-picker := DatePickerPopup {
+    date-picker := DatePickerPopup {
         x: (root.width - 360px) / 2;
         y: (root.height - 524px) / 2;
         width: 360px;
