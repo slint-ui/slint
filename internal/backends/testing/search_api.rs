@@ -4,12 +4,10 @@
 use core::ops::ControlFlow;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
 use i_slint_core::api::{ComponentHandle, LogicalPosition};
-use i_slint_core::graphics::euclid;
-use i_slint_core::item_tree::{ItemTreeRc, ItemVisitorResult, ItemWeak, TraversalOrder};
+use i_slint_core::item_tree::{ItemTreeRc, ItemWeak};
 use i_slint_core::items::ItemRc;
-use i_slint_core::lengths::{LogicalPx, LogicalRect};
 use i_slint_core::window::WindowInner;
-use i_slint_core::{Coord, SharedString};
+use i_slint_core::SharedString;
 
 fn warn_missing_debug_info() {
     i_slint_core::debug_log!("The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time")
@@ -238,58 +236,6 @@ impl ElementHandle {
             0
         }))
             .map(move |element_index| ElementHandle { item: item.downgrade(), element_index })
-    }
-
-    /// Visit elements of a component and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
-    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
-    ///
-    /// Only visible elements are being visited
-    pub fn visit_elements<R>(
-        component: &impl ElementRoot,
-        mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
-    ) -> Option<R> {
-        let mut result = None;
-        let item_tree = component.item_tree();
-
-        #[derive(Clone, Copy, Debug)]
-        struct GeometryState {
-            offset: euclid::Vector2D<Coord, LogicalPx>,
-            clipped: LogicalRect,
-        }
-        i_slint_core::item_tree::visit_items(
-            &item_tree,
-            TraversalOrder::BackToFront,
-            |parent_tree, item_pin, index, state| {
-                let item_rc = ItemRc::new(parent_tree.clone(), index);
-                let geometry = item_rc.geometry().translate(state.offset);
-                let intersection = geometry.intersection(&state.clipped).unwrap_or_default();
-                let mut new_state = *state;
-                new_state.offset = geometry.origin.to_vector();
-                if i_slint_core::item_rendering::is_clipping_item(item_pin) {
-                    new_state.clipped = intersection;
-                }
-                if !intersection.is_empty()
-                    || (geometry.is_empty() && new_state.clipped.contains(geometry.center()))
-                {
-                    let elements = ElementHandle::collect_elements(item_rc);
-                    for e in elements {
-                        match visitor(e) {
-                            ControlFlow::Continue(_) => (),
-                            ControlFlow::Break(x) => {
-                                result = Some(x);
-                                return ItemVisitorResult::Abort;
-                            }
-                        }
-                    }
-                }
-                ItemVisitorResult::Continue(new_state)
-            },
-            GeometryState {
-                offset: Default::default(),
-                clipped: LogicalRect::from_size((f32::MAX, f32::MAX).into()),
-            },
-        );
-        result
     }
 
     /// Visit all descendants of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
