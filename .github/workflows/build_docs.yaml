@@ -8,7 +8,7 @@ on:
     workflow_call:
       inputs:
         release:
-          type: boolean
+          type: string
           default: false
           required: false
           description: "Release? Enable options for building binaries for a release (i.e. apply a nightly tag, nightly version)"
