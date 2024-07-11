@@ -1,0 +1,136 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+/*!
+ * \brief The StackView is a component that can be used to simulate a stack view.
+ *
+ * \note: Due to the language limitation only the partial implementaion is possible.
+ *        The component is meant to be a helper.
+ *
+ * \par Usage:
+ * The component can be used in two ways:
+ * - for smaller pages, where all pages are loaded at once,
+ * - for more complex pages, where pages are loaded dynamically.
+ *
+ * Static pages:
+ * \code{*.slint}
+ * stack := StackView {
+ *   current-index: 0;
+ *   min-index: 0;
+ *
+ *   for color in [ Colors.red, Colors.green, Colors.blue ]:
+ *     StackPage {
+ *       is-current: self.check-is-current(stack.current-index);
+ *       init => { self.page-index = stack.insert-page(); } // StackPage.count increased with insert-page function
+ *
+ *       TestPage {
+ *         background: color;
+ *         push => { stack.push(); }
+ *         pop => { stack.pop(); }
+ *       }
+ *     }
+ * }
+ * \endcode
+ *
+ * Dynamic pages:
+ * \code{*.slint}
+ * stack := StackView {
+ *   count: 2;  // StackPage.count provided manually
+ *   current-index: 0;
+ *   min-index: 0;
+ *
+ *   if (stack.current-index == 0): StackPage {
+ *       page-index: 0; is-current: true;
+ *
+ *       TestPage {
+ *         background: Colors.red;
+ *         push => { stack.push(); }
+ *         pop => { stack.pop(); }
+ *       }
+ *     }
+ *   if (stack.current-index == 1): StackPage {
+ *       page-index: 1; is-current: true;
+ *
+ *       TestPage {
+ *         background: Colors.green;
+ *         push => { stack.push(); }
+ *         pop => { stack.pop(); }
+ *       }
+ *     }
+ * }
+ * \endcode
+ *
+ * \sa StackPage
+ */
+export component StackView inherits Rectangle {
+    /// \brief This property states the number of items in the stack
+    in-out property<int> count: 0;
+
+    /// \brief This property states the index of the currently visible item
+    in-out property<int> current-index: -1;
+
+    /// \brief This property configures the minimum index the pop function can set (-1 by default)
+    in property<int> min-index: -1;
+
+    /// \brief This property configures the minimum index the push function can set (#count -1 by default)
+    in property<int> max-index: self.count - 1;
+
+    /// \brief This function increases the pages #count by one and returns new page index
+    public function insert-page() -> int {
+        self.count += 1;
+        return  self.count - 1;
+    }
+
+    /// \brief This function increases the #current-index if possible
+    public function push() {
+        if (self.current-index < Math.min(self.max-index, self.count - 1)) {
+            self.current-index += 1;
+        }
+    }
+
+    /// \brief This function decreased the #current-index if possible
+    public function pop() {
+        if (self.current-index > Math.max(self.min-index, -1)) {
+            self.current-index -= 1;
+        }
+    }
+}
+
+/*!
+ * \brief The StackPage is a component to use in the StackView.
+ *
+ * The real content can either derive from the StackPage (which is Rectangle based) or can be contained
+ * as the page children.
+ *
+ * Inherits:
+ * \code{*.slint}
+ * export TestPage inherits StackPage {
+ *   background: color;
+ * }
+ * \endcode
+ *
+ * Contains:
+ * \code{*.slint}
+ * StackPage {
+ *   TestPage {
+ *     background: Colors.red;
+ *   }
+ * }
+ * \endcode
+ *
+ * \sa StackView
+ */
+export component StackPage inherits TouchArea {
+    /// \brief This property configures the page index
+    in property<int> page-index: -1;
+
+    /// \brief This property configures whether the page is a current page (if not, it is hidden)
+    in property<bool> is-current: false;
+
+    /// \brief This function is a helper function to use when setting the #is-current property
+    public pure function check-is-current(current-index: int) -> bool {
+        return current-index == self.page-index;
+    }
+
+    visible: self.is-current;
+}

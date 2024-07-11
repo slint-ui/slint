@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export global WindowInfo {
+    // default values provided for the slint-viewer
+    in property<length> window-width: 400px;
+    in property<length> window-height: 700px;
+
+    // is-portrait is not set as a binding here, only when the value is actually changed.
+    // This is to avoid reevaluation of the conditional components that rely on it for every window size change.
+    // see: https://github.com/slint-ui/slint/issues/5209
+    in property<bool> is-portrait: true;
+}
+
+export component WindowInfoHelper inherits Rectangle {
+    function check-is-portrait() {
+        if (WindowInfo.is-portrait != (self.width < self.height)) {
+            WindowInfo.is-portrait = (self.width < self.height);
+        }
+    }
+
+    changed width => {
+        WindowInfo.window-width = self.width;
+        self.check-is-portrait();
+    }
+    changed height => {
+        WindowInfo.window-height = self.height;
+        self.check-is-portrait();
+    }
+}

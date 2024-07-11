@@ -58,6 +58,11 @@ jobs:
                   sed -i "s/#wasm# //" Cargo.toml
                   wasm-pack build --release --target web --no-default-features --features slint/default,chrono
               working-directory: examples/energy-monitor
+            - name: Weather Demo example WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web --no-default-features --features slint/default,chrono
+              working-directory: examples/weather-demo
             - name: "Upload Demo Artifacts"
               if: ${{ inputs.build_artifacts }}
               uses: actions/upload-artifact@v4
@@ -75,6 +80,7 @@ jobs:
                       examples/plotter/
                       examples/opengl_underlay/
                       examples/energy-monitor/
+                      examples/weather-demo/
                       !/**/.gitignore
             - name: Clean cache # Otherwise the cache is much too big
               run: |

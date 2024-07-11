@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export enum IconType {
+    Unknown,
+    Sunny,
+    PartiallyCloudy,
+    MostlyCloudy,
+    Cloudy,
+    SunnyRainy,
+    Rainy,
+    Stormy,
+    Snowy,
+    Foggy,
+}
+
+export struct TemperatureInfo {
+    min: float,
+    max:float,
+
+    morning: float,
+    day: float,
+    evening:float,
+    night:float,
+}
+
+export struct WeatherInfo {
+    description: string,
+    icon_type: IconType,
+    current_temp: float,
+    detailed_temp: TemperatureInfo,
+    uv: int,
+    precipitation_prob: float,
+    rain: float,
+    snow: float,
+}
+
+export struct WeatherForecastInfo {
+    day_name: string,
+    weather_info: WeatherInfo,
+}
+
+export struct CityWeatherInfo {
+    city_name: string,
+    current_weather: WeatherInfo,
+    forecast_weather: [WeatherForecastInfo],
+}
+
+export global CityWeather {
+    in property <[CityWeatherInfo]> city-weather;
+    in property <bool> can-add-city: false;
+
+    pure callback refresh-all();
+    pure callback delete(int);
+    pure callback reorder(int, int);
+    pure callback get_forecast_graph_command([WeatherForecastInfo], int, length, length) -> string;
+}

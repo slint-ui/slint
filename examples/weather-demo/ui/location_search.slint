@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { PageBase } from "page-base.slint";
+import { AppImages } from "./style/styles.slint";
+import { AppText, TextField } from "./controls/generic.slint";
+import { BusyLayerController } from "./controls/busy-layer.slint";
+import { GeoLocation } from "./location_datatypes.slint";
+
+import { Button } from "std-widgets.slint";
+
+export component LocationSearchView inherits PageBase {
+    callback close-request;
+
+    public function clear() {
+        GeoLocation.search_location("");
+        text-field.text = "";
+    }
+
+    forward-focus: text-field;
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 10px;
+
+        text-field := TextField {
+            icon-source: AppImages.search;
+            placeholder-text: "Search";
+
+            edited => {
+                GeoLocation.search_location(self.text);
+            }
+        }
+
+        Flickable {
+            VerticalLayout {
+                alignment: start;
+
+                for data[index] in GeoLocation.result-list : Rectangle {
+                    preferred-height: layout.preferred-height + 20px;
+                    min-height: self.preferred-height;
+
+                    layout := VerticalLayout {
+                        alignment: center;
+                        spacing: 5px;
+
+                        AppText {
+                            text: data.name;
+                            font-size: 1.3rem;
+                        }
+                        AppText {
+                            text: data.state == "" ? data.country : data.state + ", " + data.country;
+                            font-size: 0.9rem;
+                        }
+                    }
+
+                    TouchArea {
+                        clicked => {
+                            BusyLayerController.set-busy();
+                            GeoLocation.add-location(data);
+                            root.close-request();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,620 @@
+[
+  {
+    "city_data": {
+      "lat": 52.51703643798828,
+      "lon": 13.388859748840332,
+      "city_name": "Berlin"
+    },
+    "weather_data": {
+      "current_data": {
+        "condition": "PartiallyCloudy",
+        "description": "broken clouds",
+        "current_temperature": 15.24,
+        "detailed_temperature": {
+          "min": 12.39,
+          "max": 19.27,
+          "morning": 14.01,
+          "day": 18.62,
+          "evening": 15.83,
+          "night": 13.8
+        },
+        "precipitation": {
+          "probability": 1,
+          "rain_volume": 2.77,
+          "snow_volume": 0
+        },
+        "uv_index": 2.3
+      },
+      "forecast_data": [
+        {
+            "day_name": "d0",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "moderate rain",
+                "current_temperature": 16.18,
+                "detailed_temperature": {
+                    "min": 9.56,
+                    "max": 17.94,
+                    "morning": 10.37,
+                    "day": 16.18,
+                    "evening": 16.71,
+                    "night": 12.45
+                },
+                "precipitation": {
+                    "probability": 1,
+                    "rain_volume": 2.77,
+                    "snow_volume": 0
+                },
+                "uv_index": 3.82
+            }
+        },
+        {
+            "day_name": "d1",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "moderate rain",
+                "current_temperature": 15.94,
+                "detailed_temperature": {
+                    "min": 9.34,
+                    "max": 18.96,
+                    "morning": 10.31,
+                    "day": 15.94,
+                    "evening": 16.76,
+                    "night": 12.56
+                },
+                "precipitation": {
+                    "probability": 1,
+                    "rain_volume": 2.87,
+                    "snow_volume": 0
+                },
+                "uv_index": 3.82
+            }
+        },
+        {
+            "day_name": "d2",
+            "weather_data": {
+                "condition": "Cloudy",
+                "description": "broken clouds",
+                "current_temperature": 15.73,
+                "detailed_temperature": {
+                    "min": 9.17,
+                    "max": 17.9,
+                    "morning": 10.65,
+                    "day": 15.73,
+                    "evening": 17.14,
+                    "night": 12.34
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 5.16
+            }
+        },
+        {
+            "day_name": "d3",
+            "weather_data": {
+                "condition": "Cloudy",
+                "description": "broken clouds",
+                "current_temperature": 16.99,
+                "detailed_temperature": {
+                    "min": 9.47,
+                    "max": 17.69,
+                    "morning": 10.72,
+                    "day": 16.99,
+                    "evening": 16.7,
+                    "night": 14.37
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 5.6
+            }
+        },
+        {
+            "day_name": "d4",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "light rain",
+                "current_temperature": 22.95,
+                "detailed_temperature": {
+                    "min": 13.23,
+                    "max": 22.95,
+                    "morning": 15.19,
+                    "day": 22.95,
+                    "evening": 20.97,
+                    "night": 17.48
+                },
+                "precipitation": {
+                    "probability": 0.2,
+                    "rain_volume": 0.15,
+                    "snow_volume": 0
+                },
+                "uv_index": 5.97
+            }
+        },
+        {
+            "day_name": "d5",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "light rain",
+                "current_temperature": 24.07,
+                "detailed_temperature": {
+                    "min": 16.06,
+                    "max": 24.85,
+                    "morning": 18.61,
+                    "day": 24.07,
+                    "evening": 21.87,
+                    "night": 17.92
+                },
+                "precipitation": {
+                    "probability": 0.2,
+                    "rain_volume": 0.19,
+                    "snow_volume": 0
+                },
+                "uv_index": 6
+            }
+        },
+        {
+            "day_name": "d6",
+            "weather_data": {
+                "condition": "Cloudy",
+                "description": "overcast clouds",
+                "current_temperature": 23.27,
+                "detailed_temperature": {
+                    "min": 14.73,
+                    "max": 23.27,
+                    "morning": 16.66,
+                    "day": 23.27,
+                    "evening": 22.33,
+                    "night": 18.94
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 6
+            }
+        },
+        {
+            "day_name": "d7",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "light rain",
+                "current_temperature": 25.15,
+                "detailed_temperature": {
+                    "min": 16.69,
+                    "max": 25.29,
+                    "morning": 19.84,
+                    "day": 25.15,
+                    "evening": 24.47,
+                    "night": 20.54
+                },
+                "precipitation": {
+                    "probability": 0.87,
+                    "rain_volume": 0.69,
+                    "snow_volume": 0
+                },
+                "uv_index": 6
+            }
+        }
+      ]
+    }
+  },
+  {
+    "city_data": {
+      "lat": 48.20835494995117,
+      "lon": 16.37250328063965,
+      "city_name": "Vienna"
+    },
+    "weather_data": {
+      "current_data": {
+        "condition": "Rainy",
+        "description": "light intensity shower rain",
+        "current_temperature": 17.33,
+        "detailed_temperature": {
+          "min": 15.84,
+          "max": 18.96,
+          "morning": 17.5,
+          "day": 17.33,
+          "evening": 16.89,
+          "night": 17.5
+        },
+        "precipitation": {
+          "probability": 1,
+          "rain_volume": 10.78,
+          "snow_volume": 0
+        },
+        "uv_index": 2.63
+      },
+      "forecast_data": [
+        {
+            "day_name": "d0",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "moderate rain",
+                "current_temperature": 17.74,
+                "detailed_temperature": {
+                  "min": 15.84,
+                  "max": 18.96,
+                  "morning": 17.5,
+                  "day": 17.74,
+                  "evening": 16.89,
+                  "night": 17.5
+                },
+                "precipitation": {
+                  "probability": 1,
+                  "rain_volume": 10.78,
+                  "snow_volume": 0
+                },
+                "uv_index": 2.63
+            }
+        },
+        {
+            "day_name": "d1",
+            "weather_data": {
+                "condition": "Cloudy",
+                "description": "overcast clouds",
+                "current_temperature": 18.14,
+                "detailed_temperature": {
+                    "min": 15.06,
+                    "max": 20.2,
+                    "morning": 15.76,
+                    "day": 18.14,
+                    "evening": 19.76,
+                    "night": 16.07
+                },
+                "precipitation": {
+                    "probability": 0.11,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 4.81
+            }
+        },
+        {
+            "day_name": "d2",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "light rain",
+                "current_temperature": 12.23,
+                "detailed_temperature": {
+                    "min": 12.08,
+                    "max": 15.59,
+                    "morning": 13.42,
+                    "day": 12.23,
+                    "evening": 13.86,
+                    "night": 12.08
+                },
+                "precipitation": {
+                    "probability": 1,
+                    "rain_volume": 1.82,
+                    "snow_volume": 0
+                },
+                "uv_index": 0.78
+            }
+        },
+        {
+            "day_name": "d3",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "light rain",
+                "current_temperature": 18.83,
+                "detailed_temperature": {
+                    "min": 11.93,
+                    "max": 20.12,
+                    "morning": 12.56,
+                    "day": 18.83,
+                    "evening": 19.76,
+                    "night": 14.12
+                },
+                "precipitation": {
+                    "probability": 1,
+                    "rain_volume": 1.05,
+                    "snow_volume": 0
+                },
+                "uv_index": 2.35
+            }
+        },
+        {
+            "day_name": "d4",
+            "weather_data": {
+                "condition": "MostlyCloudy",
+                "description": "scattered clouds",
+                "current_temperature": 21.13,
+                "detailed_temperature": {
+                    "min": 11.73,
+                    "max": 23.26,
+                    "morning": 11.73,
+                    "day": 21.13,
+                    "evening": 23.24,
+                    "night": 17.1
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 6.17
+            }
+        },
+        {
+            "day_name": "d5",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 23.55,
+                "detailed_temperature": {
+                    "min": 14.71,
+                    "max": 26,
+                    "morning": 14.71,
+                    "day": 23.55,
+                    "evening": 25.7,
+                    "night": 20.03
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 7
+            }
+        },
+        {
+            "day_name": "d6",
+            "weather_data": {
+                "condition": "SunnyRainy",
+                "description": "light rain",
+                "current_temperature": 21.59,
+                "detailed_temperature": {
+                    "min": 16.28,
+                    "max": 23.22,
+                    "morning": 16.28,
+                    "day": 21.59,
+                    "evening": 22.76,
+                    "night": 17.24
+                },
+                "precipitation": {
+                    "probability": 0.38,
+                    "rain_volume": 0.27,
+                    "snow_volume": 0
+                },
+                "uv_index": 7
+            }
+        },
+        {
+            "day_name": "d7",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 24.89,
+                "detailed_temperature": {
+                    "min": 14.89,
+                    "max": 27.33,
+                    "morning": 14.89,
+                    "day": 24.89,
+                    "evening": 27.33,
+                    "night": 23.1
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 7
+            }
+        }
+      ]
+    }
+  },
+  {
+    "city_data": {
+      "lat": 25.774173736572266,
+      "lon": -80.19361877441406,
+      "city_name": "Miami"
+    },
+    "weather_data": {
+      "current_data": {
+        "condition": "Sunny",
+        "description": "clear sky",
+        "current_temperature": 20.14,
+        "detailed_temperature": {
+          "min": 20.14,
+          "max": 30.88,
+          "morning": 20.83,
+          "day": 30.88,
+          "evening": 26.41,
+          "night": 23.2
+        },
+        "precipitation": {
+          "probability": 0,
+          "rain_volume": 0,
+          "snow_volume": 0
+        },
+        "uv_index": 11.85
+      },
+      "forecast_data": [
+        {
+            "day_name": "d0",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 30.88,
+                "detailed_temperature": {
+                    "min": 20.14,
+                    "max": 30.88,
+                    "morning": 20.83,
+                    "day": 30.88,
+                    "evening": 26.41,
+                    "night": 23.2
+                },
+                "precipitation": {
+                  "probability": 0,
+                  "rain_volume": 0,
+                  "snow_volume": 0
+                },
+                "uv_index": 11.85
+            }
+        },
+        {
+            "day_name": "d1",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 28.94,
+                "detailed_temperature": {
+                    "min": 21.56,
+                    "max": 29.68,
+                    "morning": 21.61,
+                    "day": 28.94,
+                    "evening": 26.24,
+                    "night": 23.22
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 11.62
+            }
+        },
+        {
+            "day_name": "d2",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 29.32,
+                "detailed_temperature": {
+                    "min": 21.09,
+                    "max": 31.17,
+                    "morning": 21.09,
+                    "day": 29.32,
+                    "evening": 26.99,
+                    "night": 23.65
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 11.67
+            }
+        },
+        {
+            "day_name": "d3",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 27.11,
+                "detailed_temperature": {
+                    "min": 21.26,
+                    "max": 30.37,
+                    "morning": 21.26,
+                    "day": 27.11,
+                    "evening": 28.03,
+                    "night": 22.17
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 11.53
+            }
+        },
+        {
+            "day_name": "d4",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 25.7,
+                "detailed_temperature": {
+                    "min": 19.67,
+                    "max": 28.59,
+                    "morning": 19.67,
+                    "day": 25.7,
+                    "evening": 27.08,
+                    "night": 20.91
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 12
+            }
+        },
+        {
+            "day_name": "d5",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 25.27,
+                "detailed_temperature": {
+                    "min": 18.6,
+                    "max": 27.95,
+                    "morning": 18.6,
+                    "day": 25.27,
+                    "evening": 25.42,
+                    "night": 20
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 12
+            }
+        },
+        {
+            "day_name": "d6",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 26.84,
+                "detailed_temperature": {
+                    "min": 19.13,
+                    "max": 28.99,
+                    "morning": 19.13,
+                    "day": 26.84,
+                    "evening": 27.56,
+                    "night": 21.58
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 12
+            }
+        },
+        {
+            "day_name": "d7",
+            "weather_data": {
+                "condition": "Sunny",
+                "description": "clear sky",
+                "current_temperature": 28.99,
+                "detailed_temperature": {
+                    "min": 20.87,
+                    "max": 30.64,
+                    "morning": 20.87,
+                    "day": 28.99,
+                    "evening": 29.22,
+                    "night": 22.64
+                },
+                "precipitation": {
+                    "probability": 0,
+                    "rain_volume": 0,
+                    "snow_volume": 0
+                },
+                "uv_index": 12
+            }
+        }
+      ]
+    }
+  }
+]

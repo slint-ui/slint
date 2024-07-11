@@ -1,0 +1,285 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+import { WindowInfo } from "./ui_utils.slint";
+import { AppPalette } from "./style/styles.slint";
+import { AppText } from "./controls/generic.slint";
+import { WeatherIcon, RainInfo, UvInfo } from "./controls/weather.slint";
+import { WeatherInfo, WeatherForecastInfo, CityWeatherInfo } from "weather_datatypes.slint";
+import { CityWeather } from "weather_datatypes.slint";
+
+import { CityWeatherTile } from "city_weather_tile.slint";
+
+component ForecastDayLineBase inherits Rectangle {
+    out property<{temp: length, rain: length, uv: length}> fields-width: {
+        temp: 90px, rain: 65px, uv: 65px
+    };
+}
+
+component ForecastDataText inherits AppText {
+    font-size: 1.1rem;
+    overflow: elide;
+    horizontal-alignment: center;
+    vertical-alignment: center;
+}
+
+component ForecastTitleText inherits ForecastDataText {
+    font-size: 1.25rem;
+    font-weight: 500;
+    letter-spacing: 1pt;
+}
+
+component ForecastTitleLine inherits ForecastDayLineBase {
+    HorizontalLayout {
+        // spacer
+        Rectangle { horizontal-stretch: 1; }
+
+        ForecastTitleText {
+            preferred-width: root.fields-width.temp;
+            text: @tr("Max/Min");
+        }
+        ForecastTitleText {
+            preferred-width: root.fields-width.rain;
+            text: @tr("Rain");
+        }
+        ForecastTitleText {
+            preferred-width: root.fields-width.uv;
+            text: @tr("UV");
+        }
+
+        if !WindowInfo.is-portrait: HorizontalLayout {
+            width: WindowInfo.is-portrait ? 0% : 50%;
+
+            for description[index] in [ @tr("Morning"), @tr("Day"), @tr("Evening"), @tr("Night") ]:
+                ForecastTitleText {
+                    width: 25%;
+                    text: description;
+                }
+        }
+    }
+}
+
+component ForecastDayLine inherits ForecastDayLineBase {
+    in property<string> day-name;
+    in property<WeatherInfo> day-weather;
+
+    height: 50px;
+
+    HorizontalLayout {
+        // spacer
+        Rectangle { width: 5px; }
+
+        name-text := ForecastDataText {
+            horizontal-stretch: 1;
+            min-width: self.preferred-width;
+
+            horizontal-alignment: left;
+            text: root.day-name;
+            font-size: 1.2rem;
+        }
+
+        WeatherIcon {
+            icon-type: root.day-weather.icon_type;
+            font-size: 1.8rem;
+
+            visible: WindowInfo.window-width >= 360px;
+        }
+
+        // spacer
+        Rectangle {
+            max-width: WindowInfo.window-width >= 380px ? self.preferred-width : 0;
+            preferred-width: 15px;
+        }
+
+        ForecastDataText {
+            property<int> min-temp: Math.round(root.day-weather.detailed_temp.min);
+            property<int> max-temp: Math.round(root.day-weather.detailed_temp.max);
+
+            preferred-width: root.fields-width.temp;
+            text: "\{self.max-temp}° / \{self.min-temp}°";
+        }
+
+        RainInfo {
+            precipitation-probability: root.day-weather.precipitation_prob;
+            rain-volume: root.day-weather.rain;
+            snow-volume: root.day-weather.snow;
+
+            preferred-width: root.fields-width.rain;
+        }
+
+        UvInfo {
+            uv-index: root.day-weather.uv;
+
+            preferred-width: root.fields-width.uv;
+        }
+    }
+}
+
+component ForecastDayDetails inherits HorizontalLayout {
+    in property<WeatherInfo> day-weather;
+
+    property<[{ time: string, temp: float }]> temp-model: [
+        { time: "\u{f051}", temp: Math.round(root.day-weather.detailed_temp.morning) },
+        { time: "\u{f00d}", temp: Math.round(root.day-weather.detailed_temp.day) },
+        { time: "\u{f052}", temp: Math.round(root.day-weather.detailed_temp.evening) },
+        { time: "\u{f02e}", temp: Math.round(root.day-weather.detailed_temp.night) },
+    ];
+
+    padding-top: WindowInfo.is-portrait ? 10px : 0;
+    padding-bottom: WindowInfo.is-portrait ? 10px : 0;
+
+    for time-temp in root.temp-model:
+        HorizontalLayout {
+            width: 25%;
+            alignment: center;
+            spacing: 5px;
+
+            WeatherIcon {
+                text: "\{time-temp.time}";
+                font-size: 1.3rem;
+            }
+
+            ForecastDataText {
+                font-size: 1.3rem;
+                text: "\{time-temp.temp}°";
+            }
+        }
+}
+
+component ForecastDayDelegate inherits TouchArea {
+    in property<bool> expanded: false;
+    in property<bool> alternative-background: false;
+
+    in property<string> day-name;
+    in property<WeatherInfo> day-weather;
+
+    animate height { duration: 250ms; easing: ease-in-out-quad; }
+
+    height: root.expanded ? self.preferred-height : main-info-line.preferred-height;
+
+    Rectangle {
+        background: root.alternative-background ? Colors.white.transparentize(80%) : transparent;
+        clip: true;
+
+        VerticalLayout {
+            main-info-line := HorizontalLayout {
+                ForecastDayLine {
+                    day-name: root.day-name;
+                    day-weather: root.day-weather;
+                }
+
+                if !WindowInfo.is-portrait: ForecastDayDetails {
+                    width: 50%;
+                    day-weather: root.day-weather;
+                }
+            }
+
+            if WindowInfo.is-portrait: ForecastDayDetails {
+                day-weather: root.day-weather;
+            }
+        }
+    }
+}
+
+export component ExpandedCityWeatherTile inherits TouchArea {
+    in property<CityWeatherInfo> city-weather-info <=> base-tile.city-weather-info;
+    in property<bool> alternative-background <=> base-tile.alternative-background;
+
+    out property<bool> expanded: false;
+    in-out property<duration> animation-duration: 300ms;
+
+    in property<length> block-x;
+    in property<length> block-y;
+    in property<length> block-width;
+    in property<length> block-height;
+
+    in property<length> full-x;
+    in property<length> full-y;
+    in property<length> full-width;
+    in property<length> full-height;
+
+    public function expand() {
+        // Not working properly without the lines below. (A bug?)
+        // Seems the animation in transition using old values, and
+        // accessing the properties somehow forces the update.
+        root.x; root.y; root.width; root.height;
+        details-rect.height;
+
+        root.expanded = true;
+    }
+
+    public function collapse() {
+        root.expanded = false;
+    }
+
+    x: self.block-x;
+    y: self.block-y;
+    width: self.block-width;
+    height: self.block-height;
+
+    visible: self.opacity > 0;
+    opacity: 0;
+
+    states [
+        full-size when root.expanded: {
+            opacity: 1;
+            x: full-x;
+            y: full-y;
+            width: full-width;
+            height: full-height;
+
+            in {
+                animate x, y, width, height { duration: root.animation-duration; easing: ease-in-out-quad; }
+            }
+            out {
+                animate x, y, width, height { duration: root.animation-duration; easing: ease-in-out-quad; }
+                animate opacity { delay: root.animation-duration; }
+            }
+        }
+    ]
+
+    VerticalLayout {
+        base-tile := CityWeatherTile {
+            show-animations: false;
+
+            clicked => {
+                root.clicked();
+            }
+        }
+
+        details-rect := Rectangle {
+            vertical-stretch: 1;
+
+            clip: true;
+
+            Flickable {
+                padding-top: 15px;
+                padding-bottom: 15px;
+
+                y: self.padding-top;
+                height: parent.height - self.padding-top - self.padding-bottom;
+
+                VerticalLayout {
+                    alignment: start;
+                    padding-left: 15px;
+                    padding-right: 15px;
+
+                    ForecastTitleLine {}
+
+                    for day-forecast-weather[index] in root.city-weather-info.forecast-weather:
+                        ForecastDayDelegate {
+                            alternative-background: Math.mod(index, 2) == 0;
+                            day-name: day-forecast-weather.day-name;
+                            day-weather: day-forecast-weather.weather-info;
+
+                            clicked => {
+                                self.expanded = !self.expanded;
+                            }
+                        }
+                }
+            }
+        }
+    }
+}
