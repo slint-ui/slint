@@ -47,6 +47,9 @@ jobs:
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     docs:
         uses: ./.github/workflows/build_docs.yaml
+        with:
+          release: ${{ github.event.inputs.release }}
+
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
         with:

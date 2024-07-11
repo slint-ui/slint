@@ -38,6 +38,8 @@ pub struct ApplicationArguments {
 pub struct CppDocsCommand {
     #[arg(long, action)]
     show_warnings: bool,
+    #[arg(long, action)]
+    experimental: bool,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -91,7 +93,7 @@ where
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
-        TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
+        TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings, cmd.experimental)?,
         TaskCommand::SlintDocs(cmd) => slintdocs::generate(cmd.show_warnings)?,
         TaskCommand::NodePackage(cmd) => nodepackage::generate(cmd.sha1)?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
