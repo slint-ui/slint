@@ -132,7 +132,7 @@ impl ElementQueryInstruction {
 /// ElementQuery uses the builder pattern to concatenate criteria, such as searching for descendants,
 /// or matching elements only with a certain id.
 ///
-/// Construct an instance of this by calling [`ElementHandle::match_descendants`]. Apply additional criterial on the returned `ElementQuery`
+/// Construct an instance of this by calling [`ElementQuery::from_root`] or [`ElementHandle::query_descendants`]. Apply additional criterial on the returned `ElementQuery`
 /// and fetch results by either calling [`Self::find_first()`] to collect just the first match or
 /// [`Self::find_all()`] to collect all matches for the query.
 pub struct ElementQuery {
@@ -141,6 +141,11 @@ pub struct ElementQuery {
 }
 
 impl ElementQuery {
+    /// Creates a new element query starting at the root of the tree and matching all descendants.
+    pub fn from_root(component: &impl ElementRoot) -> Self {
+        component.root_element().query_descendants()
+    }
+
     /// Applies any subsequent matches to all descendants of the results of the query up to this point.
     pub fn match_descendants(mut self) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchDescendants);
@@ -261,7 +266,7 @@ impl ElementHandle {
     }
 
     /// Creates a new [`ElementQuery`] to match any descendants of this element.
-    pub fn match_descendants(&self) -> ElementQuery {
+    pub fn query_descendants(&self) -> ElementQuery {
         ElementQuery {
             root: self.clone(),
             query_stack: vec![ElementQueryInstruction::MatchDescendants],
@@ -278,7 +283,7 @@ impl ElementHandle {
         let label = label.to_string();
         let results = component
             .root_element()
-            .match_descendants()
+            .query_descendants()
             .match_predicate(move |elem| {
                 elem.accessible_label().map_or(false, |candidate_label| candidate_label == label)
             })
@@ -305,7 +310,7 @@ impl ElementHandle {
         component: &impl ElementRoot,
         id: &str,
     ) -> impl Iterator<Item = Self> {
-        let results = component.root_element().match_descendants().match_id(id).find_all();
+        let results = component.root_element().query_descendants().match_id(id).find_all();
         results.into_iter()
     }
 
@@ -316,7 +321,7 @@ impl ElementHandle {
         type_name: &str,
     ) -> impl Iterator<Item = Self> {
         let results =
-            component.root_element().match_descendants().match_inherits(type_name).find_all();
+            component.root_element().query_descendants().match_inherits(type_name).find_all();
         results.into_iter()
     }
 
@@ -864,15 +869,15 @@ fn test_matches() {
 
     let root = app.root_element();
 
-    assert_eq!(root.match_descendants().match_inherits("Rectangle").find_all().len(), 1);
-    assert_eq!(root.match_descendants().match_inherits("Base").find_all().len(), 0);
-    assert!(root.match_descendants().match_id("App::dynamic-elem").find_first().is_none());
+    assert_eq!(root.query_descendants().match_inherits("Rectangle").find_all().len(), 1);
+    assert_eq!(root.query_descendants().match_inherits("Base").find_all().len(), 0);
+    assert!(root.query_descendants().match_id("App::dynamic-elem").find_first().is_none());
 
-    assert_eq!(root.match_descendants().match_id("App::visible-element").find_all().len(), 1);
-    assert_eq!(root.match_descendants().match_id("App::inner-element").find_all().len(), 1);
+    assert_eq!(root.query_descendants().match_id("App::visible-element").find_all().len(), 1);
+    assert_eq!(root.query_descendants().match_id("App::inner-element").find_all().len(), 1);
 
     assert_eq!(
-        root.match_descendants()
+        root.query_descendants()
             .match_id("App::visible-element")
             .match_descendants()
             .match_accessible_role(crate::AccessibleRole::Text)
@@ -885,14 +890,14 @@ fn test_matches() {
     app.set_condition(true);
 
     assert!(root
-        .match_descendants()
+        .query_descendants()
         .match_id("App::visible-element")
         .match_descendants()
         .match_accessible_role(crate::AccessibleRole::Text)
         .find_first()
         .is_none());
 
-    let elems = root.match_descendants().match_id("App::dynamic-elem").find_all();
+    let elems = root.query_descendants().match_id("App::dynamic-elem").find_all();
     assert_eq!(elems.len(), 1);
     let elem = &elems[0];
 
@@ -901,5 +906,5 @@ fn test_matches() {
     assert_eq!(elem.bases().unwrap().count(), 1);
     assert_eq!(elem.accessible_role().unwrap(), crate::AccessibleRole::Text);
 
-    assert_eq!(root.match_descendants().match_inherits("Base").find_all().len(), 1);
+    assert_eq!(root.query_descendants().match_inherits("Base").find_all().len(), 1);
 }
