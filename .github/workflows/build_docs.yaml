@@ -80,7 +80,7 @@ jobs:
 
             - name: Build Cpp docs
               env:
-                RELEASE_INPUT: ${{ github.event.inputs.release }}
+                RELEASE_INPUT: ${{ inputs.release }}
               run: |
                 CPPDOCS_EXTRA_FLAGS="" 
                 if [ "$RELEASE_INPUT" != "true" ]; then
