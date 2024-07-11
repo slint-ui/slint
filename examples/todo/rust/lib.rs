@@ -171,11 +171,10 @@ impl SerializedState {
 #[test]
 fn press_add_adds_one_todo() {
     i_slint_backend_testing::init_no_event_loop();
-    use i_slint_backend_testing::ElementHandle;
+    use i_slint_backend_testing::{ElementHandle, ElementQuery};
     let state = init();
     state.todo_model.set_vec(vec![TodoItem { checked: false, title: "first".into() }]);
-    let line_edit = i_slint_backend_testing::ElementRoot::root_element(&state.main_window)
-        .match_descendants()
+    let line_edit = ElementQuery::from_root(&state.main_window)
         .match_id("MainWindow::text-edit")
         .find_first()
         .unwrap();

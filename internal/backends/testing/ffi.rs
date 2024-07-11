@@ -30,7 +30,7 @@ pub unsafe extern "C" fn slint_testing_element_visit_elements(
 ) -> bool {
     RootWrapper(root)
         .root_element()
-        .match_descendants()
+        .query_descendants()
         .match_predicate(move |element| visitor(user_data, &element))
         .find_first()
         .is_some()
