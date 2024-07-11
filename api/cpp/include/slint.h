@@ -1398,7 +1398,7 @@ void invoke_from_event_loop(Functor f)
             [](void *data) { delete reinterpret_cast<Functor *>(data); });
 }
 
-#ifndef SLINT_FEATURE_FREESTANDING
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
 
 /// Blocking version of invoke_from_event_loop()
 ///

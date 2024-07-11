@@ -121,7 +121,7 @@ public:
 
     Image() : data(Data::ImageInner_None()) { }
 
-#ifndef SLINT_FEATURE_FREESTANDING
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Load an image from an image file
     [[nodiscard]] static Image load_from_path(const SharedString &file_path)
     {
