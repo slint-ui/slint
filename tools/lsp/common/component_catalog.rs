@@ -163,9 +163,6 @@ pub fn all_exported_components(
             result.push(to_push);
         }
     }
-
-    result.sort_by(|a, b| a.name.cmp(&b.name));
-    result.dedup_by(|a, b| a.name == b.name);
 }
 
 #[cfg(feature = "preview-engine")]
