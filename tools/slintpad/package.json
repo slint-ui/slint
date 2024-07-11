@@ -26,15 +26,21 @@
     },
     "keywords": [],
     "author": "",
-    "overrides": {
-        "monaco-editor": "npm:@codingame/monaco-editor-treemended@>=1.85.0 <1.86.0",
-        "vscode": "npm:@codingame/monaco-vscode-api@>=1.85.0 <1.86.0"
-    },
-    "resolutions": {
-        "monaco-editor": "npm:@codingame/monaco-editor-treemended@>=1.85.0 <1.86.0",
-        "vscode": "npm:@codingame/monaco-vscode-api@>=1.85.0 <1.86.0"
-    },
     "devDependencies": {
+        "@codingame/monaco-vscode-configuration-service-override": "~6.0.3",
+        "@codingame/monaco-vscode-editor-service-override": "~6.0.3",
+        "@codingame/monaco-vscode-languages-service-override": "~6.0.3",
+        "@codingame/monaco-vscode-model-service-override": "~6.0.3",
+        "@codingame/monaco-vscode-quickaccess-service-override": "~6.0.3",
+        "@codingame/monaco-vscode-snippets-service-override": "~6.0.3",
+        "@codingame/monaco-vscode-storage-service-override": "~6.0.3",
+        "monaco-editor": "npm:@codingame/monaco-vscode-editor-api@~6.0.3",
+        "monaco-editor-wrapper": "~5.3.1",
+        "monaco-languageclient": "~8.6.0",
+        "vscode": "npm:@codingame/monaco-vscode-api@~6.0.3",
+        "vscode-languageclient": "~9.0.1",
+        "vscode-languageserver": "~9.0.1",
+        "vscode-uri": "~3.0.8",
         "@lumino/default-theme": "^2.1.1",
         "@lumino/dragdrop": "^2.1.1",
         "@lumino/widgets": "^2.1.1",
@@ -43,21 +49,9 @@
         "@typescript-eslint/parser": "^7.1.1",
         "cross-env": "^7.0.3",
         "eslint": "^8.32.0",
-        "monaco-editor": "npm:@codingame/monaco-editor-treemended@>=1.85.0 <1.86.0",
-        "monaco-languageclient": "~7.3.0",
-        "@codingame/monaco-vscode-configuration-service-override": "~1.85.0",
-        "@codingame/monaco-vscode-editor-service-override": "~1.85.0",
-        "@codingame/monaco-vscode-languages-service-override": "~1.85.0",
-        "@codingame/monaco-vscode-model-service-override": "~1.85.0",
-        "@codingame/monaco-vscode-quickaccess-service-override": "~1.85.0",
-        "@codingame/monaco-vscode-snippets-service-override": "~1.85.0",
-        "@codingame/monaco-vscode-storage-service-override": "~1.85.0",
         "path-browserify": "^1.0.1",
         "rimraf": "^5.0.0",
         "typescript": "~5.3.3",
-        "vite": "^5.1.5",
-        "vscode": "npm:@codingame/monaco-vscode-api@>=1.85.0 <1.86.0",
-        "vscode-languageserver": "8.1.0",
-        "vscode-languageserver-protocol": "3.17.3"
+        "vite": "^5.1.5"
     }
 }
