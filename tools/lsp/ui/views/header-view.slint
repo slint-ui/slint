@@ -12,36 +12,40 @@ export component HeaderView {
 
     callback style-selected();
     callback edit-mode-toggled();
-    
-    content-layer := HorizontalBox {
-        alignment: end;
 
-        BodyText {
-            text: @tr("Style");
-        }
+    background-layer := Rectangle {
+        background: Palette.alternate-background;
 
-        style-combobox := ComboBox {
-            selected => {
-                root.style-selected();
-            }
-        }
-        
-        HorizontalLayout {
-            spacing: 4px;
-            
+        content-layer := HorizontalBox {
+            alignment: end;
+
             BodyText {
-                text: @tr("Interact");
+                text: @tr("Style");
             }
-            
-            interaction-switch := Switch {
-                toggled => {
-                    root.edit-mode-toggled();
+
+            style-combobox := ComboBox {
+                selected => {
+                    root.style-selected();
                 }
             }
-            
-            BodyText {
-                text: @tr("Edit");
-            }      
+    
+            HorizontalLayout {
+                spacing: 4px;
+        
+                BodyText {
+                    text: @tr("Interact");
+                }
+        
+                interaction-switch := Switch {
+                    toggled => {
+                        root.edit-mode-toggled();
+                    }
+                }
+        
+                BodyText {
+                    text: @tr("Edit");
+                }      
+            }
         }
-    }
+    }    
 }

@@ -5,25 +5,30 @@
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { Api, ComponentItem } from "api.slint";
-import { ComponentList } from "component-list.slint";
-import { DrawArea, DrawAreaMode } from "draw-area.slint";
-import { DiagnosticsOverlay } from "diagnostics-overlay.slint";
-import { PropertyEditor } from "property-editor.slint";
-import { SideBar } from "side-bar.slint";
-
+import { PreviewView, DrawAreaMode } from "./views/preview-view.slint";
+import { DiagnosticsOverlay } from "./components/diagnostics-overlay.slint";
+import { LibraryView } from "./views/library-view.slint";
+import { PropertyView } from "./views/property-view.slint";
 import { HeaderView } from "./views/header-view.slint";
+import { EditorSpaceSettings } from "./components/styling.slint";
 
 export { Api }
 
 export component PreviewUi inherits Window {
     property <length> border: 20px;
-    property <length> side-bar-width: 300px;
+    property <ComponentItem> visible-component: {
+        name: "",
+        defined-at: "",
+        pretty-location: "",
+        is-user-defined: false,
+        is-currently-shown: false,
+    };
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
 
     VerticalLayout {
-        if (!Api.show-preview-ui): no-ui-drawing-rect := Rectangle {
+        if !Api.show-preview-ui: no-ui-drawing-rect := Rectangle {
             VerticalLayout {
                 ComponentContainer {
                     component-factory: Api.preview-area;
@@ -40,8 +45,10 @@ export component PreviewUi inherits Window {
                 }
             }
         }
-        if (Api.show-preview-ui): Rectangle {
+        if Api.show-preview-ui: Rectangle {           
             VerticalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+
                 header-view := HeaderView {
                     edit-mode <=> Api.design-mode;
                     current-style <=> Api.current-style;
@@ -57,42 +64,50 @@ export component PreviewUi inherits Window {
                 }
                 
                 HorizontalLayout {
-                    left-sidebar := SideBar {
-                        default-width: root.side-bar-width;
-                        show-side-bar: Api.design-mode;
+                    spacing: EditorSpaceSettings.default-spacing;
+                    
+                    if Api.design-mode : LibraryView {
+                        known-components: Api.known-components;
+                        preview-area-position-x: preview.preview-area-position-x;
+                        preview-area-position-y: preview.preview-area-position-y;
+                        preview-area-width: preview.preview-area-width;
+                        preview-area-height: preview.preview-area-height;
+                        visible-component <=> root.visible-component;
 
-                        component-list := ComponentList {
-                            preview-area-position-x: draw-area.preview-area-position-x;
-                            preview-area-position-y: draw-area.preview-area-position-y;
-                            preview-area-width: draw-area.preview-area-width;
-                            preview-area-height: draw-area.preview-area-height;
+                        add-component => {
+                            Api.add-new-component();
+                        }
+
+                        can-drop(name, x, y, on-drop-area) => {
+                            Api.can-drop(name, x, y, on-drop-area);
+                        }
+
+                        drop(name, x, y) => {
+                            Api.drop(name, x, y);
+                        }
+
+                        show-preview-for(name, defined-at) => {
+                            Api.show-preview-for(name, defined-at);
                         }
                     }
 
-                    draw-area := DrawArea {
-                        visible-component <=> component-list.visible-component;
+                    preview := PreviewView {
+                        visible-component <=> root.visible-component;
                     }
 
-                    right-sidebar := SideBar {
-                        default-width: root.side-bar-width;
-                        show-side-bar: Api.design-mode;
-
-                        property-editor := PropertyEditor { }
-                    }
-
-                    preferred-width: draw-area.preferred-width + 2 * root.side-bar-width;
+                    if Api.design-mode : PropertyView {}
                 }
             }
 
             key-handler := FocusScope {
-                enabled: draw-area.mode == DrawAreaMode.designing;
+                enabled: preview.mode == DrawAreaMode.designing;
 
                 key-released(event) => {
                     if event.text == Key.Delete {
                         // This `if` should not be necessary, but without it
                         // we do trigger deletion of Elements while errors
                         // are on screen.
-                        if draw-area.mode == DrawAreaMode.designing {
+                        if preview.mode == DrawAreaMode.designing {
                             Api.selected-element-delete();
                         }
                         return accept;

@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+export global Icons {
+    out property <image> add: @image-url("../assets/add.svg");
+    out property <image> drop-down: @image-url("../assets/drop-down.svg");
+}
+
+export struct TextStyle {
+    font-size: relative-font-size,
+    font-weight: int,
+}
+
+export global EditorFontSettings {
+    out property <int> light-font-weight: 300;
+    out property <int> regular-font-weight: 400;
+    out property <int> semibold-font-weight: 600;
+    out property <int> bold-font-weight: 900;
+    
+    out property <TextStyle> header: {
+        font-size: 18 * 0.0769rem,
+        font-weight: root.semibold-font-weight
+    };
+
+    out property <TextStyle> body: {
+        font-size: 14 * 0.0769rem,
+        font-weight: root.regular-font-weight
+    };
+    
+    out property <TextStyle> body-strong: {
+        font-size: 16 * 0.0769rem,
+        font-weight: root.bold-font-weight
+    };
+}
+
+export global EditorSpaceSettings {
+    in property <length> default-spacing: 8px;
+    in property <length> default-padding: 8px;
+}
+
+export global EditorSizeSettings {
+    in property <length> header-height: 20px;
+    in property <length> item-height: 24px;
+    in property <length> side-bar-width: 280px;
+    in property <length> default-icon-width: 20px;
+}
+
+export global EditorPalette {
+    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.3) : #000000.with-alpha(0.3);
+    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
+    
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+}
+
+export global EditorAnimationSettings {
+    out property <duration> color-duration: 200ms;
+    out property <duration> roation-duration: 200ms;
+}

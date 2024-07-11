@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { HorizontalBox, Palette } from "std-widgets.slint";
+import { HeaderText } from "./header-text.slint";
+import { EditorSizeSettings } from "./styling.slint";
+
+export component GroupHeader {
+    in property <string> title;
+
+    min-height: max(EditorSizeSettings.header-height, content-layer.min-height);
+    
+    background-layer := Rectangle {
+        background: Palette.alternate-background.darker(1);
+
+        content-layer := HorizontalBox {
+            HeaderText { 
+                horizontal-stretch: 1;
+                text: root.title;
+            }
+
+            @children
+        }
+    }
+}
+
+export component Group {
+    min-width: max(EditorSizeSettings.side-bar-width, content-layer.min-width);
+    min-height: content-layer.min-height;
+    
+    background-layer := Rectangle {
+        background: Palette.alternate-background;
+    }    
+
+    content-layer := VerticalLayout {
+        @children
+    }
+}

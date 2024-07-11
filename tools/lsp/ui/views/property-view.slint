@@ -1,0 +1,240 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
+
+import { Api, ElementInformation, SimpleValueData } from "../api.slint";
+import { GroupHeader } from "../components/group.slint";
+import { BodyText } from "../components/body-text.slint";
+import { EditorSizeSettings } from "../components/styling.slint";
+
+component TypeHeader inherits Rectangle {
+    in property <string> type-name;
+    in property <string> id;
+
+    background: Palette.accent-background;
+    VerticalBox {
+        height: self.min-height;
+
+        Text {
+            text: root.type-name;
+            color: Palette.accent-foreground;
+            font-size: 1.2rem;
+        }
+
+        Text {
+            text: root.id;
+            color: Palette.accent-foreground;
+        }
+    }
+}
+
+export component PropertyView {
+    in property <ElementInformation> current-element <=> Api.current-element;
+
+    private property <length> key-width: self.width / 2.0;
+    private property <length> splitter-width: 5px;
+
+    width: EditorSizeSettings.side-bar-width;
+
+    background-layer := Rectangle {
+        background: Palette.alternate-background;
+    }
+
+    content-layer := VerticalLayout {
+        GroupHeader {
+            title: @tr("Properties");
+        }
+
+        ScrollView {
+            VerticalLayout {
+                  if root.current-element.type-name != "": Rectangle {
+                    VerticalLayout {
+                        alignment: start;
+
+                        header := TypeHeader {
+                            type-name: root.current-element.type-name;
+                            id: root.current-element.id;
+                        }
+
+                        for group in root.current-element.properties: Rectangle {
+                            VerticalBox {
+                                if group.group-name != "" && group.group-name != root.current-element.type-name: BodyText {
+                                    text: group.group-name;
+                                }
+
+                                for property in group.properties: property-row := HorizontalLayout {
+                                    private property <string> property-name: property.name;
+                                    private property <string> property-type: property.type-name;
+                                    private property <string> property-value: property.defined-at.expression-value;
+                                    private property <SimpleValueData> simple-value: property.simple-value;
+                        
+                                    private property <bool> is-defined: self.property-value != "";
+                                    private property <bool> is-simple: simple-value.widget != "" && !self.force-to-complex;
+
+                                    private property <bool> force-to-complex: false;
+
+                                    private property <brush> text-foreground: property-row.is-defined ? Palette.foreground : Palette.foreground.transparentize(0.5);
+
+                                    spacing: 4px;
+                                    alignment: stretch;
+
+                                    TouchArea {
+                                        width: 150px;
+                                        horizontal-stretch: 0;
+
+                                        key := Text {
+                                            width: 100%;
+                                            color: property-row.text-foreground;
+                                            vertical-alignment: center;
+                                            text: property.name;
+                                        }
+
+                                        clicked() => {
+                                            Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
+                                        }
+                                    }
+
+                                    complexity-icon := TouchArea {
+                                        width: complexity-icon-icon.width;
+                                        horizontal-stretch: 0;
+
+                                        complexity-icon-icon := Image {
+                                            width: self.preferred-width;
+                                            colorize: property-row.is-simple ? Palette.foreground.transparentize(0.7) : Palette.foreground;
+
+                                            source: @image-url("../assets/function.svg");
+                                        }
+
+                                        clicked() => { property-row.force-to-complex = !property-row.force-to-complex; }
+                                    }
+
+                                    Rectangle {
+                                        min-height: 20px;
+                                        horizontal-stretch: 1;
+
+                                        private property <bool> have-simple-ui: false;
+
+                                        if property-row.is-simple && property-row.simple-value.widget == "bool": CheckBox {
+                                            x: 0;
+                                            checked: property-row.simple-value.meta-data[0] == "true";
+
+                                            toggled() => {
+                                                Api.set-simple-binding(
+                                                    root.current-element.source-uri,
+                                                    root.current-element.source-version,
+                                                    root.current-element.range.start,
+                                                    property.name,
+                                                    ["bool", self.checked ? "true" : "false"],
+                                                );
+                                            }
+                                        }
+                                        if property-row.is-simple && property-row.simple-value.widget == "string": LineEdit {
+                                            width: 100%;
+                                            height: 100%; // otherwise this gets too high and covers several rows.
+                                            text: property-row.simple-value.meta-data[0];
+
+                                            edited(text) => {
+                                                overlay.visible = !Api.test-simple-binding(
+                                                    root.current-element.source-uri,
+                                                    root.current-element.source-version,
+                                                    root.current-element.range.start,
+                                                    property.name,
+                                                    ["string", text],
+                                                );
+                                            }
+
+                                            accepted(text) => {
+                                                Api.set-simple-binding(
+                                                    root.current-element.source-uri,
+                                                    root.current-element.source-version,
+                                                    root.current-element.range.start,
+                                                    property.name,
+                                                    ["string", text],
+                                                );
+                                            }
+                                        }
+                                        if property-row.is-simple && property-row.simple-value.widget == "enum": ComboBox {
+                                            width: 100%;
+                                            height: 100%; // otherwise this gets too high and covers several rows.
+
+                                            current-index: property-row.simple-value.meta-data[2].to-float();
+
+                                            model: property-row.simple-value.visual-items;
+
+                                            selected(value) => {
+                                                Api.set-simple-binding(
+                                                    root.current-element.source-uri,
+                                                    root.current-element.source-version,
+                                                    root.current-element.range.start,
+                                                    property.name,
+                                                    ["enum", property-row.simple-value.meta-data[0], value],
+                                                )
+                                            }
+                                        }
+
+
+                                        if !property-row.is-simple: LineEdit {
+                                            width: 100%;
+                                            height: 100%; // otherwise this gets too high and covers several rows.
+                                            text: property.defined-at.expression-value;
+
+                                            edited(text) => {
+                                                overlay.visible = !Api.test-binding(
+                                                    root.current-element.source-uri,
+                                                    root.current-element.source-version,
+                                                    root.current-element.range.start,
+                                                    property.name,
+                                                    text,
+                                                );
+                                            }
+
+                                            accepted(text) => {
+                                                Api.set-binding(
+                                                    root.current-element.source-uri,
+                                                    root.current-element.source-version,
+                                                    root.current-element.range.start,
+                                                    property.name,
+                                                    text,
+                                                );
+                                            }
+                                        }
+                                        overlay := Rectangle {
+                                            visible: false;
+                                            background: #80000040;
+
+                                            width: parent.width - 8px;
+                                            height: parent.height - 8px;
+                                            border-radius: 3px;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    splitter := TouchArea {
+                        x: root.key-width - (root.splitter-width - 1px) / 2.0;
+                        y: header.height;
+                        width: root.splitter-width;
+                        height: root.height - header.height;
+
+                        mouse-cursor: MouseCursor.col-resize;
+
+                        moved() => {
+                            root.key-width = Math.clamp(self.x + self.mouse-x, 0.1 * root.width, 0.9 * root.width);
+                        }
+                    }
+                }
+
+                if root.current-element.type-name == "": VerticalLayout {
+                    Text {
+                        text: "Select an Element";
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
