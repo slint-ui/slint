@@ -128,6 +128,7 @@ pub fn ui_set_known_components(
             pretty_location,
             is_user_defined: !(ci.is_builtin || ci.is_std_widget),
             is_currently_shown: idx == current_component_index,
+            is_exported: ci.is_exported,
         };
 
         if let Some(position) = &ci.defined_at {

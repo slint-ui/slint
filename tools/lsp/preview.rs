@@ -842,13 +842,31 @@ fn finish_parsing(ok: bool) {
         send_status("Preview not updated", Health::Error);
     }
 
-    let (previewed_url, component) = {
+    let (previewed_url, component, source_code) = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         let pc = cache.current_component();
-        (pc.as_ref().map(|pc| pc.url.clone()), pc.as_ref().and_then(|pc| pc.component.clone()))
+        (
+            pc.as_ref().map(|pc| pc.url.clone()),
+            pc.as_ref().and_then(|pc| pc.component.clone()),
+            cache.source_code.clone(),
+        )
     };
 
     if let Some(document_cache) = document_cache() {
+        let mut document_cache = document_cache.snapshot().unwrap();
+
+        for (url, (version, contents)) in &source_code {
+            let mut diag = diagnostics::BuildDiagnostics::default();
+            if document_cache.get_document(url).is_none() {
+                poll_once(document_cache.load_url(
+                    url,
+                    version.clone(),
+                    contents.clone(),
+                    &mut diag,
+                ));
+            }
+        }
+
         let mut components = Vec::new();
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
@@ -856,15 +874,10 @@ fn finish_parsing(ok: bool) {
             &mut |ci| !ci.is_global,
             &mut components,
         );
-        if let Some(previewed_url) = &previewed_url {
-            component_catalog::file_local_components(
-                &document_cache,
-                previewed_url,
-                &mut components,
-            );
-        }
 
-        components.sort_by(|a, b| a.name.cmp(&b.name));
+        for url in document_cache.all_urls().filter(|u| u.scheme() != "builtin") {
+            component_catalog::file_local_components(&document_cache, &url, &mut components);
+        }
 
         let index = if let Some(component) = component {
             components
@@ -881,6 +894,8 @@ fn finish_parsing(ok: bool) {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             preview_state.known_components = components;
+
+            preview_state.document_cache.borrow_mut().replace(Rc::new(document_cache));
 
             if let Some(ui) = &preview_state.ui {
                 ui::ui_set_known_components(ui, &preview_state.known_components, index)
