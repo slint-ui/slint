@@ -247,6 +247,11 @@ class EditorPaneWidget extends Widget {
         monaco.editor.onDidCreateModel((model: monaco.editor.ITextModel) =>
             this.add_model_listener(model),
         );
+
+        lsp.show_document_callback = (uri, position) => {
+            this.goto_position(uri, position);
+            return true;
+        };
     }
 
     async map_url(url_: string): Promise<string | undefined> {

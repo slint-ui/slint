@@ -10,6 +10,7 @@ import {
     NotificationMessage,
     RequestMessage,
     ResponseMessage,
+    ShowDocumentParams,
 } from "vscode-languageclient";
 import { MonacoLanguageClient } from "monaco-languageclient";
 
@@ -19,11 +20,17 @@ import {
     MessageReader,
     MessageWriter,
 } from "vscode-languageserver-protocol/browser";
+import { LspPosition } from "./lsp_integration";
 
 import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
 
 import type { ResourceUrlMapperFunction } from "@lsp/slint_lsp_wasm.js";
 export { ResourceUrlMapperFunction };
+
+export type ShowDocumentCallback = (
+    _uri: string,
+    _posiiton: LspPosition,
+) => boolean;
 
 function createLanguageClient(
     transports: MessageTransports,
@@ -107,6 +114,8 @@ export class Lsp {
     #lsp_client: MonacoLanguageClient | null = null;
     #file_reader: FileReader | null = null;
 
+    #show_document_callback: ShowDocumentCallback;
+
     readonly #lsp_worker: Worker;
     readonly #lsp_reader: MessageReader;
     readonly #lsp_writer: MessageWriter;
@@ -115,6 +124,8 @@ export class Lsp {
 
     constructor(worker: Worker) {
         this.#lsp_worker = worker;
+        this.#show_document_callback = (_uri, _pos) => true;
+
         const reader = new FilterProxyReader(
             new BrowserMessageReader(this.#lsp_worker),
             (data: Message) => {
@@ -156,6 +167,29 @@ export class Lsp {
 
                     return true;
                 }
+                if ((data as RequestMessage).method == "window/showDocument") {
+                    const request = data as RequestMessage;
+                    const params = request.params as ShowDocumentParams;
+
+                    const selection = params.selection?.start || {
+                        line: 1,
+                        character: 1,
+                    };
+
+                    const success = this.#show_document_callback(
+                        params.uri,
+                        selection,
+                    );
+
+                    writer.write({
+                        jsonrpc: request.jsonrpc,
+                        id: request.id,
+                        result: { success: success },
+                        error: undefined,
+                    } as ResponseMessage);
+
+                    return true;
+                }
                 return false;
             },
         );
@@ -179,6 +213,10 @@ export class Lsp {
 
     set file_reader(fr: FileReader) {
         this.#file_reader = fr;
+    }
+
+    set show_document_callback(cb: ShowDocumentCallback) {
+        this.#show_document_callback = cb;
     }
 
     private read_url(url: string): Promise<string> {
