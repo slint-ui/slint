@@ -1,0 +1,128 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { VerticalBox } from "std-widgets.slint";
+import { AppPalette } from "./style/styles.slint";
+import { AppText } from "./controls/generic.slint";
+import { WeatherIcon, RainInfo, UvInfo } from "./controls/weather.slint";
+import { WeatherInfo, WeatherForecastInfo, CityWeather } from "./weather_datatypes.slint";
+
+component ForecastGraphText inherits AppText {
+    horizontal-alignment: center;
+    vertical-alignment: center;
+
+    font-size: 0.85rem;
+}
+
+component DayForecastGraphEntry inherits VerticalLayout {
+    in property <string> day-name;
+    in property <WeatherInfo> day-weather;
+    in property <bool> detailed: true;
+
+    spacing: 5px;
+
+    ForecastGraphText {
+        font-size: 1.2rem;
+        text: day-name;
+    }
+
+    WeatherIcon {
+        icon-type: day-weather.icon-type;
+        font-size: 1.6rem;
+    }
+
+    VerticalLayout {
+        spacing: 5px;
+
+        ForecastGraphText {
+            text: Math.round(day-weather.detailed_temp.max) + "° / " + Math.round(day-weather.detailed_temp.min) + "°";
+        }
+
+        RainInfo {
+            precipitation-probability: root.day-weather.precipitation_prob;
+            rain-volume: root.day-weather.rain;
+            snow-volume: root.day-weather.snow;
+
+            minimal: true;
+        }
+
+        UvInfo {
+            uv-index: root.day-weather.uv;
+
+            minimal: true;
+        }
+    }
+}
+
+export component DayForecastGraph inherits Rectangle {
+    in property <[WeatherForecastInfo]> forecast-weather;
+    in property <bool> show-animations: true;
+
+    property <length> preferred-day-width: 85px;
+
+    // max-days-count is not directly as a binding here, only when the value is actually changed.
+    // This is to avoid reevaluation of the conditional components that rely on it for every window size change.
+    // see: https://github.com/slint-ui/slint/issues/5209
+    property <int> max-days-count: 0;
+    property <int> days-count: Math.min(root.forecast-weather.length, root.max-days-count);
+
+    property <length> day-width: root.width / root.days-count;
+
+    function update-max-days-count() {
+        if (Math.floor(root.width / root.preferred-day-width) != root.max-days-count) {
+            root.max-days-count = Math.floor(root.width / root.preferred-day-width);
+        }
+    }
+
+    init => { root.update-max-days-count(); }
+    changed width => { root.update-max-days-count(); }
+
+    preferred-height: layout.preferred-height;
+
+    Path {
+        property <float> visible-part: 0%;
+
+        y: 0;
+        height: 50%;
+
+        stroke-width: 2px;
+        commands: CityWeather.get_forecast_graph_command(
+            root.forecast-weather, root.days-count, self.width, self.height);
+
+        stroke: @linear-gradient(90deg, AppPalette.foreground.with-alpha(25%) 0%,
+                                        AppPalette.foreground.with-alpha(25%) self.visible-part,
+                                        transparent self.visible-part,
+                                        transparent 100%);
+
+        opacity: 0.0;
+        animate opacity { duration: root.show-animations ? 1200ms : 0ms; easing: ease-in; }
+        animate visible-part { duration: root.show-animations ? 900ms : 0ms; easing: ease-in; }
+
+        init => {
+            self.opacity = 1.0;
+            self.visible-part = 100%;
+        }
+    }
+
+    layout := HorizontalLayout {
+        for index in root.days-count:
+            DayForecastGraphEntry {
+                property <WeatherForecastInfo> day-forecast-weather: root.forecast-weather[index];
+                property <duration> animation-duration: 0ms;
+
+                width: root.day-width;
+                day-name: day-forecast-weather.day-name;
+                day-weather: day-forecast-weather.weather-info;
+
+                opacity: 0.0;
+                animate opacity { duration: self.animation-duration; easing: ease-in-out-quad; }
+
+                init => {
+                    if (root.show-animations) {
+                        self.animation-duration = 600ms + (500ms - index * 50ms) * index;
+                    }
+                    self.opacity = 1.0;
+                }
+            }
+    }
+}

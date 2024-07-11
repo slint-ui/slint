@@ -1,0 +1,67 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "rusty-weather"
+version = "1.7.0"
+authors = ["FELGO GmbH <contact@felgo.com>"]
+edition = "2021"
+build = "build.rs"
+publish = false
+license = "MIT"
+
+[dependencies]
+async-std = "1.12.0"
+chrono = { version = "0.4.38", optional = true, default-features = false, features = ["clock"] }
+directories = "5.0.1"
+log = "0.4.21"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.115"
+slint = { path = "../../api/rs/slint", features = [ "backend-android-activity-06" ] }
+
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))'.dependencies]
+env_logger = "0.11.3"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.14.1"
+openssl = { version = "0.10", features = ["vendored"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+openweather_sdk = "0.1.8"
+tokio = "1.37.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_log = "1.0"
+console_error_panic_hook = "0.1.7"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
+[features]
+default = ["chrono"]
+
+# Android-activity / wasm support
+[lib]
+name="rusty_weather_lib"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+# Andoroid settings
+# See more: https://github.com/rust-mobile/cargo-apk?tab=readme-ov-file#manifest
+[package.metadata.android]
+package = "dev.slint.examples.weatherdemo"
+resources = "android-res"
+build_targets = [ "aarch64-linux-android" ]
+
+[package.metadata.android.sdk]
+min_sdk_version = 29
+target_sdk_version = 32
+
+[package.metadata.android.application]
+label = "Rusty Weather"
+icon = "@mipmap/ic_launcher"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"

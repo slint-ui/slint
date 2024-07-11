@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+
+import "../assets/weathericons-font.ttf";
+
+export global AppPalette {
+    out property<brush> background: #1673b4;
+    out property<brush> alternate-background: #2296bc;
+    out property<brush> foreground: white;
+
+    out property<brush> sun-yellow: Colors.yellow;
+    out property<brush> snow-white: Colors.cornsilk;
+    out property<brush> rain-blue: #7DCDFF.brighter(15%);
+
+    out property<brush> error-red: Colors.red.darker(20%);
+}
+
+export global AppFonts {
+    out property<length> default-font-size: 10pt;
+
+    out property<string> weather-icons-font-name: "Weather Icons";
+}
+
+export global AppImages {
+    out property <image> arrow-down: @image-url("../assets/icons/arrow-down.svg");
+    out property <image> arrow-up: @image-url("../assets/icons/arrow-up.svg");
+    out property <image> plus: @image-url("../assets/icons/plus.svg");
+    out property <image> refresh: @image-url("../assets/icons/refresh.svg");
+    out property <image> search: @image-url("../assets/icons/search.svg");
+    out property <image> trash: @image-url("../assets/icons/trash.svg");
+    out property <image> xmark: @image-url("../assets/icons/xmark.svg");
+}

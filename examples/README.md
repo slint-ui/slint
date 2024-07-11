@@ -176,6 +176,18 @@ Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks.
 
 ![Composition of 7GUIs Screenshots](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7GUIs")
 
+### [`weather-demo`](./weather-demo)
+
+A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [OpenWeather](https://openweathermap.org/) API.
+
+| `.slint` Design | Rust Source (Desktop) | Rust Source (Android / Wasm) | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- | --- |
+| [`main.slint`](./weather-demo/ui/main.slint) | [`main.rs`](./weather-demo/src/main.rs) | [`lib.rs`](./weather-demo/src/lib.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/weather-demo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/weather-demo/ui/main.slint) |
+
+![Screenshot of the Weather Demo Desktop](./weather-demo/docs/img/desktop-preview.png "Weather Demo Desktop")
+
+![Screenshot of the Weather Demo Desktop](./weather-demo/docs/img/android-preview.png "Weather Demo Android")
+
 ### External examples
 
 * [Cargo UI](https://github.com/slint-ui/cargo-ui): A rust application that makes use of threads in the background.
