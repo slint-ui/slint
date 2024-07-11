@@ -1364,6 +1364,29 @@ pub fn instantiate(
     instance_ref.self_weak().set(self_weak.clone()).ok();
     let description = comp.description();
 
+    if let Some(parent) = parent_ctx {
+        description
+            .parent_item_tree_offset
+            .unwrap()
+            .apply(instance_ref.as_ref())
+            .set(parent)
+            .ok()
+            .unwrap();
+    } else {
+        if let Some(g) = description.compiled_globals.as_ref() {
+            for g in g.compiled_globals.iter() {
+                crate::global_component::instantiate(g, &mut globals, self_weak.clone());
+            }
+        }
+        let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
+        extra_data.globals.set(globals).ok().unwrap();
+
+        #[cfg(target_arch = "wasm32")]
+        if let Some(WindowOptions::CreateWithCanvasId(canvas_id)) = window_options {
+            extra_data.canvas_id.set(canvas_id.clone()).unwrap();
+        }
+    }
+
     if let Some(WindowOptions::Embed { parent_item_tree, parent_item_tree_index }) = window_options
     {
         vtable::VRc::borrow_pin(&self_rc)
@@ -1390,29 +1413,6 @@ pub fn instantiate(
 
         let component_rc = vtable::VRc::into_dyn(self_rc.clone());
         i_slint_core::item_tree::register_item_tree(&component_rc, maybe_window_adapter);
-    }
-
-    if let Some(parent) = parent_ctx {
-        description
-            .parent_item_tree_offset
-            .unwrap()
-            .apply(instance_ref.as_ref())
-            .set(parent)
-            .ok()
-            .unwrap();
-    } else {
-        if let Some(g) = description.compiled_globals.as_ref() {
-            for g in g.compiled_globals.iter() {
-                crate::global_component::instantiate(g, &mut globals, self_weak.clone());
-            }
-        }
-        let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
-        extra_data.globals.set(globals).ok().unwrap();
-
-        #[cfg(target_arch = "wasm32")]
-        if let Some(WindowOptions::CreateWithCanvasId(canvas_id)) = window_options {
-            extra_data.canvas_id.set(canvas_id.clone()).unwrap();
-        }
     }
 
     if let Some(WindowOptions::UseExistingWindow(existing_adapter)) = &window_options {
