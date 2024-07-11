@@ -127,7 +127,3 @@ License: CC-BY-4.0
 Files: examples/printerdemo_mcu/zephyr/VERSION
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
-
-Files: tools/lsp/ui/assets/*.svg
-Copyright: Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>
-License: Apache-2.0
