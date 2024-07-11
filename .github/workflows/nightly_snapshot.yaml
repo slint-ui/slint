@@ -54,6 +54,7 @@ jobs:
         uses: ./.github/workflows/wasm_demos.yaml
         with:
             rustflags: "--cfg=web_sys_unstable_apis"
+            build_artifacts: true
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
         with:

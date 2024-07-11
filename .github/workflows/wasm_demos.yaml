@@ -10,6 +10,10 @@ on:
             rustflags:
                 type: string
                 description: extra rustflags
+            build_artifacts:
+                type: boolean
+                required: true
+                description: True if we should build all demos and produce artefacts
 
 jobs:
     wasm_demo:
@@ -25,7 +29,13 @@ jobs:
                   target: wasm32-unknown-unknown
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Printerdemo WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory:  examples/printerdemo/rust
             - name: Gallery WASM build
+              if: ${{ inputs.build_artifacts }}
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
                   export SLINT_STYLE=fluent && wasm-pack build --release  --out-dir pkg/fluent --target web
@@ -33,62 +43,23 @@ jobs:
                   export SLINT_STYLE=cupertino && wasm-pack build --release --out-dir pkg/cupertino --target web
                   export SLINT_STYLE=cosmic && wasm-pack build --release --out-dir pkg/cosmic --target web
               working-directory: examples/gallery
-            - name: Printer demo WASM build
+            - name: Remaining wasm demos
+              if: ${{ inputs.build_artifacts }}
               run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/printerdemo/rust
-            - name: Printer demo old WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/printerdemo_old/rust
-            - name: Todo demo WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/todo/rust
-            - name: Todo mvc demo WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/todo-mvc/rust
-            - name: Carousel demo WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/carousel/rust
-            - name: Sliding Puzzle demo WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/slide_puzzle
-            - name: Memory example WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/memory
-            - name: Imagefilter example WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/imagefilter/rust
-            - name: Plotter example WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/plotter
-            - name: OpenGL underlay example WASM build
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
-              working-directory: examples/opengl_underlay
+                  for demo in examples/printerdemo/rust examples/printerdemo_old/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/imagefilter/rust examples/plotter examples/opengl_underlay; do
+                      pushd $demo
+                      sed -i "s/#wasm# //" Cargo.toml
+                      wasm-pack build --release --target web
+                      popd
+                  done
             - name: Energy Monitor example WASM build
+              if: ${{ inputs.build_artifacts }}
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
                   wasm-pack build --release --target web --no-default-features --features slint/default,chrono
               working-directory: examples/energy-monitor
             - name: "Upload Demo Artifacts"
+              if: ${{ inputs.build_artifacts }}
               uses: actions/upload-artifact@v4
               with:
                   name: wasm_demo
