@@ -59,7 +59,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
     Ok(())
 }
 
-pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
     let docs_source_dir = root.join("api/cpp");
@@ -101,7 +101,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         accessibility: true,
         system_testing: true,
         freestanding: true,
-        experimental: false,
+        experimental,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 

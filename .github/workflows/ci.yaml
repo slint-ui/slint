@@ -417,6 +417,8 @@ jobs:
 
     docs:
         uses: ./.github/workflows/build_docs.yaml
+        with:
+          release: false
 
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
