@@ -375,6 +375,8 @@ jobs:
 
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
+        with:
+          build_artifacts: false
 
     tree-sitter:
         uses: ./.github/workflows/tree_sitter.yaml
