@@ -129,3 +129,16 @@ jobs:
           - name: Build for ${{matrix.board}}
             run: |
                 west build -b ${{matrix.board}} -p always slint/examples/printerdemo_mcu/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
+
+    uefi-demo:
+        env:
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: x86_64-unknown-uefi
+            - name: Check
+              run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
