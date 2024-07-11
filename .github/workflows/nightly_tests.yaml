@@ -1,0 +1,131 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Run a bunch of slower tests once a day (or night)
+name: Nightly tests
+
+on:
+    workflow_dispatch:
+
+    schedule:
+        - cron: "0 2 * * *"
+
+jobs:
+    qa-esp-idf:
+        strategy:
+          matrix:
+            esp-idf-target:
+              - release-v5.2
+              - latest
+        runs-on: ubuntu-22.04
+        container: espressif/idf:${{ matrix.esp-idf-target }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: esp-rs/xtensa-toolchain@v1.5
+              with:
+                  default: true
+                  buildtargets: esp32
+                  ldproxy: false
+            - uses: Swatinem/rust-cache@v2
+            - name: Build and Test Printer demo
+              shell: bash
+              working-directory: examples/printerdemo_mcu/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+            - name: Build and Test Carousel example s3 box
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-box
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+            - name: Build and Test Carousel example s3 usb otg
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-usb-otg
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+            - name: Build and Test Carousel example s2 kaluga kit
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s2-kaluga-kit
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+
+    qa-tree-sitter-latest:
+        uses: ./.github/workflows/tree_sitter.yaml
+        with:
+          latest: true
+
+    qa-yocto-build:
+        strategy:
+            matrix:
+                include:
+                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa57-poky-linux
+                      target: aarch64-unknown-linux-gnu
+                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
+                      target: armv7-unknown-linux-gnueabihf
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - name: Fetch Yocto SDK
+              run: |
+                  # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
+                  wget -O sdk.sh ${{ matrix.sdk_url }}
+                  chmod +x sdk.sh
+                  ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
+                  rm -f sdk.sh
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: stable
+                  target: ${{ matrix.target }}
+            - name: C++ Build
+              run: |
+                  . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
+                  # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
+                  # f5c3908b7ec5131b7b19ff642b5975660c7484f8
+                  export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+                  mkdir ${{ runner.workspace }}/cppbuild
+                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+                  cmake --build ${{ runner.workspace }}/cppbuild
+
+    mcu_zephyr:
+        strategy:
+            matrix:
+                include:
+                    - board: native_sim/native/64
+                      toolchain: x86_64-unknown-linux-gnu
+                      extra-cmake-args: ''
+                    - board: mimxrt1170_evk@B/mimxrt1176/cm7
+                      toolchain: thumbv7em-none-eabi
+                      extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
+        runs-on: ubuntu-22.04
+        steps:
+          - uses: actions/checkout@v4
+            with:
+                path: slint
+          - name: Install linux dependencies, including Zephyr dependencies
+            uses: ./slint/.github/actions/install-linux-dependencies
+            with:
+                extra-packages: |
+                    git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+          - uses: ./slint/.github/actions/setup-rust
+            with:
+                toolchain: nightly
+                components: rust-src
+                target: ${{matrix.toolchain}}
+          - name: Setup Zephyr project
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.2
+            with:
+                app-path: slint
+                manifest-file-name: examples/printerdemo_mcu/zephyr/west.yaml
+                sdk-version: 0.16.8
+          - name: Export the Zephyr CMake package
+            run: west zephyr-export
+          - name: Build for ${{matrix.board}}
+            run: |
+                west build -b ${{matrix.board}} -p always slint/examples/printerdemo_mcu/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
