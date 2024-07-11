@@ -1890,3 +1890,39 @@ import { E } from "@unknown/lib.slint";
         "HELLO:7: Cannot find requested import \"@unknown/lib.slint\" in the library search path"
     );
 }
+
+#[test]
+fn test_snapshotting() {
+    let mut type_loader = TypeLoader::new(
+        crate::typeregister::TypeRegister::builtin(),
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
+        &mut BuildDiagnostics::default(),
+    );
+
+    let path = PathBuf::from("/tmp/test.slint");
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(type_loader.load_file(
+        &path,
+        None,
+        &path,
+        "export component Foobar inherits Rectangle { }".to_string(),
+        false,
+        &mut diag,
+    ));
+
+    assert!(!diag.has_errors());
+
+    let doc = type_loader.get_document(&path).unwrap();
+    let c = doc.inner_components.first().unwrap();
+    assert_eq!(c.id, "Foobar");
+    let root_element = c.root_element.clone();
+    assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+
+    let copy = snapshot(&type_loader).unwrap();
+
+    let doc = copy.get_document(&path).unwrap();
+    let c = doc.inner_components.first().unwrap();
+    assert_eq!(c.id, "Foobar");
+    let root_element = c.root_element.clone();
+    assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
