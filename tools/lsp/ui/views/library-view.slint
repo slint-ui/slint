@@ -5,7 +5,7 @@ import { Group, GroupHeader } from "../components/group.slint";
 import { ExpandableListView } from "../components/expandable-listview.slint";
 import { Icons, EditorSizeSettings } from "../components/styling.slint";
 import { ComponentListItem, ComponentItem } from "../api.slint";
-import { Button } from "std-widgets.slint";
+import { IconButton } from "../components/icon-button.slint";
 
 export component LibraryView {
     in property <[ComponentListItem]> known-components <=> component-list-view.known-components;
@@ -30,7 +30,7 @@ export component LibraryView {
         GroupHeader {
             title: @tr("Library");
 
-            add-button := Button {
+            add-button := IconButton {
                 horizontal-stretch: 0;
                 icon: Icons.add;
                 accessible-label: @tr("Add component");
