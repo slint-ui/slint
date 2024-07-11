@@ -1548,7 +1548,6 @@ pub mod test {
             },
         ));
 
-        i_slint_core::debug_log!("Test source diagnostics:\n{diagnostics:?}");
         assert!(diagnostics.is_empty());
 
         component_definition.unwrap().create().unwrap()

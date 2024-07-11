@@ -29,10 +29,10 @@ import getEditorServiceOverride, {
     IEditorOptions,
     IResolvedTextEditorModel,
 } from "@codingame/monaco-vscode-editor-service-override";
-import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-service-override";
-import getModelServiceOverride from "@codingame/monaco-vscode-model-service-override";
 import getSnippetServiceOverride from "@codingame/monaco-vscode-snippets-service-override";
 import getStorageServiceOverride from "@codingame/monaco-vscode-storage-service-override";
+
+import "vscode/localExtensionHost";
 
 function openEditor(
     _modelRef: IReference<IResolvedTextEditorModel>,
@@ -49,8 +49,6 @@ export function initialize(): Promise<void> {
             initializeMonacoServices({
                 ...getConfigurationServiceOverride(monaco.Uri.file("/tmp")),
                 ...getEditorServiceOverride(openEditor),
-                ...getLanguagesServiceOverride(),
-                ...getModelServiceOverride(),
                 ...getSnippetServiceOverride(),
                 ...getStorageServiceOverride(),
             }).then(() => {
@@ -461,7 +459,7 @@ class EditorPaneWidget extends Widget {
             language: "slint",
             glyphMargin: true,
             lightbulb: {
-                enabled: true,
+                enabled: monaco.editor.ShowLightbulbIconMode.On,
             },
         });
 
