@@ -108,7 +108,13 @@ fn main() {
         .unwrap_or_else(|err| panic!("Error running {d8_path:?}: {err}"));
 
     if !o.status.success() {
-        panic!("Dex conversion failed: {}", String::from_utf8_lossy(&o.stderr));
+        eprintln!("Dex conversion failed: {}", String::from_utf8_lossy(&o.stderr));
+        if java_ver >= 21 {
+            eprintln!("WARNING: JDK version 21 is known to cause an error.");
+            eprintln!("See https://github.com/slint-ui/slint/issues/4973");
+            eprintln!("Try downgrading your version of Java to something like JDK 17.");
+        }
+        panic!("Dex conversion failed");
     }
 
     println!("cargo:rerun-if-changed=java/{java_class}");
