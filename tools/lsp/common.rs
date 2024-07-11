@@ -735,7 +735,7 @@ pub mod lsp_to_editor {
         Some(lsp_types::ShowDocumentParams {
             uri,
             external: Some(false),
-            take_focus: Some(true),
+            take_focus: Some(false),
             selection: Some(range),
         })
     }
