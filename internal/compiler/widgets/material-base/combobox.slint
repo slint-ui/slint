@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-import { MaterialPalette, MaterialFontSettings, Elevation, Icons } from "styling.slint";
+import { MaterialPalette, MaterialFontSettings, Elevation, Icons, MaterialSizeSettings } from "styling.slint";
 import { ListItem, StateLayer } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
-import { ListView } from "../common/listview.slint";
+import { ScrollView } from "./scrollview.slint";
 
 export component ComboBox {
     in property <[string]> model <=> base.model;
@@ -16,7 +16,7 @@ export component ComboBox {
 
     callback selected <=> base.selected;
     
-    property <length> item-height: 48px;
+    property <int> visible-items: 6;
 
     min-width: max(160px, layout.min-width);
     min-height: max(22px, layout.min-height);
@@ -85,7 +85,7 @@ export component ComboBox {
         x: 0;
         y: root.height;
         width: root.width;
-        height: base.popup-height(5, root.item-height);
+        height: root.visible-items * MaterialSizeSettings.item-height;
 
         popup-container := Rectangle {
             background: MaterialPalette.alternate-background;
@@ -95,17 +95,20 @@ export component ComboBox {
             border-radius: 4px;
         }
 
-        ListView {
-            for value[index] in root.model: ListItem {
-                item: { text: value };
-                is-selected: index == root.current-index;
-                has-hover: touch-area.has-hover;
-                pressed: touch-area.pressed;
-                height: root.item-height;
+        ScrollView {
+            VerticalLayout {
+                alignment: start;
 
-                touch-area := StateLayer {
-                    clicked => {
-                        base.select(index);
+                for value[index] in root.model: ListItem {
+                    item: { text: value };
+                    is-selected: index == root.current-index;
+                    has-hover: touch-area.has-hover;
+                    pressed: touch-area.pressed;
+
+                    touch-area := StateLayer {
+                        clicked => {
+                            base.select(index);
+                        }
                     }
                 }
             }

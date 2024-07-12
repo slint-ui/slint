@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
+import { FluentFontSettings, FluentPalette, Icons, FluentSizeSettings } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
-import { ListView } from "../common/listview.slint";
+import { ScrollView } from "./scrollview.slint";
 
 export component ComboBox {
     in property <[string]> model <=> base.model;
@@ -15,8 +15,8 @@ export component ComboBox {
 
     callback selected <=> base.selected;
 
-    property <length> item-height: 40px;
     property <length> popup-padding: 4px;
+    property <int> visible-items: 6;
 
     min-width: max(160px, layout.min-height);
     min-height: max(32px, layout.min-height);
@@ -97,23 +97,24 @@ export component ComboBox {
         // Ideally it should be so that the current element is over the popup.
         y: -4px;
         width: root.width;
-        height: base.popup-height(5, root.item-height) + 2 * root.popup-padding;
+        height: root.visible-items * FluentSizeSettings.item-height +  2 * root.popup-padding;
 
         MenuBorder {
-            ListView {
-                width: parent.width - 2 * root.popup-padding;
-                height: parent.height - 2 * root.popup-padding;
+            ScrollView {
+                VerticalLayout {
+                    alignment: start;
+                    padding: root.popup-padding;
+                    
+                    for value[index] in root.model : ListItem {
+                        item: { text: value };
+                        is-selected: index == root.current-index;
+                        has-hover: touch-area.has-hover;
+                        pressed: touch-area.pressed;
 
-                for value[index] in root.model : ListItem {
-                    item: { text: value };
-                    is-selected: index == root.current-index;
-                    has-hover: touch-area.has-hover;
-                    pressed: touch-area.pressed;
-                    height: root.item-height;
-
-                    touch-area := TouchArea {
-                        clicked => {
-                            base.select(index);
+                        touch-area := TouchArea {
+                            clicked => {
+                                base.select(index);
+                            }
                         }
                     }
                 }
