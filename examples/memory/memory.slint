@@ -106,7 +106,7 @@ export component MainWindow inherits Window {
     for tile[i] in root.memory-tiles: MemoryTile {
         clicked => {
             if (!root.disable-tiles) {
-                tile.image-visible = !tile.image-visible;
+                tile.image-visible = true;
                 root.check-if-pair-solved();
             }
         }
