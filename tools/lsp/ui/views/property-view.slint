@@ -42,6 +42,8 @@ export component PropertyView {
     }
 
     content-layer := VerticalLayout {
+        padding: background-layer.border-width;
+        
         GroupHeader {
             title: @tr("Properties");
         }
@@ -236,5 +238,10 @@ export component PropertyView {
                 }
             }
         }
+    }
+    
+    Rectangle {
+        border-width: 1px;
+        border-color: Palette.border;
     }
 }
