@@ -45,6 +45,8 @@ def test_load_file_wrapper():
 
     assert instance.MyGlobal.minus_one(100) == 99
 
+    assert instance.SecondGlobal.second == "second"
+
     del instance
 
 

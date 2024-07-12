@@ -9,6 +9,10 @@ export global MyGlobal {
     }
 }
 
+export global SecondGlobal {
+    out property <string> second: "second";
+}
+
 export component App inherits Window {
     in-out property <string> hello: "World";
     callback say-hello(string) -> string;

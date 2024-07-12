@@ -178,11 +178,15 @@ def _build_class(compdef):
     for global_name in compdef.globals:
         global_class = _build_global_class(compdef, global_name)
 
-        def global_getter(self):
-            wrapper = global_class()
-            setattr(wrapper, "__instance__", self.__instance__)
-            return wrapper
-        properties_and_callbacks[global_name] = property(global_getter)
+        def mk_global(global_class):
+            def global_getter(self):
+                wrapper = global_class()
+                setattr(wrapper, "__instance__", self.__instance__)
+                return wrapper
+
+            return property(global_getter)
+
+        properties_and_callbacks[global_name] = mk_global(global_class)
 
     return type("SlintClassWrapper", (Component,), properties_and_callbacks)
 
@@ -277,3 +281,4 @@ ListModel = models.ListModel
 Model = models.Model
 Timer = native.Timer
 TimerMode = native.TimerMode
+Struct = native.PyStruct
