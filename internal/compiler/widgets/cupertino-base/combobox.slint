@@ -1,46 +1,49 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CupertinoFontSettings, CupertinoPalette, Icons } from "styling.slint";
+import { CupertinoFontSettings, CupertinoPalette, Icons, CupertinoSizeSettings } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ScrollView } from "./scrollview.slint";
 
 export component ComboBox {
-    in property <[string]> model <=> i-base.model;
-    in property <bool> enabled <=> i-base.enabled;
-    out property <bool> has-focus <=> i-base.has-focus;
-    in-out property <int> current-index <=> i-base.current-index;
-    in-out property <string> current-value <=> i-base.current-value;
+    in property <[string]> model <=> base.model;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
 
-    callback selected <=> i-base.selected;
+    callback selected <=> base.selected;
 
-    private property <brush> background: CupertinoPalette.control-background;
+    property <brush> background: CupertinoPalette.control-background;
+    property <length> popup-padding: 4px;
+    property <int> visible-items: 6;
 
-    min-width: max(160px, i-layout.min-width);
-    min-height: max(22px, i-layout.min-height);
+    min-width: max(160px, layout.min-width);
+    min-height: max(22px, layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    forward-focus: i-base;
+    forward-focus: base;
     accessible-role: combobox;
 
     states [
         disabled when !root.enabled : {
-            i-text.color: CupertinoPalette.foreground-secondary;
-            i-top-icon.colorize: CupertinoPalette.foreground-secondary;
-            i-bottom-icon.colorize: CupertinoPalette.foreground-secondary;
+            text.color: CupertinoPalette.foreground-secondary;
+            top-icon.colorize: CupertinoPalette.foreground-secondary;
+            bottom-icon.colorize: CupertinoPalette.foreground-secondary;
             root.background: CupertinoPalette.tertiary-control-background;
         }
-        pressed when i-base.pressed : {
+        pressed when base.pressed : {
             root.background: CupertinoPalette.secondary-control-background;
         }
     ]
 
-    i-base := ComboBoxBase {
+    base := ComboBoxBase {
         width: 100%;
         height: 100%;
 
         show-popup => {
-            i-popup.show();
+            popup.show();
         }
     }
 
@@ -72,14 +75,14 @@ export component ComboBox {
         }
     }
 
-    i-layout := HorizontalLayout {
+    layout := HorizontalLayout {
         padding-left: 8px;
         padding-right: 8px;
         padding-top: 4px;
         padding-bottom: 4px;
         spacing: 4px;
 
-        i-text := Text {
+        text := Text {
             horizontal-alignment: left;
             vertical-alignment: center;
             font-size: CupertinoFontSettings.body.font-size;
@@ -129,13 +132,13 @@ export component ComboBox {
                 padding: 4px;
                 spacing: 4px;
 
-                i-top-icon := Image {
+                top-icon := Image {
                     x: (parent.width - self.width) / 2;
                     colorize: CupertinoPalette.accent-foreground;
                     source: Icons.chevron-up;
                 }
 
-                i-bottom-icon := Image {
+                bottom-icon := Image {
                     x: (parent.width - self.width) / 2;
                     colorize: CupertinoPalette.accent-foreground;
                     source: Icons.chevron-down;
@@ -144,27 +147,31 @@ export component ComboBox {
         }
     }
 
-    i-popup := PopupWindow {
+    popup := PopupWindow {
         x: 0;
         y: parent.height + 6px;
-        min-width: root.width;
+        width: root.width;
+        height: root.visible-items * CupertinoSizeSettings.item-height  + 2 * root.popup-padding;
 
         MenuBorder {
-            VerticalLayout {
-                padding: 4px;
+            ScrollView {
+                VerticalLayout {
+                    alignment: start;
+                    padding: root.popup-padding;
 
-                for value[index] in root.model : ListItem {
-                    padding-horizontal: 0;
-                    item: { text: value };
-                    is-selected: index == root.current-index;
-                    has-hover: i-touch-area.has-hover;
-                    pressed: i-touch-area.pressed;
-                    pressed-x: i-touch-area.pressed-x;
-                    pressed-y: i-touch-area.pressed-y;
+                    for value[index] in root.model : ListItem {
+                        padding-horizontal: 0;
+                        item: { text: value };
+                        is-selected: index == root.current-index;
+                        has-hover: touch-area.has-hover;
+                        pressed: touch-area.pressed;
+                        pressed-x: touch-area.pressed-x;
+                        pressed-y: touch-area.pressed-y;
 
-                    i-touch-area := TouchArea {
-                        clicked => {
-                            i-base.select(index);
+                        touch-area := TouchArea {
+                            clicked => {
+                                base.select(index);
+                            }
                         }
                     }
                 }

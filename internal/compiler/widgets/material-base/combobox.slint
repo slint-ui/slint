@@ -2,51 +2,54 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-import { MaterialPalette, MaterialFontSettings, Elevation, Icons } from "styling.slint";
+import { MaterialPalette, MaterialFontSettings, Elevation, Icons, MaterialSizeSettings } from "styling.slint";
 import { ListItem, StateLayer } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ScrollView } from "./scrollview.slint";
 
 export component ComboBox {
-    in property <[string]> model <=> i-base.model;
-    in property <bool> enabled <=> i-base.enabled;
-    out property <bool> has-focus <=> i-base.has-focus;
-    in-out property <int> current-index <=> i-base.current-index;
-    in-out property <string> current-value <=> i-base.current-value;
+    in property <[string]> model <=> base.model;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
 
-    callback selected <=> i-base.selected;
+    callback selected <=> base.selected;
+    
+    property <int> visible-items: 6;
 
-    min-width: max(160px, i-layout.min-width);
-    min-height: max(22px, i-layout.min-height);
+    min-width: max(160px, layout.min-width);
+    min-height: max(22px, layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    forward-focus: i-base;
+    forward-focus: base;
     accessible-role: combobox;
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: MaterialPalette.control-foreground;
-            i-background.opacity: 0.38;
-            i-label.opacity: 0.38;
-            i-icon.opacity: 0.38;
+            background.border-color: MaterialPalette.control-foreground;
+            background.opacity: 0.38;
+            label.opacity: 0.38;
+            icon.opacity: 0.38;
         }
         focused when root.has-focus : {
-            i-background.border-width: 2px;
-            i-background.border-color: MaterialPalette.accent-background;
-            i-label.color: MaterialPalette.accent-background;
-            i-icon.colorize: MaterialPalette.accent-background;
+            background.border-width: 2px;
+            background.border-color: MaterialPalette.accent-background;
+            label.color: MaterialPalette.accent-background;
+            icon.colorize: MaterialPalette.accent-background;
         }
     ]
 
-    i-base := ComboBoxBase {
+    base := ComboBoxBase {
         width: 100%;
         height: 100%;
 
         show-popup => {
-            i-popup.show();
+            popup.show();
         }
     }
 
-    i-background := Rectangle {
+    background := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 4px;
@@ -54,12 +57,12 @@ export component ComboBox {
         border-color: MaterialPalette.border;
     }
 
-    i-layout := HorizontalLayout {
+    layout := HorizontalLayout {
         padding-left: 16px;
         padding-right: 12px;
         spacing: 16px;
 
-        i-label := Text {
+        label := Text {
             text <=> root.current-value;
             color: MaterialPalette.control-foreground;
             vertical-alignment: center;
@@ -69,7 +72,7 @@ export component ComboBox {
             font-weight: MaterialFontSettings.body-large.font-weight;
         }
 
-        i-icon := Image {
+        icon := Image {
             width: 24px;
             height: 24px;
             y: (parent.height - self.height) / 2;
@@ -78,12 +81,13 @@ export component ComboBox {
         }
     }
 
-    i-popup := PopupWindow {
+    popup := PopupWindow {
         x: 0;
         y: root.height;
         width: root.width;
+        height: root.visible-items * MaterialSizeSettings.item-height;
 
-        i-popup-container := Rectangle {
+        popup-container := Rectangle {
             background: MaterialPalette.alternate-background;
             drop-shadow-color: MaterialPalette.shadow;
             drop-shadow-blur: Elevation.level2;
@@ -91,16 +95,20 @@ export component ComboBox {
             border-radius: 4px;
         }
 
-        VerticalLayout {
-            for value[index] in root.model: ListItem {
-                item: { text: value };
-                is-selected: index == root.current-index;
-                has-hover: i-touch-area.has-hover;
-                pressed: i-touch-area.pressed;
+        ScrollView {
+            VerticalLayout {
+                alignment: start;
 
-                i-touch-area := StateLayer {
-                    clicked => {
-                        i-base.select(index);
+                for value[index] in root.model: ListItem {
+                    item: { text: value };
+                    is-selected: index == root.current-index;
+                    has-hover: touch-area.has-hover;
+                    pressed: touch-area.pressed;
+
+                    touch-area := StateLayer {
+                        clicked => {
+                            base.select(index);
+                        }
                     }
                 }
             }

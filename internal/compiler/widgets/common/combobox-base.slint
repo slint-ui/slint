@@ -33,7 +33,7 @@ export component ComboBoxBase {
     public function move-selection-down() {
         root.select(Math.min(root.current-index + 1, root.model.length - 1));
     }
-
+ 
     function reset-current() {
         root.current-index = 0;
     }

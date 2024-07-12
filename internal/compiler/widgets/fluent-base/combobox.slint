@@ -1,55 +1,59 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
+import { FluentFontSettings, FluentPalette, Icons, FluentSizeSettings } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
+import { ScrollView } from "./scrollview.slint";
 
 export component ComboBox {
-    in property <[string]> model <=> i-base.model;
-    in property <bool> enabled <=> i-base.enabled;
-    out property <bool> has-focus <=> i-base.has-focus;
-    in-out property <int> current-index <=> i-base.current-index;
-    in-out property <string> current-value <=> i-base.current-value;
+    in property <[string]> model <=> base.model;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
 
-    callback selected <=> i-base.selected;
+    callback selected <=> base.selected;
 
-    min-width: max(160px, i-layout.min-height);
-    min-height: max(32px, i-layout.min-height);
+    property <length> popup-padding: 4px;
+    property <int> visible-items: 6;
+
+    min-width: max(160px, layout.min-height);
+    min-height: max(32px, layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    forward-focus: i-base;
+    forward-focus: base;
 
     accessible-role: combobox;
 
     states [
         disabled when !root.enabled : {
-            i-background.background: FluentPalette.control-disabled;
-            i-background.border-color: FluentPalette.border;
-            i-text.color: FluentPalette.text-disabled;
-            i-icon.colorize: FluentPalette.text-disabled;
+            background.background: FluentPalette.control-disabled;
+            background.border-color: FluentPalette.border;
+            text.color: FluentPalette.text-disabled;
+            icon.colorize: FluentPalette.text-disabled;
         }
-        pressed when i-base.pressed : {
-            i-background.background: FluentPalette.control-alt-tertiary;
-            i-background.border-color: FluentPalette.border;
-            i-text.color: FluentPalette.text-secondary;
-            i-icon.colorize: FluentPalette.text-tertiary;
+        pressed when base.pressed : {
+            background.background: FluentPalette.control-alt-tertiary;
+            background.border-color: FluentPalette.border;
+            text.color: FluentPalette.text-secondary;
+            icon.colorize: FluentPalette.text-tertiary;
         }
-        hover when i-base.has-hover : {
-            i-background.background: FluentPalette.control-secondary;
+        hover when base.has-hover : {
+            background.background: FluentPalette.control-secondary;
         }
     ]
 
-    i-base := ComboBoxBase {
+    base := ComboBoxBase {
         width: 100%;
         height: 100%;
 
         show-popup => {
-            i-popup.show();
+            popup.show();
         }
     }
 
-    i-background := Rectangle {
+    background := Rectangle {
         border-radius: 3px;
         background: FluentPalette.control-background;
         border-width: 1px;
@@ -57,12 +61,12 @@ export component ComboBox {
 
         animate border-color { duration: 200ms; }
 
-        i-layout := HorizontalLayout {
+        layout := HorizontalLayout {
             padding-left: 11px;
             padding-right: 11px;
             spacing: 8px;
 
-            i-text := Text {
+            text := Text {
                 horizontal-alignment: left;
                 vertical-alignment: center;
                 font-size: FluentFontSettings.body.font-size;
@@ -71,7 +75,7 @@ export component ComboBox {
                 text: root.current-value;
             }
 
-            i-icon := Image {
+            icon := Image {
                 colorize: FluentPalette.text-secondary;
                 width: 12px;
                 source: Icons.dropdown;
@@ -83,30 +87,34 @@ export component ComboBox {
     }
 
     // focus border
-    if (root.has-focus && root.enabled) : FocusBorder {
-        border-radius: i-background.border-radius;
+    if root.has-focus && root.enabled : FocusBorder {
+        border-radius: background.border-radius;
     }
 
-    i-popup := PopupWindow {
+    popup := PopupWindow {
         x: 0;
         // Position the popup so that the first element is over the popup.
         // Ideally it should be so that the current element is over the popup.
         y: -4px;
         width: root.width;
+        height: root.visible-items * FluentSizeSettings.item-height +  2 * root.popup-padding;
 
         MenuBorder {
-            VerticalLayout {
-                padding: 4px;
+            ScrollView {
+                VerticalLayout {
+                    alignment: start;
+                    padding: root.popup-padding;
+                    
+                    for value[index] in root.model : ListItem {
+                        item: { text: value };
+                        is-selected: index == root.current-index;
+                        has-hover: touch-area.has-hover;
+                        pressed: touch-area.pressed;
 
-                for value[index] in root.model : ListItem {
-                    item: { text: value };
-                    is-selected: index == root.current-index;
-                    has-hover: i-touch-area.has-hover;
-                    pressed: i-touch-area.pressed;
-
-                    i-touch-area := TouchArea {
-                        clicked => {
-                            i-base.select(index);
+                        touch-area := TouchArea {
+                            clicked => {
+                                base.select(index);
+                            }
                         }
                     }
                 }

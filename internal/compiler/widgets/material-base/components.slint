@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { MaterialPalette, MaterialFontSettings } from "styling.slint";
+import { MaterialPalette, MaterialFontSettings, MaterialSizeSettings } from "styling.slint";
 
 export component Ripple inherits Rectangle {
     in property <length> ripple-x;
@@ -101,7 +101,7 @@ export component ListItem {
     in property <length> pressed-y;
 
     min-width: i-layout.min-width;
-    min-height: max(48px, i-layout.min-height);
+    min-height: max(MaterialSizeSettings.item-height, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
 

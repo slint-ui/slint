@@ -40,6 +40,7 @@ All notable changes to this project are documented in this file.
  - Added `step-size` to `SpinBox`
  - Added `TimePickerPopup` and `DatePickerPopup`.
  - Fixed accessible value and actions on ProgressIndicator, Spinner, Spinbox, CheckBox, Switch
+ - Made `ComboBox` scrollable
 
 ### C++ API
 

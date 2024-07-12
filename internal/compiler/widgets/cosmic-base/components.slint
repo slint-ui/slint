@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Icons, CosmicPalette, CosmicFontSettings } from "styling.slint";
+import { Icons, CosmicPalette, CosmicFontSettings, CosmicSizeSettings } from "styling.slint";
 
 export component StateLayerBase {
     in property <length> border-radius <=> overlay.border-radius;
@@ -99,7 +99,7 @@ export component ListItem {
     in property <length> pressed-y;
 
     min-width: layout.min-width;
-    min-height: max(40px, layout.min-height);
+    min-height: max(CosmicSizeSettings.item-height, layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
 
