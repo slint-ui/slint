@@ -5,10 +5,7 @@
 
 import { EditorWidget, initialize as initializeEditor } from "./editor_widget";
 import { LspWaiter, Lsp } from "./lsp";
-import { LspRange, LspPosition } from "./lsp_integration";
-import { OutlineWidget } from "./outline_widget";
 import { PreviewWidget } from "./preview_widget";
-import { WelcomeWidget } from "./welcome_widget";
 
 import {
     export_to_gist,
@@ -23,21 +20,11 @@ import {
 } from "./dialogs";
 
 import { CommandRegistry } from "@lumino/commands";
-import {
-    DockLayout,
-    DockPanel,
-    Layout,
-    Menu,
-    MenuBar,
-    SplitPanel,
-    Widget,
-} from "@lumino/widgets";
+import { Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
 
 const lsp_waiter = new LspWaiter();
 
 const commands = new CommandRegistry();
-
-const local_storage_key_layout = "layout_v1";
 
 function create_demo_menu(editor: EditorWidget): Menu {
     const menu = new Menu({ commands });
@@ -196,192 +183,6 @@ function create_share_menu(editor: EditorWidget, preview: PreviewWidget): Menu {
     return menu;
 }
 
-function widget_pseudo_url(id: string): string {
-    return "::widget:://" + id;
-}
-
-function id_from_pseudo_url(url: string): string {
-    const id = url.substring(14);
-    console.assert(url == widget_pseudo_url(id));
-    return id;
-}
-
-function create_view_menu(dock_widgets: DockWidgets): Menu {
-    const dock = dock_widgets.dock;
-
-    const menu = new Menu({ commands });
-    menu.title.label = "Views";
-
-    commands.addCommand("slint:save-dock-layout", {
-        label: "Save Dock Layout",
-        caption: "Save the current dock layout",
-        execute: () => {
-            const layout = dock.saveLayout();
-            const widgets = Array.from(dock.widgets());
-
-            const objMap: Map<object, string> = new Map();
-            for (const w of widgets) {
-                objMap.set(w, widget_pseudo_url(w.title.label));
-            }
-            objMap.set(dock, "::widget:://DockPanel");
-            if (dock.layout != null) {
-                objMap.set(dock.layout, "::object:://DockLayout");
-            }
-            if (dock.parent != null) {
-                objMap.set(dock.parent, "::widget:://parent");
-            }
-            try {
-                const layout_str = JSON.stringify(layout, (_, value) => {
-                    const result = objMap.get(value);
-                    if (result === undefined) {
-                        return value;
-                    }
-                    return result;
-                });
-                localStorage.setItem(local_storage_key_layout, layout_str);
-            } catch (e) {
-                console.log("Failed to save dock layout!", e);
-            }
-        },
-    });
-
-    commands.addCommand("slint:reset-dock-layout", {
-        label: "Reset to Default Layout",
-        caption: "Reset to default layout",
-        isEnabled: () => {
-            return localStorage.getItem(local_storage_key_layout) != null;
-        },
-        execute: () => {
-            localStorage.removeItem(local_storage_key_layout);
-        },
-    });
-
-    commands.addCommand("slint:restore-dock-layout", {
-        label: "Restore Dock Layout",
-        caption: "Restore the stored Dock layout",
-        isEnabled: () => {
-            return localStorage.getItem(local_storage_key_layout) != null;
-        },
-        execute: () => {
-            const layout_str = localStorage.getItem(local_storage_key_layout);
-            if (layout_str != null && layout_str != "") {
-                const idMap: Map<string, Widget | Layout | null> = new Map();
-                for (const id of dock_widgets.ids) {
-                    idMap.set(widget_pseudo_url(id), dock_widgets.widget(id));
-                }
-                idMap.set("::widget:://DockPanel", dock);
-                idMap.set("::object:://DockLayout", dock.layout);
-                idMap.set("::object:://parent", dock.parent);
-
-                try {
-                    const layout = JSON.parse(layout_str, (_, value) => {
-                        const obj = idMap.get(value);
-                        if (obj === undefined) {
-                            // nothing we need to map!
-                            return value;
-                        }
-                        if (obj === null) {
-                            // We need to create this first!
-                            return dock_widgets.create(
-                                id_from_pseudo_url(value),
-                            );
-                        } else {
-                            return obj;
-                        }
-                    });
-                    dock.restoreLayout(layout);
-                } catch (e) {
-                    console.log("Failed to restore layout!", e);
-                }
-            }
-        },
-    });
-
-    menu.addItem({ command: "slint:save-dock-layout" });
-    menu.addItem({ command: "slint:restore-dock-layout" });
-    menu.addItem({ command: "slint:reset-dock-layout" });
-    menu.addItem({ type: "separator" });
-
-    for (const w of dock.widgets()) {
-        const id = w.title.label;
-        const command_name = "slint:visibility_" + id;
-        commands.addCommand(command_name, {
-            label: "Show " + w.title.label,
-            isToggled: () => {
-                return dock_widgets.widget(id) != null;
-            },
-            execute: () => {
-                const widget = dock_widgets.widget(id);
-                if (widget == null) {
-                    dock_widgets.create(id);
-                } else {
-                    widget.close();
-                }
-            },
-        });
-
-        menu.addItem({ command: command_name });
-    }
-
-    return menu;
-}
-
-class DockWidgets {
-    #factories: Map<string, () => Widget> = new Map();
-    #dock: DockPanel;
-
-    constructor(
-        dock: DockPanel,
-        ...factories: [() => Widget, any][] // eslint-disable-line
-    ) {
-        this.#dock = dock;
-
-        for (const data of factories) {
-            const factory = data[0];
-            const widget = factory();
-            const id = widget.title.label;
-            const layout = data[1];
-
-            console.assert(!this.#factories.has(id));
-            this.#factories.set(id, factory);
-            const ref = layout.ref;
-            if (typeof ref === "string") {
-                layout.ref = this.widget(ref);
-            }
-            console.assert(widget.title.label === id);
-            dock.addWidget(widget, layout as DockLayout.IAddOptions);
-        }
-    }
-
-    create(id: string): Widget | null {
-        const factory = this.#factories.get(id);
-        if (factory != null) {
-            const widget = factory();
-            this.#dock.addWidget(widget);
-            return widget;
-        } else {
-            return null;
-        }
-    }
-
-    widget(id: string): Widget | null {
-        for (const w of this.#dock.widgets()) {
-            if (w.title.label == id) {
-                return w;
-            }
-        }
-        return null;
-    }
-
-    get dock(): DockPanel {
-        return this.#dock;
-    }
-
-    get ids(): string[] {
-        return Array.from(this.#factories.keys());
-    }
-}
-
 const url_params = new URLSearchParams(window.location.search);
 const url_style = url_params.get("style");
 
@@ -393,59 +194,14 @@ function setup(lsp: Lsp) {
         url_style ?? "",
     );
 
-    const dock = new DockPanel();
-
-    const dock_widgets = new DockWidgets(
-        dock,
-        [
-            () => {
-                return preview;
-            },
-            {},
-        ],
-        [
-            () => {
-                return new WelcomeWidget();
-            },
-            { mode: "split-bottom", ref: "Preview" },
-        ],
-        [
-            () => {
-                const outline = new OutlineWidget(
-                    editor.position,
-                    () => editor.language_client,
-                );
-
-                outline.on_goto_position = (
-                    uri: string,
-                    pos: LspPosition | LspRange,
-                ) => {
-                    editor.goto_position(uri, pos);
-                };
-
-                return outline;
-            },
-            { mode: "tab-after", ref: "Welcome" },
-        ],
-    );
-
-    editor.onPositionChange = (pos) => {
-        (dock_widgets.widget("Outline") as OutlineWidget)?.position_changed(
-            pos,
-        );
-    };
-
     const menu_bar = new MenuBar();
     menu_bar.id = "menuBar";
     menu_bar.addMenu(create_project_menu(editor, preview));
-    menu_bar.addMenu(create_view_menu(dock_widgets));
 
     const main = new SplitPanel({ orientation: "horizontal" });
     main.id = "main";
     main.addWidget(editor);
-    main.addWidget(dock);
-
-    commands.execute("slint:restore-dock-layout");
+    main.addWidget(preview);
 
     window.onresize = () => {
         main.update();
