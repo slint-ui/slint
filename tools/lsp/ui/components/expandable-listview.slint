@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ListView, HorizontalBox, Palette } from "std-widgets.slint";
+import { HorizontalBox, Palette, ScrollView } from "std-widgets.slint";
 import { ComponentListItem, ComponentItem } from "../api.slint";
 import { StateLayer } from "./state-layer.slint";
 import { EditorSizeSettings, EditorAnimationSettings, Icons } from "./styling.slint";
@@ -112,7 +112,7 @@ component ItemTemplate {
     ]
 }
 
-export component ExpandableListView inherits ListView {
+export component ExpandableListView inherits ScrollView {
     in property <[ComponentListItem]> known-components;
     in property <length> preview-area-position-x;
     in property <length> preview-area-position-y;
@@ -132,44 +132,46 @@ export component ExpandableListView inherits ListView {
 
     property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
     property <length> list-spacing: 10px;
-    
-    for cli[index] in root.known-components: VerticalLayout {
-        property <int> my-category-index: index;
-        
-        header-item := HeaderItemTemplate {
-            text: cli.category;
-        }
 
-        if header-item.open : VerticalLayout {
-            for ci[index] in cli.components: ItemTemplate {
-                property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
-                property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
-                property <bool> on-drop-area:
+    VerticalLayout {
+        alignment: start;
+        for cli[index] in root.known-components: VerticalLayout {
+            property <int> my-category-index: index;
+            header-item := HeaderItemTemplate {
+                text: cli.category;
+            }
+
+            if header-item.open: VerticalLayout {
+                for ci[index] in cli.components: ItemTemplate {
+                    property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
+                    property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
+                    property <bool> on-drop-area:
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                property <ComponentItem> data: ci;
+                    property <ComponentItem> data: ci;
 
-                can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
-                enabled: root.preview-visible;
-                text: ci.name;
-                offset: header-item.offset;
-                height: self.min-height;
+                    can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
+                    enabled: root.preview-visible;
+                    text: ci.name;
+                    offset: header-item.offset;
+                    height: self.min-height;
 
-                clicked => {
-                    if ci.is_user_defined && !ci.is_currently_shown {
-                        root.show-preview-for(self.data.name, self.data.defined_at)
+                    clicked => {
+                        if ci.is_user_defined && !ci.is_currently_shown {
+                            root.show-preview-for(self.data.name, self.data.defined_at)
+                        }
+                    }
+
+                    pointer-event(event) => {
+                        if self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                            root.drop(self.data.name, drop-x, drop-y);
+                        }
+                    }
+
+                    init() => {
+                        root.visible-component = ci;
                     }
                 }
-
-                pointer-event(event) => {
-                    if self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
-                        root.drop(self.data.name, drop-x, drop-y);
-                    }
-                }
-
-                init() => {
-                    root.visible-component = ci;
-                }
-            }   
+            }
         }
     }
 }
