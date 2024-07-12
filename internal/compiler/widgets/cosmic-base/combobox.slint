@@ -86,7 +86,7 @@ export component ComboBox {
         // Ideally it should be so that the current element is over the popup.
         y: root.height + 4px;
         width: root.width;
-        height: root.visible-items * CosmicSizeSettings.item-height  + 2 * root.popup-padding;
+        height: root.visible-items * (1rem + CosmicSizeSettings.item-height) + 2 * root.popup-padding;
 
         MenuBorder {
             ScrollView {
