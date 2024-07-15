@@ -250,10 +250,7 @@ fn add_new_component() {
             })
         }
 
-        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some(format!("Add {component_name}")),
-            edit,
-        });
+        send_workspace_edit(format!("Add {component_name}"), edit);
     }
 }
 
@@ -353,10 +350,7 @@ fn rename_component(
             }
         }
 
-        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some(format!("Rename component {old_name} to {new_name}")),
-            edit,
-        });
+        send_workspace_edit(format!("Rename component {old_name} to {new_name}"), edit);
     }
 }
 
@@ -459,10 +453,7 @@ fn set_binding(
         property_name,
         property_value,
     ) {
-        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some("Edit property".to_string()),
-            edit,
-        });
+        send_workspace_edit("Edit property".to_string(), edit);
     }
 }
 
@@ -610,10 +601,7 @@ fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
             true,
         );
 
-        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some(format!("Add element {}", component_type)),
-            edit,
-        });
+        send_workspace_edit(format!("Add element {}", component_type), edit);
     };
 }
 
@@ -658,10 +646,7 @@ fn delete_selected_element() {
     let edit =
         common::create_workspace_edit(url, version, vec![lsp_types::TextEdit { range, new_text }]);
 
-    send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-        label: Some("Delete element".to_string()),
-        edit,
-    });
+    send_workspace_edit("Delete element".to_string(), edit);
 }
 
 // triggered from the UI, running in UI thread
@@ -673,12 +658,12 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
         return;
     };
 
-    send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit { label, edit });
+    send_workspace_edit(label, edit);
 }
 
 fn resize_selected_element_impl(
     rect: LogicalRect,
-) -> common::Result<Option<(lsp_types::WorkspaceEdit, Option<String>)>> {
+) -> common::Result<Option<(lsp_types::WorkspaceEdit, String)>> {
     let Some(selected) = selected_element() else {
         return Ok(None);
     };
@@ -758,7 +743,7 @@ fn resize_selected_element_impl(
         common::VersionedPosition::new(common::VersionedUrl::new(url, version), selected.offset),
         properties,
     )
-    .map(|edit| Some((edit, Some(format!("{op} element")))))
+    .map(|edit| Some((edit, format!("{op} element"))))
 }
 
 // triggered from the UI, running in UI thread
@@ -805,13 +790,18 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
             true,
         );
 
-        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some("Move element".to_string()),
-            edit,
-        });
+        send_workspace_edit("Move element".to_string(), edit);
     } else {
         element_selection::reselect_element();
     }
+}
+
+fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit) -> bool {
+    send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
+        label: Some(label),
+        edit,
+    });
+    true
 }
 
 fn change_style() {
@@ -1469,6 +1459,7 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
                 }),
             );
             reset_selections(ui);
+            preview_state.workspace_edit_sent = false;
         }
 
         ui.show().unwrap();
