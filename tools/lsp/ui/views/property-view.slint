@@ -55,7 +55,7 @@ export component PropertyView {
                         alignment: start;
 
                         header := TypeHeader {
-                            type-name: root.current-element.type-name;
+                            type-name: root.current-element.type-name == "Empty" ? "" : root.current-element.type-name;
                             id: root.current-element.id;
                         }
 
