@@ -47,8 +47,6 @@ export component PreviewUi inherits Window {
         }
         if Api.show-preview-ui: Rectangle {           
             VerticalLayout {
-                spacing: EditorSpaceSettings.default-spacing;
-
                 header-view := HeaderView {
                     edit-mode <=> Api.design-mode;
                     current-style <=> Api.current-style;
