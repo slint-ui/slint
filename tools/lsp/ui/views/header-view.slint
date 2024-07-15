@@ -3,6 +3,7 @@
 
 import { HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
 import { BodyText } from "../components/body-text.slint";
+import { HeaderText } from "../components/header-text.slint";
 
 
 export component HeaderView {
@@ -17,7 +18,13 @@ export component HeaderView {
         background: Palette.alternate-background;
 
         content-layer := HorizontalBox {
-            alignment: end;
+            HeaderText {
+                text: @tr("Preview");
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
 
             BodyText {
                 text: @tr("Style");
