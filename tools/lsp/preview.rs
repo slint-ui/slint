@@ -126,6 +126,7 @@ struct PreviewState {
     document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
+    workspace_edit_sent: bool,
     known_components: Vec<ComponentInformation>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
@@ -797,11 +798,22 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit) -> bool {
-    send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-        label: Some(label),
-        edit,
+    let workspace_edit_sent = PREVIEW_STATE.with(|preview_state| {
+        let mut ps = preview_state.borrow_mut();
+        let result = ps.workspace_edit_sent;
+        ps.workspace_edit_sent = true;
+        result
     });
-    true
+
+    if !workspace_edit_sent {
+        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some(label),
+            edit,
+        });
+        true
+    } else {
+        false
+    }
 }
 
 fn change_style() {
@@ -1434,8 +1446,8 @@ fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
 /// This runs `set_preview_factory` in the UI thread
 fn update_preview_area(compiled: Option<ComponentDefinition>) {
     PREVIEW_STATE.with(move |preview_state| {
-        #[allow(unused_mut)]
         let mut preview_state = preview_state.borrow_mut();
+        preview_state.workspace_edit_sent = false;
 
         #[cfg(not(target_arch = "wasm32"))]
         native::open_ui_impl(&mut preview_state);
@@ -1459,7 +1471,6 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
                 }),
             );
             reset_selections(ui);
-            preview_state.workspace_edit_sent = false;
         }
 
         ui.show().unwrap();
