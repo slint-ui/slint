@@ -35,7 +35,8 @@ cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["breathe", "myst_parser", "exhale", "sphinx_markdown_tables", "sphinxcontrib.jquery"]
+extensions = ["breathe", "myst_parser", "exhale",
+              "sphinx_markdown_tables", "sphinxcontrib.jquery"]
 
 breathe_projects = {"Slint": "./docs/xml"}
 breathe_default_project = "Slint"
@@ -108,7 +109,7 @@ html_show_sourcelink = False
 html_logo = "https://slint.dev/logo/slint-logo-small-light.svg"
 
 myst_enable_extensions = [
-    "html_image",
+    "html_image", "colon_fence"
 ]
 
 # Annotate h1/h2 elements with anchors

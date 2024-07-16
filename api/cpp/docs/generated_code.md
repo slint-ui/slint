@@ -141,3 +141,8 @@ previous section, you can access `Logic` like this:
         return SharedString(arg);
     });
 ```
+
+:::{note}
+Global singletons are instantiated once per component. When declaring multiple components for `export` to C++,
+each instance will have their own instance of associated globals singletons.
+:::
