@@ -160,7 +160,7 @@ export component PreviewView {
     preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
 
     scroll-view := ScrollView {
-        out property <length> border: (component-label.height + component-label.offset * 1.5) * 2;
+        out property <length> border: 30px;
 
         width: 100%;
         height: 100%;
@@ -285,54 +285,6 @@ export component PreviewView {
 
                         select-behind(x, y, c, f) => {
                             Api.select-behind(x, y, c, f);
-                        }
-                    }
-                }
-
-                component-label := Rectangle {
-                    visible: root.visible-component.is_currently_shown;
-
-                    property <length> offset: 10px;
-                    width: self.min-width;
-                    height: self.min-height;
-                    x: preview-area-container.x;
-                    y: preview-area-container.y - self.offset - self.height;
-
-                    border-radius: 4px;
-                    background: Palette.accent-background;
-
-                    VerticalLayout {
-                        padding: 8px;
-                        spacing: 4px;
-
-                        if root.visible-component.is_user_defined && root.design-mode: LineEdit {
-                            horizontal-alignment: left;
-                            text: root.visible-component.name;
-                            width: self.preferred-width + 100px;
-
-                            accepted(name) => {
-                                Api.rename_component(root.visible-component.name, root.visible-component.defined_at, name);
-                            }
-                        }
-                        if !root.visible-component.is_user_defined || !root.design-mode: Text {
-                            horizontal-alignment: left;
-                            text: root.visible-component.name;
-                            width: self.preferred-width;
-                        }
-                        HorizontalLayout {
-                            alignment: start;
-                            TouchArea {
-                                mouse-cursor: MouseCursor.pointer;
-                                Text {
-                                    font-size: 0.8rem;
-                                    horizontal-alignment: left;
-                                    text: root.visible-component.pretty-location;
-                                    color: Palette.alternate-foreground;
-                                }
-                                clicked() => {
-                                    Api.show-component(root.visible-component.name, root.visible-component.defined-at);
-                                }
-                            }
                         }
                     }
                 }
