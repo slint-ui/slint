@@ -82,7 +82,7 @@ export component PropertyView {
                                     alignment: stretch;
 
                                     TouchArea {
-                                        width: 150px;
+                                        width: root.key-width;
                                         horizontal-stretch: 0;
 
                                         key := Text {
@@ -103,7 +103,7 @@ export component PropertyView {
 
                                         complexity-icon-icon := Image {
                                             width: self.preferred-width;
-                                            colorize: property-row.is-simple ? Palette.foreground.transparentize(0.7) : Palette.foreground;
+                                            colorize: property-row.is-simple ? Palette.foreground : Palette.foreground.transparentize(0.7);
 
                                             source: @image-url("../assets/function.svg");
                                         }
