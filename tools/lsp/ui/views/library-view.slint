@@ -15,7 +15,6 @@ export component LibraryView {
     in property <length> preview-area-height <=> component-list-view.preview-area-height;
     in-out property <ComponentItem> visible-component <=> component-list-view.visible-component;
 
-    callback add-component <=> add-button.clicked;
     pure callback can-drop <=> component-list-view.can-drop;
     callback drop <=> component-list-view.drop;
     callback show-preview-for <=> component-list-view.show-preview-for;
@@ -29,12 +28,6 @@ export component LibraryView {
 
         GroupHeader {
             title: @tr("Library");
-
-            add-button := IconButton {
-                horizontal-stretch: 0;
-                icon: Icons.add;
-                accessible-label: @tr("Add component");
-            }
         }
         
         component-list-view := ExpandableListView {
