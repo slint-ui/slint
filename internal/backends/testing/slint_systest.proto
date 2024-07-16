@@ -29,6 +29,54 @@ enum ClickAction {
     DoubleClick = 1;
 }
 
+message PointerPressEvent {
+    LogicalPosition position = 1;
+    PointerEventButton button = 2;
+}
+
+message PointerReleaseEvent {
+    LogicalPosition position = 1;
+    PointerEventButton button = 2;
+}
+
+message PointerMoveEvent {
+    LogicalPosition position = 1;
+}
+
+message PointerScrolledEvent {
+    LogicalPosition position = 1;
+    float delta_x = 2;
+    float delta_y = 3;
+}
+
+message PointerExitedEvent {
+}
+
+message KeyPressedEvent {
+    string text = 1;
+}
+
+message KeyPressRepeatedEvent {
+    string text = 1;
+}
+
+message KeyReleasedEvent {
+    string text = 1;
+}
+
+message WindowEvent {
+    oneof event {
+        PointerPressEvent pointer_pressed = 1;
+        PointerReleaseEvent pointer_released = 2;
+        PointerMoveEvent pointer_moved = 3;
+        PointerScrolledEvent pointer_scrolled = 4;
+        PointerExitedEvent pointer_exited = 5;
+        KeyPressedEvent key_pressed = 6;
+        KeyPressRepeatedEvent key_press_repeated = 7;
+        KeyReleasedEvent key_released = 8;
+    }
+}
+
 // Requests
 
 message RequestWindowListMessage {
@@ -67,6 +115,11 @@ message RequestElementClick {
     PointerEventButton button = 3;
 }
 
+message RequestDispatchWindowEvent {
+    Handle window_handle = 1;
+    WindowEvent event = 2;
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
@@ -77,6 +130,7 @@ message RequestToAUT {
         RequestSetElementAccessibleValue request_set_element_accessible_value = 6;
         RequestTakeSnapshot request_take_snapshot = 7;
         RequestElementClick request_element_click = 8;
+        RequestDispatchWindowEvent request_dispatch_window_event = 9;
     }
 }
 
@@ -176,6 +230,9 @@ message TakeSnapshotResponse {
 message ElementClickResponse {    
 }
 
+message DispatchWindowEventResponse {
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
@@ -187,5 +244,6 @@ message AUTResponse {
         SetElementAccessibleValueResponse set_element_accessible_value_response = 7;
         TakeSnapshotResponse take_snapshot_response = 8;
         ElementClickResponse element_click_response = 9;
+        DispatchWindowEventResponse dispatch_window_event_response = 10;
     }
 }
