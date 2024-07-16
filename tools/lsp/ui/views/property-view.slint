@@ -43,7 +43,7 @@ export component PropertyView {
 
     content-layer := VerticalLayout {
         padding: background-layer.border-width;
-        
+
         GroupHeader {
             title: @tr("Properties");
         }
@@ -70,7 +70,7 @@ export component PropertyView {
                                     private property <string> property-type: property.type-name;
                                     private property <string> property-value: property.defined-at.expression-value;
                                     private property <SimpleValueData> simple-value: property.simple-value;
-                        
+
                                     private property <bool> is-defined: self.property-value != "";
                                     private property <bool> is-simple: simple-value.widget != "" && !self.force-to-complex;
 
@@ -239,9 +239,10 @@ export component PropertyView {
             }
         }
     }
-    
+
     Rectangle {
-        border-width: 1px;
-        border-color: Palette.border;
+        x: 0;
+        width: 1px;
+        background: Palette.border;
     }
 }

@@ -3,6 +3,7 @@
 
 import { HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
 import { BodyText } from "../components/body-text.slint";
+import { HeaderText } from "../components/header-text.slint";
 
 
 export component HeaderView {
@@ -17,35 +18,49 @@ export component HeaderView {
         background: Palette.alternate-background;
 
         content-layer := HorizontalBox {
-            alignment: end;
+            HeaderText {
+                text: @tr("Preview");
+                horizontal-stretch: 1;
+            }
 
             BodyText {
+                horizontal-stretch: 0;
                 text: @tr("Style");
             }
 
             style-combobox := ComboBox {
+                horizontal-stretch: 0;
+
                 selected => {
                     root.style-selected();
                 }
             }
-    
+
             HorizontalLayout {
+                horizontal-stretch: 0;
                 spacing: 4px;
-        
+
                 BodyText {
                     text: @tr("Interact");
                 }
-        
+
                 interaction-switch := Switch {
                     toggled => {
                         root.edit-mode-toggled();
                     }
                 }
-        
+
                 BodyText {
                     text: @tr("Edit");
-                }      
+                }
             }
         }
-    }    
+
+        Rectangle {
+            y: parent.height - self.height;
+            height: 1px;
+
+            background: Palette.border;
+        }
+    }
 }

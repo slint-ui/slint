@@ -45,7 +45,7 @@ export component PreviewUi inherits Window {
                 }
             }
         }
-        if Api.show-preview-ui: Rectangle {           
+        if Api.show-preview-ui: Rectangle {
             VerticalLayout {
                 header-view := HeaderView {
                     edit-mode <=> Api.design-mode;
@@ -60,10 +60,10 @@ export component PreviewUi inherits Window {
                         Api.style-changed();
                     }
                 }
-                
+
                 HorizontalLayout {
                     spacing: EditorSpaceSettings.default-spacing;
-                    
+
                     if Api.design-mode : LibraryView {
                         known-components: Api.known-components;
                         preview-area-position-x: preview.preview-area-position-x;
