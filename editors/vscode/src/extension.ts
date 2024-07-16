@@ -193,7 +193,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
     }
 
-    [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
+    statusBar = common.activate(context, (cl, ctx) =>
         startClient(cl, ctx),
     );
 }
