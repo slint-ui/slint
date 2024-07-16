@@ -102,6 +102,19 @@ jobs:
                   npm install --ignore-scripts
                   npm run docs
               working-directory: api/node
+            - name: Clone website directory
+              run: |
+                git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+                git config --global user.name "${GITHUB_ACTOR}"
+                ssh-agent sh -c 'echo "${{ secrets.WEBSITE_READ_SSH_KEY }}" | ssh-add - && git clone -b prod --single-branch git@github.com:slint-ui/website.git  --depth 1'
+            - name: Generate release-docs.html
+              run: |
+                mkdir -p website/output
+                cd website && go run generator/generator.go -skip-agreements
+            - name: Copy release-docs.html
+              run: |
+                cp website/output/release-docs.html docs/site/index.html
+                rm -rf website
             - name: "Upload Docs Artifacts"
               uses: actions/upload-artifact@v4
               with:
