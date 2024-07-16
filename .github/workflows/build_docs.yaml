@@ -23,6 +23,7 @@ jobs:
             RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
+            WEBSITE_READ_SSH_KEY: ${{ secrets.WEBSITE_READ_SSH_KEY }}
         steps:
             - uses: actions/checkout@v4
             - name: Set up rgb crate rustdoc link
@@ -106,7 +107,7 @@ jobs:
               run: |
                 git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
                 git config --global user.name "${GITHUB_ACTOR}"
-                ssh-agent sh -c 'echo "${{ secrets.WEBSITE_READ_SSH_KEY }}" | ssh-add - && git clone -b prod --single-branch git@github.com:slint-ui/website.git  --depth 1'
+                ssh-agent sh -c 'echo "$WEBSITE_READ_SSH_KEY" | ssh-add - && git clone -b prod --single-branch git@github.com:slint-ui/website.git --depth 1'
             - name: Generate release-docs.html
               run: |
                 mkdir -p website/output
