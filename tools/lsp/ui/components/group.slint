@@ -9,42 +9,33 @@ export component GroupHeader {
     in property <string> title;
 
     min-height: max(EditorSizeSettings.header-height, content-layer.min-height);
-    
-    background-layer := Rectangle {
-        background: Palette.alternate-background.darker(0.8);
 
-        content-layer := HorizontalBox {
-            HeaderText { 
-                horizontal-stretch: 1;
-                text: root.title;
-                color: Palette.alternate-foreground;
-            }
-
-            @children
+    content-layer := HorizontalBox {
+        HeaderText {
+            horizontal-stretch: 1;
+            text: root.title;
+            color: Palette.alternate-foreground;
         }
 
-        Rectangle {
-            y: parent.height - self.height;
-            background: Palette.border;
-            height: 1px;
-        }
+        @children
     }
 }
 
 export component Group {
     min-width: max(EditorSizeSettings.side-bar-width, content-layer.min-width);
     min-height: content-layer.min-height;
-    
+
     background-layer := Rectangle {
         background: Palette.alternate-background;
-    }    
+    }
 
     content-layer := VerticalLayout {
         @children
     }
 
     Rectangle {
-        border-width: 1px;
-        border-color: Palette.border;
+        x: root.width - self.width;
+        width: 1px;
+        background: Palette.border;
     }
 }

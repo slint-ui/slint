@@ -159,199 +159,192 @@ export component PreviewView {
     preferred-height: max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border;
     preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
 
-    side-bar := Group {   
+    scroll-view := ScrollView {
+        out property <length> border: (component-label.height + component-label.offset * 1.5) * 2;
+
         width: 100%;
-        height: 100%;  
+        height: 100%;
+        viewport-width: drawing-rect.width;
+        viewport-height: drawing-rect.height;
 
-        GroupHeader {
-            title: @tr("Preview");
-        }
-          
-        scroll-view := ScrollView {
-            out property <length> border: (component-label.height + component-label.offset * 1.5) * 2;
+        drawing-rect := Rectangle {
+            width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);
+            height: max(scroll-view.visible-height, main-resizer.height + scroll-view.border);
 
-            viewport-width: drawing-rect.width;
-            viewport-height: drawing-rect.height;
+            unselect-area := TouchArea {
+                clicked => {
+                    Api.unselect();
+                }
+                mouse-cursor: crosshair;
+                enabled: root.mode == DrawAreaMode.designing;
+            }
 
-            drawing-rect := Rectangle {
-                width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);
-                height: max(scroll-view.visible-height, main-resizer.height + scroll-view.border);
+            content-border := Rectangle {
+                x: main-resizer.x + (main-resizer.width - self.width) / 2;
+                y: main-resizer.y + (main-resizer.height - self.height) / 2;
+                width: main-resizer.width + 2 * self.border-width;
+                height: main-resizer.height + 2 * self.border-width;
+                border-width: 1px;
+                border-color: Palette.border;
+            }
 
-                unselect-area := TouchArea {
+            main-resizer := Resizer {
+                is-moveable: false;
+                is-resizable <=> preview-area-container.is-resizable;
+
+                x-position: parent.x;
+                y-position: parent.y;
+
+                resize(_, _, w, h) => {
+                    preview-area-container.width = clamp(w, preview-area-container.min-width, preview-area-container.max-width);
+                    preview-area-container.height = clamp(h, preview-area-container.min-height, preview-area-container.max-height);
+                    Api.reselect();
+                }
+
+                width: preview-area-container.width;
+                height: preview-area-container.height;
+
+                // Also make a condition that abuses the fact that the init callback
+                // is called every time the condition is dirty, to make sure that the size
+                // is within the bounds.
+                // Query the preview-area to make sure this is evaluated when it changes
+                if preview-area-container.has-component && root.preview-area == preview-area-container.component-factory: Rectangle {
+                    init => {
+                        preview-area-container.width = clamp(preview-area-container.width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
+                        preview-area-container.height = clamp(preview-area-container.height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
+                    }
+                }
+
+                preview-area-container := ComponentContainer {
+                    property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
+
+                    component-factory: root.preview-area;
+
+                    // The width and the height can't depend on the layout info of the inner item otherwise this would
+                    // cause a recursion if this happens (#3989)
+                    // Instead, we use a init function to initialize
+                    width: 0px;
+                    height: 0px;
+
+                    init => {
+                        self.width = max(self.preferred-width, self.min-width);
+                        self.height = max(self.preferred-height, self.min-height);
+                    }
+                }
+
+                selection-area := TouchArea {
+                    private property <length> selection-x: 0px;
+                    private property <length> selection-y: 0px;
+                    private property <SelectionKind> selection-kind: SelectionKind.none;
+
                     clicked => {
-                        Api.unselect();
+                        self.selection-x = self.pressed-x;
+                        self.selection-y = self.pressed-y;
+                        self.selection-kind = SelectionKind.select-at;
+                    }
+                    double-clicked => {
+                        self.selection-x = self.pressed-x;
+                        self.selection-y = self.pressed-y;
+                        self.selection-kind = SelectionKind.select-up-or-down;
+                    }
+
+                    pointer-event(event) => {
+                        // This needs to fire AFTER clicked and double-clicked to work :-/
+                        if (event.kind == PointerEventKind.up) {
+                            if (self.selection-kind == SelectionKind.select_up_or_down) {
+                                Api.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
+                            } else if (self.selection-kind == SelectionKind.select-at) {
+                                Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
+                            }
+                        }
+                        self.selection-kind = SelectionKind.none;
                     }
                     mouse-cursor: crosshair;
                     enabled: root.mode == DrawAreaMode.designing;
                 }
 
-                content-border := Rectangle {
-                    x: main-resizer.x + (main-resizer.width - self.width) / 2;
-                    y: main-resizer.y + (main-resizer.height - self.height) / 2;
-                    width: main-resizer.width + 2 * self.border-width;
-                    height: main-resizer.height + 2 * self.border-width;
-                    border-width: 1px;
-                    border-color: Palette.border;
+                selection-display-area := Rectangle {
+                    for s in root.selections: SelectionFrame {
+                        interactive: root.mode == DrawAreaMode.designing;
+                        selection: s;
+                        resize(x, y, w, h) => {
+                            Api.selected-element-resize(x, y, w, h);
+                        }
+
+                        can-move-to(x, y, mx, my) => {
+                            Api.selected-element-can-move-to(x, y, mx, my);
+                        }
+
+                        move-to(x, y, mx, my) => {
+                            Api.selected-element-move(x, y, mx, my);
+                        }
+
+                        selected-element-delete() => {
+                            Api.selected-element-delete();
+                        }
+
+                        select-behind(x, y, c, f) => {
+                            Api.select-behind(x, y, c, f);
+                        }
+                    }
                 }
 
-                main-resizer := Resizer {
-                    is-moveable: false;
-                    is-resizable <=> preview-area-container.is-resizable;
+                component-label := Rectangle {
+                    visible: root.visible-component.is_currently_shown;
 
-                    x-position: parent.x;
-                    y-position: parent.y;
+                    property <length> offset: 10px;
+                    width: self.min-width;
+                    height: self.min-height;
+                    x: preview-area-container.x;
+                    y: preview-area-container.y - self.offset - self.height;
 
-                    resize(_, _, w, h) => {
-                        preview-area-container.width = clamp(w, preview-area-container.min-width, preview-area-container.max-width);
-                        preview-area-container.height = clamp(h, preview-area-container.min-height, preview-area-container.max-height);
-                        Api.reselect();
-                    }
+                    border-radius: 4px;
+                    background: Palette.accent-background;
 
-                    width: preview-area-container.width;
-                    height: preview-area-container.height;
+                    VerticalLayout {
+                        padding: 8px;
+                        spacing: 4px;
 
-                    // Also make a condition that abuses the fact that the init callback
-                    // is called every time the condition is dirty, to make sure that the size
-                    // is within the bounds.
-                    // Query the preview-area to make sure this is evaluated when it changes
-                    if preview-area-container.has-component && root.preview-area == preview-area-container.component-factory: Rectangle {
-                        init => {
-                            preview-area-container.width = clamp(preview-area-container.width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
-                            preview-area-container.height = clamp(preview-area-container.height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
+                        if root.visible-component.is_user_defined && root.design-mode: LineEdit {
+                            horizontal-alignment: left;
+                            text: root.visible-component.name;
+                            width: self.preferred-width + 100px;
+
+                            accepted(name) => {
+                                Api.rename_component(root.visible-component.name, root.visible-component.defined_at, name);
+                            }
                         }
-                    }
-
-                    preview-area-container := ComponentContainer {
-                        property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
-
-                        component-factory: root.preview-area;
-
-                        // The width and the height can't depend on the layout info of the inner item otherwise this would
-                        // cause a recursion if this happens (#3989)
-                        // Instead, we use a init function to initialize
-                        width: 0px;
-                        height: 0px;
-
-                        init => {
-                            self.width = max(self.preferred-width, self.min-width);
-                            self.height = max(self.preferred-height, self.min-height);
+                        if !root.visible-component.is_user_defined || !root.design-mode: Text {
+                            horizontal-alignment: left;
+                            text: root.visible-component.name;
+                            width: self.preferred-width;
                         }
-                    }
-
-                    selection-area := TouchArea {
-                        private property <length> selection-x: 0px;
-                        private property <length> selection-y: 0px;
-                        private property <SelectionKind> selection-kind: SelectionKind.none;
-
-                        clicked => {
-                            self.selection-x = self.pressed-x;
-                            self.selection-y = self.pressed-y;
-                            self.selection-kind = SelectionKind.select-at;
-                        }
-                        double-clicked => {
-                            self.selection-x = self.pressed-x;
-                            self.selection-y = self.pressed-y;
-                            self.selection-kind = SelectionKind.select-up-or-down;
-                        }
-
-                        pointer-event(event) => {
-                            // This needs to fire AFTER clicked and double-clicked to work :-/
-                            if (event.kind == PointerEventKind.up) {
-                                if (self.selection-kind == SelectionKind.select_up_or_down) {
-                                    Api.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
-                                } else if (self.selection-kind == SelectionKind.select-at) {
-                                    Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
+                        HorizontalLayout {
+                            alignment: start;
+                            TouchArea {
+                                mouse-cursor: MouseCursor.pointer;
+                                Text {
+                                    font-size: 0.8rem;
+                                    horizontal-alignment: left;
+                                    text: root.visible-component.pretty-location;
+                                    color: Palette.alternate-foreground;
                                 }
-                            }
-                            self.selection-kind = SelectionKind.none;
-                        }
-                        mouse-cursor: crosshair;
-                        enabled: root.mode == DrawAreaMode.designing;
-                    }
-
-                    selection-display-area := Rectangle {
-                        for s in root.selections: SelectionFrame {
-                            interactive: root.mode == DrawAreaMode.designing;
-                            selection: s;
-                            resize(x, y, w, h) => {
-                                Api.selected-element-resize(x, y, w, h);
-                            }
-
-                            can-move-to(x, y, mx, my) => {
-                                Api.selected-element-can-move-to(x, y, mx, my);
-                            }
-
-                            move-to(x, y, mx, my) => {
-                                Api.selected-element-move(x, y, mx, my);
-                            }
-
-                            selected-element-delete() => {
-                                Api.selected-element-delete();
-                            }
-
-                            select-behind(x, y, c, f) => {
-                                Api.select-behind(x, y, c, f);
-                            }
-                        }
-                    }
-
-                    component-label := Rectangle {
-                        visible: root.visible-component.is_currently_shown;
-
-                        property <length> offset: 10px;
-                        width: self.min-width;
-                        height: self.min-height;
-                        x: preview-area-container.x;
-                        y: preview-area-container.y - self.offset - self.height;
-                
-                        border-radius: 4px;
-                        background: Palette.accent-background;
-                
-                        VerticalLayout {
-                            padding: 8px;
-                            spacing: 4px;
-
-                            if root.visible-component.is_user_defined && root.design-mode: LineEdit {
-                                horizontal-alignment: left;
-                                text: root.visible-component.name;
-                                width: self.preferred-width + 100px;
-
-                                accepted(name) => {
-                                    Api.rename_component(root.visible-component.name, root.visible-component.defined_at, name);
-                                }
-                            }
-                            if !root.visible-component.is_user_defined || !root.design-mode: Text {
-                                horizontal-alignment: left;
-                                text: root.visible-component.name;
-                                width: self.preferred-width;
-                            }
-                            HorizontalLayout {
-                                alignment: start;
-                                TouchArea {
-                                    mouse-cursor: MouseCursor.pointer;
-                                    Text {
-                                        font-size: 0.8rem;
-                                        horizontal-alignment: left;
-                                        text: root.visible-component.pretty-location;
-                                        color: Palette.alternate-foreground;
-                                    }
-                                    clicked() => {
-                                        Api.show-component(root.visible-component.name, root.visible-component.defined-at);
-                                    }
+                                clicked() => {
+                                    Api.show-component(root.visible-component.name, root.visible-component.defined-at);
                                 }
                             }
                         }
                     }
+                }
 
-                    if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
-                        x: drop-mark.x1;
-                        y: drop-mark.y1;
-                        width: drop-mark.x2 - drop-mark.x1;
-                        height: drop-mark.y2 - drop-mark.y1;
+                if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+                    x: drop-mark.x1;
+                    y: drop-mark.y1;
+                    width: drop-mark.x2 - drop-mark.x1;
+                    height: drop-mark.y2 - drop-mark.y1;
 
-                        border-color: #00ff00;
-                        background: #00ff0080;
-                    }
+                    border-color: #00ff00;
+                    background: #00ff0080;
                 }
             }
         }
@@ -362,6 +355,7 @@ export component PreviewView {
         width: 100%;
         height: 100%;
         diagnostics <=> root.diagnostics;
+
         show-document(url, line, column) => {
             Api.show-document(url, line, column);
         }
@@ -381,5 +375,5 @@ export component PreviewView {
             root.mode: DrawAreaMode.viewing;
         }
     ]
-    
+
 }
