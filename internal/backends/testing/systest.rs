@@ -152,6 +152,21 @@ impl TestingClient {
                     proto::ElementClickResponse {},
                 )
             }
+            proto::mod_RequestToAUT::OneOfmsg::request_dispatch_window_event(
+                proto::RequestDispatchWindowEvent { window_handle, event },
+            ) => {
+                self.dispatch_window_event(
+                    handle_to_index(window_handle.ok_or_else(|| {
+                        "window event dispatch request missing window handle".to_string()
+                    })?),
+                    convert_window_event(event.ok_or_else(|| {
+                        "window event dispatch request missing event".to_string()
+                    })?)?,
+                )?;
+                proto::mod_AUTResponse::OneOfmsg::dispatch_window_event_response(
+                    proto::DispatchWindowEventResponse {},
+                )
+            }
             proto::mod_RequestToAUT::OneOfmsg::None => return Err("Unknown request".into()),
         })
     }
@@ -195,6 +210,17 @@ impl TestingClient {
                 format!("error encoding png image after screenshot: {encode_err}")
             })?;
         Ok(proto::TakeSnapshotResponse { window_contents_as_png })
+    }
+
+    fn dispatch_window_event(
+        &self,
+        window_index: generational_arena::Index,
+        event: i_slint_core::platform::WindowEvent,
+    ) -> Result<(), String> {
+        let adapter = self.window_adapter(window_index)?;
+        let window = adapter.window();
+        window.dispatch_event(event);
+        Ok(())
     }
 
     fn find_elements_by_id(
@@ -394,6 +420,10 @@ fn send_logical_position(pos: i_slint_core::api::LogicalPosition) -> proto::Logi
     proto::LogicalPosition { x: pos.x, y: pos.y }
 }
 
+fn convert_logical_position(pos: proto::LogicalPosition) -> i_slint_core::api::LogicalPosition {
+    i_slint_core::api::LogicalPosition { x: pos.x, y: pos.y }
+}
+
 fn convert_accessible_role(
     role: i_slint_core::items::AccessibleRole,
 ) -> Option<proto::AccessibleRole> {
@@ -427,6 +457,68 @@ fn convert_pointer_event_button(
         proto::PointerEventButton::Right => i_slint_core::platform::PointerEventButton::Right,
         proto::PointerEventButton::Middle => i_slint_core::platform::PointerEventButton::Middle,
     }
+}
+
+fn convert_window_event(
+    event: proto::WindowEvent,
+) -> Result<i_slint_core::platform::WindowEvent, String> {
+    Ok(match event.event {
+        proto::mod_WindowEvent::OneOfevent::pointer_pressed(proto::PointerPressEvent {
+            position,
+            button,
+        }) => i_slint_core::platform::WindowEvent::PointerPressed {
+            position: convert_logical_position(
+                position
+                    .ok_or_else(|| format!("Missing logical position in pointer press event"))?,
+            ),
+            button: convert_pointer_event_button(button),
+        },
+        proto::mod_WindowEvent::OneOfevent::pointer_released(proto::PointerReleaseEvent {
+            position,
+            button,
+        }) => i_slint_core::platform::WindowEvent::PointerReleased {
+            position: convert_logical_position(
+                position
+                    .ok_or_else(|| format!("Missing logical position in pointer press event"))?,
+            ),
+            button: convert_pointer_event_button(button),
+        },
+        proto::mod_WindowEvent::OneOfevent::pointer_moved(proto::PointerMoveEvent { position }) => {
+            i_slint_core::platform::WindowEvent::PointerMoved {
+                position: convert_logical_position(
+                    position
+                        .ok_or_else(|| format!("Missing logical position in pointer move event"))?,
+                ),
+            }
+        }
+        proto::mod_WindowEvent::OneOfevent::pointer_scrolled(proto::PointerScrolledEvent {
+            position,
+            delta_x,
+            delta_y,
+        }) => i_slint_core::platform::WindowEvent::PointerScrolled {
+            position: convert_logical_position(
+                position
+                    .ok_or_else(|| format!("Missing logical position in pointer scroll event"))?,
+            ),
+            delta_x,
+            delta_y,
+        },
+        proto::mod_WindowEvent::OneOfevent::pointer_exited(proto::PointerExitedEvent {}) => {
+            i_slint_core::platform::WindowEvent::PointerExited {}
+        }
+        proto::mod_WindowEvent::OneOfevent::key_pressed(proto::KeyPressedEvent { text }) => {
+            i_slint_core::platform::WindowEvent::KeyPressed { text: text.into() }
+        }
+        proto::mod_WindowEvent::OneOfevent::key_press_repeated(proto::KeyPressRepeatedEvent {
+            text,
+        }) => i_slint_core::platform::WindowEvent::KeyPressRepeated { text: text.into() },
+        proto::mod_WindowEvent::OneOfevent::key_released(proto::KeyReleasedEvent { text }) => {
+            i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }
+        }
+        proto::mod_WindowEvent::OneOfevent::None => {
+            return Err(format!("Unknown window event received in system testing protobuf"))
+        }
+    })
 }
 
 #[test]
