@@ -155,6 +155,9 @@ export global PrinterJobQueue {
 print("job count:", instance.PrinterJobQueue.job_count)
 ```
 
+**Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to Python,
+each instance will have their own instance of associated globals singletons.
+
 ### Setting and Invoking Callbacks
 
 [Callbacks](src/language/syntax/callbacks) declared in `.slint` files are visible as callable properties on the component instance. Invoke them

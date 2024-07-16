@@ -300,3 +300,6 @@ component.Logic.to_upper_case = (str) => {
     return str.toUpperCase();
 };
 ```
+
+**Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
+each instance will have their own instance of associated globals singletons.

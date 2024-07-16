@@ -184,6 +184,9 @@ For each callback
 The global can be accessed with the [`ComponentHandle::global()`] function, or with [`Global::get()`]
 
 See the [documentation of the `Global` trait](Global) for an example.
+
+**Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to Rust,
+each instance will have their own instance of associated globals singletons.
 */
 
 #![warn(missing_docs)]
