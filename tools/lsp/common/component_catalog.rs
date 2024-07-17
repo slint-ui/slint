@@ -36,7 +36,7 @@ fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformatio
 
 fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
     let is_layout = match name {
-        "GridBox" | "HorizontalBox" | "VerticalBox" => true,
+        "GroupBox" | "GridBox" | "HorizontalBox" | "VerticalBox" => true,
         _ => false,
     };
 
