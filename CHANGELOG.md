@@ -52,12 +52,13 @@ All notable changes to this project are documented in this file.
 
  - Added missing implementation of the `Error` for some of the errors
  - allow all clippy warnings in generated code
- - Add `slint::Image::image_buffer()` getter to obtain pixels for a `slint::Image` if available.
+ - Added `slint::Image::to_rgb8()/to_rgba8()/to_rgba8_premultiplied()` to obtain pixels for a `slint::Image` if available.
  - Fix panic in `slint::Timer` when a new timer is started while stopping another.
  - Added `slint::Window::take_snapshot()`
 
 ### Interpreter
- - Track model lenght change when accessing a model out of bounds
+
+ - Track model length change when accessing a model out of bounds
  - added API to obtain list of functions
  - Deprecated `slint_interpreter::ComponentCompiler` in favor of `slint_interpreter::Compiler` which
    supports compiling multiple components.
