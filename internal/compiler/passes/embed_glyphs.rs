@@ -122,15 +122,21 @@ fn embed_glyphs_with_fontdb<'a>(
         fontdb.default_font_family_ids.clone()
     } else {
         doc.exported_roots().filter_map(|c| {
-            c.root_element.borrow().bindings.get("default-font-family").and_then(|binding| {
-                match &binding.borrow().expression {
-                    Expression::StringLiteral(family) => {
-                        Some((Some(family.clone()), binding.borrow().span.clone()))
+            let (family, source_location) = c
+                .root_element
+                .borrow()
+                .bindings
+                .get("default-font-family")
+                .and_then(|binding| {
+                    match &binding.borrow().expression {
+                        Expression::StringLiteral(family) => {
+                            Some((Some(family.clone()), binding.borrow().span.clone()))
+                        }
+                        _ => None,
                     }
-                    _ => None,
-                }
-            })
-        }).filter_map(|(family, source_location)| {
+                })
+                .unwrap_or_default();
+
             fontdb.query_with_family(Default::default(), family.as_deref()).or_else(|| {
                 if let Some(source_location) = source_location {
                     diag.push_error_with_span("could not find font that provides specified family, falling back to Sans-Serif".to_string(), source_location);
