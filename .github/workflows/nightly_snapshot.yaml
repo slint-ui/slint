@@ -351,7 +351,6 @@ jobs:
                 repository: slint-ui/www-releases
                 path: www-releases
                 token: ${{ steps.app-token.outputs.token }}
-                persist-credentials: false
 
             - name: Publish Docs and Demos
               working-directory: ./www-releases  
@@ -430,17 +429,28 @@ jobs:
                 done                  
                 echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
 
-            - name: commit and push
-              working-directory: ./www-releases
+            - name: Get GitHub App User ID
+              id: get-user-id
+              run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
               env:
                 GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+            - name: check for diff
+              id: www-releases
+              working-directory: ./www-releases
               run: |
-                git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-                git config user.name "${GITHUB_ACTOR}"
+                git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
+
+            - name: commit and push
+              if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
+              working-directory: ./www-releases
+              run: |
+                git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+                git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
                 git add .
                 git add -u .
-                git commit --message "Update from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
-                git push origin master
+                git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
+                git push
 
     prepare_release:
         if: github.event.inputs.private != 'true'
