@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
  - Qt backend: fix PopupWindow exiting the application with recent Qt6
  - LinuxKMS backend: software renderer support
  - Software renderer: added API to rotate the buffer by multiple of 90 degrees.
+ - Software renderer: Fixed dirty region returned by `render()` to not have any overlaps.
 
 ### Slint Language
 
@@ -48,6 +49,7 @@ All notable changes to this project are documented in this file.
  - Added `LIBRARY_PATHS` multi-value argument to `slint_target_sources` that takes a list of
    `name=path` items, to allow for the use of component libraries.
  - Fixed compilation with Rust 1.81 (caused by extra spaces in `strignify!`)
+ - ESP-IDF: Added support for making RGB565 byte swap configurable.
 
 ### Rust API
 
