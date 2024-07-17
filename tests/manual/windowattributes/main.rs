@@ -3,7 +3,7 @@
 
 slint::slint! {
 
-import { VerticalBox, CheckBox, LineEdit } from "std-widgets.slint";
+import { VerticalBox, CheckBox, LineEdit, Spinner } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     callback toggle-visibility(bool);
@@ -38,8 +38,13 @@ export component MainWindow inherits Window {
 
 export component TestWindow inherits Window {
     in property<string> window-title <=> self.title;
-    Text {
-        text: "Go ahead and use the\nother window to control aspects\nof this window.";
+    VerticalBox {
+        Text {
+            text: "Go ahead and use the\nother window to control aspects\nof this window.";
+        }
+        Spinner {
+            indeterminate: true;
+        }
     }
 }
 
