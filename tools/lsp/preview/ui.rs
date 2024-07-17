@@ -124,6 +124,7 @@ pub fn ui_set_known_components(
         let (url, pretty_location) = extract_definition_location(ci);
         let item = ComponentItem {
             name: ci.name.clone().into(),
+            index: idx.try_into().unwrap(),
             defined_at: url.clone(),
             pretty_location,
             is_user_defined: !(ci.is_builtin || ci.is_std_widget),

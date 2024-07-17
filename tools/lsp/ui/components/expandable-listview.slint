@@ -124,8 +124,8 @@ export component ExpandableListView inherits ScrollView {
         is-currently-shown: false,
     };
 
-    pure callback can-drop(/* name */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
-    callback drop(/* name */ string, /* x */ length, /* y */ length);
+    pure callback can-drop(/* index */ int, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
+    callback drop(/* index */ int, /* x */ length, /* y */ length);
     callback show-preview-for(/* name */ string, /* defined-at */ string);
 
     property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
@@ -147,7 +147,7 @@ export component ExpandableListView inherits ScrollView {
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
                     property <ComponentItem> data: ci;
 
-                    can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
+                    can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.index, drop-x, drop-y, on-drop-area);
                     enabled: root.preview-visible;
                     text: ci.name;
                     offset: header-item.offset;
@@ -155,7 +155,7 @@ export component ExpandableListView inherits ScrollView {
 
                     pointer-event(event) => {
                         if self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
-                            root.drop(self.data.name, drop-x, drop-y);
+                            root.drop(self.data.index, drop-x, drop-y);
                         }
                     }
 
