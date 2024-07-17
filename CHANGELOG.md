@@ -30,6 +30,7 @@ All notable changes to this project are documented in this file.
  - Add the `accessible-placeholder-text` property (PR #5464)
  - Added `char-wrap` variant to the `TextWrap` enum (PR #5381)
  - `Text` can be rotated
+ - In `PopupWindow` permit access to own properties in bindings to `x`/`y`.
 
 ### Widgets
 
