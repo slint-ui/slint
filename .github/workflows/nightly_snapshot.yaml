@@ -47,8 +47,10 @@ jobs:
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     docs:
         uses: ./.github/workflows/build_docs.yaml
+        secrets: inherit
         with:
           release: ${{ github.event.inputs.release }}
+          app-id: ${{ vars.READ_WRITE_APP_ID }}
 
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
@@ -67,14 +69,11 @@ jobs:
         outputs:
             has-vscode-marketplace-pat: ${{ steps.one.outputs.has-vscode-marketplace-pat }}
             has-openvsx-pat: ${{ steps.one.outputs.has-openvsx-pat }}
-            has-www-publish-secret: ${{ steps.one.outputs.has-www-publish-secret }}
         steps:
             - id: one
               run: |
                   [ -n "${{ secrets.VSCODE_MARKETPLACE_PAT }}" ] && echo "has-vscode-marketplace-pat=yes" >> "$GITHUB_OUTPUT"
                   [ -n "${{ secrets.OPENVSX_PAT }}" ] && echo "has-openvsx-pat=yes" >> "$GITHUB_OUTPUT"
-                  [ -n "${{ secrets.WWW_PUBLISH_SSH_KEY }}" ] && echo "has-www-publish-secret=yes" >> "$GITHUB_OUTPUT"
-                  cat "$GITHUB_OUTPUT"
 
     build_vscode_lsp_linux_windows:
         env:
@@ -306,7 +305,7 @@ jobs:
     #            path: editors/tree-sitter-slint
 
     publish_artifacts:
-        if: ${{ github.event.inputs.private != 'true' && needs.check-for-secrets.outputs.has-www-publish-secret == 'yes' }}
+        if: ${{ github.event.inputs.private != 'true' }}
         needs: [docs, wasm_demo, wasm, check-for-secrets]
         runs-on: ubuntu-20.04
         steps:
@@ -331,73 +330,87 @@ jobs:
             - name: Extract Version
               id: version
               run: |
-                  version=$(grep -oP '(?<=<title>Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
-                  if [[ -z "$version" ]]; then
-                    echo "Version not found"
-                    exit 1
-                  fi
+                version=$(grep -oP '(?<=<title>Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
+                if [[ -z "$version" ]]; then
+                  echo "Version not found"
+                  exit 1
+                fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
+
+            - name: Generate a token
+              id: app-token
+              uses: actions/create-github-app-token@v1
+              with:
+                app-id: ${{ vars.READ_WRITE_APP_ID }}
+                private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                repositories: www-releases
+
+            - name: Clone www-releases directory
+              uses: actions/checkout@v4
+              with:
+                repository: slint-ui/www-releases
+                ref: prod
+                path: www-releases
+                token: ${{ steps.app-token.outputs.token }}
+                persist-credentials: false
+
             - name: Publish Docs and Demos
+              working-directory: ./www-releases  
               run: |
-                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-                  git config --global user.name "${GITHUB_ACTOR}"
-                  ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git clone git@github.com:slint-ui/www-releases.git  --depth 1'
-                  cd www-releases
+                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                  output_path="releases/${{ steps.version.outputs.VERSION }}"
+                else
+                  output_path="snapshots/${GITHUB_REF##*/}"
+                fi
 
-                  if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
-                    output_path="releases/${{ steps.version.outputs.VERSION }}"
-                  else
-                    output_path="snapshots/${GITHUB_REF##*/}"
-                  fi
+                rm -rf $output_path/demos
+                mkdir -p $output_path/demos
 
-                  rm -rf $output_path/demos
-                  mkdir -p $output_path/demos
+                for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter,rust plotter, opengl_underlay, carousel,rust energy-monitor,; do
+                  IFS=',' read demo subdir <<< "${demo_subdir}"
 
-                  for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter,rust plotter, opengl_underlay, carousel,rust energy-monitor,; do
-                      IFS=',' read demo subdir <<< "${demo_subdir}"
+                  mkdir -p $output_path/demos/$demo
+                  cp -a ../$demo/$subdir/{pkg,index.html} $output_path/demos/$demo/
+                done
 
-                      mkdir -p $output_path/demos/$demo
-                      cp -a ../$demo/$subdir/{pkg,index.html} $output_path/demos/$demo/
-                  done
+                mkdir -p $output_path/demos/android
+                cp -a ../android/* $output_path/demos/android/
 
-                  mkdir -p $output_path/demos/android
-                  cp -a ../android/* $output_path/demos/android/
+                rm -rf $output_path/wasm-interpreter
+                mkdir -p $output_path/wasm-interpreter
+                cp -a ../api/wasm-interpreter/pkg/* ./$output_path/wasm-interpreter/
 
-                  rm -rf $output_path/wasm-interpreter
-                  mkdir -p $output_path/wasm-interpreter
-                  cp -a ../api/wasm-interpreter/pkg/* ./$output_path/wasm-interpreter/
+                rm -rf $output_path/editor
+                mkdir -p $output_path/editor
+                cp -a ../slintpad/* $output_path/editor/
 
-                  rm -rf $output_path/editor
-                  mkdir -p $output_path/editor
-                  cp -a ../slintpad/* $output_path/editor/
+                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                  version="${{ steps.version.outputs.VERSION }}"
+                else
+                  version="development snapshot"
+                fi
+                sed -i 's/VERSION/$version/g' ../docs/site/index.html
 
-                  if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
-                    version="${{ steps.version.outputs.VERSION }}"
-                  else
-                    version="development snapshot"
-                  fi
-                  sed -i 's/VERSION/$version/g' ../docs/site/index.html
+                rm -rf $output_path/docs
+                mkdir -p $output_path/docs
+                cp -a ../docs/site/* $output_path/docs
+                mkdir -p $output_path/docs/cpp
+                cp -a ../target/cppdocs/html/* $output_path/docs/cpp/
+                mkdir -p $output_path/docs/rust
+                cp -a ../target/doc/* $output_path/docs/rust/
 
-                  rm -rf $output_path/docs
-                  mkdir -p $output_path/docs
-                  cp -a ../docs/site/* $output_path/docs
-                  mkdir -p $output_path/docs/cpp
-                  cp -a ../target/cppdocs/html/* $output_path/docs/cpp/
-                  mkdir -p $output_path/docs/rust
-                  cp -a ../target/doc/* $output_path/docs/rust/
+                # Fix up link to Slint language documentation
+                sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
-                  # Fix up link to Slint language documentation
-                  sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
-
-                  mkdir -p $output_path/docs/node
-                  cp -a ../api/node/docs/* $output_path/docs/node/
-                  mkdir -p $output_path/docs/slint
-                  cp -a ../target/slintdocs/html/* $output_path/docs/slint/
+                mkdir -p $output_path/docs/node
+                cp -a ../api/node/docs/* $output_path/docs/node/
+                mkdir -p $output_path/docs/slint
+                cp -a ../target/slintdocs/html/* $output_path/docs/slint/
 
             - name: Adjust redirections
               if: github.event.inputs.release == 'true'
               run: |
-                  sed -i "/1.0.2/! s,[0-9]*\.[0-9]*\.[0-9]*/\(.*\),${{ steps.version.outputs.VERSION }}/\1," www-releases/releases/_redirects
+                sed -i "/1.0.2/! s,[0-9]*\.[0-9]*\.[0-9]*/\(.*\),${{ steps.version.outputs.VERSION }}/\1," www-releases/releases/_redirects
 
             - name: Adjust slintpad default tag
               if: github.event.inputs.release == 'true'
@@ -405,26 +418,30 @@ jobs:
 
             - name: Update versions.txt
               if: github.event.inputs.release == 'true'
-              run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
               working-directory: www-releases/releases
+              run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
 
             - name: Update SlintPad
               if: github.event.inputs.release == 'true'
               run: |
-                  rm -rf www-releases/slintpad
-                  cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
-                  for f in 404.html script.js LICENSE.md; do
-                      cp www-releases/releases/$f www-releases/slintpad
-                  done                  
-                  echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
+                rm -rf www-releases/slintpad
+                cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
+                for f in 404.html script.js LICENSE.md; do
+                  cp www-releases/releases/$f www-releases/slintpad
+                done                  
+                echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
 
             - name: commit and push
+              working-directory: ./www-releases
+              env:
+                GH_TOKEN: ${{ steps.app-token.outputs.token }}
               run: |
-                  cd www-releases
-                  git add .
-                  git add -u .
-                  git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
-                  ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git push origin master'
+                git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+                git config user.name "${GITHUB_ACTOR}"
+                git add .
+                git add -u .
+                git commit --message "Update from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
+                git push origin master
 
     prepare_release:
         if: github.event.inputs.private != 'true'
