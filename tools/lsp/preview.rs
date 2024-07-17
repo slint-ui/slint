@@ -561,40 +561,37 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
 }
 
 // triggered from the UI, running in UI thread
-fn can_drop_component(
-    component_type: slint::SharedString,
-    x: f32,
-    y: f32,
-    on_drop_area: bool,
-) -> bool {
+fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) -> bool {
     if !on_drop_area {
         set_drop_mark(&None);
         return false;
     }
 
     let position = LogicalPoint::new(x, y);
-    let component_type = component_type.to_string();
+    let Some(component_type) = PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow();
+
+        preview_state.known_components.get(component_index as usize).map(|ci| ci.name.clone())
+    }) else {
+        return false;
+    };
 
     drop_location::can_drop_at(position, &component_type)
 }
 
 // triggered from the UI, running in UI thread
-fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
-    let component_type = component_type.to_string();
+fn drop_component(component_index: i32, x: f32, y: f32) {
     let position = LogicalPoint::new(x, y);
 
     let drop_result = PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
 
-        let component_index = &preview_state
-            .known_components
-            .binary_search_by_key(&component_type.as_str(), |ci| ci.name.as_str())
-            .unwrap_or(usize::MAX);
+        let component = preview_state.known_components.get(component_index as usize)?;
 
-        drop_location::drop_at(position, preview_state.known_components.get(*component_index)?)
+        drop_location::drop_at(position, component).map(|(e, d)| (e, d, component.name.clone()))
     });
 
-    if let Some((edit, drop_data)) = drop_result {
+    if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
             drop_data.path,
             drop_data.selection_offset,
@@ -602,7 +599,7 @@ fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
             true,
         );
 
-        send_workspace_edit(format!("Add element {}", component_type), edit);
+        send_workspace_edit(format!("Add element {}", component_name), edit);
     };
 }
 

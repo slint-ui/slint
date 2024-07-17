@@ -4,6 +4,7 @@
 /// Basic information on a known component
 export struct ComponentItem {
     name: string,
+    index: int,
     defined-at: string,
     pretty-location: string,
     is-user-defined: bool,
@@ -163,8 +164,8 @@ export global Api {
     callback add-new-component();
 
     // Add an existing component
-    pure callback can-drop(/* component-type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
-    callback drop(/* component-type */ string, /* x */ length, /* y */ length);
+    pure callback can-drop(/* component-index */ int, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
+    callback drop(/* component-index */ int, /* x */ length, /* y */ length);
     
     callback rename-component(string/* old-name */, string/* defined-at */, string/* new-name */);
 

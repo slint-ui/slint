@@ -26,7 +26,7 @@ component SelectionFrame {
     in property <Selection> selection;
     in property <bool> interactive: true;
 
-    function pick-selection-color(layout-kind: LayoutKind,is-primary: bool) -> color {
+    function pick-selection-color(layout-kind: LayoutKind, is-primary: bool) -> color {
         if layout-kind == LayoutKind.None {
             if is-primary {
                 return #2379f4ff;
@@ -327,5 +327,4 @@ export component PreviewView {
             root.mode: DrawAreaMode.viewing;
         }
     ]
-
 }

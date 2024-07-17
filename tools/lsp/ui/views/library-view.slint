@@ -22,14 +22,14 @@ export component LibraryView {
     width: EditorSizeSettings.side-bar-width;
     min-height: side-bar.min-height;
 
-    side-bar := Group {   
+    side-bar := Group {
         width: 100%;
-        height: 100%;  
+        height: 100%;
 
         GroupHeader {
             title: @tr("Library");
         }
-        
+
         component-list-view := ExpandableListView {
             vertical-stretch: 1;
         }
