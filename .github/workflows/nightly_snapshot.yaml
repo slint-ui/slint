@@ -349,7 +349,6 @@ jobs:
               uses: actions/checkout@v4
               with:
                 repository: slint-ui/www-releases
-                ref: prod
                 path: www-releases
                 token: ${{ steps.app-token.outputs.token }}
                 persist-credentials: false
