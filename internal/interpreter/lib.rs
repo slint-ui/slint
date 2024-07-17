@@ -10,8 +10,10 @@ You only need to use this crate if you do not want to use pre-compiled .slint
 code, which is the normal way to use Slint, using the `slint` crate
 
 The entry point for this crate is the [`Compiler`] type, which you can
-use to create [`ComponentDefinition`] with the [`Compiler::build_from_source`] or [`Compiler::build_from_path`]
-functions.
+use to create [`CompilationResult`] with the [`Compiler::build_from_source`] or [`Compiler::build_from_path`]
+functions. [`CompilationResult`] provides access to all components declared for export. Obtain a [`ComponentDefinition`]
+for each and use [`ComponentDefinition::create()`] to instantiate a component. The returned [`ComponentInstance`]
+in turn provides access to properties, callbacks, functions, global singletons, as well as implementing [`ComponentHandle`].
 
 ### Note about `async` functions
 
