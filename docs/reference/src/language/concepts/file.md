@@ -69,7 +69,7 @@ export component MyApp inherits Window {
 }
 ```
 
-:::note
+:::{note}
 
 Names have to be valid [identifiers](../syntax/identifiers.md).
 
