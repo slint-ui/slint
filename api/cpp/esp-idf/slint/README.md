@@ -100,7 +100,7 @@ extern "C" void app_main(void)
 8. Create `main/appwindow.slint` with the following contents:
 ```
 import { VerticalBox, AboutSlint } from "std-widgets.slint";
-export component AppWindow {
+export component AppWindow inherits Window {
     VerticalBox {
         AboutSlint {}
         Text {
