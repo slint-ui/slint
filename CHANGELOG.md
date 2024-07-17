@@ -7,23 +7,23 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - Skia: Fix quality of control rendering when using `cache-rendering-hint: true;`
- - Skia: gradients dithering (PR #5482)
- - Several compiler bugfixes (#5260, #5246, #5220, #5259, #5249, #5430)
- - Android: fix cursor handle being visible despite inut loses focus (#5233)
- - Android: fix keyboard poping up when application moved to foreground without input focus (#5235)
- - Gettext translation: clear internal gettext cache when changing translations at runtime
- - Winit backend: Fixed setting the size with set_size before showing the window (#6489)
- - Winit backend: upgraded to winit 0.30, accesskit 0.22, glutin
- - Winit backend: Fixed Window::hide on wayland
- - Qt backend: fix PopupWindow exiting the application with recent Qt6
- - LinuxKMS backend: software renderer support
- - Software renderer: added API to rotate the buffer by multiple of 90 degrees.
+ - Several compiler bugfixes. (#5260, #5246, #5220, #5259, #5249, #5430)
+ - Android: fix cursor handle being visible despite inut loses focus. (#5233)
+ - Android: fix keyboard poping up when application moved to foreground without input focus. (#5235)
+ - Gettext translation: clear internal gettext cache when changing translations at runtime.
+ - Winit backend: Fixed setting the size with set_size before showing the window. (#6489)
+ - Winit backend: upgraded to winit 0.30, accesskit 0.22, glutin.
+ - Winit backend: Fixed Window::hide on Wayland.
+ - Qt backend: fix PopupWindow exiting the application with recent Qt6.
+ - LinuxKMS backend: Added support for software rendering and legacy framebuffers.
+ - Software renderer: Added `set_rendering_rotation()` to rotate the rendering by multiple of 90 degrees.
  - Software renderer: Fixed dirty region returned by `render()` to not have any overlaps.
+ - Skia renderer: Fix quality of control rendering when using `cache-rendering-hint: true;`.
+ - Skia renderer: Fix dithering of gradients (PR #5482)
 
 ### Slint Language
 
- - Added `resize-border-width` to Window
+ - `Window`: Added `resize-border-width` property.
  - Support several exported component that inherits Window pr Dialog from the main .slint file
  - Mark exported component that doesn't inherit from Window or Dialog as deprecated
  - Deprecated generating the last import if there is no component in a file
@@ -35,48 +35,49 @@ All notable changes to this project are documented in this file.
 
 ### Widgets
 
- - Added `placeholder-text` property to `TextEdit`.
- - Fixed updating model of ComboBox does not change current-value
- - Fixed set current-index of ComboBox to -1 does not reset current-value
- - Fixed issue where the text of `SpinBox` is not updated after value is changed from outside
- - Added `step-size` to `SpinBox`
+ - `TextEdit`: Added `placeholder-text` property.
+ - `ComboBox`: Fixed `current-value` not updating when updating the model.
+ - `ComboBox`: Fixed `current-value` not resetting when setting `current-index` to -1.
+ - `ComboBox`: Added scrolling support.
+ - `SpinBox`: Fixed issue where the text is not updated after value is changed from outside.
+ - `SpinBox`: Added `step-size` property.
  - Added `TimePickerPopup` and `DatePickerPopup`.
- - Fixed accessible value and actions on ProgressIndicator, Spinner, Spinbox, CheckBox, Switch
- - Made `ComboBox` scrollable
+ - Fixed accessible value and actions on `ProgressIndicator`, `Spinner`, `Spinbox`, `CheckBox`, `Switch`.
 
 ### C++ API
 
  - Added `LIBRARY_PATHS` multi-value argument to `slint_target_sources` that takes a list of
    `name=path` items, to allow for the use of component libraries.
- - Fixed compilation with Rust 1.81 (caused by extra spaces in `strignify!`)
+ - Fixed compilation with Rust 1.81, caused by extra spaces in `strignify!`.
  - ESP-IDF: Added support for making RGB565 byte swap configurable.
+ - Fix build with Rust 1.79.
 
 ### Rust API
 
- - Added missing implementation of the `Error` for some of the errors
- - allow all clippy warnings in generated code
+ - Added missing implementation of the `Error` for some of the errors.
+ - Allow all clippy warnings in generated code.
  - Added `slint::Image::to_rgb8()/to_rgba8()/to_rgba8_premultiplied()` to obtain pixels for a `slint::Image` if available.
  - Fix panic in `slint::Timer` when a new timer is started while stopping another.
- - Added `slint::Window::take_snapshot()`
+ - Added `slint::Window::take_snapshot()`.
 
 ### Interpreter
 
- - Track model length change when accessing a model out of bounds
- - added API to obtain list of functions
+ - Track model length changes when accessing a model out of bounds.
+ - Added API to obtain list of functions.
  - Deprecated `slint_interpreter::ComponentCompiler` in favor of `slint_interpreter::Compiler` which
    supports compiling multiple components.
 
 ### Node API
 
- - Functions can now be invoked
+ - Functions declared in Slint can now be invoked from JavaScript.
 
-### LSP and tooling
+### LSP and Tooling
 
  - Added suggestion for imported globals in expression auto-completion.
  - Added ability to rename components.
  - Design mode: only allow to move element within the same component.
  - Design mode: Added the property editor pane.
- - viewer: added the `--component` command line arg to preview a specific component
+ - viewer: added the `--component` command line arg to preview a specific component.
 
 
 ## [1.6.0] - 2024-05-13
