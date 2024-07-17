@@ -367,8 +367,10 @@ jobs:
 
     docs:
         uses: ./.github/workflows/build_docs.yaml
+        secrets: inherit
         with:
           release: false
+          app-id: ${{ vars.READ_WRITE_APP_ID }}
 
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
