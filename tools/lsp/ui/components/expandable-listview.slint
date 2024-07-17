@@ -38,16 +38,15 @@ component HeaderItemTemplate {
             source: Icons.drop-down;
             rotation-origin-x: self.width / 2;
             rotation-origin-y: self.height / 2;
-    
             states [
-                closed when !root.open : {
+                closed when !root.open: {
                     rotation-angle: -0.25turn;
                 }
             ]
 
             animate rotation-angle { duration: EditorAnimationSettings.roation-duration; }
         }
-        
+
         BodyText {
             text: root.text;
             opacity: 0.7;
@@ -55,7 +54,7 @@ component HeaderItemTemplate {
     }
 
     states [
-        disabled when !root.enabled : {
+        disabled when !root.enabled: {
             root.opacity: 0.5;
         }
     ]
@@ -66,8 +65,8 @@ component ItemTemplate {
     in property <string> text;
     in property <bool> can-drop-here;
     in property <length> offset;
-    out property <length> mouse-x <=> touch-area.mouse-x;
-    out property <length> mouse-y <=> touch-area.mouse-y;
+    out property <length> absolute-mouse-x: touch-area.mouse-x - touch-area.x + touch-area.absolute-position.x;
+    out property <length> absolute-mouse-y: touch-area.mouse-y - touch-area.y + touch-area.absolute-position.y;
     out property <bool> pressed <=> touch-area.pressed;
 
     callback clicked <=> touch-area.clicked;
@@ -76,7 +75,7 @@ component ItemTemplate {
     min-width: content-layer.min-width;
     min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
 
-    touch-area := TouchArea {        
+    touch-area := TouchArea {
         states [
             dragging-no-drop when self.pressed && !root.can-drop-here: {
                 mouse-cursor: MouseCursor.no-drop;
@@ -99,14 +98,13 @@ component ItemTemplate {
 
     content-layer := HorizontalBox {
         padding-left: self.padding + root.offset;
-        
         BodyText {
             text: root.text;
         }
     }
 
     states [
-        disabled when !root.enabled : {
+        disabled when !root.enabled: {
             root.opacity: 0.5;
         }
     ]
@@ -143,8 +141,8 @@ export component ExpandableListView inherits ScrollView {
 
             if header-item.open: VerticalLayout {
                 for ci[index] in cli.components: ItemTemplate {
-                    property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
-                    property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
+                    property <length> drop-x: self.absolute-mouse-x - root.preview-area-position-x;
+                    property <length> drop-y: self.absolute-mouse-y - root.preview-area-position-y;
                     property <bool> on-drop-area:
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
                     property <ComponentItem> data: ci;
