@@ -87,7 +87,7 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
-        title: @tr("LineEdit - SpinBox - TimePicker - DatePicker");
+        title: @tr("LineEdit - SpinBox - TimePickerPopup - DatePickerPopup");
         vertical-stretch: 0;
 
         HorizontalBox {
@@ -106,7 +106,7 @@ export component ControlsPage inherits Page {
             }
 
             time-picker-button := Button {
-                text: @tr("Open TimePicker");
+                text: @tr("Open TimePickerPopup");
 
                 clicked => {
                     time-picker.show();
@@ -114,7 +114,7 @@ export component ControlsPage inherits Page {
             }
 
             Button {
-                text: @tr("Open date picker");
+                text: @tr("Open DatePickerPopup");
                 clicked => {
                     date-picker.show();
                 }
