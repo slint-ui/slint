@@ -12,7 +12,7 @@ All notable changes to this project are documented in this file.
  - Android: fix keyboard poping up when application moved to foreground without input focus. (#5235)
  - Gettext translation: clear internal gettext cache when changing translations at runtime.
  - Winit backend: Fixed setting the size with set_size before showing the window. (#6489)
- - Winit backend: upgraded to winit 0.30, accesskit 0.22, glutin.
+ - Winit backend: upgraded to winit 0.30, accesskit 0.16, glutin.
  - Winit backend: Fixed Window::hide on Wayland.
  - Qt backend: fix PopupWindow exiting the application with recent Qt6.
  - LinuxKMS backend: Added support for software rendering and legacy framebuffers.
