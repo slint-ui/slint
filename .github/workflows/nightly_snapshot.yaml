@@ -424,7 +424,7 @@ jobs:
               run: |
                 rm -rf www-releases/slintpad
                 cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
-                for f in 404.html script.js LICENSE.md; do
+                for f in 404.html script.js LICENSE.md package.json; do
                   cp www-releases/releases/$f www-releases/slintpad
                 done                  
                 echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
