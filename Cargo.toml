@@ -138,7 +138,7 @@ clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }
 derive_more = { version = "0.99.17" }
 euclid = { version = "0.22.1", default-features = false }
-fontdb = { version = "0.18.0", default-features = false }
+fontdb = { version = "0.20.0", default-features = false }
 fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.24", default-features = false, features = [ "png", "jpeg" ] }
@@ -146,7 +146,7 @@ itertools = { version = "0.13" }
 log = { version = "0.4.17" }
 resvg = { version= "0.42.0", default-features = false, features = ["text"] }
 rowan = { version = "0.15" }
-rustybuzz = { version = "0.14.0" }
+rustybuzz = { version = "0.17.0" }
 send_wrapper = { version = "0.6.0" }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.96" }
