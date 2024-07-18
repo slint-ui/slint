@@ -635,7 +635,13 @@ export class CompileError extends Error {
      * @param diagnostics represent a list of diagnostic items emitted while compiling .slint code.
      */
     constructor(message: string, diagnostics: napi.Diagnostic[]) {
-        super(message);
+        const formattedDiagnostics = diagnostics
+        .map((d) =>
+          `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`
+        )
+        .join("\n");
+  
+        super(`${message}\nDiagnostics:\n${formattedDiagnostics}`);
         this.diagnostics = diagnostics;
     }
 }
