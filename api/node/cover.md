@@ -46,7 +46,7 @@ without pre-built binaries, you need to additional software:
 
 ```
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
-export component Demo {
+export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
     VerticalBox {
         alignment: start;
@@ -93,7 +93,7 @@ For a complete example, see [/examples/todo/node](https://github.com/slint-ui/sl
 
 ```
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
-export component Demo {
+export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
     VerticalBox {
         alignment: start;
