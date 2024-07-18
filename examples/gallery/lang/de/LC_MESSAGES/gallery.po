@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-11 03:04+0000\n"
+"POT-Creation-Date: 2024-07-18 03:05+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -299,7 +299,7 @@ msgstr "Flugmodus"
 
 #: ui/pages/controls_page.slint:90
 msgctxt "ControlsPage"
-msgid "LineEdit - SpinBox - TimePicker - DatePicker"
+msgid "LineEdit - SpinBox - TimePickerPopup - DatePickerPopup"
 msgstr ""
 
 #: ui/pages/controls_page.slint:98
@@ -309,12 +309,12 @@ msgstr ""
 
 #: ui/pages/controls_page.slint:109
 msgctxt "ControlsPage"
-msgid "Open TimePicker"
+msgid "Open TimePickerPopup"
 msgstr ""
 
 #: ui/pages/controls_page.slint:117
 msgctxt "ControlsPage"
-msgid "Open date picker"
+msgid "Open DatePickerPopup"
 msgstr ""
 
 #: ui/pages/controls_page.slint:126
