@@ -636,12 +636,17 @@ export class CompileError extends Error {
      */
     constructor(message: string, diagnostics: napi.Diagnostic[]) {
         const formattedDiagnostics = diagnostics
-        .map((d) =>
-          `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`
-        )
-        .join("\n");
-  
-        super(`${message}\nDiagnostics:\n${formattedDiagnostics}`);
+          .map((d) =>
+            `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`
+          )
+          .join("\n");
+    
+        let formattedMessage = message;
+        if (diagnostics.length > 0) {
+          formattedMessage += `\nDiagnostics:\n${formattedDiagnostics}`;
+        }
+
+        super(formattedMessage);
         this.diagnostics = diagnostics;
     }
 }
