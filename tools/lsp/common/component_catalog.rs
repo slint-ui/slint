@@ -113,7 +113,7 @@ fn file_local_component_info(
 pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<ComponentInformation>) {
     let registry = document_cache.global_type_registry();
     result.extend(registry.all_elements().iter().filter_map(|(name, ty)| match ty {
-        ElementType::Builtin(b) if !b.is_internal => {
+        ElementType::Builtin(b) if !b.is_internal && name != "Dialog" && name != "Window" => {
             let fills_parent =
                 matches!(b.default_size_binding, DefaultSizeBinding::ExpandsToParentGeometry);
             Some(builtin_component_info(name, fills_parent))
@@ -138,7 +138,11 @@ pub fn all_exported_components(
                 continue;
             };
 
-            let to_push = if is_std_widget && !exported_name.as_str().ends_with("Impl") {
+            let to_push = if is_std_widget
+                && !exported_name.as_str().ends_with("Impl")
+                && !exported_name.as_str().ends_with("Popup")
+                && exported_name.as_str() != "PopupWindow"
+            {
                 Some(std_widgets_info(exported_name.as_str(), c.is_global()))
             } else if !is_builtin {
                 let offset =
