@@ -37,6 +37,6 @@ image = { workspace = true, optional = true, features = ["png"] }
 pb-rs = { version = "0.10.0", optional = true, default-features = false }
 
 [dev-dependencies]
-slint = { workspace = true, default-features = false, features = ["std", "compat-1-2"] }
-i-slint-core-macros = { workspace = true }
-i-slint-common = { workspace = true }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+i-slint-core-macros = { path = "../../core-macros" }
+i-slint-common = { path = "../../common" }
