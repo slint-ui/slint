@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.7.0] - 2024-07-18
+
 ### General
 
  - Several compiler bugfixes. (#5260, #5246, #5220, #5259, #5249, #5430)
@@ -1398,3 +1400,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.5.0]: https://github.com/slint-ui/slint/releases/tag/v1.5.0
 [1.5.1]: https://github.com/slint-ui/slint/releases/tag/v1.5.1
 [1.6.0]: https://github.com/slint-ui/slint/releases/tag/v1.6.0
+[1.7.0]: https://github.com/slint-ui/slint/releases/tag/v1.7.0
