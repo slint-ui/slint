@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::num::NonZeroUsize;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
+use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
@@ -802,9 +803,9 @@ pub fn can_move_to(
         // Cache compilation results:
         #[derive(Clone, Debug, Hash, Eq, PartialEq)]
         struct CacheEntry {
-            source_element: by_address::ByAddress<i_slint_compiler::object_tree::ElementRc>,
+            source_element: by_address::ByAddress<object_tree::ElementRc>,
             source_node_index: usize,
-            target_element: by_address::ByAddress<i_slint_compiler::object_tree::ElementRc>,
+            target_element: by_address::ByAddress<object_tree::ElementRc>,
             target_node_index: usize,
             child_index: usize,
         }
@@ -909,6 +910,20 @@ fn drop_ignored_elements_from_node(
     })
 }
 
+fn element_base_type_is_layout(element: &object_tree::ElementRc) -> bool {
+    let base_type = if let i_slint_compiler::langtype::ElementType::Builtin(base_type) =
+        &element.borrow().base_type
+    {
+        base_type.clone()
+    } else {
+        return false;
+    };
+    matches!(
+        base_type.name.as_str(),
+        "Row" | "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "Dialog"
+    )
+}
+
 /// Find a location in a file that would be a good place to insert the new component at
 ///
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
@@ -926,11 +941,34 @@ pub fn drop_at(
     let properties = {
         let mut props = component.default_properties.clone();
 
-        if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None
-            && !component.fills_parent
-        {
+        let is_layout = {
+            let is_layout = drop_info.target_element_node.layout_kind() != ui::LayoutKind::None;
+
+            // We go for an target node without any of the optimization passes!
+            if let Some(unopt_target_element_node) =
+                drop_info.target_element_node.in_document_cache(&document_cache)
+            {
+                match &unopt_target_element_node.as_element().borrow().base_type {
+                    i_slint_compiler::langtype::ElementType::Component(component) => {
+                        if let Some((child_insertion_parent, _, _)) =
+                            &*component.child_insertion_point.borrow()
+                        {
+                            element_base_type_is_layout(&child_insertion_parent)
+                        } else {
+                            false
+                        }
+                    }
+                    _ => is_layout,
+                }
+            } else {
+                false
+            }
+        };
+
+        if !is_layout && !component.fills_parent {
             if let Some(area) =
                 drop_info.target_element_node.geometry_at(&component_instance, position)
+            // Use the "real" target_element_node here!
             {
                 props.push(common::PropertyChange::new(
                     "x",

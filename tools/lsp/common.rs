@@ -313,6 +313,26 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
+    pub fn in_document_cache(&self, document_cache: &DocumentCache) -> Option<Self> {
+        self.with_element_node(|en| {
+            let element_start = en.text_range().start();
+            let path = en.source_file.path();
+
+            let doc = document_cache.get_document_by_path(path)?;
+            let component = doc.inner_components.iter().find(|c| {
+                let Some(c_node) = &c.node else {
+                    return false;
+                };
+                c_node.text_range().contains(element_start)
+            })?;
+            ElementRcNode::find_in_or_below(
+                component.root_element.clone(),
+                path,
+                u32::from(element_start),
+            )
+        })
+    }
+
     /// Some nodes get merged into the same ElementRc with no real connections between them...
     pub fn next_element_rc_node(&self) -> Option<Self> {
         Self::new(self.element.clone(), self.debug_index + 1)
