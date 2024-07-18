@@ -32,10 +32,8 @@ export component MyWindow inherits Window {
 
 Don't use this callback to initialize properties, because this violates the declarative principle.
 
-Even though the `init` callback also exists on top-level, exported components (e.g. `Window`), it
-cannot be bound to backend code (i.e. an `on_init` function does not exist in the generated code).
-This is because the callback is invoked during the creation of the component, before you could
-call `on_init` to actually set it.
+Even though the `init` callback exists on all components, it cannot be set from application code,
+i.e. an `on_init` function does not exist in the generated code. This is because the callback is invoked during the creation of the component, before you could call `on_init` to actually set it.
 
 While the `init` callback can invoke other callbacks, e.g. one defined in a `global` section, and
 you _can_ bind these in the backend, this doesn't work for statically-created components, including
