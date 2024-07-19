@@ -616,7 +616,7 @@ fn is_recursive_inclusion(
         .and_then(|rn| {
             rn.with_element_node(|node| {
                 node.parent()
-                    .map(Into::<syntax_nodes::Component>::into)
+                    .and_then(syntax_nodes::Component::new)
                     .map(|c| c.DeclaredIdentifier().text().to_string())
             })
         })
