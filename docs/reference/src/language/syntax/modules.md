@@ -133,6 +133,7 @@ path on disk:
 
 * When using Rust and `build.rs`, call [`with_library_paths`](slint-build-rust:struct.CompilerConfiguration#method.with_library_paths)
   to provide a mapping from library name to path.
+* When using C++, use `LIBRARY_PATHS` with [`slint_target_sources`](slint-cpp:cmake_reference#slint-target-sources).
 * When invoking the `slint-viewer` from the command line, pass `-Lmylibrary=/path/to/my/library` for each component
   library.
 * When using the VS Code extension, configure the Slint extension's library path
