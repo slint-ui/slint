@@ -115,6 +115,7 @@ pub fn ui_set_known_components(
 ) {
     let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
     let mut path_map: HashMap<PathBuf, (SharedString, Vec<ComponentItem>)> = Default::default();
+    let mut library_map: HashMap<String, Vec<ComponentItem>> = Default::default();
     let mut longest_path_prefix = PathBuf::new();
 
     for (idx, ci) in known_components.iter().enumerate() {
@@ -133,21 +134,25 @@ pub fn ui_set_known_components(
         };
 
         if let Some(position) = &ci.defined_at {
-            let path = i_slint_compiler::pathutils::clean_path(
-                &(position.url.to_file_path().unwrap_or_default()),
-            );
-            if path != PathBuf::new() {
-                if longest_path_prefix == PathBuf::new() {
-                    longest_path_prefix = path.clone();
-                } else {
-                    longest_path_prefix =
-                        std::iter::zip(longest_path_prefix.components(), path.components())
-                            .take_while(|(l, p)| l == p)
-                            .map(|(l, _)| l)
-                            .collect();
+            if let Some(library) = position.url.path().strip_prefix("/@") {
+                library_map.entry(format!("@{library}")).or_insert(Vec::new()).push(item);
+            } else {
+                let path = i_slint_compiler::pathutils::clean_path(
+                    &(position.url.to_file_path().unwrap_or_default()),
+                );
+                if path != PathBuf::new() {
+                    if longest_path_prefix == PathBuf::new() {
+                        longest_path_prefix = path.clone();
+                    } else {
+                        longest_path_prefix =
+                            std::iter::zip(longest_path_prefix.components(), path.components())
+                                .take_while(|(l, p)| l == p)
+                                .map(|(l, _)| l)
+                                .collect();
+                    }
                 }
+                path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
             }
-            path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
         } else {
             builtins_map.entry(ci.category.clone()).or_default().push(item);
         }
@@ -167,6 +172,20 @@ pub fn ui_set_known_components(
         .collect::<Vec<_>>();
     builtin_components.sort_by_key(|k| k.category.clone());
 
+    let mut library_components = library_map
+        .drain()
+        .map(|(k, mut v)| {
+            v.sort_by_key(|i| i.name.clone());
+            let model = Rc::new(VecModel::from(v));
+            ComponentListItem {
+                category: k.into(),
+                file_url: SharedString::new(),
+                components: model.into(),
+            }
+        })
+        .collect::<Vec<_>>();
+    library_components.sort_by_key(|k| k.category.clone());
+
     let mut file_components = path_map
         .drain()
         .map(|(p, (file_url, mut v))| {
@@ -182,7 +201,11 @@ pub fn ui_set_known_components(
         .collect::<Vec<_>>();
     file_components.sort_by_key(|k| PathBuf::from(k.category.to_string()));
 
-    let mut all_components = builtin_components;
+    let mut all_components = Vec::with_capacity(
+        builtin_components.len() + library_components.len() + file_components.len(),
+    );
+    all_components.extend_from_slice(&builtin_components);
+    all_components.extend_from_slice(&library_components);
     all_components.extend_from_slice(&file_components);
 
     let result = Rc::new(VecModel::from(all_components));
