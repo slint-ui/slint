@@ -3,6 +3,9 @@
 
 // cSpell: ignore descr rfind unindented
 
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
@@ -122,6 +125,32 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
     }));
 }
 
+fn libraryize_url(document_cache: &DocumentCache, url: lsp_types::Url) -> lsp_types::Url {
+    let url_path = i_slint_compiler::pathutils::clean_path(&url.to_file_path().unwrap_or_default());
+    if let Some((library_name, library_path)) = document_cache
+        .compiler_configuration()
+        .library_paths
+        .iter()
+        .map(|(n, p)| (n, i_slint_compiler::pathutils::clean_path(p)))
+        .find(|(_, path)| url_path.starts_with(path) || url_path == **path)
+    {
+        if url_path == library_path {
+            let mut url = url.clone();
+            url.set_path(&format!("/@{library_name}"));
+            url
+        } else if let Ok(short_path) = url_path.strip_prefix(library_path) {
+            let short_path = short_path.to_string_lossy();
+            let mut url = url.clone();
+            url.set_path(&format!("/@{library_name}/{short_path}"));
+            url
+        } else {
+            url
+        }
+    } else {
+        url
+    }
+}
+
 /// Fill the result with all exported components that matches the given filter
 pub fn all_exported_components(
     document_cache: &DocumentCache,
@@ -132,6 +161,8 @@ pub fn all_exported_components(
         let Some(doc) = document_cache.get_document(&url) else { continue };
         let is_builtin = url.scheme() == "builtin";
         let is_std_widget = is_builtin && url.path().ends_with("/std-widgets.slint");
+
+        let url = libraryize_url(document_cache, url);
 
         for (exported_name, ty) in &*doc.exports {
             let Some(c) = ty.as_ref().left() else {
@@ -171,6 +202,10 @@ pub fn file_local_components(
     url: &lsp_types::Url,
     result: &mut Vec<ComponentInformation>,
 ) {
+    let library_url = libraryize_url(document_cache, url.clone());
+    if library_url.path() != url.path() {
+        return;
+    }
     let Some(doc) = document_cache.get_document(url) else {
         return;
     };
