@@ -681,7 +681,9 @@ impl ComponentInformation {
             Some("std-widgets.slint".to_string())
         } else {
             let url = self.defined_at.as_ref().map(|p| &p.url)?;
-            if let Some(current_uri) = current_uri {
+            if let Some(path) = url.path().strip_prefix("/@") {
+                Some(format!("@{path}"))
+            } else if let Some(current_uri) = current_uri {
                 lsp_types::Url::make_relative(current_uri, url)
             } else {
                 url.to_file_path().ok().map(|p| p.to_string_lossy().to_string())
