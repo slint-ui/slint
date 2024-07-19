@@ -118,29 +118,32 @@ macro_rules! node_accessors {
     };
     (@ 2 $kind:ident) => {
         #[allow(non_snake_case)]
+        #[track_caller]
         pub fn $kind(&self) -> ($kind, $kind) {
             let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
-            let a = it.next().unwrap();
-            let b = it.next().unwrap();
-            debug_assert!(it.next().is_none());
+            let a = it.next().expect(stringify!("Missing first ", $kind));
+            let b = it.next().expect(stringify!("Missing second ", $kind));
+            debug_assert!(it.next().is_none(), stringify!("More ", $kind, " than expected"));
             (a.into(), b.into())
         }
     };
     (@ 3 $kind:ident) => {
         #[allow(non_snake_case)]
+        #[track_caller]
         pub fn $kind(&self) -> ($kind, $kind, $kind) {
             let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
-            let a = it.next().unwrap();
-            let b = it.next().unwrap();
-            let c = it.next().unwrap();
-            debug_assert!(it.next().is_none());
+            let a = it.next().expect(stringify!("Missing first ", $kind));
+            let b = it.next().expect(stringify!("Missing second ", $kind));
+            let c = it.next().expect(stringify!("Missing third ", $kind));
+            debug_assert!(it.next().is_none(), stringify!("More ", $kind, " than expected"));
             (a.into(), b.into(), c.into())
         }
     };
     (@ $kind:ident) => {
         #[allow(non_snake_case)]
+        #[track_caller]
         pub fn $kind(&self) -> $kind {
-            self.0.child_node(SyntaxKind::$kind).unwrap().into()
+            self.0.child_node(SyntaxKind::$kind).expect(stringify!("Missing ", $kind)).into()
         }
     };
 
@@ -240,6 +243,7 @@ macro_rules! declare_syntax {
                 #[cfg(test)]
                 impl SyntaxNodeVerify for $nodekind {
                     const KIND: SyntaxKind = SyntaxKind::$nodekind;
+                    #[track_caller]
                     fn verify(node: SyntaxNode) {
                         assert_eq!(node.kind(), Self::KIND);
                         verify_node!(node, $children);
@@ -255,8 +259,9 @@ macro_rules! declare_syntax {
                 }
 
                 impl From<SyntaxNode> for $nodekind {
+                    #[track_caller]
                     fn from(node: SyntaxNode) -> Self {
-                        debug_assert_eq!(node.kind(), SyntaxKind::$nodekind);
+                        assert_eq!(node.kind(), SyntaxKind::$nodekind);
                         Self(node)
                     }
                 }
