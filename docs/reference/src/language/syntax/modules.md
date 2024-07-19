@@ -123,12 +123,18 @@ components between projects without hardcoding their relative paths, use
 the component library syntax:
 
 ```slint,ignore
-import { MySwitch } from "@mylibrary";
+import { MySwitch } from "@mylibrary/switch.slint";
+import { MyButton } from "@otherlibrary";
 ```
 
 In the above example, the `MySwitch` component will be imported from a component
-library called "mylibrary". The path to this library must be defined separately at compilation time.
-Use one of the following methods to help the Slint compiler resolve "mylibrary" to the correct
+library called `mylibrary`, in which Slint looks for the `switch.slint` file. Therefore `mylibrary` must be
+declared to refer to a directory, so that the subsequent search for `switch.slint`
+succeeds. `MyButton` will be imported from `otherlibrary`. Therefore `otherlibrary`
+must be declared to refer to a `.slint` file that exports `MyButton`.
+
+The path to each library, as file or directory, must be defined separately at compilation time.
+Use one of the following methods to help the Slint compiler resolve libraries to the correct
 path on disk:
 
 * When using Rust and `build.rs`, call [`with_library_paths`](slint-build-rust:struct.CompilerConfiguration#method.with_library_paths)
@@ -140,7 +146,8 @@ path on disk:
   using the `Slint: Library Paths` setting. Example below:
   ```json
   "slint.libraryPaths": {
-      "mylibrary": "/path/to/my/library"
+      "mylibrary": "/path/to/my/library",
+      "otherlibrary": "/path/to/otherlib/index.slint",
   },
   ```
 * With other editors, you can configure them to pass the `-L` argument to the `slint-lsp` just like for the slint-viewer.
