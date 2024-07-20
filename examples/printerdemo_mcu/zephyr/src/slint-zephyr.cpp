@@ -61,6 +61,46 @@ struct k_unique_lock
     ~k_unique_lock() { k_mutex_unlock(mutex); }
     struct k_mutex *mutex = nullptr;
 };
+
+struct RotationInfo
+{
+    using RenderingRotation = slint::platform::SoftwareRenderer::RenderingRotation;
+    RenderingRotation rotation = RenderingRotation::NoRotation;
+    slint::PhysicalSize size;
+
+    bool is_transpose() const
+    {
+        return rotation == RenderingRotation::Rotate90 || rotation == RenderingRotation::Rotate270;
+    }
+
+    bool mirror_width() const
+    {
+        return rotation == RenderingRotation::Rotate180 || rotation == RenderingRotation::Rotate270;
+    }
+
+    bool mirror_height() const
+    {
+        return rotation == RenderingRotation::Rotate90 || rotation == RenderingRotation::Rotate180;
+    }
+};
+
+slint::LogicalPosition transformed(slint::LogicalPosition p, const RotationInfo &info)
+{
+    if (info.mirror_width())
+        p.x = info.size.width - p.x - 1;
+    if (info.mirror_height())
+        p.y = info.size.height - p.y - 1;
+    if (info.is_transpose())
+        std::swap(p.x, p.y);
+    return p;
+}
+
+slint::PhysicalSize transformed(slint::PhysicalSize s, const RotationInfo &info)
+{
+    if (info.is_transpose())
+        std::swap(s.width, s.height);
+    return s;
+}
 }
 
 using namespace std::chrono_literals;
@@ -95,7 +135,7 @@ public:
     static std::unique_ptr<ZephyrWindowAdapter> init_from(const device *display);
 
     explicit ZephyrWindowAdapter(const device *display, RepaintBufferType buffer_type,
-                                 slint::PhysicalSize size);
+                                 const RotationInfo &info);
 
     void request_redraw() override;
     slint::PhysicalSize size() override;
@@ -103,10 +143,13 @@ public:
 
     void maybe_redraw();
 
+    const RotationInfo &rotationInfo() const;
+
 private:
     slint::platform::SoftwareRenderer m_renderer;
 
     const struct device *m_display;
+    const RotationInfo m_rotationInfo;
     const slint::PhysicalSize m_size;
 
     bool m_needs_redraw = true;
@@ -177,14 +220,26 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
         }
     }
 
-    return std::make_unique<ZephyrWindowAdapter>(
-            display, bufferType,
-            slint::PhysicalSize({ capabilities.x_resolution, capabilities.y_resolution }));
+    RotationInfo info;
+    info.size = slint::PhysicalSize({ capabilities.x_resolution, capabilities.y_resolution });
+    if (IS_ENABLED(CONFIG_MCUX_ELCDIF_PXP_ROTATE_90))
+        info.rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate270;
+    else if (IS_ENABLED(CONFIG_MCUX_ELCDIF_PXP_ROTATE_180))
+        info.rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate180;
+    else if (IS_ENABLED(CONFIG_MCUX_ELCDIF_PXP_ROTATE_270))
+        info.rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate90;
+
+    const auto rotatedSize = transformed(info.size, info);
+    LOG_INF("Rotated screen size: %u x %u", rotatedSize.width, rotatedSize.height);
+    return std::make_unique<ZephyrWindowAdapter>(display, bufferType, info);
 }
 
 ZephyrWindowAdapter::ZephyrWindowAdapter(const device *display, RepaintBufferType buffer_type,
-                                         slint::PhysicalSize size)
-    : m_renderer(buffer_type), m_display(display), m_size(size)
+                                         const RotationInfo &info)
+    : m_renderer(buffer_type),
+      m_display(display),
+      m_rotationInfo(info),
+      m_size(transformed(m_rotationInfo.size, m_rotationInfo))
 {
     m_buffer.resize(m_size.width * m_size.height);
 
@@ -214,9 +269,8 @@ void ZephyrWindowAdapter::maybe_redraw()
     if (!std::exchange(m_needs_redraw, false))
         return;
 
-    auto rotated = false;
     auto start = k_uptime_get();
-    auto region = m_renderer.render(m_buffer, rotated ? m_size.height : m_size.width);
+    auto region = m_renderer.render(m_buffer, m_size.width);
     const auto slintRenderDelta = k_uptime_delta(&start);
     LOG_DBG("Rendering %d dirty regions:", std::ranges::size(region.rectangles()));
     for (auto [o, s] : region.rectangles()) {
@@ -252,6 +306,11 @@ void ZephyrWindowAdapter::maybe_redraw()
     const auto displayWriteDelta = k_uptime_delta(&start);
     LOG_DBG(" - total: %lld ms, slint: %lld ms, write: %lld ms",
             slintRenderDelta + displayWriteDelta, slintRenderDelta, displayWriteDelta);
+}
+
+const RotationInfo &ZephyrWindowAdapter::rotationInfo() const
+{
+    return m_rotationInfo;
 }
 
 ZephyrPlatform::ZephyrPlatform(const struct device *display) : m_display(display)
@@ -388,20 +447,26 @@ void zephyr_process_input_event(struct input_event *event)
             button = slint::PointerEventButton::Left;
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
-                ZEPHYR_WINDOW->window().dispatch_pointer_move_event(pos);
-                ZEPHYR_WINDOW->window().dispatch_pointer_press_event(pos, button);
+                // Transform the physical screen position to the rendered position
+                const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
+                ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
+                ZEPHYR_WINDOW->window().dispatch_pointer_press_event(slintPos, button);
             });
         } else if (event->value) {
             LOG_DBG("Move");
             slint::invoke_from_event_loop([=] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
-                ZEPHYR_WINDOW->window().dispatch_pointer_move_event(pos);
+                // Transform the physical screen position to the rendered position
+                const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
+                ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
             });
         } else {
             LOG_DBG("Release");
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
-                ZEPHYR_WINDOW->window().dispatch_pointer_release_event(pos, button);
+                // Transform the physical screen position to the rendered position
+                const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
+                ZEPHYR_WINDOW->window().dispatch_pointer_release_event(slintPos, button);
                 ZEPHYR_WINDOW->window().dispatch_pointer_exit_event();
             });
             button.reset();

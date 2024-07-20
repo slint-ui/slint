@@ -41,4 +41,4 @@ add_subdirectory(../../.. slint_build)
 target_sources(app PRIVATE src/slint-zephyr.cpp src/main.cpp)
 target_link_libraries(app PRIVATE Slint::Slint)
 
-slint_target_sources(app ../ui/printerdemo.slint)
+slint_target_sources(app ../../printerdemo/ui/printerdemo.slint)
