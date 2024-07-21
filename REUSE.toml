@@ -1,0 +1,190 @@
+version = 1
+SPDX-PackageName = "slint"
+SPDX-PackageSupplier = "Slint Developers <info@slint.dev>"
+SPDX-PackageDownloadLocation = "https://slint.dev/"
+
+[[annotations]]
+path = ["**/slint-icon-**.svg", "**/slint-icon-**.png", "**/slint-icon-**.pdf", "**/slint-logo-**.svg", "**/slint-logo-**.png", "**/slint-logo-**.pdf", "**/MadeWithSlint-**.svg", "**/MadeWithSlint-**.png", "**/MadeWithSlint-**.pdf"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "CC-BY-ND-4.0"
+
+[[annotations]]
+path = [".gitattributes", ".gitignore", "**/.gitignore", ".dockerignore", ".prettierignore", ".pre-commit-config.yaml", ".vscode/**", "cspell.json", "rustfmt.toml", ".mailmap", "**/.eslintrc.yml", "Cargo.lock", "**/.npmignore", "espflash.toml"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["api/cpp/docs/**/**.html", "api/cpp/docs/**/**.css", "docs/**/**.css", "docs/**/**.html", "docs/**/book.toml", "docs/**/package.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["examples/**/LC_MESSAGES/**.mo", "examples/**/sdkconfig**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ".github/issue_template.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "api/**/**.json"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["examples/**.json", "examples/**/README", "examples/**/README.txt", "examples/cpp/qt_viewer/interface.ui"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["examples/memory/icons/**.svg", "examples/memory/icons/**.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Fontawesome project <https://fontawesome.com/license/free>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = ["examples/printerdemo/ui/images/**.svg", "examples/printerdemo_old/ui/images/**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "CoreyGinnivan <https://github.com/CoreyGinnivan/system-uicons>"
+SPDX-License-Identifier = "Unlicense"
+
+[[annotations]]
+path = ["examples/iot-dashboard/images/**.svg", "examples/iot-dashboard/images/**.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Uwe Rathmann <https://github.com/uwerat/qskinny/tree/master/examples/iotdashboard/images>"
+SPDX-License-Identifier = "LicenseRef-qskinny"
+
+[[annotations]]
+path = "editors/sublime/LSP.sublime-settings"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["tools/slintpad/**.html", "tools/slintpad/styles/**.css", "tools/slintpad/**.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["editors/vscode/**.json", "editors/vscode/css/**.css", "editors/tree-sitter-slint/corpus/**.txt", "editors/vscode/static/**/**.html", "editors/vscode/static/assets/img/bg-dark.svg", "editors/vscode/static/assets/img/slint-**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = "editors/vscode/static/assets/img/cpp_logo.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © 2017 Jeremy Kratz"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "editors/vscode/static/assets/img/rust-logo.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "® Rust Foundation"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "editors/vscode/static/assets/img/nodejs_logo.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "node.js authors"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "tests/screenshots/**/**.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = "api/node/__test__/resources/**.png"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["examples/carousel/icons/**.svg", "tools/lsp/ui/assets/**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://fonts.google.com/icons?selected=Material+Iconse>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "examples/carousel/fonts/**.ttf"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Roboto <https://fonts.google.com/specimen/Roboto/about>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["examples/**/esp-idf/**/partitions.csv", "examples/**/esp-idf/partitions.csv", "examples/mcu-board-support/partitions.csv"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "internal/compiler/widgets/fluent-base/_**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © Microsoft Corporation <https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "internal/compiler/widgets/material-base/_**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "internal/compiler/widgets/cupertino-base/_**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "internal/compiler/widgets/qt/_**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "examples/todo-mvc/assets/**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "internal/compiler/widgets/cosmic-base/_**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "\"Cosmic Icons\" by System76 <https://github.com/pop-os/cosmic-icons>"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+[[annotations]]
+path = ["internal/backends/linuxkms/mouse-pointer.svg", "examples/virtual_keyboard/ui/assets/**.svg", "examples/ffmpeg/pause.svg", "examples/ffmpeg/play.svg", "examples/gstreamer-player/**.svg", "examples/uefi-demo/resource/cursor.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © 2018 Dave Gandy & Fork Awesome"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["examples/energy-monitor/ui/assets/sunny.svg", "examples/energy-monitor/ui/assets/settings.svg", "examples/energy-monitor/ui/assets/information.svg", "examples/energy-monitor/ui/assets/cloudy.svg", "examples/energy-monitor/ui/assets/cloud.svg", "examples/energy-monitor/ui/assets/check.svg", "examples/energy-monitor/ui/assets/arrow-right.svg", "examples/energy-monitor/ui/assets/arrow-left.svg", "examples/energy-monitor/ui/assets/dashboard.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "examples/energy-monitor/ui/assets/spyrosoft-logo.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © Spyrosoft Solutions GmbH <office@spyro-soft.com>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "examples/printerdemo_mcu/zephyr/VERSION"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
