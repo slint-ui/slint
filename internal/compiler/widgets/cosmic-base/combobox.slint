@@ -14,9 +14,10 @@ export component ComboBox {
     in-out property <string> current-value <=> base.current-value;
 
     callback selected <=> base.selected;
-    
+
     property <length> popup-padding: 4px;
-    property <int> visible-items: 6;
+
+    property <int> visible-items: min(6, model.length);
 
     min-width: max(160px, layout.min-height);
     min-height: max(32px, layout.min-height);
@@ -79,7 +80,7 @@ export component ComboBox {
             enabled: root.enabled;
         }
     }
-    
+
     popup := PopupWindow {
         x: 0;
         // Position the popup so that the first element is over the popup.
@@ -93,7 +94,7 @@ export component ComboBox {
                 VerticalLayout {
                     alignment: start;
                     padding: root.popup-padding;
-                    
+
                     for value[index] in root.model : ListItem {
                         item: { text: value };
                         is-selected: index == root.current-index;

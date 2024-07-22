@@ -17,7 +17,7 @@ export component ComboBox {
 
     property <brush> background: CupertinoPalette.control-background;
     property <length> popup-padding: 4px;
-    property <int> visible-items: 6;
+    property <int> visible-items: min(6, model.length);
 
     min-width: max(160px, layout.min-width);
     min-height: max(22px, layout.min-height);

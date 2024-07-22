@@ -12,8 +12,6 @@ export component ComboBox {
     in-out property <string> current-value <=> base.current-value;
 
     callback selected <=> base.selected;
-    
-    property <length> popup-height: 224px;
 
     accessible-role: combobox;
     accessible-value <=> root.current-value;
@@ -31,15 +29,20 @@ export component ComboBox {
         width: 100%;
         height: 100%;
         show-popup => {
-            popup.show();
+            if model.length <= 6 {
+                small-popup.show();
+            } else {
+                big-popup.show();
+            }
         }
     }
 
-    popup := PopupWindow {
+    big-popup := PopupWindow {
         x: 0;
         y: root.height;
         width: root.width;
-        height: root.popup-height;
+        // Try to hardcode about the size of 6 items
+        height: 6 * 2rem;
 
         NativeComboBoxPopup {
             width: 100%;
@@ -49,14 +52,14 @@ export component ComboBox {
         ScrollView {
             VerticalLayout {
                 alignment: start;
-                
+
                 for value[index] in root.model: NativeStandardListViewItem {
                     item: { text: value };
                     is-selected: root.current-index == index;
-                    has-hover: ta.has-hover;
+                    has-hover: ta2.has-hover;
                     combobox: true;
 
-                    ta := TouchArea {
+                    ta2 := TouchArea {
                         clicked => {
                             base.select(index);
                         }
@@ -65,5 +68,32 @@ export component ComboBox {
             }
         }
     }
+
+    small-popup := PopupWindow {
+        x: 0;
+        y: root.height;
+        width: root.width;
+        NativeComboBoxPopup {
+            width: 100%;
+            height: 100%;
+        }
+
+        VerticalLayout {
+
+            for value[index] in root.model: NativeStandardListViewItem {
+                item: { text: value };
+                is-selected: root.current-index == index;
+                has-hover: ta.has-hover;
+                combobox: true;
+
+                ta := TouchArea {
+                    clicked => {
+                        base.select(index);
+                    }
+                }
+            }
+        }
+    }
+
 }
 
