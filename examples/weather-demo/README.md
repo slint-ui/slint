@@ -70,7 +70,7 @@ wasm-pack build --target web --out-dir <output-dir>/pkg
 To run locally:
 
 ```
-cp <source-dir>/wasm/index.html <output-dir>/   # you can also provide your HTML file
+cp <source-dir>/index.html <output-dir>/   # you can also provide your HTML file
 cd <output-dir> & python3 -m http.server
 ```
 
