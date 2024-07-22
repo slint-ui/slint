@@ -51,6 +51,16 @@ impl NotRunningEventLoop {
             {
                 use winit::platform::x11::EventLoopBuilderExtX11;
                 builder.with_any_thread(true);
+
+                // Under WSL, the compositor sometimes crashes. Since we cannot reconnect after the compositor
+                // was restarted, the application panics. This does not happen when using XWayland. Therefore,
+                // when running under WSL, try to connect to X11 instead.
+                #[cfg(feature = "wayland")]
+                if std::fs::metadata("/proc/sys/fs/binfmt_misc/WSLInterop").is_ok()
+                    || std::fs::metadata("/run/WSL").is_ok()
+                {
+                    builder.with_x11();
+                }
             }
         }
         #[cfg(target_family = "windows")]
