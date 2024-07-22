@@ -65,7 +65,7 @@ fn get_reserved_properties<'a>(
     group: &'a str,
     properties: impl Iterator<Item = (&'static str, Type)> + 'a,
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
-    properties.map(|p| PropertyInformation {
+    properties.filter(|(_, t)| !matches!(t, Type::Callback { .. })).map(|p| PropertyInformation {
         name: p.0.to_string(),
         type_name: p.1.to_string(),
         declared_at: None,
@@ -890,6 +890,9 @@ mod tests {
             &find_property(&result, "accessible-role").unwrap().type_name,
             "enum AccessibleRole"
         );
+        // Accessible property should not be present since the role is none
+        assert_eq!(find_property(&result, "accessible-label"), None);
+        assert_eq!(find_property(&result, "accessible-action-default"), None);
 
         // Poke deeper:
         let (_, result, _, _) = properties_at_position(21, 30).unwrap();
@@ -903,6 +906,16 @@ mod tests {
                 as usize,
             "lightblue".len()
         );
+
+        // On a Button
+        let (_, result, _, _) = properties_at_position(48, 4).unwrap();
+
+        assert_eq!(&find_property(&result, "text").unwrap().type_name, "string");
+        // Accessible property should not be present since the role is button
+        assert_eq!(find_property(&result, "accessible-label").unwrap().type_name, "string");
+        // No callbacks
+        assert_eq!(find_property(&result, "accessible-action-default"), None);
+        assert_eq!(find_property(&result, "clicked"), None);
     }
 
     #[test]
