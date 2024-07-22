@@ -494,7 +494,7 @@ impl FromIterator<(String, Value)> for Struct {
 }
 
 /// ComponentCompiler is deprecated, use [`Compiler`] instead
-#[deprecated(note = "Use slint_interpreter::Complier instead")]
+#[deprecated(note = "Use slint_interpreter::Compiler instead")]
 pub struct ComponentCompiler {
     config: i_slint_compiler::CompilerConfiguration,
     diagnostics: Vec<Diagnostic>,
