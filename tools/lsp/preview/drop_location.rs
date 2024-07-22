@@ -955,13 +955,13 @@ pub fn drop_at(
                         {
                             element_base_type_is_layout(&child_insertion_parent)
                         } else {
-                            false
+                            is_layout
                         }
                     }
                     _ => is_layout,
                 }
             } else {
-                false
+                is_layout
             }
         };
 
