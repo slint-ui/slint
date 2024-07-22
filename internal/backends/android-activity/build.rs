@@ -67,6 +67,9 @@ fn main() {
         panic!("The detected Java version is too old. The minimum required version is Java 8. Your Java version: {version_output:?} (parsed as {java_ver})")
     }
 
+    std::fs::create_dir_all(&out_class)
+        .unwrap_or_else(|e| panic!("Cannot create output directory {out_class:?} - {e}"));
+
     // Compile the Java file into a .class file
     let o = Command::new(&javac_path)
         .arg(format!("java/{java_class}"))
