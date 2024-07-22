@@ -192,7 +192,7 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
             name: env!("CARGO_PKG_NAME").to_string(),
             version: Some(env!("CARGO_PKG_VERSION").to_string()),
         }),
-        offset_encoding: Some("utf-8".to_string()),
+        offset_encoding: Some("utf-16".to_string()),
     }
 }
 
