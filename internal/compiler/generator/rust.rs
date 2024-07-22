@@ -415,6 +415,7 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
         })
     });
     quote! {
+        #[allow(dead_code)]
         #[derive(Default, Copy, Clone, PartialEq, Debug)]
         #rust_attr
         pub enum #enum_name {
