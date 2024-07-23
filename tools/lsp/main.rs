@@ -113,8 +113,11 @@ impl ServerNotifier {
 }
 
 impl ServerNotifier {
-    pub fn send_notification(&self, method: String, params: impl serde::Serialize) -> Result<()> {
-        self.sender.send(Message::Notification(lsp_server::Notification::new(method, params)))?;
+    pub fn send_notification<N: Notification>(&self, params: N::Params) -> Result<()> {
+        self.sender.send(Message::Notification(lsp_server::Notification::new(
+            N::METHOD.to_string(),
+            params,
+        )))?;
         Ok(())
     }
 
@@ -152,7 +155,7 @@ impl ServerNotifier {
 
     pub fn send_message_to_preview(&self, message: common::LspToPreviewMessage) {
         if self.use_external_preview() {
-            let _ = self.send_notification("slint/lsp_to_preview".to_string(), message);
+            let _ = self.send_notification::<common::LspToPreviewMessage>(message);
         } else {
             #[cfg(feature = "preview-builtin")]
             preview::lsp_to_preview_message(message, self);
