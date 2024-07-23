@@ -571,6 +571,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
         self.shown.set(visible);
         self.pending_resize_event_after_show.set(visible);
+        self.pending_redraw.set(false);
         if visible {
             let recreating_window = self.winit_window_or_none.borrow().as_window().is_none();
 
