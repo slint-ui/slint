@@ -345,7 +345,6 @@ use std::num::NonZeroUsize;
 struct ConditionalIncludes {
     iostream: Cell<bool>,
     cstdlib: Cell<bool>,
-    cmath: Cell<bool>,
 }
 
 #[derive(Clone)]
@@ -545,6 +544,7 @@ pub fn generate(
     file.includes.push("<array>".into());
     file.includes.push("<limits>".into());
     file.includes.push("<slint.h>".into());
+    file.includes.push("<cmath>".into());
 
     for (path, er) in doc.embedded_file_resources.borrow().iter() {
         match &er.kind {
@@ -877,10 +877,6 @@ pub fn generate(
 
     if conditional_includes.cstdlib.get() {
         file.includes.push("<cstdlib>".into());
-    }
-
-    if conditional_includes.cmath.get() {
-        file.includes.push("<cmath>".into());
     }
 
     file
@@ -2768,11 +2764,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
+                (Type::Float32, Type::Int32) => {
+                    format!("std::round({f})")
+                }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("slint::SharedString::from_number({})", f)
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    format!("std::make_shared<slint::private_api::UIntModel>(std::max(0, {}))", f)
+                    format!("std::make_shared<slint::private_api::UIntModel>(std::max<int>(0, {}))", f)
                 }
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {
@@ -3131,59 +3130,45 @@ fn compile_builtin_function_call(
             format!("std::cout << {} << std::endl;", a.join("<<"))
         }
         BuiltinFunction::Mod => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::fmod({}, {})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::Round => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::round({})", a.next().unwrap())
         }
         BuiltinFunction::Ceil => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::ceil({})", a.next().unwrap())
         }
         BuiltinFunction::Floor => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::floor({})", a.next().unwrap())
         }
         BuiltinFunction::Sqrt => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::sqrt({})", a.next().unwrap())
         }
         BuiltinFunction::Abs => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::abs({})", a.next().unwrap())
         }
         BuiltinFunction::Log => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::log({}) / std::log({})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::Pow => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::pow(({}), ({}))", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::Sin => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::sin(({}) * {})", a.next().unwrap(), pi_180)
         }
         BuiltinFunction::Cos => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::cos(({}) * {})", a.next().unwrap(), pi_180)
         }
         BuiltinFunction::Tan => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::tan(({}) * {})", a.next().unwrap(), pi_180)
         }
         BuiltinFunction::ASin => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::asin({}) / {}", a.next().unwrap(), pi_180)
         }
         BuiltinFunction::ACos => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::acos({}) / {}", a.next().unwrap(), pi_180)
         }
         BuiltinFunction::ATan => {
-            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::atan({}) / {}", a.next().unwrap(), pi_180)
         }
         BuiltinFunction::SetFocusItem => {
