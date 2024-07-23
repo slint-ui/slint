@@ -628,6 +628,11 @@ pub enum LspToPreviewMessage {
     HighlightFromEditor { url: Option<Url>, offset: u32 },
 }
 
+impl lsp_types::notification::Notification for LspToPreviewMessage {
+    type Params = Self;
+    const METHOD: &'static str = "slint/lsp_to_preview";
+}
+
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Diagnostic {
@@ -714,16 +719,13 @@ impl ComponentInformation {
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub mod lsp_to_editor {
-    use lsp_types::notification::Notification;
-
     pub fn send_status_notification(
         sender: &crate::ServerNotifier,
         message: &str,
         health: crate::lsp_ext::Health,
     ) {
         sender
-            .send_notification(
-                crate::lsp_ext::ServerStatusNotification::METHOD.into(),
+            .send_notification::<crate::lsp_ext::ServerStatusNotification>(
                 crate::lsp_ext::ServerStatusParams {
                     health,
                     quiescent: false,
@@ -739,8 +741,7 @@ pub mod lsp_to_editor {
         diagnostics: Vec<lsp_types::Diagnostic>,
     ) -> Option<()> {
         sender
-            .send_notification(
-                "textDocument/publishDiagnostics".into(),
+            .send_notification::<lsp_types::notification::PublishDiagnostics>(
                 lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
             )
             .ok()

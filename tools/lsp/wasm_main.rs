@@ -54,9 +54,12 @@ pub struct ServerNotifier {
 }
 
 impl ServerNotifier {
-    pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<()> {
+    pub fn send_notification<N: lsp_types::notification::Notification>(
+        &self,
+        params: N::Params,
+    ) -> Result<()> {
         self.send_notification
-            .call2(&JsValue::UNDEFINED, &method.into(), &to_value(&params)?)
+            .call2(&JsValue::UNDEFINED, &N::METHOD.into(), &to_value(&params)?)
             .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
         Ok(())
     }
@@ -78,7 +81,7 @@ impl ServerNotifier {
     }
 
     pub fn send_message_to_preview(&self, message: LspToPreviewMessage) {
-        let _ = self.send_notification("slint/lsp_to_preview".to_string(), message);
+        let _ = self.send_notification::<LspToPreviewMessage>(message);
     }
 }
 
