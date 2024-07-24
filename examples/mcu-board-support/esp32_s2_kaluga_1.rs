@@ -4,15 +4,20 @@
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::{cell::RefCell, convert::Infallible};
-use display_interface_spi::SPIInterfaceNoCS;
-use embedded_hal::digital::v2::OutputPin;
-use esp32s2_hal::{
-    clock::ClockControl, peripherals::Peripherals, prelude::*, spi, systimer::SystemTimer,
-    timer::TimerGroup, Delay, Rtc, IO,
-};
+use display_interface_spi::SPIInterface;
+use embedded_hal::digital::OutputPin;
 use esp_alloc::EspHeap;
+pub use esp_hal::entry;
+use esp_hal::gpio::{Io, Level, Output};
+use esp_hal::spi::{master::Spi, SpiMode};
+use esp_hal::system::SystemControl;
+use esp_hal::timer::{systimer::SystemTimer, timg::TimerGroup};
+use esp_hal::{
+    clock::ClockControl, delay::Delay, peripherals::Peripherals, prelude::*, rtc_cntl::Rtc,
+};
 use esp_println::println;
-pub use xtensa_lx_rt::entry;
+
+type Display<DI, RST> = mipidsi::Display<DI, mipidsi::models::ST7789, RST>;
 
 #[inline(never)]
 #[panic_handler]
@@ -58,53 +63,46 @@ impl slint::platform::Platform for EspBackend {
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let peripherals = Peripherals::take();
-        let mut system = peripherals.SYSTEM.split();
-        let mut clocks = ClockControl::boot_defaults(system.clock_control).freeze();
+        let system = SystemControl::new(peripherals.SYSTEM);
+        let mut clocks = ClockControl::max(system.clock_control).freeze();
 
         // Disable the RTC and TIMG watchdog timers
-        let mut rtc_cntl = Rtc::new(peripherals.RTC_CNTL);
-        let timer_group0 =
-            TimerGroup::new(peripherals.TIMG0, &clocks, &mut system.peripheral_clock_control);
-        let mut wdt0 = timer_group0.wdt;
-        let timer_group1 =
-            TimerGroup::new(peripherals.TIMG1, &clocks, &mut system.peripheral_clock_control);
-        let mut wdt1 = timer_group1.wdt;
+        let mut rtc = Rtc::new(peripherals.LPWR, None);
+        rtc.rwdt.disable();
+        let mut timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks, None);
+        timer_group0.wdt.disable();
+        let mut timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks, None);
+        timer_group1.wdt.disable();
 
-        rtc_cntl.rwdt.disable();
-        wdt0.disable();
-        wdt1.disable();
+        let mut delay = Delay::new(&clocks);
+        let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
 
-        let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
-        let backlight = io.pins.gpio6;
-        let mut backlight = backlight.into_push_pull_output();
-        backlight.set_high().unwrap();
+        let mut backlight = Output::new(io.pins.gpio6, Level::High);
+        backlight.set_high();
 
         let mosi = io.pins.gpio9;
-        let cs = io.pins.gpio11;
-        let rst = io.pins.gpio16;
+        let cs = Output::new(io.pins.gpio11, Level::Low);
+        let rst = Output::new(io.pins.gpio16, Level::Low);
         let dc = io.pins.gpio13;
         let sck = io.pins.gpio15;
         let miso = io.pins.gpio8;
 
-        let spi = spi::Spi::new(
-            peripherals.SPI3,
-            sck,
-            mosi,
-            miso,
-            cs,
-            80u32.MHz(),
-            spi::SpiMode::Mode0,
-            &mut system.peripheral_clock_control,
-            &mut clocks,
+        let spi = Spi::new(peripherals.SPI3, 80u32.MHz(), SpiMode::Mode0, &mut clocks).with_pins(
+            Some(sck),
+            Some(mosi),
+            Some(miso),
+            esp_hal::gpio::NO_PIN,
         );
+        let spi = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(spi, cs).unwrap();
+        let di = SPIInterface::new(spi, Output::new(dc, Level::Low));
+        let display = mipidsi::Builder::new(mipidsi::models::ST7789, di)
+            .reset_pin(rst)
+            .orientation(
+                mipidsi::options::Orientation::new().rotate(mipidsi::options::Rotation::Deg90),
+            )
+            .init(&mut delay)
+            .unwrap();
 
-        let di = SPIInterfaceNoCS::new(spi, dc.into_push_pull_output());
-        let reset = rst.into_push_pull_output();
-        let mut display = st7789::ST7789::new(di, Some(reset), Some(backlight), 320, 240);
-        let mut delay = Delay::new(&clocks);
-
-        display.init(&mut delay).unwrap();
-        display.set_orientation(st7789::Orientation::Landscape).unwrap();
         let mut buffer_provider = DrawBuffer {
             display,
             buffer: &mut [slint::platform::software_renderer::Rgb565Pixel(0); 320],
@@ -133,12 +131,9 @@ struct DrawBuffer<'a, Display> {
     buffer: &'a mut [slint::platform::software_renderer::Rgb565Pixel],
 }
 
-impl<
-        DI: display_interface::WriteOnlyDataCommand,
-        RST: OutputPin<Error = Infallible>,
-        BL: OutputPin<Error = Infallible>,
-    > slint::platform::software_renderer::LineBufferProvider
-    for &mut DrawBuffer<'_, st7789::ST7789<DI, RST, BL>>
+impl<DI: display_interface::WriteOnlyDataCommand, RST: OutputPin<Error = Infallible>>
+    slint::platform::software_renderer::LineBufferProvider
+    for &mut DrawBuffer<'_, Display<DI, RST>>
 {
     type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;
 
@@ -156,7 +151,9 @@ impl<
                 line as u16,
                 range.end as u16,
                 line as u16,
-                buffer.iter().map(|x| !x.0),
+                buffer
+                    .iter()
+                    .map(|x| embedded_graphics_core::pixelcolor::raw::RawU16::new(x.0).into()),
             )
             .unwrap();
     }
