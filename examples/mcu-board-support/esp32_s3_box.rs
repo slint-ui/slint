@@ -4,24 +4,22 @@
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
-use display_interface_spi::SPIInterfaceNoCS;
+use display_interface_spi::SPIInterface;
 use embedded_graphics_core::geometry::OriginDimensions;
-use embedded_hal::digital::v2::OutputPin;
-use esp32s3_hal::{
-    clock::{ClockControl, CpuClock},
-    i2c::I2C,
-    peripherals::Peripherals,
-    prelude::*,
-    spi::{Spi, SpiMode},
-    systimer::SystemTimer,
-    timer::TimerGroup,
-    Delay, Rtc, IO,
-};
+use embedded_hal::digital::OutputPin;
 use esp_alloc::EspHeap;
 use esp_backtrace as _;
-use mipidsi::{Display, Orientation};
+use esp_hal::clock::ClockControl;
+use esp_hal::delay::Delay;
+pub use esp_hal::entry;
+use esp_hal::gpio::{Input, Io, Level, Output, Pull};
+use esp_hal::rtc_cntl::Rtc;
+use esp_hal::spi::{master::Spi, SpiMode};
+use esp_hal::system::SystemControl;
+use esp_hal::timer::{systimer::SystemTimer, timg::TimerGroup};
+use esp_hal::{i2c::I2C, peripherals::Peripherals, prelude::*};
+use mipidsi::{options::Orientation, Display};
 use slint::platform::WindowEvent;
-pub use xtensa_lx_rt::entry;
 
 #[global_allocator]
 static ALLOCATOR: EspHeap = EspHeap::empty();
@@ -58,61 +56,51 @@ impl slint::platform::Platform for EspBackend {
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let peripherals = Peripherals::take();
-        let mut system = peripherals.SYSTEM.split();
-        let clocks = ClockControl::configure(system.clock_control, CpuClock::Clock240MHz).freeze();
+        let system = SystemControl::new(peripherals.SYSTEM);
+        let clocks = ClockControl::max(system.clock_control).freeze();
 
-        let mut rtc = Rtc::new(peripherals.RTC_CNTL);
-        let timer_group0 =
-            TimerGroup::new(peripherals.TIMG0, &clocks, &mut system.peripheral_clock_control);
-        let mut wdt0 = timer_group0.wdt;
-        let timer_group1 =
-            TimerGroup::new(peripherals.TIMG1, &clocks, &mut system.peripheral_clock_control);
-        let mut wdt1 = timer_group1.wdt;
-
+        let mut rtc = Rtc::new(peripherals.LPWR, None);
         rtc.rwdt.disable();
-        wdt0.disable();
-        wdt1.disable();
+        let mut timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks, None);
+        timer_group0.wdt.disable();
+        let mut timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks, None);
+        timer_group1.wdt.disable();
 
         let mut delay = Delay::new(&clocks);
-        let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+        let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
 
-        let i2c = I2C::new(
-            peripherals.I2C0,
-            io.pins.gpio8,
-            io.pins.gpio18,
-            400u32.kHz(),
-            &mut system.peripheral_clock_control,
-            &clocks,
-        );
+        let i2c =
+            I2C::new(peripherals.I2C0, io.pins.gpio8, io.pins.gpio18, 400u32.kHz(), &clocks, None);
 
-        let mut touch = tt21100::TT21100::new(i2c, io.pins.gpio3.into_pull_up_input())
+        let mut touch = tt21100::TT21100::new(i2c, Input::new(io.pins.gpio3, Pull::Up))
             .expect("Initialize the touch device");
 
         let sclk = io.pins.gpio7;
         let mosi = io.pins.gpio6;
 
-        let spi = Spi::new_no_cs_no_miso(
-            peripherals.SPI2,
-            sclk,
-            mosi,
-            60u32.MHz(),
-            SpiMode::Mode0,
-            &mut system.peripheral_clock_control,
-            &clocks,
+        let spi = Spi::new(peripherals.SPI2, 60u32.MHz(), SpiMode::Mode0, &clocks).with_pins(
+            Some(sclk),
+            Some(mosi),
+            esp_hal::gpio::NO_PIN,
+            esp_hal::gpio::NO_PIN,
         );
 
-        let dc = io.pins.gpio4.into_push_pull_output();
-        let rst = io.pins.gpio48.into_push_pull_output();
+        let dc = Output::new(io.pins.gpio4, Level::Low);
+        let cs = Output::new(io.pins.gpio5, Level::Low);
+        let rst = Output::new(io.pins.gpio48, Level::Low);
 
-        let di = SPIInterfaceNoCS::new(spi, dc);
-        let display = mipidsi::Builder::ili9342c_rgb565(di)
-            .with_orientation(Orientation::PortraitInverted(false))
-            .with_color_order(mipidsi::options::ColorOrder::Bgr)
-            .init(&mut delay, Some(rst))
+        let spi = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(spi, cs).unwrap();
+
+        let di = SPIInterface::new(spi, dc);
+        let display = mipidsi::Builder::new(mipidsi::models::ILI9342CRgb565, di)
+            .reset_pin(rst)
+            .orientation(Orientation::new().rotate(mipidsi::options::Rotation::Deg180))
+            .color_order(mipidsi::options::ColorOrder::Bgr)
+            .init(&mut delay)
             .unwrap();
 
-        let mut backlight = io.pins.gpio45.into_push_pull_output();
-        backlight.set_high().unwrap();
+        let mut backlight = Output::new(io.pins.gpio45, Level::High);
+        backlight.set_high();
 
         let size = display.size();
         let size = slint::PhysicalSize::new(size.width, size.height);
