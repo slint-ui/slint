@@ -8,6 +8,7 @@ use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, Character
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -17,7 +18,7 @@ use i_slint_common::sharedfontdb::{self, fontdb};
 struct Font {
     id: fontdb::ID,
     #[deref]
-    fontdue_font: fontdue::Font,
+    fontdue_font: Rc<fontdue::Font>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -79,10 +80,8 @@ pub fn embed_glyphs<'a>(
     }
 
     sharedfontdb::FONT_DB.with(|db| {
-        let mut fontdb = db.borrow_mut();
-
         embed_glyphs_with_fontdb(
-            &mut fontdb,
+            &db,
             doc,
             pixel_sizes,
             characters_seen,
@@ -94,7 +93,7 @@ pub fn embed_glyphs<'a>(
 }
 
 fn embed_glyphs_with_fontdb<'a>(
-    fontdb: &mut sharedfontdb::FontDatabase,
+    fontdb: &RefCell<sharedfontdb::FontDatabase>,
     doc: &Document,
     pixel_sizes: Vec<i16>,
     characters_seen: HashSet<char>,
@@ -102,21 +101,26 @@ fn embed_glyphs_with_fontdb<'a>(
     diag: &mut BuildDiagnostics,
     generic_diag_location: Option<crate::diagnostics::SourceLocation>,
 ) {
-    let fallback_fonts = get_fallback_fonts(fontdb);
+    let fallback_fonts = get_fallback_fonts(&fontdb.borrow());
 
     let mut custom_fonts = Vec::new();
 
     // add custom fonts
-    for doc in all_docs {
-        for (font_path, import_token) in doc.custom_fonts.iter() {
-            let face_count = fontdb.faces().count();
-            if let Err(e) = fontdb.make_mut().load_font_file(font_path) {
-                diag.push_error(format!("Error loading font: {}", e), import_token);
-            } else {
-                custom_fonts.extend(fontdb.faces().skip(face_count).map(|info| info.id))
+    {
+        let mut fontdb_mut = fontdb.borrow_mut();
+        for doc in all_docs {
+            for (font_path, import_token) in doc.custom_fonts.iter() {
+                let face_count = fontdb_mut.faces().count();
+                if let Err(e) = fontdb_mut.make_mut().load_font_file(font_path) {
+                    diag.push_error(format!("Error loading font: {}", e), import_token);
+                } else {
+                    custom_fonts.extend(fontdb_mut.faces().skip(face_count).map(|info| info.id))
+                }
             }
         }
     }
+
+    let fontdb = fontdb.borrow();
 
     let default_font_ids = if !fontdb.default_font_family_ids.is_empty() {
         fontdb.default_font_family_ids.clone()
@@ -192,72 +196,51 @@ fn embed_glyphs_with_fontdb<'a>(
     }
 
     let mut embed_font_by_path_and_face_id = |path: &std::path::Path, face_id| {
-        let maybe_font = if let Some(maybe_font) =
-            fontdb.with_face_data(face_id, |font_data, face_index| {
-                let fontdue_font = match fontdue::Font::from_bytes(
-                    font_data,
-                    fontdue::FontSettings { collection_index: face_index, scale: 40., ..Default::default() },
-                ) {
-                    Ok(fontdue_font) => fontdue_font,
-                    Err(fontdue_msg) => {
-                        diag.push_error(
-                            format!(
-                                "internal error: fontdue can't parse font {}: {fontdue_msg}", path.display()
-                            ),
-                            &generic_diag_location,
-                        );
-                        return None;
-                    }
-                };
+        let fontdue_font = match load_font_by_id(face_id) {
+            Ok(font) => font,
+            Err(msg) => {
+                diag.push_error(
+                    format!("error loading font for embedding {}: {msg}", path.display()),
+                    &generic_diag_location,
+                );
+                return;
+            }
+        };
 
-                let family_name = if let Some(family_name) = fontdb
-                    .face(face_id)
-                    .expect("must succeed as we are within face_data with same face_id")
-                    .families
-                    .first()
-                    .map(|(name, _)| name.clone())
-                {
-                    family_name
-                } else {
-                    diag.push_error(
-                        format!("internal error: TrueType font without english family name encountered: {}", path.display()),
-                        &generic_diag_location,
-                    );
-                    return None;
-                };
-
-                embed_font(
-                    fontdb,
-                    family_name,
-                    Font{ id: face_id, fontdue_font },
-                    &pixel_sizes,
-                    characters_seen.iter().cloned(),
-                    &fallback_fonts,
-                )
-                .into()
-            }) {
-            maybe_font
-        } else {
+        let Some(family_name) = fontdb
+            .face(face_id)
+            .expect("must succeed as we are within face_data with same face_id")
+            .families
+            .first()
+            .map(|(name, _)| name.clone())
+        else {
             diag.push_error(
-                format!("internal error: face_id of selected font {} is unknown to fontdb", path.display()),
+                format!(
+                    "internal error: TrueType font without english family name encountered: {}",
+                    path.display()
+                ),
                 &generic_diag_location,
             );
             return;
         };
 
-        let font = if let Some(font) = maybe_font {
-            font
-        } else {
-            // Diagnostic was created inside callback for `width_face_data`.
-            return;
-        };
+        let embedded_bitmap_font = embed_font(
+            &fontdb,
+            family_name,
+            Font { id: face_id, fontdue_font },
+            &pixel_sizes,
+            characters_seen.iter().cloned(),
+            &fallback_fonts,
+        );
 
         let resource_id = doc.embedded_file_resources.borrow().len();
         doc.embedded_file_resources.borrow_mut().insert(
             path.to_string_lossy().to_string(),
             crate::embedded_resources::EmbeddedResources {
                 id: resource_id,
-                kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(font),
+                kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
+                    embedded_bitmap_font,
+                ),
             },
         );
 
@@ -286,7 +269,7 @@ fn embed_glyphs_with_fontdb<'a>(
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
-fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<fontdue::Font> {
+fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<Rc<fontdue::Font>> {
     #[allow(unused)]
     let mut fallback_families: Vec<String> = Vec::new();
 
@@ -325,21 +308,7 @@ fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<fontdue::Font>
                     families: &[fontdb::Family::Name(fallback_family)],
                     ..Default::default()
                 })
-                .and_then(|face_id| {
-                    fontdb
-                        .with_face_data(face_id, |face_data, face_index| {
-                            fontdue::Font::from_bytes(
-                                face_data,
-                                fontdue::FontSettings {
-                                    collection_index: face_index,
-                                    scale: 40.,
-                                    ..Default::default()
-                                },
-                            )
-                            .ok()
-                        })
-                        .flatten()
-                })
+                .and_then(|face_id| load_font_by_id(face_id).ok())
         })
         .collect::<Vec<_>>();
     fallback_fonts
@@ -352,7 +321,7 @@ fn embed_font(
     font: Font,
     pixel_sizes: &[i16],
     character_coverage: impl Iterator<Item = char>,
-    fallback_fonts: &[fontdue::Font],
+    fallback_fonts: &[Rc<fontdue::Font>],
 ) -> BitmapFont {
     let mut character_map: Vec<CharacterMapEntry> = character_coverage
         .enumerate()
@@ -464,5 +433,36 @@ pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut Has
                 characters_seen.extend(string.chars());
             }
         })
+    })
+}
+
+thread_local! {
+    static LOADED_FONTS: RefCell<std::collections::HashMap<fontdb::ID, fontdue::FontResult<Rc<fontdue::Font>>>> = RefCell::default();
+}
+
+fn load_font_by_id(face_id: fontdb::ID) -> fontdue::FontResult<Rc<fontdue::Font>> {
+    LOADED_FONTS.with(|cache| {
+        cache
+            .borrow_mut()
+            .entry(face_id)
+            .or_insert_with(|| {
+                sharedfontdb::FONT_DB.with(|fontdb| {
+                    fontdb
+                        .borrow()
+                        .with_face_data(face_id, |font_data, face_index| {
+                            fontdue::Font::from_bytes(
+                                font_data,
+                                fontdue::FontSettings {
+                                    collection_index: face_index,
+                                    scale: 40.,
+                                    ..Default::default()
+                                },
+                            )
+                            .map(Rc::new)
+                        })
+                        .unwrap_or_else(|| fontdue::FontResult::Err("internal error: corrupt font"))
+                })
+            })
+            .clone()
     })
 }
