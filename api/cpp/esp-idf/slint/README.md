@@ -53,8 +53,9 @@ channel = "esp"
 ```cpp
 #include <stdio.h>
 #include <esp_err.h>
-#include <bsp/display.h>
 #include <bsp/esp-bsp.h>
+#include <bsp/touch.h>
+#include <bsp/display.h>
 #include <slint-esp.h>
 
 #if defined(BSP_LCD_DRAW_BUFF_SIZE)
@@ -78,7 +79,10 @@ extern "C" void app_main(void)
      /* Set display brightness to 100% */
     bsp_display_backlight_on();
 
-    std::optional<esp_lcd_touch_handle_t> touch_handle;
+    /* Initialize touch */
+    esp_lcd_touch_handle_t touch_handle = NULL;
+    const bsp_touch_config_t bsp_touch_cfg = {};
+    bsp_touch_new(&bsp_touch_cfg, &touch_handle);
 
     /* Allocate a drawing buffer */
     static std::vector<slint::platform::Rgb565Pixel> buffer(BSP_LCD_H_RES * BSP_LCD_V_RES);
