@@ -57,7 +57,7 @@ linked_hash_set = "0.1.4"
 image = { workspace = true, optional = true, features = ["default"] }
 resvg = { workspace = true, optional = true }
 # font embedding
-fontdue = { workspace = true, optional = true }
+fontdue = { workspace = true, optional = true, features = ["parallel"] }
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
