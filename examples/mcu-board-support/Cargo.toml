@@ -17,17 +17,18 @@ links = "mcu_board_support" # just so we can pass metadata to the slint build cr
 path = "lib.rs"
 
 [features]
-pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "embedded-alloc", "fugit", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt", "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
-stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","embedded-alloc", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
-esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt/esp32s2", "esp-alloc", "esp-println/esp32s2", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
-esp32-s3-box = ["slint/unsafe-single-threaded", "esp32s3-hal", "embedded-hal", "xtensa-lx-rt/esp32s3", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
+
+pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "embedded-hal-nb", "cortex-m-rt", "embedded-alloc", "fugit", "cortex-m", "display-interface", "display-interface-spi", "mipidsi", "defmt", "defmt-rtt", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
+stm32h735g = ["slint/unsafe-single-threaded", "cortex-m/critical-section-single-core", "cortex-m-rt","embedded-alloc", "embedded-time", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
+esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp-hal/esp32s2", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s2", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics-core", "slint/libm"]
+esp32-s3-box = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "esp-hal/embedded-hal-02", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
 
 [dependencies]
 slint = { version = "=1.7.2", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core-macros = { version = "=1.7.2", path = "../../internal/core-macros" }
 
 derive_more = "0.99.5"
-embedded-graphics = { version = "0.7.1", optional = true }
+embedded-graphics = { version = "0.8", optional = true }
 once_cell = { version = "1.9", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1", default-features = false }
 rgb = "0.8.27"
@@ -36,32 +37,29 @@ cfg-if = "1"
 embedded-alloc = { version = "0.5", optional = true }
 cortex-m-rt = { version = "0.7", optional = true }
 cortex-m = { version = "0.7.2", optional = true }
-display-interface = { version = "0.4.1", optional = true }
-embedded-hal = { version = "0.2.5", optional = true }
+display-interface = { version = "0.5.0", optional = true }
+embedded-hal = { version = "1.0.0", optional = true }
+embedded-hal-nb = { version = "1.0.0", optional = true }
+embedded-hal-bus = { version = "0.2", optional = true }
 embedded-dma = { version = "0.2.0", optional = true }
-# Use a git branch that has DMA support
-rp-pico = { version = "0.8.0", optional = true }
+rp-pico = { version = "0.9.0", optional = true }
 fugit = { version = "0.3.6", optional = true }
-shared-bus = { version = "0.3", optional = true }
-st7789 = { version = "0.7.0", optional = true }
 euclid = { version = "0.22", default-features = false, optional = true }
 
-stm32h7xx-hal = { version = "0.15.0", optional = true, features = ["log-rtt", "ltdc", "xspi"] }
+stm32h7xx-hal = { version = "0.16.0", optional = true, features = ["log-rtt", "ltdc", "xspi"] }
 getrandom = { version = "0.2", optional = true, default-features = false, features = ["custom"] }
 embedded-time = { version = "0.12.0", optional = true }
-embedded-display-controller = { version = "0.1.0", optional = true }
+embedded-display-controller = { version = "0.2.0", optional = true }
 ft5336 = { version = "0.2", optional = true }
 
-esp32s2-hal = { version = "0.12", optional = true }
-esp32s3-hal = { version = "0.12", optional = true }
-xtensa-lx-rt = { version = "0.16", optional = true }
-display-interface-spi = { version = "0.4", optional = true }
-esp-alloc = { version = "0.3", optional = true }
-esp-println = { version = "0.7.0", optional = true }
-esp-backtrace = { version = "0.9.0", optional = true, features = ["panic-handler", "print-uart"] }
+esp-hal = { version = "0.19", optional = true }
+display-interface-spi = { version = "0.5", optional = true }
+esp-alloc = { version = "0.4", optional = true }
+esp-println = { version = "0.10.0", optional = true }
+esp-backtrace = { version = "0.13.0", optional = true, features = ["panic-handler", "println"] }
 tt21100 = { version = "0.1", optional = true }
 
-mipidsi = { version = "0.7.1", optional = true }
+mipidsi = { version = "0.8.0", optional = true }
 embedded-graphics-core =  { version = "0.4", optional = true }
 
 defmt-rtt = { version = "0.4.0", optional = true }
