@@ -555,6 +555,8 @@ jobs:
               run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib --release
             - name: Build todo demo
               run: cargo apk build -p todo --target aarch64-linux-android --lib --release
+            - name: Build weather-demo example
+              run: cargo apk build -p weather-demo --target aarch64-linux-android --lib --release
             - name: "upload APK artifact"
               uses: actions/upload-artifact@v4
               with:
@@ -562,3 +564,4 @@ jobs:
                   path: |
                     target/release/apk/energy-monitor.apk
                     target/release/apk/todo_lib.apk
+                    target/release/apk/weather-demo.apk
