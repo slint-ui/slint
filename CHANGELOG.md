@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-## [1.7.1] - 2024-07-15
+## [1.7.1] - 2024-07-25
 
 ### General
 
