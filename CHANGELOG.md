@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.7.1] - 2024-07-15
+
+### General
+
+ - Winit backend: When running under WSL, always connect to X11 to avoid triggering compositor crashes.
+ - Winit backend: Fix showing a previously hidden Window on macOS.
+ - Android: Fix build with older Java versions.
+ - Fix inconsistent implicit conversion from float to int by always rounding.
+
+### Widgets
+
+ - `ComboBox`: Fix size of popup when there are less than six items.
+
+### Rust
+
+ - Fix warning in generated code for unused enums.
+
+### Node API
+
+ - Improve error reporting by including the diagnostic in the exception's message.
+
+### LSP and Tooling
+
+ - Various fixes to Live-preview's edit mode:
+   - Recognize `GridLayout` for dropping widgets into.
+   - Remove `PopupWindow`, `Window`, and `Dialog` from the component library.
+   - Add support for compnent libraries.
+   - Fix panic when moving around widgets. (#5642)
+   - Don't show unrelated accessibility properties.
+
 ## [1.7.0] - 2024-07-18
 
 ### General
@@ -1401,3 +1431,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.5.1]: https://github.com/slint-ui/slint/releases/tag/v1.5.1
 [1.6.0]: https://github.com/slint-ui/slint/releases/tag/v1.6.0
 [1.7.0]: https://github.com/slint-ui/slint/releases/tag/v1.7.0
+[1.7.1]: https://github.com/slint-ui/slint/releases/tag/v1.7.1
