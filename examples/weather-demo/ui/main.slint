@@ -86,12 +86,6 @@ export component AppWindow inherits Window {
         }
     }
 
-    // this component is added to overcome a slint issue with android cursor never being hidden
-    // see: https://github.com/slint-ui/slint/issues/5233
-    invisible-input := TextInput {
-        y: -self.height * 2;
-    }
-
     stack := StackView {
         function show-page(pageType : PageType) {
             if (pageType == PageType.Main) {
@@ -148,15 +142,6 @@ export component AppWindow inherits Window {
             is-current: self.check-is-current(stack.current-index);
             init => { self.page-index = stack.insert-page(); }
 
-            changed is-active => {
-                if (!self.is-active) {
-                    // focusing invisible input so the cursor is drawn out of the window scope
-                    invisible-input.focus();
-                    // clearing focus right after to hide the keyboard
-                    invisible-input.clear-focus();
-                }
-            }
-
             location-search-view := LocationSearchView {
                 property<bool> is-active: parent.is-active;
                 property<bool> is-opened: parent.is-opened;
@@ -169,7 +154,6 @@ export component AppWindow inherits Window {
 
                 changed is-opened => {
                     if (self.is-opened) {
-                        // we cannot focus on init, because android cursor is then wrongly positioned
                         self.focus();
                     }
                 }
