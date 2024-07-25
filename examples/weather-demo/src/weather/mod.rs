@@ -12,10 +12,10 @@ pub use weatherdisplaycontroller::WeatherDisplayController;
 
 pub use dummyweathercontroller::DummyWeatherController;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
 mod openweathercontroller;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
 pub use openweathercontroller::OpenWeatherController;
 
 pub mod utils;

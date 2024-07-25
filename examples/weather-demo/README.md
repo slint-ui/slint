@@ -26,9 +26,9 @@ The application retrieves weather data from the [OpenWeather](https://openweathe
 </p>
 
 ## Weather data
-To enable real weather data from the [OpenWeather](https://openweathermap.org/) API, you must provide the `RUSTY_WEATHER_API_KEY` environment variable with your API key at build time. The [OpenCall API](https://openweathermap.org/price#onecall) subscription is required.
+To enable real weather data from the [OpenWeather](https://openweathermap.org/) API, you must enable the `open_weather` feature and provide the `RUSTY_WEATHER_API_KEY` environment variable with your API key at build time. The [OpenCall API](https://openweathermap.org/price#onecall) subscription is required.
 
-If you do not provide the key, the application loads the dummy data instead.
+If you do not enable the feature or provide the key, the application loads the dummy data instead.
 
 **Note:** You cannot use real weather data for the WebAssembly target.
 
