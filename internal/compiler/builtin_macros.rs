@@ -249,7 +249,7 @@ fn rgb_macro(
                         op: '*',
                     }
                 } else {
-                    expr.maybe_convert_to(Type::Float32, &n, diag)
+                    expr.maybe_convert_to(Type::Int32, &n, diag)
                 }
             } else {
                 expr.maybe_convert_to(Type::Float32, &n, diag)

@@ -12,7 +12,6 @@ All notable changes to this project are documented in this file.
  - Winit backend: When running under WSL, always connect to X11 to avoid triggering compositor crashes.
  - Winit backend: Fix showing a previously hidden Window on macOS.
  - Android: Fix build with older Java versions.
- - Fix inconsistent implicit conversion from float to int by always rounding.
 
 ### Widgets
 
