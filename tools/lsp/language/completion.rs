@@ -418,6 +418,9 @@ fn with_insert_text(
     c
 }
 
+/// Try to return the completion items for the location inside an element.
+/// `FooBar { /* HERE */ }`
+/// So properties and potential sub elements
 fn resolve_element_scope(
     element: syntax_nodes::Element,
     document_cache: &DocumentCache,
@@ -432,6 +435,17 @@ fn resolve_element_scope(
     let mut result = element_type
         .property_list()
         .into_iter()
+        .filter(|(k, ty)| {
+            if matches!(ty, Type::Function { .. }) {
+                return false;
+            }
+            if let ElementType::Component(c) = &element_type {
+                let mut lk = c.root_element.borrow().lookup_property(k);
+                lk.is_local_to_component = false;
+                return lk.is_valid_for_assignment();
+            }
+            true
+        })
         .map(|(k, t)| {
             let k = de_normalize_property_name(&element_type, &k).into_owned();
             let mut c = CompletionItem::new_simple(k, t.to_string());
@@ -944,9 +958,60 @@ mod tests {
     }
 
     #[test]
+    fn in_element() {
+        let source = r#"
+            component Bar inherits TouchArea {
+                callback the-callback();
+                private property <int> priv_prop;
+                in property <[string]> in_prop;
+                out property <string> out_prop;
+                property <int> priv_prop2;
+                function priv_func() {}
+                public pure function pub_func() {}
+                @children
+            }
+            component Foo {
+                Bar {
+                    🔺
+
+                    property <int> local-prop;
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        // from TouchArea
+        res.iter().find(|ci| ci.label == "enabled").unwrap();
+        res.iter().find(|ci| ci.label == "clicked").unwrap();
+        // general
+        res.iter().find(|ci| ci.label == "width").unwrap();
+        res.iter().find(|ci| ci.label == "y").unwrap();
+        res.iter().find(|ci| ci.label == "accessible-role").unwrap();
+        res.iter().find(|ci| ci.label == "opacity").unwrap();
+        // from Bar
+        res.iter().find(|ci| ci.label == "in_prop").unwrap();
+        res.iter().find(|ci| ci.label == "the-callback").unwrap();
+        // local
+        res.iter().find(|ci| ci.label == "local-prop").unwrap();
+        // no functions, no private stuff
+        assert_eq!(res.iter().find(|ci| ci.label == "out_prop"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "priv_prop"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "priv_prop1"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "priv_func"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "pub_func"), None);
+
+        // elements
+        let class = Some(CompletionItemKind::CLASS);
+        assert_eq!(res.iter().find(|ci| ci.label == "Bar").unwrap().kind, class);
+        assert_eq!(res.iter().find(|ci| ci.label == "Text").unwrap().kind, class);
+        assert_eq!(res.iter().find(|ci| ci.label == "Rectangle").unwrap().kind, class);
+        assert_eq!(res.iter().find(|ci| ci.label == "TouchArea").unwrap().kind, class);
+        assert_eq!(res.iter().find(|ci| ci.label == "VerticalLayout").unwrap().kind, class);
+    }
+
+    #[test]
     fn dashes_and_underscores() {
         let in_element = r#"
-            component Bar { property <string> super_property-1; }
+            component Bar { in property <string> super_property-1; }
             component Foo {
                 Bar {
                     function nope() {}
@@ -961,14 +1026,14 @@ mod tests {
         component Foo {
             function hello_world() {}
             Bar {
-                property <string> super_property-1;
+                in property <string> super_property-1;
                 pure callback with_underscores-and_dash();
                 width: 🔺
             }
         }
         "#;
         let in_expr2 = r#"
-        component Bar { property <string> super_property-1; }
+        component Bar { in property <string> super_property-1; }
         component Foo {
             property <int> nope;
             Bar {
