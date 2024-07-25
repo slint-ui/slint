@@ -24,10 +24,10 @@ env_logger = "0.11.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14.1"
-openssl = { version = "0.10", features = ["vendored"] }
+openssl = { version = "0.10", features = ["vendored"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-openweather_sdk = "0.1.8"
+openweather_sdk = { version = "0.1.8", optional = true }
 tokio = "1.37.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -41,6 +41,7 @@ slint-build = { path = "../../api/rs/build" }
 
 [features]
 default = ["chrono"]
+open_weather = ["dep:openweather_sdk", "dep:openssl"]
 
 # Android-activity / wasm support
 [lib]

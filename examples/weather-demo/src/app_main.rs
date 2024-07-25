@@ -9,7 +9,7 @@ use crate::weather;
 use weather::DummyWeatherController;
 use weather::{WeatherControllerPointer, WeatherControllerSharedPointer, WeatherDisplayController};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
 use weather::OpenWeatherController;
 
 pub struct AppHandler {
@@ -21,12 +21,13 @@ pub struct AppHandler {
 
 impl AppHandler {
     pub fn new() -> Self {
-        #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
+        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_weather")), allow(unused_mut))]
         let mut support_add_city = false;
-        #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
+
+        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_weather")), allow(unused_mut))]
         let mut data_controller_opt: Option<WeatherControllerPointer> = None;
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
         {
             if let Some(api_key) = std::option_env!("RUSTY_WEATHER_API_KEY") {
                 data_controller_opt = Some(Box::new(OpenWeatherController::new(api_key.into())));

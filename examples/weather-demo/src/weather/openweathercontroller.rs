@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#![cfg(not(target_arch = "wasm32"))]
+#![cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
 
 use chrono::DateTime;
 use openweather_sdk::responses::{GeocodingResponse, OneCallResponse};
