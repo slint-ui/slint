@@ -230,7 +230,7 @@ pub fn file_local_components(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "preview-engine"))]
 mod tests {
     use super::*;
 

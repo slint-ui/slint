@@ -326,7 +326,7 @@ pub fn rename_component_from_definition(
         .ok_or("Failed to create workspace edit".into())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "preview-engine"))]
 mod tests {
     use lsp_types::Url;
 
@@ -532,7 +532,7 @@ export component Foo { }
                     r#"
 import { Foo as Bar } from "source.slint";
 
-export component UserComponent { 
+export component UserComponent {
     Bar { }
 }
 
@@ -545,7 +545,7 @@ export { Bar }
                     r#"
 import { Foo as XxxYyyZzz } from "source.slint";
 
-export component User2Component { 
+export component User2Component {
     XxxYyyZzz { }
 }
                 "#
@@ -647,7 +647,7 @@ export component Foo { }
                     r#"
 import { Foo as Bar } from "../s/source.slint";
 
-export component UserComponent { 
+export component UserComponent {
     Bar { }
 }
 
@@ -660,7 +660,7 @@ export { Bar }
                     r#"
 import { Foo as XxxYyyZzz } from "../s/source.slint";
 
-export component User2Component { 
+export component User2Component {
     XxxYyyZzz { }
 }
                 "#
