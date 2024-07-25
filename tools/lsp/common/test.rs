@@ -112,9 +112,9 @@ pub fn recompile_test_with_sources(
         },
     ));
 
-    i_slint_core::debug_log!("Test source diagnostics:");
+    eprintln!("Test source diagnostics:");
     for d in diagnostics.iter() {
-        i_slint_core::debug_log!("    {d}");
+        eprintln!("    {d}");
     }
     assert!(!diagnostics.has_errors());
     if !allow_warnings {
