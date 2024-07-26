@@ -266,6 +266,11 @@ impl WeatherController for OpenWeatherController {
         if let Some(storage_path) = &self.storage_path {
             log::debug!("Saving data to: {:?}", storage_path.to_str());
 
+            // Ensure the parent directories exist
+            if let Some(parent_dir) = storage_path.parent() {
+                std::fs::create_dir_all(parent_dir)?;
+            }
+
             let file = File::create(storage_path)?;
             let mut writer = BufWriter::new(file);
             let city_clients = self.city_clients.clone();
