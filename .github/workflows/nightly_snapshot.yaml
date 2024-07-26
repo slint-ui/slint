@@ -564,4 +564,4 @@ jobs:
                   path: |
                     target/release/apk/energy-monitor.apk
                     target/release/apk/todo_lib.apk
-                    target/release/apk/weather-demo.apk
+                    target/release/apk/rusty_weather_lib.apk
