@@ -556,7 +556,7 @@ jobs:
             - name: Build todo demo
               run: cargo apk build -p todo --target aarch64-linux-android --lib --release
             - name: Build rusty-weather example
-              run: cargo apk build -p weather-demo --target aarch64-linux-android --lib --release
+              run: cargo apk build -p rusty-weather --target aarch64-linux-android --lib --release
             - name: "upload APK artifact"
               uses: actions/upload-artifact@v4
               with:
