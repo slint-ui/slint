@@ -16,6 +16,8 @@ use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
 
+mod named_colors;
+
 /// Contains information which allow to lookup identifier in expressions
 pub struct LookupCtx<'a> {
     /// the name of the property for which this expression refers.
@@ -550,7 +552,7 @@ impl LookupObject for ColorSpecific {
         _ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        for (name, c) in css_color_parser2::NAMED_COLORS.iter() {
+        for (name, c) in named_colors::named_colors().iter() {
             if let Some(r) = f(name, Self::as_result(*c)) {
                 return Some(r);
             }
@@ -558,13 +560,11 @@ impl LookupObject for ColorSpecific {
         None
     }
     fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        css_color_parser2::NAMED_COLORS.get(name).map(|c| Self::as_result(*c))
+        named_colors::named_colors().get(name).map(|c| Self::as_result(*c))
     }
 }
 impl ColorSpecific {
-    fn as_result(c: css_color_parser2::Color) -> LookupResult {
-        let value =
-            ((c.a as u32 * 255) << 24) | ((c.r as u32) << 16) | ((c.g as u32) << 8) | (c.b as u32);
+    fn as_result(value: u32) -> LookupResult {
         Expression::Cast {
             from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
             to: Type::Color,
