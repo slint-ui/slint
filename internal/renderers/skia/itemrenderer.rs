@@ -9,6 +9,7 @@ use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, P
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
+use i_slint_core::graphics::ApproxEq;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderImage, RenderText,
 };
@@ -61,20 +62,31 @@ impl<'a> SkiaItemRenderer<'a> {
         }
     }
 
+    fn default_paint(&self) -> Option<skia_safe::Paint> {
+        if self.current_state.alpha.approx_eq(&1.0) {
+            None
+        } else {
+            let mut paint = skia_safe::Paint::default();
+            paint.set_alpha_f(self.current_state.alpha);
+            Some(paint)
+        }
+    }
+
     fn brush_to_paint(
         &self,
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
-        let (mut paint, shader) = Self::brush_to_shader(brush, width, height)?;
+        let (mut paint, shader) =
+            Self::brush_to_shader(self.default_paint().unwrap_or_default(), brush, width, height)?;
         paint.set_shader(Some(shader));
-        paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
 
         Some(paint)
     }
 
     fn brush_to_shader(
+        mut paint: skia_safe::Paint,
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
@@ -82,8 +94,6 @@ impl<'a> SkiaItemRenderer<'a> {
         if brush.is_transparent() {
             return None;
         }
-
-        let mut paint = skia_safe::Paint::default();
 
         match brush {
             Brush::SolidColor(color) => Some(skia_safe::shaders::color(to_skia_color(&color))),
@@ -144,6 +154,7 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         Self::brush_to_shader(
+            skia_safe::Paint::default(), // Don't use the renderer's default paint because alpha is applied later
             colorize_brush,
             PhysicalLength::new(image.width() as f32),
             PhysicalLength::new(image.height() as f32),
@@ -247,7 +258,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 if let Some(shader) = skia_image.make_subset(None, &src).and_then(|i| {
                     i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
                 }) {
-                    let mut paint = skia_safe::Paint::default();
+                    let mut paint = self.default_paint().unwrap_or_default();
                     paint.set_shader(shader);
                     self.canvas.draw_paint(&paint);
                 }
@@ -260,7 +271,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     skia_image.clone(),
                     skia_safe::Point::default(),
                     filter_mode,
-                    None,
+                    self.default_paint().as_ref(),
                 );
             }
 
@@ -283,13 +294,11 @@ impl<'a> SkiaItemRenderer<'a> {
             });
             children_rect.size_length()
         }) {
-            let mut tint = skia_safe::Paint::default();
-            tint.set_alpha_f(self.current_state.alpha);
             self.canvas.draw_image_with_sampling_options(
                 layer_image,
                 skia_safe::Point::default(),
                 skia_safe::sampling_options::FilterMode::Linear,
-                Some(&tint),
+                self.default_paint().as_ref(),
             );
         }
         RenderingResult::ContinueRenderingWithoutChildren
@@ -863,7 +872,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     }
 
     fn draw_string(&mut self, string: &str, color: i_slint_core::Color) {
-        let mut paint = skia_safe::Paint::default();
+        let mut paint = self.default_paint().unwrap_or_default();
         paint.set_color(to_skia_color(&color));
         self.canvas.draw_str(
             string,
@@ -887,7 +896,11 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             None => return,
         };
 
-        self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
+        self.canvas.draw_image(
+            skia_image,
+            skia_safe::Point::default(),
+            self.default_paint().as_ref(),
+        );
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {
