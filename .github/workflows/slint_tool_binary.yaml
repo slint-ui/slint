@@ -124,6 +124,40 @@ jobs:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-linux
                   path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
 
+    build_linux_arm:
+      runs-on: ubuntu-20.04
+      strategy:
+        matrix:
+            target:
+                - armv7-unknown-linux-gnueabihf
+                - aarch64-unknown-linux-gnu
+      steps:
+          - uses: actions/checkout@v4
+          - uses: ./.github/actions/setup-rust
+            with:
+                target: x86_64-unknown-linux-gnu
+          - uses: baptiste0928/cargo-install@v3
+            with:
+                crate: cross
+          - uses: baptiste0928/cargo-install@v3
+            with:
+                crate: cargo-about
+          - name: Build
+            run: cross build --target=${{ matrix.target }} --no-default-features --features backend-qt,${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+          - name: Create artifact directory
+            run: |
+                mkdir -p slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+                cp target//${{ matrix.target }}/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}/
+                cd tools/${{ github.event.inputs.program || inputs.program }}
+                ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+          - name: Tar artifacts to preserve permissions
+            run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+          - name: Upload artifact
+            uses: actions/upload-artifact@v4
+            with:
+                name: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+                path: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz
+
     build_macos:
         runs-on: macos-12
         steps:

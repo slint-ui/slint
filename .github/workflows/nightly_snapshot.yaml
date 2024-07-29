@@ -482,6 +482,12 @@ jobs:
                   name: slint-lsp-linux
             - uses: actions/download-artifact@v4
               with:
+                  name: slint-lsp-linux-armv7-unknown-linux-gnueabihf
+            - uses: actions/download-artifact@v4
+              with:
+                  name: slint-lsp-linux-aarch64-unknown-linux-gnu
+            - uses: actions/download-artifact@v4
+              with:
                   name: slint-lsp-windows
             - uses: actions/download-artifact@v4
               with:
@@ -494,6 +500,8 @@ jobs:
                   mv slint-viewer-linux.tar.gz artifacts/
                   mv slint-viewer-macos.tar.gz artifacts/
                   mv slint-lsp-linux.tar.gz artifacts/
+                  mv slint-lsp-linux-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
+                  mv slint-lsp-linux-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-lsp-macos.tar.gz artifacts/
             - name: Extract Version
               id: version
