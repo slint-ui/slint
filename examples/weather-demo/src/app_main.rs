@@ -29,7 +29,7 @@ impl AppHandler {
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
         {
-            if let Some(api_key) = std::option_env!("RUSTY_WEATHER_API_KEY") {
+            if let Some(api_key) = std::option_env!("OPEN_WEATHER_API_KEY") {
                 data_controller_opt = Some(Box::new(OpenWeatherController::new(api_key.into())));
                 support_add_city = true;
             }

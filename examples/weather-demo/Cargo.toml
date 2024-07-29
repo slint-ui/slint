@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 [package]
-name = "rusty-weather"
+name = "weather-demo"
 version = "1.7.1"
 authors = ["FELGO GmbH <contact@felgo.com>"]
 edition = "2021"
@@ -45,9 +45,13 @@ open_weather = ["dep:openweather_sdk", "dep:openssl"]
 
 # Android-activity / wasm support
 [lib]
-name="rusty_weather_lib"
+name="weather_demo_lib"
 crate-type = ["lib", "cdylib"]
 path = "src/lib.rs"
+
+[[bin]]
+name = "weather-demo"
+path = "src/main.rs"
 
 # Andoroid settings
 # See more: https://github.com/rust-mobile/cargo-apk?tab=readme-ov-file#manifest
@@ -57,7 +61,7 @@ resources = "android-res"
 build_targets = [ "aarch64-linux-android" ]
 
 [package.metadata.android.application]
-label = "Rusty Weather"
+label = "Weather Demo"
 icon = "@mipmap/ic_launcher"
 
 [[package.metadata.android.uses_permission]]
