@@ -473,6 +473,12 @@ jobs:
                   name: slint-viewer-linux
             - uses: actions/download-artifact@v4
               with:
+                  name: slint-viewer-armv7-unknown-linux-gnueabihf
+            - uses: actions/download-artifact@v4
+              with:
+                  name: slint-viewer-aarch64-unknown-linux-gnu
+            - uses: actions/download-artifact@v4
+              with:
                   name: slint-viewer-windows
             - uses: actions/download-artifact@v4
               with:
@@ -498,6 +504,8 @@ jobs:
                   mv Slint-cpp-*-win64*.exe artifacts/
                   mv Slint-cpp-*-Linux-x86_64.tar.gz artifacts/
                   mv slint-viewer-linux.tar.gz artifacts/
+                  mv slint-viewer-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
+                  mv slint-viewer-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-viewer-macos.tar.gz artifacts/
                   mv slint-lsp-linux.tar.gz artifacts/
                   mv slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
