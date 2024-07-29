@@ -30,81 +30,13 @@ impl super::Surface for OpenGLSurface {
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
-        let width: std::num::NonZeroU32 = size.width.try_into().map_err(|_| {
-            format!("Attempting to create window surface with an invalid width: {}", size.width)
-        })?;
-        let height: std::num::NonZeroU32 = size.height.try_into().map_err(|_| {
-            format!("Attempting to create window surface with an invalid height: {}", size.height)
-        })?;
-
-        let window_handle = window_handle
-            .window_handle()
-            .map_err(|e| format!("error obtaining window handle for skia opengl renderer: {e}"))?;
-        let display_handle = display_handle
-            .display_handle()
-            .map_err(|e| format!("error obtaining display handle for skia opengl renderer: {e}"))?;
-
-        let (current_glutin_context, glutin_surface) =
-            Self::init_glutin(window_handle, display_handle, width, height)?;
-
-        glutin_surface.resize(&current_glutin_context, width, height);
-
-        let fb_info = {
-            use glow::HasContext;
-
-            let gl = unsafe {
-                glow::Context::from_loader_function_cstr(|name| {
-                    current_glutin_context.display().get_proc_address(name) as *const _
-                })
-            };
-            let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
-
-            skia_safe::gpu::gl::FramebufferInfo {
-                fboid: fboid.try_into().map_err(|_| {
-                    format!("Skia Renderer: Internal error, framebuffer binding returned signed id")
-                })?,
-                format: skia_safe::gpu::gl::Format::RGBA8.into(),
-                ..Default::default()
-            }
-        };
-
-        let gl_interface = skia_safe::gpu::gl::Interface::new_load_with_cstr(|name| {
-            current_glutin_context.display().get_proc_address(name) as *const _
-        })
-        .ok_or_else(|| {
-            format!("Skia Renderer: Internal Error: Could not create OpenGL Interface")
-        })?;
-
-        let mut gr_context =
-            skia_safe::gpu::direct_contexts::make_gl(gl_interface, None).ok_or_else(|| {
-                format!("Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface")
-            })?;
-
-        let width: i32 = size.width.try_into().map_err(|e| {
-                format!("Attempting to create window surface with width that doesn't fit into non-zero i32: {e}")
-            })?;
-        let height: i32 = size.height.try_into().map_err(|e| {
-                format!(
-                    "Attempting to create window surface with height that doesn't fit into non-zero i32: {e}"
-                )
-            })?;
-
-        let surface = Self::create_internal_surface(
-            fb_info,
-            &current_glutin_context,
-            &mut gr_context,
-            width,
-            height,
-        )?
-        .into();
-
-        Ok(Self {
-            fb_info,
-            surface,
-            gr_context: RefCell::new(gr_context),
-            glutin_context: current_glutin_context,
-            glutin_surface,
-        })
+        Self::new_with_config(
+            window_handle,
+            display_handle,
+            size,
+            glutin::config::ConfigTemplateBuilder::new(),
+            None,
+        )
     }
 
     fn name(&self) -> &'static str {
@@ -206,11 +138,103 @@ impl super::Surface for OpenGLSurface {
 }
 
 impl OpenGLSurface {
+    pub fn new_with_config(
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        size: PhysicalWindowSize,
+        config_builder: glutin::config::ConfigTemplateBuilder,
+        config_filter: Option<&dyn Fn(&glutin::config::Config) -> bool>,
+    ) -> Result<Self, PlatformError> {
+        let width: std::num::NonZeroU32 = size.width.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid width: {}", size.width)
+        })?;
+        let height: std::num::NonZeroU32 = size.height.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid height: {}", size.height)
+        })?;
+
+        let window_handle = window_handle
+            .window_handle()
+            .map_err(|e| format!("error obtaining window handle for skia opengl renderer: {e}"))?;
+        let display_handle = display_handle
+            .display_handle()
+            .map_err(|e| format!("error obtaining display handle for skia opengl renderer: {e}"))?;
+
+        let (current_glutin_context, glutin_surface) = Self::init_glutin(
+            window_handle,
+            display_handle,
+            width,
+            height,
+            config_builder,
+            config_filter,
+        )?;
+
+        glutin_surface.resize(&current_glutin_context, width, height);
+
+        let fb_info = {
+            use glow::HasContext;
+
+            let gl = unsafe {
+                glow::Context::from_loader_function_cstr(|name| {
+                    current_glutin_context.display().get_proc_address(name) as *const _
+                })
+            };
+            let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
+
+            skia_safe::gpu::gl::FramebufferInfo {
+                fboid: fboid.try_into().map_err(|_| {
+                    format!("Skia Renderer: Internal error, framebuffer binding returned signed id")
+                })?,
+                format: skia_safe::gpu::gl::Format::RGBA8.into(),
+                ..Default::default()
+            }
+        };
+
+        let gl_interface = skia_safe::gpu::gl::Interface::new_load_with_cstr(|name| {
+            current_glutin_context.display().get_proc_address(name) as *const _
+        })
+        .ok_or_else(|| {
+            format!("Skia Renderer: Internal Error: Could not create OpenGL Interface")
+        })?;
+
+        let mut gr_context =
+            skia_safe::gpu::direct_contexts::make_gl(gl_interface, None).ok_or_else(|| {
+                format!("Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface")
+            })?;
+
+        let width: i32 = size.width.try_into().map_err(|e| {
+                format!("Attempting to create window surface with width that doesn't fit into non-zero i32: {e}")
+            })?;
+        let height: i32 = size.height.try_into().map_err(|e| {
+                format!(
+                    "Attempting to create window surface with height that doesn't fit into non-zero i32: {e}"
+                )
+            })?;
+
+        let surface = Self::create_internal_surface(
+            fb_info,
+            &current_glutin_context,
+            &mut gr_context,
+            width,
+            height,
+        )?
+        .into();
+
+        Ok(Self {
+            fb_info,
+            surface,
+            gr_context: RefCell::new(gr_context),
+            glutin_context: current_glutin_context,
+            glutin_surface,
+        })
+    }
+
     fn init_glutin(
         _window_handle: raw_window_handle::WindowHandle<'_>,
         _display_handle: raw_window_handle::DisplayHandle<'_>,
         width: NonZeroU32,
         height: NonZeroU32,
+        config_template_builder: glutin::config::ConfigTemplateBuilder,
+        config_filter: Option<&dyn Fn(&glutin::config::Config) -> bool>,
     ) -> Result<
         (
             glutin::context::PossiblyCurrentContext,
@@ -239,8 +263,6 @@ impl OpenGLSurface {
                 })?
         };
 
-        let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
-
         // On macOS, there's only one GL config and that's initialized based on the values in the config template
         // builder. So if that one has transparency enabled, it'll show up in the config, and will be set on the
         // context later. So we must enable it here, there's no way of enabling it later.
@@ -262,6 +284,7 @@ impl OpenGLSurface {
             gl_display
                 .find_configs(config_template)
                 .map_err(|e| format!("Could not find valid OpenGL display configurations: {e}"))?
+                .filter(|config| config_filter.as_ref().map_or(true, |filter_fn| filter_fn(config)))
                 .reduce(|accum, config| {
                     let transparency_check = config.supports_transparency().unwrap_or(false)
                         & !accum.supports_transparency().unwrap_or(false);
