@@ -3128,7 +3128,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {
             ctx.generator_state.conditional_includes.iostream.set(true);
-            format!("slint::private_api::slint_debug({});", a.join(","))
+            format!("slint::private_api::debug({});", a.join(","))
         }
         BuiltinFunction::Mod => {
             ctx.generator_state.conditional_includes.cmath.set(true);

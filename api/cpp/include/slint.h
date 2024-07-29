@@ -124,7 +124,7 @@ upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
     }
 }
 
-inline void slint_debug(const SharedString &str)
+inline void debug(const SharedString &str)
 {
     cbindgen_private::slint_debug(&str);
 }
