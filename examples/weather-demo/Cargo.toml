@@ -46,7 +46,7 @@ open_weather = ["dep:openweather_sdk", "dep:openssl"]
 # Android-activity / wasm support
 [lib]
 name="rusty_weather_lib"
-crate-type = ["cdylib"]
+crate-type = ["lib", "cdylib"]
 path = "src/lib.rs"
 
 # Andoroid settings
@@ -55,10 +55,6 @@ path = "src/lib.rs"
 package = "dev.slint.examples.weatherdemo"
 resources = "android-res"
 build_targets = [ "aarch64-linux-android" ]
-
-[package.metadata.android.sdk]
-min_sdk_version = 29
-target_sdk_version = 32
 
 [package.metadata.android.application]
 label = "Rusty Weather"
