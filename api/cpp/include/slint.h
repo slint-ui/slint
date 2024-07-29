@@ -124,6 +124,11 @@ upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
     }
 }
 
+inline void debug(const SharedString &str)
+{
+    cbindgen_private::slint_debug(&str);
+}
+
 } // namespace private_api
 
 template<typename T>

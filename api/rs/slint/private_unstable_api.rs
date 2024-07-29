@@ -127,12 +127,7 @@ pub fn debug(s: SharedString) {
     #[cfg(feature = "log")]
     log::debug!("{s}");
     #[cfg(not(feature = "log"))]
-    {
-        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
-        println!("{s}");
-        #[cfg(any(not(feature = "std"), target_arch = "wasm32"))]
-        i_slint_core::debug_log!("{s}");
-    }
+    i_slint_core::debug_log!("{s}");
 }
 
 pub fn ensure_backend() -> Result<(), crate::PlatformError> {

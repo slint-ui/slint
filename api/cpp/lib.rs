@@ -152,6 +152,11 @@ pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) 
     }
 }
 
+#[no_mangle]
+pub extern "C" fn slint_debug(string: &SharedString) {
+    i_slint_core::debug_log!("{string}");
+}
+
 #[cfg(not(feature = "std"))]
 mod allocator {
     use core::alloc::Layout;
