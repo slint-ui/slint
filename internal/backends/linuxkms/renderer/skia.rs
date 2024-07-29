@@ -53,16 +53,17 @@ impl SkiaRendererAdapter {
         let drm_output = DrmOutput::new(device_opener)?;
         let display = Rc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
 
-        use i_slint_renderer_skia::Surface;
-
         let (width, height) = display.drm_output.size();
         let size = i_slint_core::api::PhysicalSize::new(width, height);
 
-        let skia_gl_surface = i_slint_renderer_skia::opengl_surface::OpenGLSurface::new(
-            display.clone(),
-            display.clone(),
-            size,
-        )?;
+        let skia_gl_surface =
+            i_slint_renderer_skia::opengl_surface::OpenGLSurface::new_with_config(
+                display.clone(),
+                display.clone(),
+                size,
+                display.config_template_builder(),
+                Some(&|config| display.filter_gl_config(config)),
+            )?;
 
         let renderer = Box::new(Self {
             renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(

@@ -49,12 +49,13 @@ impl GlContextWrapper {
             .map_err(|e| format!("Error creating EGL display: {e}"))?
         };
 
-        let config_template = glutin::config::ConfigTemplateBuilder::new().build();
+        let config_template = gbm_display.config_template_builder().build();
 
         let config = unsafe {
             gl_display
                 .find_configs(config_template)
                 .map_err(|e| format!("Error locating EGL configs: {e}"))?
+                .filter(|config| gbm_display.filter_gl_config(config))
                 .reduce(|accum, config| {
                     let transparency_check = config.supports_transparency().unwrap_or(false)
                         & !accum.supports_transparency().unwrap_or(false);

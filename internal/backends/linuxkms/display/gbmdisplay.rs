@@ -22,6 +22,7 @@ pub struct GbmDisplay {
     pub drm_output: DrmOutput,
     gbm_surface: gbm::Surface<OwnedFramebufferHandle>,
     gbm_device: gbm::Device<SharedFd>,
+    surface_format: drm::buffer::DrmFourcc,
 }
 
 impl GbmDisplay {
@@ -31,17 +32,42 @@ impl GbmDisplay {
         let gbm_device = gbm::Device::new(drm_output.drm_device.clone())
             .map_err(|e| format!("Error creating gbm device: {e}"))?;
 
+        let surface_format = gbm::Format::Xrgb8888;
+
         let (width, height) = drm_output.size();
         let gbm_surface = gbm_device
             .create_surface::<OwnedFramebufferHandle>(
                 width,
                 height,
-                gbm::Format::Xrgb8888,
+                surface_format,
                 gbm::BufferObjectFlags::SCANOUT | gbm::BufferObjectFlags::RENDERING,
             )
             .map_err(|e| format!("Error creating gbm surface: {e}"))?;
 
-        Ok(GbmDisplay { drm_output, gbm_surface, gbm_device })
+        Ok(GbmDisplay { drm_output, gbm_surface, gbm_device, surface_format })
+    }
+
+    pub fn config_template_builder(&self) -> glutin::config::ConfigTemplateBuilder {
+        let mut config_template_builder = glutin::config::ConfigTemplateBuilder::new();
+
+        // Some drivers (like mali) report BAD_MATCH when trying to create a window surface for an xrgb backed
+        // gbm surface with an EGL config that has an alpha size of 8. Disable alpha explicitly to accomodate.
+        if matches!(self.surface_format, drm::buffer::DrmFourcc::Xrgb8888) {
+            config_template_builder =
+                config_template_builder.with_transparency(false).with_alpha_size(0);
+        }
+
+        config_template_builder
+    }
+
+    pub fn filter_gl_config(&self, config: &glutin::config::Config) -> bool {
+        match &config {
+            glutin::config::Config::Egl(egl_config) => {
+                drm::buffer::DrmFourcc::try_from(egl_config.native_visual())
+                    .map_or(false, |egl_config_fourcc| egl_config_fourcc == self.surface_format)
+            }
+            _ => false,
+        }
     }
 }
 
