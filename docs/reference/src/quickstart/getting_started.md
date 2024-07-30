@@ -2,7 +2,7 @@
 
 # Getting started
 
-This tutorial shows you how to use the languages Slint supports as the host programming language.
+This tutorial shows you how to use the languages that Slint supports as the host programming language.
 
 We recommend using [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
@@ -134,7 +134,7 @@ Run the example with `npm start` and a window appears with the green "Hello Worl
 
 We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
-Let's create a new Rust application and add `slint` ad a dependency
+Let's create a new Rust application and add `slint` as a dependency
 
 ```sh
 cargo new memory
