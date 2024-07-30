@@ -101,7 +101,7 @@ impl RenderingRotation {
 #[cfg(any(
     feature = "renderer-skia-vulkan",
     feature = "renderer-software",
-    feature = "renderer-skia"
+    feature = "renderer-skia-opengl"
 ))]
 pub(crate) mod timeranimations {
     use i_slint_core::platform::PlatformError;
