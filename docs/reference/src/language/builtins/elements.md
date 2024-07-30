@@ -108,6 +108,7 @@ There can't be several `StandardButton`s of the same kind.
 A callback `<kind>_clicked` is automatically added for each `StandardButton` which doesn't have an explicit
 callback handler, so it can be handled from the native code: For example if there is a button of kind `cancel`,
 a `cancel_clicked` callback will be added.
+Each of these automatically-generated callbacks is an alias for the `clicked` callback of the associated `StandardButton`.
 
 ### Properties
 
