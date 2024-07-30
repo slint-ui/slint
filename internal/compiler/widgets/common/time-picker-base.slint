@@ -512,12 +512,7 @@ export component TimePickerBase {
             return;
         }
 
-        if root.use-24-hour-format {
-            root.update-time(min(root.time-picker-hour, 23), min(root.time-picker-minute, 59));
-            return;
-        }
-
-        root.update-time(min(root.time-picker-hour, 12), min(root.time-picker-minute, 59));
+        root.update-time(min(root.time-picker-hour, root.use-24-hour-format ? 23 : 12), min(root.time-picker-minute, 59));
     }
 
     changed time => {
