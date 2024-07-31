@@ -298,27 +298,26 @@ void ZephyrPlatform::run_event_loop()
             continue;
         }
 
-        std::optional<std::chrono::milliseconds> wait_time;
-
         if (m_window) {
             m_window->maybe_redraw();
 
             if (m_window->window().has_active_animations()) {
                 LOG_DBG("Has active animations");
-                // TODO: Don't hardcode this time period, but also don't block the main thread with
-                // eternal rendering updates.
-                wait_time = 10ms;
+#if defined(CONFIG_ARCH_POSIX)
+                // The Zephyr POSIX architecture used by the native simulator is unable to interrupt
+                // a busy thread. Therefore we must sleep here to allow other threads to progress,
+                // otherwise we end up in an infinite loop.
+                // https://docs.zephyrproject.org/3.7.0/boards/native/doc/arch_soc.html#important-limitations
+                constexpr long simulatorSleepTime = 10;
+                LOG_DBG("Sleeping for %llims", simulatorSleepTime);
+                k_sem_take(&SLINT_SEM, K_MSEC(simulatorSleepTime));
+#endif
+                continue;
             }
         }
 
         if (auto next_timer_update = slint::platform::duration_until_next_timer_update()) {
-            if (wait_time.has_value())
-                wait_time = std::min(wait_time.value(), next_timer_update.value());
-            else
-                wait_time = next_timer_update;
-        }
-        if (wait_time.has_value()) {
-            const auto wait_time_ms = wait_time.value().count();
+            const auto wait_time_ms = next_timer_update.value().count();
             LOG_DBG("Sleeping for %llims", wait_time_ms);
             k_sem_take(&SLINT_SEM, K_MSEC(wait_time_ms));
         } else {
