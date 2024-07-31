@@ -63,6 +63,13 @@ impl NotRunningEventLoop {
                 }
             }
         }
+
+        #[cfg(target_os = "macos")]
+        {
+            use winit::platform::macos::EventLoopBuilderExtMacOS;
+            builder.with_default_menu(false);
+        }
+
         #[cfg(target_family = "windows")]
         {
             use winit::platform::windows::EventLoopBuilderExtWindows;
