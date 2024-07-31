@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#ifndef STM_SLINT_H_
-#define STM_SLINT_H_
+#pragma once
 
 #include <slint-platform.h>
 #include <slint-stm-config.h>
@@ -28,5 +27,3 @@ struct SlintPlatformConfiguration
 };
 
 void slint_stm_init(const SlintPlatformConfiguration &config);
-
-#endif // STM_SLINT_H_
