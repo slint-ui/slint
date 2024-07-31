@@ -6,9 +6,6 @@
 #include <slint-stm.h>
 #include <type_traits>
 
-// C++ Warning in the sdk headers
-#pragma GCC diagnostic ignored "-Wvolatile"
-
 using Pixel = slint::platform::Rgb565Pixel;
 
 struct StmWindowAdapter : public slint::platform::WindowAdapter
