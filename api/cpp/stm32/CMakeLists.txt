@@ -11,10 +11,6 @@ set(Rust_CARGO_TARGET "thumbv7em-none-eabihf")
 
 add_subdirectory(.. slint_build)
 
-set(SLINT_STM32_BSP_H "${SLINT_STM32_BSP_NAME}.h")
-set(SLINT_STM32_BSP_LCD_H "${SLINT_STM32_BSP_NAME}_lcd.h")
-set(SLINT_STM32_BSP_TS_H "${SLINT_STM32_BSP_NAME}_ts.h")
-
 set(header_content
     "#include <${SLINT_STM32_BSP_NAME}.h>
 #include <${SLINT_STM32_BSP_NAME}_lcd.h>
