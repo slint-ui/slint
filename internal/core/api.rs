@@ -302,6 +302,7 @@ pub enum RenderingState {
 /// Internal trait that's used to map rendering state callbacks to either a Rust-API provided
 /// impl FnMut or a struct that invokes a C callback and implements Drop to release the closure
 /// on the C++ side.
+#[doc(hidden)]
 pub trait RenderingNotifier {
     /// Called to notify that rendering has reached a certain state.
     fn notify(&mut self, state: RenderingState, graphics_api: &GraphicsAPI);
