@@ -1304,7 +1304,7 @@ mod tests {
                 item_array_index: 0,
             }],
             subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
         VRc::into_dyn(component)
     }
@@ -1375,7 +1375,7 @@ mod tests {
                 },
             ],
             subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
         VRc::into_dyn(component)
     }
@@ -1485,7 +1485,7 @@ mod tests {
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
             subtrees: std::cell::RefCell::new(vec![vec![]]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
         vtable::VRc::into_dyn(component)
     }
@@ -1554,7 +1554,7 @@ mod tests {
                 },
             ],
             subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
@@ -1679,7 +1679,7 @@ mod tests {
                 },
             ],
             subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
 
         let sub_component1 = VRc::new(TestItemTree {
@@ -1695,7 +1695,7 @@ mod tests {
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
             subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
         let sub_component2 = VRc::new(TestItemTree {
             parent_component: Some(VRc::into_dyn(sub_component1.clone())),
@@ -1716,7 +1716,7 @@ mod tests {
                 },
             ],
             subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
 
         sub_component1.as_pin_ref().subtrees.replace(vec![vec![sub_component2]]);
@@ -1856,7 +1856,7 @@ mod tests {
                 },
             ],
             subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
+            subtree_index: usize::MAX,
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![

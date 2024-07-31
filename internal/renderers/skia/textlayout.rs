@@ -145,7 +145,7 @@ pub fn create_layout(
     }
 
     let mut paragraph = builder.build();
-    paragraph.layout(max_width.map_or(core::f32::MAX, |physical_width| physical_width.get()));
+    paragraph.layout(max_width.map_or(f32::MAX, |physical_width| physical_width.get()));
 
     let layout_height = PhysicalLength::new(paragraph.height());
 
