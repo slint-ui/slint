@@ -1046,7 +1046,7 @@ fn generate_sub_component(
         );
         quote!(#prop.get() as usize)
     } else {
-        quote!(core::usize::MAX)
+        quote!(usize::MAX)
     };
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
