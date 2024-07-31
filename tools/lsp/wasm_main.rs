@@ -17,7 +17,6 @@ use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
-use serde::Serialize;
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -95,7 +94,7 @@ impl RequestHandler {
         if let Some(f) = self.0.get(&method.as_str()) {
             let param = serde_wasm_bindgen::from_value(params)
                 .map_err(|x| format!("invalid param to handle_request: {x:?}"))?;
-            let r = f(param, ctx).await?;
+            let r = f(param, ctx).await.map_err(|e| e.message)?;
             to_value(&r).map_err(|e| e.to_string().into())
         } else {
             Err("Cannot handle request".into())
