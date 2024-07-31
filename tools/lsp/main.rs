@@ -22,7 +22,10 @@ use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
 };
-use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, Url};
+use lsp_types::{
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, ShowMessageParams,
+    Url,
+};
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
@@ -178,8 +181,13 @@ impl RequestHandler {
                     .send(Message::Response(Response::new_ok(request.id, r)))?,
                 Err(e) => ctx.server_notifier.sender.send(Message::Response(Response::new_err(
                     request.id,
-                    ErrorCode::InternalError as i32,
-                    e.to_string(),
+                    match e.code {
+                        LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
+                        LspErrorCode::InternalError => ErrorCode::InternalError as i32,
+                        LspErrorCode::RequestFailed => ErrorCode::RequestFailed as i32,
+                        LspErrorCode::ContentModified => ErrorCode::ContentModified as i32,
+                    },
+                    e.message,
                 )))?,
             };
         } else {
@@ -418,7 +426,23 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
 
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         "slint/showPreview" => {
-            language::show_preview_command(req.params.as_array().map_or(&[], |x| x.as_slice()), ctx)
+            match language::show_preview_command(
+                req.params.as_array().map_or(&[], |x| x.as_slice()),
+                ctx,
+            ) {
+                Ok(()) => Ok(()),
+                Err(e) => match e.code {
+                    LspErrorCode::RequestFailed => ctx
+                        .server_notifier
+                        .send_notification::<lsp_types::notification::ShowMessage>(
+                        ShowMessageParams {
+                            typ: lsp_types::MessageType::ERROR,
+                            message: e.message,
+                        },
+                    ),
+                    _ => Err(e.message.into()),
+                },
+            }
         }
 
         // Messages from the WASM preview come in as notifications sent by the "editor":
