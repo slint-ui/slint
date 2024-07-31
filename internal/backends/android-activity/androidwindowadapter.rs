@@ -194,16 +194,14 @@ impl AndroidWindowAdapter {
     }
 
     pub fn process_event(&self, event: &PollEvent<'_>) -> Result<ControlFlow<()>, PlatformError> {
-        match event {
-            PollEvent::Wake => {
-                let queue = std::mem::take(&mut *self.event_queue.lock().unwrap());
-                for e in queue {
-                    match e {
-                        Event::Quit => return Ok(ControlFlow::Break(())),
-                        Event::Other(o) => o(),
-                    }
-                }
+        let queue = std::mem::take(&mut *self.event_queue.lock().unwrap());
+        for e in queue {
+            match e {
+                Event::Quit => return Ok(ControlFlow::Break(())),
+                Event::Other(o) => o(),
             }
+        }
+        match event {
             PollEvent::Main(MainEvent::InputAvailable) => {
                 self.process_inputs().map_err(|e| PlatformError::Other(e.to_string()))?
             }
