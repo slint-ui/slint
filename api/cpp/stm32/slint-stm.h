@@ -14,14 +14,18 @@ struct SlintPlatformConfiguration
             = slint::PhysicalSize({ LCD_DEFAULT_WIDTH, LCD_DEFAULT_HEIGHT })
 #endif
             ;
-    unsigned int lcd_layer_0_address
+    unsigned int lcd_layer_0_address =
 #if defined(LCD_LAYER_0_ADDRESS)
-            = LCD_LAYER_0_ADDRESS
+            LCD_LAYER_0_ADDRESS
+#else
+            0
 #endif
             ;
-    unsigned int lcd_layer_1_address
+    unsigned int lcd_layer_1_address =
 #if defined(LCD_LAYER_0_ADDRESS)
-            = LCD_LAYER_1_ADDRESS
+            LCD_LAYER_1_ADDRESS
+#else
+            0
 #endif
             ;
 };
