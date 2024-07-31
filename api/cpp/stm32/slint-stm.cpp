@@ -36,6 +36,14 @@ struct StmSlintPlatform : public slint::platform::Platform
     StmSlintPlatform(slint::PhysicalSize size, std::span<Pixel> buffer1, std::span<Pixel> buffer2)
         : size(size), buffer1(buffer1), buffer2(buffer2)
     {
+        BSP_LCD_LayerConfig_t config;
+        config.X0 = 0;
+        config.X1 = LCD_DEFAULT_WIDTH;
+        config.Y0 = 0;
+        config.Y1 = LCD_DEFAULT_HEIGHT;
+        config.PixelFormat = LCD_PIXEL_FORMAT_RGB565;
+        config.Address = uintptr_t(buffer1.data());
+        BSP_LCD_ConfigLayer(0, 0, &config);
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override
@@ -91,18 +99,15 @@ struct StmSlintPlatform : public slint::platform::Platform
                 }
 
                 if (std::exchange(m_window->needs_redraw, false)) {
+                    // FIXME: wait for vblank
+
                     m_window->m_renderer.render(buffer1, m_window->m_size.width);
 
-                    BSP_LCD_LayerConfig_t config;
-                    config.X0 = 0;
-                    config.X1 = LCD_DEFAULT_WIDTH;
-                    config.Y0 = 0;
-                    config.Y1 = LCD_DEFAULT_HEIGHT;
-                    config.PixelFormat = LCD_PIXEL_FORMAT_RGB565;
-                    config.Address = uintptr_t(buffer1.data());
-                    BSP_LCD_ConfigLayer(0, 0, &config);
+                    SCB_CleanDCache_by_Addr((uint32_t *)buffer1.data(), buffer1.size());
+
+                    BSP_LCD_SetLayerAddress(0, 0, uintptr_t(buffer1.data()));
+
                     std::swap(buffer1, buffer2);
-                    // FIXME: flush caches and wait
                 }
             }
         }
