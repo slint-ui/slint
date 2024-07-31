@@ -6,8 +6,7 @@
 
 1. Unlike the Espressif integration, we don't provide the platform integration as part of the Slint C++ API. In part, this is due to the way Zephyr OS handles device hardware. Zephyr uses the Device Tree to describe the hardware to the device driver model. In order to register an input event call back we need a pointer to a device obtained from a device tree node, and we also need to know how the driver behaves in order to write our callback function. The existing implementation is generic enough to cover the simulator and display shield drivers. A more general solution could be investigated in the future;
 2. Double buffering is not supported as neither the simulator or the hardware used for testing reported it as supported;
-3. If there are active animations, we need to make sure to sleep for a fixed period of time, otherwise the event loop runs forever, never re-rendering and never getting to a state where there are no active animations;
-4. The example doesn't use the full screen on the hardware;
+3. The example doesn't use the full screen on the hardware;
 
 ## Prerequisites
 
