@@ -231,6 +231,13 @@ void ZephyrWindowAdapter::maybe_redraw()
         }
 #endif
 
+#ifdef CONFIG_MCUX_ELCDIF_PXP
+        // The display driver cannot do partial updates when the PXP is using the DMA API.
+        if (const auto ret =
+                    display_write(m_display, 0, 0, &m_buffer_descriptor, m_buffer.data()) != 0) {
+            LOG_WRN("display_write returned non-zero: %d", ret);
+        }
+#else
         m_buffer_descriptor.width = s.width;
         m_buffer_descriptor.height = s.height;
 
@@ -239,6 +246,7 @@ void ZephyrWindowAdapter::maybe_redraw()
                     != 0) {
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
+#endif
         LOG_DBG("   - rendered x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
     }
     const auto displayWriteDelta = k_uptime_delta(&start);
