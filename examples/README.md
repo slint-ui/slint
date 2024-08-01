@@ -250,6 +250,10 @@ examples as well by default
 You can run the examples by going into the node sub-folder and use `npm`, for example:
 
 ```sh
+pushd api/node
+npm install
+npm run compile
+popd
 cd examples/printerdemo/node
 npm install
 npm start
