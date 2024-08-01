@@ -128,7 +128,7 @@ impl<T> JoinHandle<T> {
 // Safety: JoinHandle doesn't access the future, only the
 unsafe impl<T: Send> Send for JoinHandle<T> {}
 
-/// Spawns a Future to execute in the Slint event loop.
+/// Spawns a future to execute in the Slint event loop.
 ///
 /// This function is intended to be invoked only from the main Slint thread that runs the event loop.
 /// The event loop must be initialized prior to calling this function.
@@ -150,29 +150,89 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 ///
 /// The runtime used to execute the future on the main thread is platform-dependent,
 /// for instance, it could be the winit event loop. Therefore, futures that assume a specific runtime
-/// may not work. To overcome this, these futures should be executed in a thread where the specific
-/// runtime is running.
+/// may not work. This may be an issue if you call `.await` on a future created by another
+/// runtime, or pass the future directly to `spawn_local`.
 ///
-/// For Tokio, this can be achieved by awaiting [tokio::spawn](https://docs.rs/tokio/latest/tokio/task/fn.spawn.html)
-/// in the future passed to slint::spawn_local.
+/// Futures from the [smol](https://docs.rs/smol/latest/smol/) runtime always hand off their work to
+/// separate I/O threads that run in parallel to the Slint event loop.
 ///
-/// ```rust
+/// The [Tokio](https://docs.rs/tokio/latest/tokio/index.html) runtime is to the following constraints:
+///
+/// * Tokio futures require entering the context of a global Tokio runtime.
+/// * Tokio futures aren't guaranteed to hand off their work to separate threads and may therefore not complete, because
+/// the Slint runtime can't drive the Tokio runtime.
+/// * Tokio futures require regular yielding to the Tokio runtime for fairness, a constraint that also can't be met by Slint.
+/// * Tokio's [current-thread schedule](https://docs.rs/tokio/latest/tokio/runtime/index.html#current-thread-scheduler)
+/// cannot be used in Slint main thread, because Slint cannot yield to it.
+///
+/// To addresse these constraints, use [async_compat](https://docs.rs/async-compat/latest/async_compat/index.html)'s [Compat::new()](https://docs.rs/async-compat/latest/async_compat/struct.Compat.html#method.new)
+/// to implicitly allocate a shared, multi-threaded Tokio runtime that will be used for Tokio futures.
+///
+/// The following little example demonstrates the use of Tokio's [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) to
+/// read from a network socket. The entire future passed to `spawn_local()` is wrapped in `Compat::new()` to make it run:
+///
+/// ```rust,no_runt
+/// // A dummy TCP server that once reports "Hello World"
 /// # i_slint_backend_testing::init_integration_test_with_mock_time();
-/// // In your main function, create a runtime that runs on the other threads
-/// let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+/// use std::io::Write;
 ///
-/// // ...
-/// // Within the UI thread (for example in a callback handler)
-/// slint::spawn_local(async move {
-///     let result = tokio_runtime.spawn(async move {
-///         // This code is running on the Tokio runtime's thread, you can await futures that depends on Tokio here.
-///         42
-///     }).await.unwrap();
-///     // now we are back on the UI thread so we can do something with the result on the UI thread
-///     assert_eq!(result, 42);
-///     # slint::quit_event_loop();
-/// }).unwrap();
-/// # slint::run_event_loop().unwrap();
+/// let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+/// let local_addr = listener.local_addr().unwrap();
+/// let server = std::thread::spawn(move || {
+///     let mut stream = listener.incoming().next().unwrap().unwrap();
+///     stream.write("Hello World".as_bytes()).unwrap();
+/// });
+///
+/// let slint_future = async move {
+///     use tokio::io::AsyncReadExt;
+///     let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
+///     let mut data = Vec::new();
+///     stream.read_to_end(&mut data).await.unwrap();        
+///     assert_eq!(data, "Hello World".as_bytes());
+///     slint::quit_event_loop().unwrap();
+/// };
+///
+/// // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
+/// // presence of a Tokio run-time.
+/// slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
+///
+/// slint::run_event_loop_until_quit().unwrap();
+///
+/// server.join().unwrap();
+/// ```
+///  
+/// Alternatively, if your application uses `#[tokio::main]` to create a Tokio run-time, wrap the call to enter the Slint
+/// event loop in a call to [`tokio::task::block_in_place`](https://docs.rs/tokio/latest/tokio/task/fn.block_in_place.html):
+///
+/// ```rust, no_run
+/// // A dummy TCP server that once reports "Hello World"
+/// #[tokio::main]
+/// async fn main() {
+///     # i_slint_backend_testing::init_integration_test_with_mock_time();
+///     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+///     let local_addr = listener.local_addr().unwrap();
+///     let server = std::thread::spawn(move || {
+///         use std::io::Write;
+///         let mut stream = listener.incoming().next().unwrap().unwrap();
+///         stream.write("Hello World".as_bytes()).unwrap();
+///     });
+///
+///     let slint_future = async move {
+///         use tokio::io::AsyncReadExt;
+///         let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
+///         let mut data = Vec::new();
+///         stream.read_to_end(&mut data).await.unwrap();        
+///         assert_eq!(data, "Hello World".as_bytes());
+///         slint::quit_event_loop().unwrap();
+///     };
+///
+///     slint::spawn_local(slint_future).unwrap();
+///
+///     // Wrap the call to run_event_loop to ensure presence of a Tokio run-time.
+///     tokio::task::block_in_place(slint::run_event_loop_until_quit).unwrap();
+///
+///     server.join().unwrap();
+/// }
 /// ```
 pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
     // ensure we are in the backend's thread
