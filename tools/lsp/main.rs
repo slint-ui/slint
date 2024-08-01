@@ -22,10 +22,7 @@ use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
 };
-use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, ShowMessageParams,
-    Url,
-};
+use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, Url};
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
@@ -161,7 +158,7 @@ impl ServerNotifier {
             let _ = self.send_notification::<common::LspToPreviewMessage>(message);
         } else {
             #[cfg(feature = "preview-builtin")]
-            preview::lsp_to_preview_message(message, self);
+            preview::lsp_to_preview_message(message);
         }
     }
 
@@ -286,6 +283,9 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         #[cfg(feature = "preview-engine")]
         preview_to_lsp_sender,
     };
+
+    #[cfg(feature = "preview-builtin")]
+    preview::set_server_notifier(server_notifier.clone());
 
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
@@ -435,7 +435,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                     LspErrorCode::RequestFailed => ctx
                         .server_notifier
                         .send_notification::<lsp_types::notification::ShowMessage>(
-                        ShowMessageParams {
+                        lsp_types::ShowMessageParams {
                             typ: lsp_types::MessageType::ERROR,
                             message: e.message,
                         },
@@ -513,6 +513,10 @@ async fn handle_preview_to_lsp_message(
         }
         M::SendWorkspaceEdit { label, edit } => {
             let _ = send_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit)).await;
+        }
+        M::SendShowMessage { message } => {
+            ctx.server_notifier
+                .send_notification::<lsp_types::notification::ShowMessage>(message)?;
         }
     }
     Ok(())

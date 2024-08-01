@@ -179,8 +179,9 @@ fn invoke_from_event_loop_wrapped_in_promise(
 
 pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
     create_future: impl Send + FnOnce() -> F + 'static,
-) {
-    i_slint_core::future::spawn_local(create_future()).unwrap();
+) -> Result<(), String> {
+    i_slint_core::future::spawn_local(create_future()).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 pub fn resource_url_mapper(
