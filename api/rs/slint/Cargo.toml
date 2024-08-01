@@ -200,6 +200,7 @@ slint-build = { path = "../build" }
 i-slint-backend-testing = {  path = "../../../internal/backends/testing", features = ["internal"] }
 serde_json = { workspace = true }
 serde = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"]}
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux

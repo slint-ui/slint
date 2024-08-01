@@ -150,11 +150,40 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 ///
 /// The runtime used to execute the future on the main thread is platform-dependent,
 /// for instance, it could be the winit event loop. Therefore, futures that assume a specific runtime
-/// may not work. To overcome this, these futures should be executed in a thread where the specific
-/// runtime is running.
+/// may not work.
 ///
-/// For Tokio, this can be achieved by awaiting [tokio::spawn](https://docs.rs/tokio/latest/tokio/task/fn.spawn.html)
-/// in the future passed to slint::spawn_local.
+/// The [smol](https://docs.rs/smol/latest/smol/) runtime is known to not have this requirement, it
+/// spawns its own thread on-demand for any blocking operations.
+///
+/// The [Tokio](https://docs.rs/tokio/latest/tokio/index.html) runtime requires that any futures
+/// created by Tokio are polled from within a Tokio runtime. To overcome this limitation, there are
+/// two solutions:
+///
+/// 1) If your application uses [`tokio::main`](https://docs.rs/tokio/latest/tokio/attr.main.html),
+///    wrap any future passed to `slint::spawn_local` inside `tokio::task::unconstrained`:
+///
+/// ```rust
+/// #[tokio::main]
+/// async fn main() {
+/// # i_slint_backend_testing::init_integration_test_with_mock_time();
+///
+///     // Within the UI thread (for example in a callback handler)
+///     slint::spawn_local(tokio::task::unconstrained(async move {
+///         let mut count = 0;
+///         while count < 10 {
+///             // It's okay to await on the Tokio future now.
+///             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+///             count += 1;
+///         }
+///         assert_eq!(count, 10);
+///         # slint::quit_event_loop();
+///     })).unwrap();
+/// # slint::run_event_loop().unwrap();
+/// }
+/// ```
+///
+/// 2) Execute the futures inside a call to [tokio::spawn](https://docs.rs/tokio/latest/tokio/task/fn.spawn.html),
+/// that's awaited on in the future passed to `slint::spawn_local``:
 ///
 /// ```rust
 /// # i_slint_backend_testing::init_integration_test_with_mock_time();
