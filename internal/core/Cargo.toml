@@ -44,6 +44,8 @@ shared-fontdb = ["i-slint-common/shared-fontdb"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
+tokio-1 = ["dep:tokio"]
+
 default = ["std", "unicode"]
 
 [dependencies]
@@ -90,6 +92,8 @@ raw-window-handle-06 = { workspace = true, optional = true }
 bitflags = { version = "2.4.2"}
 
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
+
+tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7", optional = true, features = ["gettext-system"] }

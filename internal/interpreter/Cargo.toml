@@ -113,6 +113,10 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
 raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
 
+## Enable integration between Slint's event loop and [Tokio](https://docs.rs/tokio/latest/tokio/).
+## Enable this feature if you're using `[tokio::main]` in your `main` function.
+tokio-1 = ["i-slint-core/tokio-1"]
+
 ## Features used internally by Slint tooling that are not stable and come without
 ## any stability guarantees whatsoever.
 internal = []

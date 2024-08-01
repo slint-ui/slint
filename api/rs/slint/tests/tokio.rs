@@ -7,7 +7,7 @@ async fn tokio_integration() {
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel(2);
 
-    slint::spawn_local(tokio::task::unconstrained(async move {
+    slint::spawn_local(async move {
         let mut count = 0;
         loop {
             if sender.send(count).await.is_err() {
@@ -15,10 +15,10 @@ async fn tokio_integration() {
             }
             count += 1;
         }
-    }))
+    })
     .unwrap();
 
-    slint::spawn_local(tokio::task::unconstrained(async move {
+    slint::spawn_local(async move {
         loop {
             let count = receiver.recv().await.unwrap();
             if count > 1024 {
@@ -26,7 +26,7 @@ async fn tokio_integration() {
                 break;
             }
         }
-    }))
+    })
     .unwrap();
 
     slint::run_event_loop_until_quit().unwrap();

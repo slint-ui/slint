@@ -84,6 +84,10 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
 raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
 
+## Enable integration between Slint's event loop and [Tokio](https://docs.rs/tokio/latest/tokio/).
+## Enable this feature if you're using `[tokio::main]` in your `main` function.
+tokio-1 = ["i-slint-core/tokio-1"]
+
 #! ### Backends
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.
@@ -201,6 +205,7 @@ i-slint-backend-testing = {  path = "../../../internal/backends/testing", featur
 serde_json = { workspace = true }
 serde = { workspace = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"]}
+i-slint-core = { workspace = true, features = ["tokio-1"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux

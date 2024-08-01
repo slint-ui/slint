@@ -160,27 +160,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// two solutions:
 ///
 /// 1) If your application uses [`tokio::main`](https://docs.rs/tokio/latest/tokio/attr.main.html),
-///    wrap any future passed to `slint::spawn_local` inside `tokio::task::unconstrained`:
-///
-/// ```rust
-/// #[tokio::main]
-/// async fn main() {
-/// # i_slint_backend_testing::init_integration_test_with_mock_time();
-///
-///     // Within the UI thread (for example in a callback handler)
-///     slint::spawn_local(tokio::task::unconstrained(async move {
-///         let mut count = 0;
-///         while count < 10 {
-///             // It's okay to await on the Tokio future now.
-///             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-///             count += 1;
-///         }
-///         assert_eq!(count, 10);
-///         # slint::quit_event_loop();
-///     })).unwrap();
-/// # slint::run_event_loop().unwrap();
-/// }
-/// ```
+///    enable the `tokio-1` feature.
 ///
 /// 2) Execute the futures inside a call to [tokio::spawn](https://docs.rs/tokio/latest/tokio/task/fn.spawn.html),
 /// that's awaited on in the future passed to `slint::spawn_local``:
@@ -216,6 +196,13 @@ pub(crate) fn spawn_local_with_ctx<F: Future + 'static>(
     ctx: &SlintContext,
     fut: F,
 ) -> Result<JoinHandle<F::Output>, EventLoopError> {
+    // When polling, don't require yielding to Tokio. Yielding is enforced by every poll consuming a budget, and
+    // when that budget is used up, Pending is returned to unwind the call stack into the tokio runtime reactor.
+    // That won't happen with spawn_local (we don't return back to `[tokio::main]`), so lift this requirement
+    // and accept the risk of starved runtime: https://docs.rs/tokio/latest/tokio/task/index.html#cooperative-scheduling.
+    #[cfg(feature = "tokio-1")]
+    let fut = tokio::task::unconstrained(fut);
+
     let arc = alloc::sync::Arc::new(FutureRunner {
         #[cfg(feature = "std")]
         thread: std::thread::current().id(),
