@@ -302,6 +302,12 @@ impl SlintServer {
             M::SendWorkspaceEdit { label, edit } => {
                 send_workspace_edit(self.ctx.server_notifier.clone(), label, Ok(edit));
             }
+            M::SendShowMessage { message } => {
+                let _ = self
+                    .ctx
+                    .server_notifier
+                    .send_notification::<lsp_types::notification::ShowMessage>(message);
+            }
         }
         Ok(())
     }

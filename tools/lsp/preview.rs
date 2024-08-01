@@ -1,10 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::properties;
 use crate::common::{
-    self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
-    PreviewComponent, PreviewConfig,
+    self, component_catalog, properties, rename_component, ComponentInformation, ElementRcNode,
+    PreviewComponent, PreviewConfig, PreviewToLspMessage,
 };
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
@@ -16,7 +15,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::model::VecModel;
 use lsp_types::Url;
-use slint::Model;
+use slint::{Model, PlatformError};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -131,13 +130,12 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
-struct DummyWaker();
-
-impl std::task::Wake for DummyWaker {
-    fn wake(self: std::sync::Arc<Self>) {}
-}
-
 pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    struct DummyWaker();
+    impl std::task::Wake for DummyWaker {
+        fn wake(self: std::sync::Arc<Self>) {}
+    }
+
     let waker = std::sync::Arc::new(DummyWaker()).into();
     let mut ctx = std::task::Context::from_waker(&waker);
 
@@ -149,7 +147,7 @@ pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     }
 }
 
-pub fn set_contents(url: &common::VersionedUrl, content: String) {
+fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let old = cache.source_code.insert(url.url().clone(), (*url.version(), content.clone()));
 
@@ -803,10 +801,7 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit) -> bool {
     });
 
     if !workspace_edit_sent {
-        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some(label),
-            edit,
-        });
+        send_message_to_lsp(PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit });
         true
     } else {
         false
@@ -903,7 +898,7 @@ fn finish_parsing(ok: bool) {
     }
 }
 
-pub fn config_changed(config: PreviewConfig) {
+fn config_changed(config: PreviewConfig) {
     if let Some(cache) = CONTENT_CACHE.get() {
         let mut cache = cache.lock().unwrap();
         if cache.config != config {
@@ -941,8 +936,11 @@ fn get_path_from_cache(path: &Path) -> Option<(common::UrlVersion, String)> {
     get_url_from_cache(&url)
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LoadBehavior {
+    /// We reload the preview, most likely because a file has changed
     Reload,
+    /// We load the preview because the user asked for it. The UI should become visible if it wasn't already
     Load,
 }
 
@@ -950,13 +948,14 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         match behavior {
-            LoadBehavior::Reload => { /* do nothing */ }
+            LoadBehavior::Reload => {
+                if !cache.ui_is_visible {
+                    return;
+                }
+            }
             LoadBehavior::Load => cache.push_component(preview_component),
         }
 
-        if !cache.ui_is_visible {
-            return;
-        }
         match cache.loading_state {
             PreviewFutureState::Pending => (),
             PreviewFutureState::PreLoading => return,
@@ -969,7 +968,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         cache.loading_state = PreviewFutureState::PreLoading;
     };
 
-    run_in_ui_thread(move || async move {
+    let result = run_in_ui_thread(move || async move {
         let (selected, notify_editor) = PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             let notify_editor = preview_state.notify_editor_about_selection_after_update;
@@ -984,7 +983,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 cache.clear_style_of_component();
 
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
-                if !cache.ui_is_visible {
+                if !cache.ui_is_visible && behavior != LoadBehavior::Load {
                     cache.loading_state = PreviewFutureState::Pending;
                     return;
                 }
@@ -1013,7 +1012,15 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 }
             });
 
-            reload_preview_impl(preview_component, style, config).await;
+            match reload_preview_impl(preview_component, style, config).await {
+                Ok(()) => {}
+                Err(e) => {
+                    CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().loading_state =
+                        PreviewFutureState::Pending;
+                    send_platform_error_notification(&e.to_string());
+                    return;
+                }
+            }
 
             let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
             match cache.loading_state {
@@ -1061,6 +1068,12 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
             }
         }
     });
+
+    if let Err(e) = result {
+        CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().loading_state =
+            PreviewFutureState::Pending;
+        send_platform_error_notification(&e);
+    }
 }
 
 async fn parse_source(
@@ -1103,7 +1116,11 @@ async fn parse_source(
 }
 
 // Must be inside the thread running the slint event loop
-async fn reload_preview_impl(component: PreviewComponent, style: String, config: PreviewConfig) {
+async fn reload_preview_impl(
+    component: PreviewComponent,
+    style: String,
+    config: PreviewConfig,
+) -> Result<(), PlatformError> {
     start_parsing();
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
@@ -1125,8 +1142,19 @@ async fn reload_preview_impl(component: PreviewComponent, style: String, config:
     notify_diagnostics(&diagnostics);
 
     let success = compiled.is_some();
-    update_preview_area(compiled);
+    update_preview_area(compiled)?;
     finish_parsing(success);
+    Ok(())
+}
+
+/// Sends a notification back to the editor when the preview fails to load because of a slint::PlatormError.
+fn send_platform_error_notification(platform_error_str: &str) {
+    let message = format!("Error displaying the Slint preview window: {platform_error_str}");
+    // Also output the message in the console in case the user missed the notification in the editor
+    eprintln!("{message}");
+    send_message_to_lsp(PreviewToLspMessage::SendShowMessage {
+        message: lsp_types::ShowMessageParams { typ: lsp_types::MessageType::ERROR, message },
+    })
 }
 
 /// This sets up the preview area to show the ComponentInstance
@@ -1174,7 +1202,7 @@ pub fn highlight(url: Option<Url>, offset: u32) {
     let selected = selected_element();
 
     if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependency.contains(url)) {
-        run_in_ui_thread(move || async move {
+        let _ = run_in_ui_thread(move || async move {
             let Some(path) = url.and_then(|u| Url::to_file_path(&u).ok()) else {
                 return;
             };
@@ -1184,7 +1212,7 @@ pub fn highlight(url: Option<Url>, offset: u32) {
                 return;
             }
             element_selection::select_element_at_source_code_position(path, offset, None, false);
-        })
+        });
     }
 }
 
@@ -1376,7 +1404,7 @@ fn document_cache_from(preview_state: &PreviewState) -> Option<Rc<common::Docume
 }
 
 fn set_show_preview_ui(show_preview_ui: bool) {
-    run_in_ui_thread(move || async move {
+    let _ = run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
             if let Some(ui) = &preview_state.ui {
@@ -1440,14 +1468,14 @@ fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
     .unwrap();
 }
 
-/// This runs `set_preview_factory` in the UI thread
-fn update_preview_area(compiled: Option<ComponentDefinition>) {
+/// This ensure that the preview window is visible and runs `set_preview_factory`
+fn update_preview_area(compiled: Option<ComponentDefinition>) -> Result<(), PlatformError> {
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         preview_state.workspace_edit_sent = false;
 
         #[cfg(not(target_arch = "wasm32"))]
-        native::open_ui_impl(&mut preview_state);
+        native::open_ui_impl(&mut preview_state)?;
 
         let ui = preview_state.ui.as_ref().unwrap();
 
@@ -1470,15 +1498,13 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
             reset_selections(ui);
         }
 
-        ui.show().unwrap();
-    });
+        ui.show()
+    })?;
     element_selection::reselect_element();
+    Ok(())
 }
 
-pub fn lsp_to_preview_message(
-    message: crate::common::LspToPreviewMessage,
-    #[cfg(not(target_arch = "wasm32"))] sender: &crate::ServerNotifier,
-) {
+pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
     use crate::common::LspToPreviewMessage as M;
     match message {
         M::SetContents { url, contents } => {
@@ -1488,8 +1514,6 @@ pub fn lsp_to_preview_message(
             config_changed(config);
         }
         M::ShowPreview(pc) => {
-            #[cfg(not(target_arch = "wasm32"))]
-            native::open_ui(sender);
             load_preview(pc, LoadBehavior::Load);
         }
         M::HighlightFromEditor { url, offset } => {

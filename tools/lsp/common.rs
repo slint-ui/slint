@@ -673,6 +673,8 @@ pub enum PreviewToLspMessage {
     RequestState { unused: bool },
     /// Pass a `WorkspaceEdit` on to the editor
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
+    /// Pass a `ShowMessage` notification on to the editor
+    SendShowMessage { message: lsp_types::ShowMessageParams },
 }
 
 /// Information on the Element types available

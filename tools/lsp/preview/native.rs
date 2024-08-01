@@ -4,6 +4,7 @@
 // cSpell: ignore condvar
 
 use super::PreviewState;
+use crate::common::PreviewToLspMessage;
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 use once_cell::sync::Lazy;
@@ -11,7 +12,7 @@ use slint_interpreter::ComponentHandle;
 use std::future::Future;
 use std::sync::{Condvar, Mutex};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum RequestedGuiEventLoopState {
     /// The UI event loop hasn't been started yet because no preview has been requested
     Uninitialized,
@@ -22,6 +23,8 @@ enum RequestedGuiEventLoopState {
     LoopStarted,
     /// The LSP thread requested the application to be terminated
     QuitLoop,
+    /// There was an error when initializing the UI thread
+    InitializationError(String),
 }
 
 static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(Condvar::new);
@@ -32,7 +35,7 @@ thread_local! {static CLI_ARGS: std::cell::OnceCell<crate::Cli> = Default::defau
 
 pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
     create_future: impl Send + FnOnce() -> F + 'static,
-) {
+) -> Result<(), String> {
     // Wake up the main thread to start the event loop, if possible
     {
         let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
@@ -44,19 +47,28 @@ pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
         while *state_request == RequestedGuiEventLoopState::StartLoop {
             state_request = GUI_EVENT_LOOP_NOTIFIER.wait(state_request).unwrap();
         }
+
+        if let RequestedGuiEventLoopState::InitializationError(err) = &*state_request {
+            return Err(err.clone());
+        }
     }
     i_slint_core::api::invoke_from_event_loop(move || {
         i_slint_core::future::spawn_local(create_future()).unwrap();
     })
     .unwrap();
+    Ok(())
 }
 
+/// This is the main entry for the Slint event loop. It runs on the main thread,
+/// but only runs the event loop if a preview is requested to avoid potential
+/// crash so that the LSP works without preview in that case.
 pub fn start_ui_event_loop(cli_args: crate::Cli) {
     CLI_ARGS.with(|f| f.set(cli_args).ok());
 
     {
         let mut state_requested = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
 
+        // Wait until we either quit, or the LSP thread request to start the loop
         while *state_requested == RequestedGuiEventLoopState::Uninitialized {
             state_requested = GUI_EVENT_LOOP_NOTIFIER.wait(state_requested).unwrap();
         }
@@ -67,7 +79,18 @@ pub fn start_ui_event_loop(cli_args: crate::Cli) {
 
         if *state_requested == RequestedGuiEventLoopState::StartLoop {
             // make sure the backend is initialized
-            i_slint_backend_selector::with_platform(|_| Ok(())).unwrap();
+            match i_slint_backend_selector::with_platform(|_| Ok(())) {
+                Ok(_) => {}
+                Err(err) => {
+                    *state_requested =
+                        RequestedGuiEventLoopState::InitializationError(err.to_string());
+                    GUI_EVENT_LOOP_NOTIFIER.notify_one();
+                    while *state_requested != RequestedGuiEventLoopState::QuitLoop {
+                        state_requested = GUI_EVENT_LOOP_NOTIFIER.wait(state_requested).unwrap();
+                    }
+                    return;
+                }
+            };
             // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
             i_slint_core::api::invoke_from_event_loop(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
@@ -96,49 +119,11 @@ pub fn quit_ui_event_loop() {
 
     let _ = i_slint_core::api::quit_event_loop();
 
-    // Make sure then sender channel gets dropped.
-    if let Some(sender) = SERVER_NOTIFIER.get() {
-        let mut sender = sender.lock().unwrap();
-        *sender = None;
-    };
+    // Make sure then sender channel gets dropped, otherwise the lsp thread will never quit
+    *SERVER_NOTIFIER.lock().unwrap() = None
 }
 
-pub fn open_ui(sender: &ServerNotifier) {
-    // Wake up the main thread to start the event loop, if possible
-    {
-        let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
-        if *state_request == RequestedGuiEventLoopState::Uninitialized {
-            *state_request = RequestedGuiEventLoopState::StartLoop;
-            GUI_EVENT_LOOP_NOTIFIER.notify_one();
-        }
-        // We don't want to call post_event before the loop is properly initialized
-        while *state_request == RequestedGuiEventLoopState::StartLoop {
-            state_request = GUI_EVENT_LOOP_NOTIFIER.wait(state_request).unwrap();
-        }
-    }
-
-    {
-        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        if cache.ui_is_visible {
-            return; // UI is already up!
-        }
-        cache.ui_is_visible = true;
-
-        let mut s = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
-        *s = Some(sender.clone());
-    };
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        super::PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-
-            open_ui_impl(&mut preview_state);
-        });
-    })
-    .unwrap();
-}
-
-pub(super) fn open_ui_impl(preview_state: &mut PreviewState) {
+pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint::PlatformError> {
     let (default_style, show_preview_ui, fullscreen) = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         let style = cache.config.style.clone();
@@ -161,21 +146,23 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) {
         .map(|s| !s.is_empty() && s != "0")
         .unwrap_or(false);
 
-    let ui = preview_state
-        .ui
-        .get_or_insert_with(|| super::ui::create_ui(default_style, experimental).unwrap());
+    let ui = match preview_state.ui.as_ref() {
+        Some(ui) => ui,
+        None => {
+            let ui = super::ui::create_ui(default_style, experimental)?;
+            preview_state.ui.insert(ui)
+        }
+    };
+
     let api = ui.global::<crate::preview::ui::Api>();
     api.set_show_preview_ui(show_preview_ui);
     ui.window().set_fullscreen(fullscreen);
     ui.window().on_close_requested(|| {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.ui_is_visible = false;
-
-        let mut sender = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
-        *sender = None;
-
         slint::CloseRequestResponse::HideWindow
     });
+    Ok(())
 }
 
 pub fn close_ui() {
@@ -203,13 +190,17 @@ fn close_ui_impl(preview_state: &mut PreviewState) {
     }
 }
 
-static SERVER_NOTIFIER: std::sync::OnceLock<Mutex<Option<ServerNotifier>>> =
-    std::sync::OnceLock::new();
+static SERVER_NOTIFIER: Mutex<Option<ServerNotifier>> = Mutex::new(None);
+
+/// Give the UI thread a handle to send message back to the LSP thread
+pub fn set_server_notifier(sender: ServerNotifier) {
+    *SERVER_NOTIFIER.lock().unwrap() = Some(sender);
+}
 
 pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
     super::set_diagnostics(diagnostics);
 
-    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
+    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return Some(());
     };
 
@@ -222,7 +213,7 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
 }
 
 pub fn send_status(message: &str, health: Health) {
-    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
+    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return;
     };
 
@@ -230,7 +221,7 @@ pub fn send_status(message: &str, health: Health) {
 }
 
 pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
-    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
+    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return;
     };
     let Ok(url) = lsp_types::Url::from_file_path(file) else { return };
@@ -238,8 +229,8 @@ pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }
 
-pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
-    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
+pub fn send_message_to_lsp(message: PreviewToLspMessage) {
+    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return;
     };
     sender.send_message_to_lsp(message);
