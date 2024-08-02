@@ -47,6 +47,10 @@ struct Cli {
     #[arg(long, name = "style name", action)]
     style: Option<String>,
 
+    /// The constant scale factor to apply for embedded assets and set by default on the window.
+    #[arg(long, name = "scale factor", action)]
+    scale_factor: Option<f64>,
+
     /// Generate a dependency file
     #[arg(name = "dependency file", long = "depfile", number_of_values = 1, action)]
     depfile: Option<std::path::PathBuf>,
@@ -110,6 +114,9 @@ fn main() -> std::io::Result<()> {
         .collect();
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
+    }
+    if let Some(constant_scale_factor) = args.scale_factor {
+        compiler_config.const_scale_factor = constant_scale_factor;
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =

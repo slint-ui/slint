@@ -45,6 +45,9 @@ function(SLINT_TARGET_SOURCES target)
         set(global_fallback "${DEFAULT_SLINT_EMBED_RESOURCES}")
         set(embed "$<IF:$<STREQUAL:${t_prop},>,${global_fallback},${t_prop}>")
 
+        set(scale_factor_target_prop "$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>")
+        set(scale_factor_arg "$<IF:$<STREQUAL:${scale_factor_target_prop},>,,--scale-factor=${scale_factor_target_prop}>")
+
         add_custom_command(
             OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
             COMMAND ${SLINT_COMPILER_ENV} $<TARGET_FILE:Slint::slint-compiler> ${_SLINT_ABSOLUTE}
@@ -55,6 +58,7 @@ function(SLINT_TARGET_SOURCES target)
                 --translation-domain="${target}"
                 ${_SLINT_CPP_NAMESPACE_ARG}
                 ${_SLINT_CPP_LIBRARY_PATHS_ARG}
+                ${scale_factor_arg}
             DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
             COMMENT "Generating ${_SLINT_BASE_NAME}.h"
             DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
