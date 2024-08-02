@@ -5,6 +5,8 @@ use chrono::DateTime;
 use slint::*;
 use std::rc::Rc;
 
+const DATE_TIME_FMT: &str = "%a, %b %d, %Y %H:%M";
+
 use crate::{
     mvc::{TaskListController, TaskListControllerCallbacks, TaskModel},
     ui,
@@ -16,7 +18,10 @@ pub fn create_controller_callbacks(view_handle: &ui::MainWindow) -> TaskListCont
             let view_handle = view_handle.as_weak();
 
             move |task_model| {
-                ui::TaskListAdapter::get(&view_handle.unwrap())
+                let Some(view) = view_handle.upgrade() else {
+                    return;
+                };
+                ui::TaskListAdapter::get(&view)
                     .set_tasks(Rc::new(MapModel::new(task_model, map_task_to_item)).into());
             }
         }),
@@ -24,14 +29,19 @@ pub fn create_controller_callbacks(view_handle: &ui::MainWindow) -> TaskListCont
             let view_handle = view_handle.as_weak();
 
             move || {
-                ui::NavigationAdapter::get(&view_handle.unwrap()).invoke_next_page();
+                let Some(view) = view_handle.upgrade() else {
+                    return;
+                };
+                ui::NavigationAdapter::get(&view).invoke_next_page();
             }
         }),
     }
 }
 
 pub fn initialize_adapter(view_handle: &ui::MainWindow, controller: Rc<TaskListController>) {
-    ui::TaskListAdapter::get(view_handle).on_toggle_task_checked({
+    let adapter = ui::TaskListAdapter::get(view_handle);
+
+    adapter.on_toggle_task_checked({
         let controller = controller.clone();
 
         move |index| {
@@ -39,7 +49,7 @@ pub fn initialize_adapter(view_handle: &ui::MainWindow, controller: Rc<TaskListC
         }
     });
 
-    ui::TaskListAdapter::get(view_handle).on_remove_task({
+    adapter.on_remove_task({
         let controller = controller.clone();
 
         move |index| {
@@ -47,7 +57,7 @@ pub fn initialize_adapter(view_handle: &ui::MainWindow, controller: Rc<TaskListC
         }
     });
 
-    ui::TaskListAdapter::get(view_handle).on_show_create_task({
+    adapter.on_show_create_task({
         let controller = controller.clone();
 
         move || {
@@ -61,10 +71,9 @@ fn map_task_to_item(task: TaskModel) -> ui::SelectionListViewItem {
     ui::SelectionListViewItem {
         text: task.title.into(),
         checked: task.done,
-        description: DateTime::from_timestamp_millis(task.due_date)
+        description: DateTime::from_timestamp_millis(task.due_date_time)
             .unwrap()
-            // example: Thu, Jun 6, 2024 16:29
-            .format("%a, %b %d, %Y %H:%M")
+            .format(DATE_TIME_FMT)
             .to_string()
             .into(),
     }

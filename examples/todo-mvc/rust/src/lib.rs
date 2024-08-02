@@ -2,15 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 use mvc::{CreateTaskController, TaskListController};
+use slint::ComponentHandle;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 pub mod mvc;
 pub mod ui;
-
-mod callback;
-pub use callback::*;
-pub use slint::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
@@ -30,7 +27,6 @@ fn init() -> ui::MainWindow {
     ui::task_list_adapter::initialize_adapter(&view_handle, task_list_controller.clone());
 
     let create_task_controller = CreateTaskController::new(
-        mvc::date_time_repo(),
         ui::create_task_adapter::create_controller_callbacks(&view_handle),
     );
 

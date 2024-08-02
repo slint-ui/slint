@@ -5,7 +5,7 @@
 pub struct TaskModel {
     pub title: String,
 
-    // due date in milliseconds
-    pub due_date: i64,
+    // due date time in milliseconds
+    pub due_date_time: i64,
     pub done: bool,
 }
