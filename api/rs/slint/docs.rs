@@ -37,7 +37,9 @@ pub mod generated_code {
     /// }
     /// ```
     #[derive(Clone)]
-    pub struct SampleComponent {}
+    pub struct SampleComponent {
+        _marker: core::marker::PhantomData<*mut ()>,
+    }
     impl SampleComponent {
         /// Creates a new instance that is reference counted and pinned in memory.
         pub fn new() -> Result<Self, crate::PlatformError> {
