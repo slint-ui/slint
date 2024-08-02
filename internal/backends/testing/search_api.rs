@@ -154,7 +154,7 @@ impl ElementQuery {
 
     /// Include only elements in the results where [`ElementHandle::id()`] is equal to the provided `id`.
     pub fn match_id(mut self, id: impl Into<String>) -> Self {
-        let id = id.into();
+        let id = id.into().replace('_', "-");
         let mut id_split = id.split("::");
         let type_name = id_split.next().map(ToString::to_string);
         let local_id = id_split.next();
@@ -907,4 +907,24 @@ fn test_matches() {
     assert_eq!(elem.accessible_role().unwrap(), crate::AccessibleRole::Text);
 
     assert_eq!(root.query_descendants().match_inherits("Base").find_all().len(), 1);
+}
+
+#[test]
+fn test_normalize_id() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            the_element := Text {
+                text: "Found me";
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+
+    let root = app.root_element();
+
+    assert_eq!(root.query_descendants().match_id("App::the-element").find_all().len(), 1);
+    assert_eq!(root.query_descendants().match_id("App::the_element").find_all().len(), 1);
 }
