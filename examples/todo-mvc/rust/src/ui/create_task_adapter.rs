@@ -19,7 +19,7 @@ struct CreateTaskControllerAdapter {
 }
 
 impl CreateTaskController for CreateTaskControllerAdapter {
-    fn refresh(&self) {
+    fn initialize(&self) {
         let Some(view) = self.view_handle.upgrade() else {
             return;
         };
@@ -63,11 +63,11 @@ pub fn initialize_adapter(
 ) {
     let adapter = ui::CreateTaskAdapter::get(&view_handle);
 
-    adapter.on_refresh({
+    adapter.on_initialize({
         let create_task_controller = create_task_controller.clone();
 
         move || {
-            create_task_controller.refresh();
+            create_task_controller.initialize();
         }
     });
 

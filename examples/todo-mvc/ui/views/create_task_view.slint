@@ -11,7 +11,7 @@ export global CreateTaskAdapter {
     in-out property <Date> due-date: { year: 2024, month: 12, day: 24 };
     in-out property <Time> due-time: { hour: 12, minute: 45, second: 0 };
 
-    callback refresh();
+    callback initialize();
     callback create(/* title */ string, /* due-date */ Date, /* due-time */ Time);
     callback back();
     pure callback date-string(Date) -> string;
@@ -42,7 +42,7 @@ export component CreateTaskView {
             }
 
             // spacer
-            Rectangle {}
+            Rectangle { }
 
             Button {
                 text: @tr("Create");
@@ -94,7 +94,6 @@ export component CreateTaskView {
                 }
             }
 
-
             TextButton {
                 text: CreateTaskAdapter.time-string(CreateTaskAdapter.due-time);
                 horizontal-stretch: 0;
@@ -105,10 +104,10 @@ export component CreateTaskView {
             }
         }
 
-        Rectangle {}
+        Rectangle { }
     }
 
-     date-picker := DatePickerPopup {
+    date-picker := DatePickerPopup {
         x: (root.width - self.width) / 2;
         y: (root.height - self.height) / 2;
 
@@ -132,6 +131,6 @@ export component CreateTaskView {
     }
 
     init => {
-        CreateTaskAdapter.refresh();
+        CreateTaskAdapter.initialize();
     }
 }

@@ -2,6 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 pub trait CreateTaskController {
-    fn refresh(&self);
+    fn initialize(&self);
     fn back(&self);
 }
