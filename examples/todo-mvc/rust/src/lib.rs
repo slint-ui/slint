@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use mvc::{CreateTaskController, TaskListController};
+use mvc::TaskListController;
 use slint::ComponentHandle;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -26,9 +26,7 @@ fn init() -> ui::MainWindow {
 
     ui::task_list_adapter::initialize_adapter(&view_handle, task_list_controller.clone());
 
-    let create_task_controller = CreateTaskController::new(
-        ui::create_task_adapter::create_controller_callbacks(&view_handle),
-    );
+    let create_task_controller = ui::create_task_adapter::new_create_task_controller(&view_handle);
 
     ui::create_task_adapter::initialize_adapter(
         &view_handle,

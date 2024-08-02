@@ -10,56 +10,55 @@ const DATE_FMT: &str = "%a, %b %d %Y";
 const TIME_FMT: &str = "%R";
 
 use crate::{
-    mvc::{CreateTaskController, CreateTaskControllerCallbacks, TaskListController},
+    mvc::{CreateTaskController, TaskListController},
     ui,
 };
 
-pub fn create_controller_callbacks(view_handle: &ui::MainWindow) -> CreateTaskControllerCallbacks {
-    CreateTaskControllerCallbacks {
-        on_refresh: Box::new({
-            let view_handle = view_handle.as_weak();
+struct CreateTaskControllerAdapter {
+    view_handle: Weak<ui::MainWindow>,
+}
 
-            move || {
-                let Some(view) = view_handle.upgrade() else {
-                    return;
-                };
-                let adapter = ui::CreateTaskAdapter::get(&view);
-                adapter.set_title("".into());
+impl CreateTaskController for CreateTaskControllerAdapter {
+    fn refresh(&self) {
+        let Some(view) = self.view_handle.upgrade() else {
+            return;
+        };
+        let adapter = ui::CreateTaskAdapter::get(&view);
+        adapter.set_title("".into());
 
-                let now = Local::now();
+        let now = Local::now();
 
-                // Current local date
-                let time = now.time();
-                let date = now.date_naive();
+        // Current local date
+        let time = now.time();
+        let date = now.date_naive();
 
-                adapter.set_due_date(ui::Date {
-                    year: date.year(),
-                    month: date.month() as i32,
-                    day: date.day() as i32,
-                });
-                adapter.set_due_time(ui::Time {
-                    hour: time.hour() as i32,
-                    minute: time.minute() as i32,
-                    second: time.second() as i32,
-                });
-            }
-        }),
-        on_back: Box::new({
-            let view_handle = view_handle.as_weak();
-
-            move || {
-                let Some(view) = view_handle.upgrade() else {
-                    return;
-                };
-                ui::NavigationAdapter::get(&view).invoke_previous_page();
-            }
-        }),
+        adapter.set_due_date(ui::Date {
+            year: date.year(),
+            month: date.month() as i32,
+            day: date.day() as i32,
+        });
+        adapter.set_due_time(ui::Time {
+            hour: time.hour() as i32,
+            minute: time.minute() as i32,
+            second: time.second() as i32,
+        });
     }
+
+    fn back(&self) {
+        let Some(view) = self.view_handle.upgrade() else {
+            return;
+        };
+        ui::NavigationAdapter::get(&view).invoke_previous_page();
+    }
+}
+
+pub fn new_create_task_controller(view_handle: &ui::MainWindow) -> Rc<dyn CreateTaskController> {
+    Rc::new(CreateTaskControllerAdapter { view_handle: view_handle.as_weak() })
 }
 
 pub fn initialize_adapter(
     view_handle: &ui::MainWindow,
-    create_task_controller: Rc<CreateTaskController>,
+    create_task_controller: Rc<dyn CreateTaskController>,
     task_list_controller: Rc<TaskListController>,
 ) {
     let adapter = ui::CreateTaskAdapter::get(&view_handle);
