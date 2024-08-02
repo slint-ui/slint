@@ -48,3 +48,17 @@ This target property is initialised from the global `DEFAULT_SLINT_EMBED_RESOURC
 # Example: when building my_application, specify that the compiler should embed the resources in the binary
 set_property(TARGET my_application PROPERTY SLINT_EMBED_RESOURCES embed-files)
 ```
+
+## Scale Factor for Microcontrollers
+
+When targeting a Microcontroller, there exists no windowing system that provides a device pixel ratio to
+map logical lengths in Slint (`px`) to physical pixels (`phx`). If desired, you can provide this ratio at
+compile time by setting the `SLINT_SCALE_FACTOR` target property on your CMake target.
+
+```cmake
+# Example: when building my_application, specify that the scale factor shall be 2
+set_property(TARGET my_application PROPERTY SLINT_SCALE_FACTOR 2.0)
+```
+
+A scale factor specified this way will also be used to pre-scale images and glyphs when used in combination
+with [Resource Embedding](#resource-embedding).
