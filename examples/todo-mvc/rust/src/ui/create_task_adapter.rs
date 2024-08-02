@@ -19,12 +19,11 @@ pub fn create_controller_callbacks(view_handle: &ui::MainWindow) -> CreateTaskCo
             let view_handle = view_handle.as_weak();
 
             move |create_task_model| {
-                ui::CreateTaskAdapter::get(&view_handle.unwrap())
-                    .set_title(create_task_model.title.into());
-                ui::CreateTaskAdapter::get(&view_handle.unwrap())
-                    .set_due_date(map_date_model_to_date(create_task_model.due_data));
-                ui::CreateTaskAdapter::get(&view_handle.unwrap())
-                    .set_due_time(map_time_model_to_time(create_task_model.due_time));
+                let Some(view) = view_handle.upgrade() else { return; };
+                adapter = ui::CreateTaskAdapter::get(&view);
+                adapter.set_title(create_task_model.title.into());
+                adapter.set_due_date(map_date_model_to_date(create_task_model.due_data));
+                adapter.set_due_time(map_time_model_to_time(create_task_model.due_time));
             }
         }),
         on_back: Box::new({
