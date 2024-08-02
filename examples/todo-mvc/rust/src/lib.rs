@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+use mvc::{CreateTaskController, TaskListController};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -21,17 +22,23 @@ pub fn main() {
 fn init() -> ui::MainWindow {
     let view_handle = ui::MainWindow::new().unwrap();
 
-    let task_list_controller = mvc::TaskListController::new(mvc::task_repo());
-    ui::task_list_adapter::connect(&view_handle, task_list_controller.clone());
-    ui::navigation_adapter::connect_task_list_controller(
-        &view_handle,
-        task_list_controller.clone(),
+    let task_list_controller = TaskListController::new(
+        mvc::task_repo(),
+        ui::task_list_adapter::create_controller_callbacks(&view_handle),
     );
 
-    let create_task_controller = mvc::CreateTaskController::new(mvc::date_time_repo());
-    ui::create_task_adapter::connect(&view_handle, create_task_controller.clone());
-    ui::navigation_adapter::connect_create_task_controller(&view_handle, create_task_controller);
-    ui::create_task_adapter::connect_task_list_controller(&view_handle, task_list_controller);
+    ui::task_list_adapter::initialize_adapter(&view_handle, task_list_controller.clone());
+
+    let create_task_controller = CreateTaskController::new(
+        mvc::date_time_repo(),
+        ui::create_task_adapter::create_controller_callbacks(&view_handle),
+    );
+
+    ui::create_task_adapter::initialize_adapter(
+        &view_handle,
+        create_task_controller,
+        task_list_controller,
+    );
 
     view_handle
 }

@@ -7,9 +7,11 @@ import { TextButton } from "../widgets/text_button.slint";
 import { Icons, FontSettings, TodoPalette, SpaceSettings } from "../widgets/styling.slint";
 
 export global CreateTaskAdapter {
+    in property <string> title;
     in-out property <Date> due-date: { year: 2024, month: 12, day: 24 };
     in-out property <Time> due-time: { hour: 12, minute: 45, second: 0 };
 
+    callback refresh();
     callback create(/* title */ string, /* due-date-time */ int);
     callback back();
     pure callback date-string(Date) -> string;
@@ -36,7 +38,6 @@ export component CreateTaskView {
                 icon: Icons.close;
 
                 clicked => {
-                    root.reset();
                     CreateTaskAdapter.back();
                 }
             }
@@ -70,9 +71,9 @@ export component CreateTaskView {
             title-input := LineEdit {
                 placeholder-text: @tr("Describe your task");
                 accessible-label: title-label.text;
+                text: CreateTaskAdapter.title;
             }
         }
-
 
         Text {
             text: @tr("Due date");
@@ -109,10 +110,8 @@ export component CreateTaskView {
     }
 
      date-picker := DatePickerPopup {
-        x: (root.width - 360px) / 2;
-        y: (root.height - 524px) / 2;
-        width: 360px;
-        height: 524px;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
 
         accepted(date) => {
             CreateTaskAdapter.due-date = date;
@@ -120,25 +119,20 @@ export component CreateTaskView {
     }
 
     time-picker := TimePickerPopup {
-        x: (root.width - 340px) / 2;
-        y: (root.height - 500px) / 2;
-        width: 340px;
-        height: 500px;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
 
         accepted(time) => {
             CreateTaskAdapter.due-time = time;
         }
     }
 
-    function reset() {
-        title-input.text = "";
-        CreateTaskAdapter.due-date = CreateTaskAdapter.current-date();
-        CreateTaskAdapter.due-time = CreateTaskAdapter.current-time();
-    }
-
     function create() {
         CreateTaskAdapter.back();
         CreateTaskAdapter.create(title-input.text, CreateTaskAdapter.time-stamp(CreateTaskAdapter.due-date, CreateTaskAdapter.due-time));
-        root.reset();
+    }
+
+    init => {
+        CreateTaskAdapter.refresh();
     }
 }

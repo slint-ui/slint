@@ -1,89 +1,86 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+use std::rc::Rc;
+
 use slint::*;
 
 use crate::{
     mvc::{
-        {CreateTaskController, TaskListController}, {DateModel, TimeModel},
+        CreateTaskController, CreateTaskControllerCallbacks, DateModel, TaskListController,
+        TimeModel,
     },
     ui,
 };
 
-// a helper function to make adapter and controller connection a little bit easier
-fn connect_with_controller(
+pub fn create_controller_callbacks(view_handle: &ui::MainWindow) -> CreateTaskControllerCallbacks {
+    CreateTaskControllerCallbacks {
+        on_refresh: Box::new({
+            let view_handle = view_handle.as_weak();
+
+            move |create_task_model| {
+                ui::CreateTaskAdapter::get(&view_handle.unwrap())
+                    .set_title(create_task_model.title.into());
+                ui::CreateTaskAdapter::get(&view_handle.unwrap())
+                    .set_due_date(map_date_model_to_date(create_task_model.due_data));
+                ui::CreateTaskAdapter::get(&view_handle.unwrap())
+                    .set_due_time(map_time_model_to_time(create_task_model.due_time));
+            }
+        }),
+        on_back: Box::new({
+            let view_handle = view_handle.as_weak();
+
+            move || {
+                ui::NavigationAdapter::get(&view_handle.unwrap()).invoke_previous_page();
+            }
+        }),
+    }
+}
+
+pub fn initialize_adapter(
     view_handle: &ui::MainWindow,
-    controller: &CreateTaskController,
-    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, CreateTaskController) + 'static,
+    create_task_controller: Rc<CreateTaskController>,
+    task_list_controller: Rc<TaskListController>,
 ) {
-    connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
-}
+    ui::CreateTaskAdapter::get(view_handle).on_refresh({
+        let create_task_controller = create_task_controller.clone();
 
-// a helper function to make adapter and controller connection a little bit easier
-fn connect_with_task_list_controller(
-    view_handle: &ui::MainWindow,
-    controller: &TaskListController,
-    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, TaskListController) + 'static,
-) {
-    connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
-}
-
-// one place to implement connection between adapter (view) and controller
-pub fn connect(view_handle: &ui::MainWindow, controller: CreateTaskController) {
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_back(move || {
-                controller.back();
-            })
+        move || {
+            create_task_controller.refresh();
         }
     });
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_current_date(move || map_date_model_to_date(controller.current_date()))
+    ui::CreateTaskAdapter::get(view_handle).on_back({
+        let create_task_controller = create_task_controller.clone();
+
+        move || {
+            create_task_controller.back();
         }
     });
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_current_time(move || map_time_model_to_time(controller.current_time()))
+    ui::CreateTaskAdapter::get(view_handle).on_date_string({
+        let create_task_controller = create_task_controller.clone();
+
+        move |date| create_task_controller.date_string(map_date_to_date_model(date))
+    });
+
+    ui::CreateTaskAdapter::get(view_handle).on_time_string({
+        let create_task_controller = create_task_controller.clone();
+
+        move |time| create_task_controller.time_string(map_time_to_time_model(time))
+    });
+
+    ui::CreateTaskAdapter::get(view_handle).on_time_stamp({
+        let create_task_controller = create_task_controller.clone();
+
+        move |date, time| {
+            create_task_controller
+                .time_stamp(map_date_to_date_model(date), map_time_to_time_model(time))
         }
     });
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_date_string(move |date| {
-                controller.date_string(map_date_to_date_model(date)).into()
-            })
-        }
-    });
-
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_time_string(move |time| {
-                controller.time_string(map_time_to_time_model(time)).into()
-            })
-        }
-    });
-
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_time_stamp(move |date, time| {
-                controller
-                    .time_stamp(map_date_to_date_model(date), map_time_to_time_model(time))
-                    .into()
-            })
-        }
-    });
-}
-
-pub fn connect_task_list_controller(view_handle: &ui::MainWindow, controller: TaskListController) {
-    connect_with_task_list_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_create(move |title, time_stamp| {
-                controller.create_task(title.as_str(), time_stamp as i64)
-            })
-        }
+    ui::CreateTaskAdapter::get(view_handle).on_create({
+        move |title, time_stamp| task_list_controller.create_task(title.as_str(), time_stamp as i64)
     });
 }
 

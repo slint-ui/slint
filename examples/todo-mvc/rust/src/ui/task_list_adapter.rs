@@ -6,47 +6,52 @@ use slint::*;
 use std::rc::Rc;
 
 use crate::{
-    mvc::{TaskListController, TaskModel},
+    mvc::{TaskListController, TaskListControllerCallbacks, TaskModel},
     ui,
 };
 
-// a helper function to make adapter and controller connection a little bit easier
-pub fn connect_with_controller(
-    view_handle: &ui::MainWindow,
-    controller: &TaskListController,
-    connect_adapter_controller: impl FnOnce(ui::TaskListAdapter, TaskListController) + 'static,
-) {
-    connect_adapter_controller(view_handle.global::<ui::TaskListAdapter>(), controller.clone());
+pub fn create_controller_callbacks(view_handle: &ui::MainWindow) -> TaskListControllerCallbacks {
+    TaskListControllerCallbacks {
+        on_refresh: Box::new({
+            let view_handle = view_handle.as_weak();
+
+            move |task_model| {
+                ui::TaskListAdapter::get(&view_handle.unwrap())
+                    .set_tasks(Rc::new(MapModel::new(task_model, map_task_to_item)).into());
+            }
+        }),
+        on_show_create_task: Box::new({
+            let view_handle = view_handle.as_weak();
+
+            move || {
+                ui::NavigationAdapter::get(&view_handle.unwrap()).invoke_next_page();
+            }
+        }),
+    }
 }
 
-// one place to implement connection between adapter (view) and controller
-pub fn connect(view_handle: &ui::MainWindow, controller: TaskListController) {
-    // sets a mapped list of the task items to the ui
-    view_handle
-        .global::<ui::TaskListAdapter>()
-        .set_tasks(Rc::new(MapModel::new(controller.task_model(), map_task_to_item)).into());
+pub fn initialize_adapter(view_handle: &ui::MainWindow, controller: Rc<TaskListController>) {
+    ui::TaskListAdapter::get(view_handle).on_toggle_task_checked({
+        let controller = controller.clone();
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_toggle_task_checked(move |index| {
-                controller.toggle_done(index as usize);
-            })
+        move |index| {
+            controller.toggle_done(index as usize);
         }
     });
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_remove_task(move |index| {
-                controller.remove_task(index as usize);
-            })
+    ui::TaskListAdapter::get(view_handle).on_remove_task({
+        let controller = controller.clone();
+
+        move |index| {
+            controller.remove_task(index as usize);
         }
     });
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter: ui::TaskListAdapter, controller| {
-            adapter.on_show_create_task(move || {
-                controller.show_create_task();
-            })
+    ui::TaskListAdapter::get(view_handle).on_show_create_task({
+        let controller = controller.clone();
+
+        move || {
+            controller.show_create_task();
         }
     });
 }
