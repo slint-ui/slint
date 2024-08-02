@@ -61,8 +61,8 @@ struct StmSlintPlatform : public slint::platform::Platform
     void run_event_loop() override
     {
 
-        int last_touch_x = 0;
-        int last_touch_y = 0;
+        float last_touch_x = 0;
+        float last_touch_y = 0;
         bool touch_down = false;
 
         while (true) {
@@ -72,27 +72,21 @@ struct StmSlintPlatform : public slint::platform::Platform
                 TS_State_t TS_State {};
                 BSP_TS_GetState(0, &TS_State);
                 if (TS_State.TouchDetected) {
-                    last_touch_x = TS_State.TouchX;
-                    last_touch_y = TS_State.TouchY;
-                    buffer2[last_touch_x + last_touch_y * size.width].b = 0x1f;
-                    buffer2[last_touch_x + last_touch_y * size.width].r = 0;
+                    auto scale_factor = m_window->window().scale_factor();
+                    last_touch_x = float(TS_State.TouchX) / scale_factor;
+                    last_touch_y = float(TS_State.TouchY) / scale_factor;
 
                     m_window->window().dispatch_pointer_move_event(
-                            slint::LogicalPosition({ float(last_touch_x), float(last_touch_y) }));
+                            slint::LogicalPosition({ last_touch_x, last_touch_y }));
                     if (!touch_down) {
                         m_window->window().dispatch_pointer_press_event(
-                                slint::LogicalPosition(
-                                        { float(last_touch_x), float(last_touch_y) }),
+                                slint::LogicalPosition({ last_touch_x, last_touch_y }),
                                 slint::PointerEventButton::Left);
                     }
                     touch_down = true;
                 } else if (touch_down) {
-
-                    buffer2[last_touch_x + last_touch_y * size.width].b = 0x0f;
-                    buffer2[last_touch_x + last_touch_y * size.width].g = 0x1f;
-
                     m_window->window().dispatch_pointer_release_event(
-                            slint::LogicalPosition({ float(last_touch_x), float(last_touch_y) }),
+                            slint::LogicalPosition({ last_touch_x, last_touch_y }),
                             slint::PointerEventButton::Left);
                     m_window->window().dispatch_pointer_exit_event();
                     touch_down = false;
