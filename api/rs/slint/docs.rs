@@ -147,6 +147,7 @@ pub mod generated_code {
 
 pub mod mcu {
     #![doc = include_str!("mcu.md")]
+    #[cfg(feature = "renderer-software")]
     use crate::platform::software_renderer::*;
     use crate::platform::*;
     mod slint {
