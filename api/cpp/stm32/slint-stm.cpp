@@ -8,6 +8,8 @@
 
 using Pixel = slint::platform::Rgb565Pixel;
 
+static __IO bool screen_ready = true;
+
 struct StmWindowAdapter : public slint::platform::WindowAdapter
 {
     slint::platform::SoftwareRenderer m_renderer {
@@ -44,6 +46,8 @@ struct StmSlintPlatform : public slint::platform::Platform
         config.PixelFormat = LCD_PIXEL_FORMAT_RGB565;
         config.Address = uintptr_t(buffer1.data());
         BSP_LCD_ConfigLayer(0, 0, &config);
+        HAL_LTDC_RegisterCallback(&hlcd_ltdc, HAL_LTDC_RELOAD_EVENT_CB_ID,
+                                  [](auto *) { screen_ready = true; });
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override
@@ -93,13 +97,16 @@ struct StmSlintPlatform : public slint::platform::Platform
                 }
 
                 if (std::exchange(m_window->needs_redraw, false)) {
-                    // FIXME: wait for vblank
+                    while (!screen_ready) { }
 
                     m_window->m_renderer.render(buffer1, m_window->m_size.width);
 
                     SCB_CleanDCache_by_Addr((uint32_t *)buffer1.data(), buffer1.size());
 
+                    BSP_LCD_Relaod(0, BSP_LCD_RELOAD_NONE);
                     BSP_LCD_SetLayerAddress(0, 0, uintptr_t(buffer1.data()));
+                    screen_ready = false;
+                    BSP_LCD_Relaod(0, BSP_LCD_RELOAD_VERTICAL_BLANKING);
 
                     std::swap(buffer1, buffer2);
                 }
