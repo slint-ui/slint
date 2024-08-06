@@ -117,7 +117,8 @@ pub struct CompilerConfiguration {
     pub inline_all_elements: bool,
 
     /// Compile time scale factor to apply to embedded resources such as images and glyphs.
-    pub scale_factor: f64,
+    /// If != 1.0 then the scale factor will be set on the `slint::Window`.
+    pub const_scale_factor: f64,
 
     /// expose the accessible role and properties
     pub accessibility: bool,
@@ -176,7 +177,7 @@ impl CompilerConfiguration {
             Err(_) => output_format == OutputFormat::Interpreter,
         };
 
-        let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
+        let const_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
             .and_then(|x| x.parse::<f64>().ok())
             .filter(|f| *f > 0.)
@@ -206,7 +207,7 @@ impl CompilerConfiguration {
             open_import_fallback: None,
             resource_url_mapper: None,
             inline_all_elements,
-            scale_factor,
+            const_scale_factor,
             accessibility: true,
             enable_experimental,
             translation_domain: None,
