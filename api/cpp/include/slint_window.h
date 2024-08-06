@@ -539,7 +539,6 @@ public:
     void dispatch_resize_event(slint::LogicalSize s)
     {
         private_api::assert_main_thread();
-        private_api::assert_main_thread();
         using slint::cbindgen_private::WindowEvent;
         WindowEvent event { .resized =
                                     WindowEvent::Resized_Body { .tag = WindowEvent::Tag::Resized,
