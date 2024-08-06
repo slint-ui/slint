@@ -162,6 +162,17 @@ impl CompilerConfiguration {
         };
         Self { config }
     }
+
+    /// Sets the scale factor to be applied to all `px` to `phx` conversions
+    /// as constant value. This is only intended for MCU environments. Use
+    /// in combination with [`Self::embed_resources`] to pre-scale images and glyphs
+    /// accordingly.
+    #[must_use]
+    pub fn with_scale_factor(self, factor: f32) -> Self {
+        let mut config = self.config;
+        config.const_scale_factor = factor as f64;
+        Self { config }
+    }
 }
 
 /// Error returned by the `compile` function
