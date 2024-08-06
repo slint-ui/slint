@@ -7,7 +7,7 @@ Files: */slint-icon-*.svg */slint-icon-*.png */slint-icon-*.pdf */slint-logo-*.s
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 
-Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock */.npmignore espflash.toml
+Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock */.npmignore
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
@@ -84,7 +84,7 @@ Files: examples/carousel/fonts/*.ttf
 Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
 License: Apache-2.0
 
-Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv examples/mcu-board-support/partitions.csv
+Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
