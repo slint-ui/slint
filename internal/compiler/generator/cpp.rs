@@ -8,6 +8,8 @@
 
 use std::fmt::Write;
 
+use lyon_path::geom::euclid::approxeq::ApproxEq;
+
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Config {
@@ -810,20 +812,31 @@ pub fn generate(
         }),
     ));
 
+    let mut window_creation_code = vec![
+        format!("auto self = const_cast<SharedGlobals *>(this);"),
+        "if (!self->m_window.has_value()) {".into(),
+        "   auto &window = self->m_window.emplace(slint::private_api::WindowAdapterRc());".into(),
+    ];
+
+    if !compiler_config.const_scale_factor.approx_eq(&1.0) {
+        window_creation_code.push(format!(
+            "window.dispatch_scale_factor_change_event({});",
+            compiler_config.const_scale_factor
+        ));
+    }
+
+    window_creation_code.extend([
+        "   window.window_handle().set_component(self->root_weak);".into(),
+        "}".into(),
+        "return *self->m_window;".into(),
+    ]);
+
     globals_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: "window".into(),
             signature: "() const -> slint::Window&".into(),
-            statements: Some(vec![
-                format!("auto self = const_cast<SharedGlobals *>(this);"),
-                "if (!self->m_window.has_value()) {".into(),
-                "   auto &window = self->m_window.emplace(slint::private_api::WindowAdapterRc());"
-                    .into(),
-                "   window.window_handle().set_component(self->root_weak);".into(),
-                "}".into(),
-                "return *self->m_window;".into(),
-            ]),
+            statements: Some(window_creation_code),
             ..Default::default()
         }),
     ));

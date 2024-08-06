@@ -22,6 +22,7 @@ use crate::llr::{
 use crate::object_tree::Document;
 use crate::CompilerConfiguration;
 use itertools::Either;
+use lyon_path::geom::euclid::approxeq::ApproxEq;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::{BTreeMap, BTreeSet};
@@ -186,7 +187,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         .iter()
         .filter(|glob| glob.must_generate())
         .map(|glob| generate_global(glob, &llr));
-    let shared_globals = generate_shared_globals(&llr);
+    let shared_globals = generate_shared_globals(&llr, &compiler_config);
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
@@ -312,7 +313,10 @@ fn generate_public_component(
     )
 }
 
-fn generate_shared_globals(llr: &llr::CompilationUnit) -> TokenStream {
+fn generate_shared_globals(
+    llr: &llr::CompilationUnit,
+    compiler_config: &CompilerConfiguration,
+) -> TokenStream {
     let global_names = llr
         .globals
         .iter()
@@ -325,6 +329,15 @@ fn generate_shared_globals(llr: &llr::CompilationUnit) -> TokenStream {
         .filter(|g| g.is_builtin || g.must_generate())
         .map(global_inner_name)
         .collect::<Vec<_>>();
+
+    let apply_constant_scale_factor = if !compiler_config.const_scale_factor.approx_eq(&1.0) {
+        let factor = compiler_config.const_scale_factor as f32;
+        Some(
+            quote!(adapter.window().dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged{ scale_factor: #factor });),
+        )
+    } else {
+        None
+    };
 
     quote! {
         struct SharedGlobals {
@@ -355,6 +368,7 @@ fn generate_shared_globals(llr: &llr::CompilationUnit) -> TokenStream {
                     let adapter = slint::private_unstable_api::create_window_adapter()?;
                     let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                     sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                    #apply_constant_scale_factor
                     core::result::Result::Ok(adapter)
                 })
             }
