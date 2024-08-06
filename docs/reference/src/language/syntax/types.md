@@ -84,12 +84,14 @@ All colors and brushes define the following methods:
 -   **`brighter(factor: float) -> brush`**
 
     Returns a new color derived from this color but has its brightness increased by the specified factor.
+    This is done by converting the color to the HSV color space and multiplying the brightness (value) with (1 + factor).
     For example if the factor is 0.5 (or for example 50%) the returned color is 50% brighter. Negative factors
     decrease the brightness.
 
 -   **`darker(factor: float) -> brush`**
 
     Returns a new color derived from this color but has its brightness decreased by the specified factor.
+    This is done by converting the color to the HSV color space and dividing the brightness (value) by (1 + factor).
     For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
     increase the brightness.
 
