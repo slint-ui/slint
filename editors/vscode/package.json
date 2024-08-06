@@ -39,7 +39,11 @@
           ".slint",
           ".60"
         ],
-        "configuration": "language-configuration.json"
+        "configuration": "language-configuration.json",
+        "icon": {
+          "light": "slint-file-icon.svg",
+          "dark": "slint-file-icon.svg"
+        }
       }
     ],
     "grammars": [
