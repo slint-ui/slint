@@ -16,6 +16,9 @@ export component ActionButton {
     width: self.height;
     height: SizeSettings.control-big-height;
 
+    accessible-role: button;
+    accessible-action-default => { touch-area.clicked(); }
+
     touch-area := FocusTouchArea {
         width: 100%;
         height: 100%;
