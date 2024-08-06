@@ -874,12 +874,14 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     fn draw_string(&mut self, string: &str, color: i_slint_core::Color) {
         let mut paint = self.default_paint().unwrap_or_default();
         paint.set_color(to_skia_color(&color));
-        self.canvas.draw_str(
-            string,
-            skia_safe::Point::new(0., 12.), // Default text size is 12 pixels
-            &skia_safe::Font::default(),
-            &paint,
-        );
+        if let Some(font) = super::textlayout::default_font(self.scale_factor.get()) {
+            self.canvas.draw_str(
+                string,
+                skia_safe::Point::new(0., 12. * self.scale_factor.get()), // Default text size is 12 pixels
+                &font,
+                &paint,
+            );
+        }
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {

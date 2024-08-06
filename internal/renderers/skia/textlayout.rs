@@ -43,6 +43,14 @@ thread_local! {
     }
 }
 
+pub fn default_font(scale_factor: f32) -> Option<skia_safe::Font> {
+    FONT_CACHE.with(|font_cache| {
+        font_cache.font_mgr.legacy_make_typeface(None, skia_safe::FontStyle::default()).map(
+            |type_face| skia_safe::Font::new(type_face, DEFAULT_FONT_SIZE.get() * scale_factor),
+        )
+    })
+}
+
 pub struct Selection {
     pub range: std::ops::Range<usize>,
     pub background: Option<Color>,
