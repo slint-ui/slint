@@ -122,13 +122,13 @@ jobs:
             uses: zephyrproject-rtos/action-zephyr-setup@v1.0.2
             with:
                 app-path: slint
-                manifest-file-name: examples/printerdemo_mcu/zephyr/west.yaml
+                manifest-file-name: examples/printerdemo/zephyr/west.yaml
                 sdk-version: 0.16.8
           - name: Export the Zephyr CMake package
             run: west zephyr-export
           - name: Build for ${{matrix.board}}
             run: |
-                west build -b ${{matrix.board}} -p always slint/examples/printerdemo_mcu/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
+                west build -b ${{matrix.board}} -p always slint/examples/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
 
     uefi-demo:
         env:

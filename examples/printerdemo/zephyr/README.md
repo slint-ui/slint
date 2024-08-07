@@ -44,10 +44,10 @@ Before you can run this example, make sure you have done the following:
    ```bash
    # If Slint source is already checked out (this adds the Zephyr source next to the Slint source):
    cd ..
-   west init -l --mf examples/printerdemo_mcu/zephyr/west.yaml ./slint
+   west init -l --mf examples/printerdemo/zephyr/west.yaml ./slint
 
    # If you do not have Slint source yet (this checks out Slint and Zephyr source into slint-zephyr):
-   west init -m https://github.com/slint-ui/slint --mr zephyr --mf examples/printerdemo_mcu/zephyr/west.yaml slint-zephyr
+   west init -m https://github.com/slint-ui/slint --mr zephyr --mf examples/printerdemo/zephyr/west.yaml slint-zephyr
    cd slint-zephyr
 
    # Checkout the repositories:
@@ -74,7 +74,7 @@ Once you have the prerequisites, navigate to this directory and execute the foll
 
 ```bash
 # Build
-west build -b native_sim/native/64 -p always slint/examples/printerdemo_mcu/zephyr
+west build -b native_sim/native/64 -p always slint/examples/printerdemo/zephyr
 
 # Run
 ./build/zephyr/zephyr.exe
@@ -88,7 +88,7 @@ This sample has been tested on the [NXP MIMXRT1170-EVKB](https://docs.zephyrproj
 
 ```bash
 # Build
-west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/examples/printerdemo_mcu/zephyr -- -DSHIELD=rk055hdmipi4ma0 -DCMAKE_BUILD_TYPE=Release
+west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/examples/printerdemo/zephyr -- -DSHIELD=rk055hdmipi4ma0 -DCMAKE_BUILD_TYPE=Release
 
 # Flash
 west flash
