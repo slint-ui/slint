@@ -220,6 +220,7 @@ function initPreviewPanel(
     context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
 ): vscode.WebviewPanel {
+    panel.iconPath = Uri.joinPath(context.extensionUri, "slint-file-icon.svg");
     // we will get a preview_ready when the html is loaded and message are ready to be sent
     panel.webview.onDidReceiveMessage(
         async (message) => {
