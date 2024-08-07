@@ -19,9 +19,6 @@
   ],
   "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
   "activationEvents": [
-    "onCommand:slint.showPreview",
-    "onCommand:slint.reload",
-    "onLanguage:slint",
     "onLanguage:rust",
     "onWebviewPanel:slint-preview",
     "workspaceContains:{**/CMakeLists.txt,**/Cargo.toml,**/*.slint}"
