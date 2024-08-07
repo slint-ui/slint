@@ -45,7 +45,6 @@ open_weather = ["dep:openweather_sdk", "dep:openssl"]
 
 # Android-activity / wasm support
 [lib]
-name="weather_demo_lib"
 crate-type = ["lib", "cdylib"]
 path = "src/lib.rs"
 

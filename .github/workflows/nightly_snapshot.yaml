@@ -326,7 +326,7 @@ jobs:
               with:
                   name: android-demo
                   path: android
-                 
+
             - name: Extract Version
               id: version
               run: |
@@ -353,7 +353,7 @@ jobs:
                 token: ${{ steps.app-token.outputs.token }}
 
             - name: Publish Docs and Demos
-              working-directory: ./www-releases  
+              working-directory: ./www-releases
               run: |
                 if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
                   output_path="releases/${{ steps.version.outputs.VERSION }}"
@@ -426,7 +426,7 @@ jobs:
                 cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
                 for f in 404.html script.js LICENSE.md package.json; do
                   cp www-releases/releases/$f www-releases/slintpad
-                done                  
+                done
                 echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
 
             - name: Get GitHub App User ID
@@ -580,4 +580,4 @@ jobs:
                   path: |
                     target/release/apk/energy-monitor.apk
                     target/release/apk/todo_lib.apk
-                    target/release/apk/weather_demo_lib.apk
+                    target/release/apk/weather_demo.apk
