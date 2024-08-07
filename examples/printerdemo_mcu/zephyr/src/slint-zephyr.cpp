@@ -447,7 +447,7 @@ void zephyr_process_input_event(struct input_event *event)
             button = slint::PointerEventButton::Left;
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
-                // Transform the physical screen position to the rendered position
+                // Transform the physical screen position to the logical coordinate
                 const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
                 ZEPHYR_WINDOW->window().dispatch_pointer_press_event(slintPos, button);
@@ -456,7 +456,7 @@ void zephyr_process_input_event(struct input_event *event)
             LOG_DBG("Move");
             slint::invoke_from_event_loop([=] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
-                // Transform the physical screen position to the rendered position
+                // Transform the physical screen position to the logical coordinate
                 const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
             });
@@ -464,7 +464,7 @@ void zephyr_process_input_event(struct input_event *event)
             LOG_DBG("Release");
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
-                // Transform the physical screen position to the rendered position
+                // Transform the physical screen position to the logical coordinate
                 const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
                 ZEPHYR_WINDOW->window().dispatch_pointer_release_event(slintPos, button);
                 ZEPHYR_WINDOW->window().dispatch_pointer_exit_event();
