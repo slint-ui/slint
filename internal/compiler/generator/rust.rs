@@ -193,7 +193,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
     });
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
-    let resource_symbols = generate_resources(doc);
+    let resource_symbols = generate_resources(doc, compiler_config);
     let named_exports = generate_named_exports(doc);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
@@ -2824,10 +2824,10 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
     }
 }
 
-fn generate_resources(doc: &Document) -> Vec<TokenStream> {
+fn generate_resources(doc: &Document, compiler_config: &CompilerConfiguration) -> Vec<TokenStream> {
     #[cfg(feature = "software-renderer")]
     let link_section =
-        std::env::var("SLINT_ASSET_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+        compiler_config.assets_section.as_ref().map(|section| quote!(#[link_section = #section]));
 
     doc.embedded_file_resources
         .borrow()

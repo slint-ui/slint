@@ -51,6 +51,10 @@ struct Cli {
     #[arg(long, name = "scale factor", action)]
     scale_factor: Option<f64>,
 
+    /// The optional name of a memory section to place pre-compiled image assets to.
+    #[arg(long, name = "assets section", action)]
+    assets_section: Option<String>,
+
     /// Generate a dependency file
     #[arg(name = "dependency file", long = "depfile", number_of_values = 1, action)]
     depfile: Option<std::path::PathBuf>,
@@ -118,6 +122,7 @@ fn main() -> std::io::Result<()> {
     if let Some(constant_scale_factor) = args.scale_factor {
         compiler_config.const_scale_factor = constant_scale_factor;
     }
+    compiler_config.assets_section = args.assets_section;
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));

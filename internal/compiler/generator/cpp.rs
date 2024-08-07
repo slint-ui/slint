@@ -274,11 +274,15 @@ mod cpp_ast {
         pub name: String,
         pub array_size: Option<usize>,
         pub init: Option<String>,
+        pub link_section: Option<String>, // __attribute__((section(...)))
     }
 
     impl Display for Var {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
+            if let Some(section) = self.link_section.as_ref() {
+                write!(f, "{section} ")?;
+            }
             write!(f, "{} {}", self.ty, self.name)?;
             if let Some(size) = self.array_size {
                 write!(f, "[{}]", size)?;
@@ -542,6 +546,12 @@ pub fn generate(
     config: Config,
     compiler_config: &CompilerConfiguration,
 ) -> impl std::fmt::Display {
+    #[cfg(feature = "software-renderer")]
+    let link_section = compiler_config
+        .assets_section
+        .as_ref()
+        .map(|section| format!("__attribute__((section(\"{section}\")))"));
+
     let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
 
     file.includes.push("<array>".into());
@@ -574,6 +584,7 @@ pub fn generate(
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: Some(data.len()),
                     init: Some(init),
+                    link_section: link_section.clone(),
                 }));
             }
             #[cfg(feature = "software-renderer")]
@@ -605,6 +616,7 @@ pub fn generate(
                     name: data_name.clone(),
                     array_size: Some(count),
                     init: Some(format!("{{ {data} }}")),
+                    link_section: link_section.clone(),
                 }));
                 let texture_name = format!("slint_embedded_resource_{}_texture", er.id);
                 file.declarations.push(Declaration::Var(Var {
@@ -619,6 +631,7 @@ pub fn generate(
                             .index = 0,
                             }}"
                     )),
+                    link_section: None,
                 }));
                 let init = format!("slint::cbindgen_private::types::StaticTextures {{
                         .size = {{ {width}, {height} }},
@@ -631,6 +644,7 @@ pub fn generate(
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: None,
                     init: Some(init),
+                    link_section: None,
                 }))
             }
             #[cfg(feature = "software-renderer")]
@@ -656,6 +670,7 @@ pub fn generate(
                         "{{ {} }}",
                         family_name.as_bytes().iter().map(ToString::to_string).join(", ")
                     )),
+                    link_section: link_section.clone(),
                 }));
 
                 let charmap_var = format!("slint_embedded_resource_{}_charmap", er.id);
@@ -674,6 +689,7 @@ pub fn generate(
                             ))
                             .join(", ")
                     )),
+                    link_section: link_section.clone(),
                 }));
 
                 for (glyphset_index, glyphset) in glyphs.iter().enumerate() {
@@ -689,6 +705,7 @@ pub fn generate(
                                 "{{ {} }}",
                                 glyph.data.iter().map(ToString::to_string).join(", ")
                             )),
+                            link_section: link_section.clone(),
                         }));
                     }
 
@@ -703,6 +720,7 @@ pub fn generate(
                             glyph.data.len()
                         )
                         }).join(", \n"))),
+                        link_section: link_section.clone(),
                     }));
                 }
 
@@ -726,6 +744,7 @@ pub fn generate(
                             ))
                             .join(", \n")
                     )),
+                    link_section: link_section.clone(),
                 }));
 
                 let init = format!(
@@ -746,6 +765,7 @@ pub fn generate(
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: None,
                     init: Some(init),
+                    link_section: link_section.clone(),
                 }))
             }
         }

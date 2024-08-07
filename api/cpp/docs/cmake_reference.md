@@ -62,3 +62,16 @@ set_property(TARGET my_application PROPERTY SLINT_SCALE_FACTOR 2.0)
 
 A scale factor specified this way will also be used to pre-scale images and glyphs when used in combination
 with [Resource Embedding](#resource-embedding).
+
+## Placing Assets In External Flash on Microcontrollers
+
+The Slint compiler can generate target optimized assets from images and glyphs used in the application.
+If your Microcontroller's default flash region runs out of space, you can use the `SLINT_ASSETS_SECTION`
+target property on your CMake target, in combination with changes to your linker script to place assets
+into a different memory region.
+
+```cmake
+# Example: when building my_application, instruct the compiler to place all assets in the .ospi_rom section
+# Make sure that this section is assigned in your linker script, too.
+set_property(TARGET my_application PROPERTY SLINT_ASSETS_SECTION ".ospi_rom")
+```

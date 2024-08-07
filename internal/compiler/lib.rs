@@ -126,6 +126,11 @@ pub struct CompilerConfiguration {
     pub debug_info: bool,
 
     pub components_to_generate: ComponentSelection,
+
+    /// memory section in which to store generated assets, such as images or glyphs.
+    /// Corresponds to `#[link_section]` in Rust and `__attribute__((section("..."))`
+    /// in C++.
+    pub assets_section: Option<String>,
 }
 
 impl CompilerConfiguration {
@@ -186,6 +191,9 @@ impl CompilerConfiguration {
             _ => None,
         };
 
+        // Old value for compatibility, not ASSET vs. ASSETS
+        let assets_section = std::env::var("SLINT_ASSET_SECTION").ok();
+
         Self {
             embed_resources,
             include_paths: Default::default(),
@@ -201,6 +209,7 @@ impl CompilerConfiguration {
             cpp_namespace,
             debug_info,
             components_to_generate: ComponentSelection::ExportedWindows,
+            assets_section,
         }
     }
 }
