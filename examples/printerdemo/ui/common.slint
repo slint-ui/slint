@@ -32,8 +32,8 @@ export global DemoPalette  {
         background: #122F7B,
         primary: #0E133F,
         secondary: #FFBF63,
-        text-primary: #FFF,
-        text-secondary: #F1FF98,
+        text-primary: #F4F6FF,
+        text-secondary: #F4F6FF,
         destructive: #FF3B30,
     };
 
@@ -44,13 +44,14 @@ export global DemoPalette  {
     out property <color> text-secondary: dark-mode ? dark-mode-colors.text-secondary : light-mode-colors.text-secondary;
     out property <color> destructive: dark-mode ? dark-mode-colors.destructive : light-mode-colors.destructive;
 
+    // Fixed (non-themeable) colors
+    out property <color> push-button-text-color: white;
+
     // Color of the home/settings/ink buttons on the left side bar
     out property <color> active-page-icon-color: root.dark-mode ? #6284FF : #122F7B;
     out property <color> inactive-page-icon-color: #BDC0D1;
     out property <color> neutral-box: #BDC0D1;
-    out property <color> text-foreground-color: root.dark-mode ? #F4F6FF : black;
     out property <color> secondary-foreground-color: root.dark-mode ? #C1C3CA : #6C6E7A;
-    out property <color> printer-queue-item-background-color: root.background; // Remove?
 
     // Color used for the border / outline of items that can be clicked on, such as the
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
@@ -69,14 +70,12 @@ export global DemoPalette  {
         pressed: root.secondary-push-button-base.darker(40%),
         hovered: root.secondary-push-button-base.darker(20%),
     };
-    out property <color> push-button-text-color: white;
+    
     out property <length> base-font-size: 16px;
     out property <length> button-width: 130px;
     out property <length> button-height: button-width + 30px;
     out property <length> side-bar-width: 67px;
     out property <length> side-bar-margin: 10px;
-
-    // Light and Dark mode colors
 
 }
 
@@ -114,7 +113,7 @@ export component Page inherits Rectangle {
     h := Text {
         font-weight: 900;
         font-size: DemoPalette.base-font-size * 2;
-        color: DemoPalette.text-foreground-color;
+        color: DemoPalette.text-primary;
         y: 46px - self.font-size;
         x: root.has-back-button ? 24px + 16px : 0px;
         // Allow clicking on the title as well to get back easier when just
@@ -125,7 +124,7 @@ export component Page inherits Rectangle {
     }
 }
 export component Label inherits Text {
-    color: DemoPalette.text-foreground-color;
+    color: DemoPalette.text-primary;
     vertical-alignment: center;
     font-weight: 700;
     vertical-stretch: 0;
@@ -260,6 +259,15 @@ export component ComboBox inherits Rectangle {
         VerticalLayout {
             spacing: 6px;
             padding: 3px;
+            function textColor(hashover: bool) -> color {
+                if DemoPalette.dark-mode {
+                    return DemoPalette.text-primary;
+                }
+                // if hashover {
+                    return DemoPalette.text-primary;
+                // }
+                
+            }
 
             for value[idx] in root.choices: Rectangle {
                 border-radius: 3px;
@@ -268,7 +276,7 @@ export component ComboBox inherits Rectangle {
                 HorizontalLayout {
                     Text {
                         text: value;
-                        color: item-area.has-hover ? DemoPalette.push-button-text-color : DemoPalette.text-foreground-color;
+                        color: item-area.has-hover ? DemoPalette.push-button-text-color : DemoPalette.text-primary;
                         font-size: DemoPalette.base-font-size;
                     }
                 }
