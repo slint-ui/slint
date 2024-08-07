@@ -42,6 +42,10 @@ export global DemoPalette  {
     };
     out property <color> push-button-text-color: white;
     out property <length> base-font-size: 16px;
+    out property <length> button-width: 130px;
+    out property <length> button-height: button-width + 30px;
+    out property <length> side-bar-width: 67px;
+    out property <length> side-bar-margin: 10px;
 }
 
 export component Page inherits Rectangle {
@@ -51,8 +55,12 @@ export component Page inherits Rectangle {
     callback back;
 
     background: DemoPalette.page-background-color;
+    // Stop accidentally getting clicks dur to animation only moving page half way offscreen
+    visible: self.opacity > 0;
 
-    TouchArea {} // protect underneath controls
+    TouchArea { } // protect underneath controls
+
+    
 
     if (root.has-back-button) : Image {
         x:0;
