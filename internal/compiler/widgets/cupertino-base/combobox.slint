@@ -151,7 +151,7 @@ export component ComboBox {
         x: 0;
         y: parent.height + 6px;
         width: root.width;
-        height: root.visible-items * CupertinoSizeSettings.item-height  + 2 * root.popup-padding;
+        height: root.visible-items * (CupertinoSizeSettings.item-height + 1rem) + 2 * root.popup-padding;
 
         MenuBorder {
             ScrollView {

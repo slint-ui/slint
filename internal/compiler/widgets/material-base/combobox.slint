@@ -85,7 +85,7 @@ export component ComboBox {
         x: 0;
         y: root.height;
         width: root.width;
-        height: root.visible-items * MaterialSizeSettings.item-height;
+        height: root.visible-items * (1rem + MaterialSizeSettings.item-height);
 
         popup-container := Rectangle {
             background: MaterialPalette.alternate-background;
