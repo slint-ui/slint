@@ -409,8 +409,12 @@ fn find_block_range(element: &common::ElementRcNode) -> Option<lsp_types::Range>
 fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
     let range = element.with_decorated_node(|node| util::map_node(&node));
     let e = element.element.borrow();
-
-    ElementInformation { id: e.id.clone(), type_name: e.base_type.to_string(), range }
+    let type_name = if matches!(&e.base_type, ElementType::Builtin(b) if b.name == "Empty") {
+        String::new()
+    } else {
+        e.base_type.to_string()
+    };
+    ElementInformation { id: e.id.clone(), type_name, range }
 }
 
 pub(crate) fn query_properties(
@@ -931,6 +935,27 @@ mod tests {
         assert_eq!(r.start.character, 12);
         assert_eq!(r.end.line, 35);
         assert_eq!(r.end.character, 13);
+
+        assert_eq!(result.type_name, "Text");
+    }
+
+    #[test]
+    fn test_element_information_empty() {
+        let (document_cache, url, _) = loaded_document_cache(
+            "component FooBar { property <int> foo; btn := Button {} }".into(),
+        );
+        let element =
+            document_cache.element_at_position(&url, &lsp_types::Position::new(1, 19)).unwrap();
+        let result = get_element_information(&element);
+        assert_eq!(result.type_name, "");
+        assert_eq!(result.id, "root");
+
+        let element =
+            document_cache.element_at_position(&url, &lsp_types::Position::new(1, 39)).unwrap();
+        let result = get_element_information(&element);
+        // Because `Button` is not defined in this scope
+        assert_eq!(result.type_name, "<error>");
+        assert_eq!(result.id, "btn");
     }
 
     fn delete_range_test(
