@@ -7,34 +7,63 @@ struct ButtonColors  {
     hovered: color,
 }
 
+struct ModeColors {
+    background: color,
+    primary: color,
+    secondary: color,
+    text-primary: color,
+    text-secondary: color,
+    destructive: color,
+}
+
 export global DemoPalette  {
-    in property <bool> night-mode: false;
+    in property <bool> dark-mode: false;
+
+    property <ModeColors> light-mode-colors: {
+        background: #FFFFFF,
+        primary: #0E133F,
+        secondary: #FFBF63,
+        text-primary: #000,
+        text-secondary: #6284FF,
+        destructive: #FF3B30,
+    };
+
+    property <ModeColors> dark-mode-colors: {
+        background: #122F7B,
+        primary: #0E133F,
+        secondary: #FFBF63,
+        text-primary: #FFF,
+        text-secondary: #F1FF98,
+        destructive: #FF3B30,
+    };
+
+    out property <color> background: dark-mode ? dark-mode-colors.background : light-mode-colors.background;
+    out property <color> primary: dark-mode ? dark-mode-colors.primary : light-mode-colors.primary;
+    out property <color> secondary: dark-mode ? dark-mode-colors.secondary : light-mode-colors.secondary;
+    out property <color> text-primary: dark-mode ? dark-mode-colors.text-primary : light-mode-colors.text-primary;
+    out property <color> text-secondary: dark-mode ? dark-mode-colors.text-secondary : light-mode-colors.text-secondary;
+    out property <color> destructive: dark-mode ? dark-mode-colors.destructive : light-mode-colors.destructive;
 
     // Color of the home/settings/ink buttons on the left side bar
-    out property <color> active-page-icon-color: root.night-mode ? #6284FF : #122F7B;
+    out property <color> active-page-icon-color: root.dark-mode ? #6284FF : #122F7B;
     out property <color> inactive-page-icon-color: #BDC0D1;
-    out property <color> main-background: #0E133F;
     out property <color> neutral-box: #BDC0D1;
-    out property <color> page-background-color: root.night-mode ? #122F7B : white;
-    out property <color> text-foreground-color: root.night-mode ? #F4F6FF : black;
-    out property <color> secondary-foreground-color: root.night-mode ? #C1C3CA : #6C6E7A;
-    out property <color> printer-action-background-color: root.night-mode ? root.main-background : white;
-    out property <color> printer-queue-item-background-color: root.page-background-color;
-    out property <color> status-label-text-color: root.night-mode ? #F1FF98 : #6284FF;
+    out property <color> text-foreground-color: root.dark-mode ? #F4F6FF : black;
+    out property <color> secondary-foreground-color: root.dark-mode ? #C1C3CA : #6C6E7A;
+    out property <color> printer-queue-item-background-color: root.background; // Remove?
 
     // Color used for the border / outline of items that can be clicked on, such as the
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
-    out property <color> control-outline-color: #FFBF63;
     out property <color> control-secondary: #6284FF;
-    out property <color> control-foreground: root.night-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
+    out property <color> control-foreground: root.dark-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
     out property <color> primary-push-button-base: #6284FF;
     out property <ButtonColors> primary-push-button-colors: {
         base: root.primary-push-button-base,
         pressed: root.primary-push-button-base.darker(40%),
         hovered: root.primary-push-button-base.darker(20%),
     };
-    out property <color> secondary-push-button-base: #FFBF63;
+    out property <color> secondary-push-button-base: destructive;
     out property <ButtonColors> secondary-push-button-colors: {
         base: root.secondary-push-button-base,
         pressed: root.secondary-push-button-base.darker(40%),
@@ -46,6 +75,9 @@ export global DemoPalette  {
     out property <length> button-height: button-width + 30px;
     out property <length> side-bar-width: 67px;
     out property <length> side-bar-margin: 10px;
+
+    // Light and Dark mode colors
+
 }
 
 export component Page inherits Rectangle {
@@ -54,7 +86,7 @@ export component Page inherits Rectangle {
 
     callback back;
 
-    background: DemoPalette.page-background-color;
+    background: DemoPalette.background;
     // Stop accidentally getting clicks dur to animation only moving page half way offscreen
     visible: self.opacity > 0;
 
@@ -106,7 +138,7 @@ component SquareButton inherits Rectangle {
 
     border-radius: 3px;
     border-width: 2px;
-    border-color: DemoPalette.control-outline-color;
+    border-color: DemoPalette.secondary;
 
     touch := TouchArea {
         clicked => {
@@ -150,7 +182,7 @@ export component SpinBox inherits Rectangle {
         Rectangle {
             border-radius: 3px;
             border-width: 2px;
-            border-color: DemoPalette.control-outline-color;
+            border-color: DemoPalette.secondary;
 
             Text {
                 width: 100%;
@@ -182,7 +214,7 @@ export component ComboBox inherits Rectangle {
 
     border-radius: 3px;
     border-width: 2px;
-    border-color: DemoPalette.control-outline-color;
+    border-color: DemoPalette.secondary;
     height: 32px;
     min-width: label.x + label.width + i.width;
     horizontal-stretch: 1; // Work around #2284
@@ -219,10 +251,10 @@ export component ComboBox inherits Rectangle {
         width: root.width;
 
         Rectangle {
-            background: DemoPalette.page-background-color;
+            background: DemoPalette.background;
             border-radius: 3px;
             border-width: 2px;
-            border-color: DemoPalette.control-outline-color;
+            border-color: DemoPalette.secondary;
         }
 
         VerticalLayout {

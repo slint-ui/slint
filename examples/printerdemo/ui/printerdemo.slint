@@ -58,7 +58,7 @@ export component MainWindow inherits Window {
     width: 772px;
     height: 504px;
     title: @tr("Slint printer demo");
-    background: DemoPalette.main-background;
+    background: DemoPalette.primary;
     default-font-family: "Noto Sans";
     default-font-size: DemoPalette.base-font-size;
 
@@ -69,7 +69,7 @@ export component MainWindow inherits Window {
         main-view := Rectangle {
             height: 100%;
             border-radius: 30px;
-            background: DemoPalette.page-background-color;
+            background: DemoPalette.background;
 
             Rectangle {
                 clip: true;
@@ -146,7 +146,7 @@ export component MainWindow inherits Window {
             x: parent.width - self.width + 1px; // workaround pixel gap
             y: sidebar.icon-y(root.active-page) - self.width / 2;
             source: @image-url("images/page_selection.svg");
-            colorize: DemoPalette.page-background-color;
+            colorize: DemoPalette.background;
             animate y { duration: 125ms; }
         }
 
@@ -169,14 +169,14 @@ export component MainWindow inherits Window {
         Rectangle {
             y: sidebar.icon-y(3) + 17px;
             x: DemoPalette.side-bar-margin + 8px;
-            background: DemoPalette.page-background-color;
+            background: DemoPalette.background;
             height: 2px;
             width: 37px;
         }
 
         SideBarIcon {
             activate => {
-                DemoPalette.night-mode = !DemoPalette.night-mode;
+                DemoPalette.dark-mode = !DemoPalette.dark-mode;
             }
 
             y: sidebar.icon-y(4);
@@ -185,8 +185,8 @@ export component MainWindow inherits Window {
             width: 30px;
 
             Image {
-                colorize: DemoPalette.night-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
-                source: DemoPalette.night-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
+                colorize: DemoPalette.dark-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
+                source: DemoPalette.dark-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
                 image-fit: contain;
                 width: 100%;
                 height: 100%;

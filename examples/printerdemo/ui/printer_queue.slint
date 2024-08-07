@@ -137,7 +137,7 @@ component NarrowPrintQueueElement inherits Rectangle {
 
     private property <float> expanded-opacity: 0;
 
-    border-color: DemoPalette.control-outline-color;
+    border-color: DemoPalette.secondary;
     border-radius: 14px;
     border-width: 2px;
     background: DemoPalette.printer-queue-item-background-color;
@@ -186,7 +186,7 @@ component NarrowPrintQueueElement inherits Rectangle {
                             PrinterQueue.statusString(root.queue-item.status)
                         }
                     }
-                    color: DemoPalette.status-label-text-color;
+                    color: DemoPalette.text-secondary;
                     font-size: DemoPalette.base-font-size * 0.75;
                     font-weight: 800;
                     letter-spacing: 1.56px;
@@ -299,7 +299,7 @@ component WidePrintQueueElement inherits Rectangle {
                         PrinterQueue.statusString(root.queue-item.status)
                     }
                 }
-                color: DemoPalette.status-label-text-color;
+                color: DemoPalette.text-secondary;
                 font-size: DemoPalette.base-font-size * 0.75;
                 font-weight: 700;
                 letter-spacing: 1.56px;
@@ -381,7 +381,7 @@ export component PrinterQueueView inherits Rectangle {
     callback show-job-details(int);
 
     border-radius: 27px;
-    background: DemoPalette.night-mode ? DemoPalette.printer-action-background-color : #F4F6FF;
+    background: DemoPalette.background.darker(20%);
 
     VerticalLayout {
         padding: 16px;

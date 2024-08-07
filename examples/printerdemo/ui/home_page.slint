@@ -20,8 +20,8 @@ component ActionButton inherits Rectangle {
         Rectangle {
             border-radius: 25px;
             border-width: 5px;
-            border-color: DemoPalette.control-outline-color;
-            background: DemoPalette.printer-action-background-color;
+            border-color: DemoPalette.secondary;
+            background: DemoPalette.dark-mode ? DemoPalette.primary : DemoPalette.background;
 
             img := Image {
                 x: (parent.width / 2) - (self.width / 2);
