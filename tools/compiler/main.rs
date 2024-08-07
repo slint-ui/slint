@@ -71,6 +71,10 @@ struct Cli {
     #[arg(long, name = "scale factor")]
     scale_factor: Option<f32>,
 
+    /// The optional name of a memory section to place pre-compiled image assets to.
+    #[arg(long, name = "assets section", action)]
+    assets_section: Option<String>,
+
     /// Generate a dependency file for build systems like CMake or Ninja.
     /// This file is similar to the output of `gcc -M`.
     #[arg(long = "depfile", name = "dependency file", number_of_values = 1)]
@@ -198,6 +202,7 @@ fn main() -> std::io::Result<()> {
     if let Some(path) = args.bundle_translations {
         compiler_config.translation_path_bundle = Some(path);
     }
+    compiler_config.assets_section = args.assets_section;
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));

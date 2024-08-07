@@ -197,6 +197,10 @@ pub struct CompilerConfiguration {
 
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
+    /// memory section in which to store generated assets, such as images or glyphs.
+    /// Corresponds to `#[link_section]` in Rust and `__attribute__((section("..."))`
+    /// in C++.
+    pub assets_section: Option<String>,
 }
 
 impl CompilerConfiguration {
@@ -258,6 +262,9 @@ impl CompilerConfiguration {
             _ => None,
         };
 
+        // Old value for compatibility, not ASSET vs. ASSETS
+        let assets_section = std::env::var("SLINT_ASSET_SECTION").ok();
+
         Self {
             embed_resources,
             include_paths: Default::default(),
@@ -287,6 +294,7 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            assets_section,
         }
     }
 

@@ -397,6 +397,7 @@ pub mod cpp_ast {
         pub name: SmolStr,
         pub array_size: Option<usize>,
         pub init: Option<String>,
+        pub link_section: Option<String>, // __attribute__((section(...)))
     }
 
     impl Display for Var {
@@ -407,6 +408,9 @@ pub mod cpp_ast {
             }
             if self.is_inline {
                 write!(f, "inline ")?;
+            }
+            if let Some(section) = self.link_section.as_ref() {
+                write!(f, "{section} ")?;
             }
             write!(f, "{} {}", self.ty, self.name)?;
             if let Some(size) = self.array_size {
@@ -709,10 +713,16 @@ pub fn generate(
         return super::cpp_live_preview::generate(doc, config, compiler_config);
     }
 
+    #[cfg(feature = "software-renderer")]
+    let link_section = compiler_config
+        .assets_section
+        .as_ref()
+        .map(|section| format!("__attribute__((section(\"{section}\")))"));
+
     let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config);
 
     for (path, er) in doc.embedded_file_resources.borrow().iter() {
-        embed_resource(er, path, &mut file.resources);
+        embed_resource(er, path, &mut file.resources, &link_section);
     }
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
@@ -938,6 +948,7 @@ fn embed_resource(
     resource: &crate::embedded_resources::EmbeddedResources,
     path: &SmolStr,
     declarations: &mut Vec<Declaration>,
+    link_section: &Option<String>,
 ) {
     match &resource.kind {
         crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {}
@@ -964,6 +975,7 @@ fn embed_resource(
                 name: format_smolstr!("slint_embedded_resource_{}", resource.id),
                 array_size: Some(data.len()),
                 init: Some(init),
+                link_section: link_section.clone(),
                 ..Default::default()
             }));
         }
@@ -993,6 +1005,7 @@ fn embed_resource(
                 name: data_name.clone(),
                 array_size: Some(count),
                 init: Some(format!("{{ {data} }}")),
+                link_section: link_section.clone(),
                 ..Default::default()
             }));
             let texture_name = format_smolstr!("slint_embedded_resource_{}_texture", resource.id);
@@ -1053,6 +1066,7 @@ fn embed_resource(
                     "{{ {} }}",
                     family_name.as_bytes().iter().map(ToString::to_string).join(", ")
                 )),
+                link_section: link_section.clone(),
                 ..Default::default()
             }));
 
@@ -1072,6 +1086,7 @@ fn embed_resource(
                         ))
                         .join(", ")
                 )),
+                link_section: link_section.clone(),
                 ..Default::default()
             }));
 
@@ -1090,6 +1105,8 @@ fn embed_resource(
                             "{{ {} }}",
                             glyph.data.iter().map(ToString::to_string).join(", ")
                         )),
+                        link_section: link_section.clone(),
+
                         ..Default::default()
                     }));
                 }
@@ -1105,6 +1122,7 @@ fn embed_resource(
                         glyph.data.len()
                     )
                     }).join(", \n"))),
+                    link_section: link_section.clone(),
                     ..Default::default()
                 }));
             }
@@ -1127,6 +1145,7 @@ fn embed_resource(
                         ))
                         .join(", \n")
                 )),
+                link_section: link_section.clone(),
                 ..Default::default()
             }));
 
@@ -1151,6 +1170,7 @@ fn embed_resource(
                 name: format_smolstr!("slint_embedded_resource_{}", resource.id),
                 array_size: None,
                 init: Some(init),
+                link_section: link_section.clone(),
                 ..Default::default()
             }))
         }
