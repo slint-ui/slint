@@ -205,7 +205,6 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// event loop  in a call to [`tokio::task::block_in_place`](https://docs.rs/tokio/latest/tokio/task/fn.block_in_place.html):
 ///
 /// ```rust, no_run
-/// ...   
 /// // Wrap the call to run_event_loop to ensure presence of a Tokio run-time.
 /// tokio::task::block_in_place(slint::run_event_loop).unwrap();
 /// ```
