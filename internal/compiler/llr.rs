@@ -17,7 +17,7 @@ pub mod optim_passes {
     mod inline_expressions;
 
     pub fn run_passes(root: &super::CompilationUnit) {
-        inline_expressions::inline_simple_expressions(root);
         count_property_use::count_property_use(root);
+        inline_expressions::inline_simple_expressions(root);
     }
 }

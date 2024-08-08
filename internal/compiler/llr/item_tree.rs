@@ -21,9 +21,6 @@ impl From<Expression> for MutExpression {
 }
 
 impl MutExpression {
-    pub fn visit_recursive(&self, visitor: &mut dyn FnMut(&Expression)) {
-        self.0.borrow().visit_recursive(visitor)
-    }
     pub fn ty(&self, ctx: &dyn super::TypeResolutionContext) -> Type {
         self.0.borrow().ty(ctx)
     }
