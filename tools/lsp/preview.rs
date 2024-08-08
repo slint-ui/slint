@@ -385,15 +385,12 @@ fn evaluate_binding(
         properties::remove_binding(element_url, element_version, &element, &property_name).ok()
     } else {
         properties::set_binding(
-            &document_cache,
-            &element_url,
+            element_url,
             element_version,
             &element,
             &property_name,
             property_value,
         )
-        .ok()
-        .and_then(|(_, edit)| edit)
     }?;
 
     drop_location::workspace_edit_compiles(&document_cache, &edit).then_some(edit)
@@ -648,7 +645,7 @@ fn delete_selected_element() {
 
 // triggered from the UI, running in UI thread
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
-    let Ok(Some((edit, label))) = resize_selected_element_impl(LogicalRect::new(
+    let Some((edit, label)) = resize_selected_element_impl(LogicalRect::new(
         LogicalPoint::new(x, y),
         LogicalSize::new(width, height),
     )) else {
@@ -658,24 +655,15 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     send_workspace_edit(label, edit);
 }
 
-fn resize_selected_element_impl(
-    rect: LogicalRect,
-) -> common::Result<Option<(lsp_types::WorkspaceEdit, String)>> {
-    let Some(selected) = selected_element() else {
-        return Ok(None);
-    };
-    let Some(selected_element_node) = selected.as_element_node() else {
-        return Ok(None);
-    };
-    let Some(component_instance) = component_instance() else {
-        return Ok(None);
-    };
+fn resize_selected_element_impl(rect: LogicalRect) -> Option<(lsp_types::WorkspaceEdit, String)> {
+    let selected = selected_element()?;
+    let selected_element_node = selected.as_element_node()?;
+    let component_instance = component_instance()?;
 
-    let Some(geometry) =
-        selected_element_node.geometries(&component_instance).get(selected.instance_index).cloned()
-    else {
-        return Ok(None);
-    };
+    let geometry = selected_element_node
+        .geometries(&component_instance)
+        .get(selected.instance_index)
+        .cloned()?;
 
     let position = rect.origin;
     let root_element = element_selection::root_element(&component_instance);
@@ -722,16 +710,11 @@ fn resize_selected_element_impl(
     };
 
     if properties.is_empty() {
-        return Ok(None);
+        return None;
     }
 
-    let Ok(url) = Url::from_file_path(&selected.path) else {
-        return Ok(None);
-    };
-
-    let Some(document_cache) = document_cache() else {
-        return Ok(None);
-    };
+    let url = Url::from_file_path(&selected.path).ok()?;
+    let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
 
@@ -740,7 +723,7 @@ fn resize_selected_element_impl(
         common::VersionedPosition::new(common::VersionedUrl::new(url, version), selected.offset),
         properties,
     )
-    .map(|edit| Some((edit, format!("{op} element"))))
+    .map(|edit| (edit, format!("{op} element")))
 }
 
 // triggered from the UI, running in UI thread
