@@ -9,7 +9,6 @@ import * as path from "path";
 import { existsSync } from "fs";
 import * as vscode from "vscode";
 
-import { PropertiesViewProvider } from "./properties_webview";
 import * as common from "./common";
 
 import {
@@ -20,7 +19,6 @@ import {
 } from "vscode-languageclient/node";
 
 let statusBar: vscode.StatusBarItem;
-let properties_provider: PropertiesViewProvider;
 
 const program_extension = process.platform === "win32" ? ".exe" : "";
 

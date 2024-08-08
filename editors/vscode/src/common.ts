@@ -194,12 +194,6 @@ export function activate(
         ) {
             return;
         }
-
-        // Send a request for properties information after passing through the
-        // event loop once to make sure the LSP got signaled to update.
-        setTimeout(() => {
-            properties_provider.refresh_view();
-        }, 1);
     });
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
