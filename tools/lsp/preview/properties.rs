@@ -49,12 +49,6 @@ pub struct QueryPropertyResponse {
     pub source_version: i32,
 }
 
-impl QueryPropertyResponse {
-    pub fn no_element_response(source_uri: String, source_version: i32) -> Self {
-        QueryPropertyResponse { properties: vec![], element: None, source_uri, source_version }
-    }
-}
-
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct SetBindingResponse {
     diagnostics: Vec<lsp_types::Diagnostic>,

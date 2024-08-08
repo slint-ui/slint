@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::common::{
-    self, component_catalog, properties, rename_component, ComponentInformation, ElementRcNode,
+    self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
     PreviewComponent, PreviewConfig, PreviewToLspMessage,
 };
 use crate::lsp_ext::Health;
@@ -31,6 +31,7 @@ mod drop_location;
 mod element_selection;
 mod ext;
 use ext::ElementRcNodeExt;
+mod properties;
 pub mod ui;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
