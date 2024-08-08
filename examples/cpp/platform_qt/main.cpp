@@ -387,7 +387,7 @@ int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
 
-    static MyPlatform *plarform = [] {
+    static MyPlatform *platform = [] {
         auto platform = std::make_unique<MyPlatform>();
         auto p2 = platform.get();
         slint::platform::set_platform(std::move(platform));
