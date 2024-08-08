@@ -200,8 +200,8 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 ///
 /// server.join().unwrap();
 /// ```
-///  
-/// Alternatively, if your application uses `#[tokio::main]` to create a Tokio run-time, wrap the call to enter the Slint
+///
+/// The use of `#[tokio::main]` is **not recommended**. If it's necessary to use though, wrap the call to enter the Slint
 /// event loop in a call to [`tokio::task::block_in_place`](https://docs.rs/tokio/latest/tokio/task/fn.block_in_place.html):
 ///
 /// ```rust, no_run
