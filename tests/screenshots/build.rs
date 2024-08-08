@@ -107,10 +107,6 @@ fn main() -> std::io::Result<()> {
         generate_source(source.as_str(), &mut output, testcase, scale_factor.unwrap_or(1.))
             .unwrap();
 
-        let scale_factor = scale_factor.map_or(String::new(), |scale_factor| {
-            format!("slint::platform::WindowAdapter::window(&*window).dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {{ scale_factor: {scale_factor}f32 }});")
-        });
-
         write!(
             output,
             r"
@@ -118,7 +114,6 @@ fn main() -> std::io::Result<()> {
     use crate::testing;
 
     let window = testing::init_swr();
-    {scale_factor}
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {reference_path};
     let options = testing::TestCaseOptions {{ rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping} }};
@@ -162,7 +157,7 @@ fn generate_source(
     compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".to_string());
-    compiler_config.scale_factor = scale_factor.into();
+    compiler_config.const_scale_factor = scale_factor.into();
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 

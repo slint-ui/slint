@@ -219,7 +219,7 @@ pub async fn run_passes(
     embed_images::embed_images(
         doc,
         type_loader.compiler_config.embed_resources,
-        type_loader.compiler_config.scale_factor,
+        type_loader.compiler_config.const_scale_factor,
         &type_loader.compiler_config.resource_url_mapper,
         diag,
     )
@@ -232,11 +232,11 @@ pub async fn run_passes(
 
             // Include at least the default font sizes used in the MCU backend
             let mut font_pixel_sizes =
-                vec![(12. * type_loader.compiler_config.scale_factor) as i16];
+                vec![(12. * type_loader.compiler_config.const_scale_factor) as i16];
             doc.visit_all_used_components(|component| {
                 embed_glyphs::collect_font_sizes_used(
                     component,
-                    type_loader.compiler_config.scale_factor,
+                    type_loader.compiler_config.const_scale_factor,
                     &mut font_pixel_sizes,
                 );
                 embed_glyphs::scan_string_literals(component, &mut characters_seen);
@@ -244,7 +244,7 @@ pub async fn run_passes(
 
             embed_glyphs::embed_glyphs(
                 doc,
-                type_loader.compiler_config.scale_factor,
+                type_loader.compiler_config.const_scale_factor,
                 font_pixel_sizes,
                 characters_seen,
                 std::iter::once(&*doc).chain(type_loader.all_documents()),
