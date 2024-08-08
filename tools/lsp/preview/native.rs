@@ -150,6 +150,10 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
         Some(ui) => ui,
         None => {
             let ui = super::ui::create_ui(default_style, experimental)?;
+
+            let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            cache.ui_is_visible = true;
+
             preview_state.ui.insert(ui)
         }
     };
