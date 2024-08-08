@@ -1130,7 +1130,7 @@ pub fn create_move_element_workspace_edit(
         let size = element.geometries(component_instance).first().map(|g| g.size)?;
 
         if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
-            let Ok(Some((edit, _))) =
+            let Some((edit, _)) =
                 preview::resize_selected_element_impl(LogicalRect::new(position, size))
             else {
                 return None;

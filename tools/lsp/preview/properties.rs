@@ -4,7 +4,7 @@
 use crate::common::{self, Result};
 use crate::util;
 
-use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
+use i_slint_compiler::diagnostics::{SourceFileVersion, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
@@ -47,11 +47,6 @@ pub struct QueryPropertyResponse {
     pub element: Option<ElementInformation>,
     pub source_uri: String,
     pub source_version: i32,
-}
-
-#[derive(Clone, Debug)]
-pub struct SetBindingResponse {
-    diagnostics: Vec<lsp_types::Diagnostic>,
 }
 
 // This gets defined accessibility properties...
@@ -435,63 +430,17 @@ fn get_property_information(
     }
 }
 
-fn validate_property_expression_type(
-    property: &PropertyInformation,
-    new_expression_type: Type,
-    diag: &mut BuildDiagnostics,
-) {
-    // Check return type match:
-    if new_expression_type != i_slint_compiler::langtype::Type::Invalid
-        && new_expression_type.to_string() != property.type_name
-    {
-        diag.push_error_with_span(
-            format!(
-                "return type mismatch in \"{}\" (was: {new_expression_type}, expected: {})",
-                property.name, property.type_name
-            ),
-            i_slint_compiler::diagnostics::SourceLocation {
-                source_file: None,
-                span: i_slint_compiler::diagnostics::Span::new(0),
-            },
-        );
-    }
-}
-
-fn create_workspace_edit_for_set_binding_on_existing_property(
+fn create_text_document_edit_for_set_binding_on_existing_property(
     uri: lsp_types::Url,
     version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
-) -> Option<lsp_types::WorkspaceEdit> {
+) -> Option<lsp_types::TextDocumentEdit> {
     property.defined_at.as_ref().map(|defined_at| {
         let edit =
             lsp_types::TextEdit { range: defined_at.expression_range, new_text: new_expression };
-        common::create_workspace_edit(uri, version, vec![edit])
+        common::create_text_document_edit(uri, version, vec![edit])
     })
-}
-
-fn set_binding_on_existing_property(
-    uri: lsp_types::Url,
-    version: SourceFileVersion,
-    property: &PropertyInformation,
-    new_expression: String,
-    diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let workspace_edit = (!diag.has_errors())
-        .then(|| {
-            create_workspace_edit_for_set_binding_on_existing_property(
-                uri,
-                version,
-                property,
-                new_expression,
-            )
-        })
-        .flatten();
-
-    Ok((
-        SetBindingResponse { diagnostics: diag.iter().map(util::to_lsp_diag).collect::<Vec<_>>() },
-        workspace_edit,
-    ))
 }
 
 enum InsertPosition {
@@ -545,14 +494,14 @@ fn find_insert_range_for_property(
     })
 }
 
-fn create_workspace_edit_for_set_binding_on_known_property(
+fn create_text_document_edit_for_set_binding_on_known_property(
     uri: lsp_types::Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
-) -> Option<lsp_types::WorkspaceEdit> {
+) -> Option<lsp_types::TextDocumentEdit> {
     let block_range = find_block_range(element);
 
     find_insert_range_for_property(&block_range, properties, property_name).map(
@@ -569,151 +518,67 @@ fn create_workspace_edit_for_set_binding_on_known_property(
                     }
                 },
             };
-            common::create_workspace_edit(uri, version, vec![edit])
+            common::create_text_document_edit(uri, version, vec![edit])
         },
     )
 }
 
-fn set_binding_on_known_property(
-    uri: lsp_types::Url,
-    version: SourceFileVersion,
-    element: &common::ElementRcNode,
-    properties: &[PropertyInformation],
-    property_name: &str,
-    new_expression: &str,
-    diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let workspace_edit = if diag.has_errors() {
-        None
-    } else {
-        create_workspace_edit_for_set_binding_on_known_property(
-            uri,
-            version,
-            element,
-            properties,
-            property_name,
-            new_expression,
-        )
-    };
-
-    Ok((
-        SetBindingResponse { diagnostics: diag.iter().map(util::to_lsp_diag).collect::<Vec<_>>() },
-        workspace_edit,
-    ))
-}
-
 pub fn set_binding(
-    document_cache: &common::DocumentCache,
-    uri: &lsp_types::Url,
+    uri: lsp_types::Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     property_name: &str,
     new_expression: String,
-) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let (mut diag, expression_node) = {
-        let mut diagnostics = BuildDiagnostics::default();
+) -> Option<lsp_types::WorkspaceEdit> {
+    set_binding_impl(uri, version, element, property_name, new_expression)
+        .map(|edit| common::create_workspace_edit_from_text_document_edits(vec![edit]))
+}
 
-        let syntax_node = i_slint_compiler::parser::parse_expression_as_bindingexpression(
-            &new_expression,
-            &mut diagnostics,
-        );
-
-        (diagnostics, syntax_node)
-    };
-
-    let new_expression_type = {
-        let expr_context_info = element.with_element_node(|node| {
-            util::ExpressionContextInfo::new(node.clone(), property_name.to_string(), false)
-        });
-        util::with_property_lookup_ctx(document_cache, &expr_context_info, |ctx| {
-            let expression =
-                i_slint_compiler::expression_tree::Expression::from_binding_expression_node(
-                    expression_node,
-                    ctx,
-                );
-            expression.ty()
-        })
-        .unwrap_or(Type::Invalid)
-    };
-
+pub fn set_binding_impl(
+    uri: lsp_types::Url,
+    version: SourceFileVersion,
+    element: &common::ElementRcNode,
+    property_name: &str,
+    new_expression: String,
+) -> Option<lsp_types::TextDocumentEdit> {
     let properties = get_properties(element);
-    let property = match get_property_information(&properties, property_name) {
-        Ok(p) => p,
-        Err(e) => {
-            diag.push_error_with_span(
-                e.to_string(),
-                i_slint_compiler::diagnostics::SourceLocation {
-                    source_file: None,
-                    span: i_slint_compiler::diagnostics::Span::new(0),
-                },
-            );
-            return Ok((
-                SetBindingResponse {
-                    diagnostics: diag.iter().map(util::to_lsp_diag).collect::<Vec<_>>(),
-                },
-                None,
-            ));
-        }
-    };
+    let property = get_property_information(&properties, property_name).ok()?;
 
-    validate_property_expression_type(&property, new_expression_type, &mut diag);
     if property.defined_at.is_some() {
         // Change an already defined property:
-        set_binding_on_existing_property(uri.clone(), version, &property, new_expression, &mut diag)
+        create_text_document_edit_for_set_binding_on_existing_property(
+            uri,
+            version,
+            &property,
+            new_expression,
+        )
     } else {
         // Add a new definition to a known property:
-        set_binding_on_known_property(
-            uri.clone(),
+        create_text_document_edit_for_set_binding_on_known_property(
+            uri,
             version,
             element,
             &properties,
-            &property.name,
+            property_name,
             &new_expression,
-            &mut diag,
         )
     }
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn set_bindings(
-    document_cache: &common::DocumentCache,
     uri: lsp_types::Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     properties: &[crate::common::PropertyChange],
-) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let (responses, edits) = properties
+) -> Option<lsp_types::WorkspaceEdit> {
+    let edits = properties
         .iter()
-        .map(|p| set_binding(document_cache, &uri, version, element, &p.name, p.value.clone()))
-        .fold(
-            Ok((SetBindingResponse { diagnostics: Default::default() }, Vec::new())),
-            |prev_result: Result<(SetBindingResponse, Vec<lsp_types::TextEdit>)>, next_result| {
-                let (mut responses, mut edits) = prev_result?;
-                let (nr, ne) = next_result?;
+        .filter_map(|p| set_binding_impl(uri.clone(), version, element, &p.name, p.value.clone()))
+        .collect::<Vec<_>>();
 
-                responses.diagnostics.extend_from_slice(&nr.diagnostics);
-
-                match ne {
-                    Some(lsp_types::WorkspaceEdit {
-                        document_changes: Some(lsp_types::DocumentChanges::Edits(e)),
-                        ..
-                    }) => {
-                        edits.extend(e.first().unwrap().edits.iter().filter_map(|e| match e {
-                            lsp_types::OneOf::Left(edit) => Some(edit.clone()),
-                            _ => None,
-                        }));
-                    }
-                    _ => { /* do nothing */ }
-                };
-
-                Ok((responses, edits))
-            },
-        )?;
-    if edits.is_empty() {
-        Ok((responses, None))
-    } else {
-        Ok((responses, Some(common::create_workspace_edit(uri, version, edits))))
-    }
+    (edits.len() != properties.len())
+        .then_some(common::create_workspace_edit_from_text_document_edits(edits))
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -746,17 +611,10 @@ pub fn update_element_properties(
     document_cache: &common::DocumentCache,
     position: common::VersionedPosition,
     properties: Vec<common::PropertyChange>,
-) -> Result<lsp_types::WorkspaceEdit> {
-    let element = element_at_source_code_position(document_cache, &position)?;
+) -> Option<lsp_types::WorkspaceEdit> {
+    let element = element_at_source_code_position(document_cache, &position).ok()?;
 
-    let (_, e) = set_bindings(
-        document_cache,
-        position.url().clone(),
-        *position.version(),
-        &element,
-        &properties,
-    )?;
-    Ok(e.ok_or_else(|| "Failed to create workspace edit".to_string())?)
+    set_bindings(position.url().clone(), *position.version(), &element, &properties)
 }
 
 fn create_workspace_edit_for_remove_binding(
@@ -1652,24 +1510,21 @@ component MyComp {
     fn set_binding_helper(
         property_name: &str,
         new_value: &str,
-    ) -> (SetBindingResponse, Option<lsp_types::WorkspaceEdit>) {
-        let (element, _, dc, url) = properties_at_position(18, 15).unwrap();
-        set_binding(&dc, &url, None, &element, property_name, new_value.to_string()).unwrap()
+    ) -> Option<lsp_types::WorkspaceEdit> {
+        let (element, _, _, url) = properties_at_position(18, 15).unwrap();
+        set_binding(url, None, &element, property_name, new_value.to_string())
     }
 
     #[test]
     fn test_set_binding_valid_expression_unknown_property() {
-        let (result, edit) = set_binding_helper("foobar", "1 + 2");
+        let edit = set_binding_helper("foobar", "1 + 2");
 
         assert_eq!(edit, None);
-        assert_eq!(result.diagnostics.len(), 1_usize);
-        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
-        assert!(result.diagnostics[0].message.contains("no property"));
     }
 
     #[test]
     fn test_set_binding_valid_expression_undefined_property() {
-        let (result, edit) = set_binding_helper("x", "30px");
+        let edit = set_binding_helper("x", "30px");
 
         let edit = edit.unwrap();
         let dcs = if let Some(lsp_types::DocumentChanges::Edits(e)) = &edit.document_changes {
@@ -1690,43 +1545,11 @@ component MyComp {
         assert_eq!(&tc.new_text, "x: 30px;\n                ");
         assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 16 });
         assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 16 });
-
-        assert_eq!(result.diagnostics.len(), 0_usize);
-    }
-
-    #[test]
-    fn test_set_binding_valid_expression_wrong_return_type() {
-        let (result, edit) = set_binding_helper("min-width", "\"test\"");
-
-        assert_eq!(edit, None);
-        assert_eq!(result.diagnostics.len(), 1_usize);
-        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
-        assert!(result.diagnostics[0].message.contains("return type mismatch"));
-    }
-
-    #[test]
-    fn test_set_binding_invalid_expression() {
-        let (result, edit) = set_binding_helper("min-width", "?=///1 + 2");
-
-        assert_eq!(edit, None);
-        assert_eq!(result.diagnostics.len(), 1_usize);
-        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
-        assert!(result.diagnostics[0].message.contains("invalid expression"));
-    }
-
-    #[test]
-    fn test_set_binding_trailing_garbage() {
-        let (result, edit) = set_binding_helper("min-width", "1px;");
-
-        assert_eq!(edit, None);
-        assert_eq!(result.diagnostics.len(), 1_usize);
-        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
-        assert!(result.diagnostics[0].message.contains("end of string"));
     }
 
     #[test]
     fn test_set_binding_valid() {
-        let (result, edit) = set_binding_helper("min-width", "5px");
+        let edit = set_binding_helper("min-width", "5px");
 
         let edit = edit.unwrap();
         let dcs = if let Some(lsp_types::DocumentChanges::Edits(e)) = &edit.document_changes {
@@ -1747,7 +1570,5 @@ component MyComp {
         assert_eq!(&tc.new_text, "5px");
         assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 27 });
         assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 32 });
-
-        assert_eq!(result.diagnostics.len(), 0_usize);
     }
 }
