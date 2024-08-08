@@ -6,6 +6,7 @@ use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
+use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::model::{Model, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
@@ -151,7 +152,7 @@ impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Value::Void => matches!(other, Value::Void),
-            Value::Number(lhs) => matches!(other, Value::Number(rhs) if lhs == rhs),
+            Value::Number(lhs) => matches!(other, Value::Number(rhs) if lhs.approx_eq(rhs)),
             Value::String(lhs) => matches!(other, Value::String(rhs) if lhs == rhs),
             Value::Bool(lhs) => matches!(other, Value::Bool(rhs) if lhs == rhs),
             Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
