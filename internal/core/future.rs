@@ -202,37 +202,12 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// ```
 ///
 /// The use of `#[tokio::main]` is **not recommended**. If it's necessary to use though, wrap the call to enter the Slint
-/// event loop in a call to [`tokio::task::block_in_place`](https://docs.rs/tokio/latest/tokio/task/fn.block_in_place.html):
+/// event loop  in a call to [`tokio::task::block_in_place`](https://docs.rs/tokio/latest/tokio/task/fn.block_in_place.html):
 ///
 /// ```rust, no_run
-/// // A dummy TCP server that once reports "Hello World"
-/// #[tokio::main]
-/// async fn main() {
-///     # i_slint_backend_testing::init_integration_test_with_mock_time();
-///     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-///     let local_addr = listener.local_addr().unwrap();
-///     let server = std::thread::spawn(move || {
-///         use std::io::Write;
-///         let mut stream = listener.incoming().next().unwrap().unwrap();
-///         stream.write("Hello World".as_bytes()).unwrap();
-///     });
-///
-///     let slint_future = async move {
-///         use tokio::io::AsyncReadExt;
-///         let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
-///         let mut data = Vec::new();
-///         stream.read_to_end(&mut data).await.unwrap();        
-///         assert_eq!(data, "Hello World".as_bytes());
-///         slint::quit_event_loop().unwrap();
-///     };
-///
-///     slint::spawn_local(slint_future).unwrap();
-///
-///     // Wrap the call to run_event_loop to ensure presence of a Tokio run-time.
-///     tokio::task::block_in_place(slint::run_event_loop_until_quit).unwrap();
-///
-///     server.join().unwrap();
-/// }
+/// ...   
+/// // Wrap the call to run_event_loop to ensure presence of a Tokio run-time.
+/// tokio::task::block_in_place(slint::run_event_loop).unwrap();
 /// ```
 pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
     // ensure we are in the backend's thread
