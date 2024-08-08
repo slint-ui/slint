@@ -128,7 +128,7 @@ impl<T> JoinHandle<T> {
 // Safety: JoinHandle doesn't access the future, only the
 unsafe impl<T: Send> Send for JoinHandle<T> {}
 
-/// Spawns a future to execute in the Slint event loop.
+/// Spawns a [`Future`] to execute in the Slint event loop.
 ///
 /// This function is intended to be invoked only from the main Slint thread that runs the event loop.
 /// The event loop must be initialized prior to calling this function.
