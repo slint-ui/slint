@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+import { Palette } from "std-widgets.slint";
 
 struct ButtonColors  {
     base: color,
@@ -17,7 +18,7 @@ struct ModeColors {
 }
 
 export global DemoPalette  {
-    in property <bool> dark-mode: false;
+    in property <bool> dark-mode: Palette.color-scheme == ColorScheme.dark;
 
     property <ModeColors> light-mode-colors: {
         background: #FFFFFF,
