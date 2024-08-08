@@ -11,7 +11,7 @@ use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
 
 use std::collections::HashSet;
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DefinitionInformation {
     pub property_definition_range: lsp_types::Range,
     pub selection_range: lsp_types::Range,
@@ -19,13 +19,13 @@ pub struct DefinitionInformation {
     pub expression_value: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DeclarationInformation {
     pub uri: lsp_types::Url,
     pub start_position: lsp_types::Position,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PropertyInformation {
     pub name: String,
     pub type_name: String,
@@ -34,14 +34,14 @@ pub struct PropertyInformation {
     pub group: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct ElementInformation {
     pub id: String,
     pub type_name: String,
     pub range: Option<lsp_types::Range>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug)]
 pub struct QueryPropertyResponse {
     pub properties: Vec<PropertyInformation>,
     pub element: Option<ElementInformation>,
@@ -49,7 +49,7 @@ pub struct QueryPropertyResponse {
     pub source_version: i32,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug)]
 pub struct SetBindingResponse {
     diagnostics: Vec<lsp_types::Diagnostic>,
 }
