@@ -8,7 +8,8 @@ use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 
-use crate::common::{self, properties, ComponentInformation};
+use crate::common::{self, ComponentInformation};
+use crate::preview::properties;
 use crate::util;
 
 #[cfg(target_arch = "wasm32")]
