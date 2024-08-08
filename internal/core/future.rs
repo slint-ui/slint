@@ -171,7 +171,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// The following little example demonstrates the use of Tokio's [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) to
 /// read from a network socket. The entire future passed to `spawn_local()` is wrapped in `Compat::new()` to make it run:
 ///
-/// ```rust,no_runt
+/// ```rust,no_run
 /// // A dummy TCP server that once reports "Hello World"
 /// # i_slint_backend_testing::init_integration_test_with_mock_time();
 /// use std::io::Write;
