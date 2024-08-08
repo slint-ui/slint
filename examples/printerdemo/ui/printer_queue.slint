@@ -137,10 +137,10 @@ component NarrowPrintQueueElement inherits Rectangle {
 
     private property <float> expanded-opacity: 0;
 
-    border-color: DemoPalette.control-outline-color;
+    border-color: DemoPalette.secondary;
     border-radius: 14px;
     border-width: 2px;
-    background: DemoPalette.printer-queue-item-background-color;
+    background: DemoPalette.background;
     clip: true;
     height: always-visible.min-height + layout.padding * 2;
 
@@ -186,7 +186,7 @@ component NarrowPrintQueueElement inherits Rectangle {
                             PrinterQueue.statusString(root.queue-item.status)
                         }
                     }
-                    color: DemoPalette.status-label-text-color;
+                    color: DemoPalette.text-secondary;
                     font-size: DemoPalette.base-font-size * 0.75;
                     font-weight: 800;
                     letter-spacing: 1.56px;
@@ -195,7 +195,7 @@ component NarrowPrintQueueElement inherits Rectangle {
                 Text {
                     text: root.queue-item.title;
                     overflow: elide;
-                    color: DemoPalette.text-foreground-color;
+                    color: DemoPalette.text-primary;
                     font-weight: 800;
                     font-size: DemoPalette.base-font-size * 1.125;
                 }
@@ -282,7 +282,7 @@ component WidePrintQueueElement inherits Rectangle {
     border-color: DemoPalette.neutral-box;
     border-radius: 14px;
     border-width: 2px;
-    background: DemoPalette.printer-queue-item-background-color;
+    background: DemoPalette.background;
 
     GridLayout {
         padding: parent.border-radius;
@@ -299,7 +299,7 @@ component WidePrintQueueElement inherits Rectangle {
                         PrinterQueue.statusString(root.queue-item.status)
                     }
                 }
-                color: DemoPalette.status-label-text-color;
+                color: DemoPalette.text-secondary;
                 font-size: DemoPalette.base-font-size * 0.75;
                 font-weight: 700;
                 letter-spacing: 1.56px;
@@ -319,7 +319,7 @@ component WidePrintQueueElement inherits Rectangle {
             col: 0;
             row: 1;
             text: root.queue-item.title;
-            color: DemoPalette.text-foreground-color;
+            color: DemoPalette.text-primary;
             overflow: elide;
             font-weight: 700;
             font-size: DemoPalette.base-font-size * 1.125;
@@ -381,7 +381,7 @@ export component PrinterQueueView inherits Rectangle {
     callback show-job-details(int);
 
     border-radius: 27px;
-    background: DemoPalette.night-mode ? DemoPalette.printer-action-background-color : #F4F6FF;
+    background: DemoPalette.background.darker(20%);
 
     VerticalLayout {
         padding: 16px;
@@ -389,7 +389,7 @@ export component PrinterQueueView inherits Rectangle {
 
         Text {
             text: @tr("Printing Queue");
-            color: DemoPalette.text-foreground-color;
+            color: DemoPalette.text-primary;
             font-size: DemoPalette.base-font-size * 1.5;
             font-weight: 700;
         }

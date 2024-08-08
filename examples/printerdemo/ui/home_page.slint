@@ -20,13 +20,13 @@ component ActionButton inherits Rectangle {
         Rectangle {
             border-radius: 25px;
             border-width: 5px;
-            border-color: DemoPalette.control-outline-color;
-            background: DemoPalette.printer-action-background-color;
+            border-color: DemoPalette.secondary;
+            background: DemoPalette.dark-mode ? DemoPalette.primary : DemoPalette.background;
 
             img := Image {
                 x: (parent.width / 2) - (self.width / 2);
                 y: (parent.height / 2) - (self.height / 2);
-                colorize: DemoPalette.text-foreground-color;
+                colorize: DemoPalette.text-primary;
             }
         }
 
@@ -34,7 +34,7 @@ component ActionButton inherits Rectangle {
             font-size: DemoPalette.base-font-size * 1.375;
             font-weight: 800;
             horizontal-alignment: center;
-            color: DemoPalette.text-foreground-color;
+            color: DemoPalette.text-primary;
         }
     }
 
