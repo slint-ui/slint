@@ -250,7 +250,7 @@ fn add_new_component() {
             })
         }
 
-        send_workspace_edit(format!("Add {component_name}"), edit);
+        send_workspace_edit(format!("Add {component_name}"), edit, true);
     }
 }
 
@@ -333,9 +333,6 @@ fn rename_component(
     if let Ok(edit) =
         rename_component::rename_component_from_definition(&document_cache, &identifier, &new_name)
     {
-        // HACK: We should compile-test this edit, but since we inject _SLINT_LivePreview component,
-        //       compilation will most likely fail.
-
         // Update which component to show after refresh from the editor.
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.rename_components_in_stack(&old_url, &old_name, &new_name);
@@ -350,7 +347,7 @@ fn rename_component(
             }
         }
 
-        send_workspace_edit(format!("Rename component {old_name} to {new_name}"), edit);
+        send_workspace_edit(format!("Rename component {old_name} to {new_name}"), edit, true);
     }
 }
 
@@ -450,7 +447,7 @@ fn set_binding(
         property_name,
         property_value,
     ) {
-        send_workspace_edit("Edit property".to_string(), edit);
+        send_workspace_edit("Edit property".to_string(), edit, false);
     }
 }
 
@@ -595,7 +592,7 @@ fn drop_component(component_index: i32, x: f32, y: f32) {
             true,
         );
 
-        send_workspace_edit(format!("Add element {}", component_name), edit);
+        send_workspace_edit(format!("Add element {}", component_name), edit, false);
     };
 }
 
@@ -640,7 +637,7 @@ fn delete_selected_element() {
     let edit =
         common::create_workspace_edit(url, version, vec![lsp_types::TextEdit { range, new_text }]);
 
-    send_workspace_edit("Delete element".to_string(), edit);
+    send_workspace_edit("Delete element".to_string(), edit, true);
 }
 
 // triggered from the UI, running in UI thread
@@ -652,7 +649,7 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
         return;
     };
 
-    send_workspace_edit(label, edit);
+    send_workspace_edit(label, edit, true);
 }
 
 fn resize_selected_element_impl(rect: LogicalRect) -> Option<(lsp_types::WorkspaceEdit, String)> {
@@ -770,13 +767,28 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
             true,
         );
 
-        send_workspace_edit("Move element".to_string(), edit);
+        send_workspace_edit("Move element".to_string(), edit, false);
     } else {
         element_selection::reselect_element();
     }
 }
 
-fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit) -> bool {
+fn test_workspace_edit(edit: &lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
+    if test_edit {
+        let Some(document_cache) = document_cache() else {
+            return false;
+        };
+        drop_location::workspace_edit_compiles(&document_cache, &edit)
+    } else {
+        true
+    }
+}
+
+fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
+    if !test_workspace_edit(&edit, test_edit) {
+        return false;
+    }
+
     let workspace_edit_sent = PREVIEW_STATE.with(|preview_state| {
         let mut ps = preview_state.borrow_mut();
         let result = ps.workspace_edit_sent;
@@ -786,10 +798,9 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit) -> bool {
 
     if !workspace_edit_sent {
         send_message_to_lsp(PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit });
-        true
-    } else {
-        false
+        return true;
     }
+    false
 }
 
 fn change_style() {
