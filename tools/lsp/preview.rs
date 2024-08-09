@@ -1178,16 +1178,22 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
-) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
-    let mut result: HashMap<Url, Vec<lsp_types::Diagnostic>> = Default::default();
+) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+    let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
+        Default::default();
+    let Some(document_cache) = document_cache() else {
+        return result;
+    };
+
     for d in diagnostics {
         if d.source_file().map_or(true, |f| !i_slint_compiler::pathutils::is_absolute(f)) {
             continue;
         }
-        let uri = Url::from_file_path(d.source_file().unwrap())
-            .ok()
-            .unwrap_or_else(|| Url::parse("file:/unknown").unwrap());
-        result.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
+        let path = d.source_file().unwrap();
+        let uri =
+            Url::from_file_path(path).ok().unwrap_or_else(|| Url::parse("file:/unknown").unwrap());
+        let version = document_cache.document_version_by_path(path);
+        result.entry(uri).or_insert((version, Vec::new())).1.push(crate::util::to_lsp_diag(d));
     }
     result
 }

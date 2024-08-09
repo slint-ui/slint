@@ -282,10 +282,11 @@ impl SlintServer {
                     health,
                 );
             }
-            M::Diagnostics { diagnostics, uri } => {
+            M::Diagnostics { diagnostics, version, uri } => {
                 crate::common::lsp_to_editor::notify_lsp_diagnostics(
                     &self.ctx.server_notifier,
                     uri,
+                    version,
                     diagnostics,
                 );
             }
