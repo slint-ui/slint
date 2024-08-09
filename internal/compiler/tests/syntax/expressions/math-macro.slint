@@ -25,6 +25,11 @@ export component Foo {
     property <duration> m7: mod(5, 4ms);
     //                          ^error{Cannot convert float to duration}
 
+    property <duration> m8: (5).mod(4ms);
+    //                          ^error{Cannot convert float to duration}
+
+    property <duration> m9: 5ms.mod(4);
+    //                              ^error{Cannot convert float to duration}
 
     property <float> a1: abs();
     //                   ^error{Needs 1 argument}
@@ -40,5 +45,19 @@ export component Foo {
 
     property <string> a5: abs(45px);
     //                    ^error{Cannot convert length to string}
+
+    property <string> a6: abs;
+    //                    ^error{Builtin function must be called}
+
+    property <string> a7: (-21).abs;
+    //                          ^error{Member function must be called}
+
+
+    property <float> sq1: 1.0.sqrt(1);
+    //                    ^error{The callback or function expects 0 arguments, but 1 are provided}
+
+    property <float> sq2: 1.0.sqrt;
+    //                        ^error{Member function must be called}
+    //                    ^^error{Cannot convert function\(float\) -> float to float}
 
 }

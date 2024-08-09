@@ -21,4 +21,18 @@ export component SuperSimple {
 //                      ^error{Cannot convert float to length}
     property <float> e: clamp(42.0, 23.0, 84.0, 32.0);
 //                      ^error{`clamp` needs three values}
+
+    property <float> f: ok1.clamp();
+//                          ^error{`clamp` needs three values}
+
+    property <float> g: ok1.clamp(1,2,3);
+//                          ^error{`clamp` needs three values}
+
+    property <float> h: ok1.clamp;
+//                          ^error{Member function must be called}
+
+    property <float> i: 42.0.clamp;
+//                           ^error{Member function must be called}
+
+
 }
