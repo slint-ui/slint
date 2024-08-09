@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2024-08-08 03:03+0000\n"
+"POT-Creation-Date: 2024-08-09 03:04+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -14,27 +14,27 @@ msgstr ""
 "Language: \n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ui/home_page.slint:51
+#: ui/home_page.slint:55
 msgctxt "HomePage"
 msgid "Slint Printer Demo"
 msgstr ""
 
-#: ui/home_page.slint:54
+#: ui/home_page.slint:58
 msgctxt "HomePage"
 msgid "Print"
 msgstr ""
 
-#: ui/home_page.slint:55
+#: ui/home_page.slint:59
 msgctxt "HomePage"
 msgid "Scan"
 msgstr ""
 
-#: ui/home_page.slint:56
+#: ui/home_page.slint:60
 msgctxt "HomePage"
 msgid "Copy"
 msgstr ""
 
-#: ui/home_page.slint:57
+#: ui/home_page.slint:61
 msgctxt "HomePage"
 msgid "USB"
 msgstr ""

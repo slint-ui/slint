@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-08 03:03+0000\n"
+"POT-Creation-Date: 2024-08-09 03:04+0000\n"
 "PO-Revision-Date: 2023-06-09 07:56+0200\n"
 "Language: fr_FR\n"
 "MIME-Version: 1.0\n"
@@ -14,27 +14,27 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Lokalize 23.04.1\n"
 
-#: ui/home_page.slint:51
+#: ui/home_page.slint:55
 msgctxt "HomePage"
 msgid "Slint Printer Demo"
 msgstr "Slint Démo"
 
-#: ui/home_page.slint:54
+#: ui/home_page.slint:58
 msgctxt "HomePage"
 msgid "Print"
 msgstr "Imprimer"
 
-#: ui/home_page.slint:55
+#: ui/home_page.slint:59
 msgctxt "HomePage"
 msgid "Scan"
 msgstr "Scanner"
 
-#: ui/home_page.slint:56
+#: ui/home_page.slint:60
 msgctxt "HomePage"
 msgid "Copy"
 msgstr "Copier"
 
-#: ui/home_page.slint:57
+#: ui/home_page.slint:61
 msgctxt "HomePage"
 msgid "USB"
 msgstr "USB"
