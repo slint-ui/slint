@@ -2058,6 +2058,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
+                (Type::Float32, Type::Int32) => {
+                    quote!((#f as i32))
+                }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     quote!(sp::SharedString::from(sp::format!("{}", #f).as_str()))
                 }
@@ -2729,9 +2732,9 @@ fn compile_builtin_function_call(
             let (r, g, b, a) =
                 (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
             quote!({
-                let r: u8 = (#r as u32).max(0).min(255) as u8;
-                let g: u8 = (#g as u32).max(0).min(255) as u8;
-                let b: u8 = (#b as u32).max(0).min(255) as u8;
+                let r: u8 = (#r as u32).min(255) as u8;
+                let g: u8 = (#g as u32).min(255) as u8;
+                let b: u8 = (#b as u32).min(255) as u8;
                 let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
                 sp::Color::from_argb_u8(a, r, g, b)
             })
