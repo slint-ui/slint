@@ -150,6 +150,9 @@ fn format_node(
         SyntaxKind::PropertyChangedCallback => {
             return format_property_changed_callback(node, writer, state);
         }
+        SyntaxKind::MemberAccess => {
+            return format_member_access(node, writer, state);
+        }
 
         _ => (),
     }
@@ -1233,7 +1236,31 @@ fn format_property_changed_callback(
         && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
         && whitespace_to(&mut sub, SyntaxKind::FatArrow, writer, state, " ")?
         && whitespace_to(&mut sub, SyntaxKind::CodeBlock, writer, state, " ")?;
+    for n in sub {
+        fold(n, writer, state)?;
+    }
     state.new_line();
+    Ok(())
+}
+
+fn format_member_access(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let n = syntax_nodes::MemberAccess::from(node.clone());
+    // Special case fo things like `42 .mod(x)` where a space is needed otherwise it lexes differently
+    let need_space = n.Expression().child_token(SyntaxKind::NumberLiteral).is_some_and(|nl| {
+        !nl.text().contains('.') && nl.text().chars().last().is_some_and(|c| c.is_numeric())
+    });
+    let space_before_dot = if need_space { " " } else { "" };
+    let mut sub = n.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::Dot, writer, state, space_before_dot)?
+        && whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    for n in sub {
+        fold(n, writer, state)?;
+    }
     Ok(())
 }
 
@@ -2026,6 +2053,18 @@ export component MainWindow2 inherits Rectangle {
     changed /*-*/height => {
         y += 1;
     }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn access_member() {
+        assert_formatting(
+            "component X { expr: 42   .log(x) + 41 . log(y) + foo . bar +  21.0.log(0) + 54.   .log(8) ; x: 42px.max(42px . min (0.px)); }",
+            r#"component X {
+    expr: 42 .log(x) + 41 .log(y) + foo.bar + 21.0.log(0) + 54..log(8);
+    x: 42px.max(42px.min(0.px));
 }
 "#,
         );

@@ -60,4 +60,7 @@ export X := Rectangle {
 //                                    ^error{Cannot convert float to \[void\]}
 //                       ^^error{Cannot convert void to int}
 
+    property <int> to-float: "foobar".to-float;
+//                                    ^error{Member function must be called}
+//                           ^^error{Cannot convert function\(string\) -> float to int}
 }
