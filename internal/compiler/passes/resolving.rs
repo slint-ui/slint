@@ -908,6 +908,15 @@ impl Expression {
             }
             Expression::MemberFunction { base, base_node, member } => {
                 arguments.push((*base, base_node));
+                if let Expression::BuiltinMacroReference(mac, n) = *member {
+                    arguments.extend(sub_expr);
+                    return crate::builtin_macros::lower_macro(
+                        mac,
+                        n,
+                        arguments.into_iter(),
+                        ctx.diag,
+                    );
+                }
                 adjust_arg_count = 1;
                 member
             }

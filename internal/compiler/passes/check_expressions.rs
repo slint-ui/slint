@@ -6,6 +6,7 @@ use std::rc::Rc;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::object_tree::{visit_all_expressions, Component};
+use crate::parser::SyntaxKind;
 
 /// Check the validity of expressions
 ///
@@ -18,9 +19,13 @@ pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDia
 
 fn check_expression(component: &Rc<Component>, e: &Expression, diag: &mut BuildDiagnostics) {
     match e {
-        Expression::MemberFunction { .. } => {
-            // Must already have been be reported.
-            debug_assert!(diag.has_errors());
+        Expression::MemberFunction { base_node, .. } => {
+            if base_node.as_ref().is_some_and(|n| n.kind() == SyntaxKind::QualifiedName) {
+                // Must already have been be reported in Expression::from_expression_node
+                debug_assert!(diag.has_errors());
+            } else {
+                diag.push_error("Member function must be called".into(), base_node);
+            }
         }
         Expression::BuiltinMacroReference(_, node) => {
             diag.push_error("Builtin function must be called".into(), node);

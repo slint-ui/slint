@@ -1,16 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property<int> t1: round(42.2);
-    property<int> t2: round(23.5);
-    property<int> t3: round(24.6);
-    property<int> t4: round(25);
+ component TestCase inherits Window {
+    out property<int> t1: round(42.2);
+    out property<int> t2: round(23.5);
+    out property<int> t3: round(24.6);
+    out property<int> t4: round(25);
 
-    property<int> n1: round(-42.2);
-    property<int> n2: round(-23.5);
-    property<int> n3: round(-24.6);
-    property<int> n4: round(-25);
+    out property<int> n1: round(-42.2);
+    out property<int> n2: round(-23.5);
+    out property<int> n3: round(-24.6);
+    out property<int> n4: round(-25);
+
+    out property <bool> test: 188.9.round() == 189 && (-4.58).round() == -(5.1).round();
 }
 /*
 ```cpp
@@ -24,6 +26,7 @@ assert_eq(instance.get_n1(), -42);
 assert_eq(instance.get_n2(), -24);
 assert_eq(instance.get_n3(), -25);
 assert_eq(instance.get_n4(), -25);
+assert(instance.get_test());
 ```
 
 ```rust
@@ -36,6 +39,7 @@ assert_eq!(instance.get_n1(), -42);
 assert_eq!(instance.get_n2(), -24);
 assert_eq!(instance.get_n3(), -25);
 assert_eq!(instance.get_n4(), -25);
+assert!(instance.get_test());
 ```
 
 ```js
@@ -48,5 +52,6 @@ assert.equal(instance.n1, -42);
 assert.equal(instance.n2, -24);
 assert.equal(instance.n3, -25);
 assert.equal(instance.n4, -25);
+assert(instance.test);
 ```
 */
