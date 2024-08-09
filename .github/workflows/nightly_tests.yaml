@@ -98,11 +98,14 @@ jobs:
             matrix:
                 include:
                     - board: native_sim/native/64
-                      toolchain: x86_64-unknown-linux-gnu
+                      toolchain: nightly
+                      target: x86_64-unknown-linux-gnu
                       extra-cmake-args: ''
                     - board: mimxrt1170_evk@B/mimxrt1176/cm7
-                      toolchain: thumbv7em-none-eabi
+                      toolchain: stable
+                      target: thumbv7em-none-eabi
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
+            fail-fast: false
         runs-on: ubuntu-22.04
         steps:
           - uses: actions/checkout@v4
@@ -115,9 +118,9 @@ jobs:
                     git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
           - uses: ./slint/.github/actions/setup-rust
             with:
-                toolchain: nightly
+                toolchain: ${{matrix.toolchain}}
                 components: rust-src
-                target: ${{matrix.toolchain}}
+                target: ${{matrix.target}}
           - name: Setup Zephyr project
             uses: zephyrproject-rtos/action-zephyr-setup@v1.0.2
             with:
