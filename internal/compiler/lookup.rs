@@ -962,6 +962,12 @@ impl LookupObject for Expression {
                 Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
                 Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
+                Type::Float32 | Type::Int32 | Type::Percent => {
+                    NumberExpression(self).for_each_entry(ctx, f)
+                }
+                ty if ty.as_unit_product().is_some() => {
+                    NumValueExpression(self).for_each_entry(ctx, f)
+                }
                 _ => None,
             },
         }
@@ -981,6 +987,10 @@ impl LookupObject for Expression {
                 Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),
                 Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
+                Type::Float32 | Type::Int32 | Type::Percent => {
+                    NumberExpression(self).lookup(ctx, name)
+                }
+                ty if ty.as_unit_product().is_some() => NumValueExpression(self).lookup(ctx, name),
                 _ => None,
             },
         }
@@ -1104,5 +1114,79 @@ impl<'a> LookupObject for ArrayExpression<'a> {
             })
         };
         None.or_else(|| f("length", member_function(BuiltinFunction::ArrayLength)))
+    }
+}
+
+/// An expression of type int or float
+struct NumberExpression<'a>(&'a Expression);
+impl<'a> LookupObject for NumberExpression<'a> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::from(Expression::MemberFunction {
+                base: Box::new(self.0.clone()),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: Box::new(Expression::BuiltinFunctionReference(
+                    f,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )),
+            })
+        };
+
+        None.or_else(|| f("round", member_function(BuiltinFunction::Round)))
+            .or_else(|| f("ceil", member_function(BuiltinFunction::Ceil)))
+            .or_else(|| f("floor", member_function(BuiltinFunction::Floor)))
+            .or_else(|| f("sqrt", member_function(BuiltinFunction::Sqrt)))
+            .or_else(|| f("asin", member_function(BuiltinFunction::ASin)))
+            .or_else(|| f("acos", member_function(BuiltinFunction::ACos)))
+            .or_else(|| f("atan", member_function(BuiltinFunction::ATan)))
+            .or_else(|| f("log", member_function(BuiltinFunction::Log)))
+            .or_else(|| f("pow", member_function(BuiltinFunction::Pow)))
+            .or_else(|| NumValueExpression(self.0).for_each_entry(ctx, f))
+    }
+}
+
+/// An expression of any numerical value with an unit
+struct NumValueExpression<'a>(&'a Expression);
+impl<'a> LookupObject for NumValueExpression<'a> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let member_macro = |f: BuiltinMacroFunction| {
+            LookupResult::from(Expression::MemberFunction {
+                base: Box::new(self.0.clone()),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: Box::new(Expression::BuiltinMacroReference(f, ctx.current_token.clone())),
+            })
+        };
+
+        None.or_else(|| f("mod", member_macro(BuiltinMacroFunction::Mod)))
+            .or_else(|| f("clamp", member_macro(BuiltinMacroFunction::Clamp)))
+            .or_else(|| f("abs", member_macro(BuiltinMacroFunction::Abs)))
+            .or_else(|| f("max", member_macro(BuiltinMacroFunction::Max)))
+            .or_else(|| f("min", member_macro(BuiltinMacroFunction::Min)))
+            .or_else(|| {
+                if self.0.ty() != Type::Angle {
+                    return None;
+                }
+                let member_function = |f: BuiltinFunction| {
+                    LookupResult::from(Expression::MemberFunction {
+                        base: Box::new(self.0.clone()),
+                        base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                        member: Box::new(Expression::BuiltinFunctionReference(
+                            f,
+                            ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                        )),
+                    })
+                };
+                None.or_else(|| f("sin", member_function(BuiltinFunction::Sin)))
+                    .or_else(|| f("cos", member_function(BuiltinFunction::Cos)))
+                    .or_else(|| f("tan", member_function(BuiltinFunction::Tan)))
+            })
     }
 }
