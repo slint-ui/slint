@@ -490,10 +490,11 @@ async fn handle_preview_to_lsp_message(
                 health,
             );
         }
-        M::Diagnostics { uri, diagnostics } => {
+        M::Diagnostics { uri, version, diagnostics } => {
             crate::common::lsp_to_editor::notify_lsp_diagnostics(
                 &ctx.server_notifier,
                 uri,
+                version,
                 diagnostics,
             );
         }

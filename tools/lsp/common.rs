@@ -87,9 +87,11 @@ impl DocumentCache {
     }
 
     pub fn document_version(&self, target_uri: &Url) -> SourceFileVersion {
-        self.0
-            .get_document(&uri_to_file(target_uri).unwrap_or_default())
-            .and_then(|doc| doc.node.as_ref()?.source_file.version())
+        self.document_version_by_path(&uri_to_file(target_uri).unwrap_or_default())
+    }
+
+    pub fn document_version_by_path(&self, path: &Path) -> SourceFileVersion {
+        self.0.get_document(&path).and_then(|doc| doc.node.as_ref()?.source_file.version())
     }
 
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
@@ -679,7 +681,7 @@ pub enum PreviewToLspMessage {
     /// Show a status message in the editor
     Status { message: String, health: crate::lsp_ext::Health },
     /// Report diagnostics to editor.
-    Diagnostics { uri: Url, diagnostics: Vec<lsp_types::Diagnostic> },
+    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
     /// Show a document in the editor.
     ShowDocument { file: Url, selection: lsp_types::Range },
     /// Switch between native and WASM preview (if supported)
@@ -756,11 +758,12 @@ pub mod lsp_to_editor {
     pub fn notify_lsp_diagnostics(
         sender: &crate::ServerNotifier,
         uri: lsp_types::Url,
+        version: super::SourceFileVersion,
         diagnostics: Vec<lsp_types::Diagnostic>,
     ) -> Option<()> {
         sender
             .send_notification::<lsp_types::notification::PublishDiagnostics>(
-                lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
+                lsp_types::PublishDiagnosticsParams { uri, diagnostics, version },
             )
             .ok()
     }
