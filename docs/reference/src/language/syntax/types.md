@@ -288,7 +288,7 @@ conversions are allowed between some types for convenience.
 
 The following conversions are possible:
 
--   `int` can be fconverted implicitly to `float` and vice-versa.
+-   `int` can be converted implicitly to `float` and vice-versa.
      When converting from `float` to `int`, the value is truncated.
 -   `int` and `float` can be converted implicitly to `string`
 -   `physical-length`, `relative-font-size`, and `length` can be converted implicitly to each other only in
