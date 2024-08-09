@@ -65,7 +65,7 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
             break;
         }
 
-        if t.kind() != SyntaxKind::Whitespace {
+        if t.kind() != SyntaxKind::Whitespace && t.kind() != SyntaxKind::Eof {
             last_non_ws = Some(t.clone());
         }
         token = t.next_token();
