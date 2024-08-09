@@ -2768,11 +2768,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
+                (Type::Float32, Type::Int32) => {
+                    format!("static_cast<int>({f})")
+                }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("slint::SharedString::from_number({})", f)
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    format!("std::make_shared<slint::private_api::UIntModel>(std::max(0, {}))", f)
+                    format!("std::make_shared<slint::private_api::UIntModel>(std::max<int>(0, {}))", f)
                 }
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {

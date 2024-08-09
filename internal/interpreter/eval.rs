@@ -186,7 +186,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Cast { from, to } => {
             let v = eval_expression(from, local_context);
             match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.round()),
+                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
                     Value::String(i_slint_core::format!("{}", n))
                 }
