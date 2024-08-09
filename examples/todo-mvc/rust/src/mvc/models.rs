@@ -1,11 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-mod date_model;
-pub use date_model::*;
-
 mod task_model;
-pub use task_model::*;
+pub use task_model::TaskModel;
 
-mod time_model;
-pub use time_model::*;
+mod task_list_model;
+pub use task_list_model::TaskListModel;
