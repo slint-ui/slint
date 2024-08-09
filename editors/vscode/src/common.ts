@@ -8,7 +8,7 @@
 import * as vscode from "vscode";
 
 import * as wasm_preview from "./wasm_preview";
-import * as lsp_commands from "../../../tools/slintpad/src/shared/lsp_commands";
+import * as lsp_commands from "./lsp_commands";
 import * as snippets from "./snippets";
 
 import {
