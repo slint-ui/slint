@@ -210,8 +210,8 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
 
     let lsp_diags = crate::preview::convert_diagnostics(diagnostics);
 
-    for (url, diagnostics) in lsp_diags {
-        crate::common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, diagnostics)?;
+    for (url, (version, diagnostics)) in lsp_diags {
+        crate::common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, version, diagnostics)?;
     }
     Some(())
 }

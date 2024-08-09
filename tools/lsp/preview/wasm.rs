@@ -220,8 +220,12 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
     super::set_diagnostics(diagnostics);
     let diags = crate::preview::convert_diagnostics(diagnostics);
 
-    for (uri, diagnostics) in diags {
-        send_message_to_lsp(crate::common::PreviewToLspMessage::Diagnostics { uri, diagnostics });
+    for (uri, (version, diagnostics)) in diags {
+        send_message_to_lsp(crate::common::PreviewToLspMessage::Diagnostics {
+            uri,
+            version,
+            diagnostics,
+        });
     }
     Some(())
 }
