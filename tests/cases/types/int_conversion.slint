@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+
+    property <float> float-var: 26.7;
+    // Going through a private property of type int should really cast to int
+    private property <int> tens-digit-var: float-var / 10;
+
+    // test that it rounds
+    out property <int> int-val: -7.6;
+
+    out property <string> text: tens-digit-var;
+    out property <bool> test: tens-digit-var == 2 && text == "2" && int-val == -7;
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text(), "2");
+assert_eq(instance.get_int_val(), -7);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_text(), "2");
+assert_eq!(instance.get_int_val(), -7);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.text, "2");
+assert.equal(instance.int_val, -7);
+assert(instance.test);
+```
+
+*/

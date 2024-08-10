@@ -288,9 +288,10 @@ conversions are allowed between some types for convenience.
 
 The following conversions are possible:
 
--   `int` can be converted implicitly to `float` and vice-versa
+-   `int` can be converted implicitly to `float` and vice-versa.
+     When converting from `float` to `int`, the value is truncated.
 -   `int` and `float` can be converted implicitly to `string`
--   `physical-length` and `length` can be converted implicitly to each other only in
+-   `physical-length`, `relative-font-size`, and `length` can be converted implicitly to each other only in
     context where the pixel ratio is known.
 -   the units type (`length`, `physical-length`, `duration`, ...) can't be converted to numbers (`float` or `int`)
     but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
@@ -299,7 +300,7 @@ The following conversions are possible:
 -   Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
 -   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.
--   String can be converted to float by using the `to-float` function. That function returns 0 if the string isen't
+-   String can be converted to float by using the `to-float` function. That function returns 0 if the string isn't
     a valid number. You can check with `is-float()` if the string contains a valid number
 
 ```slint,no-preview
@@ -316,5 +317,6 @@ export component Example {
     property<string> xxx: "42.1";
     property<float> xxx1: xxx.to-float(); // 42.1
     property<bool> xxx2: xxx.is-float(); // true
+    property<int> xxx3: 45.8; // 45
 }
 ```
