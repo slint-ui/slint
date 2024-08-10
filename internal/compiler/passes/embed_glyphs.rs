@@ -311,7 +311,7 @@ fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<fontdue::Font>
         target_os = "macos",
         target_os = "ios",
         target_arch = "wasm32",
-	target_os = "android"
+        target_os = "android"
     )))]
     {
         fallback_families.clone_from(&fontdb.fontconfig_fallback_families);
