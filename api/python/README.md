@@ -185,9 +185,8 @@ The callbacks in Slint are exposed as properties and that can be called as a fun
 
 ```python
 import slint
-import MyComponent from my_component_slint
 
-component = MyComponent()
+component = slint.loader.my_component.MyComponent()
 # connect to a callback
 
 def clicked():
@@ -202,9 +201,8 @@ Another way to set callbacks is to sub-class and use the `@slint.callback` decor
 
 ```python
 import slint
-import my_component_slint
 
-class Component(my_component_slint.MyComponent):
+class Component(slint.loader.my_component.MyComponent):
     @slint.callback
     def clicked(self):
         print("hello")
