@@ -844,6 +844,7 @@ pub async fn load(
         return CompilationResult {
             components: HashMap::new(),
             diagnostics: diag.into_iter().collect(),
+            #[cfg(feature = "internal")]
             structs_and_enums: Vec::new(),
         };
     }
@@ -877,6 +878,7 @@ pub async fn load(
     CompilationResult {
         diagnostics: diag.into_iter().collect(),
         components,
+        #[cfg(feature = "internal")]
         structs_and_enums: doc.exposed_structs_and_enums(),
     }
 }
