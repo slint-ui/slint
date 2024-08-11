@@ -5,6 +5,41 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+ - Added linux arm binary in the release.
+ - Skia renderer: Fixed opacity not working on Image. (#5706)
+ - Skia renderer: Fixed `SLINT_DEBUG_PERFORMANCE="overlay"`. (#5764)
+ - Android: workaround  PollEvent::Wake` not being received (#5699)
+ - Fixed
+
+### Slint Language
+
+ - `debug()` is now consistently routed through Platform's `debug_log`, meaning it uses stderr by default instead of stdout previously with C++ and Rust code generator. (#5718)
+ - Comparison between float is now using less precision so to float compare equal if they are approximately the same.
+ - Conversion from float to a `int` property now always truncates (instead of rounding with the interpreter, or being inconsistant with the code generators)
+
+### Widgets
+
+ - TimePickerPopup: Fixed text input on 24hour time picker. (#5723)
+
+### C++
+
+ - Added `assert_main_thread` in a few more functions.
+
+### Rust
+
+ - Fixed case when the rust generated code panics trying to access a destroyed parent. (part of #3464)
+
+### LSP and tooling
+
+ - LSP: report error opening the preview back to the editor instead of panicking. (#204)
+ - LSP: don't suggest private properties or functions as bindgins.
+ - LSP: implement goto-definition on re-export
+ - LSP: Fix goto-definition on properties with underscores
+ - Design mode: fix dragging component on the last component of a file without trailing newline (#5695)
+ - VSCode extension: add a language icon for .slint file.
+
 ## [1.7.1] - 2024-07-25
 
 ### General
