@@ -11,7 +11,7 @@ All notable changes to this project are documented in this file.
  - Skia renderer: Fixed opacity not working on Image. (#5706)
  - Skia renderer: Fixed `SLINT_DEBUG_PERFORMANCE="overlay"`. (#5764)
  - Android: workaround  PollEvent::Wake` not being received (#5699)
- - Fixed
+ - LinuxKMS backend: Fixed EGL initialization with Mali drivers found on i.MX 95.
 
 ### Slint Language
 
