@@ -579,8 +579,18 @@ impl ComponentCompiler {
                 Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
             > + 'static,
     ) {
-        self.config.open_import_fallback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        let open_import_fallback = move |file_name: String| -> core::pin::Pin<
+            Box<
+                dyn core::future::Future<
+                    Output = Option<std::io::Result<(String, SourceFileVersion)>>,
+                >,
+            >,
+        > {
+            let flfb = file_loader_fallback(&Path::new(file_name.as_str()));
+            Box::pin(async move { flfb.await.map(|r| r.map(|c| (c, None))) })
+        };
+
+        self.config.open_import_fallback = Some(Rc::new(open_import_fallback));
     }
 
     /// Returns the diagnostics that were produced in the last call to [`Self::build_from_path`] or [`Self::build_from_source`].
@@ -744,8 +754,18 @@ impl Compiler {
                 Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
             > + 'static,
     ) {
-        self.config.open_import_fallback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        let open_import_fallback = move |file_name: String| -> core::pin::Pin<
+            Box<
+                dyn core::future::Future<
+                    Output = Option<std::io::Result<(String, SourceFileVersion)>>,
+                >,
+            >,
+        > {
+            let flfb = file_loader_fallback(&Path::new(file_name.as_str()));
+            Box::pin(async move { flfb.await.map(|r| r.map(|c| (c, None))) })
+        };
+
+        self.config.open_import_fallback = Some(Rc::new(open_import_fallback));
     }
 
     /// Compile a .slint file

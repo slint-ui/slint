@@ -13,6 +13,7 @@ mod preview;
 pub mod util;
 
 use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
+use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
@@ -148,7 +149,7 @@ impl Drop for ReentryGuardLock {
 
 #[wasm_bindgen(typescript_custom_section)]
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type ImportCallbackFunction = (url: string) => Promise<string>;
+type ImportCallbackFunction = (url: string) => Promise<[string, null | number]>;
 type SendRequestFunction = (method: string, r: any) => Promise<any>;
 type HighlightInPreviewFunction = (file: string, offset: number) => void;
 "#;
@@ -198,17 +199,17 @@ pub fn create(
         let load_file = Function::from(load_file.clone());
         let server_notifier = server_notifier_.clone();
         Box::pin(async move {
-            let contents = self::load_file(path.clone(), &load_file).await;
+            let result = self::load_file(path.clone(), &load_file).await;
             let Ok(url) = Url::from_file_path(&path) else {
-                return Some(contents);
+                return Some(result);
             };
-            if let Ok(contents) = &contents {
+            if let Ok((contents, version)) = &result {
                 server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-                    url: VersionedUrl::new(url, None),
+                    url: VersionedUrl::new(url, *version),
                     contents: contents.clone(),
                 })
             }
-            Some(contents)
+            Some(result)
         })
     }));
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
@@ -357,14 +358,19 @@ impl SlintServer {
     }
 }
 
-async fn load_file(path: String, load_file: &Function) -> std::io::Result<String> {
-    let string_promise = load_file
+async fn load_file(
+    path: String,
+    load_file: &Function,
+) -> std::io::Result<(String, SourceFileVersion)> {
+    let reply_promise = load_file
         .call1(&JsValue::UNDEFINED, &path.into())
         .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
-    let string_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(string_promise));
+    let reply_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(reply_promise));
     let js_value =
-        string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
-    return Ok(js_value.as_string().unwrap_or_default());
+        reply_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
+
+    return Ok(serde_wasm_bindgen::from_value(js_value)
+        .map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?);
 }
 
 // Use a JSON friendly representation to avoid using ES maps instead of JS objects.

@@ -26,7 +26,7 @@ slint_init().then((_) => {
         return await connection.sendRequest(method, params);
     }
 
-    async function load_file(path: string): Promise<string> {
+    async function load_file(path: string): Promise<[string, null | number]> {
         return await connection.sendRequest("slint/load_file", path);
     }
 

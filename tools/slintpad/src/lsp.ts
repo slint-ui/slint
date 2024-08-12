@@ -56,7 +56,7 @@ function createLanguageClient(
     return client;
 }
 
-export type FileReader = (_url: string) => Promise<string>;
+export type FileReader = (_url: string) => Promise<[string, null | number]>;
 
 export class LspWaiter {
     #previewer_promise: Promise<slint_preview.InitOutput> | null;
@@ -147,11 +147,11 @@ export class Lsp {
                     const url = (request.params as string[])[0];
 
                     this.read_url(url)
-                        .then((text_contents) => {
+                        .then((contents) => {
                             writer.write({
                                 jsonrpc: request.jsonrpc,
                                 id: request.id,
-                                result: text_contents,
+                                result: contents,
                                 error: undefined,
                             } as ResponseMessage);
                         })
@@ -219,7 +219,7 @@ export class Lsp {
         this.#show_document_callback = cb;
     }
 
-    private read_url(url: string): Promise<string> {
+    private read_url(url: string): Promise<[string, null | number]> {
         try {
             return this.#file_reader?.(url) ?? Promise.reject();
         } catch (e) {

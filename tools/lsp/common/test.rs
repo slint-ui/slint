@@ -20,7 +20,7 @@ async fn parse_source(
     file_loader_fallback: impl Fn(
             &Path,
         ) -> core::pin::Pin<
-            Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
+            Box<dyn core::future::Future<Output = Option<std::io::Result<(String, Option<i32>)>>>>,
         > + 'static,
 ) -> (BuildDiagnostics, common::DocumentCache) {
     let config = {
@@ -101,7 +101,7 @@ pub fn recompile_test_with_sources(
                             "path not found",
                         )));
                     };
-                    Some(Ok(source.clone()))
+                    Some(Ok((source.clone(), Some(23))))
                 } else {
                     Some(Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,

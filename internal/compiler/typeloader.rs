@@ -1097,26 +1097,29 @@ impl TypeLoader {
         }
 
         let source_code_result = if let Some(builtin) = builtin {
-            Ok(String::from(
-                core::str::from_utf8(builtin)
-                    .expect("internal error: embedded file is not UTF-8 source code"),
+            Ok((
+                String::from(
+                    core::str::from_utf8(builtin)
+                        .expect("internal error: embedded file is not UTF-8 source code"),
+                ),
+                None,
             ))
         } else if let Some(fallback) = {
             let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
             fallback
         } {
             let result = fallback(path_canon.to_string_lossy().into()).await;
-            result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
+            result.unwrap_or_else(|| std::fs::read_to_string(&path_canon).map(|s| (s, None)))
         } else {
-            std::fs::read_to_string(&path_canon)
+            std::fs::read_to_string(&path_canon).map(|s| (s, None))
         };
 
         let ok = match source_code_result {
-            Ok(source) => {
+            Ok((source, version)) => {
                 Self::load_file_impl(
                     state,
                     &path_canon,
-                    None,
+                    version,
                     &path_canon,
                     source,
                     builtin.is_some(),
@@ -1626,7 +1629,7 @@ fn test_load_from_callback_ok() {
             assert_eq!(path.replace('\\', "/"), "../FooBar.slint");
             assert!(!ok_.get());
             ok_.set(true);
-            Some(Ok("export XX := Rectangle {} ".to_owned()))
+            Some(Ok(("export XX := Rectangle {} ".to_owned(), Some(12))))
         })
     }));
 
@@ -1639,11 +1642,13 @@ X := XX {}
 "#
         .into(),
         Some(std::path::Path::new("HELLO")),
-        None,
+        Some(10),
         &mut test_diags,
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
+    assert_eq!(doc_node.source_file.version(), Some(10));
+
     let global_registry = TypeRegister::builtin();
     let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
     let mut build_diagnostics = BuildDiagnostics::default();

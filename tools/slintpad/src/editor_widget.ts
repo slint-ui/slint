@@ -551,26 +551,27 @@ class EditorPaneWidget extends Widget {
     protected async handle_lsp_url_request(
         era: number,
         url: string,
-    ): Promise<string> {
+    ): Promise<[string, null | number]> {
         if (this.#url_mapper === null) {
-            return Promise.resolve("Error: Can not resolve URL.");
+            return Promise.reject("Error: Can not resolve URL.");
         }
 
         const internal_uri = monaco.Uri.parse(url);
         const uri = this.#url_mapper.from_internal(internal_uri);
 
         if (uri === null) {
-            return Promise.resolve("Error: Can not map URL.");
+            return Promise.reject("Error: Can not map URL.");
         }
 
-        return (
+
+        const result =
             await this.safely_open_editor_with_url_content(
                 era,
                 uri,
                 internal_uri,
                 false,
-            )
-        )[1];
+            );
+        return [result[1], result[2]];
     }
 
     private async safely_open_editor_with_url_content(
@@ -578,10 +579,10 @@ class EditorPaneWidget extends Widget {
         uri: monaco.Uri,
         internal_uri: monaco.Uri,
         raise_alert: boolean,
-    ): Promise<[monaco.Uri | null, string]> {
+    ): Promise<[monaco.Uri | null, string, null | number]> {
         let model = monaco.editor.getModel(internal_uri);
         if (model != null) {
-            return [model.uri, model.getValue()];
+            return [model.uri, model.getValue(), model.getVersionId()];
         }
 
         let doc = "";
@@ -598,34 +599,36 @@ class EditorPaneWidget extends Widget {
                             response.statusText,
                     );
                 }
-                return [null, ""];
+                return [null, "", null];
             }
             doc = await response.text();
         } catch (e) {
             if (raise_alert) {
                 alert("Failed to download data from " + uri + ".");
             }
-            return [null, ""];
+            return [null, "", null];
         }
 
         model = monaco.editor.getModel(internal_uri);
         if (model != null) {
-            return [model.uri, model.getValue()];
+            return [model.uri, model.getValue(), model.getVersionId()];
         }
 
         let result_uri = null;
+        let result_version = null;
         if (era == this.#edit_era) {
             model = await createModel(this.internal_uuid, doc, internal_uri);
             if (model) {
                 result_uri = model.uri;
+                result_version = model.getVersionId();
             }
         }
-        return [result_uri, doc];
+        return [result_uri, doc, result_version];
     }
 
     async open_tab_from_url(
         input_url: monaco.Uri,
-    ): Promise<[monaco.Uri | null, string]> {
+    ): Promise<[monaco.Uri | null, string, null | number]> {
         const [url, file_name, mapper] = await github.open_url(
             this.#internal_uuid,
             input_url.toString(),
