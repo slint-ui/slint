@@ -14,55 +14,14 @@ These examples demonstrate the main features of Slint and how to use them in dif
 | [![Slide Puzzle demo image](https://github.com/user-attachments/assets/c54d5d2d-5cce-41bf-a0d4-a94b94970df9 "Slide Puzzle demo image")](./slide_puzzle/) |  Puzzle game based on a Flutter example. [Project...](./slide_puzzle) | [Wasm Demo](https://slint.dev/snapshots/master/demos/slide_puzzle/) |
 | [![Memory demo image](https://github.com/user-attachments/assets/63216b63-2f9e-48c0-8efe-64cee9e91f07 "Memory demo image")](./memory/) |  A basic memory game used as an example the tutorial. [Project...](./slide_puzzle) | [Wasm Demo](https://slint.dev/snapshots/master/demos/memory/) |
 | [![iot dashboard demo image](https://slint.dev/resources/iot-dashboard_screenshot.png "iot dashboard demo image")](./iot-dashboard/) |  AA clone of one demo from the [QSkinny framework](https://qskinny.github.io/).<br/> Also shows how to dynamically load widgets from C++. [Project...](./iot-dashboard) | [Wasm Demo](https://slint.dev/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) |
-| [![Image filter demo image](https://github.com/user-attachments/assets/a373bc10-fa61-42c0-b80e-9d9f63cd022b "Image filter demo image")](./iot-dashboard/) |  A Rust-only example that shows how to use the Rust image crate to do image manipulationsand feed the result into Slint. [Project...](./imagefilter/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/imagefilter/) |
+| [![Image filter demo image](https://github.com/user-attachments/assets/a373bc10-fa61-42c0-b80e-9d9f63cd022b "Image filter demo image")](./imagefilter/) |  A Rust-only example that shows how to use the Rust image crate to do image manipulationsand feed the result into Slint. [Project...](./imagefilter/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/imagefilter/) |
+| [![Plotter demo image](https://slint.dev/resources/plotter_screenshot.png "Plotter demo image")](./plotter/) | A Rust-only example that shows how to use the Rust plotters crate to do plot a graph and integrate the result into Slint. [Project...](./plotter/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/plotter/) |
+| [![Bash demo image](https://github.com/user-attachments/assets/dcac4189-fc7b-4a9f-b7cb-9d075b338628 "Bash demo image")](./bash/) | Some examples of how to use the `slint-viewer` to add a GUI to shell scripts. [Project...](./bash/) |  |
+| [![OpenGL Underlay demo image](https://slint.dev/resources/opengl_underlay_screenshot.png "OpenGL Underlay demo image")](./opengl_underlay/) | A Rust and C++ example that shows how render Slint on top of graphical effect rendered using custom OpenGL code. For more details check out the [Readme](./opengl_underlay). [Project...](./opengl_underlay/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/opengl_underlay/) |
+| [![OpenGL Texture demo image](https://github.com/slint-ui/slint/assets/1486/b9f1f6cf-3859-418e-9662-0c7170c3b1f2 "OpenGL Texture demo image")](./opengl_texture/) | A Rust and C++ example that shows how render a scene with custom OpenGL code into a texture and render that texture within a Slint scene. For more details check out the [Readme](./opengl_texture). [Project...](./opengl_texture/) |  |
+| [![ffmpeg demo image](https://slint.dev/resources/opengl_underlay_screenshot.png "ffmpeg demo image")](./ffmpeg/) | A Rust example that shows how render video frames with FFmpeg within a Slint scene. For more details check out the [Readme](./ffmpeg). [Project...](./opengl_underlay/) |  |
 
 
-
-
-### [`plotter`](./plotter)
-
-A Rust-only example that shows how to use the Rust plotters crate to do plot a
-graph and integrate the result into Slint.
-
-| `.slint` Design | Rust Source | Online wasm Preview |
-| --- |  --- | --- |
-| [`plotter.slint`](./plotter/plotter.slint) | [`main.rs`](./plotter/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/plotter/) |
-
-![Screenshot of the plotter example](https://slint.dev/resources/plotter_screenshot.png "Plotter")
-
-### [`bash`](./bash)
-
-Some examples of how to use the `slint-viewer` to add a GUI to shell scripts.
-
-### [`opengl_underlay`](./opengl_underlay)
-
-A Rust and C++ example that shows how render Slint on top of graphical effect rendered using custom OpenGL code. For more details check out the [Readme](./opengl_underlay).
-
-| `.slint` Design | Rust Source | C++ Source | Online wasm Preview |
-| --- | --- | --- | --- |
-| [`scene.slint`](./opengl_underlay/scene.slint) | [`main.rs`](./opengl_underlay/main.rs) | [`main.cpp`](./opengl_underlay/main.cpp) | [Online simulation](https://slint.dev/snapshots/master/demos/opengl_underlay/) |
-
-![Screenshot of the OpenGL Underlay Example on Windows](https://slint.dev/resources/opengl_underlay_screenshot.png "OpenGL Underlay")
-
-### [`opengl_texture`](./opengl_texture)
-
-A Rust and C++ example that shows how render a scene with custom OpenGL code into a texture and render that texture within a Slint scene. For more details check out the [Readme](./opengl_texture).
-
-| `.slint` Design | Rust Source | C++ Source |
-| --- | --- | --- |
-| [`scene.slint`](./opengl_texture/scene.slint) | [`main.rs`](./opengl_texture/main.rs) | [`main.cpp`](./opengl_texture/main.cpp) |
-
-![Screenshot of the OpenGL Texture Example on macOS](https://github.com/slint-ui/slint/assets/1486/b9f1f6cf-3859-418e-9662-0c7170c3b1f2 "OpenGL Texture")
-
-### [`ffmpeg`](./ffmpeg)
-
-A Rust example that shows how render video frames with FFmpeg within a Slint scene. For more details check out the [Readme](./ffmpeg).
-
-| `.slint` Design | Rust Source |
-| --- | --- |
-| [`scene.slint`](./ffmpeg/scene.slint) | [`main.rs`](./opengl_texture/main.rs) |
-
-![Screenshot of the FFmpeg Example on macOS](https://github.com/slint-ui/slint/assets/1486/5a1fad32-611a-478e-ab8f-576b4b4bdaf3 "FFmpeg Example")
 
 ### [`maps`](./maps)
 
