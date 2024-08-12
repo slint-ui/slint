@@ -875,11 +875,14 @@ pub async fn load(
         diag.push_error_with_span("No component found".into(), Default::default());
     };
 
+    #[cfg(feature = "internal")]
+    let structs_and_enums = doc.used_types.borrow().structs_and_enums.clone();
+
     CompilationResult {
         diagnostics: diag.into_iter().collect(),
         components,
         #[cfg(feature = "internal")]
-        structs_and_enums: doc.exposed_structs_and_enums(),
+        structs_and_enums,
     }
 }
 
