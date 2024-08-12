@@ -350,7 +350,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                 }
             }
 
-            WindowEvent::KeyboardInput { event, .. } => {
+            WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
                 let key_code = event.logical_key;
                 // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
                 #[cfg(target_os = "macos")]
@@ -366,7 +366,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
 
                 macro_rules! winit_key_to_char {
                 ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
-                    match key_code {
+                    match &key_code {
                         $($(winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit) $(if event.location == winit::keyboard::KeyLocation::$pos)? => $char.into(),)*)*
                         winit::keyboard::Key::Character(str) => str.as_str().into(),
                         _ => {
@@ -386,6 +386,17 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                         corelib::platform::WindowEvent::KeyPressRepeated { text }
                     }
                     winit::event::ElementState::Pressed => {
+                        if is_synthetic {
+                            // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
+                            // Don't forward these keys other than modifiers to the app
+                            use winit::keyboard::{Key::Named, NamedKey as N};
+                            if !matches!(
+                                key_code,
+                                Named(N::Control | N::Shift | N::Super | N::Alt | N::AltGraph),
+                            ) {
+                                return;
+                            }
+                        }
                         corelib::platform::WindowEvent::KeyPressed { text }
                     }
                     winit::event::ElementState::Released => {
