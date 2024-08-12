@@ -17,46 +17,15 @@ These examples demonstrate the main features of Slint and how to use them in dif
 | [![Image filter demo image](https://github.com/user-attachments/assets/a373bc10-fa61-42c0-b80e-9d9f63cd022b "Image filter demo image")](./imagefilter/) |  A Rust-only example that shows how to use the Rust image crate to do image manipulationsand feed the result into Slint. [Project...](./imagefilter/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/imagefilter/) |
 | [![Plotter demo image](https://slint.dev/resources/plotter_screenshot.png "Plotter demo image")](./plotter/) | A Rust-only example that shows how to use the Rust plotters crate to do plot a graph and integrate the result into Slint. [Project...](./plotter/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/plotter/) |
 | [![Bash demo image](https://github.com/user-attachments/assets/dcac4189-fc7b-4a9f-b7cb-9d075b338628 "Bash demo image")](./bash/) | Some examples of how to use the `slint-viewer` to add a GUI to shell scripts. [Project...](./bash/) |  |
-| [![OpenGL Underlay demo image](https://slint.dev/resources/opengl_underlay_screenshot.png "OpenGL Underlay demo image")](./opengl_underlay/) | A Rust and C++ example that shows how render Slint on top of graphical effect rendered using custom OpenGL code. For more details check out the [Readme](./opengl_underlay). [Project...](./opengl_underlay/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/opengl_underlay/) |
-| [![OpenGL Texture demo image](https://github.com/slint-ui/slint/assets/1486/b9f1f6cf-3859-418e-9662-0c7170c3b1f2 "OpenGL Texture demo image")](./opengl_texture/) | A Rust and C++ example that shows how render a scene with custom OpenGL code into a texture and render that texture within a Slint scene. For more details check out the [Readme](./opengl_texture). [Project...](./opengl_texture/) |  |
-| [![ffmpeg demo image](https://slint.dev/resources/opengl_underlay_screenshot.png "ffmpeg demo image")](./ffmpeg/) | A Rust example that shows how render video frames with FFmpeg within a Slint scene. For more details check out the [Readme](./ffmpeg). [Project...](./opengl_underlay/) |  |
+| [![OpenGL Underlay demo image](https://slint.dev/resources/opengl_underlay_screenshot.png "OpenGL Underlay demo image")](./opengl_underlay/) | A Rust and C++ example that shows how render Slint on top of graphical effect rendered using custom OpenGL code. [Project...](./opengl_underlay/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/opengl_underlay/) |
+| [![OpenGL Texture demo image](https://github.com/slint-ui/slint/assets/1486/b9f1f6cf-3859-418e-9662-0c7170c3b1f2 "OpenGL Texture demo image")](./opengl_texture/) | A Rust and C++ example that shows how render a scene with custom OpenGL code into a texture and render that texture within a Slint scene. [Project...](./opengl_texture/) |  |
+| [![ffmpeg demo image](https://slint.dev/resources/opengl_underlay_screenshot.png "ffmpeg demo image")](./ffmpeg/) | A Rust example that shows how render video frames with FFmpeg within a Slint scene.  [Project...](./opengl_underlay/) |  |
+| [![Maps demo image](https://github.com/slint-ui/slint/assets/959326/f5e8cca6-dee1-4681-83da-88fec27f9a45 "OpenGL Underlay demo image")](./maps/) | A rust example that load image tiles asynchronously from OpenStreetMap server and allow panning and zooming. [Project...](./maps/) |  |
+| [![Virtual Keyboard demo image](https://user-images.githubusercontent.com/6715107/231668373-23faedf8-b42a-401d-b3a2-845d5e61252b.png "Virtual Keyboard demo image")](./virtual_keyboard/) | A Rust and C++ example that shows how to implement a custom virtual keyboard in Slint. [Project...](./7guis/) |  |
+| [![7 GUI's demo image](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7 GUI's demo image")](./7guis/) | Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks. [Project...](./7guis/) |  |
+| [![Weather demo image](./weather-demo/docs/img/desktop-preview.png "7 GUI's demo image")](./weather-demo/) | A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [OpenWeather](https://openweathermap.org/) API. [Project...](./weather-demo/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/weather-demo/) |
 
 
-
-### [`maps`](./maps)
-
-A rust example that load image tiles asynchronously from OpenStreetMap server and allow panning and zooming
-
-![Screenshot of the maps example](https://github.com/slint-ui/slint/assets/959326/f5e8cca6-dee1-4681-83da-88fec27f9a45 "Maps example")
-
-### [`virtual keyboard`](./virtual_keyboard)
-
-| `.slint` Design | Rust Source | C++ Source |
-| --- | --- | --- |
-| [`main_window.slint`](./virtual_keyboard/ui/main_window.slint) | [`main.rs`](./virtual_keyboard/rust/main.rs) | [`main.cpp`](./virtual_keyboard/cpp/main.cpp) |
-
-A Rust and C++ example that shows how to implement a custom virtual keyboard in Slint. For more details check out the [Readme](./virtual_keyboard).
-
-![Screenshot of Virtual Keyboard Example on macOS](https://user-images.githubusercontent.com/6715107/231668373-23faedf8-b42a-401d-b3a2-845d5e61252b.png "Virtual Keyboard")
-
-
-### [`7guis`](./7guis)
-
-Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks.
-
-![Composition of 7GUIs Screenshots](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7GUIs")
-
-### [`weather-demo`](./weather-demo)
-
-A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [OpenWeather](https://openweathermap.org/) API.
-
-| `.slint` Design | Rust Source (Desktop) | Rust Source (Android / Wasm) | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- | --- |
-| [`main.slint`](./weather-demo/ui/main.slint) | [`main.rs`](./weather-demo/src/main.rs) | [`lib.rs`](./weather-demo/src/lib.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/weather-demo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/weather-demo/ui/main.slint) |
-
-![Screenshot of the Weather Demo Desktop](./weather-demo/docs/img/desktop-preview.png "Weather Demo Desktop")
-
-![Screenshot of the Weather Demo Desktop](./weather-demo/docs/img/android-preview.png "Weather Demo Android")
 
 ### External examples
 
