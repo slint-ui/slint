@@ -4,67 +4,15 @@
 
 These examples demonstrate the main features of Slint and how to use them in different language environments.
 
-### [`printerdemo`](./printerdemo)
-
-![Screenshot of the Printer Demo](https://slint.dev/resources/printerdemo_screenshot.png "Printer Demo")
-
-A fictional user interface for the touch screen of a printer
-
-| Project | Online wasm Preview | 
-| --- | --- | 
-| [`printer demo`](./printerdemo/)  | [Simulation](https://slint.dev/snapshots/master/demos/printerdemo/) |
+| Thumbnail | Description | Demo | 
+| --- | --- | --- | 
+| ![Printer demo image](https://github.com/user-attachments/assets/7e7400ad-283a-4404-b04a-8620ba4df452 "Printer demo image") |  A fictional user interface for the touch screen of a printer. [Project...](./printerdemo) | [Wasm Demo](https://slint.dev/snapshots/master/demos/printerdemo/) |
+| ![Gallery demo image](https://github.com/user-attachments/assets/e37ad016-475a-4c01-8d1b-1326ee7aa733 "Gallery demo image") |  A simple application showing the different widgets. [Project...](./gallery) | [Wasm Demo](https://slint.dev/snapshots/master/demos/gallery/) |
+| ![Energy meter demo image](https://github.com/user-attachments/assets/abfe03e3-ded6-4ddc-82b7-8303ee45515c "Energy meter demo image") |  A fictional user interface of a device that monitors energy consumption in a building. [Project...](./energy-monitor) | [Wasm Demo](https://slint.dev/snapshots/master/demos/energy-monitor/) |
+| ![Todo demo image](https://github.com/user-attachments/assets/e534736b-3f64-4631-8b9a-80ccd985e9de "Todo demo image") |  A simple todo application. [Project...](./todo)<br><br>A simple todo application based on the [Model View Controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) pattern. [Project...](./todo-mvc) | [Wasm Demo](https://slint.dev/snapshots/master/demos/todo/)<br><br>[Wasm MVC Demo](https://slint.dev/snapshots/master/demos/todo-mvc/)   |
+| ![Carousel demo image](https://user-images.githubusercontent.com/6715107/196679740-840a4b67-afaa-4d47-9a31-bfe643c7de48.png "Carousel demo image") |  A custom carousel widget that can be controlled by touch, mouse and keyboard. [Project...](./carousel) | [Wasm Demo](https://slint.dev/snapshots/master/demos/carousel/) |
 
 
-
-### [`gallery`](./gallery)
-
-A simple application showing the different widgets
-
-| `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- | --- |
-| [`gallery.slint`](./gallery/gallery.slint) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp) | [Online simulation](https://slint.dev/snapshots/master/demos/gallery/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/gallery/gallery.slint) |
-
-![Screenshot of the Gallery on Windows](https://slint.dev/resources/gallery_win_screenshot.png "Gallery")
-
-### [`energy-monitor`](./energy-monitor)
-
-A fictional user interface of a device that monitors energy consumption in a building.
-
-| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- |
-| [`desktop_window.slint`](./energy-monitor/ui/desktop_window.slint) | [`main.rs`](./energy-monitor/src/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/energy-monitor/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/energy-monitor/ui/desktop_window.slint) |
-
-![Screenshot of the Energy-Monitor Demo](https://slint.dev/resources/energy-monitor-screenshot.png "Energy Monitor")
-
-### [`todo`](./todo)
-
-A simple todo application
-
-| `.slint` Design | Rust Source | C++ Source | NodeJS | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- | --- | --- |
-| [`todo.slint`](./todo/ui/todo.slint) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo/ui/todo.slint) |
-
-![Screenshot of the Todo Demo](https://slint.dev/resources/todo_screenshot.png "Todo Demo")
-
-### [`todo-mvc`](./todo-mvc)
-
-A simple todo application based on the [Model View Controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) pattern.
-
-| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- |
-| [`index.slint`](./todo-mvc/ui/index.slint) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/todo-mvc/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo-mvc/ui/index.slint) |
-
-### [`carousel`](./carousel)
-
-A custom carousel widget that can be controlled by touch, mouse and keyboard
-
-The example can be run on desktop, wasm and mcu platforms
-
-| `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- | --- | --- |
-| [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |
-
-![Screenshot of the Carousel Demo](https://user-images.githubusercontent.com/6715107/196679740-840a4b67-afaa-4d47-9a31-bfe643c7de48.png "Carousel Demo")
 
 ### [`slide_puzzle`](./slide_puzzle)
 
