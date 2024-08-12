@@ -6,23 +6,13 @@ These examples demonstrate the main features of Slint and how to use them in dif
 
 | Thumbnail | Description | Demo | 
 | --- | --- | --- | 
-| ![Printer demo image](https://github.com/user-attachments/assets/7e7400ad-283a-4404-b04a-8620ba4df452 "Printer demo image") |  A fictional user interface for the touch screen of a printer. [Project...](./printerdemo) | [Wasm Demo](https://slint.dev/snapshots/master/demos/printerdemo/) |
-| ![Gallery demo image](https://github.com/user-attachments/assets/e37ad016-475a-4c01-8d1b-1326ee7aa733 "Gallery demo image") |  A simple application showing the different widgets. [Project...](./gallery) | [Wasm Demo](https://slint.dev/snapshots/master/demos/gallery/) |
-| ![Energy meter demo image](https://github.com/user-attachments/assets/abfe03e3-ded6-4ddc-82b7-8303ee45515c "Energy meter demo image") |  A fictional user interface of a device that monitors energy consumption in a building. [Project...](./energy-monitor) | [Wasm Demo](https://slint.dev/snapshots/master/demos/energy-monitor/) |
-| ![Todo demo image](https://github.com/user-attachments/assets/e534736b-3f64-4631-8b9a-80ccd985e9de "Todo demo image") |  A simple todo application. [Project...](./todo)<br><br>A simple todo application based on the [Model View Controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) pattern. [Project...](./todo-mvc) | [Wasm Demo](https://slint.dev/snapshots/master/demos/todo/)<br><br>[Wasm MVC Demo](https://slint.dev/snapshots/master/demos/todo-mvc/)   |
-| ![Carousel demo image](https://user-images.githubusercontent.com/6715107/196679740-840a4b67-afaa-4d47-9a31-bfe643c7de48.png "Carousel demo image") |  A custom carousel widget that can be controlled by touch, mouse and keyboard. [Project...](./carousel) | [Wasm Demo](https://slint.dev/snapshots/master/demos/carousel/) |
+| [![Printer Demo image](https://github.com/user-attachments/assets/7e7400ad-283a-4404-b04a-8620ba4df452)](./printerdemo) |  A fictional user interface for the touch screen of a printer. [Project...](./printerdemo) | [Wasm Demo](https://slint.dev/snapshots/master/demos/printerdemo/) |
+| [![Gallery demo image](https://github.com/user-attachments/assets/e37ad016-475a-4c01-8d1b-1326ee7aa733 "Gallery demo image")](./gallery/) |  A simple application showing the different widgets. [Project...](./gallery) | [Wasm Demo](https://slint.dev/snapshots/master/demos/gallery/) |
+| [![Energy meter demo image](https://github.com/user-attachments/assets/abfe03e3-ded6-4ddc-82b7-8303ee45515c "Energy meter demo image")](./energy-monitor/) |  A fictional user interface of a device that monitors energy consumption in a building. [Project...](./energy-monitor) | [Wasm Demo](https://slint.dev/snapshots/master/demos/energy-monitor/) |
+| [![Todo demo image](https://github.com/user-attachments/assets/e534736b-3f64-4631-8b9a-80ccd985e9de "Todo demo image")](./todo/) |  A simple todo application. [Project...](./todo)<br><br>A simple todo application based on the [Model View Controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) pattern. [Project...](./todo-mvc) | [Wasm Demo](https://slint.dev/snapshots/master/demos/todo/)<br><br>[Wasm MVC Demo](https://slint.dev/snapshots/master/demos/todo-mvc/)   |
+| [![Carousel demo image](https://user-images.githubusercontent.com/6715107/196679740-840a4b67-afaa-4d47-9a31-bfe643c7de48.png "Carousel demo image")](./carousel/) |  A custom carousel widget that can be controlled by touch, mouse and keyboard. [Project...](./carousel) | [Wasm Demo](https://slint.dev/snapshots/master/demos/carousel/) |
+| [![Slide Puzzle demo image](https://github.com/user-attachments/assets/c54d5d2d-5cce-41bf-a0d4-a94b94970df9 "Slide Puzzle demo image")](./slide_puzzle/) |  Puzzle game based on a Flutter example. See [Readme](./slide_puzzle) [Project...](./slide_puzzle) | [Wasm Demo](https://slint.dev/snapshots/master/demos/slide_puzzle/) |
 
-
-
-### [`slide_puzzle`](./slide_puzzle)
-
-Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
-
-| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- |
-| [`slide_puzzle.slint`](./slide_puzzle/slide_puzzle.slint) | [`main.rs`](./slide_puzzle/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
-
-![Screenshot of the Slide Puzzle](https://slint.dev/resources/puzzle_screenshot.png "Slide Puzzle")
 
 ### [`memory`](./memory)
 
