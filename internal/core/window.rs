@@ -684,14 +684,17 @@ impl WindowInner {
         }
 
         // Make Tab/Backtab handle keyboard focus
+        let extra_mod = event.modifiers.control || event.modifiers.meta || event.modifiers.alt;
         if event.text.starts_with(key_codes::Tab)
             && !event.modifiers.shift
+            && !extra_mod
             && event.event_type == KeyEventType::KeyPressed
         {
             self.focus_next_item();
         } else if (event.text.starts_with(key_codes::Backtab)
             || (event.text.starts_with(key_codes::Tab) && event.modifiers.shift))
             && event.event_type == KeyEventType::KeyPressed
+            && !extra_mod
         {
             self.focus_previous_item();
         }
