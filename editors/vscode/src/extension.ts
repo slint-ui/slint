@@ -152,7 +152,7 @@ function startClient(
                 event.oldState === State.Running
             ) {
                 cl.outputChannel.appendLine(
-                    "The Slint Language Server crashed. This is a bug.\nPlease open an issue on https://github.com/slint-ui/slint/issues",
+                    "The Slint Language Server crashed. This is a bug. Please open an issue on https://github.com/slint-ui/slint/issues"
                 );
                 cl.outputChannel.show();
                 vscode.commands.executeCommand("workbench.action.output.focus");
