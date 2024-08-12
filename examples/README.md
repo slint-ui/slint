@@ -11,42 +11,13 @@ These examples demonstrate the main features of Slint and how to use them in dif
 | [![Energy meter demo image](https://github.com/user-attachments/assets/abfe03e3-ded6-4ddc-82b7-8303ee45515c "Energy meter demo image")](./energy-monitor/) |  A fictional user interface of a device that monitors energy consumption in a building. [Project...](./energy-monitor) | [Wasm Demo](https://slint.dev/snapshots/master/demos/energy-monitor/) |
 | [![Todo demo image](https://github.com/user-attachments/assets/e534736b-3f64-4631-8b9a-80ccd985e9de "Todo demo image")](./todo/) |  A simple todo application. [Project...](./todo)<br><br>A simple todo application based on the [Model View Controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) pattern. [Project...](./todo-mvc) | [Wasm Demo](https://slint.dev/snapshots/master/demos/todo/)<br><br>[Wasm MVC Demo](https://slint.dev/snapshots/master/demos/todo-mvc/)   |
 | [![Carousel demo image](https://user-images.githubusercontent.com/6715107/196679740-840a4b67-afaa-4d47-9a31-bfe643c7de48.png "Carousel demo image")](./carousel/) |  A custom carousel widget that can be controlled by touch, mouse and keyboard. [Project...](./carousel) | [Wasm Demo](https://slint.dev/snapshots/master/demos/carousel/) |
-| [![Slide Puzzle demo image](https://github.com/user-attachments/assets/c54d5d2d-5cce-41bf-a0d4-a94b94970df9 "Slide Puzzle demo image")](./slide_puzzle/) |  Puzzle game based on a Flutter example. See [Readme](./slide_puzzle) [Project...](./slide_puzzle) | [Wasm Demo](https://slint.dev/snapshots/master/demos/slide_puzzle/) |
+| [![Slide Puzzle demo image](https://github.com/user-attachments/assets/c54d5d2d-5cce-41bf-a0d4-a94b94970df9 "Slide Puzzle demo image")](./slide_puzzle/) |  Puzzle game based on a Flutter example. [Project...](./slide_puzzle) | [Wasm Demo](https://slint.dev/snapshots/master/demos/slide_puzzle/) |
+| [![Memory demo image](https://github.com/user-attachments/assets/63216b63-2f9e-48c0-8efe-64cee9e91f07 "Memory demo image")](./memory/) |  A basic memory game used as an example the tutorial. [Project...](./slide_puzzle) | [Wasm Demo](https://slint.dev/snapshots/master/demos/memory/) |
+| [![iot dashboard demo image](https://slint.dev/resources/iot-dashboard_screenshot.png "iot dashboard demo image")](./iot-dashboard/) |  AA clone of one demo from the [QSkinny framework](https://qskinny.github.io/).<br/> Also shows how to dynamically load widgets from C++. [Project...](./iot-dashboard) | [Wasm Demo](https://slint.dev/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) |
+| [![Image filter demo image](https://github.com/user-attachments/assets/a373bc10-fa61-42c0-b80e-9d9f63cd022b "Image filter demo image")](./iot-dashboard/) |  A Rust-only example that shows how to use the Rust image crate to do image manipulationsand feed the result into Slint. [Project...](./imagefilter/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/imagefilter/) |
 
 
-### [`memory`](./memory)
 
-A basic memory game used as an example the tutorial:
-
-* [Memory Game Tutorial (Rust)](https://slint.dev/docs/quickstart/rust)
-* [Memory Game Tutorial (C++)](https://slint.dev/docs/quickstart/cpp)
-
-| `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- | --- |
-| [`memory.slint`](./memory/memory.slint) | [`main.rs`](./memory/main.rs) | [`memory.cpp`](./memory/memory.cpp) | [Online simulation](https://slint.dev/snapshots/master/demos/memory/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/memory/memory.slint) |
-
-### [`iot-dashboard`](./iot-dashboard)
-
-A clone of one demo from the [QSkinny framework](https://qskinny.github.io/).
-
-Also show how a way to dynamically load widgets with the interpreter from C++.
-
-| `.slint` Design | C++ Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- |
-| [`main.slint`](./iot-dashboard/main.slint) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://slint.dev/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) |
-
-![Screenshot of the IOT Dashboard](https://slint.dev/resources/iot-dashboard_screenshot.png "IOT Dashboard")
-
-### [`imagefilter`](./imagefilter)
-
-A Rust-only example that shows how to use the Rust image crate to do image manipulations
-and feed the result into Slint.
-
-| `.slint` Design |  Rust Source | TypeScript Source | Online wasm Preview |
-| --- | --- | --- | --- |
-| [`main.slint`](./imagefilter/ui/main.slint) | [`main.rs`](./imagefilter/rust/main.rs) | [`main.ts`](./imagefilter/node/main.ts)  | [Online simulation](https://slint.dev/snapshots/master/demos/imagefilter/) |
-
-![Screenshot of the imagefilter example](https://slint.dev/resources/imagefilter_screenshot.png "Image Filter")
 
 ### [`plotter`](./plotter)
 
