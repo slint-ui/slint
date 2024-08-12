@@ -73,6 +73,7 @@ jobs:
                       examples/printerdemo/rust/
                       examples/printerdemo_old/rust/
                       examples/todo/
+                      examples/todo-mvc/rust/
                       examples/carousel/rust/
                       examples/memory/
                       examples/slide_puzzle/
