@@ -3,8 +3,18 @@
 # Examples
 
 These examples demonstrate the main features of Slint and how to use them in different language environments.
-
-| Thumbnail | Description | Demo | 
+<style>
+table th:first-of-type {
+    width: 30%;
+}
+table th:nth-of-type(2) {
+    width: 50%;
+}
+table th:nth-of-type(3) {
+    width: 10%;
+}
+</style>
+| Thumbnail  | Description | Demo | 
 | --- | --- | --- | 
 | [![Printer Demo image](https://github.com/user-attachments/assets/7e7400ad-283a-4404-b04a-8620ba4df452)](./printerdemo) |  A fictional user interface for the touch screen of a printer. [Project...](./printerdemo) | [Wasm Demo](https://slint.dev/snapshots/master/demos/printerdemo/) |
 | [![Gallery demo image](https://github.com/user-attachments/assets/e37ad016-475a-4c01-8d1b-1326ee7aa733 "Gallery demo image")](./gallery/) |  A simple application showing the different widgets. [Project...](./gallery) | [Wasm Demo](https://slint.dev/snapshots/master/demos/gallery/) |
