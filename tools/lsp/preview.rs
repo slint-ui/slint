@@ -1026,6 +1026,7 @@ async fn parse_source(
     library_paths: HashMap<String, PathBuf>,
     path: PathBuf,
     source_code: String,
+    version: SourceFileVersion,
     style: String,
     component: Option<String>,
     file_loader_fallback: impl Fn(
@@ -1054,7 +1055,9 @@ async fn parse_source(
     builder.set_library_paths(library_paths);
     builder.set_file_loader(file_loader_fallback);
 
-    let result = builder.build_from_source(source_code, path).await;
+    let result = builder
+        .build_from_versioned_source(source_code, path, version, i_slint_core::InternalToken)
+        .await;
 
     let compiled = result.components().next();
     (result.diagnostics().collect(), compiled)
@@ -1069,12 +1072,13 @@ async fn reload_preview_impl(
     start_parsing();
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let (_, source) = get_url_from_cache(&component.url).unwrap_or_default();
+    let (version, source) = get_url_from_cache(&component.url).unwrap_or_default();
     let (diagnostics, compiled) = parse_source(
         config.include_paths,
         config.library_paths,
         path,
         source,
+        version,
         style,
         component.component.clone(),
         |path| {
@@ -1498,6 +1502,7 @@ pub mod test {
             std::collections::HashMap::new(),
             path,
             source_code.to_string(),
+            Some(23),
             style.to_string(),
             None,
             move |path| {

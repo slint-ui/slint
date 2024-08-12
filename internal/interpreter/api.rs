@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -800,6 +801,30 @@ impl Compiler {
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
         crate::dynamic_item_tree::load(source_code, path, None, self.config.clone()).await
+    }
+
+    /// Compile some .slint code
+    ///
+    /// The `path` argument will be used for diagnostics and to compute relative
+    /// paths while importing.
+    ///
+    /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
+    /// after the call using [`CompilationResult::diagnostics()`].
+    ///
+    /// This function is `async` but in practice, this is only asynchronous if
+    /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
+    /// If that is not used, then it is fine to use a very simple executor, such as the one
+    /// provided by the `spin_on` crate
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub async fn build_from_versioned_source(
+        &self,
+        source_code: String,
+        path: PathBuf,
+        version: SourceFileVersion,
+        _: i_slint_core::InternalToken,
+    ) -> CompilationResult {
+        crate::dynamic_item_tree::load(source_code, path, version, self.config.clone()).await
     }
 }
 
