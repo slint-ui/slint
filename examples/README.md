@@ -6,13 +6,15 @@ These examples demonstrate the main features of Slint and how to use them in dif
 
 ### [`printerdemo`](./printerdemo)
 
+![Screenshot of the Printer Demo](https://slint.dev/resources/printerdemo_screenshot.png "Printer Demo")
+
 A fictional user interface for the touch screen of a printer
 
-| `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- | --- | --- |
-| [`ui.slint`](./printerdemo/ui/printerdemo.slint) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/printerdemo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint) |
+| Project | Online wasm Preview | 
+| --- | --- | 
+| [`printer demo`](./printerdemo/)  | [Simulation](https://slint.dev/snapshots/master/demos/printerdemo/) |
 
-![Screenshot of the Printer Demo](https://slint.dev/resources/printerdemo_screenshot.png "Printer Demo")
+
 
 ### [`gallery`](./gallery)
 
