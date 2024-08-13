@@ -8,6 +8,7 @@ use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, Character
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
+use crate::CompilerConfiguration;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -24,6 +25,7 @@ struct Font {
 #[cfg(target_arch = "wasm32")]
 pub fn embed_glyphs<'a>(
     _component: &Document,
+    _compiler_config: &CompilerConfiguration,
     _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
     _characters_seen: HashSet<char>,
@@ -36,6 +38,7 @@ pub fn embed_glyphs<'a>(
 #[cfg(not(target_arch = "wasm32"))]
 pub fn embed_glyphs<'a>(
     doc: &Document,
+    compiler_config: &CompilerConfiguration,
     scale_factor: f64,
     mut pixel_sizes: Vec<i16>,
     mut characters_seen: HashSet<char>,
@@ -81,6 +84,7 @@ pub fn embed_glyphs<'a>(
 
     sharedfontdb::FONT_DB.with(|db| {
         embed_glyphs_with_fontdb(
+            compiler_config,
             &db,
             doc,
             pixel_sizes,
@@ -93,6 +97,7 @@ pub fn embed_glyphs<'a>(
 }
 
 fn embed_glyphs_with_fontdb<'a>(
+    compiler_config: &CompilerConfiguration,
     fontdb: &RefCell<sharedfontdb::FontDatabase>,
     doc: &Document,
     pixel_sizes: Vec<i16>,
@@ -101,7 +106,7 @@ fn embed_glyphs_with_fontdb<'a>(
     diag: &mut BuildDiagnostics,
     generic_diag_location: Option<crate::diagnostics::SourceLocation>,
 ) {
-    let fallback_fonts = get_fallback_fonts(&fontdb.borrow());
+    let fallback_fonts = get_fallback_fonts(compiler_config, &fontdb.borrow());
 
     let mut custom_fonts = Vec::new();
 
@@ -196,7 +201,7 @@ fn embed_glyphs_with_fontdb<'a>(
     }
 
     let mut embed_font_by_path_and_face_id = |path: &std::path::Path, face_id| {
-        let fontdue_font = match load_font_by_id(face_id) {
+        let fontdue_font = match compiler_config.load_font_by_id(face_id) {
             Ok(font) => font,
             Err(msg) => {
                 diag.push_error(
@@ -269,7 +274,10 @@ fn embed_glyphs_with_fontdb<'a>(
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
-fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<Rc<fontdue::Font>> {
+fn get_fallback_fonts(
+    compiler_config: &CompilerConfiguration,
+    fontdb: &sharedfontdb::FontDatabase,
+) -> Vec<Rc<fontdue::Font>> {
     #[allow(unused)]
     let mut fallback_families: Vec<String> = Vec::new();
 
@@ -308,7 +316,7 @@ fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<Rc<fontdue::Fo
                     families: &[fontdb::Family::Name(fallback_family)],
                     ..Default::default()
                 })
-                .and_then(|face_id| load_font_by_id(face_id).ok())
+                .and_then(|face_id| compiler_config.load_font_by_id(face_id).ok())
         })
         .collect::<Vec<_>>();
     fallback_fonts
@@ -433,36 +441,5 @@ pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut Has
                 characters_seen.extend(string.chars());
             }
         })
-    })
-}
-
-thread_local! {
-    static LOADED_FONTS: RefCell<std::collections::HashMap<fontdb::ID, fontdue::FontResult<Rc<fontdue::Font>>>> = RefCell::default();
-}
-
-fn load_font_by_id(face_id: fontdb::ID) -> fontdue::FontResult<Rc<fontdue::Font>> {
-    LOADED_FONTS.with(|cache| {
-        cache
-            .borrow_mut()
-            .entry(face_id)
-            .or_insert_with(|| {
-                sharedfontdb::FONT_DB.with(|fontdb| {
-                    fontdb
-                        .borrow()
-                        .with_face_data(face_id, |font_data, face_index| {
-                            fontdue::Font::from_bytes(
-                                font_data,
-                                fontdue::FontSettings {
-                                    collection_index: face_index,
-                                    scale: 40.,
-                                    ..Default::default()
-                                },
-                            )
-                            .map(Rc::new)
-                        })
-                        .unwrap_or_else(|| fontdue::FontResult::Err("internal error: corrupt font"))
-                })
-            })
-            .clone()
     })
 }

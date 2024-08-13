@@ -56,6 +56,8 @@ fn main() -> std::io::Result<()> {
     let references_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "references"].iter().collect();
 
+    let font_cache = i_slint_compiler::FontCache::default();
+
     for (i, testcase) in
         test_driver_lib::collect_test_cases("screenshots/cases")?.into_iter().enumerate()
     {
@@ -104,8 +106,14 @@ fn main() -> std::io::Result<()> {
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?);
 
-        generate_source(source.as_str(), &mut output, testcase, scale_factor.unwrap_or(1.))
-            .unwrap();
+        generate_source(
+            source.as_str(),
+            &mut output,
+            testcase,
+            scale_factor.unwrap_or(1.),
+            &font_cache,
+        )
+        .unwrap();
 
         let scale_factor = scale_factor.map_or(String::new(), |scale_factor| {
             format!("slint::platform::WindowAdapter::window(&*window).dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {{ scale_factor: {scale_factor}f32 }});")
@@ -147,6 +155,7 @@ fn generate_source(
     output: &mut impl Write,
     testcase: test_driver_lib::TestCase,
     scale_factor: f32,
+    font_cache: &i_slint_compiler::FontCache,
 ) -> Result<(), std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
@@ -163,6 +172,7 @@ fn generate_source(
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".to_string());
     compiler_config.scale_factor = scale_factor.into();
+    compiler_config.font_cache = font_cache.clone();
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
