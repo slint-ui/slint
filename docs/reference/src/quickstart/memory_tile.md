@@ -12,31 +12,7 @@ Lengths in Slint have a unit, here, the `px` suffix.
 This makes the code easier to read and the compiler can detect when you accidentally
 mix values with different units attached to them.
 
-::::{tab-set}
-
-:::{tab-item} C++
-:sync: cpp
-
 Copy the following code into `ui/appwindow.slint` file, replacing the current content:
-
-:::
-
-:::{tab-item} NodeJS
-:sync: nodejs
-
-Copy the following code into `ui/appwindow.slint` file, replacing the current content:
-
-:::
-
-:::{tab-item} Rust
-:sync: rust
-:selected: true
-
-Copy the following code inside of the `slint!` macro, replacing the current content:
-
-:::
-
-::::
 
 :::{literalinclude} memory_tile.slint
 :language: slint,no-preview
@@ -45,35 +21,8 @@ Copy the following code inside of the `slint!` macro, replacing the current cont
 
 This exports the <span class="hljs-title">MainWindow</span> component so that the game logic code can access it later.
 
-::::{tab-set}
-:::{tab-item} C++
-:sync: cpp
-
 Inside the <span class="hljs-built_in">Rectangle</span> place an <span class="hljs-built_in">Image</span> element that
 loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the location of `ui/appwindow.slint`.
-
-:::
-
-:::{tab-item} NodeJS
-:sync: nodejs
-
-Inside the <span class="hljs-built_in">Rectangle</span> place an <span class="hljs-built_in">Image</span> element that
-loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the location of `ui/appwindow.slint`.
-
-:::
-
-:::{tab-item} Rust
-:sync: rust
-:selected: true
-
-Inside the <span class="hljs-built_in">Rectangle</span> place an <span class="hljs-built_in">Image</span> element that
-loads an icon with the <span class="hljs-built_in">@image-url()</span> macro.
-When using the `slint!` macro, the path is relative to the folder that contains the `Cargo.toml` file.
-When using Slint files, it's relative to the folder of the Slint file containing it.
-
-:::
-
-::::
 
 You need to install this icon and others you use later first. You can download a pre-prepared
 [Zip archive](https://slint.dev/blog/memory-game-tutorial/icons.zip) to the `ui` folder,
