@@ -527,7 +527,8 @@ impl ItemRc {
 
                 let subtree_index = match parent_item_tree.get(parent_item_index)? {
                     crate::item_tree::ItemTreeNode::Item { .. } => {
-                        panic!("Got an Item, expected a repeater!")
+                        // Popups can trigger this case!
+                        return None;
                     }
                     crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => *index,
                 };
