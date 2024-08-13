@@ -1,18 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-<!-- Style the table -->
-<style>
-table th:first-of-type {
-    width: 30%;
-}
-table th:nth-of-type(2) {
-    width: 50%;
-}
-table th:nth-of-type(3) {
-    width: 10%;
-}
-</style>
-
 # Examples
 
 These examples demonstrate the main features of Slint and how to use them in different language environments.
