@@ -903,7 +903,7 @@ impl CompilationResult {
         self.components.get(name).cloned()
     }
 
-    /// This is an internal function without and ABI or API stability guarantees.
+    /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub fn structs_and_enums(
