@@ -22,3 +22,5 @@ The examples also assume that [`jq`](https://stedolan.github.io/jq/) is in the p
 The `laptop.svg` icon is `emoji_u1f4bb.svg` from the Noto Emoji font from
     https://github.com/googlefonts/noto-emoji
 and licensed under the terms of the SIL Open Font License, version 1.1; copyright Google Inc.
+
+![Screenshot of the bash example](https://github.com/user-attachments/assets/dcac4189-fc7b-4a9f-b7cb-9d075b338628 "Bash")

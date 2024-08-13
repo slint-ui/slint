@@ -7,6 +7,12 @@ https://flutter.github.io/samples/slide_puzzle
 
 This will allow to compare Slint and Flutter.
 
+| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- |
+| [`slide_puzzle.slint`](./slide_puzzle/slide_puzzle.slint) | [`main.rs`](./slide_puzzle/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
+
+![Screenshot of the Slide Puzzle](https://slint.dev/resources/puzzle_screenshot.png "Slide Puzzle")
+
 Remaining feature to implement to have parity:
 
 * "Spring" animation instead of a bezier curve.

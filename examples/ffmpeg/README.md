@@ -24,3 +24,5 @@ On Windows:
  - `vcpkg install ffmpeg --triplet x64-windows`
  - Make sure `VCPKG_ROOT` is set to where `vcpkg` is installed
  - Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path
+
+ ![Screenshot of the FFmpeg Example on macOS](https://github.com/slint-ui/slint/assets/1486/5a1fad32-611a-478e-ab8f-576b4b4bdaf3 "FFmpeg Example")

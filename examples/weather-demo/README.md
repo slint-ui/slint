@@ -2,6 +2,12 @@
 
 # Weather Demo
 
+A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [OpenWeather](https://openweathermap.org/) API.
+
+| `.slint` Design | Rust Source (Desktop) | Rust Source (Android / Wasm) | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- | --- |
+| [`main.slint`](./weather-demo/ui/main.slint) | [`main.rs`](./weather-demo/src/main.rs) | [`lib.rs`](./weather-demo/src/lib.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/weather-demo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/weather-demo/ui/main.slint) |
+
 Weather Demo is a weather application made by [Felgo](https://felgo.com/).
 
 The application retrieves weather data from the [OpenWeather](https://openweathermap.org/) API to provide:

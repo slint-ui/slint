@@ -70,3 +70,5 @@ int main()
 }
 
 ```
+
+![Screenshot of Virtual Keyboard Example on macOS](https://user-images.githubusercontent.com/6715107/231668373-23faedf8-b42a-401d-b3a2-845d5e61252b.png "Virtual Keyboard")
