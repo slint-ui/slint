@@ -118,7 +118,7 @@ a player can't click anything during this time.
 Add this code before the `main_window.run().unwrap();` call:
 
 :::{literalinclude} main_game_logic_in_rust.rs
-:lines: 21-52
+:lines: 25-52
 :::
 
 The code uses a [Weak](https://slint.dev/docs/rust/slint/struct.Weak) pointer of the `main_window`. This is

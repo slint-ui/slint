@@ -28,7 +28,7 @@ cd memory
 
 The `CMakeLists.txt` uses the line `add_executable(my_application src/main.cpp)` to set `src/main.cpp` as the main C++ code file.
 
-Change the content of `src/main.cpp` to the following:
+Replace the content of `src/main.cpp` with the following:
 
 :::{literalinclude} main_initial.cpp
 :lines: 9-13
@@ -38,7 +38,7 @@ Also in `CMakeLists.txt` the line
 `slint_target_sources(my_application ui/appwindow.slint)` is a Slint function used to
 add the `appwindow.slint` file to the target.
 
-Change the contents of `ui/appwindow.slint` to the following:
+Replace the contents of `ui/appwindow.slint` with the following:
 
 :::{literalinclude} appwindow.slint
 :language: slint,no-preview
@@ -90,7 +90,7 @@ my_application
 ::::{tab-item} NodeJS
 :sync: nodejs
 
-Clone the template with the following command:
+Clone or download the template repository:
 
 ```sh
 git clone https://github.com/slint-ui/slint-nodejs-template memory
@@ -134,20 +134,33 @@ Run the example with `npm start` and a window appears with the green "Hello Worl
 
 We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
-Let's create a new Rust application and add `slint` as a dependency
+Install the [template](https://github.com/slint-ui/slint-rust-template) with the following commands:
 
 ```sh
-cargo new memory
+cargo install cargo-generate
+cargo generate --git https://github.com/slint-ui/slint-rust-template --name memory
 cd memory
-cargo add slint
 ```
 
 ### Configure the project
 
 Replace the contents of `src/main.rs` with the following:
 
-:::{literalinclude} main_initial.rs
-:lines: 6-17
+```rust
+slint::include_modules!();
+
+fn main() -> Result<(), slint::PlatformError> {
+    let main_window = MainWindow::new()?;
+
+    main_window.run()
+}
+```
+
+Replace the contents of `ui/appwindow.slint` with the following:
+
+:::{literalinclude} memory.slint
+:language: slint,no-preview
+:lines: 6-11
 :::
 
 ### Run the application
