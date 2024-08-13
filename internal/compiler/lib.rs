@@ -74,6 +74,16 @@ pub enum ComponentSelection {
     Named(String),
 }
 
+#[cfg(feature = "software-renderer")]
+pub type FontCache = Rc<
+    RefCell<
+        std::collections::HashMap<
+            i_slint_common::sharedfontdb::fontdb::ID,
+            fontdue::FontResult<Rc<fontdue::Font>>,
+        >,
+    >,
+>;
+
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
 pub struct CompilerConfiguration {
@@ -125,6 +135,9 @@ pub struct CompilerConfiguration {
     pub debug_info: bool,
 
     pub components_to_generate: ComponentSelection,
+
+    #[cfg(feature = "software-renderer")]
+    pub font_cache: FontCache,
 }
 
 impl CompilerConfiguration {
@@ -200,7 +213,38 @@ impl CompilerConfiguration {
             cpp_namespace,
             debug_info,
             components_to_generate: ComponentSelection::ExportedWindows,
+            #[cfg(feature = "software-renderer")]
+            font_cache: Default::default(),
         }
+    }
+
+    #[cfg(feature = "software-renderer")]
+    fn load_font_by_id(
+        &self,
+        face_id: i_slint_common::sharedfontdb::fontdb::ID,
+    ) -> fontdue::FontResult<Rc<fontdue::Font>> {
+        self.font_cache
+            .borrow_mut()
+            .entry(face_id)
+            .or_insert_with(|| {
+                i_slint_common::sharedfontdb::FONT_DB.with(|fontdb| {
+                    fontdb
+                        .borrow()
+                        .with_face_data(face_id, |font_data, face_index| {
+                            fontdue::Font::from_bytes(
+                                font_data,
+                                fontdue::FontSettings {
+                                    collection_index: face_index,
+                                    scale: 40.,
+                                    ..Default::default()
+                                },
+                            )
+                            .map(Rc::new)
+                        })
+                        .unwrap_or_else(|| fontdue::FontResult::Err("internal error: corrupt font"))
+                })
+            })
+            .clone()
     }
 }
 

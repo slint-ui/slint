@@ -244,6 +244,7 @@ pub async fn run_passes(
 
             embed_glyphs::embed_glyphs(
                 doc,
+                &type_loader.compiler_config,
                 type_loader.compiler_config.scale_factor,
                 font_pixel_sizes,
                 characters_seen,
