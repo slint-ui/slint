@@ -179,6 +179,11 @@ impl CompilationResult {
             .into_iter()
             .collect::<HashMap<String, PyObject>>()
     }
+
+    #[getter]
+    fn named_exports(&self) -> Vec<(String, String)> {
+        self.result.named_exports(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>()
+    }
 }
 
 #[pyclass(unsendable)]

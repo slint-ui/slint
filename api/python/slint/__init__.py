@@ -242,8 +242,14 @@ def load_file(path, quiet=False, style=None, include_paths=None, library_paths=N
         setattr(module, comp_name, wrapper_class)
 
     for name, struct_or_enum_prototype in result.structs_and_enums.items():
+        name = _normalize_prop(name)
         struct_wrapper = _build_struct(name, struct_or_enum_prototype)
         setattr(module, name, struct_wrapper)
+
+    for orig_name, new_name in result.named_exports:
+        orig_name = _normalize_prop(orig_name)
+        new_name = _normalize_prop(new_name)
+        setattr(module, new_name, getattr(module, orig_name))
 
     return module
 

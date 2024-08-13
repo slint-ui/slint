@@ -15,8 +15,14 @@ export global SecondGlobal {
 
 export struct MyData {
     name: string,
-    age: int
+    age: int,
 }
+
+struct Secret-Struct {
+    balance: int,
+}
+
+export { Secret-Struct as Public-Struct }
 
 export component App inherits Window {
     in-out property <string> hello: "World";
@@ -47,4 +53,6 @@ export component App inherits Window {
     }
 }
 
-export component Diag inherits Window { }
+component Diag inherits Window { }
+
+export { Diag as MyDiag }
