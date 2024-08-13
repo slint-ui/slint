@@ -1,8 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-# Examples
-
-These examples demonstrate the main features of Slint and how to use them in different language environments.
+<!-- Style the table -->
 <style>
 table th:first-of-type {
     width: 30%;
@@ -14,6 +12,13 @@ table th:nth-of-type(3) {
     width: 10%;
 }
 </style>
+
+# Examples
+
+These examples demonstrate the main features of Slint and how to use them in different language environments.
+
+
+
 | Thumbnail  | Description | Demo | 
 | --- | --- | --- | 
 | [![Printer Demo image](https://github.com/user-attachments/assets/7e7400ad-283a-4404-b04a-8620ba4df452)](./printerdemo) |  A fictional user interface for the touch screen of a printer. [Project...](./printerdemo) | [Wasm Demo](https://slint.dev/snapshots/master/demos/printerdemo/) |
@@ -35,15 +40,14 @@ table th:nth-of-type(3) {
 | [![7 GUI's demo image](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7 GUI's demo image")](./7guis/) | Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks. [Project...](./7guis/) |  |
 | [![Weather demo image](./weather-demo/docs/img/desktop-preview.png "7 GUI's demo image")](./weather-demo/) | A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [OpenWeather](https://openweathermap.org/) API. [Project...](./weather-demo/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/weather-demo/) |
 
+#### External examples
+| Thumbnail  | Description |
+| --- | --- |
+| [![Cargo UI image](https://raw.githubusercontent.com/slint-ui/cargo-ui/master/screenshots/deptree.png "Cargo UI image")]([./weather-demo/](https://github.com/slint-ui/cargo-ui)) | A rust application that makes use of threads in the background. [Project...](https://github.com/slint-ui/cargo-ui) | 
 
 
-### External examples
-
-* [Cargo UI](https://github.com/slint-ui/cargo-ui): A rust application that makes use of threads in the background.
-
-![Screenshot of Cargo UI](https://raw.githubusercontent.com/slint-ui/cargo-ui/master/screenshots/deptree.png "Cargo UI")
-
-## Loading the example with the `viewer`
+---
+### Loading the example with the `viewer`
 
 Simply load the .slint file with the viewer application
 
@@ -51,7 +55,8 @@ Simply load the .slint file with the viewer application
 cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.slint
 ```
 
-## Running the Rust Examples
+---
+### Running the Rust Examples
 
 You can run the examples either by going into the rust sub-folder and use `cargo run`, for example:
 
@@ -66,6 +71,7 @@ or you can run them from anywhere in the Cargo workspace by name:
 cargo run --release --bin printerdemo
 ```
 
+---
 ### Wasm builds
 
 In order to make the wasm build of the example, you first need to edit the Cargo.toml
@@ -82,7 +88,8 @@ wasm-pack build --release --target web
 python3 -m http.server
 ```
 
-## Running the C++ Examples
+---
+### Running the C++ Examples
 
 * **When compiling Slint from sources:** If you follow the [C++ build instructions](/docs/building.md#c-build), this will build the C++
 examples as well by default
@@ -94,7 +101,8 @@ examples as well by default
  cmake --build .
  ```
 
-## Running the Node Examples
+---
+### Running the Node Examples
 
 You can run the examples by going into the node sub-folder and use `npm`, for example:
 
