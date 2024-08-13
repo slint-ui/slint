@@ -34,6 +34,8 @@ use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
+#[cfg(feature = "internal")]
+use itertools::Either;
 use once_cell::unsync::OnceCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -846,6 +848,8 @@ pub async fn load(
             diagnostics: diag.into_iter().collect(),
             #[cfg(feature = "internal")]
             structs_and_enums: Vec::new(),
+            #[cfg(feature = "internal")]
+            named_exports: Vec::new(),
         };
     }
 
@@ -878,11 +882,34 @@ pub async fn load(
     #[cfg(feature = "internal")]
     let structs_and_enums = doc.used_types.borrow().structs_and_enums.clone();
 
+    #[cfg(feature = "internal")]
+    let named_exports = doc
+        .exports
+        .iter()
+        .filter_map(|export| match &export.1 {
+            Either::Left(component) if !component.is_global() => {
+                Some((&export.0.name, &component.id))
+            }
+            Either::Right(ty) => match &ty {
+                Type::Struct { name: Some(name), node: Some(_), .. } => {
+                    Some((&export.0.name, name))
+                }
+                Type::Enumeration(en) => Some((&export.0.name, &en.name)),
+                _ => None,
+            },
+            _ => None,
+        })
+        .filter(|(export_name, type_name)| *export_name != *type_name)
+        .map(|(export_name, type_name)| (type_name.clone(), export_name.clone()))
+        .collect::<Vec<_>>();
+
     CompilationResult {
         diagnostics: diag.into_iter().collect(),
         components,
         #[cfg(feature = "internal")]
         structs_and_enums,
+        #[cfg(feature = "internal")]
+        named_exports,
     }
 }
 

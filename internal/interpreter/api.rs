@@ -816,6 +816,8 @@ impl Compiler {
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
+                    #[cfg(feature = "internal")]
+                    named_exports: Vec::new(),
                 };
             }
         };
@@ -852,6 +854,9 @@ pub struct CompilationResult {
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
+    /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
+    #[cfg(feature = "internal")]
+    pub(crate) named_exports: Vec<(String, String)>,
 }
 
 impl core::fmt::Debug for CompilationResult {
@@ -911,6 +916,17 @@ impl CompilationResult {
         _: i_slint_core::InternalToken,
     ) -> impl Iterator<Item = &LangType> {
         self.structs_and_enums.iter()
+    }
+
+    /// This is an internal function without API stability guarantees.
+    /// Returns the list of named export aliases as tuples (`export { Foo as Bar}` is (`Foo`, `Bar` tuple)).
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn named_exports(
+        &self,
+        _: i_slint_core::InternalToken,
+    ) -> impl Iterator<Item = &(String, String)> {
+        self.named_exports.iter()
     }
 }
 
