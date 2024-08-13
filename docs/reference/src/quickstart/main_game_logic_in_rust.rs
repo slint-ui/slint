@@ -136,7 +136,7 @@ slint::slint! {
                 // old: tile.image_visible = !tile.image_visible;
                 // new:
                 if (!root.disable_tiles) {
-                    tile.image_visible = !tile.image_visible;
+                    tile.image_visible = true;
                     root.check_if_pair_solved();
                 }
             }
