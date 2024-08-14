@@ -83,7 +83,7 @@ impl NotRunningEventLoop {
         Ok(Self {
             instance,
             event_loop_proxy,
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(not(target_family = "wasm"))]
             clipboard: Rc::new(clipboard.into()),
         })
     }
@@ -94,7 +94,9 @@ struct RunningEventLoop<'a> {
 }
 
 pub(crate) enum ActiveOrInactiveEventLoop<'a> {
+    #[allow(unused)]
     Active(&'a ActiveEventLoop),
+    #[allow(unused)]
     Inactive(&'a winit::event_loop::EventLoop<SlintUserEvent>),
 }
 
@@ -103,6 +105,7 @@ pub(crate) trait EventLoopInterface {
         &self,
         window_attributes: winit::window::WindowAttributes,
     ) -> Result<winit::window::Window, winit::error::OsError>;
+    #[allow(unused)]
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_>;
     fn is_wayland(&self) -> bool {
         false
