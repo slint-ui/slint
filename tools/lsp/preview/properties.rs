@@ -628,7 +628,7 @@ fn create_workspace_edit_for_remove_binding(
 
 pub fn remove_binding(
     uri: lsp_types::Url,
-    version: common::UrlVersion,
+    version: SourceFileVersion,
     element: &common::ElementRcNode,
     property_name: &str,
 ) -> Result<lsp_types::WorkspaceEdit> {

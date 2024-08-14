@@ -8,7 +8,7 @@ use crate::common::{
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
-use i_slint_compiler::diagnostics;
+use i_slint_compiler::diagnostics::{self, SourceFileVersion};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::syntax_nodes;
 use i_slint_core::component_factory::FactoryContext;
@@ -55,7 +55,7 @@ enum PreviewFutureState {
     NeedsReload,
 }
 
-type SourceCodeCache = HashMap<Url, (common::UrlVersion, String)>;
+type SourceCodeCache = HashMap<Url, (SourceFileVersion, String)>;
 
 #[derive(Default)]
 struct ContentCache {
@@ -919,14 +919,14 @@ fn config_changed(config: PreviewConfig) {
 
 /// If the file is in the cache, returns it.
 /// In any way, register it as a dependency
-fn get_url_from_cache(url: &Url) -> Option<(common::UrlVersion, String)> {
+fn get_url_from_cache(url: &Url) -> Option<(SourceFileVersion, String)> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let r = cache.source_code.get(url).cloned();
     cache.dependency.insert(url.to_owned());
     r
 }
 
-fn get_path_from_cache(path: &Path) -> Option<(common::UrlVersion, String)> {
+fn get_path_from_cache(path: &Path) -> Option<(SourceFileVersion, String)> {
     let url = Url::from_file_path(path).ok()?;
     get_url_from_cache(&url)
 }

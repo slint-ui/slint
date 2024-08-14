@@ -23,8 +23,6 @@ pub mod text_edit;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
-pub type UrlVersion = Option<i32>;
-
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
@@ -476,7 +474,7 @@ impl ElementRcNode {
 
 pub fn create_text_document_edit(
     uri: Url,
-    version: UrlVersion,
+    version: SourceFileVersion,
     edits: Vec<TextEdit>,
 ) -> lsp_types::TextDocumentEdit {
     let edits = edits
@@ -496,7 +494,11 @@ pub fn create_workspace_edit_from_text_document_edits(
     WorkspaceEdit { document_changes: Some(changes), ..Default::default() }
 }
 
-pub fn create_workspace_edit(uri: Url, version: UrlVersion, edits: Vec<TextEdit>) -> WorkspaceEdit {
+pub fn create_workspace_edit(
+    uri: Url,
+    version: SourceFileVersion,
+    edits: Vec<TextEdit>,
+) -> WorkspaceEdit {
     create_workspace_edit_from_text_document_edits(vec![create_text_document_edit(
         uri, version, edits,
     )])
@@ -517,7 +519,7 @@ pub fn create_workspace_edit_from_source_files(
     mut inputs: Vec<(SourceFile, TextEdit)>,
 ) -> Option<WorkspaceEdit> {
     let mut files: HashMap<
-        (Url, UrlVersion),
+        (Url, SourceFileVersion),
         Vec<lsp_types::OneOf<TextEdit, lsp_types::AnnotatedTextEdit>>,
     > = HashMap::new();
     inputs.drain(..).for_each(|(sf, edit)| {
@@ -550,11 +552,11 @@ pub struct VersionedUrl {
     /// The file url
     url: Url,
     // The file version
-    version: UrlVersion,
+    version: SourceFileVersion,
 }
 
 impl VersionedUrl {
-    pub fn new(url: Url, version: UrlVersion) -> Self {
+    pub fn new(url: Url, version: SourceFileVersion) -> Self {
         VersionedUrl { url, version }
     }
 
@@ -562,7 +564,7 @@ impl VersionedUrl {
         &self.url
     }
 
-    pub fn version(&self) -> &UrlVersion {
+    pub fn version(&self) -> &SourceFileVersion {
         &self.version
     }
 }
@@ -602,7 +604,7 @@ impl VersionedPosition {
         self.url.url()
     }
 
-    pub fn version(&self) -> &UrlVersion {
+    pub fn version(&self) -> &SourceFileVersion {
         self.url.version()
     }
 
