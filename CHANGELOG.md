@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## [1.7.2] - 2024-08-14
 
 ### General
 
@@ -1468,3 +1468,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.6.0]: https://github.com/slint-ui/slint/releases/tag/v1.6.0
 [1.7.0]: https://github.com/slint-ui/slint/releases/tag/v1.7.0
 [1.7.1]: https://github.com/slint-ui/slint/releases/tag/v1.7.1
+[1.7.2]: https://github.com/slint-ui/slint/releases/tag/v1.7.2
