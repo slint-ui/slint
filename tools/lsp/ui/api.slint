@@ -138,10 +138,6 @@ export global Api {
     in property <[string]> known-styles; // All the known styles
     in-out property <string> current-style; // The current style
 
-    // ## History Navigation    
-    in property <bool> can-navigate-back: false;
-    in property <bool> can-navigate-forward: false;
-
     // ## Drawing Area
     in property <[Selection]> selections; // Borders around things
     in-out property <DropMark> drop-mark;
@@ -154,9 +150,6 @@ export global Api {
 
     // ## Style:
     callback style-changed();
-
-    // ## Histroy Navigation
-    callback navigate(int);
 
     // ## Component life-cycle:
 

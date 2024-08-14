@@ -61,9 +61,8 @@ type SourceCodeCache = HashMap<Url, (SourceFileVersion, String)>;
 struct ContentCache {
     source_code: SourceCodeCache,
     dependency: HashSet<Url>,
-    previewed_components_stack: Vec<PreviewComponent>,
-    currently_previewed_component: usize,
     config: PreviewConfig,
+    current_previewed_component: Option<PreviewComponent>,
     loading_state: PreviewFutureState,
     highlight: Option<(Url, u32)>,
     ui_is_visible: bool,
@@ -73,47 +72,23 @@ static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::Once
 
 impl ContentCache {
     pub fn current_component(&self) -> Option<PreviewComponent> {
-        self.previewed_components_stack.get(self.currently_previewed_component).cloned()
+        self.current_previewed_component.clone()
     }
 
-    pub fn push_component(&mut self, component: PreviewComponent) {
-        if self.currently_previewed_component
-            < self.previewed_components_stack.len().saturating_sub(1)
-        {
-            self.previewed_components_stack.drain(self.currently_previewed_component + 1..);
-        }
-        self.previewed_components_stack.retain(|pc| pc != &component);
-        self.previewed_components_stack.push(component);
-        self.currently_previewed_component = self.previewed_components_stack.len() - 1;
+    pub fn set_current_component(&mut self, component: PreviewComponent) {
+        self.current_previewed_component = Some(component);
     }
 
     pub fn clear_style_of_component(&mut self) {
-        if let Some(pc) =
-            self.previewed_components_stack.get_mut(self.currently_previewed_component)
-        {
+        if let Some(pc) = &mut self.current_previewed_component {
             pc.style = String::new();
         }
     }
 
-    pub fn navigate_component_history(&mut self, offset: i32) {
-        let index = i64::try_from(self.currently_previewed_component).unwrap_or(i64::MAX);
-        let index = (index + i64::from(offset))
-            .clamp(0, (self.previewed_components_stack.len() - 1) as i64);
-        self.currently_previewed_component = usize::try_from(index).unwrap_or(usize::MAX);
-    }
-
-    pub fn can_navigate_forward(&self) -> bool {
-        self.currently_previewed_component < self.previewed_components_stack.len() - 1
-    }
-
-    pub fn can_navigate_backward(&self) -> bool {
-        self.currently_previewed_component > 0 && !self.previewed_components_stack.is_empty()
-    }
-
-    pub fn rename_components_in_stack(&mut self, url: &Url, old_name: &str, new_name: &str) {
-        for c in self.previewed_components_stack.iter_mut() {
-            if c.url == *url && c.component.as_deref() == Some(old_name) {
-                c.component = Some(new_name.to_string());
+    pub fn rename_current_component(&mut self, url: &Url, old_name: &str, new_name: &str) {
+        if let Some(pc) = &mut self.current_previewed_component {
+            if pc.url == *url && pc.component.as_deref() == Some(old_name) {
+                pc.component = Some(new_name.to_string());
             }
         }
     }
@@ -243,7 +218,7 @@ fn add_new_component() {
 
         {
             let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-            cache.push_component(PreviewComponent {
+            cache.set_current_component(PreviewComponent {
                 url: preview_component.url.clone(),
                 component: Some(component_name.clone()),
                 style: preview_component.style.clone(),
@@ -335,7 +310,7 @@ fn rename_component(
     {
         // Update which component to show after refresh from the editor.
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.rename_components_in_stack(&old_url, &old_name, &new_name);
+        cache.rename_current_component(&old_url, &old_name, &new_name);
 
         if let Some(current) = &mut cache.current_component() {
             if current.url == old_url {
@@ -348,17 +323,6 @@ fn rename_component(
         }
 
         send_workspace_edit(format!("Rename component {old_name} to {new_name}"), edit, true);
-    }
-}
-
-// triggered from the UI, running in UI thread
-fn navigate(nav_direction: i32) {
-    if let Some(current) = {
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.navigate_component_history(nav_direction);
-        cache.current_component()
-    } {
-        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -948,7 +912,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                     return;
                 }
             }
-            LoadBehavior::Load => cache.push_component(preview_component),
+            LoadBehavior::Load => cache.set_current_component(preview_component),
         }
 
         match cache.loading_state {
@@ -972,7 +936,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         });
 
         loop {
-            let (preview_component, config, backward, forward) = {
+            let (preview_component, config) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
                 let Some(preview_component) = cache.current_component() else { return };
                 cache.clear_style_of_component();
@@ -984,12 +948,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 }
                 cache.loading_state = PreviewFutureState::Loading;
                 cache.dependency.clear();
-                (
-                    preview_component,
-                    cache.config.clone(),
-                    cache.can_navigate_backward(),
-                    cache.can_navigate_forward(),
-                )
+                (preview_component, cache.config.clone())
             };
             let style = if preview_component.style.is_empty() {
                 get_current_style()
@@ -997,15 +956,6 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 set_current_style(preview_component.style.clone());
                 preview_component.style.clone()
             };
-
-            PREVIEW_STATE.with(|preview_state| {
-                let preview_state = preview_state.borrow_mut();
-                if let Some(ui) = &preview_state.ui {
-                    let api = ui.global::<ui::Api>();
-                    api.set_can_navigate_back(backward);
-                    api.set_can_navigate_forward(forward);
-                }
-            });
 
             match reload_preview_impl(preview_component, style, config).await {
                 Ok(()) => {}
