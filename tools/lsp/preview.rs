@@ -957,7 +957,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 preview_component.style.clone()
             };
 
-            match reload_preview_impl(preview_component, style, config).await {
+            match reload_preview_impl(preview_component, behavior, style, config).await {
                 Ok(()) => {}
                 Err(e) => {
                     CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().loading_state =
@@ -1063,6 +1063,7 @@ async fn parse_source(
 // Must be inside the thread running the slint event loop
 async fn reload_preview_impl(
     component: PreviewComponent,
+    behavior: LoadBehavior,
     style: String,
     config: PreviewConfig,
 ) -> Result<(), PlatformError> {
@@ -1087,7 +1088,7 @@ async fn reload_preview_impl(
     notify_diagnostics(&diagnostics);
 
     let success = compiled.is_some();
-    update_preview_area(compiled)?;
+    update_preview_area(compiled, behavior)?;
     finish_parsing(success);
     Ok(())
 }
@@ -1109,6 +1110,7 @@ fn set_preview_factory(
     ui: &ui::PreviewUi,
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
+    behavior: LoadBehavior,
 ) {
     // Ensure that the popup is closed as it is related to the old factory
     i_slint_core::window::WindowInner::from_pub(ui.window()).close_popup();
@@ -1131,6 +1133,7 @@ fn set_preview_factory(
 
     let api = ui.global::<ui::Api>();
     api.set_preview_area(factory);
+    api.set_resize_to_preferred_size(behavior == LoadBehavior::Load);
 }
 
 /// Highlight the element pointed at the offset in the path.
@@ -1414,7 +1417,10 @@ fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
 }
 
 /// This ensure that the preview window is visible and runs `set_preview_factory`
-fn update_preview_area(compiled: Option<ComponentDefinition>) -> Result<(), PlatformError> {
+fn update_preview_area(
+    compiled: Option<ComponentDefinition>,
+    behavior: LoadBehavior,
+) -> Result<(), PlatformError> {
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         preview_state.workspace_edit_sent = false;
@@ -1439,6 +1445,7 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) -> Result<(), Plat
                     }
                     shared_handle.replace(Some(instance));
                 }),
+                behavior,
             );
             reset_selections(ui);
         }

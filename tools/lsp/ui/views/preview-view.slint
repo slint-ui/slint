@@ -215,6 +215,15 @@ export component PreviewView {
                     }
                 }
 
+                if Api.resize-to-preferred-size: Rectangle {
+                    init => {
+                        preview-area-container.width = clamp(preview-area-container.preferred-width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
+                        preview-area-container.height = clamp(preview-area-container.preferred-height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
+
+                        Api.resize-to-preferred-size = false;
+                    }
+                }
+
                 preview-area-container := ComponentContainer {
                     property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
 
