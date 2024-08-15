@@ -3,6 +3,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Widgets
+
+ - Fixed `TextEdit` not invoking `edited` callbacks (#5848).
+
 ## [1.7.2] - 2024-08-14
 
 ### General
