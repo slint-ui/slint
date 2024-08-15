@@ -966,7 +966,7 @@ impl LookupObject for Expression {
                     NumberExpression(self).for_each_entry(ctx, f)
                 }
                 ty if ty.as_unit_product().is_some() => {
-                    NumValueExpression(self).for_each_entry(ctx, f)
+                    NumberWithUnitExpression(self).for_each_entry(ctx, f)
                 }
                 _ => None,
             },
@@ -990,7 +990,9 @@ impl LookupObject for Expression {
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).lookup(ctx, name)
                 }
-                ty if ty.as_unit_product().is_some() => NumValueExpression(self).lookup(ctx, name),
+                ty if ty.as_unit_product().is_some() => {
+                    NumberWithUnitExpression(self).lookup(ctx, name)
+                }
                 _ => None,
             },
         }
@@ -1145,13 +1147,13 @@ impl<'a> LookupObject for NumberExpression<'a> {
             .or_else(|| f("atan", member_function(BuiltinFunction::ATan)))
             .or_else(|| f("log", member_function(BuiltinFunction::Log)))
             .or_else(|| f("pow", member_function(BuiltinFunction::Pow)))
-            .or_else(|| NumValueExpression(self.0).for_each_entry(ctx, f))
+            .or_else(|| NumberWithUnitExpression(self.0).for_each_entry(ctx, f))
     }
 }
 
 /// An expression of any numerical value with an unit
-struct NumValueExpression<'a>(&'a Expression);
-impl<'a> LookupObject for NumValueExpression<'a> {
+struct NumberWithUnitExpression<'a>(&'a Expression);
+impl<'a> LookupObject for NumberWithUnitExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
