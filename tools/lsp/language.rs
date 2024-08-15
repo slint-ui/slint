@@ -543,8 +543,10 @@ pub async fn reload_document(
         reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
     for (uri, diagnostics) in lsp_diags {
+        let version = document_cache.document_version(&uri);
+
         ctx.server_notifier.send_notification::<lsp_types::notification::PublishDiagnostics>(
-            PublishDiagnosticsParams { uri, diagnostics, version: None },
+            PublishDiagnosticsParams { uri, diagnostics, version },
         )?;
     }
 

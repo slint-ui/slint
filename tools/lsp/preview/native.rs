@@ -3,6 +3,8 @@
 
 // cSpell: ignore condvar
 
+use std::collections::HashMap;
+
 use super::PreviewState;
 use crate::common::PreviewToLspMessage;
 use crate::lsp_ext::Health;
@@ -201,16 +203,17 @@ pub fn set_server_notifier(sender: ServerNotifier) {
     *SERVER_NOTIFIER.lock().unwrap() = Some(sender);
 }
 
-pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
-    super::set_diagnostics(diagnostics);
-
+pub fn notify_diagnostics(
+    diagnostics: HashMap<
+        lsp_types::Url,
+        (i_slint_compiler::diagnostics::SourceFileVersion, Vec<lsp_types::Diagnostic>),
+    >,
+) -> Option<()> {
     let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return Some(());
     };
 
-    let lsp_diags = crate::preview::convert_diagnostics(diagnostics);
-
-    for (url, (version, diagnostics)) in lsp_diags {
+    for (url, (version, diagnostics)) in diagnostics {
         crate::common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, version, diagnostics)?;
     }
     Some(())

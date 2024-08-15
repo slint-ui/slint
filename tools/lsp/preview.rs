@@ -1070,7 +1070,11 @@ async fn reload_preview_impl(
     start_parsing();
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let (_, source) = get_url_from_cache(&component.url).unwrap_or_default();
+    let (version, source) = get_url_from_cache(&component.url).unwrap_or_default();
+
+    let file_versions = Rc::new(RefCell::new(HashMap::from([(path.clone(), version)])));
+    let fv = file_versions.clone();
+
     let (diagnostics, compiled) = parse_source(
         config.include_paths,
         config.library_paths,
@@ -1078,17 +1082,28 @@ async fn reload_preview_impl(
         source,
         style,
         component.component.clone(),
-        |path| {
+        move |path| {
+            let fv = fv.clone();
             let path = path.to_owned();
-            Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Result::Ok(c)) })
+            Box::pin(async move {
+                get_path_from_cache(&path).map(|(v, c)| {
+                    fv.borrow_mut().insert(path.to_path_buf(), v);
+                    Result::Ok(c)
+                })
+            })
         },
     )
     .await;
 
-    notify_diagnostics(&diagnostics);
+    {
+        set_diagnostics(&diagnostics);
+        let diags = convert_diagnostics(&diagnostics, file_versions.take());
+        notify_diagnostics(diags);
+    }
 
     let success = compiled.is_some();
     update_preview_area(compiled, behavior)?;
+
     finish_parsing(success);
     Ok(())
 }
@@ -1177,23 +1192,39 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
+    file_versions: HashMap<PathBuf, SourceFileVersion>,
 ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
     let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
         Default::default();
-    let Some(document_cache) = document_cache() else {
-        return result;
-    };
 
-    for d in diagnostics {
-        if d.source_file().map_or(true, |f| !i_slint_compiler::pathutils::is_absolute(f)) {
-            continue;
-        }
-        let path = d.source_file().unwrap();
-        let uri =
-            Url::from_file_path(path).ok().unwrap_or_else(|| Url::parse("file:/unknown").unwrap());
-        let version = document_cache.document_version_by_path(path);
-        result.entry(uri).or_insert((version, Vec::new())).1.push(crate::util::to_lsp_diag(d));
+    fn path_to_url(path: &Path) -> Url {
+        Url::from_file_path(path).ok().unwrap_or_else(|| Url::parse("file:/unknown").unwrap())
     }
+
+    // Pre-fill version info and an empty diagnostics to reset the state for the url
+    for (path, version) in file_versions.iter() {
+        result.insert(path_to_url(path), (*version, Vec::new()));
+    }
+
+    {
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+
+        // Fill in actual diagnostics now
+        for d in diagnostics {
+            if d.source_file().map_or(true, |f| !i_slint_compiler::pathutils::is_absolute(f)) {
+                continue;
+            }
+            let uri = path_to_url(d.source_file().unwrap());
+            let new_version = cache.source_code.get(&uri).and_then(|(v, _)| *v);
+            if let Some(data) = result.get_mut(&uri) {
+                if data.0.is_some() && new_version.is_some() && data.0 != new_version {
+                    continue;
+                }
+                data.1.push(crate::util::to_lsp_diag(d));
+            }
+        }
+    }
+
     result
 }
 
