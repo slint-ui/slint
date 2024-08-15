@@ -169,6 +169,13 @@ impl Timer {
         }
     }
 
+    /// Returns the interval of the timer.
+    /// Returns `None` if the timer is not running.
+    pub fn interval(&self) -> Option<core::time::Duration> {
+        self.id()
+            .map(|timer_id| CURRENT_TIMERS.with(|timers| timers.borrow().timers[timer_id].duration))
+    }
+
     fn id(&self) -> Option<usize> {
         self.id.get().map(|v| usize::from(v) - 1)
     }
@@ -479,7 +486,12 @@ pub(crate) mod ffi {
         if id != 0 {
             timer.id.set(NonZeroUsize::new(id));
         }
-        timer.start(mode, core::time::Duration::from_millis(duration), move || wrap.call());
+        if duration > i64::MAX as u64 {
+            // negative duration? stop the timer
+            timer.stop();
+        } else {
+            timer.start(mode, core::time::Duration::from_millis(duration), move || wrap.call());
+        }
         timer.id.take().map(|x| usize::from(x)).unwrap_or(0)
     }
 
@@ -537,6 +549,18 @@ pub(crate) mod ffi {
         let running = timer.running();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
         running
+    }
+
+    /// Returns the interval in milliseconds if it is running, or -1 otherwise
+    #[no_mangle]
+    pub extern "C" fn slint_timer_interval(id: usize) -> i64 {
+        if id == 0 {
+            return -1;
+        }
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
+        let val = timer.interval().map_or(-1, |d| d.as_millis() as i64);
+        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
+        val
     }
 }
 

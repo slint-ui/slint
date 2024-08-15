@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Abc inherits Timer {
+    //                        ^error{A component cannot inherit from Timer}
+    interval: 50ms;
+}
+
+export component Def {
+    if true: Timer { interval: 32ms; }
+    //       ^error{Timer cannot be directly repeated or conditional}
+
+    if false: Abc {}
+}

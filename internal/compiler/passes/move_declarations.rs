@@ -96,6 +96,11 @@ fn do_move_declarations(component: &Rc<Component>) {
         fixup_reference(&mut p.y);
         visit_all_named_references(&p.component, &mut fixup_reference)
     });
+    component.timers.borrow_mut().iter_mut().for_each(|t| {
+        fixup_reference(&mut t.interval);
+        fixup_reference(&mut t.running);
+        fixup_reference(&mut t.triggered);
+    });
     component.init_code.borrow_mut().iter_mut().for_each(|expr| {
         visit_named_references_in_expression(expr, &mut fixup_reference);
     });

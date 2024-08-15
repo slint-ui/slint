@@ -123,6 +123,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::TextInputFocused => PROPERTY_ACCESS_COST,
         BuiltinFunction::Translate => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
         BuiltinFunction::Use24HourFormat => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
+        BuiltinFunction::UpdateTimers => 10,
     }
 }
 

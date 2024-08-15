@@ -282,7 +282,11 @@ fn inline_element(
         fixup_reference(&mut p.x, &mapping);
         fixup_reference(&mut p.y, &mapping);
     }
-
+    for t in root_component.timers.borrow_mut().iter_mut() {
+        fixup_reference(&mut t.interval, &mapping);
+        fixup_reference(&mut t.running, &mapping);
+        fixup_reference(&mut t.triggered, &mapping);
+    }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
         recurse_elem_no_borrow(&root_component.root_element.clone(), &(), &mut |e, _| {
@@ -393,6 +397,7 @@ fn duplicate_sub_component(
         child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
         init_code: component_to_duplicate.init_code.clone(),
         popup_windows: Default::default(),
+        timers: component_to_duplicate.timers.clone(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         private_properties: Default::default(),
         inherits_popup_window: core::cell::Cell::new(false),
@@ -412,6 +417,11 @@ fn duplicate_sub_component(
     for p in new_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, mapping);
         fixup_reference(&mut p.y, mapping);
+    }
+    for t in new_component.timers.borrow_mut().iter_mut() {
+        fixup_reference(&mut t.interval, &mapping);
+        fixup_reference(&mut t.running, &mapping);
+        fixup_reference(&mut t.triggered, &mapping);
     }
     new_component
         .root_constraints

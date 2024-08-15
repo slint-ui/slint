@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Def {
+    Timer {
+        interval: 100ms;
+        Rectangle {}
+    //  ^error{Timer cannot have children elements}
+    }
+
+    Timer {
+        interval: 200ms;
+        width: 500px;
+    //  ^error{Unknown property width in Timer}
+        y: 12px;
+    //  ^error{Unknown property y in Timer}
+
+        opacity: 0.5;
+    //  ^error{Unknown property opacity in Timer}
+        visible: false;
+    //  ^error{Unknown property visible in Timer}
+
+    }
+
+}

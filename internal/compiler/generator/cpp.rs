@@ -1918,6 +1918,38 @@ fn generate_sub_component(
         format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
     }));
 
+    if !component.timers.is_empty() {
+        let mut update_timers = vec!["auto self = this;".into()];
+        for (i, tmr) in component.timers.iter().enumerate() {
+            user_init.push(format!("self->update_timers();"));
+            let name = format!("timer{}", i);
+            let running = compile_expression(&tmr.running.borrow(), &ctx);
+            let interval = compile_expression(&tmr.interval.borrow(), &ctx);
+            let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            update_timers.push(format!("if ({running}) {{"));
+            update_timers
+                .push(format!("   auto interval = std::chrono::milliseconds({interval});"));
+            update_timers.push(format!(
+                "   if (!self->{name}.running() || *self->{name}.interval() != interval)"
+            ));
+            update_timers.push(format!("       self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
+            update_timers.push(format!("}} else {{ self->{name}.stop(); }}").into());
+            target_struct.members.push((
+                field_access,
+                Declaration::Var(Var { ty: "slint::Timer".into(), name, ..Default::default() }),
+            ));
+        }
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "update_timers".to_owned(),
+                signature: "() -> void".into(),
+                statements: Some(update_timers),
+                ..Default::default()
+            }),
+        ));
+    }
+
     target_struct
         .members
         .extend(generate_functions(&component.functions, &ctx).map(|x| (Access::Public, x)));
@@ -3444,6 +3476,9 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::Translate => {
             format!("slint::private_api::translate({})", a.join(","))
+        }
+        BuiltinFunction::UpdateTimers => {
+            "self->update_timers()".into()
         }
     }
 }

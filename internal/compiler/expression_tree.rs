@@ -75,6 +75,7 @@ pub enum BuiltinFunction {
     RegisterCustomFontByMemory,
     RegisterBitmapFont,
     Translate,
+    UpdateTimers,
 }
 
 #[derive(Debug, Clone)]
@@ -307,6 +308,9 @@ impl BuiltinFunction {
             BuiltinFunction::Use24HourFormat => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
             }
+            BuiltinFunction::UpdateTimers => {
+                Type::Function { return_type: Box::new(Type::Void), args: vec![] }
+            }
         }
     }
 
@@ -371,6 +375,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => false,
             BuiltinFunction::Use24HourFormat => false,
+            BuiltinFunction::UpdateTimers => false,
         }
     }
 
@@ -428,6 +433,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => true,
             BuiltinFunction::Use24HourFormat => true,
+            BuiltinFunction::UpdateTimers => false,
         }
     }
 }

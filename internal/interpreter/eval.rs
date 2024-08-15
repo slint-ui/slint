@@ -1118,6 +1118,15 @@ fn call_builtin_function(
             ))
         }
         BuiltinFunction::Use24HourFormat => Value::Bool(corelib::date_time::use_24_hour_format()),
+        BuiltinFunction::UpdateTimers => match local_context.component_instance {
+            ComponentInstance::InstanceRef(component) => {
+                crate::dynamic_item_tree::update_timers(component);
+                Value::Void
+            }
+            ComponentInstance::GlobalComponent(_) => {
+                panic!("timer in global?")
+            }
+        },
     }
 }
 
