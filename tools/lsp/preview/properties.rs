@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{self, Result};
+use crate::common::{self, Result, SourceFileVersion};
 use crate::util;
 
-use i_slint_compiler::diagnostics::{SourceFileVersion, Spanned};
+use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};

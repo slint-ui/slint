@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use super::PreviewState;
-use crate::common::PreviewToLspMessage;
+use crate::common::{PreviewToLspMessage, SourceFileVersion};
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 use once_cell::sync::Lazy;
@@ -204,10 +204,7 @@ pub fn set_server_notifier(sender: ServerNotifier) {
 }
 
 pub fn notify_diagnostics(
-    diagnostics: HashMap<
-        lsp_types::Url,
-        (i_slint_compiler::diagnostics::SourceFileVersion, Vec<lsp_types::Diagnostic>),
-    >,
+    diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
 ) -> Option<()> {
     let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return Some(());

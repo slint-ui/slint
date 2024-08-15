@@ -3,7 +3,7 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile, SourceFileVersion};
+use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::{Document, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_compiler::typeloader::TypeLoader;
@@ -25,6 +25,8 @@ pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
+
+pub type SourceFileVersion = Option<i32>;
 
 /// Use this in nodes you want the language server and preview to
 /// ignore a node for code analysis purposes.

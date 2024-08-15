@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use crate::common::SourceFileVersion;
 use crate::lsp_ext::Health;
 use crate::wasm_prelude::*;
 use slint_interpreter::ComponentHandle;
@@ -219,10 +220,7 @@ pub fn send_status(message: &str, health: Health) {
 }
 
 pub fn notify_diagnostics(
-    diagnostics: HashMap<
-        lsp_types::Url,
-        (i_slint_compiler::diagnostics::SourceFileVersion, Vec<lsp_types::Diagnostic>),
-    >,
+    diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
 ) -> Option<()> {
     for (uri, (version, diagnostics)) in diagnostics {
         send_message_to_lsp(crate::common::PreviewToLspMessage::Diagnostics {
