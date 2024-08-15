@@ -215,7 +215,7 @@ impl TextEditor {
     pub fn apply_versioned(
         &mut self,
         text_edit: &lsp_types::TextEdit,
-        document_version: i_slint_compiler::diagnostics::SourceFileVersion,
+        document_version: common::SourceFileVersion,
     ) -> crate::Result<()> {
         if let Some(expected) = document_version {
             if let Some(actual) = self.source_file.version() {

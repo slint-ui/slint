@@ -3,12 +3,12 @@
 
 use crate::common::{
     self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
-    PreviewComponent, PreviewConfig, PreviewToLspMessage,
+    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
-use i_slint_compiler::diagnostics::{self, SourceFileVersion};
+use i_slint_compiler::diagnostics;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::syntax_nodes;
 use i_slint_core::component_factory::FactoryContext;
