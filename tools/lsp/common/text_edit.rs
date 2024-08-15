@@ -791,7 +791,6 @@ fn test_texteditor_edit_out_of_range() {
     let source_file = std::rc::Rc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#""#.to_string(),
-        Some(42),
     ));
 
     let mut editor = TextEditor::new(source_file.clone()).unwrap();
@@ -816,7 +815,6 @@ fn test_texteditor_delete_everything() {
 def
 geh"#
             .to_string(),
-        Some(42),
     ));
 
     let mut editor = TextEditor::new(source_file.clone()).unwrap();
@@ -847,7 +845,6 @@ fn test_texteditor_replace() {
 def
 geh"#
             .to_string(),
-        Some(42),
     ));
 
     let mut editor = TextEditor::new(source_file.clone()).unwrap();
@@ -883,7 +880,6 @@ fn test_texteditor_2step_replace_all() {
 def
 geh"#
             .to_string(),
-        Some(42),
     ));
 
     let mut editor = TextEditor::new(source_file.clone()).unwrap();

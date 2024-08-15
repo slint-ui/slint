@@ -6,7 +6,6 @@ use crate::global_component::CompiledGlobalCollection;
 use crate::{dynamic_type, eval};
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
-use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
@@ -813,7 +812,6 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 pub async fn load(
     source: String,
     path: std::path::PathBuf,
-    version: SourceFileVersion,
     mut compiler_config: CompilerConfiguration,
 ) -> CompilationResult {
     // If the native style should be Qt, resolve it here as we know that we have it
@@ -833,7 +831,6 @@ pub async fn load(
     let (path, mut diag, loader, raw_type_loader) =
         i_slint_compiler::load_root_file_with_raw_type_loader(
             &path,
-            version,
             &path,
             source,
             diag,
@@ -842,8 +839,7 @@ pub async fn load(
         .await;
     #[cfg(not(feature = "highlight"))]
     let (path, mut diag, loader) =
-        i_slint_compiler::load_root_file(&path, version, &path, source, diag, compiler_config)
-            .await;
+        i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
     if diag.has_errors() {
         return CompilationResult {
             components: HashMap::new(),

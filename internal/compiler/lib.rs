@@ -312,7 +312,6 @@ pub async fn compile_syntax_node(
 /// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
 pub async fn load_root_file(
     path: &Path,
-    version: diagnostics::SourceFileVersion,
     source_path: &Path,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
@@ -320,9 +319,8 @@ pub async fn load_root_file(
 ) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
-    let (path, _) = loader
-        .load_root_file(path, version, source_path, source_code, false, &mut diagnostics)
-        .await;
+    let (path, _) =
+        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
 
     (path, diagnostics, loader)
 }
@@ -335,7 +333,6 @@ pub async fn load_root_file(
 /// applied and another `TypeLoader` with a minimal set of passes applied to it.
 pub async fn load_root_file_with_raw_type_loader(
     path: &Path,
-    version: diagnostics::SourceFileVersion,
     source_path: &Path,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
@@ -348,9 +345,8 @@ pub async fn load_root_file_with_raw_type_loader(
 ) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
-    let (path, raw_type_loader) = loader
-        .load_root_file(path, version, source_path, source_code, true, &mut diagnostics)
-        .await;
+    let (path, raw_type_loader) =
+        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
 
     (path, diagnostics, loader, raw_type_loader)
 }

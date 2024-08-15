@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
-use crate::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::object_tree::{self, Document, ExportedName, Exports};
 use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
@@ -1128,7 +1128,6 @@ impl TypeLoader {
                 Self::load_file_impl(
                     state,
                     &path_canon,
-                    None,
                     &path_canon,
                     source,
                     builtin.is_some(),
@@ -1182,7 +1181,6 @@ impl TypeLoader {
     pub async fn load_file(
         &mut self,
         path: &Path,
-        version: SourceFileVersion,
         source_path: &Path,
         source_code: String,
         is_builtin: bool,
@@ -1192,7 +1190,6 @@ impl TypeLoader {
         Self::load_file_impl(
             &state,
             path,
-            version,
             source_path,
             source_code,
             is_builtin,
@@ -1207,7 +1204,6 @@ impl TypeLoader {
     pub async fn load_root_file(
         &mut self,
         path: &Path,
-        version: SourceFileVersion,
         source_path: &Path,
         source_code: String,
         keep_raw: bool,
@@ -1218,7 +1214,6 @@ impl TypeLoader {
         let (path, mut doc) = Self::load_file_no_pass(
             &state,
             &path,
-            version,
             source_path,
             source_code,
             false,
@@ -1240,7 +1235,6 @@ impl TypeLoader {
     async fn load_file_impl<'a>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         path: &Path,
-        version: SourceFileVersion,
         source_path: &Path,
         source_code: String,
         is_builtin: bool,
@@ -1249,7 +1243,6 @@ impl TypeLoader {
         let (path, doc) = Self::load_file_no_pass(
             state,
             path,
-            version,
             source_path,
             source_code,
             is_builtin,
@@ -1268,15 +1261,13 @@ impl TypeLoader {
     async fn load_file_no_pass<'a>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         path: &Path,
-        version: SourceFileVersion,
         source_path: &Path,
         source_code: String,
         is_builtin: bool,
         import_stack: &HashSet<PathBuf>,
     ) -> (PathBuf, Document) {
         let dependency_doc: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(source_path), version, state.borrow_mut().diag)
-                .into();
+            crate::parser::parse(source_code, Some(source_path), state.borrow_mut().diag).into();
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
@@ -1652,7 +1643,6 @@ X := XX {}
 "#
         .into(),
         Some(std::path::Path::new("HELLO")),
-        None,
         &mut test_diags,
     );
 
@@ -1686,7 +1676,6 @@ component Foo { XX {} }
 "#
         .into(),
         Some(std::path::Path::new("HELLO")),
-        None,
         &mut test_diags,
     );
 
@@ -1825,7 +1814,6 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
 "#
         .into(),
         Some(std::path::Path::new("HELLO")),
-        None,
         &mut test_diags,
     );
 
@@ -1870,7 +1858,6 @@ import { E } from "@unknown/lib.slint";
 "#
         .into(),
         Some(std::path::Path::new("HELLO")),
-        None,
         &mut test_diags,
     );
 
@@ -1916,7 +1903,6 @@ fn test_snapshotting() {
     let mut diag = BuildDiagnostics::default();
     spin_on::spin_on(type_loader.load_file(
         &path,
-        None,
         &path,
         "export component Foobar inherits Rectangle { }".to_string(),
         false,
