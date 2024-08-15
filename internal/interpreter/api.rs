@@ -616,8 +616,7 @@ impl ComponentCompiler {
             }
         };
 
-        let r =
-            crate::dynamic_item_tree::load(source, path.into(), None, self.config.clone()).await;
+        let r = crate::dynamic_item_tree::load(source, path.into(), self.config.clone()).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -643,7 +642,7 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        let r = crate::dynamic_item_tree::load(source_code, path, None, self.config.clone()).await;
+        let r = crate::dynamic_item_tree::load(source_code, path, self.config.clone()).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -778,7 +777,7 @@ impl Compiler {
             }
         };
 
-        crate::dynamic_item_tree::load(source, path.into(), None, self.config.clone()).await
+        crate::dynamic_item_tree::load(source, path.into(), self.config.clone()).await
     }
 
     /// Compile some .slint code
@@ -794,7 +793,7 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        crate::dynamic_item_tree::load(source_code, path, None, self.config.clone()).await
+        crate::dynamic_item_tree::load(source_code, path, self.config.clone()).await
     }
 }
 

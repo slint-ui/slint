@@ -217,7 +217,6 @@ export component Foo {
 "#
         .into(),
         Some(std::path::Path::new("HELLO")),
-        None,
         &mut test_diags,
     );
     let (doc, diag, _) =

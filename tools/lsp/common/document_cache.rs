@@ -111,14 +111,20 @@ impl DocumentCache {
                 let sfv = sfv.clone();
                 Box::pin(async move {
                     flfb.await.map(|r| {
-                        r.map(|(v, c)| {
-                            let path = PathBuf::from(&file_name);
-                            sfv.borrow_mut().insert(path, v);
-                            c
-                        })
+                        let path = PathBuf::from(file_name);
+                        match r {
+                            Ok((v, c)) => {
+                                sfv.borrow_mut().insert(path, v);
+                                Ok(c)
+                            }
+                            Err(e) => {
+                                sfv.borrow_mut().remove(&path);
+                                Err(e)
+                            }
+                        }
                     })
                 })
-            }));
+            }))
         }
 
         (open_import_fallback, source_file_versions)
@@ -270,7 +276,7 @@ impl DocumentCache {
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
         let path = uri_to_file(url).ok_or("Failed to convert path")?;
-        self.type_loader.load_file(&path, version, &path, content, false, diag).await;
+        self.type_loader.load_file(&path, &path, content, false, diag).await;
         self.source_file_versions.borrow_mut().insert(path, version);
         Ok(())
     }
@@ -280,7 +286,7 @@ impl DocumentCache {
             include_paths: self.type_loader.compiler_config.include_paths.clone(),
             library_paths: self.type_loader.compiler_config.library_paths.clone(),
             style: self.type_loader.compiler_config.style.clone(),
-            open_import_fallback: None, // TODO: Fix this!
+            open_import_fallback: None, // We need to re-generate this anyway
             resource_url_mapper: self.type_loader.compiler_config.resource_url_mapper.clone(),
         }
     }

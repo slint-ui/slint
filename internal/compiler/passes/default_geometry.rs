@@ -480,7 +480,6 @@ fn test_no_property_for_100pc() {
 "#
         .into(),
         Some(std::path::Path::new("HELLO")),
-        None,
         &mut test_diags,
     );
     let (doc, diag, _) =

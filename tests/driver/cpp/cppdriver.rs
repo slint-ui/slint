@@ -19,7 +19,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let cpp_namespace = test_driver_lib::extract_cpp_namespace(&source);
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), None, &mut diag);
+    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
     let output_format = generator::OutputFormat::Cpp(generator::cpp::Config {
         namespace: cpp_namespace,
         ..Default::default()
