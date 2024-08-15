@@ -1,0 +1,153 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+/*component FizBuzz {
+    out property <string> result;
+
+}*/
+
+export component TestCase inherits Window {
+
+    out property <string> result;
+
+    in property <int> tm2duration;
+    in property <bool> tm2running <=> tm2.running;
+
+    vl := VerticalLayout {
+        if true: HorizontalLayout {
+            Timer {
+                interval: 1s;
+                triggered => { result += "1"; }
+            }
+        }
+    }
+    out property <bool> test: vl.max-width == 0;
+
+    Rectangle {
+        tm2 := Timer {
+            running: false;
+            interval: tm2duration * 1ms;
+            triggered => { result += "2"; }
+        }
+    }
+
+    Rectangle {
+        oops := Timer {
+            interval: -5ms;
+            triggered => { result += "oops"; }
+        }
+    }
+
+
+}
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_result(), "");
+slint_testing::mock_elapsed_time(991);
+assert_eq!(instance.get_result(), "");
+slint_testing::mock_elapsed_time(10);
+assert_eq!(instance.get_result(), "1");
+instance.set_tm2running(true);
+assert_eq!(instance.get_result(), "1");
+slint_testing::mock_elapsed_time(500);
+// despite we say to ellapse 500ms, the changed callback is only called once
+slint_testing::mock_elapsed_time(510);
+// Same, the timer event are only called onced
+assert_eq!(instance.get_result(), "121");
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_result(), "1212");
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_result(), "12122");
+instance.set_tm2duration(50);
+slint_testing::mock_elapsed_time(8);
+// even though we changed the duration, the timer fires before the changed callback
+assert_eq!(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(49);
+assert_eq!(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(2);
+assert_eq!(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(47);
+assert_eq!(instance.get_result(), "1212222");
+instance.set_tm2duration(18);
+slint_testing::mock_elapsed_time(2);
+assert_eq!(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(19);
+assert_eq!(instance.get_result(), "12122222");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_result(), "");
+slint_testing::mock_elapsed_time(991);
+assert_eq(instance.get_result(), "");
+slint_testing::mock_elapsed_time(10);
+assert_eq(instance.get_result(), "1");
+instance.set_tm2running(true);
+assert_eq(instance.get_result(), "1");
+slint_testing::mock_elapsed_time(500);
+// despite we say to ellapse 500ms, the changed callback is only called once
+slint_testing::mock_elapsed_time(510);
+// Same, the timer event are only called onced
+assert_eq(instance.get_result(), "121");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_result(), "1212");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_result(), "12122");
+instance.set_tm2duration(50);
+slint_testing::mock_elapsed_time(8);
+// even though we changed the duration, the timer fires before the changed callback
+assert_eq(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(49);
+assert_eq(instance.get_result(), "121222");
+slint_testing::mock_elapsed_time(2);
+assert_eq(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(47);
+assert_eq(instance.get_result(), "1212222");
+instance.set_tm2duration(18);
+slint_testing::mock_elapsed_time(2);
+assert_eq(instance.get_result(), "1212222");
+slint_testing::mock_elapsed_time(19);
+assert_eq(instance.get_result(), "12122222");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.result, "");
+slintlib.private_api.mock_elapsed_time(991);
+assert.equal(instance.result, "");
+slintlib.private_api.mock_elapsed_time(10);
+assert.equal(instance.result, "1");
+instance.tm2running = true;
+assert.equal(instance.result, "1");
+slintlib.private_api.mock_elapsed_time(500);
+// despite we say to ellapse 500ms, the changed callback is only called once
+slintlib.private_api.mock_elapsed_time(510);
+// Same, the timer event are only called onced
+assert.equal(instance.result, "121");
+slintlib.private_api.mock_elapsed_time(0);
+assert.equal(instance.result, "1212");
+slintlib.private_api.mock_elapsed_time(0);
+assert.equal(instance.result, "12122");
+instance.tm2duration = 50;
+slintlib.private_api.mock_elapsed_time(8);
+// even though we changed the duration, the timer fires before the changed callback
+assert.equal(instance.result, "121222");
+slintlib.private_api.mock_elapsed_time(49);
+assert.equal(instance.result, "121222");
+slintlib.private_api.mock_elapsed_time(2);
+assert.equal(instance.result, "1212222");
+slintlib.private_api.mock_elapsed_time(47);
+assert.equal(instance.result, "1212222");
+instance.tm2duration = 18;
+slintlib.private_api.mock_elapsed_time(2);
+assert.equal(instance.result, "1212222");
+slintlib.private_api.mock_elapsed_time(19);
+assert.equal(instance.result, "12122222");
+```
+*/

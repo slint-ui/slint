@@ -129,6 +129,12 @@ pub fn count_property_use(root: &CompilationUnit) {
             );
             popup.position.borrow().visit_recursive(&mut |e| visit_expression(e, &popup_ctx))
         }
+        // 11. timer
+        for timer in &sc.timers {
+            timer.interval.borrow().visit_recursive(&mut |e| visit_expression(e, &ctx));
+            timer.running.borrow().visit_recursive(&mut |e| visit_expression(e, &ctx));
+            timer.triggered.borrow().visit_recursive(&mut |e| visit_expression(e, &ctx));
+        }
     });
 
     // TODO: only visit used function

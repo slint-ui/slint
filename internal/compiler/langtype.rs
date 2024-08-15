@@ -507,12 +507,18 @@ impl ElementType {
                         builtin.additional_accepted_child_types.keys().cloned().collect();
                     valid_children.sort();
 
-                    return Err(format!(
-                        "{} is not allowed within {}. Only {} are valid children",
-                        name,
-                        builtin.native_class.class_name,
-                        valid_children.join(" ")
-                    ));
+                    let err = if valid_children.is_empty() {
+                        format!("{} cannot have children elements", builtin.native_class.class_name,)
+                    } else {
+                        format!(
+                            "{} is not allowed within {}. Only {} are valid children",
+                            name,
+                            builtin.native_class.class_name,
+                            valid_children.join(" ")
+                        )
+                    };
+
+                    return Err(err);
                 }
             }
             _ => {}

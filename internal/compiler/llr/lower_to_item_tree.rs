@@ -4,12 +4,11 @@
 use by_address::ByAddress;
 
 use super::lower_expression::ExpressionContext;
-use super::PopupWindow as llr_PopupWindow;
 use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, ElementRc, PopupWindow, PropertyAnalysis, PropertyVisibility};
+use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
 use crate::CompilerConfiguration;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -206,6 +205,7 @@ fn lower_sub_component(
         repeated: Default::default(),
         component_containers: Default::default(),
         popup_windows: Default::default(),
+        timers: Default::default(),
         sub_components: Default::default(),
         property_init: Default::default(),
         change_callbacks: Default::default(),
@@ -447,6 +447,9 @@ fn lower_sub_component(
         .map(|popup| lower_popup_component(&popup, &ctx, &compiler_config))
         .collect();
 
+    sub_component.timers =
+        component.timers.borrow().iter().map(|t| lower_timer(&t, &ctx)).collect();
+
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n));
         // ensure that all const properties have analysis
@@ -645,10 +648,10 @@ fn lower_component_container(
 }
 
 fn lower_popup_component(
-    popup: &PopupWindow,
+    popup: &object_tree::PopupWindow,
     ctx: &ExpressionContext,
     compiler_config: &CompilerConfiguration,
-) -> llr_PopupWindow {
+) -> PopupWindow {
     let sc = lower_sub_component(&popup.component, ctx.state, Some(ctx), compiler_config);
     let item_tree = ItemTree {
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
@@ -677,7 +680,22 @@ fn lower_popup_component(
         ],
     );
 
-    llr_PopupWindow { item_tree, position: position.into() }
+    PopupWindow { item_tree, position: position.into() }
+}
+
+fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionContext) -> Timer {
+    Timer {
+        interval: super::Expression::PropertyReference(ctx.map_property_reference(&timer.interval))
+            .into(),
+        running: super::Expression::PropertyReference(ctx.map_property_reference(&timer.running))
+            .into(),
+        // TODO: this calls a callback instead of inlining the callback code directly
+        triggered: super::Expression::CallBackCall {
+            callback: ctx.map_property_reference(&timer.triggered),
+            arguments: vec![],
+        }
+        .into(),
+    }
 }
 
 fn lower_global(

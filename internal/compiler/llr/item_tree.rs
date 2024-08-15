@@ -241,6 +241,7 @@ pub struct SubComponent {
     pub repeated: Vec<RepeatedElement>,
     pub component_containers: Vec<ComponentContainerElement>,
     pub popup_windows: Vec<PopupWindow>,
+    pub timers: Vec<Timer>,
     pub sub_components: Vec<SubComponentInstance>,
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.
@@ -272,6 +273,13 @@ pub struct SubComponent {
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
+}
+
+#[derive(Debug)]
+pub struct Timer {
+    pub interval: MutExpression,
+    pub running: MutExpression,
+    pub triggered: MutExpression,
 }
 
 #[derive(Debug, Clone)]

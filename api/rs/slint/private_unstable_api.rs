@@ -207,6 +207,7 @@ pub mod re_exports {
         set_state_binding, ChangeTracker, Property, PropertyTracker, StateInfo,
     };
     pub use i_slint_core::slice::Slice;
+    pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
     };

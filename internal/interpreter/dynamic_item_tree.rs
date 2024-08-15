@@ -32,6 +32,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::properties::{ChangeTracker, InterpolatedPropertyValue};
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
+use i_slint_core::timers::Timer;
 use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
@@ -407,6 +408,7 @@ pub struct ItemTreeDescription<'id> {
         FieldOffset<Instance<'id>, OnceCell<Vec<ChangeTracker>>>,
         Vec<(NamedReference, Expression)>,
     )>,
+    timers: Vec<FieldOffset<Instance<'id>, Timer>>,
 
     /// The collection of compiled globals
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
@@ -1241,6 +1243,12 @@ pub(crate) fn generate_item_tree<'id>(
             builder.change_callbacks,
         )
     });
+    let timers = component
+        .timers
+        .borrow()
+        .iter()
+        .map(|_| builder.type_builder.add_field_type::<Timer>())
+        .collect();
 
     let public_properties = component.root_element.borrow().property_declarations.clone();
 
@@ -1283,6 +1291,7 @@ pub(crate) fn generate_item_tree<'id>(
         public_properties,
         compiled_globals,
         change_trackers,
+        timers,
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "highlight")]
@@ -1611,6 +1620,8 @@ pub fn instantiate(
             i_slint_core::model::ModelRc::new(crate::value_model::ValueModel::new(m))
         });
     }
+
+    update_timers(instance_ref);
 
     self_rc
 }
@@ -2301,4 +2312,42 @@ pub fn show_popup(
         close_on_click,
         parent_item,
     );
+}
+
+pub fn update_timers(instance: InstanceRef) {
+    let ts = instance.description.original.timers.borrow();
+    for (desc, offset) in ts.iter().zip(&instance.description.timers) {
+        let timer = offset.apply(instance.as_ref());
+        let running =
+            eval::load_property(instance, &desc.running.element(), desc.running.name()).unwrap();
+        if matches!(running, Value::Bool(true)) {
+            let millis: i64 =
+                eval::load_property(instance, &desc.interval.element(), desc.interval.name())
+                    .unwrap()
+                    .try_into()
+                    .expect("interval must be a duration");
+            if millis < 0 {
+                timer.stop();
+                continue;
+            }
+            let interval = core::time::Duration::from_millis(millis as _);
+            let old_interval = timer.interval();
+            if old_interval != Some(interval) || !timer.running() {
+                let callback = desc.triggered.clone();
+                let self_weak = instance.self_weak().get().unwrap().clone();
+                timer.start(i_slint_core::timers::TimerMode::Repeated, interval, move || {
+                    if let Some(instance) = self_weak.upgrade() {
+                        generativity::make_guard!(guard);
+                        let c = instance.unerase(guard);
+                        let c = c.borrow_instance();
+                        let inst = eval::ComponentInstance::InstanceRef(c);
+                        eval::invoke_callback(inst, &callback.element(), callback.name(), &[])
+                            .unwrap();
+                    }
+                });
+            }
+        } else {
+            timer.stop();
+        }
+    }
 }

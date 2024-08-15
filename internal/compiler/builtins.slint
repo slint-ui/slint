@@ -325,7 +325,6 @@ component Close {
     //-rust_type_constructor:slint::re_exports::PathElement::Close
     //-cpp_type:slint::private_api::PathClose
     //-is_non_item_type
-    //-is_non_item_type
 }
 
 export component Path {
@@ -377,6 +376,15 @@ export component PopupWindow {
     in property <length> anchor_width;*/
     in property <bool> close-on-click: true;  // constexpr hardcoded in typeregister.rs
     //show() is hardcoded in typeregister.rs
+}
+
+// Also not a real Item. Actually not an element at all
+export component Timer {
+    in property <duration> interval;
+    callback triggered;
+    in property <bool> running: true;
+    //-is_non_item_type
+    //-disallow_global_types_as_child_elements
 }
 
 export component Dialog inherits WindowItem {}

@@ -277,6 +277,13 @@ pub struct PopupWindow {
     pub parent_element: ElementRc,
 }
 
+#[derive(Debug, Clone)]
+pub struct Timer {
+    pub interval: NamedReference,
+    pub triggered: NamedReference,
+    pub running: NamedReference,
+}
+
 type ChildrenInsertionPoint = (ElementRc, usize, syntax_nodes::ChildrenPlaceholder);
 
 /// Used sub types for a root component
@@ -347,6 +354,7 @@ pub struct Component {
     pub init_code: RefCell<InitCode>,
 
     pub popup_windows: RefCell<Vec<PopupWindow>>,
+    pub timers: RefCell<Vec<Timer>>,
 
     /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
     pub inherits_popup_window: Cell<bool>,
@@ -2320,6 +2328,11 @@ pub fn visit_all_named_references(
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
                     vis(&mut p.y);
+                });
+                compo.timers.borrow_mut().iter_mut().for_each(|t| {
+                    vis(&mut t.interval);
+                    vis(&mut t.triggered);
+                    vis(&mut t.running);
                 });
             }
             compo

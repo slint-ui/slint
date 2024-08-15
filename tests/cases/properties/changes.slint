@@ -89,6 +89,15 @@ export component TestCase inherits Window {
     changed sub-result => {
         result += "||" + sub-result;
     }
+
+    Rectangle {
+        probably-optimized := Rectangle {
+            property <int> foo: other;
+            changed foo => {
+                result += "foo,";
+            }
+        }
+    }
 }
 
 

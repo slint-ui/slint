@@ -36,6 +36,7 @@ mod lower_shadows;
 mod lower_states;
 mod lower_tabwidget;
 mod lower_text_input_interface;
+mod lower_timers;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
@@ -98,6 +99,7 @@ pub async fn run_passes(
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
+        lower_timers::lower_timers(component, diag);
     });
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);

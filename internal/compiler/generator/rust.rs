@@ -1064,6 +1064,41 @@ fn generate_sub_component(
         quote!(usize::MAX)
     };
 
+    let timer_names =
+        component.timers.iter().enumerate().map(|(idx, _)| format_ident!("timer{idx}"));
+    let update_timers = (!component.timers.is_empty()).then(|| {
+        let updt = component.timers.iter().enumerate().map(|(idx, tmr)| {
+            let ident = format_ident!("timer{idx}");
+            let interval = compile_expression(&tmr.interval.borrow(), &ctx);
+            let running = compile_expression(&tmr.running.borrow(), &ctx);
+            let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            quote!(
+                if #running {
+                    let interval = core::time::Duration::from_millis(#interval as u64);
+                    let old_interval = self.#ident.interval();
+                    if old_interval != Some(interval) || !self.#ident.running() {
+                        let self_weak = self.self_weak.get().unwrap().clone();
+                        self.#ident.start(sp::TimerMode::Repeated, interval, move || {
+                            if let Some(self_rc) = self_weak.upgrade() {
+                                let _self = self_rc.as_pin_ref();
+                                #callback
+                            }
+                        });
+                    }
+                } else {
+                    self.#ident.stop();
+                }
+            )
+        });
+        user_init_code.push(quote!(_self.update_timers();));
+        quote!(
+            fn update_timers(self: ::core::pin::Pin<&Self>) {
+                let _self = self;
+                #(#updt)*
+            }
+        )
+    });
+
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
     quote!(
@@ -1079,6 +1114,7 @@ fn generate_sub_component(
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sp::Repeater<#repeated_element_components>,)*
             #(#change_tracker_names : sp::ChangeTracker,)*
+            #(#timer_names : sp::Timer,)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
@@ -1213,6 +1249,8 @@ fn generate_sub_component(
                     _ => { ::core::default::Default::default() }
                 }
             }
+
+            #update_timers
 
             #(#declared_functions)*
         }
@@ -2815,6 +2853,9 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {:?}", arguments)
             }
+        }
+        BuiltinFunction::UpdateTimers => {
+            quote!(_self.update_timers())
         }
     }
 }

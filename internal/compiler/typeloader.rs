@@ -298,6 +298,9 @@ impl Snapshotter {
                     .map(|p| self.snapshot_popup_window(p))
                     .collect(),
             );
+            let timers = RefCell::new(
+                component.timers.borrow().iter().map(|p| self.snapshot_timer(p)).collect(),
+            );
             let root_constraints = RefCell::new(
                 self.snapshot_layout_constraints(&component.root_constraints.borrow()),
             );
@@ -314,6 +317,7 @@ impl Snapshotter {
                 optimized_elements,
                 parent_element,
                 popup_windows,
+                timers,
                 private_properties: RefCell::new(component.private_properties.borrow().clone()),
                 root_constraints,
                 root_element,
@@ -585,6 +589,14 @@ impl Snapshotter {
             y: popup_window.y.snapshot(self),
             close_on_click: popup_window.close_on_click,
             parent_element: self.use_element(&popup_window.parent_element),
+        }
+    }
+
+    fn snapshot_timer(&mut self, popup_window: &object_tree::Timer) -> object_tree::Timer {
+        object_tree::Timer {
+            interval: popup_window.interval.snapshot(self),
+            running: popup_window.running.snapshot(self),
+            triggered: popup_window.triggered.snapshot(self),
         }
     }
 

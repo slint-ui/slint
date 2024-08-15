@@ -7,6 +7,7 @@
 
 #include <chrono>
 
+#include <optional>
 #include <slint_timer_internal.h>
 
 namespace slint {
@@ -59,6 +60,16 @@ struct Timer
     void restart() { cbindgen_private::slint_timer_restart(id); }
     /// Returns true if the timer is running; false otherwise.
     bool running() const { return cbindgen_private::slint_timer_running(id); }
+    /// Returns the interval of the timer.
+    /// Returns `nullopt` if the timer is not running.
+    std::optional<std::chrono::milliseconds> interval() const
+    {
+        int64_t val = cbindgen_private::slint_timer_interval(id);
+        if (val < 0) {
+            return std::nullopt;
+        }
+        return std::chrono::milliseconds(val);
+    }
 
     /// Call the callback after the given duration.
     template<std::invocable F>
