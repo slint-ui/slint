@@ -12,26 +12,21 @@ pub fn remove_unused_properties(doc: &Document) {
             component,
             &(),
             &mut |elem, _| {
+                let mut elem = elem.borrow_mut();
                 let mut to_remove = HashSet::new();
-                for (prop, decl) in &elem.borrow().property_declarations {
+                for (prop, decl) in &elem.property_declarations {
                     if !decl.expose_in_public_api
-                        && !elem.borrow().named_references.is_referenced(prop)
-                        && !elem
-                            .borrow()
-                            .property_analysis
-                            .borrow()
-                            .get(prop)
-                            .map_or(false, |v| v.is_used())
+                        && !elem.named_references.is_referenced(prop)
+                        && !elem.property_analysis.borrow().get(prop).map_or(false, |v| v.is_used())
+                        && !elem.change_callbacks.contains_key(prop)
                     {
                         to_remove.insert(prop.to_owned());
                     }
                 }
-                let mut elem = elem.borrow_mut();
                 for x in &to_remove {
                     elem.property_declarations.remove(x);
                     elem.property_analysis.borrow_mut().remove(x);
                     elem.bindings.remove(x);
-                    elem.change_callbacks.remove(x);
                 }
             },
         );
