@@ -9,6 +9,8 @@ import {
     BrowserMessageWriter,
 } from "vscode-languageserver/browser";
 
+export type VersionedFileContents = slint_lsp.VersionedFileContents;
+
 slint_init().then((_) => {
     const reader = new BrowserMessageReader(self);
     const writer = new BrowserMessageWriter(self);
@@ -26,7 +28,7 @@ slint_init().then((_) => {
         return await connection.sendRequest(method, params);
     }
 
-    async function load_file(path: string): Promise<[string, null | number]> {
+    async function load_file(path: string): Promise<VersionedFileContents> {
         return await connection.sendRequest("slint/load_file", path);
     }
 

@@ -56,7 +56,9 @@ function createLanguageClient(
     return client;
 }
 
-export type FileReader = (_url: string) => Promise<[string, null | number]>;
+export type Version = slint_preview.Version;
+export type VersionedFileContents = slint_preview.VersionedFileContents;
+export type FileReader = (_url: string) => Promise<VersionedFileContents>;
 
 export class LspWaiter {
     #previewer_promise: Promise<slint_preview.InitOutput> | null;
@@ -219,7 +221,7 @@ export class Lsp {
         this.#show_document_callback = cb;
     }
 
-    private read_url(url: string): Promise<[string, null | number]> {
+    private read_url(url: string): Promise<VersionedFileContents> {
         try {
             return this.#file_reader?.(url) ?? Promise.reject();
         } catch (e) {

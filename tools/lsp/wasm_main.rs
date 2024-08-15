@@ -149,7 +149,9 @@ impl Drop for ReentryGuardLock {
 
 #[wasm_bindgen(typescript_custom_section)]
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type ImportCallbackFunction = (url: string) => Promise<[string, null | number]>;
+type Version = number | null;
+type VersionedFileContents = [string, Version];
+type ImportCallbackFunction = (url: string) => Promise<VersionedFileContents>;
 type SendRequestFunction = (method: string, r: any) => Promise<any>;
 type HighlightInPreviewFunction = (file: string, offset: number) => void;
 "#;

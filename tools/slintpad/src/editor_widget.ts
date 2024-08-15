@@ -12,7 +12,7 @@ import {
     editor_position_to_lsp_position,
     lsp_range_to_editor_range,
 } from "./lsp_integration";
-import { Lsp } from "./lsp";
+import { Lsp, Version, VersionedFileContents } from "./lsp";
 import { PositionChangeCallback, VersionedDocumentAndPosition } from "./text";
 import * as github from "./github";
 
@@ -551,7 +551,7 @@ class EditorPaneWidget extends Widget {
     protected async handle_lsp_url_request(
         era: number,
         url: string,
-    ): Promise<[string, null | number]> {
+    ): Promise<VersionedFileContents> {
         if (this.#url_mapper === null) {
             return Promise.reject("Error: Can not resolve URL.");
         }
@@ -579,7 +579,7 @@ class EditorPaneWidget extends Widget {
         uri: monaco.Uri,
         internal_uri: monaco.Uri,
         raise_alert: boolean,
-    ): Promise<[monaco.Uri | null, string, null | number]> {
+    ): Promise<[monaco.Uri | null, string, Version]> {
         let model = monaco.editor.getModel(internal_uri);
         if (model != null) {
             return [model.uri, model.getValue(), model.getVersionId()];
@@ -628,7 +628,7 @@ class EditorPaneWidget extends Widget {
 
     async open_tab_from_url(
         input_url: monaco.Uri,
-    ): Promise<[monaco.Uri | null, string, null | number]> {
+    ): Promise<[monaco.Uri | null, string, Version]> {
         const [url, file_name, mapper] = await github.open_url(
             this.#internal_uuid,
             input_url.toString(),
