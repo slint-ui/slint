@@ -21,7 +21,7 @@ export component TextEdit {
     in-out property <length> viewport-width <=> base.viewport-width;
     in-out property <length> viewport-height <=> base.viewport-height;
 
-    callback edited(/* text */ string);
+    callback edited <=> base.edited;
     accessible-role: AccessibleRole.text-input;
     accessible-value <=> text;
     accessible-placeholder-text: text == "" ? placeholder-text : "";
