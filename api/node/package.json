@@ -1,6 +1,6 @@
 {
   "name": "slint-ui",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "main": "index.js",
   "types": "index.d.ts",
   "homepage": "https://github.com/slint-ui/slint",
