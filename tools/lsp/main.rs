@@ -313,7 +313,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                     )
                 }
             }
-            Some(contents.map(|c| (c, None)))
+            Some(contents.map(|c| (None, c)))
         })
     }));
 

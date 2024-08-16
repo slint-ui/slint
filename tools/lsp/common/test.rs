@@ -22,7 +22,7 @@ async fn parse_source(
         ) -> core::pin::Pin<
             Box<
                 dyn core::future::Future<
-                    Output = Option<std::io::Result<(String, common::SourceFileVersion)>>,
+                    Output = Option<std::io::Result<(common::SourceFileVersion, String)>>,
                 >,
             >,
         > + 'static,
@@ -34,7 +34,10 @@ async fn parse_source(
         }
         tmp.include_paths = include_paths;
         tmp.library_paths = library_paths;
-        tmp.open_import_fallback = Some(Rc::new(move |path| file_loader_fallback(&path)));
+        tmp.open_import_fallback = Some(Rc::new(move |path| {
+            let path = PathBuf::from(&path);
+            file_loader_fallback(&path)
+        }));
         #[cfg(target_arch = "wasm32")]
         {
             tmp.resource_url_mapper = resource_url_mapper();
@@ -102,7 +105,7 @@ pub fn recompile_test_with_sources(
                             "path not found",
                         )));
                     };
-                    Some(Ok((source.clone(), Some(23))))
+                    Some(Ok((Some(23), source.clone())))
                 } else {
                     Some(Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,

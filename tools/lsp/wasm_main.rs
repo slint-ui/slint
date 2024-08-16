@@ -13,7 +13,6 @@ mod preview;
 pub mod util;
 
 use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
-use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
@@ -190,8 +189,7 @@ pub fn create(
     let server_notifier = ServerNotifier { send_notification, send_request };
     let init_param = serde_wasm_bindgen::from_value(init_param)?;
 
-    let mut compiler_config =
-        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
+    let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
 
     let server_notifier_ = server_notifier.clone();
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
@@ -200,7 +198,7 @@ pub fn create(
         Box::pin(async move {
             let contents = self::load_file(path.clone(), &load_file).await;
             let Ok(url) = Url::from_file_path(&path) else {
-                return Some(contents);
+                return Some(contents.map(|c| (None, c)));
             };
             if let Ok(contents) = &contents {
                 server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
@@ -208,7 +206,7 @@ pub fn create(
                     contents: contents.clone(),
                 })
             }
-            Some(contents)
+            Some(contents.map(|c| (None, c)))
         })
     }));
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
