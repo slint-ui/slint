@@ -48,14 +48,45 @@ function(SLINT_TARGET_SOURCES target)
         set(scale_factor_target_prop "$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>")
         set(scale_factor_arg "$<IF:$<STREQUAL:${scale_factor_target_prop},>,,--scale-factor=${scale_factor_target_prop}>")
 
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64)$")
+            set(_slint_resource_object_architecture "x86-64")
+        elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+            set(_slint_resource_object_architecture "aarch64")
+        elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm)$")
+            set(_slint_resource_object_architecture "arm")
+        elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(X86|x86|i686)$")
+            set(_slint_resource_object_architecture "x86")
+        endif()
+
+        if (CMAKE_EXECUTABLE_FORMAT STREQUAL "MACHO")
+            set(_slint_resource_object_format "mach-o")
+        elseif (CMAKE_EXECUTABLE_FORMAT STREQUAL "ELF")
+            set(_slint_resource_object_format "elf")
+        elseif (CMAKE_EXECUTABLE_FORMAT STREQUAL "XCOFF")
+            set(_slint_resource_object_format "xcoff")
+        endif()
+
+        if (_slint_resource_object_architecture AND _slint_resource_object_format)
+            set(_slint_resource_object_path "${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}_resources${CMAKE_CXX_OUTPUT_EXTENSION}")
+
+            string(TOLOWER "${CMAKE_CXX_BYTE_ORDER}" _slint_resource_object_endianess)
+            string(REPLACE "_" "-" _slint_resource_object_endianess "${_slint_resource_object_endianess}")    
+            
+            list(APPEND _slint_compiler_resource_object_args "--resource-object-file=${_slint_resource_object_path}")
+            list(APPEND _slint_compiler_resource_object_args "--resource-object-format=${_slint_resource_object_format}")
+            list(APPEND _slint_compiler_resource_object_args "--resource-object-endianess=${_slint_resource_object_endianess}")
+            list(APPEND _slint_compiler_resource_object_args "--resource-object-architecture=${_slint_resource_object_architecture}")
+        endif()
+
         add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h ${_slint_resource_object_path}
             COMMAND ${SLINT_COMPILER_ENV} $<TARGET_FILE:Slint::slint-compiler> ${_SLINT_ABSOLUTE}
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                 --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
                 --style ${_SLINT_STYLE}
                 --embed-resources=${embed}
                 --translation-domain="${target}"
+                ${_slint_compiler_resource_object_args}
                 ${_SLINT_CPP_NAMESPACE_ARG}
                 ${_SLINT_CPP_LIBRARY_PATHS_ARG}
                 ${scale_factor_arg}
@@ -65,7 +96,7 @@ function(SLINT_TARGET_SOURCES target)
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         )
 
-        target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h)
+        target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h ${_slint_resource_object_path})
     endforeach()
     target_include_directories(${target} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()

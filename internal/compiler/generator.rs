@@ -67,14 +67,14 @@ pub fn generate(
     destination: &mut impl std::io::Write,
     doc: &Document,
     compiler_config: &CompilerConfiguration,
-) -> std::io::Result<()> {
+) -> Result<(), Box<dyn std::error::Error>> {
     #![allow(unused_variables)]
     #![allow(unreachable_code)]
 
     match format {
         #[cfg(feature = "cpp")]
         OutputFormat::Cpp(config) => {
-            let output = cpp::generate(doc, config, compiler_config);
+            let output = cpp::generate(doc, config, compiler_config)?;
             write!(destination, "{}", output)?;
         }
         #[cfg(feature = "rust")]
@@ -86,7 +86,8 @@ pub fn generate(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "Unsupported output format: The interpreter is not a valid output format yet.",
-            )); // Perhaps byte code in the future?
+            )
+            .into()); // Perhaps byte code in the future?
         }
         OutputFormat::Llr => {
             let root = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);

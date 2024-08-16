@@ -18,7 +18,7 @@ path = "lib.rs"
 
 [features]
 # Generators
-cpp = []
+cpp = ["dep:object"]
 rust = ["quote", "proc-macro2"]
 
 # Support for proc_macro spans in the token (only useful for use within a proc macro)
@@ -58,6 +58,8 @@ image = { workspace = true, optional = true, features = ["default"] }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { workspace = true, optional = true, features = ["parallel"] }
+
+object = { workspace = true, optional = true, features = ["write"] }
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }

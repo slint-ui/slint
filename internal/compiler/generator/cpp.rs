@@ -10,10 +10,20 @@ use std::fmt::Write;
 
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 
+#[derive(Clone, Debug, PartialEq)]
+
+pub struct ObjectFileResourceConfig {
+    pub path: std::path::PathBuf,
+    pub binary_format: object::BinaryFormat,
+    pub endianess: object::Endianness,
+    pub architecture: object::Architecture,
+}
+
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Config {
     pub namespace: Option<String>,
+    pub object_file_resource_config: Option<ObjectFileResourceConfig>,
 }
 
 fn ident(ident: &str) -> String {
@@ -536,25 +546,15 @@ fn handle_property_init(
     }
 }
 
-/// Returns the text of the C++ code produced by the given root component
-pub fn generate(
-    doc: &Document,
-    config: Config,
-    compiler_config: &CompilerConfiguration,
-) -> impl std::fmt::Display {
-    let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
+enum BinaryResourceOutput<'a> {
+    Inline,
+    ObjectFile { object: object::write::Object<'a>, path: std::path::PathBuf },
+}
 
-    file.includes.push("<array>".into());
-    file.includes.push("<limits>".into());
-    file.includes.push("<slint.h>".into());
-
-    for (path, er) in doc.embedded_file_resources.borrow().iter() {
-        match &er.kind {
-            crate::embedded_resources::EmbeddedResourcesKind::RawData => {
-                let resource_file =
-                    crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
-                let data = resource_file.read();
-
+impl<'a> BinaryResourceOutput<'a> {
+    fn add(&mut self, file: &mut File, name: String, data: &[u8]) {
+        match self {
+            BinaryResourceOutput::Inline => {
                 let mut init = "{ ".to_string();
 
                 for (index, byte) in data.iter().enumerate() {
@@ -571,10 +571,84 @@ pub fn generate(
 
                 file.declarations.push(Declaration::Var(Var {
                     ty: "const inline uint8_t".into(),
-                    name: format!("slint_embedded_resource_{}", er.id),
+                    name,
                     array_size: Some(data.len()),
                     init: Some(init),
                 }));
+            }
+            BinaryResourceOutput::ObjectFile { object, .. } => {
+                file.declarations.push(Declaration::Var(Var {
+                    ty: "extern \"C\" uint8_t".into(),
+                    name: format!("{name}"),
+                    array_size: Some(data.len()),
+                    init: None,
+                }));
+
+                let rodata_section =
+                    object.section_id(object::write::StandardSection::ReadOnlyData);
+                let offset = object.append_section_data(rodata_section, data, 4);
+                object.add_symbol(object::write::Symbol {
+                    name: name.as_bytes().into(),
+                    value: offset,
+                    size: data.len() as u64,
+                    kind: object::write::SymbolKind::Data,
+                    scope: object::write::SymbolScope::Linkage,
+                    weak: false,
+                    section: object::write::SymbolSection::Section(rodata_section),
+                    flags: object::write::SymbolFlags::None,
+                });
+            }
+        }
+    }
+
+    fn write(self) -> Result<(), Box<dyn std::error::Error>> {
+        match self {
+            BinaryResourceOutput::Inline => return Ok(()),
+            BinaryResourceOutput::ObjectFile { object, path } => {
+                let file = std::fs::File::create(path)?;
+                object.write_stream(file)
+            }
+        }
+    }
+}
+
+/// Returns the text of the C++ code produced by the given root component
+pub fn generate(
+    doc: &Document,
+    config: Config,
+    compiler_config: &CompilerConfiguration,
+) -> Result<impl std::fmt::Display, Box<dyn std::error::Error>> {
+    let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
+
+    let mut binary_output = match config.object_file_resource_config {
+        Some(config) => {
+            let mut object = object::write::Object::new(
+                config.binary_format,
+                config.architecture,
+                config.endianess,
+            );
+
+            object.add_file_symbol(
+                config.path.file_name().unwrap().to_string_lossy().as_bytes().into(),
+            );
+
+            BinaryResourceOutput::ObjectFile { object, path: config.path }
+        }
+        None => BinaryResourceOutput::Inline,
+    };
+
+    file.includes.push("<array>".into());
+    file.includes.push("<limits>".into());
+    file.includes.push("<slint.h>".into());
+
+    for (path, er) in doc.embedded_file_resources.borrow().iter() {
+        match &er.kind {
+            crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+                let resource_file =
+                    crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+                let data = resource_file.read();
+
+                binary_output.add(&mut file, format!("slint_embedded_resource_{}", er.id), &data);
             }
             #[cfg(feature = "software-renderer")]
             crate::embedded_resources::EmbeddedResourcesKind::TextureData(
@@ -896,7 +970,9 @@ pub fn generate(
         file.includes.push("<cmath>".into());
     }
 
-    file
+    binary_output.write()?;
+
+    Ok(file)
 }
 
 fn generate_struct(

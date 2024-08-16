@@ -151,7 +151,7 @@ fn generate_source(
     testcase: test_driver_lib::TestCase,
     scale_factor: f32,
     font_cache: &i_slint_compiler::FontCache,
-) -> Result<(), std::io::Error> {
+) -> Result<(), Box<dyn std::error::Error>> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
     let include_paths = test_driver_lib::extract_include_paths(source)
@@ -176,7 +176,8 @@ fn generate_source(
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("build error in {:?}", testcase.absolute_path),
-        ));
+        )
+        .into());
     } else {
         diag.print();
     }

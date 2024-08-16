@@ -22,6 +22,115 @@ enum Embedding {
     EmbedForSoftwareRenderer,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum ObjectBinaryFormat {
+    Coff,
+    Elf,
+    MachO,
+    Pe,
+    Wasm,
+    Xcoff,
+}
+
+impl From<ObjectBinaryFormat> for object::BinaryFormat {
+    fn from(value: ObjectBinaryFormat) -> Self {
+        match value {
+            ObjectBinaryFormat::Coff => object::BinaryFormat::Coff,
+            ObjectBinaryFormat::Elf => object::BinaryFormat::Elf,
+            ObjectBinaryFormat::MachO => object::BinaryFormat::MachO,
+            ObjectBinaryFormat::Pe => object::BinaryFormat::Pe,
+            ObjectBinaryFormat::Wasm => object::BinaryFormat::Wasm,
+            ObjectBinaryFormat::Xcoff => object::BinaryFormat::Xcoff,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum ObjectEndianness {
+    #[allow(non_camel_case_types)]
+    Little_Endian,
+    #[allow(non_camel_case_types)]
+    Big_Endian,
+}
+
+impl From<ObjectEndianness> for object::Endianness {
+    fn from(value: ObjectEndianness) -> Self {
+        match value {
+            ObjectEndianness::Little_Endian => object::Endianness::Little,
+            ObjectEndianness::Big_Endian => object::Endianness::Big,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum ObjectArchitecture {
+    Unknown,
+    Aarch64,
+    #[allow(non_camel_case_types)]
+    Aarch64_Ilp32,
+    Arm,
+    Avr,
+    Bpf,
+    Csky,
+    I386,
+    X86_64,
+    #[allow(non_camel_case_types)]
+    X86_64_X32,
+    Hexagon,
+    LoongArch64,
+    Mips,
+    Mips64,
+    Msp430,
+    PowerPc,
+    PowerPc64,
+    Riscv32,
+    Riscv64,
+    S390x,
+    Sbf,
+    Sharc,
+    Sparc,
+    Sparc32Plus,
+    Sparc64,
+    Wasm32,
+    Wasm64,
+    Xtensa,
+}
+
+impl From<ObjectArchitecture> for object::Architecture {
+    fn from(value: ObjectArchitecture) -> Self {
+        match value {
+            ObjectArchitecture::Unknown => object::Architecture::Unknown,
+            ObjectArchitecture::Aarch64 => object::Architecture::Aarch64,
+            ObjectArchitecture::Aarch64_Ilp32 => object::Architecture::Aarch64_Ilp32,
+            ObjectArchitecture::Arm => object::Architecture::Arm,
+            ObjectArchitecture::Avr => object::Architecture::Avr,
+            ObjectArchitecture::Bpf => object::Architecture::Bpf,
+            ObjectArchitecture::Csky => object::Architecture::Csky,
+            ObjectArchitecture::I386 => object::Architecture::I386,
+            ObjectArchitecture::X86_64 => object::Architecture::X86_64,
+            ObjectArchitecture::X86_64_X32 => object::Architecture::X86_64_X32,
+            ObjectArchitecture::Hexagon => object::Architecture::Hexagon,
+            ObjectArchitecture::LoongArch64 => object::Architecture::LoongArch64,
+            ObjectArchitecture::Mips => object::Architecture::Mips,
+            ObjectArchitecture::Mips64 => object::Architecture::Mips64,
+            ObjectArchitecture::Msp430 => object::Architecture::Msp430,
+            ObjectArchitecture::PowerPc => object::Architecture::PowerPc,
+            ObjectArchitecture::PowerPc64 => object::Architecture::PowerPc64,
+            ObjectArchitecture::Riscv32 => object::Architecture::Riscv32,
+            ObjectArchitecture::Riscv64 => object::Architecture::Riscv64,
+            ObjectArchitecture::S390x => object::Architecture::S390x,
+            ObjectArchitecture::Sbf => object::Architecture::Sbf,
+            ObjectArchitecture::Sharc => object::Architecture::Sharc,
+            ObjectArchitecture::Sparc => object::Architecture::Sparc,
+            ObjectArchitecture::Sparc32Plus => object::Architecture::Sparc32Plus,
+            ObjectArchitecture::Sparc64 => object::Architecture::Sparc64,
+            ObjectArchitecture::Wasm32 => object::Architecture::Wasm32,
+            ObjectArchitecture::Wasm64 => object::Architecture::Wasm64,
+            ObjectArchitecture::Xtensa => object::Architecture::Xtensa,
+        }
+    }
+}
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -63,6 +172,21 @@ struct Cli {
     #[arg(name = "file to generate", short = 'o', default_value = "-", action)]
     output: std::path::PathBuf,
 
+    #[arg(name = "resources object file (only for C++)", long = "resource-object-file")]
+    resources_object_file: Option<std::path::PathBuf>,
+
+    #[arg(name = "resource object binary format (only for C++)", long = "resource-object-format")]
+    resources_object_binary_format: Option<ObjectBinaryFormat>,
+
+    #[arg(name = "resource object endianess (only for C++)", long = "resource-object-endianess")]
+    resources_object_endianess: Option<ObjectEndianness>,
+
+    #[arg(
+        name = "resource object architecture (only for C++)",
+        long = "resource-object-architecture"
+    )]
+    resources_object_architecture: Option<ObjectArchitecture>,
+
     /// Translation domain
     #[arg(long = "translation-domain", action)]
     translation_domain: Option<String>,
@@ -72,7 +196,7 @@ struct Cli {
     cpp_namespace: Option<String>,
 }
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     let args = Cli::parse();
     let mut diag = BuildDiagnostics::default();
@@ -86,11 +210,41 @@ fn main() -> std::io::Result<()> {
     let mut format = args.format.clone();
 
     if args.cpp_namespace.is_some() {
-        if !matches!(format, generator::OutputFormat::Cpp(..)) {
-            eprintln!("C++ namespace option was set. Output format will be C++.");
+        match &mut format {
+            generator::OutputFormat::Cpp(ref mut config) => {
+                config.namespace = args.cpp_namespace;
+            }
+            _ => eprintln!("C++ namespace option was set. Output format will be C++."),
         }
-        format =
-            generator::OutputFormat::Cpp(generator::cpp::Config { namespace: args.cpp_namespace });
+    }
+
+    if args.resources_object_file.is_some() {
+        match &mut format {
+            generator::OutputFormat::Cpp(ref mut config) => {
+                let Some(binary_format) = args.resources_object_binary_format else {
+                    eprintln!("resources-object-file requires resource-object-format argument");
+                    std::process::exit(-1);
+                };
+                let Some(endianess) = args.resources_object_endianess else {
+                    eprintln!("resources-object-file requires resource-object-endianess argument");
+                    std::process::exit(-1);
+                };
+                let Some(architecture) = args.resources_object_architecture else {
+                    eprintln!(
+                        "resources-object-file requires resource-object-architecture argument"
+                    );
+                    std::process::exit(-1);
+                };
+                config.object_file_resource_config =
+                    Some(i_slint_compiler::generator::cpp::ObjectFileResourceConfig {
+                        path: args.resources_object_file.unwrap(),
+                        binary_format: binary_format.into(),
+                        endianess: endianess.into(),
+                        architecture: architecture.into(),
+                    });
+            }
+            _ => eprintln!("C++ namespace option was set. Output format will be C++."),
+        }
     }
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
