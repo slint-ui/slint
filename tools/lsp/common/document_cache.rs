@@ -10,6 +10,7 @@ use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::Url;
 
 use std::{
+    cell::RefCell,
     collections::HashMap,
     future::Future,
     path::{Path, PathBuf},
@@ -17,9 +18,12 @@ use std::{
     rc::Rc,
 };
 
+use crate::common::{file_to_uri, uri_to_file, ElementRcNode, Result};
+
 pub type SourceFileVersion = Option<i32>;
 
-use crate::common::{file_to_uri, uri_to_file, ElementRcNode, Result};
+#[derive(Clone, Default)]
+pub struct SourceFileVersionMap(HashMap<PathBuf, SourceFileVersion>);
 
 fn default_cc() -> i_slint_compiler::CompilerConfiguration {
     i_slint_compiler::CompilerConfiguration::new(
@@ -78,28 +82,43 @@ impl CompilerConfiguration {
 pub struct DocumentCache {
     type_loader: TypeLoader,
     open_import_fallback: OpenImportFallback,
+    source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
 }
 
 impl DocumentCache {
     fn wire_up_import_fallback(
         compiler_config: &mut i_slint_compiler::CompilerConfiguration,
         open_import_fallback: OpenImportFallback,
-    ) -> OpenImportFallback {
+        source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
+    ) -> (OpenImportFallback, Rc<RefCell<SourceFileVersionMap>>) {
+        let sfv = source_file_versions.clone();
         if let Some(open_import_fallback) = open_import_fallback.clone() {
             compiler_config.open_import_fallback = Some(Rc::new(move |file_name: String| {
-                let flfb = open_import_fallback(PathBuf::from(file_name.as_str()));
-                Box::pin(async move { flfb.await.map(|r| r.map(|(c, _)| c)) })
-            }))
+                let path = PathBuf::from(file_name.as_str());
+                let flfb = open_import_fallback(path.clone());
+                let sfv = sfv.clone();
+                Box::pin(async move {
+                    flfb.await.map(|r| {
+                        r.map(|(c, v)| {
+                            sfv.borrow_mut().0.insert(path, v);
+                            c
+                        })
+                    })
+                })
+            }));
         }
 
-        open_import_fallback
+        (open_import_fallback, source_file_versions)
     }
 
     pub fn new(config: CompilerConfiguration) -> Self {
         let (mut compiler_config, open_import_fallback) = config.to_compiler_configuration();
 
-        let open_import_fallback =
-            Self::wire_up_import_fallback(&mut compiler_config, open_import_fallback);
+        let (open_import_fallback, source_file_versions) = Self::wire_up_import_fallback(
+            &mut compiler_config,
+            open_import_fallback,
+            Rc::new(RefCell::new(SourceFileVersionMap::default())),
+        );
 
         Self {
             type_loader: TypeLoader::new(
@@ -108,27 +127,38 @@ impl DocumentCache {
                 &mut BuildDiagnostics::default(),
             ),
             open_import_fallback,
+            source_file_versions,
         }
     }
 
     pub fn new_from_type_loader(type_loader: TypeLoader) -> Self {
-        Self { type_loader, open_import_fallback: None }
+        Self {
+            type_loader,
+            open_import_fallback: None,
+            source_file_versions: Rc::new(RefCell::new(SourceFileVersionMap::default())),
+        }
     }
 
     pub fn new_from_raw_parts(
         mut type_loader: TypeLoader,
         open_import_fallback: OpenImportFallback,
+        source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
     ) -> Self {
-        let open_import_fallback =
-            Self::wire_up_import_fallback(&mut type_loader.compiler_config, open_import_fallback);
+        let (open_import_fallback, source_file_versions) = Self::wire_up_import_fallback(
+            &mut type_loader.compiler_config,
+            open_import_fallback,
+            source_file_versions,
+        );
 
-        Self { type_loader, open_import_fallback }
+        Self { type_loader, open_import_fallback, source_file_versions }
     }
 
     pub fn snapshot(&self) -> Option<Self> {
         let open_import_fallback = self.open_import_fallback.clone();
+        let source_file_versions =
+            Rc::new(RefCell::new(self.source_file_versions.borrow().clone()));
         i_slint_compiler::typeloader::snapshot(&self.type_loader)
-            .map(|tl| Self::new_from_raw_parts(tl, open_import_fallback))
+            .map(|tl| Self::new_from_raw_parts(tl, open_import_fallback, source_file_versions))
     }
 
     pub fn resolve_import_path(
@@ -144,9 +174,7 @@ impl DocumentCache {
     }
 
     pub fn document_version_by_path(&self, path: &Path) -> SourceFileVersion {
-        self.type_loader
-            .get_document(&path)
-            .and_then(|doc| doc.node.as_ref()?.source_file.version())
+        self.source_file_versions.borrow().0.get(path).and_then(|v| *v)
     }
 
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
@@ -238,6 +266,7 @@ impl DocumentCache {
     ) -> Result<()> {
         let path = uri_to_file(url).ok_or("Failed to convert path")?;
         self.type_loader.load_file(&path, version, &path, content, false, diag).await;
+        self.source_file_versions.borrow_mut().0.insert(path, version);
         Ok(())
     }
 
@@ -338,6 +367,12 @@ mod tests {
         assert_eq!(id_at_position(&dc, &url, 1, 0), None);
         assert_eq!(id_at_position(&dc, &url, 55, 1), None);
         assert_eq!(id_at_position(&dc, &url, 56, 5), None);
+    }
+
+    #[test]
+    fn test_document_version() {
+        let (dc, url, _) = complex_document_cache();
+        assert_eq!(dc.document_version(&url), Some(42));
     }
 
     #[test]
