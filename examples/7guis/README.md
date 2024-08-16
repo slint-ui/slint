@@ -36,7 +36,6 @@ A simple timer where the duration is adjustable while running.
 ![Screenshot of the 7GUIs Timer](https://user-images.githubusercontent.com/22800467/168557131-68382191-9228-4d58-9683-6648ab5e7efd.png "Timer")
 
 [`.slint` code in web editor](https://slint.dev/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/timer.slint)
-(Note that the actual timer functionality is implemented in [Rust](./timer.rs).)
 
 ## [CRUD](https://7guis.github.io/7guis/tasks/#crud)
 Lets you create, read, update and delete names from a list as well as filter them by prefix.
