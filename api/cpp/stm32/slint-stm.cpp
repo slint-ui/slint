@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <memory>
-#include <slint-stm.h>
+#include "slint-stm.h"
 #include <type_traits>
 
 using Pixel = slint::platform::Rgb565Pixel;

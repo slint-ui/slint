@@ -373,11 +373,25 @@ if (SLINT_BUILD_RUNTIME)
         include(${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake)
     endif()
 
-    export(TARGETS Slint slint_cpp
+    add_library(STM32Platform INTERFACE)
+    target_sources(STM32Platform INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/stm32/slint-stm.cpp>
+        $<INSTALL_INTERFACE:include/slint/stm32/slint-stm.cpp>
+    )
+    target_include_directories(STM32Platform INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/stm32>
+        $<INSTALL_INTERFACE:include/slint/stm32>
+    )
+    target_link_libraries(STM32Platform INTERFACE Slint::Slint)
+
+    add_library(Slint::STM32Platform ALIAS STM32Platform)
+
+    export(TARGETS Slint slint_cpp STM32Platform
         NAMESPACE Slint:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/Slint/SlintTargets.cmake")
     install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
-    install(TARGETS Slint slint_cpp
+    install(TARGETS Slint slint_cpp STM32Platform
         EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/stm32/slint-stm.cpp ${CMAKE_CURRENT_SOURCE_DIR}/stm32/slint-stm.h DESTINATION include/slint/stm32)
 
     install(FILES $<TARGET_FILE:${slint_cpp_impl}> TYPE LIB)
 
