@@ -1025,15 +1025,25 @@ async fn parse_source(
     include_paths: Vec<PathBuf>,
     library_paths: HashMap<String, PathBuf>,
     path: PathBuf,
+    version: common::SourceFileVersion,
     source_code: String,
     style: String,
     component: Option<String>,
     file_loader_fallback: impl Fn(
-            &Path,
+            String,
         ) -> core::pin::Pin<
-            Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
+            Box<
+                dyn core::future::Future<
+                    Output = Option<std::io::Result<(common::SourceFileVersion, String)>>,
+                >,
+            >,
         > + 'static,
-) -> (Vec<diagnostics::Diagnostic>, Option<ComponentDefinition>) {
+) -> (
+    Vec<diagnostics::Diagnostic>,
+    Option<ComponentDefinition>,
+    common::document_cache::OpenImportFallback,
+    Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
+) {
     let mut builder = slint_interpreter::Compiler::default();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
@@ -1048,16 +1058,22 @@ async fn parse_source(
     }
 
     if !style.is_empty() {
-        builder.set_style(style);
+        cc.style = Some(style);
     }
-    builder.set_include_paths(include_paths);
-    builder.set_library_paths(library_paths);
-    builder.set_file_loader(file_loader_fallback);
+    cc.include_paths = include_paths;
+    cc.library_paths = library_paths;
+
+    let (open_file_fallback, source_file_versions) =
+        common::document_cache::document_cache_parts_setup(
+            cc,
+            Some(Rc::new(file_loader_fallback)),
+            common::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
+        );
 
     let result = builder.build_from_source(source_code, path).await;
 
     let compiled = result.components().next();
-    (result.diagnostics().collect(), compiled)
+    (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)
 }
 
 // Must be inside the thread running the slint event loop
@@ -1072,24 +1088,19 @@ async fn reload_preview_impl(
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
     let (version, source) = get_url_from_cache(&component.url).unwrap_or_default();
 
-    let file_versions = Rc::new(RefCell::new(HashMap::from([(path.clone(), version)])));
-    let fv = file_versions.clone();
-
-    let (diagnostics, compiled) = parse_source(
+    let (diagnostics, compiled, open_import_fallback, source_file_versions) = parse_source(
         config.include_paths,
         config.library_paths,
         path,
+        version,
         source,
         style,
         component.component.clone(),
         move |path| {
-            let fv = fv.clone();
             let path = path.to_owned();
             Box::pin(async move {
-                get_path_from_cache(&path).map(|(v, c)| {
-                    fv.borrow_mut().insert(path.to_path_buf(), v);
-                    Result::Ok(c)
-                })
+                let path = PathBuf::from(&path);
+                get_path_from_cache(&path).map(|r| Result::Ok(r))
             })
         },
     )
@@ -1097,12 +1108,12 @@ async fn reload_preview_impl(
 
     {
         set_diagnostics(&diagnostics);
-        let diags = convert_diagnostics(&diagnostics, file_versions.take());
+        let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
         notify_diagnostics(diags);
     }
 
     let success = compiled.is_some();
-    update_preview_area(compiled, behavior)?;
+    update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 
     finish_parsing(success);
     Ok(())
@@ -1192,7 +1203,7 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
-    file_versions: HashMap<PathBuf, SourceFileVersion>,
+    file_versions: &common::document_cache::SourceFileVersionMap,
 ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
     let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
         Default::default();
@@ -1457,6 +1468,8 @@ fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
+    open_import_fallback: common::document_cache::OpenImportFallback,
+    source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) -> Result<(), PlatformError> {
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -1477,7 +1490,11 @@ fn update_preview_area(
                 Box::new(move |instance| {
                     if let Some(rtl) = instance.definition().raw_type_loader() {
                         shared_document_cache.replace(Some(Rc::new(
-                            common::DocumentCache::new_from_type_loader(rtl),
+                            common::DocumentCache::new_from_raw_parts(
+                                rtl,
+                                open_import_fallback.clone(),
+                                source_file_versions.clone(),
+                            ),
                         )));
                     }
                     shared_handle.replace(Some(instance));
@@ -1537,16 +1554,17 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, component_definition) = spin_on::spin_on(super::parse_source(
+        let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
             vec![],
             std::collections::HashMap::new(),
             path,
+            Some(24),
             source_code.to_string(),
             style.to_string(),
             None,
             move |path| {
                 let code = code.clone();
-                let path = path.to_owned();
+                let path = PathBuf::from(&path);
 
                 Box::pin(async move {
                     let Some(source) = code.get(&path) else {
@@ -1555,7 +1573,7 @@ pub mod test {
                             "path not found",
                         )));
                     };
-                    Some(Ok(source.clone()))
+                    Some(Ok((Some(24), source.clone())))
                 })
             },
         ));
