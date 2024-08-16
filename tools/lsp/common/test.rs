@@ -20,20 +20,21 @@ async fn parse_source(
     file_loader_fallback: impl Fn(
             &Path,
         ) -> core::pin::Pin<
-            Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
+            Box<
+                dyn core::future::Future<
+                    Output = Option<std::io::Result<(String, common::SourceFileVersion)>>,
+                >,
+            >,
         > + 'static,
 ) -> (BuildDiagnostics, common::DocumentCache) {
     let config = {
-        let mut tmp = i_slint_compiler::CompilerConfiguration::new(
-            i_slint_compiler::generator::OutputFormat::Llr,
-        );
+        let mut tmp = common::document_cache::CompilerConfiguration::default();
         if !style.is_empty() {
             tmp.style = Some(style);
         }
         tmp.include_paths = include_paths;
         tmp.library_paths = library_paths;
-        tmp.open_import_fallback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        tmp.open_import_fallback = Some(Rc::new(move |path| file_loader_fallback(&path)));
         #[cfg(target_arch = "wasm32")]
         {
             tmp.resource_url_mapper = resource_url_mapper();
@@ -101,7 +102,7 @@ pub fn recompile_test_with_sources(
                             "path not found",
                         )));
                     };
-                    Some(Ok(source.clone()))
+                    Some(Ok((source.clone(), Some(23))))
                 } else {
                     Some(Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,

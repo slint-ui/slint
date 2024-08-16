@@ -7,34 +7,128 @@ use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
-use i_slint_compiler::CompilerConfiguration;
 use lsp_types::Url;
 
-use std::path::Path;
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    future::Future,
+    path::{Path, PathBuf},
+    pin::Pin,
+    rc::Rc,
+};
 
 pub type SourceFileVersion = Option<i32>;
 
 use crate::common::{file_to_uri, uri_to_file, ElementRcNode, Result};
 
+fn default_cc() -> i_slint_compiler::CompilerConfiguration {
+    i_slint_compiler::CompilerConfiguration::new(
+        i_slint_compiler::generator::OutputFormat::Interpreter,
+    )
+}
+
+type OpenImportFallback = Option<
+    Rc<
+        dyn Fn(
+            PathBuf,
+        ) -> Pin<
+            Box<dyn Future<Output = Option<std::io::Result<(String, SourceFileVersion)>>>>,
+        >,
+    >,
+>;
+
+pub struct CompilerConfiguration {
+    pub include_paths: Vec<std::path::PathBuf>,
+    pub library_paths: HashMap<String, std::path::PathBuf>,
+    pub style: Option<String>,
+    pub open_import_fallback: OpenImportFallback,
+    pub resource_url_mapper:
+        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+}
+
+impl Default for CompilerConfiguration {
+    fn default() -> Self {
+        let mut cc = default_cc();
+
+        Self {
+            include_paths: std::mem::take(&mut cc.include_paths),
+            library_paths: std::mem::take(&mut cc.library_paths),
+            style: std::mem::take(&mut cc.style),
+            open_import_fallback: None,
+            resource_url_mapper: std::mem::take(&mut cc.resource_url_mapper),
+        }
+    }
+}
+
+impl CompilerConfiguration {
+    fn to_compiler_configuration(
+        mut self,
+    ) -> (i_slint_compiler::CompilerConfiguration, OpenImportFallback) {
+        let mut result = default_cc();
+        result.include_paths = std::mem::take(&mut self.include_paths);
+        result.library_paths = std::mem::take(&mut self.library_paths);
+        result.style = std::mem::take(&mut self.style);
+        result.resource_url_mapper = std::mem::take(&mut self.resource_url_mapper);
+
+        (result, self.open_import_fallback)
+    }
+}
+
 /// A cache of loaded documents
-pub struct DocumentCache(TypeLoader);
+pub struct DocumentCache {
+    type_loader: TypeLoader,
+    open_import_fallback: OpenImportFallback,
+}
 
 impl DocumentCache {
+    fn wire_up_import_fallback(
+        compiler_config: &mut i_slint_compiler::CompilerConfiguration,
+        open_import_fallback: OpenImportFallback,
+    ) -> OpenImportFallback {
+        if let Some(open_import_fallback) = open_import_fallback.clone() {
+            compiler_config.open_import_fallback = Some(Rc::new(move |file_name: String| {
+                let flfb = open_import_fallback(PathBuf::from(file_name.as_str()));
+                Box::pin(async move { flfb.await.map(|r| r.map(|(c, _)| c)) })
+            }))
+        }
+
+        open_import_fallback
+    }
+
     pub fn new(config: CompilerConfiguration) -> Self {
-        Self(TypeLoader::new(
-            i_slint_compiler::typeregister::TypeRegister::builtin(),
-            config,
-            &mut BuildDiagnostics::default(),
-        ))
+        let (mut compiler_config, open_import_fallback) = config.to_compiler_configuration();
+
+        let open_import_fallback =
+            Self::wire_up_import_fallback(&mut compiler_config, open_import_fallback);
+
+        Self {
+            type_loader: TypeLoader::new(
+                i_slint_compiler::typeregister::TypeRegister::builtin(),
+                compiler_config,
+                &mut BuildDiagnostics::default(),
+            ),
+            open_import_fallback,
+        }
     }
 
     pub fn new_from_type_loader(type_loader: TypeLoader) -> Self {
-        Self(type_loader)
+        Self { type_loader, open_import_fallback: None }
+    }
+
+    pub fn new_from_raw_parts(
+        mut type_loader: TypeLoader,
+        open_import_fallback: OpenImportFallback,
+    ) -> Self {
+        let open_import_fallback =
+            Self::wire_up_import_fallback(&mut type_loader.compiler_config, open_import_fallback);
+
+        Self { type_loader, open_import_fallback }
     }
 
     pub fn snapshot(&self) -> Option<Self> {
-        i_slint_compiler::typeloader::snapshot(&self.0).map(Self::new_from_type_loader)
+        let open_import_fallback = self.open_import_fallback.clone();
+        i_slint_compiler::typeloader::snapshot(&self.type_loader)
+            .map(|tl| Self::new_from_raw_parts(tl, open_import_fallback))
     }
 
     pub fn resolve_import_path(
@@ -42,7 +136,7 @@ impl DocumentCache {
         import_token: Option<&i_slint_compiler::parser::NodeOrToken>,
         maybe_relative_path_or_url: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
-        self.0.resolve_import_path(import_token, maybe_relative_path_or_url)
+        self.type_loader.resolve_import_path(import_token, maybe_relative_path_or_url)
     }
 
     pub fn document_version(&self, target_uri: &Url) -> SourceFileVersion {
@@ -50,23 +144,25 @@ impl DocumentCache {
     }
 
     pub fn document_version_by_path(&self, path: &Path) -> SourceFileVersion {
-        self.0.get_document(&path).and_then(|doc| doc.node.as_ref()?.source_file.version())
+        self.type_loader
+            .get_document(&path)
+            .and_then(|doc| doc.node.as_ref()?.source_file.version())
     }
 
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
         let path = uri_to_file(url)?;
-        self.0.get_document(&path)
+        self.type_loader.get_document(&path)
     }
 
     pub fn get_document_by_path<'a>(&'a self, path: &'_ Path) -> Option<&'a Document> {
-        self.0.get_document(path)
+        self.type_loader.get_document(path)
     }
 
     pub fn get_document_for_source_file<'a>(
         &'a self,
         source_file: &'_ SourceFile,
     ) -> Option<&'a Document> {
-        self.0.get_document(source_file.path())
+        self.type_loader.get_document(source_file.path())
     }
 
     pub fn get_document_and_offset<'a>(
@@ -84,15 +180,15 @@ impl DocumentCache {
     }
 
     pub fn all_url_documents(&self) -> impl Iterator<Item = (Url, &Document)> + '_ {
-        self.0.all_file_documents().filter_map(|(p, d)| Some((file_to_uri(p)?, d)))
+        self.type_loader.all_file_documents().filter_map(|(p, d)| Some((file_to_uri(p)?, d)))
     }
 
     pub fn all_urls(&self) -> impl Iterator<Item = Url> + '_ {
-        self.0.all_files().filter_map(|p| file_to_uri(p))
+        self.type_loader.all_files().filter_map(|p| file_to_uri(p))
     }
 
     pub fn global_type_registry(&self) -> std::cell::Ref<TypeRegister> {
-        self.0.global_type_registry.borrow()
+        self.type_loader.global_type_registry.borrow()
     }
 
     pub async fn reconfigure(
@@ -102,34 +198,34 @@ impl DocumentCache {
         library_paths: Option<HashMap<String, PathBuf>>,
     ) -> Result<CompilerConfiguration> {
         if style.is_none() && include_paths.is_none() && library_paths.is_none() {
-            return Ok(self.0.compiler_config.clone());
+            return Ok(self.compiler_configuration());
         }
 
         if let Some(s) = style {
             if s.is_empty() {
-                self.0.compiler_config.style = None;
+                self.type_loader.compiler_config.style = None;
             } else {
-                self.0.compiler_config.style = Some(s);
+                self.type_loader.compiler_config.style = Some(s);
             }
         }
 
         if let Some(ip) = include_paths {
-            self.0.compiler_config.include_paths = ip;
+            self.type_loader.compiler_config.include_paths = ip;
         }
 
         if let Some(lp) = library_paths {
-            self.0.compiler_config.library_paths = lp;
+            self.type_loader.compiler_config.library_paths = lp;
         }
 
         self.preload_builtins().await;
 
-        Ok(self.0.compiler_config.clone())
+        Ok(self.compiler_configuration())
     }
 
     pub async fn preload_builtins(&mut self) {
         // Always load the widgets so we can auto-complete them
         let mut diag = BuildDiagnostics::default();
-        self.0.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
+        self.type_loader.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
         assert!(!diag.has_errors());
     }
 
@@ -141,12 +237,18 @@ impl DocumentCache {
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
         let path = uri_to_file(url).ok_or("Failed to convert path")?;
-        self.0.load_file(&path, version, &path, content, false, diag).await;
+        self.type_loader.load_file(&path, version, &path, content, false, diag).await;
         Ok(())
     }
 
-    pub fn compiler_configuration(&self) -> &CompilerConfiguration {
-        &self.0.compiler_config
+    pub fn compiler_configuration(&self) -> CompilerConfiguration {
+        CompilerConfiguration {
+            include_paths: self.type_loader.compiler_config.include_paths.clone(),
+            library_paths: self.type_loader.compiler_config.library_paths.clone(),
+            style: self.type_loader.compiler_config.style.clone(),
+            open_import_fallback: None, // TODO: Fix this!
+            resource_url_mapper: self.type_loader.compiler_config.resource_url_mapper.clone(),
+        }
     }
 
     fn element_at_document_and_offset(

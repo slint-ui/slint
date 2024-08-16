@@ -18,7 +18,6 @@ pub mod util;
 use common::Result;
 use language::*;
 
-use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
 };
@@ -34,6 +33,8 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex};
 use std::task::{Poll, Waker};
+
+use crate::common::document_cache::CompilerConfiguration;
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -287,8 +288,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     #[cfg(feature = "preview-builtin")]
     preview::set_server_notifier(server_notifier.clone());
 
-    let mut compiler_config =
-        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
+    let mut compiler_config = CompilerConfiguration::default();
 
     compiler_config.style =
         Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style });
@@ -313,7 +313,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                     )
                 }
             }
-            Some(contents)
+            Some(contents.map(|c| (c, None)))
         })
     }));
 
