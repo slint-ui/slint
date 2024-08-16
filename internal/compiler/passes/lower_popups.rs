@@ -8,7 +8,7 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub fn lower_popups(
     component: &Rc<Component>,
@@ -144,14 +144,21 @@ fn lower_popup_window(
     // - There are other object reference than in the NamedReference
     // - Maybe this should actually be allowed
     visit_all_named_references(&parent_component, &mut |nr| {
-        if std::rc::Weak::ptr_eq(&nr.element().borrow().enclosing_component, &weak) {
-            diag.push_error(
-                "Cannot access the inside of a PopupWindow from enclosing component".into(),
-                &*popup_window_element.borrow(),
-            );
+        let element = &nr.element();
+        if check_element(element, &weak, diag, popup_window_element) {
             // just set it to whatever is a valid NamedReference, otherwise we'll panic later
             *nr = coord_x.clone();
         }
+    });
+    visit_all_expressions(&parent_component, |exp, _| {
+        exp.visit_recursive_mut(&mut |exp| {
+            if let Expression::ElementReference(ref element) = exp {
+                let elem = element.upgrade().unwrap();
+                if !Rc::ptr_eq(&elem, popup_window_element) {
+                    check_element(&elem, &weak, diag, popup_window_element);
+                }
+            }
+        });
     });
 
     parent_component.popup_windows.borrow_mut().push(PopupWindow {
@@ -161,4 +168,21 @@ fn lower_popup_window(
         close_on_click,
         parent_element: parent_element.clone(),
     });
+}
+
+fn check_element(
+    element: &ElementRc,
+    popup_comp: &Weak<Component>,
+    diag: &mut BuildDiagnostics,
+    popup_window_element: &ElementRc,
+) -> bool {
+    if Weak::ptr_eq(&element.borrow().enclosing_component, popup_comp) {
+        diag.push_error(
+            "Cannot access the inside of a PopupWindow from enclosing component".into(),
+            &*popup_window_element.borrow(),
+        );
+        true
+    } else {
+        false
+    }
 }

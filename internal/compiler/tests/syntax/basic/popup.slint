@@ -7,6 +7,19 @@ component Foo {
     }
 }
 
+component Issue5852 {
+    p := PopupWindow {
+//       ^error{Cannot access the inside of a PopupWindow from enclosing component}
+        input := TextInput {}
+    }
+    TouchArea {
+        clicked => {
+            p.show();
+            input.focus();
+        }
+    }
+}
+
 
 export X := PopupWindow {
 //          ^error{PopupWindow cannot be the top level}
@@ -34,4 +47,5 @@ export X := PopupWindow {
     for abc in [1] : PopupWindow {}
     //               ^error{PopupWindow cannot be directly repeated or conditional}
 
+    Issue5852 {}
 }
