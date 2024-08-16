@@ -13,8 +13,8 @@ component ResizeHandle inherits Rectangle {
     in property <MouseCursor> mouse-cursor;
     out property <bool> resizing <=> ta.pressed;
 
-    callback resize(/* width */ length, /* height */ length, /* done? */ bool);
-    callback resize-done(/* width */ length, /* height */ length);
+    callback resize(width: length, height: length, done: bool);
+    callback resize-done(width: length, height: length);
 
     // Internal!
     in-out property <length> new-width;
@@ -59,10 +59,10 @@ export component Resizer {
     out property <bool> moving: resize-area.moving;
     out property <length> handle-size: ResizeState.handle-size;
 
-    callback resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length, /* done */ bool);
-    callback can-move-to(/* x */ length, /* y */ length, /* mouse_x */ length, /* mouse_y */ length) -> bool;
-    callback move-to(/* x */ length, /* y */ length, /* mouse_x */ length, /* mouse_y */ length);
-    callback double-clicked(/* x */ length, /* y */ length, /* modifiers */ KeyboardModifiers);
+    callback resize(x: length, y: length, width: length, height: length, done: bool);
+    callback can-move-to(x: length, y: length, mouse_x: length, mouse_y: length) -> bool;
+    callback move-to(x: length, y: length, mouse_x: length, mouse_y: length);
+    callback double-clicked(x: length, y: length, modifiers: KeyboardModifiers);
 
     // Private!
     in-out property <length> top: self.y-position;

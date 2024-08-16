@@ -103,9 +103,9 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                         identifier_text(&s.DeclaredIdentifier()).unwrap(),
                         BuiltinPropertyInfo::new(Type::Callback {
                             args: s
-                                .Type()
+                                .CallbackDeclarationParameter()
                                 .map(|a| {
-                                    object_tree::type_from_node(a, *diag.borrow_mut(), register)
+                                    object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register)
                                 })
                                 .collect(),
                             return_type: s.ReturnType().map(|a| {

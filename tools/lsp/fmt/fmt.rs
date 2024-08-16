@@ -491,6 +491,20 @@ fn format_callback_declaration(
             SyntaxKind::TwoWayBinding => {
                 fold(n, writer, state)?;
             }
+            SyntaxKind::CallbackDeclarationParameter => {
+                for n in n.as_node().unwrap().children_with_tokens() {
+                    state.skip_all_whitespace = true;
+                    match n.kind() {
+                        SyntaxKind::Colon => {
+                            fold(n, writer, state)?;
+                            state.insert_whitespace(" ");
+                        }
+                        _ => {
+                            fold(n, writer, state)?;
+                        }
+                    }
+                }
+            }
             _ => {
                 fold(n, writer, state)?;
             }
@@ -1342,6 +1356,26 @@ Main := Window {
 
     pure callback some-fn({x: int}, string);
     in property <int> foo: 42;
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn callback_declaration() {
+        assert_formatting(
+            r#"
+component W inherits Window{
+    callback hello( with-name :int , { x: int, y: float} , foo: string );
+    callback world   (  )  -> string;
+    callback another_callback ;
+}
+"#,
+            r#"
+component W inherits Window {
+    callback hello(with-name: int, { x: int, y: float}, foo: string);
+    callback world() -> string;
+    callback another_callback;
 }
 "#,
         );

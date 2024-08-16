@@ -124,9 +124,9 @@ export component ExpandableListView inherits ScrollView {
         is-currently-shown: false,
     };
 
-    pure callback can-drop(/* index */ int, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
-    callback drop(/* index */ int, /* x */ length, /* y */ length);
-    callback show-preview-for(/* name */ string, /* defined-at */ string);
+    pure callback can-drop(index: int, x: length, y: length, on-drop-area: bool) -> bool;
+    callback drop(index: int, x: length, y: length);
+    callback show-preview-for(name: string, defined-at: string);
 
     property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
     property <length> list-spacing: 10px;

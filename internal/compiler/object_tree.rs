@@ -1140,7 +1140,16 @@ impl Element {
                 continue;
             }
 
-            let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
+            let args = sig_decl
+                .CallbackDeclarationParameter()
+                .map(|p| {
+                    if let Some(n) = p.DeclaredIdentifier() {
+                        if !diag.enable_experimental && !tr.expose_internal_types {
+                            diag.push_error("Callback named parameters are experimental and not yet supported in this version of Slint".into(), &n);
+                        }
+                    }
+                    type_from_node(p.Type(), diag, tr)})
+                .collect();
             let return_type = sig_decl
                 .ReturnType()
                 .map(|ret_ty| Box::new(type_from_node(ret_ty.Type(), diag, tr)));

@@ -51,10 +51,10 @@ component SelectionFrame {
 
     property <bool> had-drag-distance: false;
 
-    callback resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
-    callback can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
-    callback move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
-    callback select-behind(/* x */ length, /* y */ length, /* enter component? */ bool, /* same file? */ bool);
+    callback resize(x: length, y: length, width: length, height: length);
+    callback can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
+    callback move-to(x: length, y: length, mouse-x: length, mouse-y: length);
+    callback select-behind(x: length, y: length, enter-component: bool, same-file: bool);
     callback selected-element-delete();
 
     if !root.interactive || !selection.is-primary: Rectangle {
