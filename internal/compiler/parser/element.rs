@@ -298,6 +298,7 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 /// callback foobar;
 /// callback my_callback();
 /// callback foo(int, string);
+/// callback foo(foo: int, string, xx: { a: string });
 /// pure callback one_arg({ a: string, b: string});
 /// callback end_coma(a, b, c,);
 /// callback with_return(a, b) -> int;
@@ -318,7 +319,18 @@ fn parse_callback_declaration(p: &mut impl Parser) {
     }
     if p.test(SyntaxKind::LParent) {
         while p.peek().kind() != SyntaxKind::RParent {
-            parse_type(&mut *p);
+            {
+                let mut p = p.start_node(SyntaxKind::CallbackDeclarationParameter);
+                if p.peek().kind() == SyntaxKind::Identifier && p.nth(1).kind() == SyntaxKind::Colon
+                {
+                    {
+                        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+                        p.expect(SyntaxKind::Identifier);
+                    }
+                    p.expect(SyntaxKind::Colon);
+                }
+                parse_type(&mut *p);
+            }
             if !p.test(SyntaxKind::Comma) {
                 break;
             }

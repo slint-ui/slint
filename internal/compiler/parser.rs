@@ -343,7 +343,9 @@ declare_syntax! {
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
-        CallbackDeclaration -> [ DeclaredIdentifier, *Type, ?ReturnType, ?TwoWayBinding ],
+        CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
+        // `foo: type` or just `type`
+        CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
         Function -> [DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, CodeBlock ],
         ArgumentDeclaration -> [DeclaredIdentifier, Type],
         /// `-> type`  (but without the ->)
