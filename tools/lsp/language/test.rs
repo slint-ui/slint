@@ -11,9 +11,7 @@ use crate::language::{reload_document_impl, DocumentCache};
 
 /// Create an empty `DocumentCache`
 pub fn empty_document_cache() -> DocumentCache {
-    let mut config = i_slint_compiler::CompilerConfiguration::new(
-        i_slint_compiler::generator::OutputFormat::Interpreter,
-    );
+    let mut config = crate::common::document_cache::CompilerConfiguration::default();
     config.style = Some("fluent".to_string());
     DocumentCache::new(config)
 }
