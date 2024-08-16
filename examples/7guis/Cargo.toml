@@ -15,10 +15,6 @@ path = "booker.rs"
 name = "booker"
 
 [[bin]]
-path = "timer.rs"
-name = "timer"
-
-[[bin]]
 path = "crud.rs"
 name = "crud"
 
