@@ -781,15 +781,18 @@ export component Example inherits Window {
 ## `Timer`
 <!-- FIXME: Timer is not really an element so it doesn't really belong in the `Builtin Elements` section. -->
 
-Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc.
-It doesn't take room in a layout and cannot have any children or be inherited from.
-
-The Timer pseudo-element is used to schedule a callback at a given interval.
-The timer is only running when the `running` property is set to `true`. To stop or start the timer, simply set that property to `true` or `false`.
-It can be also set to a binding.
+Use the Timer pseudo-element to schedule a callback at a given interval.
+The timer is only running when the `running` property is set to `true`. To stop or start the timer, set that property to `true` or `false`.
+It can be also set to a binding expression.
 When already running, the timer will be restarted if the `interval` property is changed.
 
-Note that the default value for `running` is `true`, so if you don't specify it, it will be running.
+:::{note}
+The default value for `running` is `true`, so if you don't specify it, it will be running.
+:::
+
+:::{note}
+Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+:::
 
 ### Properties
 
@@ -798,7 +801,7 @@ Note that the default value for `running` is `true`, so if you don't specify it,
 
 ### Callbacks
 
- -  **`triggered()`**: Invoked every time the timer ticks (every `interval`)
+ -  **`triggered()`**: Invoked every time the timer ticks (every `interval`).
 
 ### Example
 
