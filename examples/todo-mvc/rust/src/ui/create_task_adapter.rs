@@ -1,108 +1,149 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+use std::rc::Rc;
+
+use chrono::{Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use slint::*;
 
+const DATE_FMT: &str = "%a, %b %d %Y";
+const TIME_FMT: &str = "%R";
+
 use crate::{
-    mvc::{
-        {CreateTaskController, TaskListController}, {DateModel, TimeModel},
-    },
+    mvc::{CreateTaskController, CreateTaskControllerCallbacks, TaskListController},
     ui,
 };
 
-// a helper function to make adapter and controller connection a little bit easier
-fn connect_with_controller(
-    view_handle: &ui::MainWindow,
-    controller: &CreateTaskController,
-    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, CreateTaskController) + 'static,
-) {
-    connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
-}
+pub fn create_controller_callbacks(view_handle: &ui::MainWindow) -> CreateTaskControllerCallbacks {
+    CreateTaskControllerCallbacks {
+        on_refresh: Box::new({
+            let view_handle = view_handle.as_weak();
 
-// a helper function to make adapter and controller connection a little bit easier
-fn connect_with_task_list_controller(
-    view_handle: &ui::MainWindow,
-    controller: &TaskListController,
-    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, TaskListController) + 'static,
-) {
-    connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
-}
+            move || {
+                let Some(view) = view_handle.upgrade() else {
+                    return;
+                };
+                let adapter = ui::CreateTaskAdapter::get(&view);
+                adapter.set_title("".into());
 
-// one place to implement connection between adapter (view) and controller
-pub fn connect(view_handle: &ui::MainWindow, controller: CreateTaskController) {
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_back(move || {
-                controller.back();
-            })
-        }
-    });
+                let now = Local::now();
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_current_date(move || map_date_model_to_date(controller.current_date()))
-        }
-    });
+                // Current local date
+                let time = now.time();
+                let date = now.date_naive();
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_current_time(move || map_time_model_to_time(controller.current_time()))
-        }
-    });
+                adapter.set_due_date(ui::Date {
+                    year: date.year(),
+                    month: date.month() as i32,
+                    day: date.day() as i32,
+                });
+                adapter.set_due_time(ui::Time {
+                    hour: time.hour() as i32,
+                    minute: time.minute() as i32,
+                    second: time.second() as i32,
+                });
+            }
+        }),
+        on_back: Box::new({
+            let view_handle = view_handle.as_weak();
 
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_date_string(move |date| {
-                controller.date_string(map_date_to_date_model(date)).into()
-            })
-        }
-    });
-
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_time_string(move |time| {
-                controller.time_string(map_time_to_time_model(time)).into()
-            })
-        }
-    });
-
-    connect_with_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_time_stamp(move |date, time| {
-                controller
-                    .time_stamp(map_date_to_date_model(date), map_time_to_time_model(time))
-                    .into()
-            })
-        }
-    });
-}
-
-pub fn connect_task_list_controller(view_handle: &ui::MainWindow, controller: TaskListController) {
-    connect_with_task_list_controller(view_handle, &controller, {
-        move |adapter, controller| {
-            adapter.on_create(move |title, time_stamp| {
-                controller.create_task(title.as_str(), time_stamp as i64)
-            })
-        }
-    });
-}
-
-fn map_time_model_to_time(time_model: TimeModel) -> ui::Time {
-    ui::Time {
-        hour: time_model.hour as i32,
-        minute: time_model.minute as i32,
-        second: time_model.second as i32,
+            move || {
+                let Some(view) = view_handle.upgrade() else {
+                    return;
+                };
+                ui::NavigationAdapter::get(&view).invoke_previous_page();
+            }
+        }),
     }
 }
 
-fn map_time_to_time_model(time: ui::Time) -> TimeModel {
-    TimeModel { hour: time.hour as u32, minute: time.minute as u32, second: time.second as u32 }
+pub fn initialize_adapter(
+    view_handle: &ui::MainWindow,
+    create_task_controller: Rc<CreateTaskController>,
+    task_list_controller: Rc<TaskListController>,
+) {
+    let adapter = ui::CreateTaskAdapter::get(&view_handle);
+
+    adapter.on_refresh({
+        let create_task_controller = create_task_controller.clone();
+
+        move || {
+            create_task_controller.refresh();
+        }
+    });
+
+    adapter.on_back({
+        let create_task_controller = create_task_controller.clone();
+
+        move || {
+            create_task_controller.back();
+        }
+    });
+
+    adapter.on_date_string(|date| map_date_to_string(date));
+    adapter.on_time_string(|time| map_time_to_string(time));
+
+    adapter.on_create({
+        move |title, date, time| {
+            task_list_controller.create_task(title.as_str(), time_stamp(time, date))
+        }
+    });
 }
 
-fn map_date_model_to_date(date_model: DateModel) -> ui::Date {
-    ui::Date { year: date_model.year, month: date_model.month as i32, day: date_model.day as i32 }
+fn map_date_to_string(date: ui::Date) -> SharedString {
+    NaiveDate::from_ymd_opt(date.year, date.month as u32, date.day as u32)
+        .unwrap()
+        .format(DATE_FMT)
+        .to_string()
+        .into()
 }
 
-fn map_date_to_date_model(date: ui::Date) -> DateModel {
-    DateModel { year: date.year, month: date.month as u32, day: date.day as u32 }
+fn map_time_to_string(time: ui::Time) -> SharedString {
+    NaiveTime::from_hms_opt(time.hour as u32, time.minute as u32, time.second as u32)
+        .unwrap()
+        .format(TIME_FMT)
+        .to_string()
+        .into()
+}
+
+fn time_stamp(time: ui::Time, date: ui::Date) -> i64 {
+    let time =
+        NaiveTime::from_hms_opt(time.hour as u32, time.minute as u32, time.second as u32).unwrap();
+    let date = NaiveDate::from_ymd_opt(date.year, date.month as u32, date.day as u32).unwrap();
+
+    let date_time = NaiveDateTime::new(date, time);
+
+    date_time.and_utc().timestamp_millis()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_map_date_to_string() {
+        assert_eq!(
+            map_date_to_string(ui::Date { day: 5, month: 6, year: 2024 }),
+            SharedString::from("Wed, Jun 05 2024")
+        );
+    }
+
+    #[test]
+    fn test_map_time_to_string() {
+        assert_eq!(
+            map_time_to_string(ui::Time { hour: 11, minute: 30, second: 31 }),
+            SharedString::from("11:30")
+        );
+    }
+
+    #[test]
+    fn test_time_stamp() {
+        assert_eq!(
+            time_stamp(
+                ui::Time { hour: 11, minute: 30, second: 31 },
+                ui::Date { day: 5, month: 6, year: 2024 }
+            ),
+            1717587031000
+        );
+    }
 }
