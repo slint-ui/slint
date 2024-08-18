@@ -7,6 +7,7 @@
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
 use std::fmt::Write;
+use std::io::BufWriter;
 
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 
@@ -14,6 +15,8 @@ use lyon_path::geom::euclid::approxeq::ApproxEq;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Config {
     pub namespace: Option<String>,
+    pub cpp_files: Vec<std::path::PathBuf>,
+    pub header_include: String,
 }
 
 fn ident(ident: &str) -> String {
@@ -82,6 +85,7 @@ mod cpp_ast {
     ///A full C++ file
     #[derive(Default, Debug)]
     pub struct File {
+        pub is_cpp_file: bool,
         pub includes: Vec<String>,
         pub after_includes: String,
         pub namespace: Option<String>,
@@ -89,10 +93,65 @@ mod cpp_ast {
         pub definitions: Vec<Declaration>,
     }
 
+    impl File {
+        pub fn split_off_cpp_files(&mut self, header_file_name: String, count: usize) -> Vec<File> {
+            let mut cpp_files = Vec::with_capacity(count);
+            if count == 0 {
+                return cpp_files;
+            }
+
+            let mut definitions = Vec::new();
+
+            let mut i = 0;
+            while i < self.definitions.len() {
+                if matches!(&self.definitions[i], Declaration::Function(fun) if fun.template_parameters.is_some())
+                {
+                    i += 1;
+                    continue;
+                }
+                definitions.push(self.definitions.remove(i));
+            }
+
+            // Any definition in the header file is inline.
+            self.definitions.iter_mut().for_each(|def| match def {
+                Declaration::Function(f) => f.is_inline = true,
+                Declaration::Var(v) => v.is_inline = true,
+                _ => {}
+            });
+
+            let cpp_includes = vec![format!("\"{header_file_name}\"")];
+
+            let chunk_size = definitions.len() / count;
+            cpp_files.extend((0..count - 1).map(|_| File {
+                is_cpp_file: true,
+                includes: cpp_includes.clone(),
+                after_includes: String::new(),
+                namespace: self.namespace.clone(),
+                declarations: Default::default(),
+                definitions: definitions.drain(0..chunk_size).collect(),
+            }));
+
+            cpp_files.push(File {
+                is_cpp_file: true,
+                includes: cpp_includes,
+                after_includes: String::new(),
+                namespace: self.namespace.clone(),
+                declarations: Default::default(),
+                definitions,
+            });
+
+            cpp_files.resize_with(count, Default::default);
+
+            cpp_files
+        }
+    }
+
     impl Display for File {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             writeln!(f, "// This file is auto-generated")?;
-            writeln!(f, "#pragma once")?;
+            if !self.is_cpp_file {
+                writeln!(f, "#pragma once")?;
+            }
             for i in &self.includes {
                 writeln!(f, "#include {}", i)?;
             }
@@ -186,6 +245,7 @@ mod cpp_ast {
                         statements: f.statements.take(),
                         template_parameters: f.template_parameters.clone(),
                         constructor_member_initializers: f.constructor_member_initializers.clone(),
+                        ..Default::default()
                     }))
                 }
                 _ => None,
@@ -223,6 +283,7 @@ mod cpp_ast {
         pub is_constructor_or_destructor: bool,
         pub is_static: bool,
         pub is_friend: bool,
+        pub is_inline: bool,
         /// The list of statement instead the function.  When None,  this is just a function
         /// declaration without the definition
         pub statements: Option<Vec<String>>,
@@ -244,8 +305,9 @@ mod cpp_ast {
             if self.is_friend {
                 write!(f, "friend ")?;
             }
-            // all functions are `inline` because we are in a header
-            write!(f, "inline ")?;
+            if self.is_inline {
+                write!(f, "inline ")?;
+            }
             if !self.is_constructor_or_destructor {
                 write!(f, "auto ")?;
             }
@@ -270,6 +332,7 @@ mod cpp_ast {
     /// A variable or a member declaration.
     #[derive(Default, Debug)]
     pub struct Var {
+        pub is_inline: bool,
         pub ty: String,
         pub name: String,
         pub array_size: Option<usize>,
@@ -541,7 +604,7 @@ pub fn generate(
     doc: &Document,
     config: Config,
     compiler_config: &CompilerConfiguration,
-) -> impl std::fmt::Display {
+) -> std::io::Result<impl std::fmt::Display> {
     let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
 
     file.includes.push("<array>".into());
@@ -570,10 +633,11 @@ pub fn generate(
                 init.push('}');
 
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "const inline uint8_t".into(),
+                    ty: "const uint8_t".into(),
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: Some(data.len()),
                     init: Some(init),
+                    ..Default::default()
                 }));
             }
             #[cfg(feature = "software-renderer")]
@@ -601,14 +665,15 @@ pub fn generate(
                 let data = data.iter().map(ToString::to_string).join(", ");
                 let data_name = format!("slint_embedded_resource_{}_data", er.id);
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline const uint8_t".into(),
+                    ty: "const uint8_t".into(),
                     name: data_name.clone(),
                     array_size: Some(count),
                     init: Some(format!("{{ {data} }}")),
+                    ..Default::default()
                 }));
                 let texture_name = format!("slint_embedded_resource_{}_texture", er.id);
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline const slint::cbindgen_private::types::StaticTexture".into(),
+                    ty: "const slint::cbindgen_private::types::StaticTexture".into(),
                     name: texture_name.clone(),
                     array_size: None,
                     init: Some(format!(
@@ -619,6 +684,7 @@ pub fn generate(
                             .index = 0,
                             }}"
                     )),
+                    ..Default::default()
                 }));
                 let init = format!("slint::cbindgen_private::types::StaticTextures {{
                         .size = {{ {width}, {height} }},
@@ -627,10 +693,11 @@ pub fn generate(
                         .textures = slint::cbindgen_private::Slice<slint::cbindgen_private::types::StaticTexture>{{ &{texture_name}, 1 }}
                     }}");
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline const slint::cbindgen_private::types::StaticTextures".into(),
+                    ty: "const slint::cbindgen_private::types::StaticTextures".into(),
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: None,
                     init: Some(init),
+                    ..Default::default()
                 }))
             }
             #[cfg(feature = "software-renderer")]
@@ -649,19 +716,20 @@ pub fn generate(
                 let family_name_var = format!("slint_embedded_resource_{}_family_name", er.id);
                 let family_name_size = family_name.len();
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline const uint8_t".into(),
+                    ty: "const uint8_t".into(),
                     name: family_name_var.clone(),
                     array_size: Some(family_name_size),
                     init: Some(format!(
                         "{{ {} }}",
                         family_name.as_bytes().iter().map(ToString::to_string).join(", ")
                     )),
+                    ..Default::default()
                 }));
 
                 let charmap_var = format!("slint_embedded_resource_{}_charmap", er.id);
                 let charmap_size = character_map.len();
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline const slint::cbindgen_private::CharacterMapEntry".into(),
+                    ty: "const slint::cbindgen_private::CharacterMapEntry".into(),
                     name: charmap_var.clone(),
                     array_size: Some(charmap_size),
                     init: Some(format!(
@@ -674,12 +742,13 @@ pub fn generate(
                             ))
                             .join(", ")
                     )),
+                    ..Default::default()
                 }));
 
                 for (glyphset_index, glyphset) in glyphs.iter().enumerate() {
                     for (glyph_index, glyph) in glyphset.glyph_data.iter().enumerate() {
                         file.declarations.push(Declaration::Var(Var {
-                            ty: "inline const uint8_t".into(),
+                            ty: "const uint8_t".into(),
                             name: format!(
                                 "slint_embedded_resource_{}_gs_{}_gd_{}",
                                 er.id, glyphset_index, glyph_index
@@ -689,11 +758,12 @@ pub fn generate(
                                 "{{ {} }}",
                                 glyph.data.iter().map(ToString::to_string).join(", ")
                             )),
+                            ..Default::default()
                         }));
                     }
 
                     file.declarations.push(Declaration::Var(Var{
-                        ty: "inline const slint::cbindgen_private::BitmapGlyph".into(),
+                        ty: "const slint::cbindgen_private::BitmapGlyph".into(),
                         name: format!("slint_embedded_resource_{}_glyphset_{}", er.id, glyphset_index),
                         array_size: Some(glyphset.glyph_data.len()),
                         init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
@@ -703,13 +773,14 @@ pub fn generate(
                             glyph.data.len()
                         )
                         }).join(", \n"))),
+                        ..Default::default()
                     }));
                 }
 
                 let glyphsets_var = format!("slint_embedded_resource_{}_glyphsets", er.id);
                 let glyphsets_size = glyphs.len();
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline const slint::cbindgen_private::BitmapGlyphs".into(),
+                    ty: "const slint::cbindgen_private::BitmapGlyphs".into(),
                     name: glyphsets_var.clone(),
                     array_size: Some(glyphsets_size),
                     init: Some(format!(
@@ -726,6 +797,7 @@ pub fn generate(
                             ))
                             .join(", \n")
                     )),
+                    ..Default::default()
                 }));
 
                 let init = format!(
@@ -742,10 +814,11 @@ pub fn generate(
                 );
 
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline const slint::cbindgen_private::BitmapFont".into(),
+                    ty: "const slint::cbindgen_private::BitmapFont".into(),
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: None,
                     init: Some(init),
+                    ..Default::default()
                 }))
             }
         }
@@ -896,7 +969,14 @@ pub fn generate(
         file.includes.push("<cmath>".into());
     }
 
-    file
+    let cpp_files = file.split_off_cpp_files(config.header_include, config.cpp_files.len());
+
+    for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
+        use std::io::Write;
+        write!(&mut BufWriter::new(std::fs::File::create(&cpp_file_name)?), "{}", cpp_file)?;
+    }
+
+    Ok(file)
 }
 
 fn generate_struct(
@@ -1043,7 +1123,7 @@ fn generate_public_component(
         Access::Public,
         Declaration::Function(Function {
             name: "show".into(),
-            signature: "()".into(),
+            signature: "() -> void".into(),
             statements: Some(vec!["window().show();".into()]),
             ..Default::default()
         }),
@@ -1053,7 +1133,7 @@ fn generate_public_component(
         Access::Public,
         Declaration::Function(Function {
             name: "hide".into(),
-            signature: "()".into(),
+            signature: "() -> void".into(),
             statements: Some(vec!["window().hide();".into()]),
             ..Default::default()
         }),
@@ -1073,7 +1153,7 @@ fn generate_public_component(
         Access::Public,
         Declaration::Function(Function {
             name: "run".into(),
-            signature: "()".into(),
+            signature: "() -> void".into(),
             statements: Some(vec![
                 "show();".into(),
                 "slint::run_event_loop();".into(),
@@ -1493,7 +1573,7 @@ fn generate_item_tree(
     ));
 
     file.definitions.push(Declaration::Var(Var {
-        ty: "inline const slint::private_api::ItemTreeVTable".to_owned(),
+        ty: "const slint::private_api::ItemTreeVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
@@ -2021,7 +2101,8 @@ fn generate_sub_component(
             }
             else_ = "} else ";
         }
-        let ret = if signature.contains("->") { "{}" } else { "" };
+        let ret =
+            if signature.contains("->") && !signature.contains("-> void") { "{}" } else { "" };
         code.push(format!("{else_}return {ret};"));
         target_struct.members.push((
             field_access,
@@ -2108,7 +2189,7 @@ fn generate_sub_component(
 
     dispatch_item_function(
         "accessibility_action",
-        "(uint32_t index, const slint::cbindgen_private::AccessibilityAction &action) const",
+        "(uint32_t index, const slint::cbindgen_private::AccessibilityAction &action) const -> void",
         ", action",
         accessibility_action_cases,
     );
@@ -2527,7 +2608,7 @@ fn generate_public_api_for_properties(
                     Access::Public,
                     Declaration::Function(Function {
                         name: format!("set_{}", &prop_ident),
-                        signature: format!("(const {} &value) const", &cpp_property_type),
+                        signature: format!("(const {} &value) const -> void", &cpp_property_type),
                         statements: Some(prop_setter),
                         ..Default::default()
                     }),
