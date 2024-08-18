@@ -48,6 +48,8 @@ function(SLINT_TARGET_SOURCES target)
         set(scale_factor_target_prop "$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>")
         set(scale_factor_arg "$<IF:$<STREQUAL:${scale_factor_target_prop},>,,--scale-factor=${scale_factor_target_prop}>")
 
+        message(STATUS "DEBUG: system processor ${CMAKE_SYSTEM_PROCESSOR} exec format ${CMAKE_EXECUTABLE_FORMAT} embed format ${global_fallback}")
+
         if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64)$")
             set(_slint_resource_object_architecture "x86-64")
         elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
