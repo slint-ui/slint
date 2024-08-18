@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 # Set up machinery to handle SLINT_EMBED_RESOURCES target property
-set(DEFAULT_SLINT_EMBED_RESOURCES as-absolute-path CACHE STRING
+set(DEFAULT_SLINT_EMBED_RESOURCES embed-files CACHE STRING
     "The default resource embedding option to pass to the Slint compiler")
 set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
     "as-absolute-path" "embed-files" "embed-for-software-renderer")
