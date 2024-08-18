@@ -12,7 +12,7 @@ set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
 
 function(SLINT_TARGET_SOURCES target)
     # Parse the NAMESPACE argument
-    cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE" "LIBRARY_PATHS" ${ARGN})
+    cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE;COMPILATION_UNITS" "LIBRARY_PATHS" ${ARGN})
 
     get_target_property(enabled_features Slint::Slint SLINT_ENABLED_FEATURES)
     if (("EXPERIMENTAL" IN_LIST enabled_features) AND ("SYSTEM_TESTING" IN_LIST enabled_features))
@@ -28,6 +28,15 @@ function(SLINT_TARGET_SOURCES target)
         list(REMOVE_AT ARGN ${_index})
         # If the namespace is not empty, add the --cpp-namespace argument
         set(_SLINT_CPP_NAMESPACE_ARG "--cpp-namespace=${SLINT_TARGET_SOURCES_NAMESPACE}")
+    endif()
+
+    if (DEFINED SLINT_TARGET_SOURCES_COMPILATION_UNITS)
+        if (NOT SLINT_TARGET_SOURCES_COMPILATION_UNITS MATCHES "^[0-9]+$")
+            message(FATAL_ERROR "Expected number, got '${SLINT_TARGET_SOURCES_COMPILATION_UNITS}' for COMPILATION_UNITS argument")
+        endif()
+        set(compilation_units ${SLINT_TARGET_SOURCES_COMPILATION_UNITS})
+    else()
+        set(compilation_units 1)
     endif()
 
     while (SLINT_TARGET_SOURCES_LIBRARY_PATHS)
@@ -48,8 +57,15 @@ function(SLINT_TARGET_SOURCES target)
         set(scale_factor_target_prop "$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>")
         set(scale_factor_arg "$<IF:$<STREQUAL:${scale_factor_target_prop},>,,--scale-factor=${scale_factor_target_prop}>")
 
+        if (compilation_units GREATER 0)
+            foreach(cpp_num RANGE 1 ${compilation_units})                
+                list(APPEND cpp_files "${CMAKE_CURRENT_BINARY_DIR}/slint_generated_${_SLINT_BASE_NAME}_${cpp_num}.cpp")
+            endforeach()
+            list(TRANSFORM cpp_files PREPEND "--cpp-file=" OUTPUT_VARIABLE cpp_files_arg)
+        endif()
+
         add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h ${cpp_files}
             COMMAND ${SLINT_COMPILER_ENV} $<TARGET_FILE:Slint::slint-compiler> ${_SLINT_ABSOLUTE}
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                 --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
@@ -59,13 +75,14 @@ function(SLINT_TARGET_SOURCES target)
                 ${_SLINT_CPP_NAMESPACE_ARG}
                 ${_SLINT_CPP_LIBRARY_PATHS_ARG}
                 ${scale_factor_arg}
+                ${cpp_files_arg}
             DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
             COMMENT "Generating ${_SLINT_BASE_NAME}.h"
             DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         )
 
-        target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h)
+        target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h ${cpp_files})
     endforeach()
     target_include_directories(${target} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()

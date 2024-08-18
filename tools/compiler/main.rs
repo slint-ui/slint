@@ -70,6 +70,10 @@ struct Cli {
     /// C++ namespace
     #[arg(long = "cpp-namespace", name = "C++ namespace")]
     cpp_namespace: Option<String>,
+
+    /// C++ files to generate (0 for header-only output)
+    #[arg(long = "cpp-file", name = "C++ file to generate", number_of_values = 1, action)]
+    cpp_files: Vec<std::path::PathBuf>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -89,8 +93,28 @@ fn main() -> std::io::Result<()> {
         if !matches!(format, generator::OutputFormat::Cpp(..)) {
             eprintln!("C++ namespace option was set. Output format will be C++.");
         }
-        format =
-            generator::OutputFormat::Cpp(generator::cpp::Config { namespace: args.cpp_namespace });
+        format = generator::OutputFormat::Cpp(generator::cpp::Config {
+            namespace: args.cpp_namespace,
+            ..Default::default()
+        });
+    }
+
+    if !args.cpp_files.is_empty() {
+        match &mut format {
+            generator::OutputFormat::Cpp(ref mut config) => {
+                config.cpp_files = args.cpp_files;
+
+                if args.output == std::path::Path::new("-") {
+                    eprintln!("--cpp-file can only be used together with -o");
+                    std::process::exit(1);
+                }
+
+                config.header_include = args.output.to_string_lossy().to_string();
+            }
+            _ => {
+                eprintln!("C++ files option was set but the output format is not C++ - ignorning");
+            }
+        }
     }
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
