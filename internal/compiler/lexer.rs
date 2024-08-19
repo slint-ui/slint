@@ -44,7 +44,7 @@ pub fn lex_whitespace(text: &str, _: &mut LexState) -> usize {
     let mut len = 0;
     let chars = text.chars();
     for c in chars {
-        if !c.is_whitespace() {
+        if !c.is_whitespace() && !['\u{0002}', '\u{0003}'].contains(&c) {
             break;
         }
         len += c.len_utf8();
