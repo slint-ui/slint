@@ -126,32 +126,33 @@ fn inline_element(
 
     match inlined_component.child_insertion_point.borrow().as_ref() {
         Some((insertion_element, index, cip_node)) => {
+            let children = std::mem::take(&mut elem_mut.children);
+            let old_count = children.len();
             if let Some(insertion_element) = mapping.get(&element_key(insertion_element.clone())) {
                 if !Rc::ptr_eq(elem, insertion_element) {
                     debug_assert!(std::rc::Weak::ptr_eq(
                         &insertion_element.borrow().enclosing_component,
                         &elem_mut.enclosing_component,
                     ));
-                    let children = std::mem::take(&mut elem_mut.children);
                     insertion_element.borrow_mut().children.splice(index..index, children);
-                    let mut cip = root_component.child_insertion_point.borrow_mut();
-                    if let Some(cip) = cip.as_mut() {
-                        if Rc::ptr_eq(&cip.0, elem) {
-                            *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
-                        }
-                    } else if Rc::ptr_eq(elem, &root_component.root_element) {
-                        *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
-                    };
                 } else {
-                    new_children.append(&mut elem_mut.children);
+                    new_children.splice(index..index, children);
                 }
+                let mut cip = root_component.child_insertion_point.borrow_mut();
+                if let Some(cip) = cip.as_mut() {
+                    if Rc::ptr_eq(&cip.0, elem) {
+                        *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
+                    }
+                } else if Rc::ptr_eq(elem, &root_component.root_element) {
+                    *cip = Some((insertion_element.clone(), *index + old_count, cip_node.clone()));
+                };
             } else {
                 // @children was into a PopupWindow
                 debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
                     &p.component,
                     &insertion_element.borrow().enclosing_component.upgrade().unwrap()
                 )));
-                move_children_into_popup = Some(std::mem::take(&mut elem_mut.children));
+                move_children_into_popup = Some(children);
             };
         }
         _ => {
