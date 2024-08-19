@@ -121,7 +121,7 @@ jobs:
               with:
                   target: x86_64-apple-darwin
             - name: Install cargo-bundle
-              run: cargo install cargo-bundle
+              run: cargo install --version=0.6.0 cargo-bundle
             - name: Build Main LSP Bundle
               working-directory: tools/lsp
               run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }}
