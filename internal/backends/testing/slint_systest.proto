@@ -77,6 +77,37 @@ message WindowEvent {
     }
 }
 
+// Copied from enums.rs - can't be auto-generated :(
+// with one difference: None became Unknown, because None doesn't compile.
+// Upside: AccessKit also uses Unknown :)
+enum AccessibleRole {
+    Unknown = 0;
+    Button = 1;
+    Checkbox = 2;
+    Combobox = 3;
+    List = 4;
+    Slider = 5;
+    Spinbox = 6;
+    Tab = 7;
+    TabList = 8;
+    Text = 9;
+    Table = 10;
+    Tree = 11;
+    ProgressIndicator = 12;
+    TextInput = 13;
+    Switch = 14;
+}
+
+message ElementQueryInstruction {
+    oneof instruction {
+        bool match_descendants = 1; // boolean value ignored
+        string match_element_id = 2;
+        string match_element_type_name = 3;
+        string match_element_type_name_or_base = 4;
+        AccessibleRole match_element_accessible_role = 5;
+    }
+}
+
 // Requests
 
 message RequestWindowListMessage {
@@ -120,6 +151,12 @@ message RequestDispatchWindowEvent {
     WindowEvent event = 2;
 }
 
+message RequestQueryElementDescendants {
+    Handle element_handle = 1;
+    repeated ElementQueryInstruction query_stack = 2;
+    bool find_all = 3;
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
@@ -131,6 +168,7 @@ message RequestToAUT {
         RequestTakeSnapshot request_take_snapshot = 7;
         RequestElementClick request_element_click = 8;
         RequestDispatchWindowEvent request_dispatch_window_event = 9;
+        RequestQueryElementDescendants request_query_element_descendants = 10;
     }
 }
 
@@ -181,27 +219,6 @@ message ElementTypeNameAndId {
     string id = 2;
 }
 
-// Copied from enums.rs - can't be auto-generated :(
-// with one difference: None became Unknown, because None doesn't compile.
-// Upside: AccessKit also uses Unknown :)
-enum AccessibleRole {
-    Unknown = 0;
-    Button = 1;
-    Checkbox = 2;
-    Combobox = 3;
-    List = 4;
-    Slider = 5;
-    Spinbox = 6;
-    Tab = 7;
-    TabList = 8;
-    Text = 9;
-    Table = 10;
-    Tree = 11;
-    ProgressIndicator = 12;
-    TextInput = 13;
-    Switch = 14;
-}
-
 message ElementPropertiesResponse {
     repeated ElementTypeNameAndId type_names_and_ids = 1;
     string accessible_label = 2;
@@ -233,6 +250,10 @@ message ElementClickResponse {
 message DispatchWindowEventResponse {
 }
 
+message ElementQueryResponse {
+    repeated Handle element_handles = 1;
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
@@ -245,5 +266,6 @@ message AUTResponse {
         TakeSnapshotResponse take_snapshot_response = 8;
         ElementClickResponse element_click_response = 9;
         DispatchWindowEventResponse dispatch_window_event_response = 10;
+        ElementQueryResponse element_query_response = 11;
     }
 }
