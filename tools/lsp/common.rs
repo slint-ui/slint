@@ -3,7 +3,6 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
@@ -286,6 +285,20 @@ impl ElementRcNode {
     }
 }
 
+pub struct SingleTextEdit {
+    pub url: Url,
+    pub version: SourceFileVersion,
+    pub edit: TextEdit,
+}
+
+impl SingleTextEdit {
+    pub fn from_path(document_cache: &DocumentCache, path: &Path, edit: TextEdit) -> Option<Self> {
+        let url = Url::from_file_path(path).ok()?;
+        let version = document_cache.document_version_by_path(path);
+        Some(Self { url, version, edit })
+    }
+}
+
 pub fn create_text_document_edit(
     uri: Url,
     version: SourceFileVersion,
@@ -301,50 +314,46 @@ pub fn create_text_document_edit(
     }
 }
 
-pub fn create_workspace_edit_from_text_document_edits(
-    edits: Vec<lsp_types::TextDocumentEdit>,
-) -> WorkspaceEdit {
-    let changes = lsp_types::DocumentChanges::Edits(edits);
-    WorkspaceEdit { document_changes: Some(changes), ..Default::default() }
+pub fn create_workspace_edit_from_path(
+    document_cache: &DocumentCache,
+    path: &Path,
+    edits: Vec<TextEdit>,
+) -> Option<WorkspaceEdit> {
+    let url = Url::from_file_path(path).ok()?;
+    let version = document_cache.document_version_by_path(path);
+    Some(create_workspace_edit(url, version, edits))
 }
 
 pub fn create_workspace_edit(
-    uri: Url,
+    url: Url,
     version: SourceFileVersion,
     edits: Vec<TextEdit>,
 ) -> WorkspaceEdit {
     create_workspace_edit_from_text_document_edits(vec![create_text_document_edit(
-        uri, version, edits,
+        url, version, edits,
     )])
 }
 
-pub fn create_workspace_edit_from_source_file(
-    source_file: &SourceFile,
-    edits: Vec<TextEdit>,
-) -> Option<WorkspaceEdit> {
-    Some(create_workspace_edit(
-        Url::from_file_path(source_file.path()).ok()?,
-        source_file.version(),
-        edits,
-    ))
+pub fn create_workspace_edit_from_text_document_edits(
+    edits: Vec<lsp_types::TextDocumentEdit>,
+) -> WorkspaceEdit {
+    let document_changes = Some(lsp_types::DocumentChanges::Edits(edits));
+    WorkspaceEdit { document_changes, ..Default::default() }
 }
 
-pub fn create_workspace_edit_from_source_files(
-    mut inputs: Vec<(SourceFile, TextEdit)>,
-) -> Option<WorkspaceEdit> {
+pub fn create_workspace_edit_from_single_text_edits(
+    mut inputs: Vec<SingleTextEdit>,
+) -> WorkspaceEdit {
     let mut files: HashMap<
         (Url, SourceFileVersion),
         Vec<lsp_types::OneOf<TextEdit, lsp_types::AnnotatedTextEdit>>,
     > = HashMap::new();
-    inputs.drain(..).for_each(|(sf, edit)| {
-        let url = Url::from_file_path(sf.path()).ok();
-        if let Some(url) = url {
-            let edit = lsp_types::OneOf::Left(edit);
-            files
-                .entry((url, sf.version()))
-                .and_modify(|v| v.push(edit.clone()))
-                .or_insert_with(|| vec![edit]);
-        }
+    inputs.drain(..).for_each(|se| {
+        let edit = lsp_types::OneOf::Left(se.edit);
+        files
+            .entry((se.url, se.version))
+            .and_modify(|v| v.push(edit.clone()))
+            .or_insert_with(|| vec![edit]);
     });
 
     let changes = lsp_types::DocumentChanges::Edits(
@@ -357,7 +366,7 @@ pub fn create_workspace_edit_from_source_files(
             .collect::<Vec<_>>(),
     );
 
-    Some(WorkspaceEdit { document_changes: Some(changes), ..Default::default() })
+    WorkspaceEdit { document_changes: Some(changes), ..Default::default() }
 }
 
 /// A versioned file

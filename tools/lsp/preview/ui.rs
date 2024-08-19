@@ -224,7 +224,8 @@ fn map_property_declaration(
 
     let doc = document_cache.get_document(&da.uri)?;
     let doc_node = doc.node.as_ref()?;
-    let source_version = doc_node.source_file.version().unwrap_or(-1);
+    let source_version =
+        document_cache.document_version_by_path(doc_node.source_file.path()).unwrap_or(-1);
 
     let pos = util::map_to_offset(&doc_node.source_file, da.start_position);
 

@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::{common, util};
 
 use i_slint_compiler::{
-    diagnostics::{SourceFile, Spanned},
+    diagnostics::Spanned,
     object_tree,
     parser::{syntax_nodes, SyntaxKind},
 };
@@ -51,10 +51,11 @@ fn symbol_export_names(document_node: &syntax_nodes::Document, type_name: &str) 
 }
 
 fn replace_element_types(
+    document_cache: &common::DocumentCache,
     element: &syntax_nodes::Element,
     old_type: &str,
     new_type: &str,
-    edits: &mut Vec<(SourceFile, lsp_types::TextEdit)>,
+    edits: &mut Vec<common::SingleTextEdit>,
 ) {
     // HACK: We inject an ignored component into the live preview. Do not
     //       Generate changes for that -- it does not really exist.
@@ -67,13 +68,17 @@ fn replace_element_types(
     }
     if let Some(name) = element.QualifiedName() {
         if name.text().to_string().trim() == old_type {
-            edits.push((
-                element.source_file.clone(),
-                lsp_types::TextEdit {
-                    range: util::map_node(&name).expect("Just had a source_file"),
-                    new_text: new_type.to_string(),
-                },
-            ))
+            edits.push(
+                common::SingleTextEdit::from_path(
+                    document_cache,
+                    element.source_file.path(),
+                    lsp_types::TextEdit {
+                        range: util::map_node(&name).expect("Just had a source_file"),
+                        new_text: new_type.to_string(),
+                    },
+                )
+                .expect("URL conversion can not fail here"),
+            )
         }
     }
 
@@ -81,15 +86,27 @@ fn replace_element_types(
         match c.kind() {
             SyntaxKind::SubElement => {
                 let e: syntax_nodes::SubElement = c.into();
-                replace_element_types(&e.Element(), old_type, new_type, edits);
+                replace_element_types(document_cache, &e.Element(), old_type, new_type, edits);
             }
             SyntaxKind::RepeatedElement => {
                 let e: syntax_nodes::RepeatedElement = c.into();
-                replace_element_types(&e.SubElement().Element(), old_type, new_type, edits);
+                replace_element_types(
+                    document_cache,
+                    &e.SubElement().Element(),
+                    old_type,
+                    new_type,
+                    edits,
+                );
             }
             SyntaxKind::ConditionalElement => {
                 let e: syntax_nodes::ConditionalElement = c.into();
-                replace_element_types(&e.SubElement().Element(), old_type, new_type, edits);
+                replace_element_types(
+                    document_cache,
+                    &e.SubElement().Element(),
+                    old_type,
+                    new_type,
+                    edits,
+                );
             }
             _ => { /* do nothing */ }
         }
@@ -101,7 +118,7 @@ fn fix_imports(
     exporter_path: &Path,
     old_type: &str,
     new_type: &str,
-    edits: &mut Vec<(SourceFile, lsp_types::TextEdit)>,
+    edits: &mut Vec<common::SingleTextEdit>,
 ) {
     let Ok(exporter_url) = Url::from_file_path(exporter_path) else {
         return;
@@ -121,7 +138,7 @@ fn fix_import_in_document(
     exporter_path: &Path,
     old_type: &str,
     new_type: &str,
-    edits: &mut Vec<(SourceFile, lsp_types::TextEdit)>,
+    edits: &mut Vec<common::SingleTextEdit>,
 ) {
     let Some(document_node) = &document.node else {
         return;
@@ -161,13 +178,17 @@ fn fix_import_in_document(
                 continue;
             };
 
-            edits.push((
-                source_file.clone(),
-                lsp_types::TextEdit {
-                    range: util::map_node(&external).expect("Just had a source file"),
-                    new_text: new_type.to_string(),
-                },
-            ));
+            edits.push(
+                common::SingleTextEdit::from_path(
+                    document_cache,
+                    source_file.path(),
+                    lsp_types::TextEdit {
+                        range: util::map_node(&external).expect("Just had a source file"),
+                        new_text: new_type.to_string(),
+                    },
+                )
+                .expect("URL conversion can not fail here"),
+            );
 
             if let Some(internal) = identifier.InternalName() {
                 let internal_name = internal.text().to_string().trim().to_string();
@@ -177,13 +198,17 @@ fn fix_import_in_document(
                         util::map_position(source_file, external.text_range().end());
                     let end_position =
                         util::map_position(source_file, identifier.text_range().end());
-                    edits.push((
-                        source_file.clone(),
-                        lsp_types::TextEdit {
-                            range: lsp_types::Range::new(start_position, end_position),
-                            new_text: String::new(),
-                        },
-                    ));
+                    edits.push(
+                        common::SingleTextEdit::from_path(
+                            document_cache,
+                            source_file.path(),
+                            lsp_types::TextEdit {
+                                range: lsp_types::Range::new(start_position, end_position),
+                                new_text: String::new(),
+                            },
+                        )
+                        .expect("URL conversion can not fail here"),
+                    );
                 }
                 // Nothing else to change: We still use the old internal name.
                 continue;
@@ -193,23 +218,24 @@ fn fix_import_in_document(
             fix_exports(document_cache, document_node, old_type, new_type, edits);
 
             // Change all local usages:
-            change_local_element_type(document_node, old_type, new_type, edits);
+            change_local_element_type(document_cache, document_node, old_type, new_type, edits);
         }
     }
 }
 
 fn change_local_element_type(
+    document_cache: &common::DocumentCache,
     document_node: &syntax_nodes::Document,
     old_type: &str,
     new_type: &str,
-    edits: &mut Vec<(SourceFile, lsp_types::TextEdit)>,
+    edits: &mut Vec<common::SingleTextEdit>,
 ) {
     for component in document_node.Component() {
-        replace_element_types(&component.Element(), old_type, new_type, edits);
+        replace_element_types(document_cache, &component.Element(), old_type, new_type, edits);
     }
     for exported in document_node.ExportsList() {
         if let Some(component) = exported.Component() {
-            replace_element_types(&component.Element(), old_type, new_type, edits);
+            replace_element_types(document_cache, &component.Element(), old_type, new_type, edits);
         }
     }
 }
@@ -219,7 +245,7 @@ fn fix_exports(
     document_node: &syntax_nodes::Document,
     old_type: &str,
     new_type: &str,
-    edits: &mut Vec<(SourceFile, lsp_types::TextEdit)>,
+    edits: &mut Vec<common::SingleTextEdit>,
 ) {
     for export in document_node.ExportsList() {
         for specifier in export.ExportSpecifier() {
@@ -228,14 +254,18 @@ fn fix_exports(
                 let Some(source_file) = identifier.source_file() else {
                     continue;
                 };
-                edits.push((
-                    source_file.clone(),
-                    lsp_types::TextEdit {
-                        range: util::map_node(&identifier)
-                            .expect("This needs to have a source file"),
-                        new_text: new_type.to_string(),
-                    },
-                ));
+                edits.push(
+                    common::SingleTextEdit::from_path(
+                        document_cache,
+                        source_file.path(),
+                        lsp_types::TextEdit {
+                            range: util::map_node(&identifier)
+                                .expect("This needs to have a source file"),
+                            new_text: new_type.to_string(),
+                        },
+                    )
+                    .expect("URL conversion can not fail here"),
+                );
 
                 let update_imports = if let Some(export_name) = specifier.ExportName() {
                     // Remove "as Foo"
@@ -244,13 +274,17 @@ fn fix_exports(
                             util::map_position(source_file, identifier.text_range().end());
                         let end_position =
                             util::map_position(source_file, export_name.text_range().end());
-                        edits.push((
-                            source_file.clone(),
-                            lsp_types::TextEdit {
-                                range: lsp_types::Range::new(start_position, end_position),
-                                new_text: String::new(),
-                            },
-                        ));
+                        edits.push(
+                            common::SingleTextEdit::from_path(
+                                document_cache,
+                                source_file.path(),
+                                lsp_types::TextEdit {
+                                    range: lsp_types::Range::new(start_position, end_position),
+                                    new_text: String::new(),
+                                },
+                            )
+                            .expect("URL conversion can not fail here"),
+                        );
                         true
                     } else {
                         false
@@ -301,16 +335,20 @@ pub fn rename_component_from_definition(
     let mut edits = vec![];
 
     // Replace the identifier itself
-    edits.push((
-        source_file.clone(),
-        lsp_types::TextEdit {
-            range: util::map_node(identifier).expect("This has a source_file"),
-            new_text: new_name.to_string(),
-        },
-    ));
+    edits.push(
+        common::SingleTextEdit::from_path(
+            document_cache,
+            source_file.path(),
+            lsp_types::TextEdit {
+                range: util::map_node(identifier).expect("This has a source_file"),
+                new_text: new_name.to_string(),
+            },
+        )
+        .expect("URL conversion can not fail here"),
+    );
 
     // Change all local usages:
-    change_local_element_type(document_node, &component_type, new_name, &mut edits);
+    change_local_element_type(document_cache, document_node, &component_type, new_name, &mut edits);
 
     // Change exports
     fix_exports(document_cache, document_node, &component_type, new_name, &mut edits);
@@ -322,8 +360,7 @@ pub fn rename_component_from_definition(
         fix_imports(document_cache, my_path, &component_type, new_name, &mut edits);
     }
 
-    common::create_workspace_edit_from_source_files(edits)
-        .ok_or("Failed to create workspace edit".into())
+    Ok(common::create_workspace_edit_from_single_text_edits(edits))
 }
 
 #[cfg(all(test, feature = "preview-engine"))]

@@ -208,7 +208,9 @@ fn add_new_component() {
         return;
     };
 
-    if let Some((edit, drop_data)) = drop_location::add_new_component(&component_name, document) {
+    if let Some((edit, drop_data)) =
+        drop_location::add_new_component(&document_cache, &component_name, document)
+    {
         element_selection::select_element_at_source_code_position(
             drop_data.path,
             drop_data.selection_offset,
