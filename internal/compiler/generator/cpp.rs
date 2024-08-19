@@ -90,6 +90,7 @@ mod cpp_ast {
         pub after_includes: String,
         pub namespace: Option<String>,
         pub declarations: Vec<Declaration>,
+        pub resources: Vec<Declaration>,
         pub definitions: Vec<Declaration>,
     }
 
@@ -119,16 +120,37 @@ mod cpp_ast {
                 _ => {}
             });
 
+            let mut cpp_resources = self
+                .resources
+                .iter_mut()
+                .filter_map(|header_resource| match header_resource {
+                    Declaration::Var(var) => {
+                        var.is_extern = true;
+                        Some(Declaration::Var(Var {
+                            ty: var.ty.clone(),
+                            name: var.name.clone(),
+                            array_size: var.array_size.clone(),
+                            init: std::mem::take(&mut var.init),
+                            is_extern: false,
+                            ..Default::default()
+                        }))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+
             let cpp_includes = vec![format!("\"{header_file_name}\"")];
 
-            let chunk_size = definitions.len() / count;
+            let def_chunk_size = definitions.len() / count;
+            let res_chunk_size = cpp_resources.len() / count;
             cpp_files.extend((0..count - 1).map(|_| File {
                 is_cpp_file: true,
                 includes: cpp_includes.clone(),
                 after_includes: String::new(),
                 namespace: self.namespace.clone(),
                 declarations: Default::default(),
-                definitions: definitions.drain(0..chunk_size).collect(),
+                resources: cpp_resources.drain(0..res_chunk_size).collect(),
+                definitions: definitions.drain(0..def_chunk_size).collect(),
             }));
 
             cpp_files.push(File {
@@ -137,6 +159,7 @@ mod cpp_ast {
                 after_includes: String::new(),
                 namespace: self.namespace.clone(),
                 declarations: Default::default(),
+                resources: cpp_resources,
                 definitions,
             });
 
@@ -161,7 +184,7 @@ mod cpp_ast {
             }
 
             write!(f, "{}", self.after_includes)?;
-            for d in &self.declarations {
+            for d in self.declarations.iter().chain(self.resources.iter()) {
                 write!(f, "\n{}", d)?;
             }
             for d in &self.definitions {
@@ -333,6 +356,7 @@ mod cpp_ast {
     #[derive(Default, Debug)]
     pub struct Var {
         pub is_inline: bool,
+        pub is_extern: bool,
         pub ty: String,
         pub name: String,
         pub array_size: Option<usize>,
@@ -342,6 +366,9 @@ mod cpp_ast {
     impl Display for Var {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
+            if self.is_extern {
+                write!(f, "extern ")?;
+            }
             write!(f, "{} {}", self.ty, self.name)?;
             if let Some(size) = self.array_size {
                 write!(f, "[{}]", size)?;
@@ -612,216 +639,7 @@ pub fn generate(
     file.includes.push("<slint.h>".into());
 
     for (path, er) in doc.embedded_file_resources.borrow().iter() {
-        match &er.kind {
-            crate::embedded_resources::EmbeddedResourcesKind::RawData => {
-                let resource_file =
-                    crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
-                let data = resource_file.read();
-
-                let mut init = "{ ".to_string();
-
-                for (index, byte) in data.iter().enumerate() {
-                    if index > 0 {
-                        init.push(',');
-                    }
-                    write!(&mut init, "0x{:x}", byte).unwrap();
-                    if index % 16 == 0 {
-                        init.push('\n');
-                    }
-                }
-
-                init.push('}');
-
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const uint8_t".into(),
-                    name: format!("slint_embedded_resource_{}", er.id),
-                    array_size: Some(data.len()),
-                    init: Some(init),
-                    ..Default::default()
-                }));
-            }
-            #[cfg(feature = "software-renderer")]
-            crate::embedded_resources::EmbeddedResourcesKind::TextureData(
-                crate::embedded_resources::Texture {
-                    data,
-                    format,
-                    rect,
-                    total_size: crate::embedded_resources::Size { width, height },
-                    original_size:
-                        crate::embedded_resources::Size {
-                            width: unscaled_width,
-                            height: unscaled_height,
-                        },
-                },
-            ) => {
-                let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
-                let color =
-                    if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
-                        format!("slint::Color::from_rgb_uint8({r}, {g}, {b})")
-                    } else {
-                        "slint::Color{}".to_string()
-                    };
-                let count = data.len();
-                let data = data.iter().map(ToString::to_string).join(", ");
-                let data_name = format!("slint_embedded_resource_{}_data", er.id);
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const uint8_t".into(),
-                    name: data_name.clone(),
-                    array_size: Some(count),
-                    init: Some(format!("{{ {data} }}")),
-                    ..Default::default()
-                }));
-                let texture_name = format!("slint_embedded_resource_{}_texture", er.id);
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const slint::cbindgen_private::types::StaticTexture".into(),
-                    name: texture_name.clone(),
-                    array_size: None,
-                    init: Some(format!(
-                        "{{
-                            .rect = {{ {r_x}, {r_y}, {r_w}, {r_h} }},
-                            .format = slint::cbindgen_private::types::PixelFormat::{format},
-                            .color = {color},
-                            .index = 0,
-                            }}"
-                    )),
-                    ..Default::default()
-                }));
-                let init = format!("slint::cbindgen_private::types::StaticTextures {{
-                        .size = {{ {width}, {height} }},
-                        .original_size = {{ {unscaled_width}, {unscaled_height} }},
-                        .data = slint::cbindgen_private::Slice<uint8_t>{{  {data_name} , {count} }},
-                        .textures = slint::cbindgen_private::Slice<slint::cbindgen_private::types::StaticTexture>{{ &{texture_name}, 1 }}
-                    }}");
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const slint::cbindgen_private::types::StaticTextures".into(),
-                    name: format!("slint_embedded_resource_{}", er.id),
-                    array_size: None,
-                    init: Some(init),
-                    ..Default::default()
-                }))
-            }
-            #[cfg(feature = "software-renderer")]
-            crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
-                crate::embedded_resources::BitmapFont {
-                    family_name,
-                    character_map,
-                    units_per_em,
-                    ascent,
-                    descent,
-                    glyphs,
-                    weight,
-                    italic,
-                },
-            ) => {
-                let family_name_var = format!("slint_embedded_resource_{}_family_name", er.id);
-                let family_name_size = family_name.len();
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const uint8_t".into(),
-                    name: family_name_var.clone(),
-                    array_size: Some(family_name_size),
-                    init: Some(format!(
-                        "{{ {} }}",
-                        family_name.as_bytes().iter().map(ToString::to_string).join(", ")
-                    )),
-                    ..Default::default()
-                }));
-
-                let charmap_var = format!("slint_embedded_resource_{}_charmap", er.id);
-                let charmap_size = character_map.len();
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const slint::cbindgen_private::CharacterMapEntry".into(),
-                    name: charmap_var.clone(),
-                    array_size: Some(charmap_size),
-                    init: Some(format!(
-                        "{{ {} }}",
-                        character_map
-                            .iter()
-                            .map(|entry| format!(
-                                "{{ .code_point = {}, .glyph_index = {} }}",
-                                entry.code_point as u32, entry.glyph_index
-                            ))
-                            .join(", ")
-                    )),
-                    ..Default::default()
-                }));
-
-                for (glyphset_index, glyphset) in glyphs.iter().enumerate() {
-                    for (glyph_index, glyph) in glyphset.glyph_data.iter().enumerate() {
-                        file.declarations.push(Declaration::Var(Var {
-                            ty: "const uint8_t".into(),
-                            name: format!(
-                                "slint_embedded_resource_{}_gs_{}_gd_{}",
-                                er.id, glyphset_index, glyph_index
-                            ),
-                            array_size: Some(glyph.data.len()),
-                            init: Some(format!(
-                                "{{ {} }}",
-                                glyph.data.iter().map(ToString::to_string).join(", ")
-                            )),
-                            ..Default::default()
-                        }));
-                    }
-
-                    file.declarations.push(Declaration::Var(Var{
-                        ty: "const slint::cbindgen_private::BitmapGlyph".into(),
-                        name: format!("slint_embedded_resource_{}_glyphset_{}", er.id, glyphset_index),
-                        array_size: Some(glyphset.glyph_data.len()),
-                        init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
-                            format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = slint::cbindgen_private::Slice<uint8_t>{{ {}, {} }} }}",
-                            glyph.x, glyph.y, glyph.width, glyph.height, glyph.x_advance,
-                            format!("slint_embedded_resource_{}_gs_{}_gd_{}", er.id, glyphset_index, glyph_index),
-                            glyph.data.len()
-                        )
-                        }).join(", \n"))),
-                        ..Default::default()
-                    }));
-                }
-
-                let glyphsets_var = format!("slint_embedded_resource_{}_glyphsets", er.id);
-                let glyphsets_size = glyphs.len();
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const slint::cbindgen_private::BitmapGlyphs".into(),
-                    name: glyphsets_var.clone(),
-                    array_size: Some(glyphsets_size),
-                    init: Some(format!(
-                        "{{ {} }}",
-                        glyphs
-                            .iter()
-                            .enumerate()
-                            .map(|(glyphset_index, glyphset)| format!(
-                                "{{ .pixel_size = {}, .glyph_data = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyph>{{
-                                    {}, {}
-                                }}
-                                 }}",
-                                glyphset.pixel_size, format!("slint_embedded_resource_{}_glyphset_{}", er.id, glyphset_index), glyphset.glyph_data.len()
-                            ))
-                            .join(", \n")
-                    )),
-                    ..Default::default()
-                }));
-
-                let init = format!(
-                    "slint::cbindgen_private::BitmapFont {{
-                        .family_name = slint::cbindgen_private::Slice<uint8_t>{{ {family_name_var} , {family_name_size} }},
-                        .character_map = slint::cbindgen_private::Slice<slint::cbindgen_private::CharacterMapEntry>{{ {charmap_var}, {charmap_size} }},
-                        .units_per_em = {units_per_em},
-                        .ascent = {ascent},
-                        .descent = {descent},
-                        .glyphs = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyphs>{{ {glyphsets_var}, {glyphsets_size} }},
-                        .weight = {weight},
-                        .italic = {italic},
-                }}"
-                );
-
-                file.declarations.push(Declaration::Var(Var {
-                    ty: "const slint::cbindgen_private::BitmapFont".into(),
-                    name: format!("slint_embedded_resource_{}", er.id),
-                    array_size: None,
-                    init: Some(init),
-                    ..Default::default()
-                }))
-            }
-        }
+        embed_resource(er, path, &mut file.resources);
     }
 
     for ty in doc.used_types.borrow().structs_and_enums.iter() {
@@ -977,6 +795,219 @@ pub fn generate(
     }
 
     Ok(file)
+}
+
+fn embed_resource(
+    resource: &crate::embedded_resources::EmbeddedResources,
+    path: &String,
+    declarations: &mut Vec<Declaration>,
+) {
+    match &resource.kind {
+        crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+            let resource_file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+            let data = resource_file.read();
+
+            let mut init = "{ ".to_string();
+
+            for (index, byte) in data.iter().enumerate() {
+                if index > 0 {
+                    init.push(',');
+                }
+                write!(&mut init, "0x{:x}", byte).unwrap();
+                if index % 16 == 0 {
+                    init.push('\n');
+                }
+            }
+
+            init.push('}');
+
+            declarations.push(Declaration::Var(Var {
+                ty: "const uint8_t".into(),
+                name: format!("slint_embedded_resource_{}", resource.id),
+                array_size: Some(data.len()),
+                init: Some(init),
+                ..Default::default()
+            }));
+        }
+        #[cfg(feature = "software-renderer")]
+        crate::embedded_resources::EmbeddedResourcesKind::TextureData(
+            crate::embedded_resources::Texture {
+                data,
+                format,
+                rect,
+                total_size: crate::embedded_resources::Size { width, height },
+                original_size:
+                    crate::embedded_resources::Size { width: unscaled_width, height: unscaled_height },
+            },
+        ) => {
+            let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
+            let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format
+            {
+                format!("slint::Color::from_rgb_uint8({r}, {g}, {b})")
+            } else {
+                "slint::Color{}".to_string()
+            };
+            let count = data.len();
+            let data = data.iter().map(ToString::to_string).join(", ");
+            let data_name = format!("slint_embedded_resource_{}_data", resource.id);
+            declarations.push(Declaration::Var(Var {
+                ty: "const uint8_t".into(),
+                name: data_name.clone(),
+                array_size: Some(count),
+                init: Some(format!("{{ {data} }}")),
+                ..Default::default()
+            }));
+            let texture_name = format!("slint_embedded_resource_{}_texture", resource.id);
+            declarations.push(Declaration::Var(Var {
+                ty: "const slint::cbindgen_private::types::StaticTexture".into(),
+                name: texture_name.clone(),
+                array_size: None,
+                init: Some(format!(
+                    "{{
+                            .rect = {{ {r_x}, {r_y}, {r_w}, {r_h} }},
+                            .format = slint::cbindgen_private::types::PixelFormat::{format},
+                            .color = {color},
+                            .index = 0,
+                            }}"
+                )),
+                ..Default::default()
+            }));
+            let init = format!("slint::cbindgen_private::types::StaticTextures {{
+                        .size = {{ {width}, {height} }},
+                        .original_size = {{ {unscaled_width}, {unscaled_height} }},
+                        .data = slint::cbindgen_private::Slice<uint8_t>{{  {data_name} , {count} }},
+                        .textures = slint::cbindgen_private::Slice<slint::cbindgen_private::types::StaticTexture>{{ &{texture_name}, 1 }}
+                    }}");
+            declarations.push(Declaration::Var(Var {
+                ty: "const slint::cbindgen_private::types::StaticTextures".into(),
+                name: format!("slint_embedded_resource_{}", resource.id),
+                array_size: None,
+                init: Some(init),
+                ..Default::default()
+            }))
+        }
+        #[cfg(feature = "software-renderer")]
+        crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
+            crate::embedded_resources::BitmapFont {
+                family_name,
+                character_map,
+                units_per_em,
+                ascent,
+                descent,
+                glyphs,
+                weight,
+                italic,
+            },
+        ) => {
+            let family_name_var = format!("slint_embedded_resource_{}_family_name", resource.id);
+            let family_name_size = family_name.len();
+            declarations.push(Declaration::Var(Var {
+                ty: "const uint8_t".into(),
+                name: family_name_var.clone(),
+                array_size: Some(family_name_size),
+                init: Some(format!(
+                    "{{ {} }}",
+                    family_name.as_bytes().iter().map(ToString::to_string).join(", ")
+                )),
+                ..Default::default()
+            }));
+
+            let charmap_var = format!("slint_embedded_resource_{}_charmap", resource.id);
+            let charmap_size = character_map.len();
+            declarations.push(Declaration::Var(Var {
+                ty: "const slint::cbindgen_private::CharacterMapEntry".into(),
+                name: charmap_var.clone(),
+                array_size: Some(charmap_size),
+                init: Some(format!(
+                    "{{ {} }}",
+                    character_map
+                        .iter()
+                        .map(|entry| format!(
+                            "{{ .code_point = {}, .glyph_index = {} }}",
+                            entry.code_point as u32, entry.glyph_index
+                        ))
+                        .join(", ")
+                )),
+                ..Default::default()
+            }));
+
+            for (glyphset_index, glyphset) in glyphs.iter().enumerate() {
+                for (glyph_index, glyph) in glyphset.glyph_data.iter().enumerate() {
+                    declarations.push(Declaration::Var(Var {
+                        ty: "const uint8_t".into(),
+                        name: format!(
+                            "slint_embedded_resource_{}_gs_{}_gd_{}",
+                            resource.id, glyphset_index, glyph_index
+                        ),
+                        array_size: Some(glyph.data.len()),
+                        init: Some(format!(
+                            "{{ {} }}",
+                            glyph.data.iter().map(ToString::to_string).join(", ")
+                        )),
+                        ..Default::default()
+                    }));
+                }
+
+                declarations.push(Declaration::Var(Var{
+                    ty: "const slint::cbindgen_private::BitmapGlyph".into(),
+                    name: format!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index),
+                    array_size: Some(glyphset.glyph_data.len()),
+                    init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
+                        format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = slint::cbindgen_private::Slice<uint8_t>{{ {}, {} }} }}",
+                        glyph.x, glyph.y, glyph.width, glyph.height, glyph.x_advance,
+                        format!("slint_embedded_resource_{}_gs_{}_gd_{}", resource.id, glyphset_index, glyph_index),
+                        glyph.data.len()
+                    )
+                    }).join(", \n"))),
+                    ..Default::default()
+                }));
+            }
+
+            let glyphsets_var = format!("slint_embedded_resource_{}_glyphsets", resource.id);
+            let glyphsets_size = glyphs.len();
+            declarations.push(Declaration::Var(Var {
+                ty: "const slint::cbindgen_private::BitmapGlyphs".into(),
+                name: glyphsets_var.clone(),
+                array_size: Some(glyphsets_size),
+                init: Some(format!(
+                    "{{ {} }}",
+                    glyphs
+                        .iter()
+                        .enumerate()
+                        .map(|(glyphset_index, glyphset)| format!(
+                            "{{ .pixel_size = {}, .glyph_data = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyph>{{
+                                    {}, {}
+                                }}
+                                 }}",
+                            glyphset.pixel_size, format!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index), glyphset.glyph_data.len()
+                        ))
+                        .join(", \n")
+                )),
+                ..Default::default()
+            }));
+
+            let init = format!(
+                "slint::cbindgen_private::BitmapFont {{
+                        .family_name = slint::cbindgen_private::Slice<uint8_t>{{ {family_name_var} , {family_name_size} }},
+                        .character_map = slint::cbindgen_private::Slice<slint::cbindgen_private::CharacterMapEntry>{{ {charmap_var}, {charmap_size} }},
+                        .units_per_em = {units_per_em},
+                        .ascent = {ascent},
+                        .descent = {descent},
+                        .glyphs = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyphs>{{ {glyphsets_var}, {glyphsets_size} }},
+                        .weight = {weight},
+                        .italic = {italic},
+                }}"
+            );
+
+            declarations.push(Declaration::Var(Var {
+                ty: "const slint::cbindgen_private::BitmapFont".into(),
+                name: format!("slint_embedded_resource_{}", resource.id),
+                array_size: None,
+                init: Some(init),
+                ..Default::default()
+            }))
+        }
+    }
 }
 
 fn generate_struct(
