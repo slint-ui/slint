@@ -421,6 +421,14 @@ pub fn extract_rust_macro(rust_source: String) -> Option<String> {
             *c = b' '
         }
     }
+
+    if start > 0 {
+        bytes[start - 1] = 2;
+    }
+    if end < bytes.len() {
+        bytes[end] = 3;
+    }
+
     for c in &mut bytes[end..] {
         if *c != b'\n' {
             *c = b' '
