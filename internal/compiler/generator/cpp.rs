@@ -97,20 +97,63 @@ mod cpp_ast {
     impl File {
         pub fn split_off_cpp_files(&mut self, header_file_name: String, count: usize) -> Vec<File> {
             let mut cpp_files = Vec::with_capacity(count);
-            if count == 0 {
-                return cpp_files;
-            }
+            if count > 0 {
+                let mut definitions = Vec::new();
 
-            let mut definitions = Vec::new();
-
-            let mut i = 0;
-            while i < self.definitions.len() {
-                if matches!(&self.definitions[i], Declaration::Function(fun) if fun.template_parameters.is_some())
-                {
-                    i += 1;
-                    continue;
+                let mut i = 0;
+                while i < self.definitions.len() {
+                    if matches!(&self.definitions[i], Declaration::Function(fun) if fun.template_parameters.is_some())
+                    {
+                        i += 1;
+                        continue;
+                    }
+                    definitions.push(self.definitions.remove(i));
                 }
-                definitions.push(self.definitions.remove(i));
+
+                let mut cpp_resources = self
+                    .resources
+                    .iter_mut()
+                    .filter_map(|header_resource| match header_resource {
+                        Declaration::Var(var) => {
+                            var.is_extern = true;
+                            Some(Declaration::Var(Var {
+                                ty: var.ty.clone(),
+                                name: var.name.clone(),
+                                array_size: var.array_size.clone(),
+                                init: std::mem::take(&mut var.init),
+                                is_extern: false,
+                                ..Default::default()
+                            }))
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+
+                let cpp_includes = vec![format!("\"{header_file_name}\"")];
+
+                let def_chunk_size = definitions.len() / count;
+                let res_chunk_size = cpp_resources.len() / count;
+                cpp_files.extend((0..count - 1).map(|_| File {
+                    is_cpp_file: true,
+                    includes: cpp_includes.clone(),
+                    after_includes: String::new(),
+                    namespace: self.namespace.clone(),
+                    declarations: Default::default(),
+                    resources: cpp_resources.drain(0..res_chunk_size).collect(),
+                    definitions: definitions.drain(0..def_chunk_size).collect(),
+                }));
+
+                cpp_files.push(File {
+                    is_cpp_file: true,
+                    includes: cpp_includes,
+                    after_includes: String::new(),
+                    namespace: self.namespace.clone(),
+                    declarations: Default::default(),
+                    resources: cpp_resources,
+                    definitions,
+                });
+
+                cpp_files.resize_with(count, Default::default);
             }
 
             // Any definition in the header file is inline.
@@ -119,51 +162,6 @@ mod cpp_ast {
                 Declaration::Var(v) => v.is_inline = true,
                 _ => {}
             });
-
-            let mut cpp_resources = self
-                .resources
-                .iter_mut()
-                .filter_map(|header_resource| match header_resource {
-                    Declaration::Var(var) => {
-                        var.is_extern = true;
-                        Some(Declaration::Var(Var {
-                            ty: var.ty.clone(),
-                            name: var.name.clone(),
-                            array_size: var.array_size.clone(),
-                            init: std::mem::take(&mut var.init),
-                            is_extern: false,
-                            ..Default::default()
-                        }))
-                    }
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-
-            let cpp_includes = vec![format!("\"{header_file_name}\"")];
-
-            let def_chunk_size = definitions.len() / count;
-            let res_chunk_size = cpp_resources.len() / count;
-            cpp_files.extend((0..count - 1).map(|_| File {
-                is_cpp_file: true,
-                includes: cpp_includes.clone(),
-                after_includes: String::new(),
-                namespace: self.namespace.clone(),
-                declarations: Default::default(),
-                resources: cpp_resources.drain(0..res_chunk_size).collect(),
-                definitions: definitions.drain(0..def_chunk_size).collect(),
-            }));
-
-            cpp_files.push(File {
-                is_cpp_file: true,
-                includes: cpp_includes,
-                after_includes: String::new(),
-                namespace: self.namespace.clone(),
-                declarations: Default::default(),
-                resources: cpp_resources,
-                definitions,
-            });
-
-            cpp_files.resize_with(count, Default::default);
 
             cpp_files
         }
