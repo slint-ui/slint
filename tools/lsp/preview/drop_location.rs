@@ -437,11 +437,12 @@ fn insert_position_before_child(
 /// Insert before the first component (exported or not) or at the very end of the document if no
 /// Component is found.
 fn insert_position_before_first_component(
+    document_cache: &common::DocumentCache,
     document: &syntax_nodes::Document,
 ) -> Option<InsertInformation> {
     let url = {
         let url = lsp_types::Url::from_file_path(document.source_file.path()).ok()?;
-        let version = document.source_file.version();
+        let version = document_cache.document_version_by_path(document.source_file.path());
         common::VersionedUrl::new(url, version)
     };
 
@@ -547,10 +548,11 @@ fn insert_position_before_first_component(
 }
 
 pub fn add_new_component(
+    document_cache: &common::DocumentCache,
     component_name: &str,
     document: &syntax_nodes::Document,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
-    let insert_position = insert_position_before_first_component(document)?;
+    let insert_position = insert_position_before_first_component(document_cache, document)?;
     let new_text = format!(
         "{}component {component_name} {{ }}{}",
         insert_position.pre_indent, insert_position.post_indent
@@ -576,7 +578,7 @@ pub fn add_new_component(
     let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
 
     Some((
-        common::create_workspace_edit_from_source_file(&source_file, vec![edit])?,
+        common::create_workspace_edit_from_path(&document_cache, &source_file.path(), vec![edit])?,
         DropData { selection_offset, path },
     ))
 }
@@ -1042,7 +1044,7 @@ pub fn drop_at(
     edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
 
     Some((
-        common::create_workspace_edit_from_source_file(&source_file, edits)?,
+        common::create_workspace_edit_from_path(&document_cache, &source_file.path(), edits)?,
         DropData { selection_offset, path },
     ))
 }
@@ -1107,12 +1109,16 @@ fn extract_text_of_element(
 }
 
 fn node_removal_text_edit(
+    document_cache: &common::DocumentCache,
     node: &SyntaxNode,
     replace_with: String,
-) -> Option<(SourceFile, lsp_types::TextEdit)> {
-    let source_file = node.source_file.clone();
-    let range = util::map_range(&source_file, pretty_node_removal_range(node)?);
-    Some((source_file, lsp_types::TextEdit::new(range, replace_with)))
+) -> Option<common::SingleTextEdit> {
+    let range = util::map_range(&node.source_file.clone(), pretty_node_removal_range(node)?);
+    common::SingleTextEdit::from_path(
+        document_cache,
+        node.source_file.path(),
+        lsp_types::TextEdit::new(range, replace_with),
+    )
 }
 
 pub fn create_move_element_workspace_edit(
@@ -1204,10 +1210,11 @@ pub fn create_move_element_workspace_edit(
 
     let mut edits = Vec::with_capacity(3);
 
-    let remove_me = element
-        .with_decorated_node(|node| node_removal_text_edit(&node, placeholder_text.clone()))?;
-    if remove_me.0.path() == source_file.path() {
-        selection_offset = text_edit::TextOffsetAdjustment::new(&remove_me.1, &source_file)
+    let remove_me = element.with_decorated_node(|node| {
+        node_removal_text_edit(&document_cache, &node, placeholder_text.clone())
+    })?;
+    if remove_me.url.to_file_path().as_ref().map(|p| p.as_path()) == Ok(source_file.path()) {
+        selection_offset = text_edit::TextOffsetAdjustment::new(&remove_me.edit, &source_file)
             .adjust(selection_offset);
     }
     edits.push(remove_me);
@@ -1220,18 +1227,22 @@ pub fn create_move_element_workspace_edit(
                 selection_offset =
                     text_edit::TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
             }
-            edits.push((source_file.clone(), edit));
+            edits.push(common::SingleTextEdit::from_path(
+                &document_cache,
+                &source_file.path(),
+                edit,
+            )?);
         }
     }
 
     edits.extend(
         drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file)
             .drain(..)
-            .map(|te| {
+            .filter_map(|te| {
                 // Abuse map somewhat...
                 selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file)
                     .adjust(selection_offset);
-                (source_file.clone(), te)
+                common::SingleTextEdit::from_path(&document_cache, source_file.path(), te)
             }),
     );
 
@@ -1243,13 +1254,14 @@ pub fn create_move_element_workspace_edit(
             + drop_info.insert_info.replacement_range)
             .into(),
     );
-    edits.push((
-        source_file,
+    edits.push(common::SingleTextEdit::from_path(
+        &document_cache,
+        source_file.path(),
         lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text },
-    ));
+    )?);
 
     Some((
-        common::create_workspace_edit_from_source_files(edits)?,
+        common::create_workspace_edit_from_single_text_edits(edits),
         DropData { selection_offset, path },
     ))
 }
@@ -1333,7 +1345,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
         let edits = edits
             .iter()
-            .map(|(so, eo, t)| {
+            .filter_map(|(so, eo, t)| {
                 let range = util::map_range(
                     source_file,
                     rowan::TextRange::new(
@@ -1341,12 +1353,15 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
                         rowan::TextSize::new(*eo as u32),
                     ),
                 );
-                lsp_types::TextEdit { range, new_text: t.to_string() }
+                common::SingleTextEdit::from_path(
+                    &document_cache,
+                    source_file.path(),
+                    lsp_types::TextEdit { range, new_text: t.to_string() },
+                )
             })
             .collect();
 
-        let workspace_edit =
-            crate::common::create_workspace_edit_from_source_file(source_file, edits).unwrap();
+        let workspace_edit = crate::common::create_workspace_edit_from_single_text_edits(edits);
 
         (document_cache, workspace_edit)
     }
@@ -1433,7 +1448,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         assert_eq!(super::workspace_edit_compiles(&document_cache, &workspace_edit,), true);
     }
 
-    #[track_caller]
+    // #[track_caller]
     fn add_component_test(input: &str, output: &str, selection_offset: u32) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
@@ -1447,7 +1462,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         let doc_node = doc.node.as_ref().unwrap();
 
         let (workspace_edit, drop_data) =
-            super::add_new_component("TestComponent", &doc_node).unwrap();
+            super::add_new_component(&document_cache, "TestComponent", &doc_node).unwrap();
 
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
         assert_eq!(result.len(), 1);

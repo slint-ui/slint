@@ -68,9 +68,10 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
         if url.scheme() == "builtin" {
             continue;
         }
+        let version = document_cache.document_version(&url);
         if let Some(node) = &d.node {
             ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-                url: common::VersionedUrl::new(url, node.source_file.version()),
+                url: common::VersionedUrl::new(url, version),
                 contents: node.text().to_string(),
             })
         }
@@ -374,7 +375,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             token_descr(&mut document_cache, &uri, &params.text_document_position.position)
         {
             let p = tk.parent();
-            let version = p.source_file.version();
+            let version = document_cache.document_version(&uri);
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
                 let edits: Vec<_> = value
                     .into_iter()
@@ -644,7 +645,11 @@ fn get_code_actions(
         ];
         result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
             title: "Wrap in `@tr()`".into(),
-            edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
+            edit: common::create_workspace_edit_from_path(
+                document_cache,
+                token.source_file.path(),
+                edits,
+            ),
             ..Default::default()
         }));
     } else if token.kind() == SyntaxKind::Identifier
@@ -670,8 +675,9 @@ fn get_code_actions(
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("Add import from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: common::create_workspace_edit_from_source_file(
-                            &token.source_file,
+                        edit: common::create_workspace_edit_from_path(
+                            document_cache,
+                            token.source_file.path(),
                             vec![edit],
                         ),
                         ..Default::default()
@@ -705,7 +711,11 @@ fn get_code_actions(
             result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                 title: "Wrap in element".into(),
                 kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
+                edit: common::create_workspace_edit_from_path(
+                    document_cache,
+                    &token.source_file.path(),
+                    edits,
+                ),
                 ..Default::default()
             }));
 
@@ -769,7 +779,11 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Remove element".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
+                    edit: common::create_workspace_edit_from_path(
+                        document_cache,
+                        &token.source_file.path(),
+                        edits,
+                    ),
                     ..Default::default()
                 }));
             }
@@ -792,7 +806,11 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Repeat element".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
+                    edit: common::create_workspace_edit_from_path(
+                        document_cache,
+                        &token.source_file.path(),
+                        edits,
+                    ),
                     ..Default::default()
                 }));
 
@@ -803,7 +821,11 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Make conditional".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
+                    edit: common::create_workspace_edit_from_path(
+                        document_cache,
+                        &token.source_file.path(),
+                        edits,
+                    ),
                     ..Default::default()
                 }));
             }
