@@ -127,7 +127,21 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     }
                     ';' => SyntaxKind::Semicolon,
                     '!' => SyntaxKind::Bang,
-                    '.' => SyntaxKind::Dot,
+                    '.' => {
+                        // `4..log` is lexed as `4 . . log` in rust, but should be `4. . log` in slint
+                        if let Some(last) = vec.last_mut() {
+                            if last.kind == SyntaxKind::NumberLiteral
+                                && are_token_touching(prev_span, p.span()).unwrap_or(false)
+                                && !last.text.contains('.')
+                                && !last.text.ends_with(char::is_alphabetic)
+                            {
+                                last.text = format!("{}.", last.text).into();
+                                prev_span = span;
+                                continue;
+                            }
+                        }
+                        SyntaxKind::Dot
+                    }
                     '+' => SyntaxKind::Plus,
                     '-' => {
                         if let Some(last) = vec.last_mut() {
