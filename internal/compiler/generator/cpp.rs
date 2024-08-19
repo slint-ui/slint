@@ -102,11 +102,15 @@ mod cpp_ast {
 
                 let mut i = 0;
                 while i < self.definitions.len() {
-                    if matches!(&self.definitions[i], Declaration::Function(fun) if fun.template_parameters.is_some())
-                    {
+                    if matches!(
+                        &self.definitions[i],
+                        Declaration::Function(Function { template_parameters: Some(..), .. })
+                            | Declaration::TypeAlias(..)
+                    ) {
                         i += 1;
                         continue;
                     }
+
                     definitions.push(self.definitions.remove(i));
                 }
 
