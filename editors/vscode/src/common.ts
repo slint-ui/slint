@@ -118,6 +118,31 @@ export function languageClientOptions(): LanguageClientOptions {
                 }
                 return actions;
             },
+            window: {
+                async showDocument(params, next: any) {
+                    let cl = client.client;
+                    if (!params.external && cl) {
+                        // If the preview panel is open, the default behavior would be to open a document on the same column.
+                        // But we want to open the document next to it instead.
+                        let panel = wasm_preview.panel();
+                        if (panel && panel.active) {
+                            const uri = cl.protocol2CodeConverter.asUri(params.uri);
+                            let col = panel.viewColumn || 1;
+                            let options: vscode.TextDocumentShowOptions = {
+                                viewColumn: col > 1 ? col - 1 : col + 1,
+                                preserveFocus: !params.takeFocus,
+                            };
+                            if (params.selection !== undefined) {
+                                options.selection = cl.protocol2CodeConverter.asRange(params.selection);
+                            }
+                            await vscode.window.showTextDocument(uri, options);
+
+                            return { success: true };
+                        }
+                    }
+                    return await next(params);
+                }
+            }
         },
     };
 }

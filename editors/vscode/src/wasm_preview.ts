@@ -17,6 +17,10 @@ function use_wasm_preview(): boolean {
         .get("preview.providedByEditor", false);
 }
 
+export function panel(): vscode.WebviewPanel | null {
+    return previewPanel;
+}
+
 export function update_configuration() {
     if (language_client) {
         send_to_lsp({
