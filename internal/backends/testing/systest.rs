@@ -31,8 +31,13 @@ mod proto {
     include!(concat!(env!("OUT_DIR"), "/proto.rs"));
 }
 
+struct TestedWindow {
+    window_adapter: Weak<dyn WindowAdapter>,
+    root_element_handle: proto::Handle,
+}
+
 struct TestingClient {
-    windows: RefCell<generational_arena::Arena<Weak<dyn WindowAdapter>>>,
+    windows: RefCell<generational_arena::Arena<TestedWindow>>,
     element_handles: RefCell<generational_arena::Arena<ElementHandle>>,
     message_loop_future: std::cell::OnceCell<i_slint_core::future::JoinHandle<()>>,
     server_addr: String,
@@ -53,7 +58,15 @@ impl TestingClient {
     }
 
     fn add_window(self: Rc<Self>, adapter: &Rc<dyn WindowAdapter>) {
-        self.windows.borrow_mut().insert(Rc::downgrade(adapter));
+        self.windows.borrow_mut().insert(TestedWindow {
+            window_adapter: Rc::downgrade(adapter),
+            root_element_handle: {
+                let window = adapter.window();
+                let item_tree = WindowInner::from_pub(window).component();
+                let root_wrapper = RootWrapper(&item_tree);
+                self.element_to_handle(root_wrapper.root_element())
+            },
+        });
 
         let this = self.clone();
         self.message_loop_future.get_or_init(|| {
@@ -195,6 +208,7 @@ impl TestingClient {
             is_minimized: window.is_minimized(),
             size: send_physical_size(window.size()).into(),
             position: send_physical_position(window.position()).into(),
+            root_element_handle: self.root_element_handle(window_index)?.into(),
         })
     }
 
@@ -364,6 +378,19 @@ impl TestingClient {
         Ok(())
     }
 
+    fn root_element_handle(
+        &self,
+        window_index: generational_arena::Index,
+    ) -> Result<proto::Handle, String> {
+        Ok(self
+            .windows
+            .borrow()
+            .get(window_index)
+            .ok_or_else(|| "Invalid window handle".to_string())?
+            .root_element_handle
+            .clone())
+    }
+
     fn window_adapter(
         &self,
         window_index: generational_arena::Index,
@@ -372,6 +399,7 @@ impl TestingClient {
             .borrow()
             .get(window_index)
             .ok_or_else(|| "Invalid window handle".to_string())?
+            .window_adapter
             .upgrade()
             .ok_or_else(|| "Attempting to access deleted window".to_string())
     }
