@@ -103,9 +103,7 @@ impl TestingClient {
                     &elements_id,
                 )?;
                 proto::mod_AUTResponse::OneOfmsg::elements(proto::ElementsResponse {
-                    element_handles: elements
-                        .map(|elem| index_to_handle(self.element_handles.borrow_mut().insert(elem)))
-                        .collect(),
+                    element_handles: elements.map(|elem| self.element_to_handle(elem)).collect(),
                 })
             }
             proto::mod_RequestToAUT::OneOfmsg::request_element_properties(
@@ -165,6 +163,20 @@ impl TestingClient {
                 )?;
                 proto::mod_AUTResponse::OneOfmsg::dispatch_window_event_response(
                     proto::DispatchWindowEventResponse {},
+                )
+            }
+            proto::mod_RequestToAUT::OneOfmsg::request_query_element_descendants(
+                proto::RequestQueryElementDescendants { element_handle, query_stack, find_all },
+            ) => {
+                let element = self.element("run element query request", element_handle)?;
+                let elements = self.query_element_descendants(element, query_stack, find_all)?;
+                proto::mod_AUTResponse::OneOfmsg::element_query_response(
+                    proto::ElementQueryResponse {
+                        element_handles: elements
+                            .into_iter()
+                            .map(|elem| self.element_to_handle(elem))
+                            .collect(),
+                    },
                 )
             }
             proto::mod_RequestToAUT::OneOfmsg::None => return Err("Unknown request".into()),
@@ -236,6 +248,38 @@ impl TestingClient {
             .into_iter())
     }
 
+    fn query_element_descendants(
+        &self,
+        element: ElementHandle,
+        query_stack: Vec<proto::ElementQueryInstruction>,
+        find_all: bool,
+    ) -> Result<Vec<crate::ElementHandle>, String> {
+        let mut query = element.query_descendants();
+        for instruction in query_stack {
+            match instruction.instruction {
+                proto::mod_ElementQueryInstruction::OneOfinstruction::match_descendants(_) => {
+                    query = query.match_descendants();
+                }
+                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_id(id) => {
+                    query = query.match_id(id)
+                }
+                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_type_name(type_name) => {
+                    query = query.match_type_name(type_name)
+                }
+                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_type_name_or_base(type_name_or_base) => {
+                    query = query.match_type_name(type_name_or_base)
+                }
+                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_accessible_role(role) => {
+                    query = query.match_accessible_role(convert_from_proto_accessible_role(role).ok_or_else(|| "Unknown accessibility role used in element query".to_string())?)
+                }
+                proto::mod_ElementQueryInstruction::OneOfinstruction::None => {
+                    return Err("unknown element query instruction".into());
+                }
+            }
+        }
+        Ok(if find_all { query.find_all() } else { query.find_first().into_iter().collect() })
+    }
+
     fn element(
         &self,
         request: &'static str,
@@ -257,6 +301,10 @@ impl TestingClient {
             ));
         }
         Ok(element)
+    }
+
+    fn element_to_handle(&self, element: ElementHandle) -> proto::Handle {
+        index_to_handle(self.element_handles.borrow_mut().insert(element))
     }
 
     fn element_properties(
@@ -290,7 +338,7 @@ impl TestingClient {
             accessible_checkable: element.accessible_checkable().unwrap_or_default(),
             size: send_logical_size(element.size()).into(),
             absolute_position: send_logical_position(element.absolute_position()).into(),
-            accessible_role: convert_accessible_role(element.accessible_role().unwrap())
+            accessible_role: convert_to_proto_accessible_role(element.accessible_role().unwrap())
                 .unwrap_or_default(),
         })
     }
@@ -424,7 +472,7 @@ fn convert_logical_position(pos: proto::LogicalPosition) -> i_slint_core::api::L
     i_slint_core::api::LogicalPosition { x: pos.x, y: pos.y }
 }
 
-fn convert_accessible_role(
+fn convert_to_proto_accessible_role(
     role: i_slint_core::items::AccessibleRole,
 ) -> Option<proto::AccessibleRole> {
     Some(match role {
@@ -446,6 +494,30 @@ fn convert_accessible_role(
         i_slint_core::items::AccessibleRole::TextInput => proto::AccessibleRole::TextInput,
         i_slint_core::items::AccessibleRole::Switch => proto::AccessibleRole::Switch,
         _ => return None,
+    })
+}
+
+fn convert_from_proto_accessible_role(
+    role: proto::AccessibleRole,
+) -> Option<i_slint_core::items::AccessibleRole> {
+    Some(match role {
+        proto::AccessibleRole::Unknown => i_slint_core::items::AccessibleRole::None,
+        proto::AccessibleRole::Button => i_slint_core::items::AccessibleRole::Button,
+        proto::AccessibleRole::Checkbox => i_slint_core::items::AccessibleRole::Checkbox,
+        proto::AccessibleRole::Combobox => i_slint_core::items::AccessibleRole::Combobox,
+        proto::AccessibleRole::List => i_slint_core::items::AccessibleRole::List,
+        proto::AccessibleRole::Slider => i_slint_core::items::AccessibleRole::Slider,
+        proto::AccessibleRole::Spinbox => i_slint_core::items::AccessibleRole::Spinbox,
+        proto::AccessibleRole::Tab => i_slint_core::items::AccessibleRole::Tab,
+        proto::AccessibleRole::TabList => i_slint_core::items::AccessibleRole::TabList,
+        proto::AccessibleRole::Text => i_slint_core::items::AccessibleRole::Text,
+        proto::AccessibleRole::Table => i_slint_core::items::AccessibleRole::Table,
+        proto::AccessibleRole::Tree => i_slint_core::items::AccessibleRole::Tree,
+        proto::AccessibleRole::ProgressIndicator => {
+            i_slint_core::items::AccessibleRole::ProgressIndicator
+        }
+        proto::AccessibleRole::TextInput => i_slint_core::items::AccessibleRole::TextInput,
+        proto::AccessibleRole::Switch => i_slint_core::items::AccessibleRole::Switch,
     })
 }
 
@@ -525,7 +597,7 @@ fn convert_window_event(
 fn test_accessibility_role_mapping_complete() {
     macro_rules! test_accessiblity_enum_mapping_inner {
         (AccessibleRole, $($Value:ident,)*) => {
-            $(assert!(convert_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
+            $(assert!(convert_to_proto_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
         };
         ($_:ident, $($Value:ident,)*) => {};
     }
