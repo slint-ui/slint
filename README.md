@@ -74,9 +74,11 @@ support for users with special needs.
 
 ### Web using WebAssembly
 
-| Printer Demo                                | Slide Puzzle                                 | Energy Monitor                                       | Widget Gallery                                |
-| ------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
-| [![Screenshot of the Printer Demo][#7]][#8] | [![Screenshot of the Slide Puzzle][#9]][#10] | [![Screenshot of the Energy Monitor Demo][#11]][#12] | [![Screenshot of the Gallery Demo][#13]][#14] |
+| Printer Demo                                | Slide Puzzle                                 | Energy Monitor                                       | Widget Gallery                                | Weather demo                                  |
+| ------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- | --------------------------------------------- |
+| [![Screenshot of the Printer Demo][#7]][#8] | [![Screenshot of the Slide Puzzle][#9]][#10] | [![Screenshot of the Energy Monitor Demo][#11]][#12] | [![Screenshot of the Gallery Demo][#13]][#14] | [![Screenshot of the weather Demo][#29]][#30] |
+
+More examples and demos in the [examples folder](examples#examples)
 
 ## Get Started
 
@@ -257,3 +259,6 @@ You can of course also contact us privately via email to [info@slint.dev](mailto
 [#26]: https://slint.dev/latest/docs/node
 [#27]: https://slint.dev/latest/docs/quickstart/node
 [#28]: https://github.com/slint-ui/slint-nodejs-template
+[#29]: ./examples/weather-demo/docs/img/desktop-preview.png "Weather Demo"
+[#30]: https://slint.dev/demos/weather-demo/
+
