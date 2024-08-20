@@ -184,6 +184,20 @@ and your display expecting a different byte order. Typically, esp32 devices are 
 expect big-endian or `esp_lcd` configures them accordingly. Therefore, by default Slint converts pixels to big-endian.
 If your display controller expects little endian, set the `color_swap_16` field in `SlintPlatformConfiguration` to `false`.
 
+### Errors about multiple symbol definitions when linking
+
+You see errors at application link time such as these:
+
+```
+compiler_builtins.4c2482f45199cb1e-cgu.05:(.text.__udivdi3+0x0): multiple definition of `__udivdi3'; .../libgcc.a(_udivdi3.o): first defined here
+```
+
+Solution: Add `-Wl,--allow-multiple-definition` to your linker flags by using the following cmake command:
+
+```cmake
+target_link_options(${COMPONENT_LIB} PUBLIC -Wl,--allow-multiple-definition)
+```
+
 ## License
 
 You can use Slint under ***any*** of the following licenses, at your choice:
