@@ -16,7 +16,7 @@ thread_local! {
 }
 
 pub(crate) struct SlintContextInner {
-    pub(crate) platform: Box<dyn Platform>,
+    platform: Box<dyn Platform>,
     pub(crate) window_count: core::cell::RefCell<isize>,
     /// This property is read by all translations, and marked dirty when the language change
     /// so that every translated string gets re-translated
@@ -42,6 +42,11 @@ impl SlintContext {
         }))
     }
 
+    /// Return a reference to the platform abstraction
+    pub fn platform(&self) -> &dyn Platform {
+        &*self.0.platform
+    }
+
     /// Return an event proxy
     // FIXME: Make EvenLoopProxy clonable, and maybe wrap in a struct
     pub fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
@@ -49,7 +54,7 @@ impl SlintContext {
     }
 
     #[cfg(target_has_atomic = "ptr")]
-    /// Context specific version of [`slint::spawn_local`](crate::future::spawn_local)
+    /// Context specific version of `slint::spawn_local`
     pub fn spawn_local<F: core::future::Future + 'static>(
         &self,
         fut: F,
@@ -62,18 +67,18 @@ impl SlintContext {
     }
 }
 
-/// Internal function to access the platform abstraction.
+/// Internal function to access the context.
 /// The factory function is called if the platform abstraction is not yet
 /// initialized, and should be given by the platform_selector
-pub fn with_platform<R>(
+pub fn with_global_context<R>(
     factory: impl FnOnce() -> Result<Box<dyn Platform + 'static>, PlatformError>,
-    f: impl FnOnce(&dyn Platform) -> Result<R, PlatformError>,
+    f: impl FnOnce(&SlintContext) -> R,
 ) -> Result<R, PlatformError> {
     GLOBAL_CONTEXT.with(|p| match p.get() {
-        Some(ctx) => f(&*ctx.0.platform),
+        Some(ctx) => Ok(f(ctx)),
         None => {
             crate::platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
-            f(&*p.get().unwrap().0.platform)
+            Ok(f(p.get().unwrap()))
         }
     })
 }

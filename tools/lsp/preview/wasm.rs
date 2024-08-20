@@ -180,7 +180,7 @@ fn invoke_from_event_loop_wrapped_in_promise(
 pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
     create_future: impl Send + FnOnce() -> F + 'static,
 ) -> Result<(), String> {
-    i_slint_core::future::spawn_local(create_future()).map_err(|e| e.to_string())?;
+    slint::spawn_local(create_future()).map_err(|e| e.to_string())?;
     Ok(())
 }
 

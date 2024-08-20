@@ -18,6 +18,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::SlintContext;
 
 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
 fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
@@ -133,8 +134,14 @@ cfg_if::cfg_if! {
 pub fn with_platform<R>(
     f: impl FnOnce(&dyn Platform) -> Result<R, PlatformError>,
 ) -> Result<R, PlatformError> {
+    with_global_context(|ctx| f(ctx.platform()))?
+}
+
+/// Run the callback with the [`SlintContext`].
+/// Create the backend if it does not exist yet
+pub fn with_global_context<R>(f: impl FnOnce(&SlintContext) -> R) -> Result<R, PlatformError> {
     let mut platform_created = false;
-    let result = i_slint_core::with_platform(
+    let result = i_slint_core::with_global_context(
         || {
             let backend = create_backend();
             platform_created = backend.is_ok();

@@ -284,7 +284,7 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
                     let args = args.clone();
                     let w2 = w2.clone();
                     i_slint_core::api::invoke_from_event_loop(move || {
-                        i_slint_core::future::spawn_local(reload(args, w2)).unwrap();
+                        slint_interpreter::spawn_local(reload(args, w2)).unwrap();
                     })
                     .unwrap();
                 }

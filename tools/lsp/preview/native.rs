@@ -53,7 +53,7 @@ pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
         }
     }
     i_slint_core::api::invoke_from_event_loop(move || {
-        i_slint_core::future::spawn_local(create_future()).unwrap();
+        slint::spawn_local(create_future()).unwrap();
     })
     .unwrap();
     Ok(())

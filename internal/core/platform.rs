@@ -249,7 +249,7 @@ pub fn update_timers_and_animations() {
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     crate::timers::TimerList::next_timeout().map(|timeout| {
         let duration_since_start = crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().map(|p| p.0.platform.duration_since_start()))
+            .with(|p| p.get().map(|p| p.platform().duration_since_start()))
             .unwrap_or_default();
         core::time::Duration::from_millis(
             timeout.0.saturating_sub(duration_since_start.as_millis() as u64),

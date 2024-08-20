@@ -70,16 +70,21 @@ impl TestingClient {
 
         let this = self.clone();
         self.message_loop_future.get_or_init(|| {
-            i_slint_core::future::spawn_local({
-                let this = this.clone();
-                async move {
-                    message_loop(&this.server_addr, |request| {
-                        let this = this.clone();
-                        Box::pin(async move { this.handle_request(request).await })
-                    })
-                    .await;
-                }
-            })
+            i_slint_core::with_global_context(
+                || panic!("uninitialized platform"),
+                |context| {
+                    let this = this.clone();
+                    context
+                        .spawn_local(async move {
+                            message_loop(&this.server_addr, |request| {
+                                let this = this.clone();
+                                Box::pin(async move { this.handle_request(request).await })
+                            })
+                            .await;
+                        })
+                        .unwrap()
+                },
+            )
             .unwrap()
         });
     }
