@@ -1,5 +1,42 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export { StyleMetrics, ScrollView, Button, LineEdit, Switch, ListItem, Palette } from "../material-base/std-widgets-impl.slint";
+// widget imports
+export { Button } from "button.slint";
+export { CheckBox } from "checkbox.slint";
+export { ScrollView } from "scrollview.slint";
+import { MaterialPalette } from "styling.slint";
+export { Switch } from "switch.slint";
+export { ListItem } from "components.slint";
+export { LineEdit } from "lineedit.slint";
 
+
+export global StyleMetrics  {
+    out property <length> layout-spacing: 16px;
+    out property <length> layout-padding: 16px;
+    out property <length> text-cursor-width: 2px;
+
+    out property <color> default-text-color: MaterialPalette.foreground;
+    out property <color> textedit-background: transparent;
+    out property <color> textedit-text-color: MaterialPalette.foreground;
+    out property <color> textedit-background-disabled: transparent;
+    out property <color> textedit-text-color-disabled: MaterialPalette.foreground;
+    out property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    out property <string> default-font-family: "Roboto";
+    out property <color> window-background: MaterialPalette.background;
+}
+
+export global Palette {
+    out property <brush> background: MaterialPalette.background;
+    out property <brush> foreground: MaterialPalette.foreground;
+    out property <brush> alternate-background: MaterialPalette.alternate-background;
+    out property <brush> alternate-foreground: MaterialPalette.alternate-foreground;
+    out property <brush> control-background: MaterialPalette.control-background;
+    out property <brush> control-foreground: MaterialPalette.control-foreground;
+    out property <brush> accent-background: MaterialPalette.accent-background;
+    out property <brush> accent-foreground: MaterialPalette.accent-foreground;
+    out property <brush> selection-background: MaterialPalette.selection-background;
+    out property <brush> selection-foreground: MaterialPalette.selection-foreground;
+    out property <brush> border: MaterialPalette.border;
+    in-out property <ColorScheme> color-scheme <=> MaterialPalette.color-scheme;
+}

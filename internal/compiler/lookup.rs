@@ -817,12 +817,21 @@ impl LookupObject for SlintInternal {
         use Expression::BuiltinFunctionReference as BFR;
         let sl = || ctx.current_token.as_ref().map(|t| t.to_source_location());
         None.or_else(|| {
+            let style = ctx.type_loader.and_then(|tl| tl.compiler_config.style.as_ref());
             f(
                 "color-scheme",
-                Expression::FunctionCall {
-                    function: BFR(BuiltinFunction::ColorScheme, None).into(),
-                    arguments: vec![],
-                    source_location: sl(),
+                if style.is_some_and(|s| s.ends_with("-light")) {
+                    let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone());
+                    Expression::EnumerationValue(e.try_value_from_string("light").unwrap())
+                } else if style.is_some_and(|s| s.ends_with("-dark")) {
+                    let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone());
+                    Expression::EnumerationValue(e.try_value_from_string("dark").unwrap())
+                } else {
+                    Expression::FunctionCall {
+                        function: BFR(BuiltinFunction::ColorScheme, None).into(),
+                        arguments: vec![],
+                        source_location: sl(),
+                    }
                 }
                 .into(),
             )
