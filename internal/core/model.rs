@@ -313,7 +313,7 @@ impl<M: Model> Model for Rc<M> {
     }
 }
 
-/// A [`Model`] backed by a `Vec<T>`
+/// A [`Model`] backed by a `Vec<T>`, using interior mutability.
 #[derive(Default)]
 pub struct VecModel<T> {
     array: RefCell<Vec<T>>,
