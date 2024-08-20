@@ -1280,7 +1280,8 @@ impl TypeLoader {
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
-        dependency_registry.borrow_mut().expose_internal_types = is_builtin;
+        dependency_registry.borrow_mut().expose_internal_types =
+            is_builtin || state.borrow().tl.compiler_config.enable_experimental;
         let (foreign_imports, reexports) = Self::load_dependencies_recursively_impl(
             state,
             &dependency_doc,
