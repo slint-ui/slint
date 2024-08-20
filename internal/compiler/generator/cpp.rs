@@ -371,6 +371,9 @@ mod cpp_ast {
             if self.is_extern {
                 write!(f, "extern ")?;
             }
+            if self.is_inline {
+                write!(f, "inline ")?;
+            }
             write!(f, "{} {}", self.ty, self.name)?;
             if let Some(size) = self.array_size {
                 write!(f, "[{}]", size)?;

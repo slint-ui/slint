@@ -3,5 +3,5 @@
 
 add_executable(multiple-includes main.cpp logic.cpp)
 target_link_libraries(multiple-includes PRIVATE Slint::Slint)
-slint_target_sources(multiple-includes appwindow.slint)
+slint_target_sources(multiple-includes appwindow.slint COMPILATION_UNITS 0)
 
