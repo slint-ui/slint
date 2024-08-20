@@ -450,7 +450,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         );
 
         // Remove the "button" implementation details. They must be at the start:
-        let button_path = PathBuf::from("builtin:/fluent-base/button.slint");
+        let button_path = PathBuf::from("builtin:/fluent/button.slint");
         let first_non_button = covers_center
             .iter()
             .position(|sc| {
@@ -490,7 +490,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
     fn test_element_selection() {
         let component_instance = demo_app();
 
-        let button_path = PathBuf::from("builtin:/fluent-base/button.slint");
+        let button_path = PathBuf::from("builtin:/fluent/button.slint");
         let mut covers_center = super::collect_all_element_nodes_covering(
             LogicalPoint::new(100.0, 100.0),
             &component_instance,

@@ -88,6 +88,17 @@ mod builtin_library {
 
     use super::VirtualFile;
 
+    const ALIASES: &[(&str, &str)] = &[
+        ("cosmic-light", "cosmic"),
+        ("cosmic-dark", "cosmic"),
+        ("fluent-light", "fluent"),
+        ("fluent-dark", "fluent"),
+        ("material-light", "material"),
+        ("material-dark", "material"),
+        ("cupertino-light", "cupertino"),
+        ("cupertino-dark", "cupertino"),
+    ];
+
     pub(crate) fn styles() -> Vec<&'static str> {
         widget_library()
             .iter()
@@ -98,6 +109,7 @@ mod builtin_library {
                     None
                 }
             })
+            .chain(ALIASES.iter().map(|x| x.0))
             .collect()
     }
 
@@ -108,6 +120,11 @@ mod builtin_library {
                 components.pop();
             } else if part != "." {
                 components.push(part);
+            }
+        }
+        if let Some(f) = components.first_mut() {
+            if let Some((_, x)) = ALIASES.iter().find(|x| x.0 == *f) {
+                *f = std::ffi::OsStr::new(x);
             }
         }
         if let &[folder, file] = components.as_slice() {
