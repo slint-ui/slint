@@ -12,6 +12,7 @@ use i_slint_core::window::WindowInner;
 use i_slint_core::{PathData, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -572,11 +573,8 @@ impl ComponentCompiler {
     /// was not in place (i.e: load from the file system following the include paths)
     pub fn set_file_loader(
         &mut self,
-        file_loader_fallback: impl Fn(
-                &Path,
-            ) -> core::pin::Pin<
-                Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
-            > + 'static,
+        file_loader_fallback: impl Fn(&Path) -> core::pin::Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>
+            + 'static,
     ) {
         self.config.open_import_fallback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
@@ -737,11 +735,8 @@ impl Compiler {
     /// was not in place (i.e: load from the file system following the include paths)
     pub fn set_file_loader(
         &mut self,
-        file_loader_fallback: impl Fn(
-                &Path,
-            ) -> core::pin::Pin<
-                Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
-            > + 'static,
+        file_loader_fallback: impl Fn(&Path) -> core::pin::Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>
+            + 'static,
     ) {
         self.config.open_import_fallback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
@@ -1570,6 +1565,14 @@ pub enum InvokeError {
 /// and react to user input.
 pub fn run_event_loop() -> Result<(), PlatformError> {
     i_slint_backend_selector::with_platform(|b| b.run_event_loop())
+}
+
+/// Spawns a [`Future`] to execute in the Slint event loop.
+///
+/// See the documentation of `slint::spawn_local()` for more info
+pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.spawn_local(fut))
+        .map_err(|_| EventLoopError::NoEventLoopProvider)?
 }
 
 #[cfg(all(feature = "internal", target_arch = "wasm32"))]

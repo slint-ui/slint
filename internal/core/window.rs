@@ -554,7 +554,7 @@ impl WindowInner {
         crate::animations::update_animations();
 
         // handle multiple press release
-        event = self.click_state.check_repeat(event, self.ctx.0.platform.click_interval());
+        event = self.click_state.check_repeat(event, self.ctx.platform().click_interval());
 
         let pressed_event = matches!(event, MouseEvent::Pressed { .. });
         let released_event = matches!(event, MouseEvent::Released { .. });
@@ -625,7 +625,7 @@ impl WindowInner {
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
-            self.click_state.check_repeat(event, self.ctx.0.platform.click_interval());
+            self.click_state.check_repeat(event, self.ctx.platform().click_interval());
         }
 
         self.mouse_input_state.set(mouse_input_state);

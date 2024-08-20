@@ -251,6 +251,93 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
     })
 }
 
+/// Spawns a [`Future`](core::future::Future) to execute in the Slint event loop.
+///
+/// This function is intended to be invoked only from the main Slint thread that runs the event loop.
+///
+/// For spawning a `Send` future from a different thread, this function should be called from a closure
+/// passed to [`invoke_from_event_loop()`].
+///
+/// This function is typically called from a UI callback.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// slint::spawn_local(async move {
+///     // your async code goes here
+/// }).unwrap();
+/// ```
+///
+/// # Compatibility with Tokio and other runtimes
+///
+/// The runtime used to execute the future on the main thread is platform-dependent,
+/// for instance, it could be the winit event loop. Therefore, futures that assume a specific runtime
+/// may not work. This may be an issue if you call `.await` on a future created by another
+/// runtime, or pass the future directly to `spawn_local`.
+///
+/// Futures from the [smol](https://docs.rs/smol/latest/smol/) runtime always hand off their work to
+/// separate I/O threads that run in parallel to the Slint event loop.
+///
+/// The [Tokio](https://docs.rs/tokio/latest/tokio/index.html) runtime is to the following constraints:
+///
+/// * Tokio futures require entering the context of a global Tokio runtime.
+/// * Tokio futures aren't guaranteed to hand off their work to separate threads and may therefore not complete, because
+/// the Slint runtime can't drive the Tokio runtime.
+/// * Tokio futures require regular yielding to the Tokio runtime for fairness, a constraint that also can't be met by Slint.
+/// * Tokio's [current-thread schedule](https://docs.rs/tokio/latest/tokio/runtime/index.html#current-thread-scheduler)
+/// cannot be used in Slint main thread, because Slint cannot yield to it.
+///
+/// To address these constraints, use [async_compat](https://docs.rs/async-compat/latest/async_compat/index.html)'s [Compat::new()](https://docs.rs/async-compat/latest/async_compat/struct.Compat.html#method.new)
+/// to implicitly allocate a shared, multi-threaded Tokio runtime that will be used for Tokio futures.
+///
+/// The following little example demonstrates the use of Tokio's [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) to
+/// read from a network socket. The entire future passed to `spawn_local()` is wrapped in `Compat::new()` to make it run:
+///
+/// ```rust,no_run
+/// // A dummy TCP server that once reports "Hello World"
+/// # i_slint_backend_testing::init_integration_test_with_mock_time();
+/// use std::io::Write;
+///
+/// let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+/// let local_addr = listener.local_addr().unwrap();
+/// let server = std::thread::spawn(move || {
+///     let mut stream = listener.incoming().next().unwrap().unwrap();
+///     stream.write("Hello World".as_bytes()).unwrap();
+/// });
+///
+/// let slint_future = async move {
+///     use tokio::io::AsyncReadExt;
+///     let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
+///     let mut data = Vec::new();
+///     stream.read_to_end(&mut data).await.unwrap();
+///     assert_eq!(data, "Hello World".as_bytes());
+///     slint::quit_event_loop().unwrap();
+/// };
+///
+/// // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
+/// // presence of a Tokio run-time.
+/// slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
+///
+/// slint::run_event_loop_until_quit().unwrap();
+///
+/// server.join().unwrap();
+/// ```
+///
+/// The use of `#[tokio::main]` is **not recommended**. If it's necessary to use though, wrap the call to enter the Slint
+/// event loop  in a call to [`tokio::task::block_in_place`](https://docs.rs/tokio/latest/tokio/task/fn.block_in_place.html):
+///
+/// ```rust, no_run
+/// // Wrap the call to run_event_loop to ensure presence of a Tokio run-time.
+/// tokio::task::block_in_place(slint::run_event_loop).unwrap();
+/// ```
+#[cfg(target_has_atomic = "ptr")]
+pub fn spawn_local<F: core::future::Future + 'static>(
+    fut: F,
+) -> Result<JoinHandle<F::Output>, EventLoopError> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.spawn_local(fut))
+        .map_err(|_| EventLoopError::NoEventLoopProvider)?
+}
+
 /// Include the code generated with the slint-build crate from the build script. After calling `slint_build::compile`
 /// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
 /// available for you to instantiate.

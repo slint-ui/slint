@@ -41,6 +41,19 @@ mod executor {
 fn main() {
     i_slint_backend_testing::init_integration_test_with_mock_time();
 
+    // test_spawn_local_from_thread
+    std::thread::spawn(|| {
+        assert_eq!(
+            slint::spawn_local(async {
+                panic!("the future shouldn't be run since we're in a thread")
+            })
+            .map(drop),
+            Err(slint::EventLoopError::NoEventLoopProvider)
+        );
+    })
+    .join()
+    .unwrap();
+
     slint::invoke_from_event_loop(|| {
         let handle = slint::spawn_local(async { String::from("Hello") }).unwrap();
         slint::spawn_local(async move { panic!("Aborted task") }).unwrap().abort();
