@@ -212,22 +212,6 @@ impl TextEditor {
         Ok(())
     }
 
-    pub fn apply_versioned(
-        &mut self,
-        text_edit: &lsp_types::TextEdit,
-        document_version: common::SourceFileVersion,
-    ) -> crate::Result<()> {
-        if let Some(expected) = document_version {
-            if let Some(actual) = self.source_file.version() {
-                if expected != actual {
-                    return Err(format!("Source file {:?} version mismatch (expected: {expected}, actual: {actual})", self.source_file.path()).into());
-                }
-            }
-        }
-
-        self.apply(text_edit)
-    }
-
     pub fn finalize(self) -> Option<(String, TextOffsetAdjustments, (usize, usize))> {
         (!self.adjustments.is_empty()).then_some((
             self.contents,
@@ -261,10 +245,7 @@ pub fn apply_workspace_edit(
             processing.insert(doc.uri.clone(), editor);
         }
 
-        processing
-            .get_mut(&doc.uri)
-            .expect("just added if missing")
-            .apply_versioned(edit, doc.version)?;
+        processing.get_mut(&doc.uri).expect("just added if missing").apply(edit)?;
     }
 
     Ok(processing
@@ -801,28 +782,6 @@ fn test_texteditor_no_content_in_source_file() {
     let source_file = SourceFileInner::from_path_only(std::path::PathBuf::from("/tmp/foo.slint"));
 
     assert!(TextEditor::new(source_file).is_err());
-}
-
-#[test]
-fn test_texteditor_version_mismatch() {
-    use i_slint_compiler::diagnostics::SourceFileInner;
-
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
-        r#""#.to_string(),
-        Some(42),
-    ));
-
-    let mut editor = TextEditor::new(source_file.clone()).unwrap();
-
-    let edit = lsp_types::TextEdit {
-        range: lsp_types::Range::new(
-            lsp_types::Position::new(0, 0),
-            lsp_types::Position::new(0, 0),
-        ),
-        new_text: "Foobar".to_string(),
-    };
-    assert!(editor.apply_versioned(&edit, Some(23)).is_err());
 }
 
 #[test]
