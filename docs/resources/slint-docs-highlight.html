@@ -9,11 +9,11 @@
   function highlight_slint(hljs) {
     const KEYWORDS = {
       keyword:
-        "animate callback component export for function global if import in in-out inherits out parent private property public pure root self signal states struct transitions",
+        "animate callback changed component enum export for function global if import in in-out inherits out parent private property public pure root self states struct",
       literal: "false true",
       built_in:
         "ArcTo Clip Close Colors CubicTo Flickable FocusScope GridLayout HorizontalLayout Image LineTo Math MoveTo Path PopupWindow QuadraticTo Rectangle Row Text TextInput TouchArea VerticalLayout Window animation-tick debug",
-      type: "bool duration easing float int length logical_length relative-font-size resource string",
+      type: "bool duration easing float int length logical-length relative-font-size string",
     };
 
     return {
@@ -65,7 +65,8 @@
 
       // Some of the rustdoc selectors require the pre element to have the rust class
       for (codeBlock of document.querySelectorAll(".language-slint.hljs")) {
-        codeBlock.parentElement.classList.add("rust")
+        codeBlock.classList.add("rust");
+        codeBlock.classList.remove("hljs");
       }
 
       // Change the hljs generated classes to the rustdoc
