@@ -800,7 +800,7 @@ assert_eq!(state.borrow().variable2, 2);
 ```
  */
 #[cfg(doctest)]
-const _BUG3029: () = ();
+const _BUG3019: () = ();
 
 /**
  * Test that starting a singleshot timer works
