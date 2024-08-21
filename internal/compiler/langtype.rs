@@ -341,6 +341,7 @@ impl Type {
         match self {
             Type::UnitProduct(u) => Some(u.clone()),
             Type::Float32 | Type::Int32 => Some(Vec::new()),
+            Type::Percent => Some(Vec::new()),
             _ => self.default_unit().map(|u| vec![(u, 1)]),
         }
     }
