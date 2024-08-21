@@ -147,7 +147,11 @@ License: OFL-1.1
 Files: examples/weather-demo/android-res/*/ic_launcher.png
 Copyright: Copyright © Felgo GmbH <contact@felgo.com>
 License: CC-BY-ND-4.0
-
+x
 Files: examples/weather-demo/ui/assets/felgo-logo.svg
 Copyright: Copyright © Felgo GmbH <contact@felgo.com>
 License: CC-BY-ND-4.0
+
+Files: editors/vscode/pnpm-lock.yaml
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
