@@ -1993,11 +1993,11 @@ impl MemberAccess {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 let r = f(quote!(x));
-                quote!(let _ = #t.map(|x| #r);)
+                quote!({ let _ = #t.map(|x| #r); })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
-                quote!(let _ = #opt.as_ref().map(#r);)
+                quote!({ let _ = #opt.as_ref().map(#r); })
             }
         }
     }
