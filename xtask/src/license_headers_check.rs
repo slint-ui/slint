@@ -428,7 +428,7 @@ lazy_static! {
         ("(^|/)partitions\\.csv$", LicenseLocation::NoLicense),
         ("(^|/)sdkconfig", LicenseLocation::NoLicense), // auto-generated
         ("(^|/)Pipfile$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("(^|/)package-lock\\.json$", LicenseLocation::NoLicense),
+        ("(^|/)pnpm-lock\\.yaml$", LicenseLocation::NoLicense),
 
         // Path prefix matches:
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
