@@ -535,6 +535,17 @@ jobs:
                   name: ${{ steps.version.outputs.VERSION }}
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
+            - uses: ncipollo/release-action@v1
+              if: github.event.inputs.release != 'true'
+              with:
+                  allowUpdates: true
+                  prerelease: true
+                  replacesArtifacts: true
+                  artifacts: "artifacts/*"
+                  body: "Nightly snapshot"
+                  name: nightly
+                  tag: nightly
+                  commit: 7742f833803020023364c0ec801648fb93f4793b
 
     android:
         env:
