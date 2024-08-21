@@ -31,7 +31,7 @@ jobs:
                     #- "https://github.com/Project-Trains/launcher" # Not upgraded to Slint 1.0
                     - "https://github.com/Vinegret43/dispute"
                     - "https://github.com/bjorn/raccoin"
-                    - "https://gitlab.com/floers/ordinary"
+                    # - "https://gitlab.com/floers/ordinary" # compile error in hlua-0.4.2
                     - "https://github.com/parchlinux/parch-welcome/"
                     #- "https://github.com/boclair/fractal-explorer"  # RE-ENABLE WHEN https://github.com/arturoc/color-rs/pull/2 is released
                     - "https://github.com/arunpkio/tymoz"
@@ -61,8 +61,6 @@ jobs:
                     - "https://github.com/izuku0550/Custom-Note-Builder"
                     - "https://github.com/mrquantumoff/quadrant_lite"
 
-                    - "https://github.com/lechos22/p2ptun"
-                    - "https://github.com/ChronosWS/asma"
                     - "https://github.com/jpnurmi/jpos-weather"
                     #- "https://github.com/osp-project/RizPackageTools" 404
                     - "https://github.com/xenein/CountMeDown-rs"
@@ -76,12 +74,11 @@ jobs:
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     - "https://github.com/Heng30/solana-wallet-sollet"
                     - "https://github.com/Heng30/vtbox"
-                    - "https://github.com/ilmai/plugin-things"
                     - "https://github.com/Risuleia/Tranquilo"
-                    - "https://github.com/hambooooo/hamboo-rs"
-                    - "https://github.com/hambooooo/hamboo-embassy"
+                    #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
+                    # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
                     #- "https://github.com/Kllngii/Wetterstation"  # can't check submodules
-                    - "https://github.com/tredeneo/simple-inventary-management"
+                    - "https://github.com/tredeneo/simple-inventary-management" #uses sqlx that needs database access
                     # - "https://github.com/xcodes2cn/Xviewer" #copies slint
                     - "https://github.com/olishmollie/radix"
                     - "https://github.com/zivit/watchlist"
@@ -102,7 +99,7 @@ jobs:
                     - "https://github.com/sloganking/quick-assistant"
                     - "https://github.com/clay-6/baze64"
                     - "https://github.com/zilongyang/rust_slint_todos"
-                    - "https://github.com/qhua948/anubis"
+                    # - "https://github.com/qhua948/anubis" # uses nightly rust
                     - "https://github.com/Surrealism-All/slimk"
 
                     # Missing images
@@ -113,6 +110,7 @@ jobs:
                     # - "https://github.com/Davide255/LVIE"
                     # - "https://github.com/Vadoola/Tomotroid"
                     # - "https://github.com/Horbin-Magician/rotor-rs"
+                    # - "https://github.com/ilmai/plugin-things"
 
                     # - "https://codeberg.org/moire/moire"  # Broken because of other dependencies.
 
@@ -143,8 +141,8 @@ jobs:
                     #  sub_path: "bin/tasker_gui"
                     - git_url: "https://github.com/matthiasbeyer/distrox"
                       sub_path: "distrox-gui"
-                    - git_url: "https://github.com/Kllngii/Wetterstation"
-                      sub_path: "wetterstation-ui"
+                    # - git_url: "https://github.com/Kllngii/Wetterstation" # can't check submodules
+                    #  sub_path: "wetterstation-ui"
                     - git_url: "https://github.com/plule/theremotion"
                       sub_path: "theremotion-ui"
                     - git_url: "https://github.com/matthiasbeyer/deskodon"
@@ -163,8 +161,8 @@ jobs:
                       sub_path: "pomodoro"
                     - git_url: "https://github.com/flukejones/asusctl"
                       sub_path: "rog-control-center"
-                    - git_url: "https://github.com/ellenhp/openlmr"
-                      sub_path: "openlmr-core"
+                    #- git_url: "https://github.com/ellenhp/openlmr"  #doesn't compile
+                    #  sub_path: "openlmr-core"
                     #- git_url: "https://github.com/jenkinsmichpa/coconut_crab"
                     #  sub_path: "coconut_crab_client"
                     #  os: windows-latest
