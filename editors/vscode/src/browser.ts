@@ -61,9 +61,7 @@ function startClient(
 
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
-    statusBar = common.activate(context, (cl, ctx) =>
-        startClient(cl, ctx),
-    );
+    statusBar = common.activate(context, (cl, ctx) => startClient(cl, ctx));
 }
 
 export function deactivate(): Thenable<void> | undefined {

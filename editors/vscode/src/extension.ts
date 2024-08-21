@@ -152,7 +152,7 @@ function startClient(
                 event.oldState === State.Running
             ) {
                 cl.outputChannel.appendLine(
-                    "The Slint Language Server crashed. This is a bug. Please open an issue on https://github.com/slint-ui/slint/issues"
+                    "The Slint Language Server crashed. This is a bug. Please open an issue on https://github.com/slint-ui/slint/issues",
                 );
                 cl.outputChannel.show();
                 vscode.commands.executeCommand("workbench.action.output.focus");
@@ -191,9 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
     }
 
-    statusBar = common.activate(context, (cl, ctx) =>
-        startClient(cl, ctx),
-    );
+    statusBar = common.activate(context, (cl, ctx) => startClient(cl, ctx));
 }
 
 export function deactivate(): Thenable<void> | undefined {
