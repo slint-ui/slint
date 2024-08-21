@@ -19,7 +19,7 @@ mod deduplicate_property_read;
 mod default_geometry;
 #[cfg(feature = "software-renderer")]
 mod embed_glyphs;
-mod embed_images;
+pub mod embed_images;
 mod ensure_window;
 mod flickable;
 mod focus_handling;
