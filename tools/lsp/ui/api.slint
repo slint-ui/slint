@@ -122,28 +122,40 @@ export struct ElementInformation {
 export global Api {
     // # Properties
     // ## General preview state:
-    in property <bool> experimental: false; // experimental features are available
-    in property <bool> show-preview-ui: true; // enable editing mode
-    in-out property <bool> design-mode; // Design-mode engaged!
+    // experimental features are available
+    in property <bool> experimental: false;
+    // enable editing mode
+    in property <bool> show-preview-ui: true;
+    // Design-mode engaged!
+    in-out property <bool> design-mode;
 
     // ## Component Data for ComponentList:
-    in property <[ComponentListItem]> known-components; // All the components
-    out property <ComponentItem> visible-component; // The component currently viewed
+    // All the components
+    in property <[ComponentListItem]> known-components;
+    // The component currently viewed
+    out property <ComponentItem> visible-component;
 
     // ## Diagnostics and other Status messages
-    in property <[Diagnostics]> diagnostics; // Compiler diagnostics
-    in property <string> status-text; // status message text
+    // Compiler diagnostics
+    in property <[Diagnostics]> diagnostics;
+    // status message text
+    in property <string> status-text;
 
     // ## Style:
-    in property <[string]> known-styles; // All the known styles
-    in-out property <string> current-style; // The current style
+    // All the known styles
+    in property <[string]> known-styles;
+    // The current style
+    in-out property <string> current-style;
 
     // ## Drawing Area
-    in property <[Selection]> selections; // Borders around things
+    // Borders around things
+    in property <[Selection]> selections;
     in-out property <DropMark> drop-mark;
-    in property <component-factory> preview-area; // The actual preview
+    // The actual preview
+    in property <component-factory> preview-area;
 
-    in property <bool> resize-to-preferred-size: false; // set to true to resize
+    // set to true to resize
+    in property <bool> resize-to-preferred-size: false;
 
     // ## Property Editor
     in property <ElementInformation> current-element;
@@ -159,40 +171,40 @@ export global Api {
     callback add-new-component();
 
     // Add an existing component
-    pure callback can-drop(component-index: int, x: length, y: length, on-drop-area: bool) -> bool;
-    callback drop(component-index: int, x: length, y: length);
+    pure callback can-drop(/* component-index: */  int, /* x: */ length, /* y: */ length, /* on-drop-area: */ bool) -> bool;
+    callback drop(/* component-index: */ int, /* x: */ length, /* y: */ length);
 
-    callback rename-component(old-name: string, defined-at: string, new-name: string);
+    callback rename-component(/* old-name: */ string, /* defined-at: */ string, /* new-name: */ string);
 
-    callback selected-element-can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
-    callback selected-element-move(x: length, y: length, mouse-x: length, mouse-y: length);
+    callback selected-element-can-move-to(/* x: */ length, /* y: */ length, /* mouse-x: */ length, /* mouse-y: */ length) -> bool;
+    callback selected-element-move(/* x: */ length, /* y: */ length, /* mouse-x: */ length, /* mouse-y: */ length);
 
-    callback selected-element-resize(x: length, y: length, width: length, height: length);
+    callback selected-element-resize(/* x: */ length, /* y: */ length, /* width: */ length, /* height: */ length);
 
     callback selected-element-delete();
 
     // ## Element selection:
-    callback select-at(x: length, y: length, enter-component: bool);
-    callback select-behind(x: length, y: length, enter-component: bool, reverse: bool);
+    callback select-at(/* x: */ length, /* y: */ length, /* enter-component: */ bool);
+    callback select-behind(/* x: */ length, /* y: */ length, /* enter-component: */ bool, /* reverse: */ bool);
     callback reselect();
     callback unselect();
 
     // ## Change Editor:
 
     // Show a conponent in the editor
-    callback show-component(name: string, url: string);
+    callback show-component(/* name: */ string, /* url: */ string);
     // Show a position consisting of `line` and `column` in a `file` in the editor
-    callback show-document(file: string, line: int, column: int);
+    callback show-document(/* file: */ string, /* line: */ int, /* column: */ int);
     // Show a position consisting of `line` and `column` in a `file` in the editor
-    callback show-document-offset-range(url: string, start_offset: int, end_offset: int);
+    callback show-document-offset-range(/* url: */ string, /* start_offset: */ int, /* end_offset: */ int);
 
     // ## Drawing Area
     // Preview some other component
-    callback show-preview-for(name: string, url: string);
+    callback show-preview-for(/* name: */ string, /* url: */ string);
 
     // ## Property Editor
-    pure callback test-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
-    pure callback test-simple-binding(element-url: string, element-version: int, element-offset: int, property-name: string, simple-property-value: [string]) -> bool;
-    callback set-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string);
-    callback set-simple-binding(element-url: string, element-version: int, element-offset: int, property-name: string, simple-property-value: [string]);
+    pure callback test-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string) -> bool;
+    pure callback test-simple-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* simple-property-value: */ [string]) -> bool;
+    callback set-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string);
+    callback set-simple-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* simple-property-value: */ [string]);
 }
