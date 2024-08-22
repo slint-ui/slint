@@ -479,6 +479,10 @@ else()
     set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
+if (Rust_CARGO_TARGET)
+    set(CPACK_SYSTEM_NAME "${CPACK_SYSTEM_NAME}-${Rust_CARGO_TARGET}")
+endif()
+
 include(CPack)
 
 if(SLINT_BUILD_TESTING)

@@ -11,9 +11,12 @@ env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     # Keep in sync with features in nightly_snapshot.yaml, slint_tool_binary.yaml, api/node/Cargo.toml, and api/python/Cargo.toml
     SLINT_BINARY_FEATURES: "-DSLINT_FEATURE_BACKEND_LINUXKMS_NOSEAT=ON -DSLINT_FEATURE_BACKEND_WINIT=ON -DSLINT_FEATURE_RENDERER_FEMTOVG=ON -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
+    SLINT_MCU_FEATURES: "-DSLINT_FEATURE_FREESTANDING=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
+    # env variable used by espup https://github.com/esp-rs/espup?tab=readme-ov-file#github-api
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-    cmake_package:
+    cmake_package_desktop:
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -69,4 +72,111 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: cpp_bin-${{ matrix.package_suffix }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+
+    cmake_package_mcu_arm:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                target: [thumbv7em-none-eabihf]
+                host: [ubuntu-20.04, windows-2022, macOS-12]
+
+        runs-on: ${{ matrix.host }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  old-ubuntu: true
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+            - name: Install GNU Arm Embedded Toolchain
+              uses: carlosperate/arm-none-eabi-gcc-action@v1
+              with:
+                release: '13.3.Rel1'
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ../..
+              working-directory: api/cpp/
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Select MSVC (windows)
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+              if: matrix.host == 'windows-2022'
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_SHARED_LIBS=OFF -DRust_CARGO_TARGET=${{ matrix.target }} -DCMAKE_C_COMPILER=arm-none-eabi-gcc -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY ${{ env.SLINT_MCU_FEATURES }} ${{ matrix.build_flags }}"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cpack -G TGZ
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: cpp_mcu_bin-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+
+    cmake_package_mcu_esp:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                target: [riscv32imafc-esp-espidf, riscv32imac-esp-espidf, riscv32imc-esp-espidf, xtensa-esp32s3-none-elf]
+                host: [ubuntu-22.04, windows-2022, macOS-12]
+
+        runs-on: ${{ matrix.host }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  old-ubuntu: true
+            - uses: dtolnay/rust-toolchain@stable
+            - name: install espup
+              run: |
+                  cargo install espup
+                  espup install
+                  rustup default esp
+            - name: add esp toolchains to PATH
+              if: runner.os != 'Windows'
+              run: |
+                  source "$HOME/export-esp.sh"
+                  echo "$PATH" >> "$GITHUB_PATH"
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ../..
+              working-directory: api/cpp/
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Select MSVC (windows)
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+              if: matrix.host == 'windows-2022'
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  # NOTE: xtensa-esp-elf-gcc as compiler for the RISC-V targets is wrong, but the compiler argument here is only
+                  # used to ensure that SIZEOF_VOID_P is 4 in the generated cmake config file. Otherwise this build requires no
+                  # C compiler.
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DRust_CARGO_TARGET=${{ matrix.target }} -DCMAKE_C_COMPILER=xtensa-esp-elf-gcc -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DSLINT_LIBRARY_CARGO_FLAGS='-Zbuild-std=core,alloc' ${{ env.SLINT_MCU_FEATURES }} ${{ matrix.build_flags }}"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cpack -G TGZ
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: cpp_mcu_bin-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
