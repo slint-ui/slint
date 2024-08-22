@@ -32,8 +32,7 @@ component TypeHeader inherits Rectangle {
 export component PropertyView {
     in property <ElementInformation> current-element <=> Api.current-element;
 
-    private property <length> key-width: self.width / 2.0;
-    private property <length> splitter-width: 5px;
+    private property <length> key-width: self.width / 2.5;
 
     width: EditorSizeSettings.side-bar-width;
 
@@ -212,19 +211,6 @@ export component PropertyView {
                                     }
                                 }
                             }
-                        }
-                    }
-
-                    splitter := TouchArea {
-                        x: root.key-width - (root.splitter-width - 1px) / 2.0;
-                        y: header.height;
-                        width: root.splitter-width;
-                        height: root.height - header.height;
-
-                        mouse-cursor: MouseCursor.col-resize;
-
-                        moved() => {
-                            root.key-width = Math.clamp(self.x + self.mouse-x, 0.1 * root.width, 0.9 * root.width);
                         }
                     }
                 }
