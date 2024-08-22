@@ -126,14 +126,19 @@ export function languageClientOptions(): LanguageClientOptions {
                         // But we want to open the document next to it instead.
                         let panel = wasm_preview.panel();
                         if (panel && panel.active) {
-                            const uri = cl.protocol2CodeConverter.asUri(params.uri);
+                            const uri = cl.protocol2CodeConverter.asUri(
+                                params.uri,
+                            );
                             let col = panel.viewColumn || 1;
                             let options: vscode.TextDocumentShowOptions = {
                                 viewColumn: col > 1 ? col - 1 : col + 1,
                                 preserveFocus: !params.takeFocus,
                             };
                             if (params.selection !== undefined) {
-                                options.selection = cl.protocol2CodeConverter.asRange(params.selection);
+                                options.selection =
+                                    cl.protocol2CodeConverter.asRange(
+                                        params.selection,
+                                    );
                             }
                             await vscode.window.showTextDocument(uri, options);
 
@@ -141,8 +146,8 @@ export function languageClientOptions(): LanguageClientOptions {
                         }
                     }
                     return await next(params);
-                }
-            }
+                },
+            },
         },
     };
 }

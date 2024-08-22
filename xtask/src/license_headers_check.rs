@@ -430,6 +430,7 @@ lazy_static! {
         ("(^|/)Pipfile$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("(^|/)\\.npmrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("(^|/)pnpm-lock\\.yaml$", LicenseLocation::NoLicense),
+        ("(^|/)biome\\.json$", LicenseLocation::NoLicense),
 
         // Path prefix matches:
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license

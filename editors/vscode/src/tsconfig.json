@@ -4,5 +4,5 @@
         "lib": ["es2021", "webworker"],
         "types": ["vscode"]
     },
-    "include": ["./*.ts"],
+    "include": ["./*.ts"]
 }
