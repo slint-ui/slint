@@ -29,8 +29,8 @@ jobs:
                       package_suffix: linux
                     - os: macOS-12
                       package_suffix: macos-x86_64
-                     - os: macOS-14
-                       package_suffix: macos-aarch64
+                    - os: macOS-14
+                      package_suffix: macos-aarch64
                     - os: windows-2022
                       package_suffix: windows
 
