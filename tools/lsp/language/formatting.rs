@@ -3,11 +3,10 @@
 
 use crate::common::DocumentCache;
 use crate::fmt::{fmt, writer};
-use crate::util::map_range;
+use crate::util::text_range_to_lsp_range;
 use dissimilar::Chunk;
-use i_slint_compiler::parser::SyntaxToken;
+use i_slint_compiler::parser::{SyntaxToken, TextRange, TextSize};
 use lsp_types::{DocumentFormattingParams, TextEdit};
-use rowan::{TextRange, TextSize};
 
 struct StringWriter {
     text: String,
@@ -56,7 +55,8 @@ pub fn format_document(
             }
             Chunk::Delete(text) => {
                 let len = TextSize::of(text);
-                let deleted_range = map_range(&doc.source_file, TextRange::at(pos, len));
+                let deleted_range =
+                    text_range_to_lsp_range(&doc.source_file, TextRange::at(pos, len));
                 edits.push(TextEdit { range: deleted_range, new_text: String::new() });
                 last_was_deleted = true;
                 pos += len;
@@ -70,7 +70,7 @@ pub fn format_document(
                 }
 
                 let range = TextRange::empty(pos);
-                let range = map_range(&doc.source_file, range);
+                let range = text_range_to_lsp_range(&doc.source_file, range);
                 edits.push(TextEdit { range, new_text: text.into() });
             }
         }

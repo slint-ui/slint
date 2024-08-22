@@ -14,45 +14,67 @@ use crate::common;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::UrlWasm;
 
-pub fn map_node_and_url(node: &SyntaxNode) -> Option<(lsp_types::Url, lsp_types::Range)> {
-    let sf = node.source_file()?;
-    let range = node.text_range();
-    Some((lsp_types::Url::from_file_path(sf.path()).ok()?, map_range(sf, range)))
-}
-
-pub fn map_node(node: &SyntaxNode) -> Option<lsp_types::Range> {
+/// Get the `TextRange` of a `node`, excluding any trailing whitespace tokens.
+pub fn node_range_without_trailing_ws(node: &SyntaxNode) -> TextRange {
     let range = node.text_range();
     // shorten range to not include trailing WS:
-    let range = TextRange::new(
+    TextRange::new(
         range.start(),
         last_non_ws_token(node).map(|t| t.text_range().end()).unwrap_or(range.end()),
-    );
-    node.source_file().map(|sf| map_range(sf, range))
+    )
 }
 
-pub fn map_token(token: &SyntaxToken) -> Option<lsp_types::Range> {
+/// Map a `node` to its `Url` and a `Range` of characters covered by the `node`
+///
+/// This will exclude trailing whitespaces.
+pub fn node_to_url_and_lsp_range(node: &SyntaxNode) -> Option<(lsp_types::Url, lsp_types::Range)> {
+    let path = node.source_file.path();
+    Some((lsp_types::Url::from_file_path(path).ok()?, node_to_lsp_range(node)))
+}
+
+/// Map a `node` to the `Range` of characters covered by the `node`
+///
+/// This will exclude trailing whitespaces.
+pub fn node_to_lsp_range(node: &SyntaxNode) -> lsp_types::Range {
+    let range = node_range_without_trailing_ws(node);
+    text_range_to_lsp_range(&node.source_file, range)
+}
+
+/// Map a `token` to the `Range` of characters covered by the `token`
+pub fn token_to_lsp_range(token: &SyntaxToken) -> lsp_types::Range {
     let range = token.text_range();
-    token.parent().source_file().map(|sf| map_range(sf, range))
+    text_range_to_lsp_range(&token.parent().source_file, range)
 }
 
-pub fn map_position(sf: &SourceFile, pos: TextSize) -> lsp_types::Position {
+/// Convert a `TextSize` to a `Position` for use in the LSP
+pub fn text_size_to_lsp_position(sf: &SourceFile, pos: TextSize) -> lsp_types::Position {
     let (line, column) = sf.line_column(pos.into());
     lsp_types::Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1))
 }
 
-pub fn map_range(sf: &SourceFile, range: TextRange) -> lsp_types::Range {
-    lsp_types::Range::new(map_position(sf, range.start()), map_position(sf, range.end()))
-}
-
-pub fn map_to_offset(sf: &SourceFile, position: lsp_types::Position) -> usize {
-    sf.offset(
-        usize::try_from(position.line).unwrap() + 1,
-        usize::try_from(position.character).unwrap() + 1,
+/// Convert a `TextRange` to a `Range` for use in the LSP
+pub fn text_range_to_lsp_range(sf: &SourceFile, range: TextRange) -> lsp_types::Range {
+    lsp_types::Range::new(
+        text_size_to_lsp_position(sf, range.start()),
+        text_size_to_lsp_position(sf, range.end()),
     )
 }
 
-pub fn map_to_offsets(sf: &SourceFile, range: lsp_types::Range) -> (usize, usize) {
-    (map_to_offset(sf, range.start), map_to_offset(sf, range.end))
+/// Convert a `Position` from the LSP into a `TextSize`
+pub fn lsp_position_to_text_size(sf: &SourceFile, position: lsp_types::Position) -> TextSize {
+    (sf.offset(
+        usize::try_from(position.line).unwrap() + 1,
+        usize::try_from(position.character).unwrap() + 1,
+    ) as u32)
+        .into()
+}
+
+/// Convert a `Range` from the LSP into a `TextRange`
+pub fn lsp_range_to_text_range(sf: &SourceFile, range: lsp_types::Range) -> TextRange {
+    TextRange::new(
+        lsp_position_to_text_size(sf, range.start),
+        lsp_position_to_text_size(sf, range.end),
+    )
 }
 
 // Find the last token that is not a Whitespace in a `SyntaxNode`. May return

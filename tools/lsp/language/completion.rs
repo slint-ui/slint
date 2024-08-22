@@ -5,7 +5,7 @@
 
 use crate::common::component_catalog::all_exported_components;
 use crate::common::{self, DocumentCache};
-use crate::util::{lookup_current_element_type, map_position, with_lookup_ctx};
+use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -729,7 +729,7 @@ fn find_import_locations(
             let node = list.ImportIdentifier().last()?;
             let id = crate::util::last_non_ws_token(&node).or_else(|| node.first_token())?;
             Some((
-                map_position(id.source_file()?, id.text_range().end()),
+                text_size_to_lsp_position(id.source_file()?, id.text_range().end()),
                 import.child_token(SyntaxKind::StringLiteral)?,
             ))
         }) {
@@ -772,9 +772,9 @@ fn find_import_locations(
                 }
             }
         }
-        map_position(&document.source_file, offset.unwrap_or_default())
+        text_size_to_lsp_position(&document.source_file, offset.unwrap_or_default())
     } else {
-        Position::new(map_position(&document.source_file, last.into()).line + 1, 0)
+        Position::new(text_size_to_lsp_position(&document.source_file, last.into()).line + 1, 0)
     };
 
     (new_import_position, import_locations)

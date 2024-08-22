@@ -1,28 +1,33 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 use crate::common::{self, Result, SourceFileVersion};
 use crate::util;
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
-use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
+use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind, TextRange, TextSize};
+
+use lsp_types::Url;
 
 use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DefinitionInformation {
-    pub property_definition_range: lsp_types::Range,
-    pub selection_range: lsp_types::Range,
-    pub expression_range: lsp_types::Range,
+    pub property_definition_range: TextRange,
+    pub selection_range: TextRange,
+    pub expression_range: TextRange,
     pub expression_value: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeclarationInformation {
-    pub uri: lsp_types::Url,
-    pub start_position: lsp_types::Position,
+    pub uri: Url,
+    pub start_position: TextSize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -38,7 +43,7 @@ pub struct PropertyInformation {
 pub struct ElementInformation {
     pub id: String,
     pub type_name: String,
-    pub range: Option<lsp_types::Range>,
+    pub range: TextRange,
 }
 
 #[derive(Clone, Debug)]
@@ -92,11 +97,11 @@ fn add_element_properties(
             return None;
         }
 
-        let declared_at = value
-            .type_node()
-            .as_ref()
-            .and_then(util::map_node_and_url)
-            .map(|(uri, range)| DeclarationInformation { uri, start_position: range.start });
+        let declared_at = value.type_node().as_ref().map(|n| DeclarationInformation {
+            uri: Url::from_file_path(n.source_file.path())
+                .unwrap_or_else(|_| Url::parse("file:///unnamed").unwrap()),
+            start_position: n.text_range().start(),
+        });
         Some(PropertyInformation {
             name: name.clone(),
             type_name: value.property_type.to_string(),
@@ -182,8 +187,6 @@ fn find_expression_range(
     let mut expression_value = None;
     let mut property_definition_range = None;
 
-    let source_file = element.source_file()?;
-
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
             if ancestor.kind() == SyntaxKind::BindingExpression {
@@ -197,7 +200,7 @@ fn find_expression_range(
                 || (ancestor.kind() == SyntaxKind::PropertyDeclaration)
             {
                 property_definition_range = Some(ancestor.text_range());
-                selection_range = Some(rowan::TextRange::new(
+                selection_range = Some(TextRange::new(
                     left_extend(ancestor.first_token()?).text_range().start(),
                     right_extend(ancestor.last_token()?).text_range().end(),
                 ))
@@ -211,9 +214,9 @@ fn find_expression_range(
         }
     }
     Some(DefinitionInformation {
-        property_definition_range: util::map_range(source_file, property_definition_range?),
-        selection_range: util::map_range(source_file, selection_range?),
-        expression_range: util::map_range(source_file, expression_range?),
+        property_definition_range: property_definition_range?,
+        selection_range: selection_range?,
+        expression_range: expression_range?,
         expression_value: expression_value?,
     })
 }
@@ -383,20 +386,17 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
     insert_property_definitions(element, result)
 }
 
-fn find_block_range(element: &common::ElementRcNode) -> Option<lsp_types::Range> {
+fn find_block_range(element: &common::ElementRcNode) -> Option<TextRange> {
     element.with_element_node(|node| {
         let open_brace = node.child_token(SyntaxKind::LBrace)?;
         let close_brace = node.child_token(SyntaxKind::RBrace)?;
 
-        Some(lsp_types::Range::new(
-            util::map_position(node.source_file()?, open_brace.text_range().start()),
-            util::map_position(node.source_file()?, close_brace.text_range().end()),
-        ))
+        Some(TextRange::new(open_brace.text_range().start(), close_brace.text_range().end()))
     })
 }
 
 fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
-    let range = element.with_decorated_node(|node| util::map_node(&node));
+    let range = element.with_decorated_node(|node| util::node_range_without_trailing_ws(&node));
     let e = element.element.borrow();
     let type_name = if matches!(&e.base_type, ElementType::Builtin(b) if b.name == "Empty") {
         String::new()
@@ -407,7 +407,7 @@ fn get_element_information(element: &common::ElementRcNode) -> ElementInformatio
 }
 
 pub(crate) fn query_properties(
-    uri: &lsp_types::Url,
+    uri: &Url,
     source_version: SourceFileVersion,
     element: &common::ElementRcNode,
 ) -> Result<QueryPropertyResponse> {
@@ -431,14 +431,16 @@ fn get_property_information(
 }
 
 fn create_text_document_edit_for_set_binding_on_existing_property(
-    uri: lsp_types::Url,
+    element: &common::ElementRcNode,
+    uri: Url,
     version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
 ) -> Option<lsp_types::TextDocumentEdit> {
+    let source_file = element.with_element_node(|n| n.source_file.clone());
     property.defined_at.as_ref().map(|defined_at| {
-        let edit =
-            lsp_types::TextEdit { range: defined_at.expression_range, new_text: new_expression };
+        let range = util::text_range_to_lsp_range(&source_file, defined_at.expression_range);
+        let edit = lsp_types::TextEdit { range, new_text: new_expression };
         common::create_text_document_edit(uri, version, vec![edit])
     })
 }
@@ -451,7 +453,7 @@ enum InsertPosition {
 fn find_insert_position_relative_to_defined_properties(
     properties: &[PropertyInformation],
     property_name: &str,
-) -> Option<(lsp_types::Range, InsertPosition)> {
+) -> Option<(TextRange, InsertPosition)> {
     let mut previous_property = None;
     let mut property_index = usize::MAX;
 
@@ -460,15 +462,15 @@ fn find_insert_position_relative_to_defined_properties(
             property_index = i;
         } else if let Some(defined_at) = &p.defined_at {
             if property_index == usize::MAX {
-                previous_property = Some((i, defined_at.selection_range.end));
+                previous_property = Some((i, defined_at.selection_range.end()));
             } else {
                 if let Some((pi, pp)) = previous_property {
                     if (i - property_index) >= (property_index - pi) {
-                        return Some((lsp_types::Range::new(pp, pp), InsertPosition::After));
+                        return Some((TextRange::new(pp, pp), InsertPosition::After));
                     }
                 }
-                let p = defined_at.selection_range.start;
-                return Some((lsp_types::Range::new(p, p), InsertPosition::Before));
+                let p = defined_at.selection_range.start();
+                return Some((TextRange::new(p, p), InsertPosition::Before));
             }
         }
     }
@@ -477,25 +479,22 @@ fn find_insert_position_relative_to_defined_properties(
 }
 
 fn find_insert_range_for_property(
-    block_range: &Option<lsp_types::Range>,
+    block_range: &Option<TextRange>,
     properties: &[PropertyInformation],
     property_name: &str,
-) -> Option<(lsp_types::Range, InsertPosition)> {
+) -> Option<(TextRange, InsertPosition)> {
     find_insert_position_relative_to_defined_properties(properties, property_name).or_else(|| {
         // No properties defined yet:
         block_range.map(|r| {
             // Right after the leading `{`...
-            let r = lsp_types::Range::new(
-                lsp_types::Position::new(r.start.line, r.start.character.saturating_add(1)),
-                lsp_types::Position::new(r.start.line, r.start.character.saturating_add(1)),
-            );
-            (r, InsertPosition::After)
+            let pos = r.start().checked_add(1.into()).unwrap_or(r.start());
+            (TextRange::new(pos, pos), InsertPosition::After)
         })
     })
 }
 
 fn create_text_document_edit_for_set_binding_on_known_property(
-    uri: lsp_types::Url,
+    uri: Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     properties: &[PropertyInformation],
@@ -506,9 +505,10 @@ fn create_text_document_edit_for_set_binding_on_known_property(
 
     find_insert_range_for_property(&block_range, properties, property_name).map(
         |(range, insert_type)| {
+            let source_file = element.with_element_node(|n| n.source_file.clone());
             let indent = util::find_element_indent(element).unwrap_or_default();
             let edit = lsp_types::TextEdit {
-                range,
+                range: util::text_range_to_lsp_range(&source_file, range),
                 new_text: match insert_type {
                     InsertPosition::Before => {
                         format!("{property_name}: {new_expression};\n{indent}    ")
@@ -524,7 +524,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
 }
 
 pub fn set_binding(
-    uri: lsp_types::Url,
+    uri: Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     property_name: &str,
@@ -535,7 +535,7 @@ pub fn set_binding(
 }
 
 pub fn set_binding_impl(
-    uri: lsp_types::Url,
+    uri: Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     property_name: &str,
@@ -547,6 +547,7 @@ pub fn set_binding_impl(
     if property.defined_at.is_some() {
         // Change an already defined property:
         create_text_document_edit_for_set_binding_on_existing_property(
+            element,
             uri,
             version,
             &property,
@@ -567,7 +568,7 @@ pub fn set_binding_impl(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn set_bindings(
-    uri: lsp_types::Url,
+    uri: Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     properties: &[crate::common::PropertyChange],
@@ -599,7 +600,7 @@ fn element_at_source_code_position(
         .as_ref()
         .map(|n| n.source_file.clone())
         .ok_or_else(|| "Document had no node".to_string())?;
-    let element_position = util::map_position(&source_file, position.offset().into());
+    let element_position = util::text_size_to_lsp_position(&source_file, position.offset().into());
 
     Ok(document_cache.element_at_position(position.url(), &element_position).ok_or_else(|| {
         format!("No element found at the given start position {:?}", &element_position)
@@ -618,7 +619,7 @@ pub fn update_element_properties(
 }
 
 fn create_workspace_edit_for_remove_binding(
-    uri: lsp_types::Url,
+    uri: Url,
     version: SourceFileVersion,
     range: lsp_types::Range,
 ) -> lsp_types::WorkspaceEdit {
@@ -627,7 +628,7 @@ fn create_workspace_edit_for_remove_binding(
 }
 
 pub fn remove_binding(
-    uri: lsp_types::Url,
+    uri: Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
     property_name: &str,
@@ -678,7 +679,10 @@ pub fn remove_binding(
                             .unwrap_or(end)
                     };
 
-                    return Some(util::map_range(&source_file, rowan::TextRange::new(start, end)));
+                    return Some(util::text_range_to_lsp_range(
+                        &source_file,
+                        TextRange::new(start, end),
+                    ));
                 }
                 if ancestor.kind() == SyntaxKind::Element {
                     // There should have been a binding before the element!
@@ -735,7 +739,9 @@ mod tests {
 
     #[test]
     fn test_get_properties() {
-        let (_, result, _, _) = properties_at_position(6, 4).unwrap();
+        let (element_node, result, _, _) = properties_at_position(6, 4).unwrap();
+
+        let source_file = element_node.with_element_node(|n| n.source_file.clone());
 
         // Property of element:
         assert_eq!(&find_property(&result, "elapsed-time").unwrap().type_name, "duration");
@@ -755,11 +761,11 @@ mod tests {
         let property = find_property(&result, "background").unwrap();
 
         let def_at = property.defined_at.as_ref().unwrap();
-        assert_eq!(def_at.expression_range.end.line, def_at.expression_range.start.line);
+        let def_range = util::text_range_to_lsp_range(&source_file, def_at.expression_range);
+        assert_eq!(def_range.end.line, def_range.start.line);
         // -1 because the lsp range end location is exclusive.
         assert_eq!(
-            (def_at.expression_range.end.character - def_at.expression_range.start.character)
-                as usize,
+            (def_range.end.character - def_range.start.character) as usize,
             "lightblue".len()
         );
 
@@ -782,7 +788,10 @@ mod tests {
 
         let result = get_element_information(&element);
 
-        let r = result.range.unwrap();
+        let r = util::text_range_to_lsp_range(
+            &element.with_element_node(|n| n.source_file.clone()),
+            result.range,
+        );
         assert_eq!(r.start.line, 32);
         assert_eq!(r.start.character, 12);
         assert_eq!(r.end.line, 35);
@@ -827,6 +836,7 @@ mod tests {
         println!("   : 012345678901234567890123456789012345678901234567890123456789");
 
         let (dc, url, _) = loaded_document_cache(content);
+        let source_file = dc.get_document(&url).unwrap().node.as_ref().unwrap().source_file.clone();
 
         let (_, result) = properties_at_position_in_cache(pos_l, pos_c, &dc, &url).unwrap();
 
@@ -835,17 +845,18 @@ mod tests {
 
         assert_eq!(&definition.expression_value, "\"text\"");
 
+        let sel_range = util::text_range_to_lsp_range(&source_file, definition.selection_range);
         println!("Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
-            definition.selection_range.start.line,
-            definition.selection_range.start.character,
-            definition.selection_range.end.line,
-            definition.selection_range.end.character,
+            sel_range.start.line,
+            sel_range.start.character,
+            sel_range.end.line,
+            sel_range.end.character,
         );
 
-        assert_eq!(definition.selection_range.start.line, sl);
-        assert_eq!(definition.selection_range.start.character, sc);
-        assert_eq!(definition.selection_range.end.line, el);
-        assert_eq!(definition.selection_range.end.character, ec);
+        assert_eq!(sel_range.start.line, sl);
+        assert_eq!(sel_range.start.character, sc);
+        assert_eq!(sel_range.end.line, el);
+        assert_eq!(sel_range.end.character, ec);
     }
 
     #[test]
@@ -1300,10 +1311,11 @@ component MainWindow inherits Window {
         assert_eq!(foo_property.type_name, "int");
 
         let declaration = foo_property.declared_at.as_ref().unwrap();
+        let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
         assert_eq!(declaration.uri, file_url);
-        assert_eq!(declaration.start_position.line, 3);
-        assert_eq!(declaration.start_position.character, 20); // This should probably point to the start of
-                                                              // `property<int> foo = 42`, not to the `<`
+        assert_eq!(start_position.line, 3);
+        assert_eq!(start_position.character, 20); // This should probably point to the start of
+                                                  // `property<int> foo = 42`, not to the `<`
         assert_eq!(foo_property.group, "Base1");
     }
 
@@ -1325,13 +1337,15 @@ component SomeRect inherits Rectangle {
             .to_string(),
         );
 
-        let (_, result) = properties_at_position_in_cache(1, 25, &dc, &url).unwrap();
+        let (element_node, result) = properties_at_position_in_cache(1, 25, &dc, &url).unwrap();
+        let source = element_node.with_element_node(|n| n.source_file.clone());
 
         let glob_property = find_property(&result, "glob").unwrap();
         assert_eq!(glob_property.type_name, "int");
         let declaration = glob_property.declared_at.as_ref().unwrap();
+        let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
         assert_eq!(declaration.uri, url);
-        assert_eq!(declaration.start_position.line, 2);
+        assert_eq!(start_position.line, 2);
         assert_eq!(glob_property.group, "");
         assert_eq!(find_property(&result, "width"), None);
 
@@ -1339,8 +1353,9 @@ component SomeRect inherits Rectangle {
         let abcd_property = find_property(&result, "abcd").unwrap();
         assert_eq!(abcd_property.type_name, "int");
         let declaration = abcd_property.declared_at.as_ref().unwrap();
+        let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
         assert_eq!(declaration.uri, url);
-        assert_eq!(declaration.start_position.line, 7);
+        assert_eq!(start_position.line, 7);
         assert_eq!(abcd_property.group, "");
 
         let x_property = find_property(&result, "x").unwrap();
@@ -1351,7 +1366,8 @@ component SomeRect inherits Rectangle {
         let width_property = find_property(&result, "width").unwrap();
         assert_eq!(width_property.type_name, "length");
         let definition = width_property.defined_at.as_ref().unwrap();
-        assert_eq!(definition.expression_range.start.line, 8);
+        let expression_range = util::text_range_to_lsp_range(&source, definition.expression_range);
+        assert_eq!(expression_range.start.line, 8);
         assert_eq!(width_property.group, "geometry");
     }
 

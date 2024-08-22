@@ -475,7 +475,8 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         return;
     };
 
-    let start = util::map_position(&identifier.source_file, identifier.text_range().start());
+    let start =
+        util::text_size_to_lsp_position(&identifier.source_file, identifier.text_range().start());
     ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start))
 }
 
@@ -496,8 +497,8 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32) {
         let document = document_cache.get_document(&url)?;
         let document = document.node.as_ref()?;
 
-        let start = util::map_position(&document.source_file, start.into());
-        let end = util::map_position(&document.source_file, end.into());
+        let start = util::text_size_to_lsp_position(&document.source_file, start.into());
+        let end = util::text_size_to_lsp_position(&document.source_file, end.into());
 
         Some((file, start, end))
     }
@@ -593,9 +594,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(range) = selected_node.with_decorated_node(|n| util::map_node(&n)) else {
-        return;
-    };
+    let range = selected_node.with_decorated_node(|n| util::node_to_lsp_range(&n));
 
     // Insert a placeholder node into layouts if those end up empty:
     let new_text = placeholder_node_text(&selected_node);
@@ -1004,7 +1003,10 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                         };
                         let (path, pos) = element_node.with_element_node(|node| {
                             let sf = &node.source_file;
-                            (sf.path().to_owned(), util::map_position(sf, se.offset.into()))
+                            (
+                                sf.path().to_owned(),
+                                util::text_size_to_lsp_position(sf, se.offset.into()),
+                            )
                         });
                         ask_editor_to_show_document(
                             &path.to_string_lossy(),

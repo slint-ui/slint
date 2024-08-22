@@ -16,7 +16,9 @@ use crate::util;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{
+    syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange,
+};
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
@@ -340,12 +342,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             if p.kind() == SyntaxKind::QualifiedName
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
-                if let Some(range) = util::map_node(&p) {
-                    ctx.server_notifier.send_message_to_preview(
-                        common::LspToPreviewMessage::HighlightFromEditor { url: Some(uri), offset },
-                    );
-                    return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-                }
+                let range = util::node_to_lsp_range(&p);
+                ctx.server_notifier.send_message_to_preview(
+                    common::LspToPreviewMessage::HighlightFromEditor { url: Some(uri), offset },
+                );
+                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
@@ -356,7 +357,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     value
                         .into_iter()
                         .map(|r| lsp_types::DocumentHighlight {
-                            range: util::map_range(&p.source_file, r),
+                            range: util::text_range_to_lsp_range(&p.source_file, r),
                             kind: None,
                         })
                         .collect(),
@@ -380,7 +381,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
-                        range: util::map_range(&p.source_file, r),
+                        range: util::text_range_to_lsp_range(&p.source_file, r),
                         new_text: params.new_name.clone(),
                     })
                     .collect();
@@ -416,13 +417,13 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let uri = params.text_document.uri;
         if let Some((tk, _off)) = token_descr(&mut document_cache, &uri, &params.position) {
             if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
-                return Ok(util::map_token(&tk).map(PrepareRenameResponse::Range));
+                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(&tk))));
             }
             let p = tk.parent();
             if matches!(p.kind(), SyntaxKind::DeclaredIdentifier) {
                 if let Some(gp) = p.parent() {
                     if gp.kind() == SyntaxKind::Component {
-                        return Ok(util::map_node(&p).map(PrepareRenameResponse::Range));
+                        return Ok(Some(PrepareRenameResponse::Range(util::node_to_lsp_range(&p))));
                     }
                 }
             }
@@ -638,7 +639,7 @@ fn get_code_actions(
     }
 
     if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {
-        let r = util::map_range(&token.source_file, node.text_range());
+        let r = util::text_range_to_lsp_range(&token.source_file, node.text_range());
         let edits = vec![
             TextEdit::new(lsp_types::Range::new(r.start, r.start), "@tr(".into()),
             TextEdit::new(lsp_types::Range::new(r.end, r.end), ")".into()),
@@ -687,7 +688,10 @@ fn get_code_actions(
         }
 
         if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
-            let r = util::map_range(&token.source_file, node.parent().unwrap().text_range());
+            let r = util::text_range_to_lsp_range(
+                &token.source_file,
+                node.parent().unwrap().text_range(),
+            );
             let element = document_cache.element_at_position(&uri, &r.start);
             let element_indent = element.as_ref().and_then(util::find_element_indent);
             let indented_lines = node
@@ -846,7 +850,7 @@ fn get_document_color(
     loop {
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
-                let range = util::map_token(&token)?;
+                let range = util::token_to_lsp_range(&token);
                 let col = i_slint_compiler::literals::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
@@ -890,14 +894,14 @@ fn get_document_symbols(
             let root_element = c.root_element.borrow();
             let element_node = &root_element.debug.first()?.node;
             let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
-            let selection_range = util::map_node(&component_node.DeclaredIdentifier())?;
+            let selection_range = util::node_to_lsp_range(&component_node.DeclaredIdentifier());
             if c.id.is_empty() {
                 // Symbols with empty names are invalid
                 return None;
             }
 
             Some(DocumentSymbol {
-                range: util::map_node(&component_node)?,
+                range: util::node_to_lsp_range(&component_node),
                 selection_range,
                 name: c.id.clone(),
                 kind: if c.is_global() {
@@ -913,18 +917,18 @@ fn get_document_symbols(
 
     r.extend(inner_types.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
-            range: util::map_node(node.parent().as_ref()?)?,
-            selection_range: util::map_node(
+            range: util::node_to_lsp_range(node.parent().as_ref()?),
+            selection_range: util::node_to_lsp_range(
                 &node.parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
-            )?,
+            ),
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
         }),
         Type::Enumeration(enumeration) => enumeration.node.as_ref().and_then(|node| {
             Some(DocumentSymbol {
-                range: util::map_node(node)?,
-                selection_range: util::map_node(&node.DeclaredIdentifier())?,
+                range: util::node_to_lsp_range(node),
+                selection_range: util::node_to_lsp_range(&node.DeclaredIdentifier()),
                 name: enumeration.name.clone(),
                 kind: lsp_types::SymbolKind::ENUM,
                 ..ds.clone()
@@ -944,8 +948,10 @@ fn get_document_symbols(
                 let sub_element_node = element_node.parent()?;
                 debug_assert_eq!(sub_element_node.kind(), SyntaxKind::SubElement);
                 Some(DocumentSymbol {
-                    range: util::map_node(&sub_element_node)?,
-                    selection_range: util::map_node(element_node.QualifiedName().as_ref()?)?,
+                    range: util::node_to_lsp_range(&sub_element_node),
+                    selection_range: util::node_to_lsp_range(
+                        element_node.QualifiedName().as_ref()?,
+                    ),
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
@@ -976,7 +982,7 @@ fn get_code_lenses(
         // Handle preview lens
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
-                range: util::map_node(&c.root_element.borrow().debug.first()?.node)?,
+                range: util::node_to_lsp_range(&c.root_element.borrow().debug.first()?.node),
                 command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })
@@ -992,7 +998,7 @@ fn get_code_lenses(
 fn find_element_id_for_highlight(
     token: &SyntaxToken,
     parent: &SyntaxNode,
-) -> Option<Vec<rowan::TextRange>> {
+) -> Option<Vec<TextRange>> {
     fn is_element_id(tk: &SyntaxToken, parent: &SyntaxNode) -> bool {
         if tk.kind() != SyntaxKind::Identifier {
             return false;
@@ -1024,7 +1030,7 @@ fn find_element_id_for_highlight(
                 let mut found_definition = false;
                 recurse(&mut ranges, &mut found_definition, c, token.text());
                 fn recurse(
-                    ranges: &mut Vec<rowan::TextRange>,
+                    ranges: &mut Vec<TextRange>,
                     found_definition: &mut bool,
                     c: SyntaxNode,
                     text: &str,

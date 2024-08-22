@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::DocumentCache;
-use crate::util::{lookup_current_element_type, map_node_and_url, with_lookup_ctx};
+use crate::util::{lookup_current_element_type, node_to_url_and_lsp_range, with_lookup_ctx};
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
@@ -216,7 +216,7 @@ fn goto_type(ty: &Type) -> Option<GotoDefinitionResponse> {
 }
 
 fn goto_node(node: &SyntaxNode) -> Option<GotoDefinitionResponse> {
-    let (target_uri, range) = map_node_and_url(node)?;
+    let (target_uri, range) = node_to_url_and_lsp_range(node)?;
     let range = Range::new(range.start, range.start); // Shrink range to a position:-)
     Some(GotoDefinitionResponse::Link(vec![LocationLink {
         origin_selection_range: None,
