@@ -73,7 +73,7 @@ fn replace_element_types(
                     document_cache,
                     element.source_file.path(),
                     lsp_types::TextEdit {
-                        range: util::map_node(&name).expect("Just had a source_file"),
+                        range: util::node_to_lsp_range(&name),
                         new_text: new_type.to_string(),
                     },
                 )
@@ -183,7 +183,7 @@ fn fix_import_in_document(
                     document_cache,
                     source_file.path(),
                     lsp_types::TextEdit {
-                        range: util::map_node(&external).expect("Just had a source file"),
+                        range: util::node_to_lsp_range(&external),
                         new_text: new_type.to_string(),
                     },
                 )
@@ -195,9 +195,9 @@ fn fix_import_in_document(
                 if internal_name == new_type {
                     // remove " as Foo" part, no need to change anything else though!
                     let start_position =
-                        util::map_position(source_file, external.text_range().end());
+                        util::text_size_to_lsp_position(source_file, external.text_range().end());
                     let end_position =
-                        util::map_position(source_file, identifier.text_range().end());
+                        util::text_size_to_lsp_position(source_file, identifier.text_range().end());
                     edits.push(
                         common::SingleTextEdit::from_path(
                             document_cache,
@@ -259,8 +259,7 @@ fn fix_exports(
                         document_cache,
                         source_file.path(),
                         lsp_types::TextEdit {
-                            range: util::map_node(&identifier)
-                                .expect("This needs to have a source file"),
+                            range: util::node_to_lsp_range(&identifier),
                             new_text: new_type.to_string(),
                         },
                     )
@@ -270,10 +269,14 @@ fn fix_exports(
                 let update_imports = if let Some(export_name) = specifier.ExportName() {
                     // Remove "as Foo"
                     if export_name.text().to_string().trim() == new_type {
-                        let start_position =
-                            util::map_position(source_file, identifier.text_range().end());
-                        let end_position =
-                            util::map_position(source_file, export_name.text_range().end());
+                        let start_position = util::text_size_to_lsp_position(
+                            source_file,
+                            identifier.text_range().end(),
+                        );
+                        let end_position = util::text_size_to_lsp_position(
+                            source_file,
+                            export_name.text_range().end(),
+                        );
                         edits.push(
                             common::SingleTextEdit::from_path(
                                 document_cache,
@@ -340,7 +343,7 @@ pub fn rename_component_from_definition(
             document_cache,
             source_file.path(),
             lsp_types::TextEdit {
-                range: util::map_node(identifier).expect("This has a source_file"),
+                range: util::node_to_lsp_range(identifier),
                 new_text: new_name.to_string(),
             },
         )

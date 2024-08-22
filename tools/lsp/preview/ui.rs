@@ -4,13 +4,13 @@
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use i_slint_compiler::parser::TextRange;
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 
 use crate::common::{self, ComponentInformation};
 use crate::preview::properties;
-use crate::util;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -212,8 +212,11 @@ pub fn ui_set_known_components(
     api.set_known_components(result.into());
 }
 
-fn to_range(r: (usize, usize)) -> Option<Range> {
-    Some(Range { start: i32::try_from(r.0).ok()?, end: i32::try_from(r.1).ok()? })
+fn to_ui_range(r: TextRange) -> Option<Range> {
+    Some(Range {
+        start: i32::try_from(u32::from(r.start())).ok()?,
+        end: i32::try_from(u32::from(r.end())).ok()?,
+    })
 }
 
 fn map_property_declaration(
@@ -227,12 +230,12 @@ fn map_property_declaration(
     let source_version =
         document_cache.document_version_by_path(doc_node.source_file.path()).unwrap_or(-1);
 
-    let pos = util::map_to_offset(&doc_node.source_file, da.start_position);
+    let pos = TextRange::new(da.start_position, da.start_position);
 
     Some(PropertyDeclaration {
         source_uri: da.uri.to_string().into(),
         source_version,
-        range: to_range((pos, pos))?,
+        range: to_ui_range(pos)?,
     })
 }
 
@@ -374,21 +377,14 @@ fn simplify_value(
 }
 
 fn map_property_definition(
-    document: &i_slint_compiler::parser::syntax_nodes::Document,
     defined_at: &Option<properties::DefinitionInformation>,
 ) -> Option<PropertyDefinition> {
     let da = defined_at.as_ref()?;
 
     Some(PropertyDefinition {
-        definition_range: to_range(util::map_to_offsets(
-            &document.source_file,
-            da.property_definition_range,
-        ))?,
-        selection_range: to_range(util::map_to_offsets(&document.source_file, da.selection_range))?,
-        expression_range: to_range(util::map_to_offsets(
-            &document.source_file,
-            da.expression_range,
-        ))?,
+        definition_range: to_ui_range(da.property_definition_range)?,
+        selection_range: to_ui_range(da.selection_range)?,
+        expression_range: to_ui_range(da.expression_range)?,
         expression_value: da.expression_value.clone().into(),
     })
 }
@@ -403,9 +399,6 @@ fn map_properties_to_ui(
     let raw_source_uri = Url::parse(&properties.source_uri).ok()?;
     let source_uri: SharedString = raw_source_uri.to_string().into();
     let source_version = properties.source_version;
-
-    let doc = document_cache.get_document(&raw_source_uri)?;
-    let doc_node = doc.node.as_ref()?;
 
     let mut property_groups: Vec<PropertyGroup> = vec![];
     let mut current_group_properties = vec![];
@@ -426,13 +419,12 @@ fn map_properties_to_ui(
                 range: Range { start: 0, end: 0 },
             },
         );
-        let defined_at =
-            map_property_definition(doc_node, &pi.defined_at).unwrap_or(PropertyDefinition {
-                definition_range: Range { start: 0, end: 0 },
-                selection_range: Range { start: 0, end: 0 },
-                expression_range: Range { start: 0, end: 0 },
-                expression_value: String::new().into(),
-            });
+        let defined_at = map_property_definition(&pi.defined_at).unwrap_or(PropertyDefinition {
+            definition_range: Range { start: 0, end: 0 },
+            selection_range: Range { start: 0, end: 0 },
+            expression_range: Range { start: 0, end: 0 },
+            expression_value: String::new().into(),
+        });
 
         let simple_value = {
             let value = if let Some(da) = &pi.defined_at {
@@ -464,20 +456,12 @@ fn map_properties_to_ui(
         property_groups.push(property_group_from(&current_group, current_group_properties));
     }
 
-    let element_range = util::map_to_offsets(
-        &doc_node.source_file,
-        element.range.unwrap_or(lsp_types::Range {
-            start: lsp_types::Position::new(1, 1),
-            end: lsp_types::Position::new(1, 1),
-        }),
-    );
-
     Some(ElementInformation {
         id: element.id.clone().into(),
         type_name: element.type_name.clone().into(),
         source_uri,
         source_version,
-        range: to_range(element_range)?,
+        range: to_ui_range(element.range)?,
 
         properties: Rc::new(VecModel::from(property_groups)).into(),
     })

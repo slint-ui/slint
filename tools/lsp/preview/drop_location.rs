@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange, TextSize};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -569,9 +569,11 @@ pub fn add_new_component(
     let source_file = document.source_file.clone();
     let path = source_file.path().to_path_buf();
 
-    let start_pos =
-        util::map_position(&source_file, insert_position.insertion_position.offset().into());
-    let end_pos = util::map_position(
+    let start_pos = util::text_size_to_lsp_position(
+        &source_file,
+        insert_position.insertion_position.offset().into(),
+    );
+    let end_pos = util::text_size_to_lsp_position(
         &source_file,
         (insert_position.insertion_position.offset() + insert_position.replacement_range).into(),
     );
@@ -863,13 +865,13 @@ pub struct DropData {
     pub path: std::path::PathBuf,
 }
 
-fn pretty_node_removal_range(node: &SyntaxNode) -> Option<rowan::TextRange> {
+fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
     let first_et = node.first_token()?;
     let before_et = first_et.prev_token()?;
     let start_pos = if before_et.kind() == SyntaxKind::Whitespace && before_et.text().contains('\n')
     {
         before_et.text_range().end()
-            - rowan::TextSize::from(
+            - TextSize::from(
                 before_et.text().split('\n').last().map(|s| s.len()).unwrap_or_default() as u32,
             )
     } else if before_et.kind() == SyntaxKind::Whitespace {
@@ -882,14 +884,14 @@ fn pretty_node_removal_range(node: &SyntaxNode) -> Option<rowan::TextRange> {
     let after_et = last_et.next_token()?;
     let end_pos = if after_et.kind() == SyntaxKind::Whitespace && after_et.text().contains('\n') {
         after_et.text_range().start()
-            + rowan::TextSize::from(
+            + TextSize::from(
                 after_et.text().split('\n').next().map(|s| s.len() + 1).unwrap_or_default() as u32,
             )
     } else {
         last_et.text_range().end() // Use existing WS or not WS as appropriate
     };
 
-    Some(rowan::TextRange::new(start_pos, end_pos))
+    Some(TextRange::new(start_pos, end_pos))
 }
 
 fn drop_ignored_elements_from_node(
@@ -902,7 +904,7 @@ fn drop_ignored_elements_from_node(
                 let e = common::extract_element(c.clone())?;
                 if common::is_element_node_ignored(&e) {
                     pretty_node_removal_range(&e)
-                        .map(|range| util::map_range(source_file, range))
+                        .map(|range| util::text_range_to_lsp_range(source_file, range))
                         .map(|range| lsp_types::TextEdit::new(range, String::new()))
                 } else {
                     None
@@ -1033,9 +1035,11 @@ pub fn drop_at(
             }),
     );
 
-    let start_pos =
-        util::map_position(&source_file, drop_info.insert_info.insertion_position.offset().into());
-    let end_pos = util::map_position(
+    let start_pos = util::text_size_to_lsp_position(
+        &source_file,
+        drop_info.insert_info.insertion_position.offset().into(),
+    );
+    let end_pos = util::text_size_to_lsp_position(
         &source_file,
         (drop_info.insert_info.insertion_position.offset()
             + drop_info.insert_info.replacement_range)
@@ -1049,10 +1053,7 @@ pub fn drop_at(
     ))
 }
 
-fn property_ranges(
-    element: &common::ElementRcNode,
-    remove_properties: &[&str],
-) -> Vec<rowan::TextRange> {
+fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {
     element.with_element_node(|node| {
         let mut result = vec![];
 
@@ -1113,7 +1114,8 @@ fn node_removal_text_edit(
     node: &SyntaxNode,
     replace_with: String,
 ) -> Option<common::SingleTextEdit> {
-    let range = util::map_range(&node.source_file.clone(), pretty_node_removal_range(node)?);
+    let range =
+        util::text_range_to_lsp_range(&node.source_file.clone(), pretty_node_removal_range(node)?);
     common::SingleTextEdit::from_path(
         document_cache,
         node.source_file.path(),
@@ -1246,9 +1248,11 @@ pub fn create_move_element_workspace_edit(
             }),
     );
 
-    let start_pos =
-        util::map_position(&source_file, drop_info.insert_info.insertion_position.offset().into());
-    let end_pos = util::map_position(
+    let start_pos = util::text_size_to_lsp_position(
+        &source_file,
+        drop_info.insert_info.insertion_position.offset().into(),
+    );
+    let end_pos = util::text_size_to_lsp_position(
         &source_file,
         (drop_info.insert_info.insertion_position.offset()
             + drop_info.insert_info.replacement_range)
@@ -1292,7 +1296,9 @@ pub fn move_element_to(
 
 #[cfg(test)]
 mod tests {
+    use i_slint_compiler::parser::{TextRange, TextSize};
     use lsp_types::Url;
+
     use std::collections::HashMap;
 
     use crate::{
@@ -1346,12 +1352,9 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         let edits = edits
             .iter()
             .filter_map(|(so, eo, t)| {
-                let range = util::map_range(
+                let range = util::text_range_to_lsp_range(
                     source_file,
-                    rowan::TextRange::new(
-                        rowan::TextSize::new(*so as u32),
-                        rowan::TextSize::new(*eo as u32),
-                    ),
+                    TextRange::new(TextSize::new(*so as u32), TextSize::new(*eo as u32)),
                 );
                 common::SingleTextEdit::from_path(
                     &document_cache,
