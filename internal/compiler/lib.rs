@@ -183,7 +183,8 @@ impl CompilerConfiguration {
             .filter(|f| *f > 0.)
             .unwrap_or(1.);
 
-        let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
+        let enable_experimental =
+            std::env::var("SLINT_ENABLE_EXPERIMENTAL_FEATURES").unwrap_or("0".into()) == "1";
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
