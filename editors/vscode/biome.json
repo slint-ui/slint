@@ -23,7 +23,8 @@
             "**/npm-debug.log*",
             "**/yarn-debug.log*",
             "**/yarn-error.log*",
-            "**/.vscode/**"
+            "**/.vscode/**",
+            "*.json"
         ]
     },
     "organizeImports": { "enabled": false },
@@ -31,7 +32,7 @@
         "enabled": true,
         "rules": {
             "recommended": false,
-            "style": { 
+            "style": {
                 "useBlockStatements": "warn",
                 "noUselessElse": "off"
             },
