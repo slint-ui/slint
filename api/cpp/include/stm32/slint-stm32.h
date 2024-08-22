@@ -163,7 +163,7 @@ struct StmSlintPlatform : public slint::platform::Platform
 
 } // namespace slint::private_api
 
-void slint_stm32_init(const SlintPlatformConfiguration &config)
+inline void slint_stm32_init(const SlintPlatformConfiguration &config)
 {
     auto a = config.size.width * config.size.height;
     std::span<slint::private_api::Pixel> buffer1(
