@@ -1,14 +1,60 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#pragma once
+
+#define SLINT_STRINGIFY(X) SLINT_STRINGIFY2(X)
+#define SLINT_STRINGIFY2(X) #X
+#define SLINT_CAT(X, Y) SLINT_CAT2(X, Y)
+#define SLINT_CAT2(X, Y) X##Y
+
+#include <slint-platform.h>
 #include <cstdint>
 #include <memory>
-#include "slint-stm.h"
 #include <type_traits>
+
+#if !defined(SLINT_STM32_BSP_NAME)
+#    error "Please define the SLINT_STM32_BSP_NAME pre-processor macro to the base name of the BSP, without quotes, such as SLINT_STM32_BSP_NAME=stm32h747i_disco"
+#endif
+
+#include SLINT_STRINGIFY(SLINT_STM32_BSP_NAME.h)
+#include SLINT_STRINGIFY(SLINT_CAT(SLINT_STM32_BSP_NAME, _lcd.h))
+#include SLINT_STRINGIFY(SLINT_CAT(SLINT_STM32_BSP_NAME, _ts.h))
+
+#undef SLINT_STRINGIFY
+#undef SLINT_STRINGIFY2
+#undef SLINT_CAT
+#undef SLINT_CAT2
+
+struct SlintPlatformConfiguration
+{
+    /// The size of the screen in pixels.
+    slint::PhysicalSize size
+#if defined(LCD_DEFAULT_WIDTH) && defined(LCD_DEFAULT_HEIGHT)
+            = slint::PhysicalSize({ LCD_DEFAULT_WIDTH, LCD_DEFAULT_HEIGHT })
+#endif
+            ;
+    unsigned int lcd_layer_0_address =
+#if defined(LCD_LAYER_0_ADDRESS)
+            LCD_LAYER_0_ADDRESS
+#else
+            0
+#endif
+            ;
+    unsigned int lcd_layer_1_address =
+#if defined(LCD_LAYER_0_ADDRESS)
+            LCD_LAYER_1_ADDRESS
+#else
+            0
+#endif
+            ;
+};
+
+namespace slint::private_api {
 
 using Pixel = slint::platform::Rgb565Pixel;
 
-static __IO bool screen_ready = true;
+inline static __IO bool screen_ready = true;
 
 struct StmWindowAdapter : public slint::platform::WindowAdapter
 {
@@ -115,12 +161,16 @@ struct StmSlintPlatform : public slint::platform::Platform
     }
 };
 
-void slint_stm_init(const SlintPlatformConfiguration &config)
+} // namespace slint::private_api
+
+void slint_stm32_init(const SlintPlatformConfiguration &config)
 {
     auto a = config.size.width * config.size.height;
-    std::span<Pixel> buffer1(reinterpret_cast<Pixel *>(config.lcd_layer_0_address), a);
-    std::span<Pixel> buffer2(reinterpret_cast<Pixel *>(config.lcd_layer_1_address), a);
+    std::span<slint::private_api::Pixel> buffer1(
+            reinterpret_cast<slint::private_api::Pixel *>(config.lcd_layer_0_address), a);
+    std::span<slint::private_api::Pixel> buffer2(
+            reinterpret_cast<slint::private_api::Pixel *>(config.lcd_layer_1_address), a);
 
     slint::platform::set_platform(
-            std::make_unique<StmSlintPlatform>(config.size, buffer1, buffer2));
+            std::make_unique<slint::private_api::StmSlintPlatform>(config.size, buffer1, buffer2));
 }
