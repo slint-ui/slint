@@ -318,7 +318,6 @@ impl SubComponent {
         }
         true
     }
-
 }
 
 pub struct SubComponentInstance {
