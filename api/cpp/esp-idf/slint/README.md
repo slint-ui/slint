@@ -19,8 +19,8 @@ It has been tested on ESP32-S3 devices.
 * Install the [Espressif IoT Development Framework](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/index.html) and open a terminal or command prompt with the environment set up.
 On Windows, follow the [Using the Command Prompt](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/windows-setup.html#using-the-command-prompt) instructions, on macOS and Linux, follow the
 [Set up the Environment Variables](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html#step-4-set-up-the-environment-variables) instructions.
-* Make sure that you have [Rust](https://esp-rs.github.io/book/installation/rust.html) installed.
-* Install the Rust toolchains for [Espressif SoCs with Xtensa and RISC-V targets](https://esp-rs.github.io/book/installation/riscv-and-xtensa.html).
+
+By default, Slint will use pre-compiled binaries. If for some reason there are no binaries available, the build will fall back to compiling Slint from source and you need to have [Rust installed](https://esp-rs.github.io/book/installation/rust.html installed) as well as the [Rust toolchains for Espressif SoCs with Xtensa and RISC-V targets](https://esp-rs.github.io/book/installation/riscv-and-xtensa.html).
 
 ### Hello World
 
