@@ -7,7 +7,7 @@ import simpleGit from "simple-git";
 import * as path from "node:path";
 
 export async function newProject(context: vscode.ExtensionContext) {
-    type Language = "Node (JavaScript/TypeScript)" | "c++" | "rust";
+    type Language = "Node (JavaScript/TypeScript)" | "C++" | "Rust";
 
     const language = await vscode.window.showQuickPick(
         ["Node (JavaScript/TypeScript)", "c++", "rust"],
@@ -26,10 +26,10 @@ export async function newProject(context: vscode.ExtensionContext) {
         case "Node (JavaScript/TypeScript)":
             repoUrl = "https://github.com/slint-ui/slint-nodejs-template";
             break;
-        case "c++":
+        case "C++":
             repoUrl = "https://github.com/slint-ui/slint-cpp-template";
             break;
-        case "rust":
+        case "Rust":
             repoUrl = "https://github.com/slint-ui/slint-rust-template";
             break;
         default:
