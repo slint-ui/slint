@@ -3,11 +3,6 @@
 
 #pragma once
 
-#define SLINT_STRINGIFY(X) SLINT_STRINGIFY2(X)
-#define SLINT_STRINGIFY2(X) #X
-#define SLINT_CAT(X, Y) SLINT_CAT2(X, Y)
-#define SLINT_CAT2(X, Y) X##Y
-
 #include <slint-platform.h>
 #include <cstdint>
 #include <memory>
@@ -16,6 +11,11 @@
 #if !defined(SLINT_STM32_BSP_NAME)
 #    error "Please define the SLINT_STM32_BSP_NAME pre-processor macro to the base name of the BSP, without quotes, such as SLINT_STM32_BSP_NAME=stm32h747i_disco"
 #endif
+
+#define SLINT_STRINGIFY(X) SLINT_STRINGIFY2(X)
+#define SLINT_STRINGIFY2(X) #X
+#define SLINT_CAT(X, Y) SLINT_CAT2(X, Y)
+#define SLINT_CAT2(X, Y) X##Y
 
 #include SLINT_STRINGIFY(SLINT_STM32_BSP_NAME.h)
 #include SLINT_STRINGIFY(SLINT_CAT(SLINT_STM32_BSP_NAME, _lcd.h))
