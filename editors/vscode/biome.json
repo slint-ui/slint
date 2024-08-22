@@ -31,7 +31,10 @@
         "enabled": true,
         "rules": {
             "recommended": false,
-            "style": { "useBlockStatements": "warn" },
+            "style": { 
+                "useBlockStatements": "warn",
+                "noUselessElse": "off"
+            },
             "suspicious": { "noDoubleEquals": "warn" }
         },
         "ignore": ["webviews/**", "**/.vscode/**", "**/build/**", "**/out/**"]
