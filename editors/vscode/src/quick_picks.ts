@@ -10,19 +10,19 @@ export async function newProject(context: vscode.ExtensionContext) {
     type Language = "Node (JavaScript/TypeScript)" | "C++" | "Rust";
 
     const language = await vscode.window.showQuickPick(
-        ["Node (JavaScript/TypeScript)", "c++", "rust"],
+        ["Node (JavaScript/TypeScript)", "C++", "Rust"],
         {
             placeHolder: "What language do you want to use?",
         },
-    );
+    ) as Language;
 
     if (!language) {
         vscode.window.showErrorMessage("Language selection is required.");
         return;
     }
 
-    let repoUrl: string;
-    switch (language as Language) {
+    let repoUrl: string | undefined;
+    switch (language) {
         case "Node (JavaScript/TypeScript)":
             repoUrl = "https://github.com/slint-ui/slint-nodejs-template";
             break;
@@ -65,6 +65,18 @@ export async function newProject(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage("Project name is required.");
         return;
     }
+    
+    let authorName: string | undefined;
+    if (language === "Rust") {
+        authorName = await vscode.window.showInputBox({
+            prompt: "Enter the author name",
+        });
+
+        if (!authorName) {
+            vscode.window.showErrorMessage("Author name is required for Rust projects.");
+            return;
+        }
+    }
 
     const projectPath = path.join(workspacePath, projectName);
 
@@ -73,6 +85,16 @@ export async function newProject(context: vscode.ExtensionContext) {
 
         const git = simpleGit();
         await git.clone(repoUrl, projectPath);
+
+        if (language === "Rust" && authorName) {
+            const cargoTomlPath = path.join(projectPath, "Cargo.toml");
+            if (await fs.pathExists(cargoTomlPath)) {
+                let cargoToml = await fs.readFile(cargoTomlPath, "utf8");
+                cargoToml = cargoToml.replace("{{project-name}}", projectName);
+                cargoToml = cargoToml.replace("{{authors}}", authorName);
+                await fs.writeFile(cargoTomlPath, cargoToml, "utf8");
+            }
+        }
 
         const vscodeFolderPath = path.join(projectPath, ".vscode");
         await fs.ensureDir(vscodeFolderPath);
