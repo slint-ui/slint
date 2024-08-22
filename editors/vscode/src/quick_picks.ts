@@ -9,12 +9,12 @@ import * as path from "node:path";
 export async function newProject(context: vscode.ExtensionContext) {
     type Language = "Node (JavaScript/TypeScript)" | "C++" | "Rust";
 
-    const language = await vscode.window.showQuickPick(
+    const language = (await vscode.window.showQuickPick(
         ["Node (JavaScript/TypeScript)", "C++", "Rust"],
         {
             placeHolder: "What language do you want to use?",
         },
-    ) as Language;
+    )) as Language;
 
     if (!language) {
         vscode.window.showErrorMessage("Language selection is required.");

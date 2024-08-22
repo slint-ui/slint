@@ -95,7 +95,7 @@ function getPreviewHtml(
 ): string {
     const experimental =
         typeof process !== "undefined" &&
-        process.env.hasOwnProperty("SLINT_ENABLE_EXPERIMENTAL_FEATURES");
+        process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
     const result = `<!DOCTYPE html>
 <html lang="en" style="height: 100%; width: 100%;">
 <head>
