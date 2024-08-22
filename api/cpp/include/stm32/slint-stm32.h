@@ -52,8 +52,6 @@ struct SlintPlatformConfiguration
 
 namespace slint::private_api {
 
-inline static __IO bool screen_ready = true;
-
 struct StmWindowAdapter : public slint::platform::WindowAdapter
 {
     slint::platform::SoftwareRenderer m_renderer {
@@ -74,6 +72,8 @@ struct StmWindowAdapter : public slint::platform::WindowAdapter
 struct StmSlintPlatform : public slint::platform::Platform
 {
     using Pixel = slint::platform::Rgb565Pixel;
+
+    static __IO bool screen_ready;
 
     StmWindowAdapter *m_window = nullptr;
     const slint::PhysicalSize size;
@@ -159,6 +159,8 @@ struct StmSlintPlatform : public slint::platform::Platform
         }
     }
 };
+
+inline __IO bool StmSlintPlatform::screen_ready = true;
 
 } // namespace slint::private_api
 
