@@ -463,46 +463,16 @@ jobs:
         steps:
             - uses: actions/download-artifact@v4
               with:
-                  name: cpp_bin-linux
+                  pattern: cpp_bin-*
             - uses: actions/download-artifact@v4
               with:
-                  name: cpp_bin-macos
+                  pattern: cpp_mcu_bin-*
             - uses: actions/download-artifact@v4
               with:
-                  name: cpp_bin-windows
+                  pattern: slint-viewer-*
             - uses: actions/download-artifact@v4
               with:
-                  name: cpp_mcu_bin-*
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-viewer-linux
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-viewer-armv7-unknown-linux-gnueabihf
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-viewer-aarch64-unknown-linux-gnu
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-viewer-windows
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-viewer-macos
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-lsp-linux
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-lsp-armv7-unknown-linux-gnueabihf
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-lsp-aarch64-unknown-linux-gnu
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-lsp-windows
-            - uses: actions/download-artifact@v4
-              with:
-                  name: slint-lsp-macos
+                  pattern: slint-lsp-*
             - name: Extract files
               run: |
                   mkdir artifacts
