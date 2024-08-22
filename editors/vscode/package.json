@@ -185,7 +185,7 @@
     "bin/slint-lsp-*"
   ],
   "scripts": {
-    "vscode:prepublish": "pnpm build:wasm_lsp-release && pnpm compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-Software-3.0\" > LICENSE.txt",
+    "vscode:prepublish": "npm run build:wasm_lsp-release && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-Software-3.0\" > LICENSE.txt",
     "build:lsp": "cargo build -p slint-lsp",
     "build:lsp-release": "cargo build --release -p slint-lsp",
     "build:wasm_lsp": "env-var wasm-pack build --dev     --target web --no-pack ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
@@ -193,7 +193,7 @@
     "compile": "node ./esbuild.js",
     "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && npx vsce package",
     "watch": "tsc -watch -p ./",
-    "pretest": "pnpm compile && pnpm lint",
+    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "syntax_check": "tsc --build --force",
     "test": "node ./out/test/runTest.js",
@@ -218,6 +218,5 @@
     "vscode-test": "^1.6.1",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
-  },
-  "packageManager": "pnpm@9.7.1"
+  }
 }

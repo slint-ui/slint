@@ -31,12 +31,6 @@ visible, it is not necessary to save the file.
 
 Issues should be reported in the [Slint issue tracker](https://github.com/slint-ui/slint/labels/vscode-extension).
 
-## Tools
-Ensure you have node 18.x or higher and a pnpm version >= 9.x installed. The exact latest versions can be found in the package.json file.
-
-## New NPM dependencies
-The pnpm-lock.yaml file should be updated and committed to the repository. If you end up with a conflict do not delete the lock file, but instead run `pnpm install` to update and fix it.
-
 ## Building from source and debugging
 
 The following step will build a local version of the vscode extension and the LSP
@@ -45,13 +39,13 @@ The following step will build a local version of the vscode extension and the LS
 cargo install wasm-pack
 cargo build -p slint-lsp
 cd editors/vscode
-pnpm install
-pnpm build:wasm_lsp
-pnpm compile
+npm install
+npm run build:wasm_lsp
+npm run compile
 ```
 
 Later, you only need to do the steps for the part you change like `cargo build -p slint-lsp` to rebuild the lsp binary
-or `pnpm compile` to rebuild the typescript.
+or `npm run compile` to rebuild the typescript.
 
 You can run vscode with that extension by running, in the `editors/vscode` directory:
 
@@ -70,7 +64,7 @@ To create a `.vsix` package for local installation:
 2. Create a `.vsix` package (needs `vsce` installed)
 
 ```sh
-pnpm local-package
+npm run local-package
 ```
 
 3. Install the `.vsix` file with
