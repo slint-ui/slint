@@ -60,13 +60,15 @@ thread_local! {
     pub static FONT_DB: RefCell<FontDatabase>  = RefCell::new(init_fontdb())
 }
 
-#[cfg(not(any(
-    target_family = "windows",
-    target_vendor = "apple",
-    target_arch = "wasm32",
-    target_os = "android",
-    target_os = "nto",
-)))]
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_arch = "wasm32",
+        target_os = "android",
+    ))
+))]
 mod fontconfig;
 
 fn init_fontdb() -> FontDatabase {
@@ -148,13 +150,11 @@ fn init_fontdb() -> FontDatabase {
     {
         font_db.load_system_fonts();
         cfg_if::cfg_if! {
-            if #[cfg(not(any(
-                target_family = "windows",
-                target_vendor = "apple",
-                target_arch = "wasm32",
-                target_os = "android",
-                target_os = "nto",
-            )))] {
+            if #[cfg(all(
+                unix,
+                not(any(target_os = "macos", target_os = "ios"))
+            ))]
+            {
                 match fontconfig::find_families("sans-serif") {
                     Ok(mut fallback_families) => {
                         if !fallback_families.is_empty() {
