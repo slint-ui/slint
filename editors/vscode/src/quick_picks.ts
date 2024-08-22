@@ -74,6 +74,14 @@ export async function newProject(context: vscode.ExtensionContext) {
         const git = simpleGit();
         await git.clone(repoUrl, projectPath);
 
+        // Remove git. At a later point we might want to ask if the user wants to add it.
+        const gitFolderPath = path.join(projectPath, ".git");
+        await fs.remove(gitFolderPath);
+
+        const gitignoreFilePath = path.join(projectPath, ".gitignore");
+        await fs.remove(gitignoreFilePath);
+
+        // Ensure the new window opens with the folder of files showing.
         const vscodeFolderPath = path.join(projectPath, ".vscode");
         await fs.ensureDir(vscodeFolderPath);
         const settingsFilePath = path.join(vscodeFolderPath, "settings.json");
