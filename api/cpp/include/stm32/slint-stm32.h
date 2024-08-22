@@ -52,8 +52,6 @@ struct SlintPlatformConfiguration
 
 namespace slint::private_api {
 
-using Pixel = slint::platform::Rgb565Pixel;
-
 inline static __IO bool screen_ready = true;
 
 struct StmWindowAdapter : public slint::platform::WindowAdapter
@@ -75,6 +73,7 @@ struct StmWindowAdapter : public slint::platform::WindowAdapter
 
 struct StmSlintPlatform : public slint::platform::Platform
 {
+    using Pixel = slint::platform::Rgb565Pixel;
 
     StmWindowAdapter *m_window = nullptr;
     const slint::PhysicalSize size;
@@ -166,10 +165,14 @@ struct StmSlintPlatform : public slint::platform::Platform
 inline void slint_stm32_init(const SlintPlatformConfiguration &config)
 {
     auto a = config.size.width * config.size.height;
-    std::span<slint::private_api::Pixel> buffer1(
-            reinterpret_cast<slint::private_api::Pixel *>(config.lcd_layer_0_address), a);
-    std::span<slint::private_api::Pixel> buffer2(
-            reinterpret_cast<slint::private_api::Pixel *>(config.lcd_layer_1_address), a);
+    std::span<slint::private_api::StmSlintPlatform::Pixel> buffer1(
+            reinterpret_cast<slint::private_api::StmSlintPlatform::Pixel *>(
+                    config.lcd_layer_0_address),
+            a);
+    std::span<slint::private_api::StmSlintPlatform::Pixel> buffer2(
+            reinterpret_cast<slint::private_api::StmSlintPlatform::Pixel *>(
+                    config.lcd_layer_1_address),
+            a);
 
     slint::platform::set_platform(
             std::make_unique<slint::private_api::StmSlintPlatform>(config.size, buffer1, buffer2));
