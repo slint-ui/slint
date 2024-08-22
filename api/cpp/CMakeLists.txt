@@ -374,7 +374,7 @@ if (SLINT_BUILD_RUNTIME)
     endif()
 
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm)$")
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/stm32/slint-stm.h DESTINATION include/slint/stm32)
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/slint-stm.h DESTINATION include/slint)
     endif()
 
     export(TARGETS Slint slint_cpp
