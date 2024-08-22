@@ -23,13 +23,13 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                os: [ubuntu-20.04, macOS-12, macOS-14, windows-2022]
+                os: [ubuntu-20.04, macOS-12, macos-14, windows-2022]
                 include:
                     - os: ubuntu-20.04
                       package_suffix: linux
                     - os: macOS-12
                       package_suffix: macos-x86_64
-                    - os: macOS-14
+                    - os: macos-14
                       package_suffix: macos-aarch64
                     - os: windows-2022
                       package_suffix: windows
@@ -82,7 +82,7 @@ jobs:
         strategy:
             matrix:
                 target: [thumbv7em-none-eabihf]
-                host: [ubuntu-20.04, windows-2022, macOS-12, macOS-14]
+                host: [ubuntu-20.04, windows-2022, macOS-12, macos-14]
 
         runs-on: ${{ matrix.host }}
         steps:
@@ -132,7 +132,7 @@ jobs:
         strategy:
             matrix:
                 target: [riscv32imafc-esp-espidf, riscv32imac-esp-espidf, riscv32imc-esp-espidf, xtensa-esp32s3-none-elf]
-                host: [ubuntu-22.04, windows-2022, macOS-12, macOS-14]
+                host: [ubuntu-22.04, windows-2022, macOS-12, macos-14]
 
         runs-on: ${{ matrix.host }}
         steps:
