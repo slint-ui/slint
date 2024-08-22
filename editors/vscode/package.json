@@ -2,7 +2,15 @@
   "name": "slint",
   "displayName": "Slint",
   "description": "Slint language support, featuring auto-completion, go-to definition, refactoring, syntax coloration, and a live preview and editing of Slint GUIs. Slint is a lightweight cross-platform native GUI framework for Rust, C++, JavaScript, and Python.",
-  "keywords": ["Slint", "GUI", "UI", "HMI", "Qt/QML Alternative", "live preview", "drag-and-drop editor"],
+  "keywords": [
+    "Slint",
+    "GUI",
+    "UI",
+    "HMI",
+    "Qt/QML Alternative",
+    "live preview",
+    "drag-and-drop editor"
+  ],
   "version": "1.8.0",
   "publisher": "Slint",
   "icon": "extension-logo.png",
@@ -178,6 +186,8 @@
   },
   "dependencies": {
     "@vscode/codicons": "0.0.33",
+    "fs-extra": "11.2.0",
+    "simple-git": "3.25.0",
     "vscode-languageclient": "^8.1.0",
     "vscode-languageserver": "^8.1.0"
   },
@@ -201,6 +211,7 @@
   },
   "devDependencies": {
     "@rauschma/env-var": "^1.0.1",
+    "@types/fs-extra": "^11.0.4",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "^16.0",
