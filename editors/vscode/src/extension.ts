@@ -195,8 +195,8 @@ export function activate(context: vscode.ExtensionContext) {
     statusBar = common.activate(context, (cl, ctx) => startClient(cl, ctx));
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("vsSlint.testProjectClone", newProject)
-      );
+        vscode.commands.registerCommand("slint.newProject", newProject),
+    );
 }
 
 export function deactivate(): Thenable<void> | undefined {
