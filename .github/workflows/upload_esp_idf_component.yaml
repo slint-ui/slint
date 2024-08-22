@@ -5,16 +5,36 @@ name: Upload component to ESP-IDF component registry
 
 on:
     workflow_dispatch:
+        inputs:
+            release:
+                type: boolean
+                default: false
+                required: false
+                description: "Release? Uploads to esp-idf component registry if true"
 
 jobs:
     upload_components:
         runs-on: ubuntu-22.04
+        container: espressif/idf:latest
         steps:
             - uses: actions/checkout@v4
             - name: Upload component
+              if: github.event.inputs.release == 'true'
               uses: espressif/upload-components-ci-action@v1
               with:
                   name: "slint"
                   namespace: "slint"
                   api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
                   directories: "api/cpp/esp-idf/slint"
+            - name: Package component
+              if: github.event.inputs.release != 'true'
+              working-directory: "api/cpp/esp-idf/slint"
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  compote component pack --name slint --namespace slint
+            - name: Archive component
+              if: github.event.inputs.release != 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  path: "api/cpp/esp-idf/slint/dist/*"
+
