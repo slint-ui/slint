@@ -23,6 +23,10 @@ Files: .github/issue_template.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
+Files: docs/_templates/*.md
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
 
 Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>

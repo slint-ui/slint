@@ -1,5 +1,4 @@
 # Embedded Tutorial template
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 
 <!-- Copy and use as a basis -->
