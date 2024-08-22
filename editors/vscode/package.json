@@ -90,6 +90,11 @@
         "title": "Restart server",
         "category": "Slint",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "slint.newProject",
+        "title": "Create New Project",
+        "category": "Slint"
       }
     ],
     "menus": {
