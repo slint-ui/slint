@@ -82,7 +82,7 @@ jobs:
         strategy:
             matrix:
                 target: [thumbv7em-none-eabihf]
-                host: [ubuntu-20.04, windows-2022, macOS-12, macos-14]
+                host: [ubuntu-20.04, windows-2022, macOS-12]
 
         runs-on: ${{ matrix.host }}
         steps:
