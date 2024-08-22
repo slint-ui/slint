@@ -132,7 +132,7 @@ jobs:
         strategy:
             matrix:
                 target: [riscv32imafc-esp-espidf, riscv32imac-esp-espidf, riscv32imc-esp-espidf, xtensa-esp32s3-none-elf]
-                host: [ubuntu-22.04, windows-2022, macOS-12, macos-14]
+                host: [ubuntu-22.04, windows-2022, macOS-12]
 
         runs-on: ${{ matrix.host }}
         steps:
