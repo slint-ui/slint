@@ -479,6 +479,7 @@ jobs:
                   merge-multiple: true
             - name: Extract files
               run: |
+                  ls -l
                   mkdir artifacts
                   mv Slint-cpp-*-win64*.exe artifacts/
                   mv Slint-cpp-*.tar.gz artifacts/
