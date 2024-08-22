@@ -5,18 +5,19 @@
 
 // cSpell: ignore codespace codespaces gnueabihf vsix
 
-import * as path from "path";
-import { existsSync } from "fs";
+import * as path from "node:path";
+import { existsSync } from "node:fs";
 import * as vscode from "vscode";
 
 import * as common from "./common";
 
 import {
     LanguageClient,
-    ServerOptions,
-    ExecutableOptions,
+    type ServerOptions,
+    type ExecutableOptions,
     State,
 } from "vscode-languageclient/node";
+import { newProject } from "./quick_picks.js";
 
 let statusBar: vscode.StatusBarItem;
 
@@ -192,6 +193,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     statusBar = common.activate(context, (cl, ctx) => startClient(cl, ctx));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("slint.newProject", newProject),
+    );
 }
 
 export function deactivate(): Thenable<void> | undefined {

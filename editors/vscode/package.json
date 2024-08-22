@@ -2,7 +2,15 @@
   "name": "slint",
   "displayName": "Slint",
   "description": "Slint language support, featuring auto-completion, go-to definition, refactoring, syntax coloration, and a live preview and editing of Slint GUIs. Slint is a lightweight cross-platform native GUI framework for Rust, C++, JavaScript, and Python.",
-  "keywords": ["Slint", "GUI", "UI", "HMI", "Qt/QML Alternative", "live preview", "drag-and-drop editor"],
+  "keywords": [
+    "Slint",
+    "GUI",
+    "UI",
+    "HMI",
+    "Qt/QML Alternative",
+    "live preview",
+    "drag-and-drop editor"
+  ],
   "version": "1.8.0",
   "publisher": "Slint",
   "icon": "extension-logo.png",
@@ -82,6 +90,11 @@
         "title": "Restart server",
         "category": "Slint",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "slint.newProject",
+        "title": "Create New Project from Template",
+        "category": "Slint"
       }
     ],
     "menus": {
@@ -178,6 +191,8 @@
   },
   "dependencies": {
     "@vscode/codicons": "0.0.33",
+    "fs-extra": "11.2.0",
+    "simple-git": "3.25.0",
     "vscode-languageclient": "^8.1.0",
     "vscode-languageserver": "^8.1.0"
   },
@@ -193,14 +208,20 @@
     "compile": "node ./esbuild.js",
     "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && npx vsce package",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "pretest": "npm run compile && npm run check",
+    "check": "biome check",
+    "format": "biome format",
+    "format:fix": "biome format --write",
+    "lint": "biome lint",
+    "lint:fix": "biome check --apply",
     "syntax_check": "tsc --build --force",
     "test": "node ./out/test/runTest.js",
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
     "@rauschma/env-var": "^1.0.1",
+    "@types/fs-extra": "^11.0.4",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "^16.0",
