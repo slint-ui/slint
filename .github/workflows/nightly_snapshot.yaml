@@ -19,7 +19,7 @@ on:
                 description: "Release? Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
 
     schedule:
-        - cron: "0 4 * * *"
+        - cron: "0 2 * * *"
 
 env:
     # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/Cargo.toml
@@ -569,6 +569,9 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
+    nightly-tests:
+        needs: [prepare_release]
+        uses: ./.github/workflows/nightly_tests.yaml
 
     android:
         env:
