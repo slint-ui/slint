@@ -31,7 +31,7 @@ jobs:
               working-directory: "api/cpp/esp-idf/slint"
               run: |
                   . ${IDF_PATH}/export.sh
-                  compote component pack --name slint --namespace slint
+                  compote component pack --name slint
             - name: Archive component
               if: github.event.inputs.release != 'true'
               uses: actions/upload-artifact@v4
