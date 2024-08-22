@@ -464,15 +464,19 @@ jobs:
             - uses: actions/download-artifact@v4
               with:
                   pattern: cpp_bin-*
+                  merge-multiple: true
             - uses: actions/download-artifact@v4
               with:
                   pattern: cpp_mcu_bin-*
+                  merge-multiple: true
             - uses: actions/download-artifact@v4
               with:
                   pattern: slint-viewer-*
+                  merge-multiple: true
             - uses: actions/download-artifact@v4
               with:
                   pattern: slint-lsp-*
+                  merge-multiple: true
             - name: Extract files
               run: |
                   mkdir artifacts
