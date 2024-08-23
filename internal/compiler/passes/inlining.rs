@@ -420,9 +420,9 @@ fn duplicate_sub_component(
         fixup_reference(&mut p.y, mapping);
     }
     for t in new_component.timers.borrow_mut().iter_mut() {
-        fixup_reference(&mut t.interval, &mapping);
-        fixup_reference(&mut t.running, &mapping);
-        fixup_reference(&mut t.triggered, &mapping);
+        fixup_reference(&mut t.interval, mapping);
+        fixup_reference(&mut t.running, mapping);
+        fixup_reference(&mut t.triggered, mapping);
     }
     new_component
         .root_constraints
