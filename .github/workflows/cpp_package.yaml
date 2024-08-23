@@ -166,7 +166,7 @@ jobs:
                   # NOTE: xtensa-esp-elf-gcc as compiler for the RISC-V targets is wrong, but the compiler argument here is only
                   # used to ensure that SIZEOF_VOID_P is 4 in the generated cmake config file. Otherwise this build requires no
                   # C compiler.
-                  cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DESP_PLATFORM=1 -DIDF_TARGET=${{ matrix.idf_target }} -DRust_CARGO_TARGET=${{ matrix.rust_target }} -DCMAKE_C_COMPILER=xtensa-esp-elf-gcc -DCMAKE_CXX_COMPILER=xtensa-esp-elf-g++ -DCMAKE_AR=xtensa-esp-elf-ar -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DSLINT_LIBRARY_CARGO_FLAGS='-Zbuild-std=core,alloc' ${{ env.SLINT_MCU_FEATURES }}"
+                  cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DESP_PLATFORM=1 -DIDF_TARGET=${{ matrix.idf_target }} -DRust_CARGO_TARGET=${{ matrix.rust_target }} -DCMAKE_C_COMPILER=xtensa-esp-elf-gcc -DCMAKE_AR=xtensa-esp-elf-ar -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DSLINT_LIBRARY_CARGO_FLAGS='-Zbuild-std=core,alloc' ${{ env.SLINT_MCU_FEATURES }}"
                   buildDirectory: ${{ runner.workspace }}/cppbuild
                   buildWithCMakeArgs: "--config Release"
             - name: cpack
