@@ -62,8 +62,6 @@ impl PreviewConnector {
     ) -> Result<PreviewConnectorPromise, JsValue> {
         console_error_panic_hook::set_once();
 
-        i_slint_core::debug_log!("PreviewConnector: Enable experimental? {experimental}");
-
         WASM_CALLBACKS.set(Some(WasmCallbacks { lsp_notifier, resource_url_mapper }));
 
         Ok(JsValue::from(js_sys::Promise::new(&mut move |resolve, reject| {
