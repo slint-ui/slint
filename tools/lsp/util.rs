@@ -360,4 +360,43 @@ mod tests {
         let label = dc.element_at_position(&url, &lsp_types::Position::new(2, 17));
         assert_eq!(find_element_indent(&label.unwrap()), Some("        ".to_string()));
     }
+
+    #[test]
+    fn test_map_position() {
+        let text = r#"// 🔥 Test 🎆
+component MainWindow inherits Window {
+    VerticalBox {
+        label := Text { text: "te🦥xt"; }
+    }
+}"#
+        .to_string();
+        let (dc, url, _) = loaded_document_cache(text.clone());
+        let doc = dc.get_document(&url).unwrap();
+        let source = doc.node.as_ref().unwrap().source_file.clone();
+        let mut offset = TextSize::new(0);
+        let mut line = 0_usize;
+        let mut pos = 0_usize;
+        for c in text.chars() {
+            let original_offset = offset;
+            let mapped = text_size_to_lsp_position(&source, u32::from(original_offset).into());
+            eprintln!(
+                "c: {c} <offset: {offset:?}> => {line}:{pos} => mapped {}:{}",
+                mapped.line, mapped.character
+            );
+            assert_eq!(mapped.line, (line as u32));
+            assert_eq!(mapped.character, (pos as u32));
+            let unmapped = lsp_position_to_text_size(&source, mapped);
+            assert_eq!(unmapped, original_offset);
+            offset = offset.checked_add((c.len_utf8() as u32).into()).unwrap();
+            match c {
+                '\n' => {
+                    line += 1;
+                    pos = 0
+                }
+                c => {
+                    pos += c.len_utf8();
+                }
+            }
+        }
+    }
 }
