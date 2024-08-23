@@ -103,18 +103,12 @@ jobs:
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ../..
               working-directory: api/cpp/
-            - uses: ilammy/msvc-dev-cmd@v1
-            - name: Select MSVC (windows)
-              run: |
-                  echo "CC=cl.exe" >> $GITHUB_ENV
-                  echo "CXX=cl.exe" >> $GITHUB_ENV
-              if: matrix.host == 'windows-2022'
             - name: C++ Build
               uses: lukka/run-cmake@v3.4
               with:
                   cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                   cmakeListsTxtPath: CMakeLists.txt
-                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_SHARED_LIBS=OFF -DRust_CARGO_TARGET=${{ matrix.target }} -DCMAKE_C_COMPILER=arm-none-eabi-gcc -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY ${{ env.SLINT_MCU_FEATURES }}"
+                  cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_SHARED_LIBS=OFF -DRust_CARGO_TARGET=${{ matrix.target }} -DCMAKE_C_COMPILER=arm-none-eabi-gcc -DCMAKE_CXX_COMPILER=arm-none-eabi-g++ -DCMAKE_AR=arm-none-eabi-ar -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY ${{ env.SLINT_MCU_FEATURES }}"
                   buildDirectory: ${{ runner.workspace }}/cppbuild
                   buildWithCMakeArgs: "--config Release"
             - name: cpack
@@ -164,12 +158,6 @@ jobs:
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ../..
               working-directory: api/cpp/
-            - uses: ilammy/msvc-dev-cmd@v1
-            - name: Select MSVC (windows)
-              run: |
-                  echo "CC=cl.exe" >> $GITHUB_ENV
-                  echo "CXX=cl.exe" >> $GITHUB_ENV
-              if: matrix.host == 'windows-2022'
             - name: C++ Build
               uses: lukka/run-cmake@v3.4
               with:
@@ -178,7 +166,7 @@ jobs:
                   # NOTE: xtensa-esp-elf-gcc as compiler for the RISC-V targets is wrong, but the compiler argument here is only
                   # used to ensure that SIZEOF_VOID_P is 4 in the generated cmake config file. Otherwise this build requires no
                   # C compiler.
-                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DESP_PLATFORM=1 -DIDF_TARGET=${{ matrix.idf_target }} -DRust_CARGO_TARGET=${{ matrix.rust_target }} -DCMAKE_C_COMPILER=xtensa-esp-elf-gcc -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DSLINT_LIBRARY_CARGO_FLAGS='-Zbuild-std=core,alloc' ${{ env.SLINT_MCU_FEATURES }}"
+                  cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DESP_PLATFORM=1 -DIDF_TARGET=${{ matrix.idf_target }} -DRust_CARGO_TARGET=${{ matrix.rust_target }} -DCMAKE_C_COMPILER=xtensa-esp-elf-gcc -DCMAKE_CXX_COMPILER=xtensa-esp-elf-g++ -DCMAKE_AR=arm-none-eabi-ar -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DSLINT_LIBRARY_CARGO_FLAGS='-Zbuild-std=core,alloc' ${{ env.SLINT_MCU_FEATURES }}"
                   buildDirectory: ${{ runner.workspace }}/cppbuild
                   buildWithCMakeArgs: "--config Release"
             - name: cpack
