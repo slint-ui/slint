@@ -40,7 +40,6 @@ export async function newProject(context: vscode.ExtensionContext) {
     let workspacePath: string | undefined =
         vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-    if (!workspacePath) {
         const folderUris = await vscode.window.showOpenDialog({
             canSelectFolders: true,
             canSelectMany: false,
@@ -55,7 +54,6 @@ export async function newProject(context: vscode.ExtensionContext) {
         }
 
         workspacePath = folderUris[0].fsPath;
-    }
 
     const projectName = await vscode.window.showInputBox({
         prompt: "Enter the name of the new project",
