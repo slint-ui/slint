@@ -126,7 +126,7 @@ jobs:
         strategy:
             matrix:
                 idf_target: [esp32s2, esp32s3, esp32p4]
-                host: [ubuntu-22.04, windows-2022, macOS-12]
+                host: [ubuntu-22.04, macOS-12]
                 include:
                   - idf_target: esp32s2
                     rust_target: xtensa-esp32s2-none-elf
