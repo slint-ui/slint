@@ -105,6 +105,10 @@
         },
         {
           "command": "slint.reload"
+        },
+        {
+          "command": "slint.newProject",
+          "when": "!isWeb"
         }
       ]
     },
