@@ -167,7 +167,6 @@ pub fn use_24_hour_format() -> bool {
 /// internal re_exports used by the macro generated
 pub mod re_exports {
     pub use alloc::boxed::Box;
-    pub use alloc::format;
     pub use alloc::rc::{Rc, Weak};
     pub use alloc::string::String;
     pub use alloc::{vec, vec::Vec};
@@ -175,6 +174,7 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use core::option::{Option, Option::*};
     pub use core::result::{Result, Result::*};
+    pub use i_slint_core::format;
     // This one is empty when Qt is not available, which triggers a warning
     #[allow(unused_imports)]
     pub use i_slint_backend_selector::native_widgets::*;

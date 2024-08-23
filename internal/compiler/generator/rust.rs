@@ -2114,7 +2114,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     quote!((#f as i32))
                 }
                 (from, Type::String) if from.as_unit_product().is_some() => {
-                    quote!(sp::SharedString::from(sp::format!("{}", #f).as_str()))
+                    quote!(sp::format!("{}", (#f) as f32))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
                     quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
