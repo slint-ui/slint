@@ -233,8 +233,9 @@ if (SLINT_BUILD_RUNTIME)
         )
     endif()
 
-
-    if(ANDROID)
+    if(SLINT_FEATURE_FREESTANDING)
+        set(SLINT_STYLE_DEFAULT "fluent")
+    elseif(ANDROID)
         set(SLINT_STYLE_DEFAULT "material")
     elseif(WIN32)
         set(SLINT_STYLE_DEFAULT "fluent")
