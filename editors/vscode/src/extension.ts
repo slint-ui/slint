@@ -141,6 +141,9 @@ function startClient(
 
     // Add setup common between native and wasm LSP to common.setup_client_handle!
     client.add_updater((cl) => {
+        // Just make sure that the output channel is always present.
+        cl?.outputChannel.append("");
+
         cl?.onNotification(common.serverStatus, (params: any) =>
             common.setServerStatus(params, statusBar),
         );
