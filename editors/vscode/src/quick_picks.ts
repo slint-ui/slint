@@ -6,6 +6,9 @@ import * as fs from "fs-extra";
 import simpleGit from "simple-git";
 import * as path from "node:path";
 
+// Flow
+// (1) What language? (2) What directory? (3) What name? (4) Open in current window or new window?
+
 export async function newProject(context: vscode.ExtensionContext) {
     type Language = "Node (JavaScript/TypeScript)" | "C++" | "Rust";
 
