@@ -64,9 +64,7 @@ impl Default for CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
-    fn to_compiler_configuration(
-        mut self,
-    ) -> (i_slint_compiler::CompilerConfiguration, OpenImportFallback) {
+    fn build(mut self) -> (i_slint_compiler::CompilerConfiguration, OpenImportFallback) {
         let mut result = default_cc();
         result.include_paths = std::mem::take(&mut self.include_paths);
         result.library_paths = std::mem::take(&mut self.library_paths);
@@ -131,7 +129,7 @@ impl DocumentCache {
     }
 
     pub fn new(config: CompilerConfiguration) -> Self {
-        let (mut compiler_config, open_import_fallback) = config.to_compiler_configuration();
+        let (mut compiler_config, open_import_fallback) = config.build();
 
         let (open_import_fallback, source_file_versions) = Self::wire_up_import_fallback(
             &mut compiler_config,

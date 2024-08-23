@@ -743,7 +743,7 @@ fn test_workspace_edit(edit: &lsp_types::WorkspaceEdit, test_edit: bool) -> bool
         let Some(document_cache) = document_cache() else {
             return false;
         };
-        drop_location::workspace_edit_compiles(&document_cache, &edit)
+        drop_location::workspace_edit_compiles(&document_cache, edit)
     } else {
         true
     }
@@ -812,12 +812,7 @@ fn finish_parsing(ok: bool) {
         for (url, (version, contents)) in &source_code {
             let mut diag = diagnostics::BuildDiagnostics::default();
             if document_cache.get_document(url).is_none() {
-                poll_once(document_cache.load_url(
-                    url,
-                    version.clone(),
-                    contents.clone(),
-                    &mut diag,
-                ));
+                poll_once(document_cache.load_url(url, *version, contents.clone(), &mut diag));
             }
         }
 
@@ -1104,7 +1099,7 @@ async fn reload_preview_impl(
             let path = path.to_owned();
             Box::pin(async move {
                 let path = PathBuf::from(&path);
-                get_path_from_cache(&path).map(|r| Result::Ok(r))
+                get_path_from_cache(&path).map(Result::Ok)
             })
         },
     )

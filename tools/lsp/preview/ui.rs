@@ -134,7 +134,7 @@ pub fn ui_set_known_components(
 
         if let Some(position) = &ci.defined_at {
             if let Some(library) = position.url.path().strip_prefix("/@") {
-                library_map.entry(format!("@{library}")).or_insert(Vec::new()).push(item);
+                library_map.entry(format!("@{library}")).or_default().push(item);
             } else {
                 let path = i_slint_compiler::pathutils::clean_path(
                     &(position.url.to_file_path().unwrap_or_default()),
