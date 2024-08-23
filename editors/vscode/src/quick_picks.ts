@@ -30,13 +30,13 @@ export async function newProject(context: vscode.ExtensionContext) {
 
     let repoUrl: string | undefined;
     switch (language) {
-        case "Node (JavaScript/TypeScript)":
+        case node:
             repoUrl = "https://github.com/slint-ui/slint-nodejs-template";
             break;
-        case "C++":
+        case cpp:
             repoUrl = "https://github.com/slint-ui/slint-cpp-template";
             break;
-        case "Rust":
+        case rust:
             repoUrl = "https://github.com/slint-ui/slint-rust-template";
             break;
         default:
