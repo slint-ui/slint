@@ -9,7 +9,8 @@ These properties are valid on all visible items:
 
 -   **`width`** and **`height`** (_in_ _length_): The size of the element. When set, this overrides the default size.
 -   **`x`** and **`y`** (_in_ _length_): The position of the element relative to its parent.
--   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings. (default value: 0)
+-   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings.
+    The value must be a compile time constant. (default value: 0)
 -   **`absolute-position`** (_in_ _Point_): The position of the element within the contained window.
 
 ### Layout
@@ -253,6 +254,7 @@ export component Example inherits Window {
 ## `GridLayout`
 
 `GridLayout` places its children in a grid. `GridLayout` adds properties to each child: `col`, `row`, `colspan`, `rowspan`.
+These properties must be compile time constants.
 You can control the position of children with `col` and `row`.
 If `col` or `row` aren't specified, they are automatically computed such that the item is next to the previous item, in the same row.
 Alternatively, the item can be put in a `Row` element.
