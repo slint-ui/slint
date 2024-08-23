@@ -169,7 +169,7 @@ function startClient(
 
     const cl = new LanguageClient(
         "slint-lsp",
-        "Slint LSP",
+        "Slint",
         serverOptions,
         common.languageClientOptions(),
     );
