@@ -379,8 +379,8 @@ fn map_property_definition(
     Some(PropertyDefinition {
         definition_range: to_ui_range(da.property_definition_range)?,
         selection_range: to_ui_range(da.selection_range)?,
-        expression_range: to_ui_range(da.expression_range)?,
-        expression_value: da.expression_value.clone().into(),
+        expression_range: to_ui_range(da.code_block_or_expression.text_range())?,
+        expression_value: da.code_block_or_expression.text().to_string().into(),
     })
 }
 
@@ -423,7 +423,7 @@ fn map_properties_to_ui(
 
         let simple_value = {
             let value = if let Some(da) = &pi.defined_at {
-                da.expression_value.clone()
+                da.code_block_or_expression.text().to_string()
             } else {
                 String::new()
             };
