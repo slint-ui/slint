@@ -10,10 +10,11 @@ import * as path from "node:path";
 // (1) What language? (2) What directory? (3) What name? (4) Open in current window or new window?
 
 export async function newProject(context: vscode.ExtensionContext) {
-    type Language = "Node (JavaScript/TypeScript)" | "C++" | "Rust";
+    const LANGUAGES = ["Node (JavaScript/TypeScript)", "C++", "Rust"] as const;
+    type Language = typeof LANGUAGES[number];
 
     const language = await vscode.window.showQuickPick(
-        ["Node (JavaScript/TypeScript)", "C++", "Rust"],
+        LANGUAGES,
         {
             placeHolder: "What language do you want to use?",
         },
