@@ -182,11 +182,9 @@ fn clean_unused_bindings(root: &CompilationUnit) {
         }
     });
     for g in &root.globals {
-        for e in &g.init_values {
-            if let Some(e) = e {
-                if e.use_count.get() == 0 {
-                    e.expression.replace(Expression::CodeBlock(vec![]));
-                }
+        for e in g.init_values.iter().flatten() {
+            if e.use_count.get() == 0 {
+                e.expression.replace(Expression::CodeBlock(vec![]));
             }
         }
     }

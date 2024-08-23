@@ -444,11 +444,10 @@ fn lower_sub_component(
         .popup_windows
         .borrow()
         .iter()
-        .map(|popup| lower_popup_component(&popup, &ctx, &compiler_config))
+        .map(|popup| lower_popup_component(popup, &ctx, compiler_config))
         .collect();
 
-    sub_component.timers =
-        component.timers.borrow().iter().map(|t| lower_timer(&t, &ctx)).collect();
+    sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n));

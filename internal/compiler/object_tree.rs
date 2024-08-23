@@ -773,7 +773,7 @@ pub fn pretty_print(
             indent!();
             write!(f, "changed {name} => ")?;
             expression_tree::pretty_print(f, ex)?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
     }
     if !e.states.is_empty() {
@@ -1479,10 +1479,7 @@ impl Element {
                             .map(|(ne, ty)| {
                                 if !ty.is_property_type() && !matches!(ty, Type::Invalid) {
                                     diag.push_error(
-                                        format!(
-                                            "'{}' is not a property",
-                                            s.QualifiedName().to_string()
-                                        ),
+                                        format!("'{}' is not a property", **s.QualifiedName()),
                                         &s,
                                     );
                                 }
@@ -2189,7 +2186,7 @@ pub fn visit_element_expressions(
     }
     visit_element_expressions_simple(elem, &mut vis);
 
-    for (_, expr) in &elem.borrow().change_callbacks {
+    for expr in elem.borrow().change_callbacks.values() {
         for expr in expr.borrow_mut().iter_mut() {
             vis(expr, Some("$change callback$"), &|| Type::Void);
         }
@@ -2289,7 +2286,9 @@ pub fn visit_all_named_references_in_element(
     elem.borrow_mut().layout_info_prop = layout_info_prop;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
-        d.layout.as_mut().map(|l| l.visit_named_references(&mut vis));
+        if let Some(l) = d.layout.as_mut() {
+            l.visit_named_references(&mut vis)
+        }
     }
     elem.borrow_mut().debug = debug;
 
@@ -2428,8 +2427,8 @@ impl ExportedName {
     pub fn from_export_specifier(
         export_specifier: &syntax_nodes::ExportSpecifier,
     ) -> (String, ExportedName) {
-        let internal_name = parser::identifier_text(&export_specifier.ExportIdentifier())
-            .unwrap_or_else(|| String::new());
+        let internal_name =
+            parser::identifier_text(&export_specifier.ExportIdentifier()).unwrap_or_default();
 
         let (name, name_ident): (String, SyntaxNode) = export_specifier
             .ExportName()
