@@ -580,7 +580,7 @@ pub fn add_new_component(
     let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
 
     Some((
-        common::create_workspace_edit_from_path(&document_cache, &source_file.path(), vec![edit])?,
+        common::create_workspace_edit_from_path(document_cache, source_file.path(), vec![edit])?,
         DropData { selection_offset, path },
     ))
 }
@@ -957,7 +957,7 @@ pub fn drop_at(
                         if let Some((child_insertion_parent, _, _)) =
                             &*component.child_insertion_point.borrow()
                         {
-                            element_base_type_is_layout(&child_insertion_parent)
+                            element_base_type_is_layout(child_insertion_parent)
                         } else {
                             is_layout
                         }
@@ -1027,11 +1027,9 @@ pub fn drop_at(
     edits.extend(
         drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file)
             .drain(..)
-            .map(|te| {
-                // Abuse map somewhat...
-                selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file)
-                    .adjust(selection_offset);
-                te
+            .inspect(|te| {
+                selection_offset =
+                    text_edit::TextOffsetAdjustment::new(te, &source_file).adjust(selection_offset);
             }),
     );
 
@@ -1048,7 +1046,7 @@ pub fn drop_at(
     edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
 
     Some((
-        common::create_workspace_edit_from_path(&document_cache, &source_file.path(), edits)?,
+        common::create_workspace_edit_from_path(&document_cache, source_file.path(), edits)?,
         DropData { selection_offset, path },
     ))
 }
@@ -1138,11 +1136,8 @@ pub fn create_move_element_workspace_edit(
         let size = element.geometries(component_instance).first().map(|g| g.size)?;
 
         if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
-            let Some((edit, _)) =
-                preview::resize_selected_element_impl(LogicalRect::new(position, size))
-            else {
-                return None;
-            };
+            let (edit, _) =
+                preview::resize_selected_element_impl(LogicalRect::new(position, size))?;
             let (path, selection_offset) = element.path_and_offset();
             return Some((edit, DropData { selection_offset, path }));
         } else {
@@ -1231,7 +1226,7 @@ pub fn create_move_element_workspace_edit(
             }
             edits.push(common::SingleTextEdit::from_path(
                 &document_cache,
-                &source_file.path(),
+                source_file.path(),
                 edit,
             )?);
         }

@@ -288,34 +288,34 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     #[cfg(feature = "preview-builtin")]
     preview::set_server_notifier(server_notifier.clone());
 
-    let mut compiler_config = CompilerConfiguration::default();
-
-    compiler_config.style =
-        Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style });
-    compiler_config.include_paths = cli_args.include_paths;
-    compiler_config.library_paths = cli_args
-        .library_paths
-        .iter()
-        .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-        .collect();
     let server_notifier_ = server_notifier.clone();
-    compiler_config.open_import_fallback = Some(Rc::new(move |path| {
-        let server_notifier = server_notifier_.clone();
-        Box::pin(async move {
-            let contents = std::fs::read_to_string(&path);
-            if let Ok(contents) = &contents {
-                if let Ok(url) = Url::from_file_path(&path) {
-                    server_notifier.send_message_to_preview(
-                        common::LspToPreviewMessage::SetContents {
-                            url: common::VersionedUrl::new(url, None),
-                            contents: contents.clone(),
-                        },
-                    )
+    let compiler_config = CompilerConfiguration {
+        style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
+        include_paths: cli_args.include_paths,
+        library_paths: cli_args
+            .library_paths
+            .iter()
+            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
+            .collect(),
+        open_import_fallback: Some(Rc::new(move |path| {
+            let server_notifier = server_notifier_.clone();
+            Box::pin(async move {
+                let contents = std::fs::read_to_string(&path);
+                if let Ok(contents) = &contents {
+                    if let Ok(url) = Url::from_file_path(&path) {
+                        server_notifier.send_message_to_preview(
+                            common::LspToPreviewMessage::SetContents {
+                                url: common::VersionedUrl::new(url, None),
+                                contents: contents.clone(),
+                            },
+                        )
+                    }
                 }
-            }
-            Some(contents.map(|c| (None, c)))
-        })
-    }));
+                Some(contents.map(|c| (None, c)))
+            })
+        })),
+        ..Default::default()
+    };
 
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),

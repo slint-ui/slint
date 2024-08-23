@@ -717,7 +717,7 @@ fn get_code_actions(
                 kind: Some(lsp_types::CodeActionKind::REFACTOR),
                 edit: common::create_workspace_edit_from_path(
                     document_cache,
-                    &token.source_file.path(),
+                    token.source_file.path(),
                     edits,
                 ),
                 ..Default::default()
@@ -785,7 +785,7 @@ fn get_code_actions(
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
                     edit: common::create_workspace_edit_from_path(
                         document_cache,
-                        &token.source_file.path(),
+                        token.source_file.path(),
                         edits,
                     ),
                     ..Default::default()
@@ -812,7 +812,7 @@ fn get_code_actions(
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
                     edit: common::create_workspace_edit_from_path(
                         document_cache,
-                        &token.source_file.path(),
+                        token.source_file.path(),
                         edits,
                     ),
                     ..Default::default()
@@ -827,7 +827,7 @@ fn get_code_actions(
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
                     edit: common::create_workspace_edit_from_path(
                         document_cache,
-                        &token.source_file.path(),
+                        token.source_file.path(),
                         edits,
                     ),
                     ..Default::default()
@@ -925,14 +925,12 @@ fn get_document_symbols(
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
         }),
-        Type::Enumeration(enumeration) => enumeration.node.as_ref().and_then(|node| {
-            Some(DocumentSymbol {
-                range: util::node_to_lsp_range(node),
-                selection_range: util::node_to_lsp_range(&node.DeclaredIdentifier()),
-                name: enumeration.name.clone(),
-                kind: lsp_types::SymbolKind::ENUM,
-                ..ds.clone()
-            })
+        Type::Enumeration(enumeration) => enumeration.node.as_ref().map(|node| DocumentSymbol {
+            range: util::node_to_lsp_range(node),
+            selection_range: util::node_to_lsp_range(&node.DeclaredIdentifier()),
+            name: enumeration.name.clone(),
+            kind: lsp_types::SymbolKind::ENUM,
+            ..ds.clone()
         }),
         _ => None,
     }));

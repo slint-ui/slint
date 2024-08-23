@@ -12,10 +12,7 @@ use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformation {
-    let is_layout = match name {
-        "GridLayout" | "HorizontalLayout" | "VerticalLayout" => true,
-        _ => false,
-    };
+    let is_layout = matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout");
 
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
@@ -38,10 +35,7 @@ fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformatio
 }
 
 fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
-    let is_layout = match name {
-        "GridBox" | "HorizontalBox" | "VerticalBox" => true,
-        _ => false,
-    };
+    let is_layout = matches!(name, "GridBox" | "HorizontalBox" | "VerticalBox");
 
     let default_properties = match name {
         "Button" | "CheckBox" | "LineEdit" | "Switch" | "TextEdit" => {
