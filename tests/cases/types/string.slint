@@ -10,10 +10,11 @@ export component TestCase  {
 
     // conversion from float
     in property<float> value: 98.7654321;
+    in property<float> increment: 0.1;
     out property <string> converted_value: round(value * 100)/100;
-    out property <bool> test: e1 && !e2 && converted_value == "98.77";
+    out property <string> ten_dot_one: 10 + increment;
+    out property <bool> test: e1 && !e2 && converted_value == "98.77" && ten_dot_one == "10.1";
 }
-
 
 /*
 
