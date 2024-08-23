@@ -7,31 +7,62 @@ use crate::wasm_prelude::*;
 use crate::common::{self, Result, SourceFileVersion};
 use crate::util;
 
-use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
-use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind, TextRange, TextSize};
+use i_slint_compiler::parser::{
+    syntax_nodes, Language, SyntaxKind, SyntaxNode, TextRange, TextSize,
+};
 
 use lsp_types::Url;
 
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
+pub enum CodeBlockOrExpression {
+    CodeBlock(syntax_nodes::CodeBlock),
+    Expression(syntax_nodes::Expression),
+}
+
+impl CodeBlockOrExpression {
+    pub fn new_from(source_file: &SourceFile, node: &rowan::SyntaxNode<Language>) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::CodeBlock => Some(Self::CodeBlock(
+                SyntaxNode { node: node.clone(), source_file: source_file.clone() }.into(),
+            )),
+            SyntaxKind::Expression => Some(Self::Expression(
+                SyntaxNode { node: node.clone(), source_file: source_file.clone() }.into(),
+            )),
+            _ => None,
+        }
+    }
+}
+
+impl std::ops::Deref for CodeBlockOrExpression {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            CodeBlockOrExpression::CodeBlock(cb) => cb,
+            CodeBlockOrExpression::Expression(expr) => expr,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct DefinitionInformation {
     pub property_definition_range: TextRange,
     pub selection_range: TextRange,
-    pub expression_range: TextRange,
-    pub expression_value: String,
+    pub code_block_or_expression: CodeBlockOrExpression,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct DeclarationInformation {
     pub path: PathBuf,
     pub start_position: TextSize,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct PropertyInformation {
     pub name: String,
     pub type_name: String,
@@ -178,22 +209,22 @@ fn right_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Langu
     end_token
 }
 
-fn find_expression_range(
+fn find_code_block_or_expression(
     element: &syntax_nodes::Element,
     offset: u32,
 ) -> Option<DefinitionInformation> {
     let mut selection_range = None;
-    let mut expression_range = None;
-    let mut expression_value = None;
+    let mut code_block_or_expression = None;
     let mut property_definition_range = None;
+    let source_file = &element.source_file;
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
             if ancestor.kind() == SyntaxKind::BindingExpression {
                 // The BindingExpression contains leading and trailing whitespace + `;`
-                let expr = &ancestor.first_child();
-                expression_range = expr.as_ref().map(|e| e.text_range());
-                expression_value = expr.as_ref().map(|e| e.text().to_string());
+                if let Some(child) = &ancestor.first_child() {
+                    code_block_or_expression = CodeBlockOrExpression::new_from(source_file, child);
+                }
                 continue;
             }
             if (ancestor.kind() == SyntaxKind::Binding)
@@ -216,8 +247,7 @@ fn find_expression_range(
     Some(DefinitionInformation {
         property_definition_range: property_definition_range?,
         selection_range: selection_range?,
-        expression_range: expression_range?,
-        expression_value: expression_value?,
+        code_block_or_expression: code_block_or_expression?,
     })
 }
 
@@ -251,7 +281,7 @@ fn insert_property_definitions(
     for prop_info in properties.iter_mut() {
         if let Some(offset) = find_property_binding_offset(element, prop_info.name.as_str()) {
             prop_info.defined_at =
-                element.with_element_node(|node| find_expression_range(node, offset));
+                element.with_element_node(|node| find_code_block_or_expression(node, offset));
         }
     }
     properties
@@ -431,15 +461,13 @@ fn get_property_information(
 }
 
 fn create_text_document_edit_for_set_binding_on_existing_property(
-    element: &common::ElementRcNode,
     uri: Url,
     version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
 ) -> Option<lsp_types::TextDocumentEdit> {
-    let source_file = element.with_element_node(|n| n.source_file.clone());
     property.defined_at.as_ref().map(|defined_at| {
-        let range = util::text_range_to_lsp_range(&source_file, defined_at.expression_range);
+        let range = util::node_to_lsp_range(&defined_at.code_block_or_expression);
         let edit = lsp_types::TextEdit { range, new_text: new_expression };
         common::create_text_document_edit(uri, version, vec![edit])
     })
@@ -547,7 +575,6 @@ pub fn set_binding_impl(
     if property.defined_at.is_some() {
         // Change an already defined property:
         create_text_document_edit_for_set_binding_on_existing_property(
-            element,
             uri,
             version,
             &property,
@@ -739,9 +766,7 @@ mod tests {
 
     #[test]
     fn test_get_properties() {
-        let (element_node, result, _, _) = properties_at_position(6, 4).unwrap();
-
-        let source_file = element_node.with_element_node(|n| n.source_file.clone());
+        let (_, result, _, _) = properties_at_position(6, 4).unwrap();
 
         // Property of element:
         assert_eq!(&find_property(&result, "elapsed-time").unwrap().type_name, "duration");
@@ -753,15 +778,15 @@ mod tests {
             "enum AccessibleRole"
         );
         // Accessible property should not be present since the role is none
-        assert_eq!(find_property(&result, "accessible-label"), None);
-        assert_eq!(find_property(&result, "accessible-action-default"), None);
+        assert!(find_property(&result, "accessible-label").is_none());
+        assert!(find_property(&result, "accessible-action-default").is_none());
 
         // Poke deeper:
         let (_, result, _, _) = properties_at_position(21, 30).unwrap();
         let property = find_property(&result, "background").unwrap();
 
         let def_at = property.defined_at.as_ref().unwrap();
-        let def_range = util::text_range_to_lsp_range(&source_file, def_at.expression_range);
+        let def_range = util::node_to_lsp_range(&def_at.code_block_or_expression);
         assert_eq!(def_range.end.line, def_range.start.line);
         // -1 because the lsp range end location is exclusive.
         assert_eq!(
@@ -776,8 +801,8 @@ mod tests {
         // Accessible property should not be present since the role is button
         assert_eq!(find_property(&result, "accessible-label").unwrap().type_name, "string");
         // No callbacks
-        assert_eq!(find_property(&result, "accessible-action-default"), None);
-        assert_eq!(find_property(&result, "clicked"), None);
+        assert!(find_property(&result, "accessible-action-default").is_none());
+        assert!(find_property(&result, "clicked").is_none());
     }
 
     #[test]
@@ -843,7 +868,7 @@ mod tests {
         let p = find_property(&result, "text").unwrap();
         let definition = p.defined_at.as_ref().unwrap();
 
-        assert_eq!(&definition.expression_value, "\"text\"");
+        assert_eq!(&definition.code_block_or_expression.text(), "\"text\"");
 
         let sel_range = util::text_range_to_lsp_range(&source_file, definition.selection_range);
         println!("Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
@@ -1346,7 +1371,7 @@ component SomeRect inherits Rectangle {
         assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 2);
         assert_eq!(glob_property.group, "");
-        assert_eq!(find_property(&result, "width"), None);
+        assert!(find_property(&result, "width").is_none());
 
         let (_, result) = properties_at_position_in_cache(8, 4, &dc, &url).unwrap();
         let abcd_property = find_property(&result, "abcd").unwrap();
@@ -1359,13 +1384,13 @@ component SomeRect inherits Rectangle {
 
         let x_property = find_property(&result, "x").unwrap();
         assert_eq!(x_property.type_name, "length");
-        assert_eq!(x_property.defined_at, None);
+        assert!(x_property.defined_at.is_none());
         assert_eq!(x_property.group, "geometry");
 
         let width_property = find_property(&result, "width").unwrap();
         assert_eq!(width_property.type_name, "length");
         let definition = width_property.defined_at.as_ref().unwrap();
-        let expression_range = util::text_range_to_lsp_range(&source, definition.expression_range);
+        let expression_range = util::node_to_lsp_range(&definition.code_block_or_expression);
         assert_eq!(expression_range.start.line, 8);
         assert_eq!(width_property.group, "geometry");
     }
@@ -1378,7 +1403,7 @@ component SomeRect inherits Rectangle {
         let (_, result) = properties_at_position_in_cache(0, 35, &dc, &url).unwrap();
 
         let prop = find_property(&result, "text").unwrap();
-        assert_eq!(prop.defined_at, None); // The property has no valid definition at this time
+        assert!(prop.defined_at.is_none()); // The property has no valid definition at this time
     }
 
     #[test]
@@ -1402,27 +1427,57 @@ component Base {
         let (_, result) = properties_at_position_in_cache(3, 0, &dc, &url).unwrap();
         assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a1").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a1")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 1 }"
         );
         assert_eq!(find_property(&result, "a2").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a2").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a2")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 2; }"
         );
         assert_eq!(find_property(&result, "a3").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a3").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a3")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 3 }"
         );
         assert_eq!(find_property(&result, "a4").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a4").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a4")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 4; }"
         );
         assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "b").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "b")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{\n        if (something) { return 42; }\n        return 1 + 2;\n    }"
         );
     }
@@ -1457,27 +1512,57 @@ component MyComp {
         let (_, result) = properties_at_position_in_cache(11, 1, &dc, &url).unwrap();
         assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a1").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a1")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 1 }"
         );
         assert_eq!(find_property(&result, "a2").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a2").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a2")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 2; }"
         );
         assert_eq!(find_property(&result, "a3").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a3").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a3")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 3 }"
         );
         assert_eq!(find_property(&result, "a4").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "a4").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "a4")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{ 1 + 4; }"
         );
         assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
         assert_eq!(
-            find_property(&result, "b").unwrap().defined_at.as_ref().unwrap().expression_value,
+            find_property(&result, "b")
+                .unwrap()
+                .defined_at
+                .as_ref()
+                .unwrap()
+                .code_block_or_expression
+                .text(),
             "{\n            if (something) { return 42; }\n            return 1 + 2;\n        }",
         );
     }
@@ -1512,14 +1597,14 @@ component MyComp {
         assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
 
         let (_, result) = properties_at_position_in_cache(10, 0, &dc, &url).unwrap();
-        assert_eq!(find_property(&result, "a"), None);
+        assert!(find_property(&result, "a").is_none());
         assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
-        assert_eq!(find_property(&result, "c"), None);
+        assert!(find_property(&result, "c").is_none());
         assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
 
         let (_, result) = properties_at_position_in_cache(13, 0, &dc, &url).unwrap();
         assert_eq!(find_property(&result, "enabled").unwrap().type_name, "bool");
-        assert_eq!(find_property(&result, "pressed"), None);
+        assert!(find_property(&result, "pressed").is_none());
     }
 
     fn set_binding_helper(
