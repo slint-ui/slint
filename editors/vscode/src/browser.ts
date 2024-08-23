@@ -38,7 +38,7 @@ function startClient(
         if (m.data === "OK") {
             const cl = new LanguageClient(
                 "slint-lsp",
-                "Slint LSP",
+                "Slint",
                 clientOptions,
                 worker,
             );
