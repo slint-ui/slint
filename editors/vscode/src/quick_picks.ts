@@ -42,22 +42,23 @@ export async function newProject(context: vscode.ExtensionContext) {
     }
 
     let workspacePath: string | undefined =
-        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-        const folderUris = await vscode.window.showOpenDialog({
-            canSelectFolders: true,
-            canSelectMany: false,
-            openLabel: "Select Folder",
-        });
+    const folderUris = await vscode.window.showOpenDialog({
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: "Select Folder",
+        defaultUri: workspacePath ? vscode.Uri.file(workspacePath) : undefined
+    });
 
-        if (!folderUris || folderUris.length === 0) {
-            vscode.window.showErrorMessage(
-                "Please select a folder to place the project in.",
-            );
-            return;
-        }
+    if (!folderUris || folderUris.length === 0) {
+        vscode.window.showErrorMessage(
+            "Please select a folder to place the project in.",
+        );
+        return;
+    }
 
-        workspacePath = folderUris[0].fsPath;
+    workspacePath = folderUris[0].fsPath;
 
     const projectName = await vscode.window.showInputBox({
         prompt: "Enter the name of the new project",
