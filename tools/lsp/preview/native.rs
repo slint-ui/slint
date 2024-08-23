@@ -143,10 +143,7 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
         (style, !hide_ui, fullscreen)
     };
 
-    // TODO: Handle Error!
-    let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES")
-        .map(|s| !s.is_empty() && s != "0")
-        .unwrap_or(false);
+    let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
     let ui = match preview_state.ui.as_ref() {
         Some(ui) => ui,
