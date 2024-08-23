@@ -15,6 +15,7 @@ use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind, TextRange, Te
 use lsp_types::Url;
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DefinitionInformation {
@@ -26,7 +27,7 @@ pub struct DefinitionInformation {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeclarationInformation {
-    pub uri: Url,
+    pub path: PathBuf,
     pub start_position: TextSize,
 }
 
@@ -98,8 +99,7 @@ fn add_element_properties(
         }
 
         let declared_at = value.type_node().as_ref().map(|n| DeclarationInformation {
-            uri: Url::from_file_path(n.source_file.path())
-                .unwrap_or_else(|_| Url::parse("file:///unnamed").unwrap()),
+            path: n.source_file.path().to_path_buf(),
             start_position: n.text_range().start(),
         });
         Some(PropertyInformation {
@@ -1299,7 +1299,6 @@ component MainWindow inherits Window {
     }
 }
             "#.to_string());
-        let file_url = url.clone();
 
         let doc = dc.get_document(&url).unwrap();
         let source = &doc.node.as_ref().unwrap().source_file;
@@ -1312,7 +1311,7 @@ component MainWindow inherits Window {
 
         let declaration = foo_property.declared_at.as_ref().unwrap();
         let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
-        assert_eq!(declaration.uri, file_url);
+        assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 3);
         assert_eq!(start_position.character, 20); // This should probably point to the start of
                                                   // `property<int> foo = 42`, not to the `<`
@@ -1344,7 +1343,7 @@ component SomeRect inherits Rectangle {
         assert_eq!(glob_property.type_name, "int");
         let declaration = glob_property.declared_at.as_ref().unwrap();
         let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
-        assert_eq!(declaration.uri, url);
+        assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 2);
         assert_eq!(glob_property.group, "");
         assert_eq!(find_property(&result, "width"), None);
@@ -1354,7 +1353,7 @@ component SomeRect inherits Rectangle {
         assert_eq!(abcd_property.type_name, "int");
         let declaration = abcd_property.declared_at.as_ref().unwrap();
         let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
-        assert_eq!(declaration.uri, url);
+        assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 7);
         assert_eq!(abcd_property.group, "");
 

@@ -224,16 +224,11 @@ fn map_property_declaration(
     declared_at: &Option<properties::DeclarationInformation>,
 ) -> Option<PropertyDeclaration> {
     let da = declared_at.as_ref()?;
-
-    let doc = document_cache.get_document(&da.uri)?;
-    let doc_node = doc.node.as_ref()?;
-    let source_version =
-        document_cache.document_version_by_path(doc_node.source_file.path()).unwrap_or(-1);
-
+    let source_version = document_cache.document_version_by_path(&da.path).unwrap_or(-1);
     let pos = TextRange::new(da.start_position, da.start_position);
 
     Some(PropertyDeclaration {
-        source_uri: da.uri.to_string().into(),
+        source_path: da.path.to_string_lossy().to_string().into(),
         source_version,
         range: to_ui_range(pos)?,
     })
@@ -414,7 +409,7 @@ fn map_properties_to_ui(
     for pi in &properties.properties {
         let declared_at = map_property_declaration(document_cache, &pi.declared_at).unwrap_or(
             PropertyDeclaration {
-                source_uri: String::new().into(),
+                source_path: String::new().into(),
                 source_version: -1,
                 range: Range { start: 0, end: 0 },
             },
