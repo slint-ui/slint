@@ -269,7 +269,7 @@ jobs:
                   fi
             - name: "npm install"
               working-directory: editors/vscode
-              run: npm install
+              run: npm clean-install
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Build package and optionally publish to Visual Studio Marketplace
