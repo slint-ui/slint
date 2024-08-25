@@ -431,6 +431,9 @@ if(SLINT_BUILD_RUNTIME)
         endforeach()
 
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
+        get_target_property(_slint_compiler_location slint-compiler IMPORTED_LOCATION)
+        cmake_path(GET _slint_compiler_location FILENAME SLINT_COMPILER_FILE_NAME)
+
         configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
     endfunction()
 
