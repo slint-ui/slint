@@ -6,11 +6,18 @@ import * as fs from "fs-extra";
 import simpleGit from "simple-git";
 import * as path from "node:path";
 
+// Flow
+// (1) What language? (2) What directory? (3) What name? (4) Open in current window or new window?
+
 export async function newProject(context: vscode.ExtensionContext) {
-    type Language = "Node (JavaScript/TypeScript)" | "C++" | "Rust";
+    const node = "Node (JavaScript/TypeScript)";
+    const cpp = "C++";
+    const rust = "Rust";
+    const LANGUAGES = [node, cpp, rust] as const;
+    type Language = typeof LANGUAGES[number];
 
     const language = await vscode.window.showQuickPick(
-        ["Node (JavaScript/TypeScript)", "C++", "Rust"],
+        LANGUAGES,
         {
             placeHolder: "What language do you want to use?",
         },
@@ -23,13 +30,13 @@ export async function newProject(context: vscode.ExtensionContext) {
 
     let repoUrl: string | undefined;
     switch (language) {
-        case "Node (JavaScript/TypeScript)":
+        case node:
             repoUrl = "https://github.com/slint-ui/slint-nodejs-template";
             break;
-        case "C++":
+        case cpp:
             repoUrl = "https://github.com/slint-ui/slint-cpp-template";
             break;
-        case "Rust":
+        case rust:
             repoUrl = "https://github.com/slint-ui/slint-rust-template";
             break;
         default:
@@ -38,24 +45,24 @@ export async function newProject(context: vscode.ExtensionContext) {
     }
 
     let workspacePath: string | undefined =
-        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-    if (!workspacePath) {
-        const folderUris = await vscode.window.showOpenDialog({
-            canSelectFolders: true,
-            canSelectMany: false,
-            openLabel: "Select Folder",
-        });
+    const folderUris = await vscode.window.showOpenDialog({
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: "Open",
+        defaultUri: workspacePath ? vscode.Uri.file(workspacePath) : undefined,
+        title: "Choose Location for New Slint Project"
+    });
 
-        if (!folderUris || folderUris.length === 0) {
-            vscode.window.showErrorMessage(
-                "Please select a folder to place the project in.",
-            );
-            return;
-        }
-
-        workspacePath = folderUris[0].fsPath;
+    if (!folderUris || folderUris.length === 0) {
+        vscode.window.showErrorMessage(
+            "Please select a folder to place the project in.",
+        );
+        return;
     }
+
+    workspacePath = folderUris[0].fsPath;
 
     const projectName = await vscode.window.showInputBox({
         prompt: "Enter the name of the new project",
@@ -96,7 +103,39 @@ export async function newProject(context: vscode.ExtensionContext) {
         await fs.writeJson(settingsFilePath, settingsContent, { spaces: 2 });
 
         const uri = vscode.Uri.file(projectPath);
-        await vscode.commands.executeCommand("vscode.openFolder", uri, true);
+
+        const openNewWindow = 'Open in New Window';
+        const openCurrentWindow = 'Open in Current Window';
+        const addToWorkspace = 'Add to Workspace';
+        const PROJECT_OPTIONS = [openNewWindow, openCurrentWindow, addToWorkspace] as const;
+        type ProjectOption = typeof PROJECT_OPTIONS[number];
+
+        const choice = await vscode.window.showInformationMessage(
+            `How Would You Like to Open Project "${projectName}"?`,
+            { modal: true },
+            openNewWindow,
+            openCurrentWindow,
+            addToWorkspace
+        ) as ProjectOption;
+
+        switch (choice) {
+            case openNewWindow:
+                await vscode.commands.executeCommand("vscode.openFolder", uri, true);
+                break;
+            case openCurrentWindow:
+                await vscode.commands.executeCommand("vscode.openFolder", uri, false);
+                break;
+            case addToWorkspace:
+                await vscode.workspace.updateWorkspaceFolders(
+                    vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders.length : 0,
+                    null,
+                    { uri }
+                );
+                break;
+            default:
+                // If the user closes the dialog without choosing, default to opening in a new window
+                await vscode.commands.executeCommand("vscode.openFolder", uri, true);
+}
     } catch (err: unknown) {
         const errorMessage =
             err instanceof Error ? err.message : "Unknown error";
