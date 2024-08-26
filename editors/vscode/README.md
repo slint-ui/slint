@@ -39,7 +39,7 @@ The following step will build a local version of the vscode extension and the LS
 cargo install wasm-pack
 cargo build -p slint-lsp
 cd editors/vscode
-npm install
+npm clean-install
 npm run build:wasm_lsp
 npm run compile
 ```

@@ -7,7 +7,6 @@ tools/figma_import/figma_output
 *.code-workspace
 /build
 /_deps
-package-lock.json
 .DS_Store
 Pipfile.lock
 docs/reference/src/language/builtins/enums.md
