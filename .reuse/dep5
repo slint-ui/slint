@@ -56,21 +56,9 @@ Files: tools/slintpad/*.html tools/slintpad/styles/*.css tools/slintpad/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Files: editors/vscode/*.json editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt editors/vscode/static/**/*.html editors/vscode/static/assets/img/bg-dark.svg editors/vscode/static/assets/img/slint-*.svg
+Files: editors/vscode/*.json editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-
-Files: editors/vscode/static/assets/img/cpp_logo.svg
-Copyright: Copyright © 2017 Jeremy Kratz
-License: CC0-1.0
-
-Files: editors/vscode/static/assets/img/rust-logo.svg
-Copyright: ® Rust Foundation
-License: CC-BY-4.0
-
-Files: editors/vscode/static/assets/img/nodejs_logo.svg
-Copyright: node.js authors
-License: CC0-1.0
 
 Files: tests/screenshots/**/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
