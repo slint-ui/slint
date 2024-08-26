@@ -320,8 +320,14 @@ fn simplify_string(value: &str) -> Option<String> {
 fn simplify_value(
     document_cache: &common::DocumentCache,
     property_type: &str,
-    property_value: &str,
+    code_block_or_expression: &Option<properties::CodeBlockOrExpression>,
 ) -> SimpleValueData {
+    let property_value = if let Some(cboe) = code_block_or_expression {
+        cboe.text().to_string()
+    } else {
+        String::new()
+    };
+
     if property_type == "bool"
         && (property_value == "true" || property_value == "false" || property_value.is_empty())
     {
@@ -333,7 +339,7 @@ fn simplify_value(
             visual_items: Rc::new(VecModel::default()).into(),
         };
     } else if property_type == "string" {
-        if let Some(simple) = simplify_string(property_value) {
+        if let Some(simple) = simplify_string(&property_value) {
             return SimpleValueData {
                 widget: "string".into(),
                 meta_data: Rc::new(VecModel::from(vec![simple.into()])).into(),
@@ -344,8 +350,9 @@ fn simplify_value(
         if let i_slint_compiler::langtype::Type::Enumeration(enumeration) =
             &document_cache.global_type_registry().lookup(property_type)
         {
-            let short_property_value =
-                property_value.strip_prefix(&format!("{property_type}.")).unwrap_or(property_value);
+            let short_property_value = property_value
+                .strip_prefix(&format!("{property_type}."))
+                .unwrap_or(&property_value);
             let type_name: SharedString = property_type.into();
             let default_value: SharedString = enumeration.default_value.to_string().into();
             let current_value = enumeration
@@ -422,12 +429,9 @@ fn map_properties_to_ui(
         });
 
         let simple_value = {
-            let value = if let Some(da) = &pi.defined_at {
-                da.code_block_or_expression.text().to_string()
-            } else {
-                String::new()
-            };
-            simplify_value(document_cache, &pi.type_name, &value)
+            let code_block_or_expression =
+                pi.defined_at.as_ref().map(|da| da.code_block_or_expression.clone());
+            simplify_value(document_cache, &pi.type_name, &code_block_or_expression)
         };
 
         if pi.group != current_group {
