@@ -1,0 +1,37 @@
+{
+    "events": {
+        "extension-activated": {}
+    },
+    "commonProperties": {
+        "common.machineId": {
+            "classification": "EndUserPseudonymizedInformation",
+            "purpose": "FeatureInsight",
+            "comment": "An identifier provided by VS Code to relate coding sessions from the same installation together"
+        },
+        "common.extname": {
+            "classification": "PublicNonPersonalData",
+            "purpose": "FeatureInsight",
+            "comment": "The name of the Slint extension"
+        },
+        "common.extversion": {
+            "classification": "PublicNonPersonalData",
+            "purpose": "FeatureInsight",
+            "comment": "The version of the Slint extension"
+        },
+        "common.vscodeversion": {
+            "classification": "SystemMetaData",
+            "purpose": "FeatureInsight",
+            "comment": "The version of VS Code running the extension"
+        },
+        "common.platform": {
+            "classification": "SystemMetaData",
+            "purpose": "FeatureInsight",
+            "comment": "The platform/OS the extension is running on"
+        },
+        "commmon.language": {
+            "classification": "SystemMetaData",
+            "purpose": "FeatureInsight",
+            "comment": "The user's language as reported by VS Code"
+        }
+    }
+}

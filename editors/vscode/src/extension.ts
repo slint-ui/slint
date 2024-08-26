@@ -8,7 +8,7 @@
 import * as path from "node:path";
 import { existsSync } from "node:fs";
 import * as vscode from "vscode";
-
+import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
 
 import {
@@ -20,6 +20,7 @@ import {
 import { newProject } from "./quick_picks.js";
 
 let statusBar: vscode.StatusBarItem;
+let telemetryLogger: vscode.TelemetryLogger;
 
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
@@ -200,6 +201,21 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.newProject", newProject),
     );
+
+    telemetryLogger = vscode.env.createTelemetryLogger(new SlintTelemetrySender, {
+        ignoreBuiltInCommonProperties: true,
+        additionalCommonProperties: {
+            common: {
+                machineId: vscode.env.machineId,
+                extname: context.extension.packageJSON.name,
+                extversion: context.extension.packageJSON.version,
+                vscodeversion: vscode.version,
+                platform: process?.platform ?? "web",
+                language: vscode.env.language,
+            }
+        }
+    });
+    telemetryLogger.logUsage("extension-activated", {});
 }
 
 export function deactivate(): Thenable<void> | undefined {
