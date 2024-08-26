@@ -866,6 +866,26 @@ impl SyntaxNode {
             .token_at_offset(offset)
             .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
     }
+    pub fn first_child(&self) -> Option<SyntaxNode> {
+        self.node
+            .first_child()
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
+    pub fn first_child_or_token(&self) -> Option<NodeOrToken> {
+        self.node.first_child_or_token().map(|n_o_t| match n_o_t {
+            rowan::NodeOrToken::Node(node) => {
+                NodeOrToken::Node(SyntaxNode { node, source_file: self.source_file.clone() })
+            }
+            rowan::NodeOrToken::Token(token) => {
+                NodeOrToken::Token(SyntaxToken { token, source_file: self.source_file.clone() })
+            }
+        })
+    }
+    pub fn next_sibling(&self) -> Option<SyntaxNode> {
+        self.node
+            .next_sibling()
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
 }
 
 #[derive(Debug, Clone, derive_more::From)]
