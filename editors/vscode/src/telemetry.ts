@@ -4,7 +4,7 @@
 import * as vscode from "vscode";
 
 export class SlintTelemetrySender implements vscode.TelemetrySender {
-    #telemetry_host: string
+    #telemetry_host: string;
 
     constructor(extensionMode: vscode.ExtensionMode) {
         if (extensionMode === vscode.ExtensionMode.Production) {
@@ -28,8 +28,8 @@ export class SlintTelemetrySender implements vscode.TelemetrySender {
                 "Content-Type": "application/json",
             },
             method: "POST",
-            body: JSON.stringify(dataToSend)
-        })
+            body: JSON.stringify(dataToSend),
+        });
     }
 
     sendErrorData(error: Error, data?: Record<string, any>): void {

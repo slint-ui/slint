@@ -45,7 +45,6 @@
             "jsxQuoteStyle": "double",
             "quoteProperties": "asNeeded",
             "semicolons": "always",
-            "arrowParentheses": "always",
             "bracketSpacing": true,
             "bracketSameLine": false,
             "quoteStyle": "double",
