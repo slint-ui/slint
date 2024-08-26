@@ -314,11 +314,7 @@ jobs:
                   buildWithCMakeArgs: "--config Release"
     
     vsce_build_test:
-        strategy:
-            matrix:
-                os: [ubuntu-22.04]
-
-        runs-on: ${{ matrix.os }}
+        runs-on: ubuntu-22.04
 
         steps:
             - uses: actions/checkout@v4
@@ -339,6 +335,12 @@ jobs:
             - name: Lint vscode project
               working-directory: ./editors/vscode
               run: npm run lint
+            - name: Check code formatting
+              working-directory: ./editors/vscode
+              run: npm run format
+            - name: Typescript syntax check
+              working-directory: ./editors/vscode
+              run: npm run syntax_check
             - name: vscode prebuild
               working-directory: ./editors/vscode
               run: npm run vscode:prepublish
