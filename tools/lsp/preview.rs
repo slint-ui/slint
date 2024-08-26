@@ -15,7 +15,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::model::VecModel;
 use lsp_types::Url;
-use slint::{Model, PlatformError};
+use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -358,60 +358,92 @@ fn evaluate_binding(
     drop_location::workspace_edit_compiles(&document_cache, &edit).then_some(edit)
 }
 
+fn convert_simple_string(input: slint::SharedString) -> String {
+    format!("\"{}\"", str::escape_debug(&input.to_string()))
+}
+
 // triggered from the UI, running in UI thread
-fn test_binding(
+fn test_code_binding(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) -> bool {
-    evaluate_binding(
+    test_binding(
         element_url,
         element_version,
         element_offset,
         property_name,
         property_value.to_string(),
     )
-    .is_some()
 }
 
 // triggered from the UI, running in UI thread
-fn test_simple_binding(
+fn test_string_binding(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
     property_name: slint::SharedString,
-    simple_property_value: slint::ModelRc<slint::SharedString>,
+    value: slint::SharedString,
 ) -> bool {
-    if simple_property_value.row_count() <= 1 {
-        return false;
-    }
-    if simple_property_value.row_data(0) == Some("bool".to_string().into()) {
-        test_binding(
-            element_url,
-            element_version,
-            element_offset,
-            property_name,
-            simple_property_value.row_data(1).unwrap(),
-        )
-    } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
-        let property_value = format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into();
-        test_binding(element_url, element_version, element_offset, property_name, property_value)
-    } else {
-        false
-    }
+    test_binding(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        convert_simple_string(value),
+    )
+}
+
+// // triggered from the UI, running in UI thread
+// fn test_simple_binding(
+//     element_url: slint::SharedString,
+//     element_version: i32,
+//     element_offset: i32,
+//     property_name: slint::SharedString,
+//     simple_property_value: slint::ModelRc<slint::SharedString>,
+// ) -> bool {
+//     if simple_property_value.row_count() <= 1 {
+//         return false;
+//     }
+//     if simple_property_value.row_data(0) == Some("bool".to_string().into()) {
+//         test_binding(
+//             element_url,
+//             element_version,
+//             element_offset,
+//             property_name,
+//             simple_property_value.row_data(1).unwrap(),
+//         )
+//     } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
+//         let property_value = format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into();
+//         test_binding(element_url, element_version, element_offset, property_name, property_value)
+//     } else {
+//         false
+//     }
+// }
+
+// Backend function called by `test_*_binding`
+fn test_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    property_value: String,
+) -> bool {
+    evaluate_binding(element_url, element_version, element_offset, property_name, property_value)
+        .is_some()
 }
 
 // triggered from the UI, running in UI thread
-fn set_binding(
+fn set_code_binding(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) {
-    set_binding_impl(
+    set_binding(
         element_url,
         element_version,
         element_offset,
@@ -420,7 +452,51 @@ fn set_binding(
     )
 }
 
-fn set_binding_impl(
+fn set_bool_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    value: bool,
+) {
+    set_binding(element_url, element_version, element_offset, property_name, value.to_string())
+}
+
+fn set_enum_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    enum_type: slint::SharedString,
+    enum_value: slint::SharedString,
+) {
+    set_binding(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        format!("{}.{}", enum_type, enum_value),
+    )
+}
+
+fn set_string_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    value: slint::SharedString,
+) {
+    set_binding(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        convert_simple_string(value),
+    )
+}
+
+/// Internal function called by all the `set_*_binding` functions
+fn set_binding(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
@@ -435,40 +511,6 @@ fn set_binding_impl(
         property_value,
     ) {
         send_workspace_edit("Edit property".to_string(), edit, false);
-    }
-}
-
-// triggered from the UI, running in UI thread
-fn set_simple_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    simple_property_value: slint::ModelRc<slint::SharedString>,
-) {
-    if simple_property_value.row_count() <= 1 {
-        return;
-    } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
-        set_binding_impl(
-            element_url,
-            element_version,
-            element_offset,
-            property_name,
-            format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into(),
-        )
-    } else if simple_property_value.row_data(0) == Some("enum".to_string().into()) {
-        set_binding_impl(
-            element_url,
-            element_version,
-            element_offset,
-            property_name,
-            format!(
-                "{}.{}",
-                String::from(simple_property_value.row_data(1).unwrap()),
-                String::from(simple_property_value.row_data(2).unwrap())
-            )
-            .into(),
-        )
     }
 }
 
@@ -1385,7 +1427,6 @@ fn set_selected_element(
                     ui::ui_set_properties(
                         ui,
                         &document_cache,
-                        &selection,
                         properties::query_properties(&uri, version, &selection).ok(),
                     );
                 }
