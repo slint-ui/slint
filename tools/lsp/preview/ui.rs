@@ -465,6 +465,7 @@ fn map_properties_to_ui(
 pub fn ui_set_properties(
     ui: &PreviewUi,
     document_cache: &common::DocumentCache,
+    _element_node: &common::ElementRcNode,
     properties: Option<properties::QueryPropertyResponse>,
 ) {
     let element = map_properties_to_ui(document_cache, properties).unwrap_or(ElementInformation {
