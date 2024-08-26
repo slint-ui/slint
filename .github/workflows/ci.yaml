@@ -325,7 +325,11 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies            
             - uses: actions/setup-node@v4
               with:
-                  node-version: 18            
+                  node-version: 18
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Build lap
+              run: cargo build -p slint-lsp
             - name: Run npm install
               working-directory: ./editors/vscode
               run: npm clean-install
