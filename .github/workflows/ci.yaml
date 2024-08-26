@@ -35,8 +35,9 @@ jobs:
                     - os: windows-2022
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: ubuntu-22.04
-                      rust_version: "nightly"
+                    # disabled until https://github.com/rust-lang/rust/issues/129601 is fixed
+                    #- os: ubuntu-22.04
+                    #  rust_version: "nightly"
                 exclude:
                     - os: macos-12
                       rust_version: "1.73"

@@ -43,7 +43,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
+                  toolchain: nightly-2024-08-20 # pinned because of https://github.com/rust-lang/rust/issues/129601
                   components: rustfmt
                   target: aarch64-linux-android
             - name: Install mdbook
