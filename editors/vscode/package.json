@@ -218,14 +218,14 @@
   "dependencies": {
     "fs-extra": "11.2.0",
     "simple-git": "3.25.0",
-    "vscode-languageclient": "8.1.0",
-    "vscode-languageserver": "8.1.0"
+    "vscode-languageclient": "9.0.1",
+    "vscode-languageserver": "9.0.1"
   },
   "devDependencies": {
     "@biomejs/biome": "1.8.3",
     "@rauschma/env-var": "1.0.1",
     "@types/fs-extra": "11.0.4",
-    "@types/node": "18.11.9",
+    "@types/node": "22.5.0",
     "@types/vscode": "1.82.0",
     "esbuild": "0.23.1",
     "shx": "0.3.4",
