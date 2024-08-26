@@ -4,6 +4,15 @@
 import * as vscode from "vscode";
 
 export class SlintTelemetrySender implements vscode.TelemetrySender {
+    #telemetry_host: String
+
+    constructor(extensionMode: vscode.ExtensionMode) {
+        if (extensionMode == vscode.ExtensionMode.Production) {
+            this.#telemetry_host = "slint.dev";
+        } else {
+            this.#telemetry_host = "staging.slint.dev";
+        }
+    }
     sendEventData(eventName: string, data?: Record<string, any>): void {
         if (!data) {
             return;
@@ -14,7 +23,7 @@ export class SlintTelemetrySender implements vscode.TelemetrySender {
             data: data,
         };
 
-        fetch("https://slint.dev//telemetry/v1/vscode-usage", {
+        fetch(`https://${this.#telemetry_host}/telemetry/v1/vscode-usage`, {
             headers: {
                 "Content-Type": "application/json",
             },
