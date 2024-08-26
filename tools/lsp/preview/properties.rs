@@ -212,17 +212,13 @@ fn find_code_block_or_expression(
     let mut selection_range = None;
     let mut code_block_or_expression = None;
     let mut property_definition_range = None;
-    let source_file = &element.source_file;
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
             if ancestor.kind() == SyntaxKind::BindingExpression {
                 // The BindingExpression contains leading and trailing whitespace + `;`
                 if let Some(child) = ancestor.first_child() {
-                    code_block_or_expression = CodeBlockOrExpression::new(SyntaxNode {
-                        node: child,
-                        source_file: source_file.clone(),
-                    });
+                    code_block_or_expression = CodeBlockOrExpression::new(child);
                 }
                 continue;
             }
