@@ -22,6 +22,8 @@ updates:
     schedule:
       interval: "weekly"
       time: "04:00"
+    ignore:
+      - dependency-name: "@types/node"
     groups:
       vscode_major:
         patterns:
