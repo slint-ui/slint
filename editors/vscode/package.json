@@ -226,7 +226,7 @@
     "@rauschma/env-var": "1.0.1",
     "@types/fs-extra": "11.0.4",
     "@types/node": "18.11.9",
-    "@types/vscode": "1.82.0",
+    "@types/vscode": "1.92.0",
     "esbuild": "0.23.1",
     "shx": "0.3.4",
     "typescript": "5.5.4"
