@@ -338,15 +338,15 @@ jobs:
             - name: Check code formatting
               working-directory: ./editors/vscode
               run: npm run format
-            - name: Typescript syntax check
-              working-directory: ./editors/vscode
-              run: npm run syntax_check
             - name: vscode prebuild
               working-directory: ./editors/vscode
               run: npm run vscode:prepublish
             - name: Build VS Code extension
               working-directory: ./editors/vscode
               run: npm run local-package
+            - name: Typescript syntax check # has to run after the build as it depends on the wasm
+              working-directory: ./editors/vscode
+              run: npm run syntax_check
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
