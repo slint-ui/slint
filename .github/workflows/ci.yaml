@@ -312,6 +312,25 @@ jobs:
                   cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1"
                   buildDirectory: ${{ runner.workspace }}/examples/build
                   buildWithCMakeArgs: "--config Release"
+    
+    vsce_build_test:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04]
+
+        runs-on: ${{ matrix.os }}
+
+        steps:
+            - uses: actions/checkout@v4
+            - name: Run npm install
+              working-directory: ./editors/vscode
+              run: npm clean-install
+            - name: Lint vscode project
+              working-directory: ./editors/vscode
+              run: npm run lint
+            - name: Build VS Code extension
+              working-directory: ./editors/vscode
+              run: npm run local-package
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
