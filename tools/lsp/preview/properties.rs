@@ -11,7 +11,7 @@ use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
-    syntax_nodes, Language, SyntaxKind, SyntaxNode, TextRange, TextSize,
+    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
 };
 
 use lsp_types::Url;
@@ -140,7 +140,7 @@ fn add_element_properties(
 }
 
 /// Move left from the start of a `token` to include white-space and comments that go with it.
-fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Language> {
+fn left_extend(token: SyntaxToken) -> SyntaxToken {
     let mut current_token = token.prev_token();
     let mut start_token = token.clone();
     let mut last_comment = token;
@@ -170,7 +170,7 @@ fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Langua
 }
 
 /// Move right from the end of the `token` to include white-space and comments that go with it.
-fn right_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Language> {
+fn right_extend(token: SyntaxToken) -> SyntaxToken {
     let mut current_token = token.next_token();
     let mut end_token = token.clone();
     let mut last_comment = token;

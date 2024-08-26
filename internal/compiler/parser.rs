@@ -762,6 +762,11 @@ impl SyntaxToken {
     pub fn parent(&self) -> SyntaxNode {
         SyntaxNode { node: self.token.parent().unwrap(), source_file: self.source_file.clone() }
     }
+    pub fn parent_ancestors(&self) -> impl Iterator<Item = SyntaxNode> + '_ {
+        self.token
+            .parent_ancestors()
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
     pub fn next_token(&self) -> Option<SyntaxToken> {
         // Due to a bug (as of rowan 0.15.3), rowan::SyntaxToken::next_token doesn't work if a
         // sibling don't have tokens.
@@ -785,6 +790,10 @@ impl SyntaxToken {
                     },
                 )
             })?;
+        Some(SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn prev_token(&self) -> Option<SyntaxToken> {
+        let token = self.token.prev_token()?;
         Some(SyntaxToken { token, source_file: self.source_file.clone() })
     }
     pub fn text(&self) -> &str {
@@ -845,6 +854,16 @@ impl SyntaxNode {
     pub fn first_token(&self) -> Option<SyntaxToken> {
         self.node
             .first_token()
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn last_token(&self) -> Option<SyntaxToken> {
+        self.node
+            .last_token()
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
+    }
+    pub fn token_at_offset(&self, offset: TextSize) -> rowan::TokenAtOffset<SyntaxToken> {
+        self.node
+            .token_at_offset(offset)
             .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
     }
 }
