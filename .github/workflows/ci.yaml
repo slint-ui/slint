@@ -322,6 +322,10 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies            
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 18            
             - name: Run npm install
               working-directory: ./editors/vscode
               run: npm clean-install
