@@ -322,6 +322,9 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
+            - uses: Swatinem/rust-cache@v2
+              with:
+                key: "vsce_1" # increment this to bust the cache if needed
             - uses: ./.github/actions/install-linux-dependencies            
             - uses: actions/setup-node@v4
               with:
