@@ -314,11 +314,7 @@ jobs:
                   buildWithCMakeArgs: "--config Release"
     
     vsce_build_test:
-        strategy:
-            matrix:
-                os: [ubuntu-22.04]
-
-        runs-on: ${{ matrix.os }}
+        runs-on: ubuntu-22.04
 
         steps:
             - uses: actions/checkout@v4
@@ -339,12 +335,18 @@ jobs:
             - name: Lint vscode project
               working-directory: ./editors/vscode
               run: npm run lint
+            - name: Check code formatting
+              working-directory: ./editors/vscode
+              run: npm run format
             - name: vscode prebuild
               working-directory: ./editors/vscode
               run: npm run vscode:prepublish
             - name: Build VS Code extension
               working-directory: ./editors/vscode
               run: npm run local-package
+            - name: Typescript syntax check # has to run after the build as it depends on the wasm
+              working-directory: ./editors/vscode
+              run: npm run syntax_check
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:

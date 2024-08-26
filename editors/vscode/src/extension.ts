@@ -202,19 +202,22 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand("slint.newProject", newProject),
     );
 
-    telemetryLogger = vscode.env.createTelemetryLogger(new SlintTelemetrySender(context.extensionMode), {
-        ignoreBuiltInCommonProperties: true,
-        additionalCommonProperties: {
-            common: {
-                machineId: vscode.env.machineId,
-                extname: context.extension.packageJSON.name,
-                extversion: context.extension.packageJSON.version,
-                vscodeversion: vscode.version,
-                platform: process?.platform ?? "web",
-                language: vscode.env.language,
-            }
-        }
-    });
+    telemetryLogger = vscode.env.createTelemetryLogger(
+        new SlintTelemetrySender(context.extensionMode),
+        {
+            ignoreBuiltInCommonProperties: true,
+            additionalCommonProperties: {
+                common: {
+                    machineId: vscode.env.machineId,
+                    extname: context.extension.packageJSON.name,
+                    extversion: context.extension.packageJSON.version,
+                    vscodeversion: vscode.version,
+                    platform: process?.platform ?? "web",
+                    language: vscode.env.language,
+                },
+            },
+        },
+    );
     telemetryLogger.logUsage("extension-activated", {});
 }
 

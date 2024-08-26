@@ -14,14 +14,11 @@ export async function newProject(context: vscode.ExtensionContext) {
     const cpp = "C++";
     const rust = "Rust";
     const LANGUAGES = [node, cpp, rust] as const;
-    type Language = typeof LANGUAGES[number];
+    type Language = (typeof LANGUAGES)[number];
 
-    const language = await vscode.window.showQuickPick(
-        LANGUAGES,
-        {
-            placeHolder: "What language do you want to use?",
-        },
-    ) as Language;
+    const language = (await vscode.window.showQuickPick(LANGUAGES, {
+        placeHolder: "What language do you want to use?",
+    })) as Language;
 
     if (!language) {
         vscode.window.showErrorMessage("Language selection is required.");
@@ -45,14 +42,14 @@ export async function newProject(context: vscode.ExtensionContext) {
     }
 
     let workspacePath: string | undefined =
-    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
     const folderUris = await vscode.window.showOpenDialog({
         canSelectFolders: true,
         canSelectMany: false,
         openLabel: "Open",
         defaultUri: workspacePath ? vscode.Uri.file(workspacePath) : undefined,
-        title: "Choose Location for New Slint Project"
+        title: "Choose Location for New Slint Project",
     });
 
     if (!folderUris || folderUris.length === 0) {
@@ -104,38 +101,56 @@ export async function newProject(context: vscode.ExtensionContext) {
 
         const uri = vscode.Uri.file(projectPath);
 
-        const openNewWindow = 'Open in New Window';
-        const openCurrentWindow = 'Open in Current Window';
-        const addToWorkspace = 'Add to Workspace';
-        const PROJECT_OPTIONS = [openNewWindow, openCurrentWindow, addToWorkspace] as const;
-        type ProjectOption = typeof PROJECT_OPTIONS[number];
+        const openNewWindow = "Open in New Window";
+        const openCurrentWindow = "Open in Current Window";
+        const addToWorkspace = "Add to Workspace";
+        const PROJECT_OPTIONS = [
+            openNewWindow,
+            openCurrentWindow,
+            addToWorkspace,
+        ] as const;
+        type ProjectOption = (typeof PROJECT_OPTIONS)[number];
 
-        const choice = await vscode.window.showInformationMessage(
+        const choice = (await vscode.window.showInformationMessage(
             `How Would You Like to Open Project "${projectName}"?`,
             { modal: true },
             openNewWindow,
             openCurrentWindow,
-            addToWorkspace
-        ) as ProjectOption;
+            addToWorkspace,
+        )) as ProjectOption;
 
         switch (choice) {
             case openNewWindow:
-                await vscode.commands.executeCommand("vscode.openFolder", uri, true);
+                await vscode.commands.executeCommand(
+                    "vscode.openFolder",
+                    uri,
+                    true,
+                );
                 break;
             case openCurrentWindow:
-                await vscode.commands.executeCommand("vscode.openFolder", uri, false);
+                await vscode.commands.executeCommand(
+                    "vscode.openFolder",
+                    uri,
+                    false,
+                );
                 break;
             case addToWorkspace:
                 await vscode.workspace.updateWorkspaceFolders(
-                    vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders.length : 0,
+                    vscode.workspace.workspaceFolders
+                        ? vscode.workspace.workspaceFolders.length
+                        : 0,
                     null,
-                    { uri }
+                    { uri },
                 );
                 break;
             default:
                 // If the user closes the dialog without choosing, default to opening in a new window
-                await vscode.commands.executeCommand("vscode.openFolder", uri, true);
-}
+                await vscode.commands.executeCommand(
+                    "vscode.openFolder",
+                    uri,
+                    true,
+                );
+        }
     } catch (err: unknown) {
         const errorMessage =
             err instanceof Error ? err.message : "Unknown error";

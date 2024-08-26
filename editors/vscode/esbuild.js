@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-const production = process.argv.includes('--production');
+const production = process.argv.includes("--production");
 
 const commonBuildOptions = {
     minify: production,
@@ -50,7 +50,7 @@ esbuild
         outfile: "out/browser.js",
         format: "cjs",
         platform: "browser",
-        ...commonBuildOptions
+        ...commonBuildOptions,
     })
     .catch(() => process.exit(1));
 
@@ -62,7 +62,7 @@ esbuild
         format: "iife",
         platform: "browser",
         plugins: [wasmPlugin],
-        ...commonBuildOptions
+        ...commonBuildOptions,
     })
     .catch(() => process.exit(1));
 
@@ -74,6 +74,6 @@ esbuild
         outfile: "out/extension.js",
         platform: "node",
         format: "cjs",
-        ...commonBuildOptions
+        ...commonBuildOptions,
     })
     .catch(() => process.exit(1));
