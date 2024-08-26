@@ -6,7 +6,9 @@ use std::num::NonZeroUsize;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange, TextSize};
+use i_slint_compiler::parser::{
+    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
+};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -464,9 +466,7 @@ fn insert_position_before_first_component(
         first_exported_component
     };
 
-    fn find_pre_indent_and_replacement(
-        token: &rowan::SyntaxToken<i_slint_compiler::parser::Language>,
-    ) -> (String, u32) {
+    fn find_pre_indent_and_replacement(token: &SyntaxToken) -> (String, u32) {
         match token.kind() {
             SyntaxKind::Whitespace => {
                 if token.prev_token().is_some() {

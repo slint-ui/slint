@@ -589,7 +589,7 @@ pub fn token_at_offset(doc: &syntax_nodes::Document, offset: u32) -> Option<Synt
             _ => l,
         },
     };
-    Some(SyntaxToken { token, source_file: doc.source_file.clone() })
+    Some(token)
 }
 
 fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &str) -> bool {
