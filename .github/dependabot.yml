@@ -1,0 +1,38 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      time: "04:00"
+    groups:
+      github-actions:
+        patterns:
+          - "*"  # Group all Actions updates into a single larger pull request
+    
+
+  - package-ecosystem: "npm" # See documentation for possible values
+    directory: "/editors/vscode" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      time: "04:00"
+    groups:
+      vscode_major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+      vscode_minor_patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+     
+    
