@@ -333,13 +333,12 @@ fn evaluate_binding(
     element_version: i32,
     element_offset: i32,
     property_name: slint::SharedString,
-    property_value: slint::SharedString,
+    property_value: String,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let element_url = Url::parse(element_url.as_ref()).ok()?;
     let element_version = if element_version < 0 { None } else { Some(element_version) };
     let element_offset = u32::try_from(element_offset).ok()?;
     let property_name = property_name.to_string();
-    let property_value = property_value.to_string();
 
     let document_cache = document_cache()?;
     let element = document_cache.element_at_offset(&element_url, element_offset)?;
@@ -367,8 +366,14 @@ fn test_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) -> bool {
-    evaluate_binding(element_url, element_version, element_offset, property_name, property_value)
-        .is_some()
+    evaluate_binding(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        property_value.to_string(),
+    )
+    .is_some()
 }
 
 // triggered from the UI, running in UI thread
@@ -406,6 +411,22 @@ fn set_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) {
+    set_binding_impl(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        property_value.to_string(),
+    )
+}
+
+fn set_binding_impl(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    property_value: String,
+) {
     if let Some(edit) = evaluate_binding(
         element_url,
         element_version,
@@ -427,26 +448,27 @@ fn set_simple_binding(
 ) {
     if simple_property_value.row_count() <= 1 {
         return;
-    }
-    if simple_property_value.row_data(0) == Some("bool".to_string().into()) {
-        set_binding(
+    } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
+        set_binding_impl(
             element_url,
             element_version,
             element_offset,
             property_name,
-            simple_property_value.row_data(1).unwrap(),
+            format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into(),
         )
-    } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
-        let property_value = format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into();
-        set_binding(element_url, element_version, element_offset, property_name, property_value)
     } else if simple_property_value.row_data(0) == Some("enum".to_string().into()) {
-        let property_value = format!(
-            "{}.{}",
-            String::from(simple_property_value.row_data(1).unwrap()),
-            String::from(simple_property_value.row_data(2).unwrap())
+        set_binding_impl(
+            element_url,
+            element_version,
+            element_offset,
+            property_name,
+            format!(
+                "{}.{}",
+                String::from(simple_property_value.row_data(1).unwrap()),
+                String::from(simple_property_value.row_data(2).unwrap())
+            )
+            .into(),
         )
-        .into();
-        set_binding(element_url, element_version, element_offset, property_name, property_value)
     }
 }
 
@@ -1299,18 +1321,6 @@ fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
     })
 }
 
-fn query_property_information(
-    document_cache: &common::DocumentCache,
-    selection: &Option<element_selection::ElementSelection>,
-) -> Option<properties::QueryPropertyResponse> {
-    let selection = selection.as_ref()?;
-    let url = Url::from_file_path(&selection.path).ok()?;
-    let version = document_cache.document_version(&url);
-    let element = document_cache.element_at_offset(&url, selection.offset)?;
-
-    properties::query_properties(&url, version, &element).ok()
-}
-
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
     positions: &[i_slint_core::lengths::LogicalRect],
@@ -1339,31 +1349,46 @@ fn set_selected_element(
 
         if let Some(ui) = &preview_state.ui {
             if let Some(document_cache) = document_cache_from(&preview_state) {
-                let to_show_properties_for = selection.clone().or_else(|| {
-                    let current = {
-                        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-                        cache.current_component()
-                    }?;
+                if let Some((uri, version, selection)) = selection
+                    .clone()
+                    .or_else(|| {
+                        let current = {
+                            let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+                            cache.current_component()
+                        }?;
 
-                    let document = document_cache.get_document(&current.url)?;
-                    let document = document.node.as_ref()?;
+                        let document = document_cache.get_document(&current.url)?;
+                        let document = document.node.as_ref()?;
 
-                    let identifier = if let Some(name) = &current.component {
-                        find_component_identifier(document, name)
-                    } else {
-                        find_last_component_identifier(document)
-                    }?;
+                        let identifier = if let Some(name) = &current.component {
+                            find_component_identifier(document, name)
+                        } else {
+                            find_last_component_identifier(document)
+                        }?;
 
-                    let path = identifier.source_file.path().to_path_buf();
-                    let offset = u32::from(identifier.text_range().start());
+                        let path = identifier.source_file.path().to_path_buf();
+                        let offset = u32::from(identifier.text_range().start());
 
-                    Some(ElementSelection { path, offset, instance_index: 0 })
-                });
-                ui::ui_set_properties(
-                    ui,
-                    &document_cache,
-                    query_property_information(&document_cache, &to_show_properties_for),
-                );
+                        Some(ElementSelection { path, offset, instance_index: 0 })
+                    })
+                    .as_ref()
+                    .and_then(|selection| {
+                        let url = Url::from_file_path(&selection.path).ok()?;
+                        let version = document_cache.document_version(&url);
+                        Some((
+                            url.clone(),
+                            version,
+                            document_cache.element_at_offset(&url, selection.offset)?,
+                        ))
+                    })
+                {
+                    ui::ui_set_properties(
+                        ui,
+                        &document_cache,
+                        &selection,
+                        properties::query_properties(&uri, version, &selection).ok(),
+                    );
+                }
             }
         }
 
