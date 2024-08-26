@@ -33,6 +33,13 @@ impl CodeBlockOrExpression {
             _ => None,
         }
     }
+
+    pub fn expression(&self) -> Option<syntax_nodes::Expression> {
+        match self {
+            CodeBlockOrExpression::CodeBlock(_) => None,
+            CodeBlockOrExpression::Expression(expr) => Some(expr.clone()),
+        }
+    }
 }
 
 impl std::ops::Deref for CodeBlockOrExpression {
@@ -718,7 +725,7 @@ pub fn remove_binding(
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     use crate::language::test::{complex_document_cache, loaded_document_cache};
@@ -730,7 +737,7 @@ mod tests {
         properties.iter().find(|p| p.name == name)
     }
 
-    fn properties_at_position_in_cache(
+    pub fn properties_at_position_in_cache(
         line: u32,
         character: u32,
         document_cache: &common::DocumentCache,

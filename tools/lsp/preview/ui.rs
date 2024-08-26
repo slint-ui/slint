@@ -4,7 +4,10 @@
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
-use i_slint_compiler::{langtype, parser::TextRange};
+use i_slint_compiler::{
+    langtype,
+    parser::{syntax_nodes, SyntaxKind, TextRange},
+};
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
@@ -67,10 +70,12 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_selected_element_move(super::move_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
 
-    api.on_test_binding(super::test_binding);
-    api.on_set_binding(super::set_binding);
-    api.on_test_simple_binding(super::test_simple_binding);
-    api.on_set_simple_binding(super::set_simple_binding);
+    api.on_test_code_binding(super::test_code_binding);
+    api.on_test_string_binding(super::test_string_binding);
+    api.on_set_code_binding(super::set_code_binding);
+    api.on_set_bool_binding(super::set_bool_binding);
+    api.on_set_enum_binding(super::set_enum_binding);
+    api.on_set_string_binding(super::set_string_binding);
 
     Ok(ui)
 }
@@ -234,147 +239,118 @@ fn map_property_declaration(
     })
 }
 
-fn simplify_string(value: &str) -> Option<String> {
-    let mut had_initial_quote = false;
-    let mut is_escaped = false;
-    let mut last_was_quote = false;
-    let mut is_first = true;
-    let mut about_to_unicode_escape = false;
-    let mut in_unicode_escape = false;
-    let mut in_expression_escape = false;
-    let mut opening_braces = 0;
-
-    let mut result = String::new();
-
-    for c in value.chars() {
-        if last_was_quote || (!is_first && !had_initial_quote) {
-            return None;
-        }
-
-        match c {
-            '"' => {
-                if is_first {
-                    had_initial_quote = true;
-                } else if is_escaped {
-                    result.push(c);
-                    is_escaped = false;
-                } else {
-                    last_was_quote = true;
-                }
-            }
-            '\\' => {
-                result.push(c);
-                is_escaped = !is_escaped;
-            }
-            'n' => {
-                result.push(c);
-                is_escaped = false;
-            }
-            'u' => {
-                result.push(c);
-                if is_escaped {
-                    about_to_unicode_escape = true;
-                    is_escaped = false;
-                }
-            }
-            '{' => {
-                result.push(c);
-                if in_expression_escape {
-                    opening_braces += 1;
-                } else if about_to_unicode_escape {
-                    about_to_unicode_escape = false;
-                    in_unicode_escape = true;
-                } else if is_escaped {
-                    in_expression_escape = true;
-                    is_escaped = false;
-                }
-            }
-            '}' => {
-                result.push(c);
-                if in_expression_escape {
-                    if opening_braces == 1 {
-                        in_expression_escape = false;
-                    }
-                    opening_braces -= 1;
-                }
-                if in_unicode_escape {
-                    in_unicode_escape = false;
-                }
-            }
-            'a'..='f' | 'A'..='F' | '0'..='9' => {
-                result.push(c);
-            }
-            _ => {
-                result.push(c);
-                if in_unicode_escape {
-                    return None;
-                }
-            }
-        };
-        is_first = false;
-    }
-
-    last_was_quote.then_some(result)
+fn extract_tr_data(tr_node: &syntax_nodes::AtTr) -> Option<(String, String, String)> {
+    let text = tr_node
+        .child_text(SyntaxKind::StringLiteral)
+        .and_then(|s| i_slint_compiler::literals::unescape_string(&s))?;
+    let context = tr_node
+        .TrContext()
+        .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
+        .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+        .unwrap_or_default();
+    let plural = tr_node
+        .TrPlural()
+        .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
+        .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+        .unwrap_or_default();
+    // We have expressions -> Edit as code
+    tr_node.Expression().next().is_none().then_some((context, plural, text))
 }
 
 fn simplify_value(
-    document_cache: &common::DocumentCache,
     property_type: &langtype::Type,
     code_block_or_expression: &Option<properties::CodeBlockOrExpression>,
-) -> SimpleValueData {
-    let property_value = if let Some(cboe) = code_block_or_expression {
-        cboe.text().to_string()
-    } else {
-        String::new()
-    };
+) -> PropertyValue {
+    let expression = code_block_or_expression.as_ref().and_then(|cbe| cbe.expression());
 
-    if property_type.to_string() == "bool"
-        && (property_value == "true" || property_value == "false" || property_value.is_empty())
-    {
-        let value: SharedString =
-            if property_value == "true" { "true".into() } else { "false".into() };
-        return SimpleValueData {
-            widget: "bool".into(),
-            meta_data: Rc::new(VecModel::from(vec![value])).into(),
-            visual_items: Rc::new(VecModel::default()).into(),
-        };
-    } else if property_type.to_string() == "string" {
-        if let Some(simple) = simplify_string(&property_value) {
-            return SimpleValueData {
-                widget: "string".into(),
-                meta_data: Rc::new(VecModel::from(vec![simple.into()])).into(),
-                visual_items: Rc::new(VecModel::default()).into(),
-            };
+    let mut kind = PropertyValueKind::Code;
+    let mut value_bool = false;
+    let mut value_int = 0;
+    let mut value_string = String::new();
+    let mut visual_items = Rc::new(VecModel::default()).into();
+    let mut is_translatable = false;
+    let mut tr_context = String::new();
+    let mut tr_plural = String::new();
+    let mut default_selection = 0;
+    let code =
+        code_block_or_expression.as_ref().map(|cbe| cbe.text().to_string()).unwrap_or_default();
+
+    match property_type {
+        langtype::Type::Bool => {
+            if let Some(expression) = expression {
+                let qualified_name =
+                    expression.QualifiedName().map(|qn| qn.text().to_string()).unwrap_or_default();
+                if ["true", "false"].contains(&qualified_name.as_str()) {
+                    kind = PropertyValueKind::Boolean;
+                    value_bool = &qualified_name == "true";
+                }
+            } else if code.is_empty() {
+                kind = PropertyValueKind::Boolean;
+            }
         }
-    } else if let Some(property_type) = property_type.to_string().strip_prefix("enum ") {
-        if let i_slint_compiler::langtype::Type::Enumeration(enumeration) =
-            &document_cache.global_type_registry().lookup(property_type)
-        {
-            let short_property_value = property_value
-                .strip_prefix(&format!("{property_type}."))
-                .unwrap_or(&property_value);
-            let type_name: SharedString = property_type.into();
-            let default_value: SharedString = enumeration.default_value.to_string().into();
-            let current_value = enumeration
-                .values
-                .iter()
-                .position(|v| v == short_property_value)
-                .map(|p| SharedString::from(p.to_string()))
-                .unwrap_or_else(|| default_value.clone());
-            let visual_values: Vec<_> = enumeration.values.iter().map(SharedString::from).collect();
-            return SimpleValueData {
-                widget: "enum".into(),
-                meta_data: Rc::new(VecModel::from(vec![type_name, default_value, current_value]))
-                    .into(),
-                visual_items: Rc::new(VecModel::from(visual_values)).into(),
-            };
+        langtype::Type::String => {
+            if let Some(expression) = &expression {
+                if let Some(text) = expression
+                    .child_text(SyntaxKind::StringLiteral)
+                    .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+                {
+                    kind = PropertyValueKind::String;
+                    value_string = text;
+                } else if let Some(tr_node) = &expression.AtTr() {
+                    if let Some((context, plural, text)) = extract_tr_data(tr_node) {
+                        is_translatable = true;
+                        tr_context = context;
+                        tr_plural = plural;
+                        kind = PropertyValueKind::String;
+                        value_string = text;
+                    }
+                }
+            } else if code.is_empty() {
+                kind = PropertyValueKind::String;
+            }
         }
+        langtype::Type::Enumeration(enumeration) => {
+            kind = PropertyValueKind::Enum;
+            value_string = enumeration.name.clone();
+            default_selection = i32::try_from(enumeration.default_value).unwrap_or_default();
+            visual_items = Rc::new(VecModel::from(
+                enumeration.values.iter().map(SharedString::from).collect::<Vec<_>>(),
+            ));
+
+            if let Some(expression) = expression {
+                if let Some(text) = expression
+                    .child_node(SyntaxKind::QualifiedName)
+                    .map(|n| i_slint_compiler::object_tree::QualifiedTypeName::from_node(n.into()))
+                    .and_then(|n| {
+                        n.to_string()
+                            .strip_prefix(&format!("{value_string}."))
+                            .map(|s| s.to_string())
+                    })
+                {
+                    value_int = enumeration
+                        .values
+                        .iter()
+                        .position(|v| v == &text)
+                        .and_then(|v| i32::try_from(v).ok())
+                        .unwrap_or_default();
+                }
+            }
+        }
+        _ => {}
     }
 
-    SimpleValueData {
-        widget: SharedString::new(),
-        meta_data: Rc::new(VecModel::default()).into(),
-        visual_items: Rc::new(VecModel::default()).into(),
+    PropertyValue {
+        kind,
+        value_bool,
+        value_string: value_string.into(),
+        value_int,
+        value_float: 0.0,
+        visual_items: visual_items.into(),
+        is_translatable,
+        tr_context: tr_context.into(),
+        tr_plural: tr_plural.into(),
+        code: code.into(),
+        default_selection,
     }
 }
 
@@ -428,10 +404,10 @@ fn map_properties_to_ui(
             expression_value: String::new().into(),
         });
 
-        let simple_value = {
+        let value = {
             let code_block_or_expression =
                 pi.defined_at.as_ref().map(|da| da.code_block_or_expression.clone());
-            simplify_value(document_cache, &pi.ty, &code_block_or_expression)
+            simplify_value(&pi.ty, &code_block_or_expression)
         };
 
         if pi.group != current_group {
@@ -447,7 +423,7 @@ fn map_properties_to_ui(
             type_name: pi.ty.to_string().into(),
             declared_at,
             defined_at,
-            simple_value,
+            value,
         });
     }
 
@@ -469,7 +445,6 @@ fn map_properties_to_ui(
 pub fn ui_set_properties(
     ui: &PreviewUi,
     document_cache: &common::DocumentCache,
-    _element_node: &common::ElementRcNode,
     properties: Option<properties::QueryPropertyResponse>,
 ) {
     let element = map_properties_to_ui(document_cache, properties).unwrap_or(ElementInformation {
@@ -484,4 +459,226 @@ pub fn ui_set_properties(
 
     let api = ui.global::<Api>();
     api.set_current_element(element);
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::language::test::loaded_document_cache;
+
+    use crate::common;
+    use crate::preview::properties;
+
+    use i_slint_core::model::Model;
+
+    use super::{PropertyValue, PropertyValueKind};
+
+    fn properties_at_position(
+        source: &str,
+        line: u32,
+        character: u32,
+    ) -> Option<(
+        common::ElementRcNode,
+        Vec<properties::PropertyInformation>,
+        common::DocumentCache,
+        lsp_types::Url,
+    )> {
+        let (dc, url, _) = loaded_document_cache(source.to_string());
+        if let Some((e, p)) =
+            properties::tests::properties_at_position_in_cache(line, character, &dc, &url)
+        {
+            Some((e, p, dc, url))
+        } else {
+            None
+        }
+    }
+
+    fn property_conversion_test(contents: &str, property_line: u32) -> PropertyValue {
+        let (_, pi, _, _) = properties_at_position(contents, property_line, 30).unwrap();
+
+        super::simplify_value(
+            &pi[0].ty,
+            &pi[0].defined_at.as_ref().map(|da| da.code_block_or_expression.clone()),
+        )
+    }
+
+    #[test]
+    fn test_property_bool() {
+        let result =
+            property_conversion_test(r#"export component Test { in property <bool> test1; }"#, 0);
+        assert_eq!(result.kind, PropertyValueKind::Boolean);
+        assert_eq!(result.value_bool, false);
+        assert!(result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <bool> test1: true; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Boolean);
+        assert_eq!(result.value_bool, true);
+        assert!(!result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <bool> test1: false; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Boolean);
+        assert_eq!(result.value_bool, false);
+        assert!(!result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <bool> test1: 1.1.round() == 1.1.floor(); }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+        assert_eq!(result.value_bool, false);
+        assert!(!result.code.is_empty());
+    }
+
+    #[test]
+    fn test_property_string() {
+        let result =
+            property_conversion_test(r#"export component Test { in property <string> test1; }"#, 0);
+        assert_eq!(result.kind, PropertyValueKind::String);
+        assert_eq!(result.is_translatable, false);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "");
+        assert_eq!(result.value_bool, false);
+        assert!(result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: ""; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::String);
+        assert_eq!(result.is_translatable, false);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "");
+        assert_eq!(result.value_bool, false);
+        assert!(!result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: "string"; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::String);
+        assert_eq!(result.is_translatable, false);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "");
+        assert_eq!(result.value_bool, false);
+        assert!(!result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: "" + "test"); }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+        assert_eq!(result.is_translatable, false);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "");
+        assert_eq!(result.value_bool, false);
+        assert!(!result.code.is_empty());
+    }
+
+    #[test]
+    fn test_property_tr_string() {
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: @tr("Context" => "test"); }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::String);
+        assert_eq!(result.value_string, "test");
+        assert_eq!(result.is_translatable, true);
+        assert_eq!(result.tr_context, "Context");
+        assert_eq!(result.tr_plural, "");
+        assert!(!result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: @tr("{n} string" | "{n} strings" % 15); }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::String);
+        assert_eq!(result.is_translatable, true);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "{n} strings");
+        assert_eq!(result.value_string, "{n} string");
+        assert!(!result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: @tr("" + "test"); }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+        assert_eq!(result.is_translatable, false);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "");
+        assert_eq!(result.value_string, "");
+        assert!(!result.code.is_empty());
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: @tr("width {}", self.width()); }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+        assert_eq!(result.is_translatable, false);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "");
+        assert_eq!(result.value_string, "");
+        assert!(!result.code.is_empty());
+    }
+
+    #[test]
+    fn test_property_enum() {
+        let result = property_conversion_test(
+            r#"export component Test { in property <ImageFit> test1: ImageFit.preserve; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Enum);
+        assert_eq!(result.value_string, "ImageFit");
+        assert_eq!(result.value_int, 3);
+        assert_eq!(result.default_selection, 0);
+        assert_eq!(result.is_translatable, false);
+
+        assert_eq!(result.visual_items.row_count(), 4);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <ImageFit> test1: ImageFit   .    /* abc */ preserve; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Enum);
+        assert_eq!(result.value_string, "ImageFit");
+        assert_eq!(result.value_int, 3);
+        assert_eq!(result.default_selection, 0);
+        assert_eq!(result.is_translatable, false);
+
+        assert_eq!(result.visual_items.row_count(), 4);
+
+        let result = property_conversion_test(
+            r#"enum Foobar { foo, bar }
+export component Test { in property <Foobar> test1: Foobar.bar; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Enum);
+        assert_eq!(result.value_string, "Foobar");
+        assert_eq!(result.value_int, 1);
+        assert_eq!(result.default_selection, 0);
+        assert_eq!(result.is_translatable, false);
+
+        assert_eq!(result.visual_items.row_count(), 2);
+        assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
+        assert_eq!(result.visual_items.row_data(1), Some(slint::SharedString::from("bar")));
+
+        let result = property_conversion_test(
+            r#"enum Foobar { foo, bar }
+export component Test { in property <Foobar> test1; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Enum);
+        assert_eq!(result.value_string, "Foobar");
+        assert_eq!(result.value_int, 0); // default
+        assert_eq!(result.default_selection, 0);
+        assert_eq!(result.is_translatable, false);
+
+        assert_eq!(result.visual_items.row_count(), 2);
+        assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
+        assert_eq!(result.visual_items.row_data(1), Some(slint::SharedString::from("bar")));
+    }
 }

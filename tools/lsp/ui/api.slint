@@ -69,11 +69,26 @@ export struct Range {
     end: int,
 }
 
+export enum PropertyValueKind {
+    Code,
+    Boolean,
+    String,
+    Enum,
+}
+
 /// Data about the property value for use in "simple" mode
-export struct SimpleValueData {
-    widget: string,
+export struct PropertyValue {
+    value-bool: bool,
+    is-translatable: bool,
+    kind: PropertyValueKind,
+    value-float: float,
+    value-int: int,
+    default-selection: int,
+    value-string: string,
     visual-items: [string],
-    meta-data: [string],
+    tr-context: string,
+    tr-plural: string,
+    code: string,
 }
 
 /// Important Ranges in the property definition
@@ -99,7 +114,7 @@ export struct PropertyInformation {
     type-name: string,
     declared-at: PropertyDeclaration,
     defined-at: PropertyDefinition,
-    simple-value: SimpleValueData,
+    value: PropertyValue,
 }
 
 /// Information on one Property
@@ -203,8 +218,10 @@ export global Api {
     callback show-preview-for(/* name: */ string, /* url: */ string);
 
     // ## Property Editor
-    pure callback test-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string) -> bool;
-    pure callback test-simple-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* simple-property-value: */ [string]) -> bool;
-    callback set-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string);
-    callback set-simple-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* simple-property-value: */ [string]);
+    pure callback test-code-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string) -> bool;
+    pure callback test-string-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* value: */ string) -> bool;
+    callback set-code-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string);
+    callback set-bool-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* value: */ bool);
+    callback set-enum-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* enum_type: */ string, /* enum_value: */ string);
+    callback set-string-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* value: */ string);
 }
