@@ -332,6 +332,9 @@ jobs:
             - name: Lint vscode project
               working-directory: ./editors/vscode
               run: npm run lint
+            - name: vscode prebuild
+              working-directory: ./editors/vscode
+              run: npm run vscode:prepublish
             - name: Build VS Code extension
               working-directory: ./editors/vscode
               run: npm run local-package
