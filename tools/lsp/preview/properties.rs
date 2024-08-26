@@ -7,7 +7,7 @@ use crate::wasm_prelude::*;
 use crate::common::{self, Result, SourceFileVersion};
 use crate::util;
 
-use i_slint_compiler::diagnostics::{SourceFile, Spanned};
+use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
@@ -26,14 +26,10 @@ pub enum CodeBlockOrExpression {
 }
 
 impl CodeBlockOrExpression {
-    pub fn new_from(source_file: &SourceFile, node: &rowan::SyntaxNode<Language>) -> Option<Self> {
+    pub fn new(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::CodeBlock => Some(Self::CodeBlock(
-                SyntaxNode { node: node.clone(), source_file: source_file.clone() }.into(),
-            )),
-            SyntaxKind::Expression => Some(Self::Expression(
-                SyntaxNode { node: node.clone(), source_file: source_file.clone() }.into(),
-            )),
+            SyntaxKind::CodeBlock => Some(Self::CodeBlock(node.into())),
+            SyntaxKind::Expression => Some(Self::Expression(node.into())),
             _ => None,
         }
     }
@@ -222,8 +218,11 @@ fn find_code_block_or_expression(
         for ancestor in token.parent_ancestors() {
             if ancestor.kind() == SyntaxKind::BindingExpression {
                 // The BindingExpression contains leading and trailing whitespace + `;`
-                if let Some(child) = &ancestor.first_child() {
-                    code_block_or_expression = CodeBlockOrExpression::new_from(source_file, child);
+                if let Some(child) = ancestor.first_child() {
+                    code_block_or_expression = CodeBlockOrExpression::new(SyntaxNode {
+                        node: child,
+                        source_file: source_file.clone(),
+                    });
                 }
                 continue;
             }
