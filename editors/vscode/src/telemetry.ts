@@ -4,10 +4,10 @@
 import * as vscode from "vscode";
 
 export class SlintTelemetrySender implements vscode.TelemetrySender {
-    #telemetry_host: String
+    #telemetry_host: string
 
     constructor(extensionMode: vscode.ExtensionMode) {
-        if (extensionMode == vscode.ExtensionMode.Production) {
+        if (extensionMode === vscode.ExtensionMode.Production) {
             this.#telemetry_host = "slint.dev";
         } else {
             this.#telemetry_host = "staging.slint.dev";
@@ -18,7 +18,7 @@ export class SlintTelemetrySender implements vscode.TelemetrySender {
             return;
         }
 
-        let dataToSend = {
+        const dataToSend = {
             eventName: eventName,
             data: data,
         };
