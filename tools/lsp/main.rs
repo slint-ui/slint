@@ -29,6 +29,7 @@ use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response}
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
+use std::io::Write as _;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex};
@@ -211,6 +212,30 @@ fn main() {
             std::process::exit(1);
         });
         std::process::exit(0);
+    }
+
+    if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {
+        let default_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let _ =
+                std::path::Path::new(&panic_log_file).parent().map(|x| std::fs::create_dir_all(x));
+            if let Ok(mut file) = std::fs::File::create(&panic_log_file) {
+                let _ = writeln!(
+                    file,
+                    "slint-lsp v{}.{}.{}",
+                    env!("CARGO_PKG_VERSION_MAJOR"),
+                    env!("CARGO_PKG_VERSION_MINOR"),
+                    env!("CARGO_PKG_VERSION_PATCH")
+                );
+                let _ = if let Some(l) = info.location() {
+                    writeln!(file, "{}:{}:{}", l.file(), l.line(), l.column())
+                } else {
+                    writeln!(file, "unknown location")
+                };
+                let _ = writeln!(file, "{info}");
+            }
+            default_hook(info);
+        }));
     }
 
     #[cfg(feature = "preview-engine")]

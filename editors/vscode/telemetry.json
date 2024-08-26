@@ -1,6 +1,23 @@
 {
     "events": {
-        "extension-activated": {}
+        "extension-activated": {},
+        "lsp-panic": {
+            "version": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "The version of the Slint LSP server"
+            },
+            "message": {
+                "classification": "CallstackOrException",
+                "purpose": "PerformanceAndHealth",
+                "comment": "The message of the panic"
+            },
+            "location": {
+                "classification": "CallstackOrException",
+                "purpose": "PerformanceAndHealth",
+                "comment": "The location of the panic in the slint-lsp code"
+            }
+        }
     },
     "commonProperties": {
         "common.machineId": {

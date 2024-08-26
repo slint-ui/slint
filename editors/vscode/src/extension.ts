@@ -131,6 +131,12 @@ function startClient(
         options.env["RUST_BACKTRACE"] = "1";
     }
 
+    let slint_lsp_panic_file = vscode.Uri.joinPath(
+        context.logUri,
+        "slint-lsp-panic.log",
+    );
+    options.env["SLINT_LSP_PANIC_LOG"] = slint_lsp_panic_file.fsPath;
+
     let args = vscode.workspace
         .getConfiguration("slint")
         .get<[string]>("lsp-args");
@@ -160,10 +166,27 @@ function startClient(
                     "The Slint Language Server crashed. This is a bug. Please open an issue on https://github.com/slint-ui/slint/issues",
                 );
                 cl.outputChannel.show();
-                vscode.commands.executeCommand("workbench.action.output.focus");
                 vscode.window.showErrorMessage(
                     "The Slint Language Server crashed! Please open a bug on the Slint bug tracker with the panic message.",
                 );
+                vscode.workspace.fs
+                    .readFile(slint_lsp_panic_file)
+                    .then((data) => {
+                        const contents = Buffer.from(data).toString("utf-8");
+                        const lines = contents.split("\n");
+                        const version = lines[0];
+                        // Location is trusted because it is a path within the LSP (as build on our CI)
+                        const location = new vscode.TelemetryTrustedValue(
+                            lines[1],
+                        );
+                        const message = lines.slice(2).join("\n");
+                        telemetryLogger.logError("lsp-panic", {
+                            version: version,
+                            location: location,
+                            message: message,
+                        });
+                        vscode.workspace.fs.delete(slint_lsp_panic_file);
+                    });
             }
         });
     });
