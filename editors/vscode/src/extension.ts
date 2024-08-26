@@ -202,7 +202,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand("slint.newProject", newProject),
     );
 
-    telemetryLogger = vscode.env.createTelemetryLogger(new SlintTelemetrySender, {
+    telemetryLogger = vscode.env.createTelemetryLogger(new SlintTelemetrySender(context.extensionMode), {
         ignoreBuiltInCommonProperties: true,
         additionalCommonProperties: {
             common: {
