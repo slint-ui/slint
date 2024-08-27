@@ -5,39 +5,39 @@ import { CupertinoPalette } from "styling.slint";
 import { SliderBase } from "../common/slider-base.slint";
 
 export component Slider {
-    in property <Orientation> orientation <=> i-base.orientation;
-    in property <float> maximum <=> i-base.maximum;
-    in property <float> minimum <=> i-base.minimum;
-    in property <bool> enabled <=> i-base.enabled;
-    out property <bool> has-focus <=> i-base.has-focus;
-    in-out property <float> value <=> i-base.value;
+    in property <Orientation> orientation <=> base.orientation;
+    in property <float> maximum <=> base.maximum;
+    in property <float> minimum <=> base.minimum;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <float> value <=> base.value;
 
-    callback changed <=> i-base.changed;
-    callback released <=> i-base.released;
+    callback changed <=> base.changed;
+    callback released <=> base.released;
 
-    min-width: i-base.vertical ? 20px : 0px;
-    min-height: i-base.vertical ? 0px : 20px;
-    vertical-stretch: i-base.vertical ? 1 : 0;
-    horizontal-stretch: i-base.vertical ? 0 : 1;
+    min-width: base.vertical ? 20px : 0px;
+    min-height: base.vertical ? 0px : 20px;
+    vertical-stretch: base.vertical ? 1 : 0;
+    horizontal-stretch: base.vertical ? 0 : 1;
     accessible-role: slider;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
-    forward-focus: i-base;
+    forward-focus: base;
 
     states [
         disabled when !root.enabled : {
             root.opacity: 0.5;
         }
-        pressed when i-base.handle-pressed || root.has-focus : {
-            i-thumb.background: CupertinoPalette.pressed;
+        pressed when base.handle-pressed || root.has-focus : {
+            thumb.background: CupertinoPalette.pressed;
         }
     ]
 
-    i-rail := Rectangle {
-        width: i-base.vertical ? 4px : parent.width;
-        height: i-base.vertical ? parent.height : 4px;
+    rail := Rectangle {
+        width: base.vertical ? 4px : parent.width;
+        height: base.vertical ? parent.height : 4px;
         background: CupertinoPalette.alternate-control-background;
         border-radius: 2px;
 
@@ -48,18 +48,18 @@ export component Slider {
         }
     }
 
-    i-track := Rectangle {
-        x: i-base.vertical ? (parent.width - self.width) / 2 : 0;
-        y: i-base.vertical ? 0 : (parent.height - self.height) / 2;
-        width: i-base.vertical ? i-rail.width : i-thumb.x + (i-thumb.width / 2);
-        height: i-base.vertical ? i-thumb.y + (i-thumb.height / 2) : i-rail.height;
+    track := Rectangle {
+        x: base.vertical ? (parent.width - self.width) / 2 : 0;
+        y: base.vertical ? 0 : (parent.height - self.height) / 2;
+        width: base.vertical ? rail.width : thumb.x + (thumb.width / 2);
+        height: base.vertical ? thumb.y + (thumb.height / 2) : rail.height;
         background: CupertinoPalette.accent-background;
-        border-radius: i-rail.border-radius;
+        border-radius: rail.border-radius;
     }
 
-    i-thumb := Rectangle {
-        x: i-base.vertical ? (parent.width - self.width) / 2 : (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
-        y: i-base.vertical ? (parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
+    thumb := Rectangle {
+        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.width - self.width);
+        y: base.vertical ? clamp((parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.height - self.height) : (parent.height - self.height) / 2;
         width: 20px;
         height: self.width;
         border-radius: 10px;
@@ -71,12 +71,12 @@ export component Slider {
         animate background { duration: 150ms; easing: linear; }
     }
 
-    i-base := SliderBase {
+    base := SliderBase {
         width: 100%;
         height: 100%;
-        handle-x: i-thumb.x;
-        handle-y: i-thumb.y;
-        handle-width: i-thumb.width;
-        handle-height: i-thumb.height;
+        handle-x: thumb.x;
+        handle-y: thumb.y;
+        handle-width: thumb.width;
+        handle-height: thumb.height;
     }
 }

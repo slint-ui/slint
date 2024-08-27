@@ -50,8 +50,8 @@ export component Slider {
     }
 
     thumb := Rectangle {
-        x: base.vertical ? (parent.width - self.width) / 2 : (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
-        y: base.vertical ? (parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
+        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.width - self.width);
+        y: base.vertical ? clamp((parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.height - self.height) : (parent.height - self.height) / 2;
         width: 20px;
         height: self.width;
         border-radius: 10px;
