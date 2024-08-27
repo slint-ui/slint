@@ -6,11 +6,12 @@ use crate::util::{lookup_current_element_type, node_to_url_and_lsp_range, with_l
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult};
+use i_slint_compiler::namedreference::NamedReference;
+use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::pathutils::clean_path;
-
 use lsp_types::{GotoDefinitionResponse, LocationLink, Range};
 use std::path::Path;
 
@@ -18,6 +19,67 @@ pub fn goto_definition(
     document_cache: &mut DocumentCache,
     token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
+    let token_info = token_info(document_cache, token)?;
+    match token_info {
+        TokenInfo::Type(ty) => goto_type(&ty),
+        TokenInfo::ElementType(el) => {
+            if let ElementType::Component(c) = el {
+                goto_node(&c.root_element.borrow().debug.first()?.node)
+            } else {
+                None
+            }
+        }
+        TokenInfo::ElementRc(el) => goto_node(&el.borrow().debug.first()?.node),
+        TokenInfo::NamedReference(nr) => {
+            let mut el = nr.element();
+            loop {
+                if let Some(x) = el.borrow().property_declarations.get(nr.name()) {
+                    return goto_node(x.node.as_ref()?);
+                }
+                let base = el.borrow().base_type.clone();
+                if let ElementType::Component(c) = base {
+                    el = c.root_element.clone();
+                } else {
+                    return None;
+                }
+            }
+        }
+        TokenInfo::EnumerationValue(v) => {
+            // FIXME: this goes to the enum definition instead of the value definition.
+            goto_node(&*v.enumeration.node.as_ref()?)
+        }
+        TokenInfo::FileName(f) => {
+            let doc = document_cache.get_document_by_path(&f)?;
+            let doc_node = doc.node.clone()?;
+            goto_node(&doc_node)
+        }
+        TokenInfo::LocalProperty(x) => goto_node(&x),
+        TokenInfo::LocalCallback(x) => goto_node(&x),
+        TokenInfo::IncompleteNamedReference(mut element_type, prop_name) => {
+            while let ElementType::Component(com) = element_type {
+                if let Some(p) = com.root_element.borrow().property_declarations.get(&prop_name) {
+                    return goto_node(p.node.as_ref()?);
+                }
+                element_type = com.root_element.borrow().base_type.clone();
+            }
+            None
+        }
+    }
+}
+
+pub enum TokenInfo {
+    Type(Type),
+    ElementType(ElementType),
+    ElementRc(ElementRc),
+    NamedReference(NamedReference),
+    EnumerationValue(EnumerationValue),
+    FileName(std::path::PathBuf),
+    LocalProperty(syntax_nodes::PropertyDeclaration),
+    LocalCallback(syntax_nodes::CallbackDeclaration),
+    IncompleteNamedReference(ElementType, String),
+}
+
+pub fn token_info(document_cache: &mut DocumentCache, token: SyntaxToken) -> Option<TokenInfo> {
     let mut node = token.parent();
     loop {
         if let Some(n) = syntax_nodes::QualifiedName::new(node.clone()) {
@@ -26,17 +88,14 @@ pub fn goto_definition(
                 SyntaxKind::Type => {
                     let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
                     let doc = document_cache.get_document_for_source_file(&node.source_file)?;
-                    goto_type(&doc.local_registry.lookup_qualified(&qual.members))
+                    Some(TokenInfo::Type(doc.local_registry.lookup_qualified(&qual.members)))
                 }
                 SyntaxKind::Element => {
                     let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
                     let doc = document_cache.get_document_for_source_file(&node.source_file)?;
-                    match doc.local_registry.lookup_element(&qual.to_string()) {
-                        Ok(ElementType::Component(c)) => {
-                            goto_node(&c.root_element.borrow().debug.first()?.node)
-                        }
-                        _ => None,
-                    }
+                    Some(TokenInfo::ElementType(
+                        doc.local_registry.lookup_element(&qual.to_string()).ok()?,
+                    ))
                 }
                 SyntaxKind::Expression => {
                     if token.kind() != SyntaxKind::Identifier {
@@ -60,62 +119,42 @@ pub fn goto_definition(
                         }
                         Some(expr_it)
                     })?;
-                    let gn = match lr? {
+                    match lr? {
                         LookupResult::Expression {
                             expression: Expression::ElementReference(e),
                             ..
-                        } => e.upgrade()?.borrow().debug.first()?.node.clone().into(),
+                        } => Some(TokenInfo::ElementRc(e.upgrade()?)),
                         LookupResult::Expression {
                             expression:
                                 Expression::CallbackReference(nr, _)
                                 | Expression::PropertyReference(nr)
                                 | Expression::FunctionReference(nr, _),
                             ..
-                        } => {
-                            let mut el = nr.element();
-                            loop {
-                                if let Some(x) = el.borrow().property_declarations.get(nr.name()) {
-                                    break x.node.clone()?;
-                                }
-                                let base = el.borrow().base_type.clone();
-                                if let ElementType::Component(c) = base {
-                                    el = c.root_element.clone();
-                                } else {
-                                    return None;
-                                }
-                            }
-                        }
+                        } => Some(TokenInfo::NamedReference(nr)),
                         LookupResult::Expression {
                             expression: Expression::EnumerationValue(v),
                             ..
-                        } => {
-                            // FIXME: this goes to the enum definition instead of the value definition.
-                            v.enumeration.node.clone()?.into()
-                        }
-                        LookupResult::Enumeration(e) => e.node.clone()?.into(),
+                        } => Some(TokenInfo::EnumerationValue(v)),
+                        LookupResult::Enumeration(e) => Some(TokenInfo::Type(Type::Enumeration(e))),
                         _ => return None,
-                    };
-                    goto_node(&gn)
+                    }
                 }
                 _ => None,
             };
         } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
             let doc = document_cache.get_document_for_source_file(&node.source_file)?;
             let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
-            return match doc.local_registry.lookup_element(&imp_name.internal_name) {
-                Ok(ElementType::Component(c)) => {
-                    goto_node(&c.root_element.borrow().debug.first()?.node)
-                }
-                _ => None,
-            };
+            return Some(TokenInfo::ElementType(
+                doc.local_registry.lookup_element(&imp_name.internal_name).ok()?,
+            ));
         } else if let Some(n) = syntax_nodes::ExportSpecifier::new(node.clone()) {
             let doc = document_cache.get_document_for_source_file(&node.source_file)?;
             let (_, exp) = i_slint_compiler::object_tree::ExportedName::from_export_specifier(&n);
             return match doc.exports.find(exp.as_str())? {
                 itertools::Either::Left(c) => {
-                    goto_node(&c.root_element.borrow().debug.first()?.node)
+                    Some(TokenInfo::ElementType(ElementType::Component(c)))
                 }
-                itertools::Either::Right(ty) => goto_type(&ty),
+                itertools::Either::Right(ty) => Some(TokenInfo::Type(ty)),
             };
         } else if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::ExportModule) {
             let import_file = node
@@ -125,9 +164,7 @@ pub fn goto_definition(
                 .unwrap_or_else(|| Path::new("/"))
                 .join(node.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
             let import_file = clean_path(&import_file);
-            let doc = document_cache.get_document_by_path(&import_file)?;
-            let doc_node = doc.node.clone()?;
-            return goto_node(&doc_node);
+            return Some(TokenInfo::FileName(import_file));
         } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {
             // don't fallback to the Binding
             return None;
@@ -141,10 +178,9 @@ pub fn goto_definition(
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then_some(p)
             }) {
-                return goto_node(&p);
+                return Some(TokenInfo::LocalProperty(p));
             }
-            let n = find_property_declaration_in_base(document_cache, element, &prop_name)?;
-            return goto_node(&n);
+            return find_property_declaration_in_base(document_cache, element, &prop_name);
         } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
             if token.kind() != SyntaxKind::Identifier {
                 return None;
@@ -158,10 +194,9 @@ pub fn goto_definition(
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then_some(p)
             }) {
-                return goto_node(&p);
+                return Some(TokenInfo::LocalProperty(p));
             }
-            let n = find_property_declaration_in_base(document_cache, element, &prop_name)?;
-            return goto_node(&n);
+            return find_property_declaration_in_base(document_cache, element, &prop_name);
         } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
             if token.kind() != SyntaxKind::Identifier {
                 return None;
@@ -175,10 +210,9 @@ pub fn goto_definition(
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then_some(p)
             }) {
-                return goto_node(&p);
+                return Some(TokenInfo::LocalCallback(p));
             }
-            let n = find_property_declaration_in_base(document_cache, element, &prop_name)?;
-            return goto_node(&n);
+            return find_property_declaration_in_base(document_cache, element, &prop_name);
         }
         node = node.parent()?;
     }
@@ -189,7 +223,7 @@ fn find_property_declaration_in_base(
     document_cache: &DocumentCache,
     element: syntax_nodes::Element,
     prop_name: &str,
-) -> Option<SyntaxNode> {
+) -> Option<TokenInfo> {
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -197,14 +231,8 @@ fn find_property_declaration_in_base(
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 
-    let mut element_type = lookup_current_element_type((*element).clone(), tr)?;
-    while let ElementType::Component(com) = element_type {
-        if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name) {
-            return p.node.clone();
-        }
-        element_type = com.root_element.borrow().base_type.clone();
-    }
-    None
+    let element_type = lookup_current_element_type((*element).clone(), tr)?;
+    Some(TokenInfo::IncompleteNamedReference(element_type, prop_name.to_string()))
 }
 
 fn goto_type(ty: &Type) -> Option<GotoDefinitionResponse> {
