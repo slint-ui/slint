@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 ### Widgets
 
  - Fixed `TextEdit` not invoking `edited` callbacks (#5848).
+ - Added `scrolled` callback to `ListView` and `ScrollView`.
 
 ## [1.7.2] - 2024-08-14
 
