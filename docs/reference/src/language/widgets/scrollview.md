@@ -18,6 +18,10 @@ using for loops may be added in the future and is tracked in issue #407.
 -   **`viewport-x`** and **`viewport-y`** (_in-out_ _length_): The `x` and `y` properties of the viewport. Usually these are negative
 -   **`visible-width`** and **`visible-height`** (_out_ _length_): The size of the visible area of the ScrollView (not including the scrollbar)
 
+### Callbacks
+
+-   **`scrolled()`**: Invoked when `viewport-x` or `viewport-y` is changed by a user action (dragging, scrolling).
+
 ### Example
 
 ```slint

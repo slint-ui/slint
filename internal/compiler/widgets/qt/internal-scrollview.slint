@@ -23,6 +23,8 @@ export component InternalScrollView {
     out property <length> native-padding-bottom: native.native-padding-bottom;
     in property <length> header-height: 0;
 
+    callback scrolled <=> fli.flicked;
+
     preferred-height: 100%;
     preferred-width: 100%;
     min-height: native.min-height;

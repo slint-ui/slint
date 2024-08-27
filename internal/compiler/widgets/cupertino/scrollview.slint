@@ -5,7 +5,7 @@ import { CupertinoPalette, Icons } from "styling.slint";
 
 export component ScrollBar inherits Rectangle {
     in property <bool> enabled;
-    out property <bool> has-hover: i-touch-area.has-hover;
+    out property <bool> has-hover: touch-area.has-hover;
     in-out property <bool> horizontal;
     in-out property <length> maximum;
     in-out property <length> page-size;
@@ -19,16 +19,16 @@ export component ScrollBar inherits Rectangle {
     background: transparent;
 
     states [
-        hover when i-touch-area.has-hover : {
+        hover when touch-area.has-hover : {
             background: CupertinoPalette.foreground.with-alpha(0.2);
-            i-border.background: CupertinoPalette.foreground.with-alpha(0.2);
+            border.background: CupertinoPalette.foreground.with-alpha(0.2);
             pad: 4px;
         }
     ]
 
     animate width, height, pad, background { duration: 150ms; easing: ease-out; }
 
-    i-border := Rectangle {
+    border := Rectangle {
         x: 0;
         y: 0;
         width: !root.horizontal ? 0.8px : parent.width;
@@ -36,11 +36,11 @@ export component ScrollBar inherits Rectangle {
         background: transparent;
     }
 
-    i-thumb := Rectangle {
+    thumb := Rectangle {
         width: !root.horizontal ? parent.width - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
         height: root.horizontal ? parent.height - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
-        x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
-        y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
+        x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
+        y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
         background: CupertinoPalette.foreground;
         opacity: 0.6;
@@ -50,7 +50,7 @@ export component ScrollBar inherits Rectangle {
         animate width, height { duration: 100ms; easing: ease-out; }
     }
 
-    i-touch-area := TouchArea {
+    touch-area := TouchArea {
         property <length> pressed-value;
 
         width: parent.width;
@@ -65,8 +65,8 @@ export component ScrollBar inherits Rectangle {
         moved => {
             if (self.enabled && self.pressed) {
                 root.value = -max(0px, min(root.maximum, self.pressed-value + (
-                    root.horizontal ? (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum / (root.track-size - i-thumb.width))
-                               : (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum / (root.track-size - i-thumb.height))
+                    root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.track-size - thumb.width))
+                               : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.track-size - thumb.height))
                 )));
             }
         }
@@ -86,14 +86,16 @@ export component ScrollBar inherits Rectangle {
 
 export component ScrollView {
     in property <bool> enabled: true;
-    out property <length> visible-width <=> i-flickable.width;
-    out property <length> visible-height <=> i-flickable.height;
-    in-out property <length> viewport-width <=> i-flickable.viewport-width;
-    in-out property <length> viewport-height <=> i-flickable.viewport-height;
-    in-out property <length> viewport-x <=> i-flickable.viewport-x;
-    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    out property <length> visible-width <=> flickable.width;
+    out property <length> visible-height <=> flickable.height;
+    in-out property <length> viewport-width <=> flickable.viewport-width;
+    in-out property <length> viewport-height <=> flickable.viewport-height;
+    in-out property <length> viewport-x <=> flickable.viewport-x;
+    in-out property <length> viewport-y <=> flickable.viewport-y;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
+    
+    callback scrolled <=> flickable.flicked;
 
     min-height: 50px;
     min-width: 50px;
@@ -102,39 +104,39 @@ export component ScrollView {
     preferred-height: 100%;
     preferred-width: 100%;
 
-    i-flickable := Flickable {
+    flickable := Flickable {
         x: 2px;
         y: 2px;
         interactive: false;
-        viewport-y <=> i-vertical-bar.value;
-        viewport-x <=> i-horizontal-bar.value;
+        viewport-y <=> vertical-bar.value;
+        viewport-x <=> horizontal-bar.value;
         width: 100%;
         height: 100%;
 
         @children
     }
 
-    i-vertical-bar := ScrollBar {
+    vertical-bar := ScrollBar {
         enabled: root.enabled;
         x: parent.width  - self.width;
         y: 0;
         width: self.has-hover ? 20px : 12px;
-        height: i-horizontal-bar.visible ? parent.height - i-horizontal-bar.height : parent.height;
+        height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
         horizontal: false;
-        maximum:  i-flickable.viewport-height - i-flickable.height;
-        page-size:  i-flickable.height;
-        visible: i-flickable.viewport-height > i-flickable.height;
+        maximum:  flickable.viewport-height - flickable.height;
+        page-size:  flickable.height;
+        visible: flickable.viewport-height > flickable.height;
     }
 
-    i-horizontal-bar := ScrollBar {
+    horizontal-bar := ScrollBar {
         enabled: root.enabled;
-        width: i-vertical-bar.visible ? parent.width - i-vertical-bar.width : parent.width;
+        width: vertical-bar.visible ? parent.width - vertical-bar.width : parent.width;
         height: self.has-hover ? 20px : 12px;
         y: parent.height - self.height;
         x: 0;
         horizontal: true;
-        maximum:  i-flickable.viewport-width - i-flickable.width;
-        page-size:  i-flickable.width;
-        visible: i-flickable.viewport-width > i-flickable.width;
+        maximum:  flickable.viewport-width - flickable.width;
+        page-size:  flickable.width;
+        visible: flickable.viewport-width > flickable.width;
     }
 }

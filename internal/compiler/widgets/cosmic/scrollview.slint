@@ -87,6 +87,8 @@ export component ScrollView {
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
 
+    callback scrolled <=> flickable.flicked;
+
     min-height: 50px;
     min-width: 50px;
     horizontal-stretch: 1;

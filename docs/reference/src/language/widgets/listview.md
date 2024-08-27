@@ -9,6 +9,11 @@ Elements are only instantiated if they are visible
 
 Same as [`ScrollView`](#scrollview)
 
+
+### Callbacks
+
+Same as [`ScrollView`](#scrollview)
+
 ### Example
 
 ```slint

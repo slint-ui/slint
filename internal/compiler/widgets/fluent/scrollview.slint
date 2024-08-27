@@ -9,7 +9,7 @@ component ScrollViewButton inherits TouchArea {
     width: 8px;
     height: 8px;
 
-    i-icon := Image {
+    icon := Image {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: parent.width;
@@ -23,11 +23,11 @@ component ScrollViewButton inherits TouchArea {
     states [
         pressed when root.pressed : {
             opacity: 1;
-            i-icon.width: 6px;
+            icon.width: 6px;
         }
         hover when root.has-hover : {
             opacity: 1;
-            i-icon.colorize: FluentPalette.text-secondary;
+            icon.colorize: FluentPalette.text-secondary;
         }
     ]
 }
@@ -48,28 +48,28 @@ component ScrollBar inherits Rectangle {
     border-radius: 7px;
 
     states [
-        hover when i-touch-area.has-hover || i-down-scroll-button.has-hover || i-up-scroll-button.has-hover : {
+        hover when touch-area.has-hover || down-scroll-button.has-hover || up-scroll-button.has-hover : {
             root.background: FluentPalette.alternate-background;
             root.size: 6px;
-            i-up-scroll-button.opacity: 1;
-            i-down-scroll-button.opacity: 1;
+            up-scroll-button.opacity: 1;
+            down-scroll-button.opacity: 1;
         }
     ]
 
     animate size { duration: 150ms; easing: ease-out; }
 
-    i-thumb := Rectangle {
+    thumb := Rectangle {
         width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(16px, root.track-size * root.page-size / (root.maximum + root.page-size));
         height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(16px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
-        x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
-        y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
+        x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
+        y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
         background: FluentPalette.border;
 
         animate width, height { duration: 150ms; easing: ease-out; }
     }
 
-    i-touch-area := TouchArea {
+    touch-area := TouchArea {
         property <length> pressed-value;
 
         width: parent.width;
@@ -84,8 +84,8 @@ component ScrollBar inherits Rectangle {
         moved => {
             if (self.enabled && self.pressed) {
                 root.value = -max(0px, min(root.maximum, self.pressed-value + (
-                    root.horizontal ? (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum / (root.track-size - i-thumb.width))
-                               : (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum / (root.track-size - i-thumb.height))
+                    root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.track-size - thumb.width))
+                               : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.track-size - thumb.height))
                 )));
             }
         }
@@ -102,7 +102,7 @@ component ScrollBar inherits Rectangle {
         }
     }
 
-    i-up-scroll-button := ScrollViewButton {
+    up-scroll-button := ScrollViewButton {
         opacity: 0;
         x: !root.horizontal ? (parent.width - self.width) / 2 : 4px;
         y: root.horizontal ? (parent.height - self.height) / 2 : 4px;
@@ -113,7 +113,7 @@ component ScrollBar inherits Rectangle {
         }
     }
 
-    i-down-scroll-button := ScrollViewButton {
+    down-scroll-button := ScrollViewButton {
         opacity: 0;
         x: !root.horizontal ? (parent.width - self.width) / 2 : root.width - self.width - 4px;
         y: root.horizontal ? (parent.height - self.height) / 2 : root.height - self.height - 4px;
@@ -127,14 +127,16 @@ component ScrollBar inherits Rectangle {
 
 export component ScrollView {
     in property <bool> enabled: true;
-    out property <length> visible-width <=> i-flickable.width;
-    out property <length> visible-height <=> i-flickable.height;
-    in-out property <length> viewport-width <=> i-flickable.viewport-width;
-    in-out property <length> viewport-height <=> i-flickable.viewport-height;
-    in-out property <length> viewport-x <=> i-flickable.viewport-x;
-    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    out property <length> visible-width <=> flickable.width;
+    out property <length> visible-height <=> flickable.height;
+    in-out property <length> viewport-width <=> flickable.viewport-width;
+    in-out property <length> viewport-height <=> flickable.viewport-height;
+    in-out property <length> viewport-x <=> flickable.viewport-x;
+    in-out property <length> viewport-y <=> flickable.viewport-y;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
+    
+    callback scrolled <=> flickable.flicked;
 
     min-height: 50px;
     min-width: 50px;
@@ -143,37 +145,37 @@ export component ScrollView {
     preferred-height: 100%;
     preferred-width: 100%;
 
-    i-flickable := Flickable {
+    flickable := Flickable {
         interactive: false;
-        viewport-y <=> i-vertical-bar.value;
-        viewport-x <=> i-horizontal-bar.value;
+        viewport-y <=> vertical-bar.value;
+        viewport-x <=> horizontal-bar.value;
         width: parent.width;
         height: parent.height;
 
         @children
     }
 
-    i-vertical-bar := ScrollBar {
+    vertical-bar := ScrollBar {
         enabled: root.enabled;
         width: 14px;
-        x: i-flickable.width + i-flickable.x - self.width;
-        y: i-flickable.y;
-        height:  i-flickable.height;
+        x: flickable.width + flickable.x - self.width;
+        y: flickable.y;
+        height:  flickable.height;
         horizontal: false;
-        maximum:  i-flickable.viewport-height - i-flickable.height;
-        page-size:  i-flickable.height;
-        visible: i-flickable.viewport-height > i-flickable.height;
+        maximum:  flickable.viewport-height - flickable.height;
+        page-size:  flickable.height;
+        visible: flickable.viewport-height > flickable.height;
     }
 
-    i-horizontal-bar := ScrollBar {
+    horizontal-bar := ScrollBar {
         enabled: root.enabled;
-        width:  i-flickable.width;
+        width:  flickable.width;
         height: 14px;
-        y: i-flickable.height + i-flickable.y - self.height;
-        x: i-flickable.x;
+        y: flickable.height + flickable.y - self.height;
+        x: flickable.x;
         horizontal: true;
-        maximum:  i-flickable.viewport-width - i-flickable.width;
-        page-size:  i-flickable.width;
-        visible: i-flickable.viewport-width > i-flickable.width;
+        maximum:  flickable.viewport-width - flickable.width;
+        page-size:  flickable.width;
+        visible: flickable.viewport-width > flickable.width;
     }
 }

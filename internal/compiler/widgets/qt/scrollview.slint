@@ -13,6 +13,8 @@ export component ScrollView {
     in-out property <length> viewport-x <=> internal.viewport-x;
     in-out property <length> viewport-y <=> internal.viewport-y;
 
+    callback scrolled <=> internal.scrolled;
+
     min-height: internal.min-height;
     min-width: internal.min-width;
     horizontal-stretch: 1;

@@ -95,6 +95,8 @@ export component ScrollView {
     in-out property <length> viewport-height <=> flickable.viewport-height;
     in-out property <length> viewport-x <=> flickable.viewport-x;
     in-out property <length> viewport-y <=> flickable.viewport-y;
+    
+    callback scrolled <=> flickable.flicked;
 
     min-height: 50px;
     min-width: 50px;
