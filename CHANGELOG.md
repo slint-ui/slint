@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Rust
+
+ - Added `clear` to `VecModel`
+
 ### Widgets
 
  - Fixed `TextEdit` not invoking `edited` callbacks (#5848).

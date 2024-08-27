@@ -368,6 +368,14 @@ impl<T: 'static> VecModel<T> {
         drop(array);
         self.notify.row_added(old_idx, count);
     }
+
+    /// Clears the model, removing all values
+    ///
+    /// Similar to [`Vec::clear`]
+    pub fn clear(&self) {
+        self.array.borrow_mut().clear();
+        self.notify.reset();
+    }
 }
 
 impl<T: Clone + 'static> VecModel<T> {
