@@ -9,6 +9,7 @@ mod goto;
 mod semantic_tokens;
 #[cfg(test)]
 pub mod test;
+pub mod token_info;
 
 use crate::common::{self, DocumentCache};
 use crate::util;
