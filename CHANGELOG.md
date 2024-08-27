@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 
 ### Rust
 
- - Added `clear` to `VecModel`
+ - Added `clear` and `swap` to `VecModel`
 
 ### Widgets
 
