@@ -439,12 +439,9 @@ fn resolve_element_scope(
             if matches!(ty, Type::Function { .. }) {
                 return false;
             }
-            if let ElementType::Component(c) = &element_type {
-                let mut lk = c.root_element.borrow().lookup_property(k);
-                lk.is_local_to_component = false;
-                return lk.is_valid_for_assignment();
-            }
-            true
+            let mut lk = element_type.lookup_property(k);
+            lk.is_local_to_component = false;
+            return lk.is_valid_for_assignment();
         })
         .map(|(k, t)| {
             let k = de_normalize_property_name(&element_type, &k).into_owned();
@@ -993,11 +990,16 @@ mod tests {
         // local
         res.iter().find(|ci| ci.label == "local-prop").unwrap();
         // no functions, no private stuff
-        assert_eq!(res.iter().find(|ci| ci.label == "out_prop"), None);
-        assert_eq!(res.iter().find(|ci| ci.label == "priv_prop"), None);
-        assert_eq!(res.iter().find(|ci| ci.label == "priv_prop1"), None);
-        assert_eq!(res.iter().find(|ci| ci.label == "priv_func"), None);
-        assert_eq!(res.iter().find(|ci| ci.label == "pub_func"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "out_prop" || ci.label == "out-prop"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "priv_prop" || ci.label == "priv-prop"), None);
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "priv_prop1" || ci.label == "priv-prop1"),
+            None
+        );
+        assert_eq!(res.iter().find(|ci| ci.label == "priv_func" || ci.label == "priv-func"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "pub_func" || ci.label == "pub-func"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "pressed"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "pressed-x"), None);
 
         // elements
         let class = Some(CompletionItemKind::CLASS);
@@ -1006,6 +1008,39 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "Rectangle").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "TouchArea").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "VerticalLayout").unwrap().kind, class);
+    }
+
+    #[test]
+    fn in_element_builtin() {
+        let source = r#"
+            component Foo {
+                FocusScope {
+                    function func() {}
+                    property <int> local-prop;
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        // from FocusScope
+        res.iter().find(|ci| ci.label == "enabled").unwrap();
+        res.iter().find(|ci| ci.label == "key-pressed").unwrap();
+        // general
+        res.iter().find(|ci| ci.label == "width").unwrap();
+        res.iter().find(|ci| ci.label == "y").unwrap();
+        res.iter().find(|ci| ci.label == "accessible-role").unwrap();
+        res.iter().find(|ci| ci.label == "opacity").unwrap();
+        // local
+        res.iter().find(|ci| ci.label == "local-prop").unwrap();
+        // no functions, no private stuff
+        assert_eq!(res.iter().find(|ci| ci.label == "has-focus"), None);
+        assert_eq!(res.iter().find(|ci| ci.label == "func"), None);
+
+        // elements
+        let class = Some(CompletionItemKind::CLASS);
+        assert_eq!(res.iter().find(|ci| ci.label == "Flickable").unwrap().kind, class);
+        assert_eq!(res.iter().find(|ci| ci.label == "Rectangle").unwrap().kind, class);
+        assert_eq!(res.iter().find(|ci| ci.label == "HorizontalLayout").unwrap().kind, class);
     }
 
     #[test]
