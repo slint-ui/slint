@@ -376,6 +376,15 @@ impl<T: 'static> VecModel<T> {
         self.array.borrow_mut().clear();
         self.notify.reset();
     }
+
+    /// Swaps two elements in the model.
+    ///
+    /// Similar to [`Vec::swap`]
+    pub fn swap(&self, a: usize, b: usize) {
+        self.array.borrow_mut().swap(a, b);
+        self.notify.row_changed(a);
+        self.notify.row_changed(b);
+    }
 }
 
 impl<T: Clone + 'static> VecModel<T> {
