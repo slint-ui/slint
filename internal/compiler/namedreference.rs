@@ -47,8 +47,9 @@ impl NamedReference {
     pub fn name(&self) -> &str {
         &self.0.name
     }
+    #[track_caller]
     pub fn element(&self) -> ElementRc {
-        self.0.element.upgrade().unwrap()
+        self.0.element.upgrade().expect("NamedReference to a dead element")
     }
     pub fn ty(&self) -> Type {
         self.element().borrow().lookup_property(self.name()).property_type
