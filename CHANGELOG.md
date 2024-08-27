@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
 
  - Fixed `TextEdit` not invoking `edited` callbacks (#5848).
  - Added `scrolled` callback to `ListView` and `ScrollView`.
+ - Do not trigger `current-item-changed` on `StandardListView` if `current-item` is set on the same value.
 
 ## [1.7.2] - 2024-08-14
 
