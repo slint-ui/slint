@@ -54,7 +54,7 @@ export component Clock {
     in-out property <int> current-item;
     in property <int> current-value;
 
-    callback curren-item-changed(/* index */ int);
+    callback current-item-changed(/* index */ int);
 
     property <length> radius: max(root.width, root.height) / 2;
     property <length> picker-ditameter: 48px;
@@ -169,10 +169,7 @@ export component Clock {
     }
 
     function set-current-item(index: int) {
-        if root.current-item == index {
-            return;
-        }
-        root.curren-item-changed(index);
+        root.current-item-changed(index);
     }
 }
 
@@ -473,7 +470,7 @@ export component TimePickerBase {
                 total: root.minutes-selected ? 60 : root.use-24-hour-format ? 24 : 12;
                 current-value: root.minutes-selected ? root.current-time.minute : root.current-time.hour;
 
-                curren-item-changed(index) => {
+                current-item-changed(index) => {
                     root.update-time-by-item(index);
 
                     if !root.minutes-selected {
