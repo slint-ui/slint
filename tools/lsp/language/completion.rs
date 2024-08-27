@@ -69,7 +69,7 @@ pub(crate) fn completion_at(
                     c.insert_text_format = Some(InsertTextFormat::SNIPPET);
                     match c.kind {
                         Some(CompletionItemKind::PROPERTY) => {
-                            c.insert_text = Some(format!("{}: $1;", c.label))
+                            c.insert_text = Some(format!("{}: ", c.label))
                         }
                         Some(CompletionItemKind::METHOD) => {
                             c.insert_text = Some(format!("{} => {{$1}}", c.label))
