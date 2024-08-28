@@ -98,16 +98,16 @@ export component PropertyView {
 
                                         private property <bool> have-simple-ui: false;
 
-                                        if property-row.property-value.kind == PropertyValueKind.Code && property-row.property-value.code != "": Button {
+                                        if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code != "": Button {
                                             text: @tr("Code");
                                             clicked() => {
                                                 Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
                                             }
                                         }
-                                        if property-row.property-value.kind == PropertyValueKind.Code && property-row.property-value.code == "": Text {
+                                        if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code == "": Text {
                                             text: @tr("<unset>");
                                         }
-                                        if property-row.property-value.kind == PropertyValueKind.Boolean: CheckBox {
+                                        if property-row.property-value.kind == PropertyValueKind.boolean: CheckBox {
                                             x: 0;
                                             checked: property-row.property-value.value_bool;
 
@@ -121,7 +121,7 @@ export component PropertyView {
                                                 );
                                             }
                                         }
-                                        if property-row.property-value.kind == PropertyValueKind.String: LineEdit {
+                                        if property-row.property-value.kind == PropertyValueKind.string: LineEdit {
                                             width: 100%;
                                             height: 100%; // otherwise this gets too high and covers several rows.
                                             text: property-row.property-value.value-string;
@@ -146,7 +146,7 @@ export component PropertyView {
                                                 );
                                             }
                                         }
-                                        if property-row.property-value.kind == PropertyValueKind.Enum: ComboBox {
+                                        if property-row.property-value.kind == PropertyValueKind.enum: ComboBox {
                                             width: 100%;
                                             height: 100%; // otherwise this gets too high and covers several rows.
 
