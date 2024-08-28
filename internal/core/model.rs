@@ -379,6 +379,10 @@ impl<T: 'static> VecModel<T> {
 
     /// Swaps two elements in the model.
     pub fn swap(&self, a: usize, b: usize) {
+        if a == b {
+            return;
+        }
+
         self.array.borrow_mut().swap(a, b);
         self.notify.row_changed(a);
         self.notify.row_changed(b);
@@ -1403,4 +1407,24 @@ fn test_vecmodel_set_vec() {
     view.clear();
 
     assert_eq!(model.iter().collect::<Vec<_>>(), vec![6, 7, 8, 9, 10, 11, 12, 13]);
+
+    model.swap(1, 1);
+    assert!(view.changed_rows.borrow().is_empty());
+    assert!(view.added_rows.borrow().is_empty());
+    assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 0);
+    view.clear();
+
+    model.swap(1, 2);
+    assert_eq!(&*view.changed_rows.borrow(), &[(1, 8), (2, 8)]);
+    assert!(view.added_rows.borrow().is_empty());
+    assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 0);
+    view.clear();
+
+    assert_eq!(model.iter().collect::<Vec<_>>(), vec![6, 8, 7, 9, 10, 11, 12, 13]);
+
+    model.clear();
+    assert_eq!(*view.reset.borrow(), 1);
+    assert_eq!(model.row_count(), 0);
 }
