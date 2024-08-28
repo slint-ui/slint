@@ -81,7 +81,10 @@ export async function newProject(context: vscode.ExtensionContext) {
         if (language === rust) {
             const cargoTomlPath = path.join(projectPath, "Cargo.toml");
             let cargoTomlContent = await fs.readFile(cargoTomlPath, "utf8");
-            cargoTomlContent = cargoTomlContent.replace("{{project-name}}", projectName);
+            cargoTomlContent = cargoTomlContent.replace(
+                "{{project-name}}",
+                projectName,
+            );
             await fs.writeFile(cargoTomlPath, cargoTomlContent, "utf8");
         }
 
