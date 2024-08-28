@@ -327,8 +327,10 @@ jobs:
                   node-version: 18
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-            - name: Build lsp
-              run: cargo build -p slint-lsp
+            - name: Fake slint-lsp build
+              run: |
+                  mkdir -p target/debug
+                  echo 1 > target/debug/slint-lsp
             - name: Run npm install
               working-directory: ./editors/vscode
               run: npm clean-install
