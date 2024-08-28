@@ -471,6 +471,10 @@ jobs:
                   merge-multiple: true
             - uses: actions/download-artifact@v4
               with:
+                  pattern: slint-compiler-bin-*
+                  merge-multiple: true
+            - uses: actions/download-artifact@v4
+              with:
                   pattern: slint-viewer-*
                   merge-multiple: true
             - uses: actions/download-artifact@v4
@@ -491,6 +495,7 @@ jobs:
                   mv slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
                   mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-lsp-macos.tar.gz artifacts/
+                  mv slint-compiler-*.tar.gz artifacts/
             - name: Extract Version
               id: version
               run: |
