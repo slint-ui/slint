@@ -192,15 +192,31 @@ impl Backend {
     /// details on how to select the default renderer.
     /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
+        Self::new_with_renderer_by_name_and_event_loop_builder(
+            renderer_name,
+            winit::event_loop::EventLoop::with_user_event(),
+        )
+    }
+
+    #[doc = concat!("Creates a new winit backend with the renderer specified by name and the given event loop builder. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
+    /// details on how to select the default renderer.
+    /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
+    pub fn new_with_renderer_by_name_and_event_loop_builder(
+        renderer_name: Option<&str>,
+        event_loop_builder: winit::event_loop::EventLoopBuilder<SlintUserEvent>,
+    ) -> Result<Self, PlatformError> {
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
 
-        let proxy =
-            crate::event_loop::with_not_running_event_loop(|nre| Ok(nre.instance.create_proxy()))?;
+        let nre = crate::event_loop::NotRunningEventLoop::new(Some(event_loop_builder))?;
+
+        let proxy = nre.instance.create_proxy();
 
         #[cfg(not(target_arch = "wasm32"))]
-        let clipboard = crate::event_loop::with_not_running_event_loop(|nre| {
-            Ok(Rc::downgrade(&nre.clipboard))
-        })?;
+        let clipboard = Rc::downgrade(&nre.clipboard);
+
+        crate::event_loop::MAYBE_LOOP_INSTANCE.with(|loop_instance| {
+            *loop_instance.borrow_mut() = Some(nre);
+        });
 
         let renderer_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-femtovg")]
