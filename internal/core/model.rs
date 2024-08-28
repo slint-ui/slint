@@ -1430,7 +1430,7 @@ mod tests {
     }
 
     #[test]
-    fn test_clear() {
+    fn test_vecmodel_clear() {
         let view = Box::pin(ModelChangeListenerContainer::<TestView>::default());
 
         let model = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
@@ -1444,7 +1444,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swap() {
+    fn test_vecmodel_swap() {
         let view = Box::pin(ModelChangeListenerContainer::<TestView>::default());
 
         let model = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
