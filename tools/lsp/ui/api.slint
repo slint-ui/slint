@@ -222,6 +222,7 @@ export global Api {
     // ## Drawing Area
     // Preview some other component
     callback show-preview-for(/* name: */ string, /* url: */ string);
+    callback reload-preview();
 
     // ## Property Editor
     pure callback test-code-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string) -> bool;

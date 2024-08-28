@@ -964,6 +964,19 @@ pub enum LoadBehavior {
     Load,
 }
 
+pub fn reload_preview() {
+    let pc = {
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.current_previewed_component.clone()
+    };
+
+    let Some(pc) = pc else {
+        return;
+    };
+
+    load_preview(pc, LoadBehavior::Load);
+}
+
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();

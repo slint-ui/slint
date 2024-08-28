@@ -20,7 +20,13 @@ export component HeaderView {
         content-layer := HorizontalBox {
             HeaderText {
                 text: @tr("Preview");
+                horizontal-stretch: 0;
+            }
+
+            HorizontalBox {
                 horizontal-stretch: 1;
+                alignment: center;
+                @children
             }
 
             BodyText {
