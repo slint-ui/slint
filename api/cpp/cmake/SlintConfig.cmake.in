@@ -15,7 +15,7 @@ add_library(@slint_cpp_impl@ @cmake_lib_type@ IMPORTED)
 set_target_properties(@slint_cpp_impl@ PROPERTIES @SLINT_LIB_PROPERTIES@)
 
 function(_slint_download_compiler_and_cache)
-    set(SLINT_GITHUB_RELEASE @SLINT_VERSION@ CACHE STRING "GitHub Release to use for Slint Binary Artifact Downloads")
+    set(SLINT_GITHUB_RELEASE @PROJECT_VERSION@ CACHE STRING "GitHub Release to use for Slint Binary Artifact Downloads")
 
     if (CMAKE_HOST_WIN32)
         set(compiler_exe_suffix ".exe")
