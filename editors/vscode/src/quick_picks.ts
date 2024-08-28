@@ -78,6 +78,16 @@ export async function newProject(context: vscode.ExtensionContext) {
         const git = simpleGit();
         await git.clone(repoUrl, projectPath);
 
+        if (language === rust) {
+            const cargoTomlPath = path.join(projectPath, "Cargo.toml");
+            let cargoTomlContent = await fs.readFile(cargoTomlPath, "utf8");
+            cargoTomlContent = cargoTomlContent.replace(
+                "{{project-name}}",
+                projectName,
+            );
+            await fs.writeFile(cargoTomlPath, cargoTomlContent, "utf8");
+        }
+
         // Remove git. At a later point we might want to ask if the user wants to add it.
         const gitFolderPath = path.join(projectPath, ".git");
         await fs.remove(gitFolderPath);
