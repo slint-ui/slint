@@ -1,14 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-/*component FizBuzz {
-    out property <string> result;
+component SubCompo {
 
-}*/
+    out property <string> r;
+
+    HorizontalLayout {
+        Rectangle {}
+        Timer {
+            interval: 1s;
+            triggered => { r += "A"; }
+        }
+        Timer {
+            interval: 1.502s;
+            triggered => { r += "B"; }
+        }
+        for l in ["c", "d"] : Rectangle {
+            Timer {
+                interval: 3.0003s;
+                triggered => { r += l; }
+            }
+        }
+    }
+    init => {
+        // instentiate the repeater
+        debug(root.preferred-height);
+    }
+}
 
 export component TestCase inherits Window {
 
     out property <string> result;
+    out property <string> second_result: s.r;
 
     in property <int> tm2duration;
     in property <bool> tm2running <=> tm2.running;
@@ -36,6 +59,7 @@ export component TestCase inherits Window {
             interval: -5ms;
             triggered => { result += "oops"; }
         }
+        s := SubCompo {  }
     }
 
 
@@ -76,6 +100,11 @@ slint_testing::mock_elapsed_time(2);
 assert_eq!(instance.get_result(), "1212222");
 slint_testing::mock_elapsed_time(19);
 assert_eq!(instance.get_result(), "12122222");
+
+for _ in 0..20 {
+    slint_testing::mock_elapsed_time(500);
+}
+assert_eq!(instance.get_second_result(), "ABAcdABAABAcdABAAcdBAABAcd");
 ```
 
 ```cpp
@@ -113,6 +142,11 @@ slint_testing::mock_elapsed_time(2);
 assert_eq(instance.get_result(), "1212222");
 slint_testing::mock_elapsed_time(19);
 assert_eq(instance.get_result(), "12122222");
+
+for (int i = 0; i < 20; ++i) {
+    slint_testing::mock_elapsed_time(500);
+}
+assert_eq(instance.get_second_result(), "ABAcdABAABAcdABAAcdBAABAcd");
 ```
 
 ```js
@@ -149,5 +183,10 @@ slintlib.private_api.mock_elapsed_time(2);
 assert.equal(instance.result, "1212222");
 slintlib.private_api.mock_elapsed_time(19);
 assert.equal(instance.result, "12122222");
+
+for (var i = 0; i < 20; ++i) {
+    slintlib.private_api.mock_elapsed_time(500);
+}
+assert.equal(instance.second_result, "ABAcdABAABAcdABAAcdBAABAcd");
 ```
 */

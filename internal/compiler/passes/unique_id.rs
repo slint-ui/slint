@@ -32,6 +32,15 @@ fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
             elem_mut.base_type.to_string().to_ascii_lowercase()
         };
         elem_mut.id = format!("{}-{}", old_id, count);
+
+        let enclosing = elem_mut.enclosing_component.upgrade().unwrap();
+        if Rc::ptr_eq(&elem, &enclosing.root_element) {
+            for o in enclosing.optimized_elements.borrow().iter() {
+                *count += 1;
+                let mut elem_mut = o.borrow_mut();
+                elem_mut.id = format!("optimized-{}-{}", elem_mut.id, count);
+            }
+        }
     });
 }
 
