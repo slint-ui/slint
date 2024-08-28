@@ -305,6 +305,19 @@ fn simplify_value(
                 kind = PropertyValueKind::Float;
             }
         }
+        langtype::Type::Int32 => {
+            eprintln!("Looking at Int32!");
+            if let Some(expression) = expression {
+                if let Some((value, unit)) = convert_number_literal(&expression) {
+                    if unit == i_slint_compiler::expression_tree::Unit::None {
+                        kind = PropertyValueKind::Integer;
+                        value_int = value as i32;
+                    }
+                }
+            } else if code.is_empty() {
+                kind = PropertyValueKind::Integer;
+            }
+        }
         langtype::Type::Bool => {
             if let Some(expression) = expression {
                 let qualified_name =
@@ -731,5 +744,27 @@ export component Test { in property <Foobar> test1; }"#,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
         assert_eq!(result.value_float, 0.0);
+    }
+
+    #[test]
+    fn test_property_integer() {
+        let result =
+            property_conversion_test(r#"export component Test { in property <int> test1; }"#, 0);
+        assert_eq!(result.kind, PropertyValueKind::Integer);
+        assert_eq!(result.value_int, 0);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <int> test1: 42; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Integer);
+        assert_eq!(result.value_int, 42);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <int> test1: 42 * 23; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+        assert_eq!(result.value_int, 0);
     }
 }
