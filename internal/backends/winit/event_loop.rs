@@ -221,17 +221,6 @@ pub(crate) fn with_window_target<T>(
     }
 }
 
-pub(crate) fn with_not_running_event_loop<T>(
-    callback: impl FnOnce(&NotRunningEventLoop) -> Result<T, Box<dyn std::error::Error + Send + Sync>>,
-) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
-    MAYBE_LOOP_INSTANCE.with(|loop_instance| {
-        if loop_instance.borrow().is_none() {
-            *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new(None)?);
-        }
-        callback(loop_instance.borrow().as_ref().unwrap())
-    })
-}
-
 pub fn register_window(id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
     ALL_WINDOWS.with(|windows| {
         windows.borrow_mut().insert(id, Rc::downgrade(&window));
