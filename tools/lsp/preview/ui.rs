@@ -4,9 +4,10 @@
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use i_slint_compiler::literals;
 use i_slint_compiler::{
     langtype,
-    parser::{syntax_nodes, SyntaxKind, TextRange},
+    parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange},
 };
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
@@ -257,6 +258,20 @@ fn extract_tr_data(tr_node: &syntax_nodes::AtTr) -> Option<(String, String, Stri
     tr_node.Expression().next().is_none().then_some((context, plural, text))
 }
 
+fn convert_number_literal(
+    node: &SyntaxNode,
+) -> Option<(f64, i_slint_compiler::expression_tree::Unit)> {
+    let literal = node.child_text(SyntaxKind::NumberLiteral)?;
+    let expr = literals::parse_number_literal(literal).ok()?;
+
+    match expr {
+        i_slint_compiler::expression_tree::Expression::NumberLiteral(value, unit) => {
+            return Some((value, unit))
+        }
+        _ => None,
+    }
+}
+
 fn simplify_value(
     property_type: &langtype::Type,
     code_block_or_expression: &Option<properties::CodeBlockOrExpression>,
@@ -266,6 +281,7 @@ fn simplify_value(
     let mut kind = PropertyValueKind::Code;
     let mut value_bool = false;
     let mut value_int = 0;
+    let mut value_float = 0.0;
     let mut value_string = String::new();
     let mut visual_items = Rc::new(VecModel::default()).into();
     let mut is_translatable = false;
@@ -276,6 +292,19 @@ fn simplify_value(
         code_block_or_expression.as_ref().map(|cbe| cbe.text().to_string()).unwrap_or_default();
 
     match property_type {
+        langtype::Type::Float32 => {
+            eprintln!("Looking at float32!");
+            if let Some(expression) = expression {
+                if let Some((value, unit)) = convert_number_literal(&expression) {
+                    if unit == i_slint_compiler::expression_tree::Unit::None {
+                        kind = PropertyValueKind::Float;
+                        value_float = value as f32;
+                    }
+                }
+            } else if code.is_empty() {
+                kind = PropertyValueKind::Float;
+            }
+        }
         langtype::Type::Bool => {
             if let Some(expression) = expression {
                 let qualified_name =
@@ -344,7 +373,7 @@ fn simplify_value(
         value_bool,
         value_string: value_string.into(),
         value_int,
-        value_float: 0.0,
+        value_float,
         visual_items: visual_items.into(),
         is_translatable,
         tr_context: tr_context.into(),
@@ -680,5 +709,27 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.visual_items.row_count(), 2);
         assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
         assert_eq!(result.visual_items.row_data(1), Some(slint::SharedString::from("bar")));
+    }
+
+    #[test]
+    fn test_property_float() {
+        let result =
+            property_conversion_test(r#"export component Test { in property <float> test1; }"#, 0);
+        assert_eq!(result.kind, PropertyValueKind::Float);
+        assert_eq!(result.value_float, 0.0);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <float> test1: 42.0; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Float);
+        assert_eq!(result.value_float, 42.0);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <float> test1: 42.0 * 23.0; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+        assert_eq!(result.value_float, 0.0);
     }
 }
