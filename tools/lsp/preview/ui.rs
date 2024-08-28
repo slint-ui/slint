@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
-use i_slint_compiler::parser::TextRange;
+use i_slint_compiler::{langtype, parser::TextRange};
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
@@ -319,7 +319,7 @@ fn simplify_string(value: &str) -> Option<String> {
 
 fn simplify_value(
     document_cache: &common::DocumentCache,
-    property_type: &str,
+    property_type: &langtype::Type,
     code_block_or_expression: &Option<properties::CodeBlockOrExpression>,
 ) -> SimpleValueData {
     let property_value = if let Some(cboe) = code_block_or_expression {
@@ -328,7 +328,7 @@ fn simplify_value(
         String::new()
     };
 
-    if property_type == "bool"
+    if property_type.to_string() == "bool"
         && (property_value == "true" || property_value == "false" || property_value.is_empty())
     {
         let value: SharedString =
@@ -338,7 +338,7 @@ fn simplify_value(
             meta_data: Rc::new(VecModel::from(vec![value])).into(),
             visual_items: Rc::new(VecModel::default()).into(),
         };
-    } else if property_type == "string" {
+    } else if property_type.to_string() == "string" {
         if let Some(simple) = simplify_string(&property_value) {
             return SimpleValueData {
                 widget: "string".into(),
@@ -346,7 +346,7 @@ fn simplify_value(
                 visual_items: Rc::new(VecModel::default()).into(),
             };
         }
-    } else if let Some(property_type) = property_type.strip_prefix("enum ") {
+    } else if let Some(property_type) = property_type.to_string().strip_prefix("enum ") {
         if let i_slint_compiler::langtype::Type::Enumeration(enumeration) =
             &document_cache.global_type_registry().lookup(property_type)
         {
@@ -431,7 +431,7 @@ fn map_properties_to_ui(
         let simple_value = {
             let code_block_or_expression =
                 pi.defined_at.as_ref().map(|da| da.code_block_or_expression.clone());
-            simplify_value(document_cache, &pi.type_name, &code_block_or_expression)
+            simplify_value(document_cache, &pi.ty, &code_block_or_expression)
         };
 
         if pi.group != current_group {
@@ -444,7 +444,7 @@ fn map_properties_to_ui(
 
         current_group_properties.push(PropertyInformation {
             name: pi.name.clone().into(),
-            type_name: pi.type_name.clone().into(),
+            type_name: pi.ty.to_string().into(),
             declared_at,
             defined_at,
             simple_value,

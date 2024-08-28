@@ -61,7 +61,7 @@ pub struct DeclarationInformation {
 #[derive(Clone, Debug)]
 pub struct PropertyInformation {
     pub name: String,
-    pub type_name: String,
+    pub ty: Type,
     pub declared_at: Option<DeclarationInformation>,
     pub defined_at: Option<DefinitionInformation>, // Range in the elements source file!
     pub group: String,
@@ -89,7 +89,7 @@ fn get_reserved_properties<'a>(
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
     properties.filter(|(_, t)| !matches!(t, Type::Callback { .. })).map(|p| PropertyInformation {
         name: p.0.to_string(),
-        type_name: p.1.to_string(),
+        ty: p.1,
         declared_at: None,
         defined_at: None,
         group: group.to_string(),
@@ -131,7 +131,7 @@ fn add_element_properties(
         });
         Some(PropertyInformation {
             name: name.clone(),
-            type_name: value.property_type.to_string(),
+            ty: value.property_type.clone(),
             declared_at,
             defined_at: None,
             group: group.to_string(),
@@ -319,7 +319,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
 
                     Some(PropertyInformation {
                         name: k.clone(),
-                        type_name: t.ty.to_string(),
+                        ty: t.ty.clone(),
                         declared_at: None,
                         defined_at: None,
                         group: b.name.clone(),
@@ -329,7 +329,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                 if b.name == "Rectangle" {
                     result.push(PropertyInformation {
                         name: "clip".into(),
-                        type_name: Type::Bool.to_string(),
+                        ty: Type::Bool,
                         declared_at: None,
                         defined_at: None,
                         group: String::new(),
@@ -338,14 +338,14 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
 
                 result.push(PropertyInformation {
                     name: "opacity".into(),
-                    type_name: Type::Float32.to_string(),
+                    ty: Type::Float32,
                     declared_at: None,
                     defined_at: None,
                     group: String::new(),
                 });
                 result.push(PropertyInformation {
                     name: "visible".into(),
-                    type_name: Type::Bool.to_string(),
+                    ty: Type::Bool,
                     declared_at: None,
                     defined_at: None,
                     group: String::new(),
@@ -395,10 +395,9 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
         ));
         result.push(PropertyInformation {
             name: "accessible-role".into(),
-            type_name: Type::Enumeration(
+            ty: Type::Enumeration(
                 i_slint_compiler::typeregister::BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone()),
-            )
-            .to_string(),
+            ),
             declared_at: None,
             defined_at: None,
             group: "accessibility".into(),
@@ -768,12 +767,12 @@ mod tests {
         let (_, result, _, _) = properties_at_position(6, 4).unwrap();
 
         // Property of element:
-        assert_eq!(&find_property(&result, "elapsed-time").unwrap().type_name, "duration");
+        assert_eq!(&find_property(&result, "elapsed-time").unwrap().ty, &Type::Duration);
         // Property of base type:
-        assert_eq!(&find_property(&result, "no-frame").unwrap().type_name, "bool");
+        assert_eq!(&find_property(&result, "no-frame").unwrap().ty, &Type::Bool);
         // reserved properties:
         assert_eq!(
-            &find_property(&result, "accessible-role").unwrap().type_name,
+            &find_property(&result, "accessible-role").unwrap().ty.to_string(),
             "enum AccessibleRole"
         );
         // Accessible property should not be present since the role is none
@@ -796,9 +795,9 @@ mod tests {
         // On a Button
         let (_, result, _, _) = properties_at_position(48, 4).unwrap();
 
-        assert_eq!(&find_property(&result, "text").unwrap().type_name, "string");
+        assert_eq!(&find_property(&result, "text").unwrap().ty, &Type::String);
         // Accessible property should not be present since the role is button
-        assert_eq!(find_property(&result, "accessible-label").unwrap().type_name, "string");
+        assert_eq!(find_property(&result, "accessible-label").unwrap().ty, Type::String);
         // No callbacks
         assert!(find_property(&result, "accessible-action-default").is_none());
         assert!(find_property(&result, "clicked").is_none());
@@ -821,7 +820,7 @@ mod tests {
         assert_eq!(r.end.line, 35);
         assert_eq!(r.end.character, 13);
 
-        assert_eq!(result.type_name, "Text");
+        assert_eq!(result.type_name.to_string(), "Text");
     }
 
     #[test]
@@ -832,14 +831,14 @@ mod tests {
         let element =
             document_cache.element_at_position(&url, &lsp_types::Position::new(1, 19)).unwrap();
         let result = get_element_information(&element);
-        assert_eq!(result.type_name, "");
+        assert_eq!(result.type_name.to_string(), "");
         assert_eq!(result.id, "root");
 
         let element =
             document_cache.element_at_position(&url, &lsp_types::Position::new(1, 39)).unwrap();
         let result = get_element_information(&element);
         // Because `Button` is not defined in this scope
-        assert_eq!(result.type_name, "<error>");
+        assert_eq!(result.type_name.to_string(), "<error>");
         assert_eq!(result.id, "btn");
     }
 
@@ -1331,7 +1330,7 @@ component MainWindow inherits Window {
 
         let foo_property = find_property(&result, "foo").unwrap();
 
-        assert_eq!(foo_property.type_name, "int");
+        assert_eq!(foo_property.ty, Type::Int32);
 
         let declaration = foo_property.declared_at.as_ref().unwrap();
         let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
@@ -1364,7 +1363,7 @@ component SomeRect inherits Rectangle {
         let source = element_node.with_element_node(|n| n.source_file.clone());
 
         let glob_property = find_property(&result, "glob").unwrap();
-        assert_eq!(glob_property.type_name, "int");
+        assert_eq!(glob_property.ty, Type::Int32);
         let declaration = glob_property.declared_at.as_ref().unwrap();
         let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
         assert_eq!(declaration.path, source.path());
@@ -1374,7 +1373,7 @@ component SomeRect inherits Rectangle {
 
         let (_, result) = properties_at_position_in_cache(8, 4, &dc, &url).unwrap();
         let abcd_property = find_property(&result, "abcd").unwrap();
-        assert_eq!(abcd_property.type_name, "int");
+        assert_eq!(abcd_property.ty, Type::Int32);
         let declaration = abcd_property.declared_at.as_ref().unwrap();
         let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
         assert_eq!(declaration.path, source.path());
@@ -1382,12 +1381,12 @@ component SomeRect inherits Rectangle {
         assert_eq!(abcd_property.group, "");
 
         let x_property = find_property(&result, "x").unwrap();
-        assert_eq!(x_property.type_name, "length");
+        assert_eq!(x_property.ty, Type::LogicalLength);
         assert!(x_property.defined_at.is_none());
         assert_eq!(x_property.group, "geometry");
 
         let width_property = find_property(&result, "width").unwrap();
-        assert_eq!(width_property.type_name, "length");
+        assert_eq!(width_property.ty, Type::LogicalLength);
         let definition = width_property.defined_at.as_ref().unwrap();
         let expression_range = util::node_to_lsp_range(&definition.code_block_or_expression);
         assert_eq!(expression_range.start.line, 8);
@@ -1424,7 +1423,7 @@ component Base {
         );
 
         let (_, result) = properties_at_position_in_cache(3, 0, &dc, &url).unwrap();
-        assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a1").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a1")
                 .unwrap()
@@ -1435,7 +1434,7 @@ component Base {
                 .text(),
             "{ 1 + 1 }"
         );
-        assert_eq!(find_property(&result, "a2").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a2").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a2")
                 .unwrap()
@@ -1446,7 +1445,7 @@ component Base {
                 .text(),
             "{ 1 + 2; }"
         );
-        assert_eq!(find_property(&result, "a3").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a3").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a3")
                 .unwrap()
@@ -1457,7 +1456,7 @@ component Base {
                 .text(),
             "{ 1 + 3 }"
         );
-        assert_eq!(find_property(&result, "a4").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a4").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a4")
                 .unwrap()
@@ -1468,7 +1467,7 @@ component Base {
                 .text(),
             "{ 1 + 4; }"
         );
-        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "b").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "b")
                 .unwrap()
@@ -1509,7 +1508,7 @@ component MyComp {
         );
 
         let (_, result) = properties_at_position_in_cache(11, 1, &dc, &url).unwrap();
-        assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a1").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a1")
                 .unwrap()
@@ -1520,7 +1519,7 @@ component MyComp {
                 .text(),
             "{ 1 + 1 }"
         );
-        assert_eq!(find_property(&result, "a2").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a2").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a2")
                 .unwrap()
@@ -1531,7 +1530,7 @@ component MyComp {
                 .text(),
             "{ 1 + 2; }"
         );
-        assert_eq!(find_property(&result, "a3").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a3").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a3")
                 .unwrap()
@@ -1542,7 +1541,7 @@ component MyComp {
                 .text(),
             "{ 1 + 3 }"
         );
-        assert_eq!(find_property(&result, "a4").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a4").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "a4")
                 .unwrap()
@@ -1553,7 +1552,7 @@ component MyComp {
                 .text(),
             "{ 1 + 4; }"
         );
-        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "b").unwrap().ty, Type::Int32);
         assert_eq!(
             find_property(&result, "b")
                 .unwrap()
@@ -1590,19 +1589,19 @@ component MyComp {
         );
 
         let (_, result) = properties_at_position_in_cache(3, 0, &dc, &url).unwrap();
-        assert_eq!(find_property(&result, "a").unwrap().type_name, "int");
-        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
-        assert_eq!(find_property(&result, "c").unwrap().type_name, "int");
-        assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "a").unwrap().ty, Type::Int32);
+        assert_eq!(find_property(&result, "b").unwrap().ty, Type::Int32);
+        assert_eq!(find_property(&result, "c").unwrap().ty, Type::Int32);
+        assert_eq!(find_property(&result, "d").unwrap().ty, Type::Int32);
 
         let (_, result) = properties_at_position_in_cache(10, 0, &dc, &url).unwrap();
         assert!(find_property(&result, "a").is_none());
-        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "b").unwrap().ty, Type::Int32);
         assert!(find_property(&result, "c").is_none());
-        assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "d").unwrap().ty, Type::Int32);
 
         let (_, result) = properties_at_position_in_cache(13, 0, &dc, &url).unwrap();
-        assert_eq!(find_property(&result, "enabled").unwrap().type_name, "bool");
+        assert_eq!(find_property(&result, "enabled").unwrap().ty, Type::Bool);
         assert!(find_property(&result, "pressed").is_none());
     }
 
