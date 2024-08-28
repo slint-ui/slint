@@ -26,7 +26,7 @@ add_feature_info(SLINT_FEATURE_COMPILER SLINT_FEATURE_COMPILER "Enable support f
 option(SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable that to only build the compiler)" ON)
 add_feature_info(SLINT_BUILD_RUNTIME SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable that to only build the compiler)")
 
-set(SLINT_COMPILER "" CACHE FILEPATH "Path to the slint-compiler executable. When unset, it the compiler will be build as part of the build process")
+set(SLINT_COMPILER "" CACHE STRING "Path to the slint-compiler executable. When unset, it the compiler will be build as part of the build process. When set to 'download', the compiler will be downloaded from GitHub.")
 set(SLINT_LIBRARY_CARGO_FLAGS "" CACHE STRING
     "Flags to pass to cargo when building the Slint runtime library")
 
@@ -431,8 +431,12 @@ if(SLINT_BUILD_RUNTIME)
         endforeach()
 
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
-        get_target_property(_slint_compiler_location slint-compiler IMPORTED_LOCATION)
-        cmake_path(GET _slint_compiler_location FILENAME SLINT_COMPILER_FILE_NAME)
+        if (TARGET slint-compiler)
+            get_target_property(_slint_compiler_location slint-compiler IMPORTED_LOCATION)
+            cmake_path(GET _slint_compiler_location FILENAME SLINT_COMPILER_FILE_NAME)
+        endif()
+
+        set(SLINT_VERSION 1.8.0)
 
         configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
     endfunction()
