@@ -208,6 +208,7 @@ fn main() {
         #[cfg(target_vendor = "apple")]
         {
             use i_slint_backend_winit::winit;
+            use muda::{Menu, PredefinedMenuItem, Submenu};
             use winit::platform::macos::EventLoopBuilderExtMacOS;
             let mut builder = winit::event_loop::EventLoop::with_user_event();
             builder.with_default_menu(false);
@@ -218,6 +219,22 @@ fn main() {
                 .unwrap(),
             ))
             .unwrap();
+
+            let menu_bar = Menu::new();
+            menu_bar.init_for_nsapp();
+            let app_m = Submenu::new("App", true);
+            menu_bar.append(&app_m).unwrap();
+            app_m
+                .append_items(&[
+                    &PredefinedMenuItem::about(None, None),
+                    &PredefinedMenuItem::separator(),
+                    &PredefinedMenuItem::services(None),
+                    &PredefinedMenuItem::separator(),
+                    &PredefinedMenuItem::hide(None),
+                    &PredefinedMenuItem::hide_others(None),
+                    &PredefinedMenuItem::show_all(None),
+                ])
+                .unwrap();
         }
     }
 

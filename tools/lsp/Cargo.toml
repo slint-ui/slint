@@ -68,7 +68,7 @@ preview-lense = []
 ## to provide an implementation of the external preview API when building for WASM)
 preview-api = ["preview-external"]
 ## Build in the actual code to act as a preview for slint files.
-preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "dep:slint-build", "dep:i-slint-common", "dep:i-slint-backend-winit"]
+preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "dep:slint-build", "dep:i-slint-common", "dep:i-slint-backend-winit", "dep:muda"]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
@@ -114,6 +114,7 @@ wasm-bindgen-futures = "0.4.30"
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 i-slint-backend-winit = { workspace = true, optional = true }
+muda = { version = "0.14.1", optional = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
