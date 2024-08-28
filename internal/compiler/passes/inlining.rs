@@ -183,6 +183,8 @@ fn inline_element(
             .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
 
+    root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().cloned());
+
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
         let child_insertion_point = inlined_component.child_insertion_point.borrow();
@@ -409,6 +411,9 @@ fn duplicate_sub_component(
     recurse_elem(&new_component.root_element, &(), &mut |e, _| {
         e.borrow_mut().enclosing_component = weak.clone()
     });
+    for o in new_component.optimized_elements.borrow().iter() {
+        o.borrow_mut().enclosing_component = weak.clone()
+    }
     *new_component.popup_windows.borrow_mut() = component_to_duplicate
         .popup_windows
         .borrow()
