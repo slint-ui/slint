@@ -72,6 +72,7 @@ export struct Range {
 export enum PropertyValueKind {
     Boolean,
     Code,
+    Color,
     Enum,
     Float,
     Integer,
@@ -80,17 +81,21 @@ export enum PropertyValueKind {
 
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
-    value-bool: bool,
-    is-translatable: bool,
+    value-bool: bool, // Boolean
+    is-translatable: bool, // String
     kind: PropertyValueKind,
-    value-float: float,
-    value-int: int,
-    default-selection: int,
-    value-string: string,
-    visual-items: [string],
-    tr-context: string,
-    tr-plural: string,
-    code: string,
+    value-red: int, // Color
+    value-green: int, // Color
+    value-blue: int, // Color
+    value-alpha: int, // Color
+    value-float: float, // Float
+    value-int: int, // Integer
+    default-selection: int, // Enum
+    value-string: string, // Enum, String
+    visual-items: [string], // Enum
+    tr-context: string, // String
+    tr-plural: string, // String
+    code: string, // ALWAYS, empty if property is not explicitly defined
 }
 
 /// Important Ranges in the property definition

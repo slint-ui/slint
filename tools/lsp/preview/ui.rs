@@ -280,6 +280,10 @@ fn simplify_value(
 
     let mut kind = PropertyValueKind::Code;
     let mut value_bool = false;
+    let mut value_red = 0;
+    let mut value_green = 0;
+    let mut value_blue = 0;
+    let mut value_alpha = 0;
     let mut value_int = 0;
     let mut value_float = 0.0;
     let mut value_string = String::new();
@@ -318,6 +322,27 @@ fn simplify_value(
                 kind = PropertyValueKind::Integer;
             }
         }
+        langtype::Type::Color => {
+            eprintln!("Looking at color!");
+            if let Some(expression) = expression {
+                if let Some(text) = expression.child_text(SyntaxKind::ColorLiteral) {
+                    if let Some(color) = literals::parse_color_literal(&text) {
+                        kind = PropertyValueKind::Color;
+                        value_alpha = ((color & 0xff000000) >> 24) as i32;
+                        value_red = ((color & 0x00ff0000) >> 16) as i32;
+                        value_green = ((color & 0x0000ff00) >> 8) as i32;
+                        value_blue = (color & 0x000000ff) as i32;
+                    } else {
+                        // TODO: Extract `Foo.bar` as Palette `Foo`, entry `bar`.
+                        // This makes no sense right now, as we have no way to get any
+                        // information on the palettes.
+                    }
+                }
+            } else if code.is_empty() {
+                kind = PropertyValueKind::Color;
+            }
+        }
+
         langtype::Type::Bool => {
             if let Some(expression) = expression {
                 let qualified_name =
@@ -384,6 +409,10 @@ fn simplify_value(
     PropertyValue {
         kind,
         value_bool,
+        value_red,
+        value_green,
+        value_blue,
+        value_alpha,
         value_string: value_string.into(),
         value_int,
         value_float,
@@ -766,5 +795,38 @@ export component Test { in property <Foobar> test1; }"#,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
         assert_eq!(result.value_int, 0);
+    }
+
+    #[test]
+    fn test_property_color() {
+        let result =
+            property_conversion_test(r#"export component Test { in property <color> test1; }"#, 0);
+        assert_eq!(result.kind, PropertyValueKind::Color);
+        assert_eq!(result.value_red, 0);
+        assert_eq!(result.value_green, 0);
+        assert_eq!(result.value_blue, 0);
+        assert_eq!(result.value_alpha, 0);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <color> test1: #10203040; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Color);
+        assert_eq!(result.value_red, 0x10);
+        assert_eq!(result.value_green, 0x20);
+        assert_eq!(result.value_blue, 0x30);
+        assert_eq!(result.value_alpha, 0x40);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <color> test1: #10203040.darker(0.5); }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <int> test1: Colors.red; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
     }
 }
