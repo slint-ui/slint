@@ -1243,91 +1243,93 @@ impl From<&str> for StandardListViewItem {
     }
 }
 
-#[test]
-fn test_tracking_model_handle() {
-    let model: Rc<VecModel<u8>> = Rc::new(Default::default());
-    let handle = ModelRc::from(model.clone() as Rc<dyn Model<Data = u8>>);
-    let tracker = Box::pin(crate::properties::PropertyTracker::default());
-    assert_eq!(
-        tracker.as_ref().evaluate(|| {
-            handle.model_tracker().track_row_count_changes();
-            handle.row_count()
-        }),
-        0
-    );
-    assert!(!tracker.is_dirty());
-    model.push(42);
-    model.push(100);
-    assert!(tracker.is_dirty());
-    assert_eq!(
-        tracker.as_ref().evaluate(|| {
-            handle.model_tracker().track_row_count_changes();
-            handle.row_count()
-        }),
-        2
-    );
-    assert!(!tracker.is_dirty());
-    model.set_row_data(0, 41);
-    assert!(!tracker.is_dirty());
-    model.remove(0);
-    assert!(tracker.is_dirty());
-    assert_eq!(
-        tracker.as_ref().evaluate(|| {
-            handle.model_tracker().track_row_count_changes();
-            handle.row_count()
-        }),
-        1
-    );
-    assert!(!tracker.is_dirty());
-    model.set_vec(vec![1, 2, 3]);
-    assert!(tracker.is_dirty());
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn test_data_tracking() {
-    let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
-    let handle = ModelRc::from(model.clone());
-    let tracker = Box::pin(crate::properties::PropertyTracker::default());
-    assert_eq!(
-        tracker.as_ref().evaluate(|| {
-            handle.model_tracker().track_row_data_changes(1);
-            handle.row_data(1).unwrap()
-        }),
-        1
-    );
-    assert!(!tracker.is_dirty());
+    #[test]
+    fn test_tracking_model_handle() {
+        let model: Rc<VecModel<u8>> = Rc::new(Default::default());
+        let handle = ModelRc::from(model.clone() as Rc<dyn Model<Data = u8>>);
+        let tracker = Box::pin(crate::properties::PropertyTracker::default());
+        assert_eq!(
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_count_changes();
+                handle.row_count()
+            }),
+            0
+        );
+        assert!(!tracker.is_dirty());
+        model.push(42);
+        model.push(100);
+        assert!(tracker.is_dirty());
+        assert_eq!(
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_count_changes();
+                handle.row_count()
+            }),
+            2
+        );
+        assert!(!tracker.is_dirty());
+        model.set_row_data(0, 41);
+        assert!(!tracker.is_dirty());
+        model.remove(0);
+        assert!(tracker.is_dirty());
+        assert_eq!(
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_count_changes();
+                handle.row_count()
+            }),
+            1
+        );
+        assert!(!tracker.is_dirty());
+        model.set_vec(vec![1, 2, 3]);
+        assert!(tracker.is_dirty());
+    }
 
-    model.set_row_data(2, 42);
-    assert!(!tracker.is_dirty());
-    model.set_row_data(1, 100);
-    assert!(tracker.is_dirty());
+    #[test]
+    fn test_data_tracking() {
+        let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(crate::properties::PropertyTracker::default());
+        assert_eq!(
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_data_changes(1);
+                handle.row_data(1).unwrap()
+            }),
+            1
+        );
+        assert!(!tracker.is_dirty());
 
-    assert_eq!(
-        tracker.as_ref().evaluate(|| {
-            handle.model_tracker().track_row_data_changes(1);
-            handle.row_data(1).unwrap()
-        }),
-        100
-    );
-    assert!(!tracker.is_dirty());
+        model.set_row_data(2, 42);
+        assert!(!tracker.is_dirty());
+        model.set_row_data(1, 100);
+        assert!(tracker.is_dirty());
 
-    // Any changes to rows (even if after tracked rows) for now also marks watched rows as dirty, to
-    // keep the logic simple.
-    model.push(200);
-    assert!(tracker.is_dirty());
+        assert_eq!(
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_data_changes(1);
+                handle.row_data(1).unwrap()
+            }),
+            100
+        );
+        assert!(!tracker.is_dirty());
 
-    assert_eq!(tracker.as_ref().evaluate(|| { handle.row_data_tracked(1).unwrap() }), 100);
-    assert!(!tracker.is_dirty());
+        // Any changes to rows (even if after tracked rows) for now also marks watched rows as dirty, to
+        // keep the logic simple.
+        model.push(200);
+        assert!(tracker.is_dirty());
 
-    model.insert(0, 255);
-    assert!(tracker.is_dirty());
+        assert_eq!(tracker.as_ref().evaluate(|| { handle.row_data_tracked(1).unwrap() }), 100);
+        assert!(!tracker.is_dirty());
 
-    model.set_vec(vec![]);
-    assert!(tracker.is_dirty());
-}
+        model.insert(0, 255);
+        assert!(tracker.is_dirty());
 
-#[test]
-fn test_vecmodel_set_vec() {
+        model.set_vec(vec![]);
+        assert!(tracker.is_dirty());
+    }
+
     #[derive(Default)]
     struct TestView {
         // Track the parameters reported by the model (row counts, indices, etc.).
@@ -1371,60 +1373,97 @@ fn test_vecmodel_set_vec() {
         }
     }
 
-    let view = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+    #[test]
+    fn test_vecmodel_set_vec() {
+        let view = Box::pin(ModelChangeListenerContainer::<TestView>::default());
 
-    let model = Rc::new(VecModel::from(vec![1i32, 2, 3, 4]));
-    model.model_tracker().attach_peer(Pin::as_ref(&view).model_peer());
-    *view.model.borrow_mut() =
-        Some(std::rc::Rc::downgrade(&(model.clone() as Rc<dyn Model<Data = i32>>)));
+        let model = Rc::new(VecModel::from(vec![1i32, 2, 3, 4]));
+        model.model_tracker().attach_peer(Pin::as_ref(&view).model_peer());
+        *view.model.borrow_mut() =
+            Some(std::rc::Rc::downgrade(&(model.clone() as Rc<dyn Model<Data = i32>>)));
 
-    model.push(5);
-    assert!(view.changed_rows.borrow().is_empty());
-    assert_eq!(&*view.added_rows.borrow(), &[(4, 1, 5)]);
-    assert!(view.removed_rows.borrow().is_empty());
-    assert_eq!(*view.reset.borrow(), 0);
-    view.clear();
+        model.push(5);
+        assert!(view.changed_rows.borrow().is_empty());
+        assert_eq!(&*view.added_rows.borrow(), &[(4, 1, 5)]);
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 0);
+        view.clear();
 
-    model.set_vec(vec![6, 7, 8]);
-    assert!(view.changed_rows.borrow().is_empty());
-    assert!(view.added_rows.borrow().is_empty());
-    assert!(view.removed_rows.borrow().is_empty());
-    assert_eq!(*view.reset.borrow(), 1);
-    view.clear();
+        model.set_vec(vec![6, 7, 8]);
+        assert!(view.changed_rows.borrow().is_empty());
+        assert!(view.added_rows.borrow().is_empty());
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 1);
+        view.clear();
 
-    model.extend_from_slice(&[9, 10, 11]);
-    assert!(view.changed_rows.borrow().is_empty());
-    assert_eq!(&*view.added_rows.borrow(), &[(3, 3, 6)]);
-    assert!(view.removed_rows.borrow().is_empty());
-    assert_eq!(*view.reset.borrow(), 0);
-    view.clear();
+        model.extend_from_slice(&[9, 10, 11]);
+        assert!(view.changed_rows.borrow().is_empty());
+        assert_eq!(&*view.added_rows.borrow(), &[(3, 3, 6)]);
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 0);
+        view.clear();
 
-    model.extend([12, 13]);
-    assert!(view.changed_rows.borrow().is_empty());
-    assert_eq!(&*view.added_rows.borrow(), &[(6, 2, 8)]);
-    assert!(view.removed_rows.borrow().is_empty());
-    assert_eq!(*view.reset.borrow(), 0);
-    view.clear();
+        model.extend([12, 13]);
+        assert!(view.changed_rows.borrow().is_empty());
+        assert_eq!(&*view.added_rows.borrow(), &[(6, 2, 8)]);
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 0);
+        view.clear();
 
-    assert_eq!(model.iter().collect::<Vec<_>>(), vec![6, 7, 8, 9, 10, 11, 12, 13]);
+        assert_eq!(model.iter().collect::<Vec<_>>(), vec![6, 7, 8, 9, 10, 11, 12, 13]);
 
-    model.swap(1, 1);
-    assert!(view.changed_rows.borrow().is_empty());
-    assert!(view.added_rows.borrow().is_empty());
-    assert!(view.removed_rows.borrow().is_empty());
-    assert_eq!(*view.reset.borrow(), 0);
-    view.clear();
+        model.swap(1, 1);
+        assert!(view.changed_rows.borrow().is_empty());
+        assert!(view.added_rows.borrow().is_empty());
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 0);
+        view.clear();
 
-    model.swap(1, 2);
-    assert_eq!(&*view.changed_rows.borrow(), &[(1, 8), (2, 8)]);
-    assert!(view.added_rows.borrow().is_empty());
-    assert!(view.removed_rows.borrow().is_empty());
-    assert_eq!(*view.reset.borrow(), 0);
-    view.clear();
+        model.swap(1, 2);
+        assert_eq!(&*view.changed_rows.borrow(), &[(1, 8), (2, 8)]);
+        assert!(view.added_rows.borrow().is_empty());
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 0);
+        view.clear();
 
-    assert_eq!(model.iter().collect::<Vec<_>>(), vec![6, 8, 7, 9, 10, 11, 12, 13]);
+        assert_eq!(model.iter().collect::<Vec<_>>(), vec![6, 8, 7, 9, 10, 11, 12, 13]);
+    }
 
-    model.clear();
-    assert_eq!(*view.reset.borrow(), 1);
-    assert_eq!(model.row_count(), 0);
+    #[test]
+    fn test_clear() {
+        let view = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+
+        let model = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
+        model.model_tracker().attach_peer(Pin::as_ref(&view).model_peer());
+        *view.model.borrow_mut() =
+            Some(std::rc::Rc::downgrade(&(model.clone() as Rc<dyn Model<Data = i32>>)));
+
+        model.clear();
+        assert_eq!(*view.reset.borrow(), 1);
+        assert_eq!(model.row_count(), 0);
+    }
+
+    #[test]
+    fn test_swap() {
+        let view = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+
+        let model = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
+        model.model_tracker().attach_peer(Pin::as_ref(&view).model_peer());
+        *view.model.borrow_mut() =
+            Some(std::rc::Rc::downgrade(&(model.clone() as Rc<dyn Model<Data = i32>>)));
+
+        model.swap(1, 1);
+        assert!(view.changed_rows.borrow().is_empty());
+        assert!(view.added_rows.borrow().is_empty());
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 0);
+        view.clear();
+
+        model.swap(1, 2);
+        assert_eq!(&*view.changed_rows.borrow(), &[(1, 4), (2, 4)]);
+        assert!(view.added_rows.borrow().is_empty());
+        assert!(view.removed_rows.borrow().is_empty());
+        assert_eq!(*view.reset.borrow(), 0);
+        view.clear();
+    }
 }
