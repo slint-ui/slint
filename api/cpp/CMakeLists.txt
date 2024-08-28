@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
-project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.0.0)
+project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.8.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -436,8 +436,6 @@ if(SLINT_BUILD_RUNTIME)
             cmake_path(GET _slint_compiler_location FILENAME SLINT_COMPILER_FILE_NAME)
         endif()
 
-        set(SLINT_VERSION 1.8.0)
-
         configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
     endfunction()
 
@@ -445,7 +443,7 @@ if(SLINT_BUILD_RUNTIME)
 
     write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
-        VERSION 1.8.0
+        VERSION ${PROJECT_VERSION}
         COMPATIBILITY SameMinorVersion
     )
 
