@@ -177,3 +177,54 @@ jobs:
               with:
                   name: cpp_mcu_bin-${{ runner.os }}-${{ runner.arch }}-${{ matrix.idf_target }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+
+    cmake_slint_compiler:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                os: [ubuntu-20.04, macOS-12, macos-14, windows-2022]
+                include:
+                    - os: ubuntu-20.04
+                      package_suffix: Linux-x86_64
+                    - os: macOS-12
+                      package_suffix: Darwin-x86_64
+                    - os: macos-14
+                      package_suffix: Darwin-arm64
+                    - os: windows-2022
+                      package_suffix: Windows
+
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  old-ubuntu: true
+            - uses: ./.github/actions/setup-rust
+            # Build Slint-compiler with CMake so that CMakeLists.txt can configure C++ specific features
+            - name: Slint Compiler Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                cmakeListsTxtPath: CMakeLists.txt
+                cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_BUILD_RUNTIME=OFF"
+                buildDirectory: ${{ runner.workspace }}/cppbuild
+                buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cpack -G TGZ
+            - name: Extract Slint Compiler binary
+              working-directory: ${{ runner.workspace }}/cppbuild
+              shell: bash
+              run: cmake -E tar xvf Slint-cpp-*.tar.gz
+            - name: Repackage
+              working-directory: ${{ runner.workspace }}/cppbuild
+              shell: bash
+              run: |
+                  cd Slint-cpp-*/bin
+                  cmake -E tar czf ../../slint-compiler-${{ matrix.package_suffix }}.tar.gz slint-compiler*
+            - name: "Upload Slint compiler package"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: slint-compiler-bin-${{ matrix.package_suffix }}
+                  path: ${{ runner.workspace }}/cppbuild/slint-compiler-*.tar.gz
