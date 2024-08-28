@@ -7,67 +7,67 @@ import { SliderBase } from "../common/slider-base.slint";
 
 // Allows to select a value from a range of values.
 export component Slider {
-    in property <Orientation> orientation <=> i-base.orientation;
-    in property <float> maximum <=> i-base.maximum;
-    in property <bool> enabled <=> i-base.enabled;
-    in property <float> minimum <=> i-base.minimum;
-    out property <bool> has-focus <=> i-base.has-focus;
-    in-out property <float> value <=> i-base.value;
+    in property <Orientation> orientation <=> base.orientation;
+    in property <float> maximum <=> base.maximum;
+    in property <bool> enabled <=> base.enabled;
+    in property <float> minimum <=> base.minimum;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <float> value <=> base.value;
 
-    callback changed <=> i-base.changed;
-    callback released <=> i-base.released;
+    callback changed <=> base.changed;
+    callback released <=> base.released;
 
-    min-width: i-base.vertical ? 20px : 0px;
-    min-height: i-base.vertical ? 0px : 20px;
+    min-width: base.vertical ? 20px : 0px;
+    min-height: base.vertical ? 0px : 20px;
     accessible-role: slider;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
-    forward-focus: i-base;
+    forward-focus: base;
 
     states [
         disabled when !root.enabled : {
-            i-handle.background: MaterialPalette.control-foreground;
-            i-handle.drop-shadow-blur: Elevation.level0;
-            i-track.background: MaterialPalette.control-foreground;
-            i-background.background: MaterialPalette.control-foreground;
+            handle.background: MaterialPalette.control-foreground;
+            handle.drop-shadow-blur: Elevation.level0;
+            track.background: MaterialPalette.control-foreground;
+            background.background: MaterialPalette.control-foreground;
             root.opacity: 0.38;
         }
-        pressed when i-base.handle-pressed || i-base.has-focus : {
-            i-state-layer.opacity: 0.12;
-            i-handle.drop-shadow-blur: Elevation.level0;
+        pressed when base.handle-pressed || base.has-focus : {
+            state-layer.opacity: 0.12;
+            handle.drop-shadow-blur: Elevation.level0;
         }
-        hover when i-base.has-hover : {
-            i-state-layer.background: MaterialPalette.control-foreground;
-            i-state-layer.opacity: 0.08;
+        hover when base.has-hover : {
+            state-layer.background: MaterialPalette.control-foreground;
+            state-layer.opacity: 0.08;
         }
     ]
 
-    i-background := Rectangle {
+    background := Rectangle {
         background: MaterialPalette.control-background-variant;
         opacity: 0.38;
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
-        width: i-base.vertical ? 4px : parent.width;
-        height: i-base.vertical ? parent.height : 4px;
+        width: base.vertical ? 4px : parent.width;
+        height: base.vertical ? parent.height : 4px;
         border-radius: 2px;
     }
 
-    i-track := Rectangle {
+    track := Rectangle {
         background: MaterialPalette.accent-background;
-        x: i-base.vertical ? (parent.width - self.width) / 2 : i-background.x;
-        y: i-base.vertical ? i-background.y : (parent.height - self.height) / 2;
-        width: i-base.vertical? i-background.width : i-handle.x + (i-handle.width / 2);
-        height: i-base.vertical? i-handle.y + (i-handle.height / 2) : i-background.height;
-        border-radius: i-background.border-radius;
+        x: base.vertical ? (parent.width - self.width) / 2 : background.x;
+        y: base.vertical ? background.y : (parent.height - self.height) / 2;
+        width: base.vertical? background.width : handle.x + (handle.width / 2);
+        height: base.vertical? handle.y + (handle.height / 2) : background.height;
+        border-radius: background.border-radius;
     }
 
-    i-state-layer := Rectangle {
+    state-layer := Rectangle {
         opacity: 0;
         background: MaterialPalette.accent-background;
-        x: i-base.vertical ? (parent.width - self.width) / 2 : i-handle.x - (self.width - i-handle.width) / 2;
-        y: i-base.vertical ? i-handle.y - (self.height - i-handle.height) / 2 : (parent.height - self.height) / 2;
+        x: base.vertical ? (parent.width - self.width) / 2 : handle.x - (self.width - handle.width) / 2;
+        y: base.vertical ? handle.y - (self.height - handle.height) / 2 : (parent.height - self.height) / 2;
         width: 40px;
         height: 40px;
         border-radius: max(self.width, self.height) / 2;
@@ -75,12 +75,12 @@ export component Slider {
         animate opacity { duration: 250ms; easing: ease; }
     }
 
-    i-handle := Rectangle {
+    handle := Rectangle {
+        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.width - self.width);
+        y: base.vertical ? clamp((parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.height - self.height) : (parent.height - self.height) / 2;
         background: MaterialPalette.accent-background;
-        x: i-base.vertical ? (parent.width - self.width) / 2 : (parent.width - i-handle.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
-        y: i-base.vertical ? (parent.height - i-handle.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
-        width: i-base.vertical ? root.width : root.height;
-        height: i-base.vertical ? root.width : root.height;
+        width: base.vertical ? root.width : root.height;
+        height: base.vertical ? root.width : root.height;
         border-radius: max(self.width, self.height) / 2;
         drop-shadow-color: MaterialPalette.shadow;
         drop-shadow-blur: Elevation.level1;
@@ -89,12 +89,12 @@ export component Slider {
         animate drop-shadow-blur { duration: 250ms; easing: ease; }
     }
 
-    i-base := SliderBase {
+    base := SliderBase {
         width: 100%;
         height: 100%;
-        handle-x: i-handle.x;
-        handle-y: i-handle.y;
-        handle-width: i-handle.width;
-        handle-height: i-handle.height;
+        handle-x: handle.x;
+        handle-y: handle.y;
+        handle-width: handle.width;
+        handle-height: handle.height;
     }
 }

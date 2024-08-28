@@ -126,7 +126,7 @@ export component ControlsPage inherits Page {
         title: @tr("Slider");
         vertical-stretch: 0;
 
-        i-slider := Slider {
+        slider := Slider {
             min-width: 160px;
             minimum: -100;
             maximum: 100;
@@ -142,11 +142,11 @@ export component ControlsPage inherits Page {
         GridBox {
             spacing: 16px;
 
-            i-progress-indicator := ProgressIndicator {
+            progress-indicator := ProgressIndicator {
                 row: 0;
                 col: 0;
                 min-width: 160px;
-                progress: (i-slider.value - i-slider.minimum) / (i-slider.maximum - i-slider.minimum);
+                progress: (slider.value - slider.minimum) / (slider.maximum - slider.minimum);
                 indeterminate: true;
             }
 
@@ -156,8 +156,8 @@ export component ControlsPage inherits Page {
                 rowspan: 2;
 
                 Spinner {
-                    progress: i-progress-indicator.progress;
-                    indeterminate: i-progress-indicator.indeterminate;
+                    progress: progress-indicator.progress;
+                    indeterminate: progress-indicator.indeterminate;
                 }
             }
 
@@ -165,7 +165,7 @@ export component ControlsPage inherits Page {
                 row: 1;
                 col: 0;
                 text: @tr("indeterminate");
-                checked <=> i-progress-indicator.indeterminate;
+                checked <=> progress-indicator.indeterminate;
             }
         }
     }
