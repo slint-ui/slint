@@ -60,6 +60,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
+    api.on_reload_preview(super::reload_preview);
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);

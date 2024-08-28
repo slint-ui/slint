@@ -59,6 +59,12 @@ export component PreviewUi inherits Window {
                     style-selected => {
                         Api.style-changed();
                     }
+
+                    Button {
+                        icon: @image-url("assets/sync.svg");
+                        colorize-icon: true;
+                        clicked => { Api.reload-preview(); }
+                    }
                 }
 
                 HorizontalLayout {
