@@ -765,7 +765,7 @@ pub fn spawn() -> Result<(), corelib::platform::PlatformError> {
     let not_running_loop_instance = MAYBE_LOOP_INSTANCE
         .with(|loop_instance| match loop_instance.borrow_mut().take() {
             Some(instance) => Ok(instance),
-            None => NotRunningEventLoop::new(),
+            None => NotRunningEventLoop::new(None),
         })
         .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
