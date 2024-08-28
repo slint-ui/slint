@@ -70,31 +70,29 @@ export struct Range {
 }
 
 export enum PropertyValueKind {
-    Boolean,
-    Code,
-    Color,
-    Enum,
-    Float,
-    Integer,
-    String,
+    boolean,
+    brush,
+    code,
+    color,
+    enum,
+    float,
+    integer,
+    string,
 }
 
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
-    value-bool: bool, // Boolean
-    is-translatable: bool, // String
+    value-bool: bool, // boolean
+    is-translatable: bool, // string
     kind: PropertyValueKind,
-    value-red: int, // Color
-    value-green: int, // Color
-    value-blue: int, // Color
-    value-alpha: int, // Color
-    value-float: float, // Float
-    value-int: int, // Integer
-    default-selection: int, // Enum
-    value-string: string, // Enum, String
-    visual-items: [string], // Enum
-    tr-context: string, // String
-    tr-plural: string, // String
+    value-brush: brush, // brush, color
+    value-float: float, // float
+    value-int: int, // integer, enum/float (current index into visual_items)
+    default-selection: int, // enum/float (default index into visual_items)
+    value-string: string, // enum (name), string
+    visual-items: [string], // enum (enum members), float (units)
+    tr-context: string, // string
+    tr-plural: string, // string
     code: string, // ALWAYS, empty if property is not explicitly defined
 }
 
