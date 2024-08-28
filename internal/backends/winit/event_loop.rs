@@ -37,8 +37,11 @@ pub(crate) struct NotRunningEventLoop {
 }
 
 impl NotRunningEventLoop {
-    fn new() -> Result<Self, PlatformError> {
-        let mut builder = winit::event_loop::EventLoop::with_user_event();
+    pub(crate) fn new(
+        builder: Option<winit::event_loop::EventLoopBuilder<SlintUserEvent>>,
+    ) -> Result<Self, PlatformError> {
+        let mut builder =
+            builder.unwrap_or_else(|| winit::event_loop::EventLoop::with_user_event());
 
         #[cfg(all(unix, not(target_os = "macos")))]
         {
@@ -149,7 +152,7 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
 
 thread_local! {
     static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>> = RefCell::new(std::collections::HashMap::new());
-    static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::default();
+    pub(crate) static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::default();
 }
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
@@ -211,7 +214,7 @@ pub(crate) fn with_window_target<T>(
     } else {
         MAYBE_LOOP_INSTANCE.with(|loop_instance| {
             if loop_instance.borrow().is_none() {
-                *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new()?);
+                *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new(None)?);
             }
             callback(loop_instance.borrow().as_ref().unwrap())
         })
@@ -223,7 +226,7 @@ pub(crate) fn with_not_running_event_loop<T>(
 ) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
     MAYBE_LOOP_INSTANCE.with(|loop_instance| {
         if loop_instance.borrow().is_none() {
-            *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new()?);
+            *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new(None)?);
         }
         callback(loop_instance.borrow().as_ref().unwrap())
     })
@@ -665,7 +668,7 @@ impl EventLoopState {
         let not_running_loop_instance = MAYBE_LOOP_INSTANCE
             .with(|loop_instance| match loop_instance.borrow_mut().take() {
                 Some(instance) => Ok(instance),
-                None => NotRunningEventLoop::new(),
+                None => NotRunningEventLoop::new(None),
             })
             .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
@@ -733,7 +736,7 @@ impl EventLoopState {
         let not_running_loop_instance = MAYBE_LOOP_INSTANCE
             .with(|loop_instance| match loop_instance.borrow_mut().take() {
                 Some(instance) => Ok(instance),
-                None => NotRunningEventLoop::new(),
+                None => NotRunningEventLoop::new(None),
             })
             .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 

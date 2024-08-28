@@ -204,6 +204,21 @@ fn main() {
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
+    } else {
+        #[cfg(target_vendor = "apple")]
+        {
+            use i_slint_backend_winit::winit;
+            use winit::platform::macos::EventLoopBuilderExtMacOS;
+            let mut builder = winit::event_loop::EventLoop::with_user_event();
+            builder.with_default_menu(false);
+            slint::platform::set_platform(Box::new(
+                i_slint_backend_winit::Backend::new_with_renderer_by_name_and_event_loop_builder(
+                    None, builder,
+                )
+                .unwrap(),
+            ))
+            .unwrap();
+        }
     }
 
     if let Some(Commands::Format(args)) = args.command {
