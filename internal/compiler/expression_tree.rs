@@ -35,6 +35,7 @@ pub enum BuiltinFunction {
     ACos,
     ASin,
     ATan,
+    ATan2,
     Log,
     Pow,
     SetFocusItem,
