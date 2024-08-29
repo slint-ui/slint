@@ -94,7 +94,7 @@ These functions are available both in the global scope and in the `Math` namespa
 
 Return the absolute value, where T is a numeric type.
 
-### `acos(float) -> angle`, `asin(float) -> angle`, `atan(float) -> angle`, `cos(angle) -> float`, `sin(angle) -> float`, `tan(angle) -> float`
+### `acos(float) -> angle`, `asin(float) -> angle`, `atan(float) -> angle`, `atan2(float, float) -> angle`, `cos(angle) -> float`, `sin(angle) -> float`, `tan(angle) -> float`
 
 The trigonometry function. Note that the should be typed with `deg` or `rad` unit
 (for example `cos(90deg)` or `sin(slider.value * 1deg)`).
