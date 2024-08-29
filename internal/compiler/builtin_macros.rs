@@ -310,7 +310,7 @@ fn debug_macro(
                 lhs: Box::new(string),
                 op: '+',
                 rhs: Box::new(Expression::BinaryExpression {
-                    lhs: Box::new(Expression::StringLiteral(", ".into())),
+                    lhs: Box::new(Expression::StringLiteral(" ".into())),
                     op: '+',
                     rhs: Box::new(val),
                 }),
