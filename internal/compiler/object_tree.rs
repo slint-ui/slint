@@ -1267,10 +1267,12 @@ impl Element {
             } else if property_type == Type::InferredCallback {
                 // argument matching will happen later
             } else {
-                diag.push_error(
-                    format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
-                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                );
+                if r.base_type != ElementType::Error {
+                    diag.push_error(
+                        format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
                 continue;
             }
             match r.bindings.entry(resolved_name.into_owned()) {
@@ -1294,6 +1296,9 @@ impl Element {
             for prop_name_token in anim.QualifiedName() {
                 match QualifiedTypeName::from_node(prop_name_token.clone()).members.as_slice() {
                     [unresolved_prop_name] => {
+                        if r.base_type == ElementType::Error {
+                            continue;
+                        };
                         let lookup_result = r.lookup_property(unresolved_prop_name);
                         let valid_assign = lookup_result.is_valid_for_assignment();
                         if let Some(anim_element) = animation_element_from_node(
@@ -1358,10 +1363,12 @@ impl Element {
             let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
             let lookup_result = r.lookup_property(&prop);
             if !lookup_result.is_valid() {
-                diag.push_error(
-                    format!("Property '{prop}' does not exist"),
-                    &ch.DeclaredIdentifier(),
-                );
+                if r.base_type != ElementType::Error {
+                    diag.push_error(
+                        format!("Property '{prop}' does not exist"),
+                        &ch.DeclaredIdentifier(),
+                    );
+                }
             } else if !lookup_result.property_type.is_property_type() {
                 let what = match lookup_result.property_type {
                     Type::Function { .. } => "a function",

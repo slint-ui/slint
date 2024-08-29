@@ -454,7 +454,7 @@ impl TypeRegister {
             } else if let Some(ty) = self.types.get(name) {
                 format!("'{}' cannot be used as an element", ty)
             } else {
-                format!("Unknown type {}", name)
+                format!("Unknown element '{}'", name)
             }
         })
     }
