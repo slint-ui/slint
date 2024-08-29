@@ -3353,7 +3353,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ATan2 => {
             ctx.generator_state.conditional_includes.cmath.set(true);
-            format!("std::atan2({}) / {}", a.next().unwrap(), pi_180)
+            format!("std::atan2({}, {}) / {}", a.next().unwrap(), a.next().unwrap(), pi_180)
         }
         BuiltinFunction::SetFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
