@@ -447,7 +447,9 @@ impl RendererSealed for FemtoVGRenderer {
             text_input.single_line(),
             &paint,
             |line_text, line_pos, start, metrics| {
-                if (start..=(start + line_text.len())).contains(&byte_offset) {
+                if line_text.len() == 0 {
+                    result = line_pos;
+                } else if (start..=(start + line_text.len())).contains(&byte_offset) {
                     for glyph in &metrics.glyphs {
                         if glyph.byte_index == (byte_offset - start) {
                             result = line_pos + PhysicalPoint::new(glyph.x, 0.0).to_vector();

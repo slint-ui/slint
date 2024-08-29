@@ -616,7 +616,7 @@ pub(crate) fn layout_text_lines(
     };
     let mut y = baseline_y;
     let mut start = 0;
-    'lines: while start < string.len() && y + font_height <= max_height {
+    'lines: while start <= string.len() && y + font_height <= max_height {
         if wrap && (!elide || y + font_height * 2. <= max_height) {
             let max_line_index = string[start..].find('\n').map_or(string.len(), |i| i + 1 + start);
             let index = text_context
