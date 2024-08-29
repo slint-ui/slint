@@ -67,6 +67,10 @@ pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
 pub fn start_ui_event_loop(cli_args: crate::Cli) {
     CLI_ARGS.with(|f| f.set(cli_args).ok());
 
+    // NOTE: the result here must be kept alive for Apple platforms, as in the Ok case it holds a MenuItem
+    // that must be kept alive.
+    let loop_init_result;
+
     {
         let mut state_requested = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
 
@@ -80,8 +84,17 @@ pub fn start_ui_event_loop(cli_args: crate::Cli) {
         }
 
         if *state_requested == RequestedGuiEventLoopState::StartLoop {
-            // make sure the backend is initialized
-            match i_slint_backend_selector::with_platform(|_| Ok(())) {
+            #[cfg(target_vendor = "apple")]
+            {
+                // This can only be run once, as the event loop can't be restarted on macOS
+                loop_init_result = init_apple_platform();
+            }
+            #[cfg(not(target_vendor = "apple"))]
+            {
+                // make sure the backend is initialized
+                loop_init_result = i_slint_backend_selector::with_platform(|_| Ok(()));
+            }
+            match loop_init_result {
                 Ok(_) => {}
                 Err(err) => {
                     *state_requested =
@@ -93,6 +106,7 @@ pub fn start_ui_event_loop(cli_args: crate::Cli) {
                     return;
                 }
             };
+
             // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
             i_slint_core::api::invoke_from_event_loop(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
@@ -235,4 +249,68 @@ pub fn send_message_to_lsp(message: PreviewToLspMessage) {
         return;
     };
     sender.send_message_to_lsp(message);
+}
+
+// This function overrides the default app menu and makes the "Quit" item merely hide the UI,
+// as the life-cycle of this process is determined by the editor. The returned menuitem must
+// be kept alive for the duration of the event loop, as otherwise muda crashes.
+#[cfg(target_vendor = "apple")]
+fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformError> {
+    use i_slint_backend_winit::winit;
+    use muda::{accelerator, Menu, MenuItem, PredefinedMenuItem, Submenu};
+    use winit::platform::macos::EventLoopBuilderExtMacOS;
+    let mut builder = winit::event_loop::EventLoop::with_user_event();
+    builder.with_default_menu(false);
+
+    let backend = i_slint_backend_winit::Backend::new_with_renderer_by_name_and_event_loop_builder(
+        None, builder,
+    )?;
+
+    slint::platform::set_platform(Box::new(backend)).map_err(|set_platform_err| {
+        i_slint_core::api::PlatformError::from(set_platform_err.to_string())
+    })?;
+
+    let process_name = objc2_foundation::NSProcessInfo::processInfo().processName().to_string();
+    let quit_app_menu_item = MenuItem::new(
+        format!("Quit {process_name}"),
+        true,
+        Some(accelerator::Accelerator::new(
+            Some(accelerator::Modifiers::META),
+            accelerator::Code::KeyQ,
+        )),
+    );
+
+    let menu_bar = Menu::new();
+    menu_bar.init_for_nsapp();
+    let app_m = Submenu::new("App", true);
+    menu_bar
+        .append(&app_m)
+        .and_then(|_| {
+            app_m.append_items(&[
+                &PredefinedMenuItem::about(None, None),
+                &PredefinedMenuItem::separator(),
+                &PredefinedMenuItem::services(None),
+                &PredefinedMenuItem::separator(),
+                &PredefinedMenuItem::hide(None),
+                &PredefinedMenuItem::hide_others(None),
+                &PredefinedMenuItem::show_all(None),
+                &quit_app_menu_item,
+            ])
+        })
+        .map_err(|menu_bar_err| {
+            i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
+        })?;
+
+    let quit_id = quit_app_menu_item.id().clone();
+
+    muda::MenuEvent::set_event_handler(Some(move |menu_event: muda::MenuEvent| {
+        if menu_event.id == quit_id {
+            i_slint_core::api::invoke_from_event_loop(|| {
+                close_ui();
+            })
+            .ok();
+        }
+    }));
+
+    Ok(quit_app_menu_item)
 }

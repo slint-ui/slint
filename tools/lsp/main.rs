@@ -204,38 +204,6 @@ fn main() {
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
-    } else {
-        #[cfg(target_vendor = "apple")]
-        {
-            use i_slint_backend_winit::winit;
-            use muda::{Menu, PredefinedMenuItem, Submenu};
-            use winit::platform::macos::EventLoopBuilderExtMacOS;
-            let mut builder = winit::event_loop::EventLoop::with_user_event();
-            builder.with_default_menu(false);
-            slint::platform::set_platform(Box::new(
-                i_slint_backend_winit::Backend::new_with_renderer_by_name_and_event_loop_builder(
-                    None, builder,
-                )
-                .unwrap(),
-            ))
-            .unwrap();
-
-            let menu_bar = Menu::new();
-            menu_bar.init_for_nsapp();
-            let app_m = Submenu::new("App", true);
-            menu_bar.append(&app_m).unwrap();
-            app_m
-                .append_items(&[
-                    &PredefinedMenuItem::about(None, None),
-                    &PredefinedMenuItem::separator(),
-                    &PredefinedMenuItem::services(None),
-                    &PredefinedMenuItem::separator(),
-                    &PredefinedMenuItem::hide(None),
-                    &PredefinedMenuItem::hide_others(None),
-                    &PredefinedMenuItem::show_all(None),
-                ])
-                .unwrap();
-        }
     }
 
     if let Some(Commands::Format(args)) = args.command {
