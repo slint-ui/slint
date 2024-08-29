@@ -2725,6 +2725,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::ASin => quote!((#(#a)* as f64).asin().to_degrees()),
         BuiltinFunction::ACos => quote!((#(#a)* as f64).acos().to_degrees()),
         BuiltinFunction::ATan => quote!((#(#a)* as f64).atan().to_degrees()),
+        BuiltinFunction::ATan2 => quote!((#(#a)* as f64).atan2().to_degrees()),
         BuiltinFunction::Log => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!((#a1 as f64).log(#a2 as f64))

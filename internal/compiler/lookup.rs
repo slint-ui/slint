@@ -802,6 +802,7 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("asin", BuiltinFunctionReference(BuiltinFunction::ASin, sl())))
             .or_else(|| f("acos", BuiltinFunctionReference(BuiltinFunction::ACos, sl())))
             .or_else(|| f("atan", BuiltinFunctionReference(BuiltinFunction::ATan, sl())))
+            .or_else(|| f("atan2", BuiltinFunctionReference(BuiltinFunction::ATan2, sl())))
             .or_else(|| f("log", BuiltinFunctionReference(BuiltinFunction::Log, sl())))
             .or_else(|| f("pow", BuiltinFunctionReference(BuiltinFunction::Pow, sl())))
     }
@@ -1154,6 +1155,7 @@ impl<'a> LookupObject for NumberExpression<'a> {
             .or_else(|| f("asin", member_function(BuiltinFunction::ASin)))
             .or_else(|| f("acos", member_function(BuiltinFunction::ACos)))
             .or_else(|| f("atan", member_function(BuiltinFunction::ATan)))
+            .or_else(|| f("atan2", member_function(BuiltinFunction::ATan2)))
             .or_else(|| f("log", member_function(BuiltinFunction::Log)))
             .or_else(|| f("pow", member_function(BuiltinFunction::Pow)))
             .or_else(|| NumberWithUnitExpression(self.0).for_each_entry(ctx, f))
