@@ -911,7 +911,10 @@ pub use weak_handle::*;
 /// You can use this to set properties or use any other Slint APIs from other threads,
 /// by collecting the code in a functor and queuing it up for invocation within the event loop.
 ///
-/// See also [`Weak::upgrade_in_event_loop`]
+/// If you want to capture non-Send types to run in the next event loop iteration,
+/// you can use the `slint::spawn_local` function instead.
+///
+/// See also [`Weak::upgrade_in_event_loop`].
 ///
 /// # Example
 /// ```rust
