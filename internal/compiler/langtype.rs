@@ -541,7 +541,7 @@ impl ElementType {
 
         tr.lookup_element(name).and_then(|t| {
             if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
-                Err(format!("Unknown type {}. (The type exist as an internal type, but cannot be accessed in this scope)", name))
+                Err(format!("Unknown element '{}'. (The type exist as an internal type, but cannot be accessed in this scope)", name))
             } else {
                 Ok(t)
             }

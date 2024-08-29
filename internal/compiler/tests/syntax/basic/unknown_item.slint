@@ -5,14 +5,17 @@ struct Struct := { def: int, }
 
 export SuperSimple := Rectangle {
     DoesNotExist {
-//  ^error{Unknown type DoesNotExist}
+//  ^error{Unknown element 'DoesNotExist'}
     }
 
     dd := DoesNotExist2 {
-//        ^error{Unknown type DoesNotExist2}
+//        ^error{Unknown element 'DoesNotExist2'}
         abc: 42;
+        cb => {}
+        animate abcd { duration: 3ms; }
+        changed efgh => { self.foo(); }
         Hallo {}
-//      ^error{Unknown type Hallo}
+//      ^error{Unknown element 'Hallo'}
         Rectangle {
             background: blue;
             foo_bar: blue;
@@ -24,8 +27,9 @@ export SuperSimple := Rectangle {
     float {
 //  ^error{'float' cannot be used as an element}
         abc: 42;
+        cb => {}
         Hallo {}
-//      ^error{Unknown type Hallo}
+//      ^error{Unknown element 'Hallo'}
 
     }
 
@@ -34,7 +38,7 @@ export SuperSimple := Rectangle {
         def: "42";
         xyz: "42";
         Hallo {}
-//      ^error{Unknown type Hallo}
+//      ^error{Unknown element 'Hallo'}
     }
 
     Rectangle {
@@ -44,9 +48,9 @@ export SuperSimple := Rectangle {
     }
 
     NativeLineEdit { }
-//  ^error{Unknown type NativeLineEdit. \(The type exist as an internal type, but cannot be accessed in this scope\)}
+//  ^error{Unknown element 'NativeLineEdit'. \(The type exist as an internal type, but cannot be accessed in this scope\)}
 
     Opacity { }
-//  ^error{Unknown type Opacity. \(The type exist as an internal type, but cannot be accessed in this scope\)}
+//  ^error{Unknown element 'Opacity'. \(The type exist as an internal type, but cannot be accessed in this scope\)}
 
 }
