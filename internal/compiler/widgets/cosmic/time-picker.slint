@@ -15,6 +15,7 @@ export component TimePickerPopup inherits PopupWindow {
     in property <bool> use-24-hour-format <=> base.use-24-hour-format;
     in property <string> title: "Select time";
     in property <Time> time <=> base.time;
+    in-out property <bool> selection-mode <=> base.selection-mode;
 
     callback canceled();
     callback accepted(/* current-time */ Time);
