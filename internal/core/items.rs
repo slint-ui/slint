@@ -11,7 +11,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
  - It needs to be changed in this module
  - In the compiler: builtins.slint
- - In the interpreter (new item only): dynamic_component.rs
+ - In the interpreter (new item only): dynamic_item_tree.rs
  - For the C++ code (new item only): the cbindgen.rs to export the new item
  - Don't forget to update the documentation
 */
@@ -44,7 +44,7 @@ use vtable::*;
 mod component_container;
 pub use self::component_container::*;
 mod flickable;
-pub use flickable::*;
+pub use flickable::Flickable;
 mod text;
 pub use text::*;
 mod input_items;
@@ -532,6 +532,10 @@ declare_item_vtable! {
 
 declare_item_vtable! {
     fn slint_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
+}
+
+declare_item_vtable! {
+    fn slint_get_SwipeGestureRecognizerVTable() -> SwipeGestureRecognizerVTable for SwipeGestureRecognizer
 }
 
 #[repr(C)]

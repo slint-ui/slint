@@ -6,6 +6,8 @@ use super::{
     PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent,
     PointerScrollEventArg, RenderingResult, VoidArg,
 };
+use crate::animations::Instant;
+use crate::api::LogicalPosition;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, KeyEventType, MouseEvent,
@@ -16,7 +18,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, Poin
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowInner};
-use crate::{Callback, Property};
+use crate::{Callback, Coord, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -336,4 +338,219 @@ impl ItemConsts for FocusScope {
         FocusScope,
         CachedRenderingData,
     > = FocusScope::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct SwipeGestureRecognizer {
+    pub enabled: Property<bool>,
+    pub swipe_left: Property<bool>,
+    pub swipe_right: Property<bool>,
+    pub swipe_up: Property<bool>,
+    pub swipe_down: Property<bool>,
+
+    pub moved: Callback<VoidArg>,
+    pub swiped: Callback<VoidArg>,
+    pub cancelled: Callback<VoidArg>,
+
+    pub pressed_position: Property<LogicalPosition>,
+    pub current_position: Property<LogicalPosition>,
+    pub swiping: Property<bool>,
+
+    pressed_time: Cell<Instant>,
+    // true when the cursor is pressed down and we haven't cancelled yet for another reason
+    pressed: Cell<bool>,
+    // capture_events: Cell<bool>,
+    /// FIXME: remove this
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for SwipeGestureRecognizer {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        if !self.enabled() {
+            if self.pressed.get() {
+                self.cancel_impl();
+            }
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+
+        match event {
+            MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                Self::FIELD_OFFSETS
+                    .pressed_position
+                    .apply_pin(self)
+                    .set(crate::lengths::logical_position_to_api(position));
+                self.pressed.set(true);
+                self.pressed_time.set(crate::animations::current_tick());
+                InputEventFilterResult::DelayForwarding(
+                    super::flickable::FORWARD_DELAY.as_millis() as _
+                )
+            }
+            MouseEvent::Exit => {
+                self.cancel_impl();
+                InputEventFilterResult::ForwardAndIgnore
+            }
+            MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+                if self.swiping() {
+                    InputEventFilterResult::Intercept
+                } else {
+                    self.pressed.set(false);
+                    InputEventFilterResult::ForwardEvent
+                }
+            }
+            MouseEvent::Moved { position } => {
+                if self.swiping() {
+                    InputEventFilterResult::Intercept
+                } else if !self.pressed.get() {
+                    InputEventFilterResult::ForwardEvent
+                } else if crate::animations::current_tick() - self.pressed_time.get()
+                    > super::flickable::DURATION_THRESHOLD
+                {
+                    self.pressed.set(false);
+                    InputEventFilterResult::ForwardAndIgnore
+                } else {
+                    let pressed_pos = self.pressed_position();
+                    let dx = position.x - pressed_pos.x as Coord;
+                    let dy = position.y - pressed_pos.y as Coord;
+                    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
+                    if (self.swipe_down() && dy > threshold)
+                        || (self.swipe_up() && dy < -threshold)
+                        || (self.swipe_left() && dx < -threshold)
+                        || (self.swipe_right() && dx > threshold)
+                    {
+                        InputEventFilterResult::Intercept
+                    } else {
+                        InputEventFilterResult::ForwardAndInterceptGrab
+                    }
+                }
+            }
+            MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardAndIgnore,
+            // Not the left button
+            MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
+                InputEventFilterResult::ForwardAndIgnore
+            }
+        }
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        match event {
+            MouseEvent::Pressed { .. } => InputEventResult::GrabMouse,
+            MouseEvent::Exit => {
+                self.cancel_impl();
+                InputEventResult::EventIgnored
+            }
+            MouseEvent::Released { .. } => {
+                self.pressed.set(false);
+                if self.swiping() {
+                    Self::FIELD_OFFSETS.swiping.apply_pin(self).set(false);
+                    Self::FIELD_OFFSETS.swiped.apply_pin(self).call(&());
+                    InputEventResult::EventAccepted
+                } else {
+                    InputEventResult::EventIgnored
+                }
+            }
+            MouseEvent::Moved { position } => {
+                if !self.pressed.get() {
+                    return InputEventResult::EventIgnored;
+                }
+                self.current_position.set(crate::lengths::logical_position_to_api(position));
+                if !self.swiping() {
+                    let pressed_pos = self.pressed_position();
+                    let dx = position.x - pressed_pos.x as Coord;
+                    let dy = position.y - pressed_pos.y as Coord;
+                    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
+                    let start_swipe = if dy > threshold {
+                        self.swipe_down()
+                    } else if dy < -threshold {
+                        self.swipe_up()
+                    } else if dx < -threshold {
+                        self.swipe_left()
+                    } else if dx > threshold {
+                        self.swipe_right()
+                    } else {
+                        return InputEventResult::EventIgnored;
+                    };
+                    if start_swipe {
+                        Self::FIELD_OFFSETS.swiping.apply_pin(self).set(true);
+                    } else {
+                        self.cancel_impl();
+                        return InputEventResult::EventIgnored;
+                    }
+                }
+                Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
+                InputEventResult::EventAccepted
+            }
+            MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
+        }
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl ItemConsts for SwipeGestureRecognizer {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+impl SwipeGestureRecognizer {
+    pub fn copy(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
+        self.cancel_impl();
+    }
+
+    fn cancel_impl(self: Pin<&Self>) {
+        if !self.pressed.replace(false) {
+            debug_assert!(!self.swiping());
+            return;
+        }
+        if self.swiping() {
+            Self::FIELD_OFFSETS.swiping.apply_pin(self).set(false);
+            Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
+        }
+    }
 }

@@ -1,0 +1,160 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+
+    in-out property <string> r;
+    in property <bool> enabled <=> right-gesture.enabled;
+    out property ta_hover <=> ta.has-hover;
+    out property ta_pressed <=> ta.pressed;
+    out property down-swiping <=> down-gesture.swiping;
+    out property left-swiping <=> left-gesture.swiping;
+    out property right-swiping <=> right-gesture.swiping;
+
+    function distance(a: Point, b: Point) -> float {
+        return sqrt((a.x/1px - b.x/1px).pow(2) + (a.y/1px - b.y/1px).pow(2));
+    }
+
+    down-gesture := SwipeGestureRecognizer {
+        swipe-down: true;
+        swipe-left: false;
+        swiped => {
+            r += "S1(" + distance(self.current-position, self.pressed-position) + ")";
+        }
+        cancelled => { r += "C1(" + distance(self.current-position, self.pressed-position) + ")"; }
+        VerticalLayout {
+            left-gesture := SwipeGestureRecognizer {
+                swipe-left: true;
+                swiped => {
+                    r += "S2(" + distance(self.current-position, self.pressed-position) + ")";
+                }
+                moved => {
+                    r += "M2(" + distance(self.current-position, self.pressed-position) + ")";
+                }
+                cancelled => { r += "C2(" + distance(self.current-position, self.pressed-position) + ")"; }
+
+            }
+            right-gesture := SwipeGestureRecognizer {
+                swipe-right: true;
+                ta := TouchArea {
+                    clicked => { r += "clicked()" }
+                }
+                swiped => {
+                    r += "S3(" + distance(self.current-position, self.pressed-position) + ")";
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_enabled(), true);
+assert_eq!(instance.get_r(), "");
+assert_eq!(instance.get_ta_hover(), false);
+assert_eq!(instance.get_ta_pressed(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+
+// click
+slint_testing::send_mouse_click(&instance, 500., 500.);
+assert_eq!(instance.get_r(), "clicked()");
+assert_eq!(instance.get_ta_hover(), true);
+assert_eq!(instance.get_ta_pressed(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+instance.set_r("".into());
+
+
+// Down
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(4.0, 4.0) });
+assert_eq!(instance.get_ta_hover(), false);
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 400.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 400.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_ta_pressed(), false); // because we might recognize it as a gesture
+assert_eq!(instance.get_ta_hover(), true, "must be hover");
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(299.0, 402.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_ta_pressed(), false);
+assert_eq!(instance.get_ta_hover(), true);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(298.0, 452.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_ta_pressed(), false);
+assert_eq!(instance.get_ta_hover(), true);
+assert_eq!(instance.get_down_swiping(), true);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+slint_testing::mock_elapsed_time(220);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(350.0, 482.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_ta_pressed(), false);
+assert_eq!(instance.get_ta_hover(), true);
+assert_eq!(instance.get_down_swiping(), true);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_r(), "");
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(316.0, 463.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(316.0, 463.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_r(), "S1(65)");
+assert_eq!(instance.get_ta_pressed(), false);
+assert_eq!(instance.get_ta_hover(), true);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+instance.set_r("".into());
+
+// FIXME: this shouldn'g be necessary, but otherwise we don't send exit event to the toucharea
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(316.0, 463.0) });
+
+// Left
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+assert_eq!(instance.get_ta_hover(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(120); // FIXME: it should also work with smaller delay, but now the top swipe catches it
+assert_eq!(instance.get_ta_hover(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_r(), "");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(80.0, 100.0) });
+assert_eq!(instance.get_ta_hover(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_left_swiping(), true);
+// the root gesture cause the mouse event to be repeated twice
+assert_eq!(instance.get_r(), "M2(20)M2(20)");
+instance.window().dispatch_event(WindowEvent::PointerExited);
+assert_eq!(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_ta_hover(), false);
+```
+
+
+*/

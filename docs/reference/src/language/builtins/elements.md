@@ -656,6 +656,78 @@ export component Example inherits Window {
 }
 ```
 
+## `SwipeGestureRecognizer`
+
+The `SwipeGestureRecognizer` is used to recognize swipes gesture on the screen in some particular direction.
+Press events on it are still forwarded to the children, but with a small delay.
+If the cursor has moved by more than some internal threshold, a swipe gesture is recognized, and events are no
+longer forwared to the children.
+
+### Properties
+
+-   **`enabled`** (_in_ _bool_): When not enabled, the `SwipeGestureRecognizer` is not recognizing any events.
+    (default value: `true`)
+-   **`swipe-left`**, **`swipe-right`**, **`swipe-up`**, **`swipe-down`** (_out_ _bool_): Recognizes a swipe in
+    the corresponding direction. (default value: `false`)
+-   **`pressed-position`** (_out_ _Point_): The position of the cursor when the swipe started.
+-   **`current-position`** (_out_ _Point_): The current position of the cursor.
+-   **`swiping`** (_out_ _bool_): `true` when the cursor is pressed and the threshold was reached. (default value: `false`)
+
+### Callbacks
+
+-   **`moved()`**: Called when the cursor is moved.
+-   **`swiped()`**: Called when the cursor is released and the swipe is finished.
+-   **`cancelled()`**: Called when the swipe is cancelled programatically or if the window loses focus.
+
+### Functions
+
+-   **`cancel()`**: Cancels the swipe
+
+### Example
+
+This example implements swiping between pages of different colors.
+
+```slint
+export component Example inherits Window {
+    width: 270px;
+    height: 100px;
+
+    property <int> current-page: 0;
+
+    sgr := SwipeGestureRecognizer {
+        swipe-right: current-page > 0;
+        swipe-left: current-page < 5;
+        swiped => {
+            if self.current-position.x > self.pressed-position.x + self.width / 4 {
+                current-page -= 1;
+            } else if self.current-position.x < self.pressed-position.x - self.width / 4 {
+                current-page += 1;
+            }
+        }
+
+        HorizontalLayout {
+            property <length> position: - current-page * root.width;
+            animate position { duration: 200ms; easing: ease-in-out; }
+            property <length> swipe-offset;
+            x: position + swipe-offset;
+            states [
+                swiping when sgr.swiping : {
+                    swipe-offset: sgr.current-position.x - sgr.pressed-position.x;
+                    out { animate swipe-offset { duration: 200ms; easing: ease-in-out; }  }
+                }
+            ]
+
+            Rectangle { width: root.width; background: green; }
+            Rectangle { width: root.width; background: limegreen; }
+            Rectangle { width: root.width; background: yellow; }
+            Rectangle { width: root.width; background: orange; }
+            Rectangle { width: root.width; background: red; }
+            Rectangle { width: root.width; background: violet; }
+        }
+    }
+}
+```
+
 ## `TextInput`
 
 The `TextInput` is a lower-level item that shows text and allows entering text.

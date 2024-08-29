@@ -46,6 +46,7 @@ macro_rules! declare_ValueType_2 {
             crate::items::PointerScrollEvent,
             crate::lengths::LogicalLength,
             crate::component_factory::ComponentFactory,
+            crate::api::LogicalPosition,
             $(crate::items::$Name,)*
         ];
     };

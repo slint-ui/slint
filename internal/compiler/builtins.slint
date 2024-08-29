@@ -151,6 +151,37 @@ export component Flickable inherits Empty {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export component SwipeGestureRecognizer {
+    in property <bool> enabled: true;
+    in property <bool> swipe-left;
+    in property <bool> swipe-right;
+    in property <bool> swipe-up;
+    in property <bool> swipe-down;
+
+    // For the future
+    //in property <length> swipe-distance-threshold: 8px;
+    //in property <duration> swipe-duration-threshold: 500ms;
+    // in property <bool> delays-propgataion;
+    //in property <duration> propgataion-delay: 100ms;
+    // in property <int> required-touch-points: 1;
+    //callback swipe-recognized();
+
+    out property <Point> pressed-position;
+    out property <Point> current-position;
+    out property <bool> swiping;
+
+    callback moved();
+    // the cursor is released and so the swipe is finished
+    callback swiped();
+    // the cursor is released and so the swipe is finished
+    callback cancelled();
+
+    // clears state, invokes swipe-cancelled()
+    function cancel() {}
+
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;

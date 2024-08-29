@@ -180,9 +180,11 @@ impl core::ops::Deref for FlickableDataBox {
 }
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
-const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(8 as _);
+pub(super) const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(8 as _);
 /// Time required before we stop caring about child event if the mouse hasn't been moved
-const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
+pub(super) const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
+/// The delay to which press are forwarded to the inner item
+pub(super) const FORWARD_DELAY: Duration = Duration::from_millis(100);
 
 #[derive(Default, Debug)]
 struct FlickableDataInner {
@@ -218,7 +220,7 @@ impl FlickableData {
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
-                    InputEventFilterResult::DelayForwarding(100)
+                    InputEventFilterResult::DelayForwarding(FORWARD_DELAY.as_millis() as _)
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
