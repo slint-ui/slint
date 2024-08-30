@@ -325,7 +325,7 @@ fn insert_position_at_end(
 ) -> Option<InsertInformation> {
     target_element_node.with_element_node(|node| {
         let closing_brace = crate::util::last_non_ws_token(node)?;
-        let closing_brace_offset = Into::<u32>::into(closing_brace.text_range().start());
+        let closing_brace_offset = closing_brace.text_range().start();
 
         let before_closing = closing_brace.prev_token()?;
 
@@ -350,7 +350,7 @@ fn insert_position_at_end(
                 format!("\n{indent}    "),
                 format!("{indent}    "),
                 indent,
-                closing_brace_offset - ws_len,
+                closing_brace_offset - TextSize::new(ws_len),
                 ws_len,
             )
         } else {
@@ -398,7 +398,7 @@ fn insert_position_before_child(
             assert!(index == child_index);
 
             let first_token = child_node.first_token()?;
-            let first_token_offset = u32::from(first_token.text_range().start());
+            let first_token_offset = first_token.text_range().start();
             let before_first_token = first_token.prev_token()?;
 
             let (pre_indent, indent) = if before_first_token.kind() == SyntaxKind::Whitespace
@@ -493,7 +493,7 @@ fn insert_position_before_first_component(
     if let Some(component) = first_component_node {
         // have a component node!
         let first_token = component.first_token()?;
-        let first_token_offset = u32::from(first_token.text_range().start());
+        let first_token_offset = first_token.text_range().start();
         if let Some(before_first_token) = first_token.prev_token() {
             let (pre_indent, replacement_range) =
                 find_pre_indent_and_replacement(&before_first_token);
@@ -501,7 +501,7 @@ fn insert_position_before_first_component(
             Some(InsertInformation {
                 insertion_position: common::VersionedPosition::new(
                     url,
-                    first_token_offset - replacement_range,
+                    first_token_offset - TextSize::new(replacement_range),
                 ),
                 replacement_range,
                 pre_indent,
@@ -525,7 +525,7 @@ fn insert_position_before_first_component(
         Some(InsertInformation {
             insertion_position: common::VersionedPosition::new(
                 url,
-                u32::from(document.text_range().end()) - replacement_range,
+                document.text_range().end() - TextSize::new(replacement_range),
             ),
             replacement_range,
             pre_indent,
@@ -535,10 +535,7 @@ fn insert_position_before_first_component(
     } else {
         // Entire document is empty
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(
-                url,
-                u32::from(document.text_range().end()),
-            ),
+            insertion_position: common::VersionedPosition::new(url, document.text_range().end()),
             replacement_range: 0,
             pre_indent: String::new(),
             indent: String::new(),
@@ -559,12 +556,14 @@ pub fn add_new_component(
     );
 
     let selection_offset = insert_position.insertion_position.offset()
-        + new_text
-            .chars()
-            .take_while(|c| c.is_whitespace())
-            .map(|c| c.len_utf8() as u32)
-            .sum::<u32>()
-        + "component ".len() as u32;
+        + TextSize::new(
+            new_text
+                .chars()
+                .take_while(|c| c.is_whitespace())
+                .map(|c| c.len_utf8() as u32)
+                .sum::<u32>()
+                + "component ".len() as u32,
+        );
 
     let source_file = document.source_file.clone();
     let path = source_file.path().to_path_buf();
@@ -575,7 +574,8 @@ pub fn add_new_component(
     );
     let end_pos = util::text_size_to_lsp_position(
         &source_file,
-        (insert_position.insertion_position.offset() + insert_position.replacement_range).into(),
+        insert_position.insertion_position.offset()
+            + TextSize::new(insert_position.replacement_range),
     );
     let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
 
@@ -861,7 +861,7 @@ pub fn can_move_to(
 pub struct DropData {
     /// The offset to select next. This is different from the insert position
     /// due to indentation, etc.
-    pub selection_offset: u32,
+    pub selection_offset: TextSize,
     pub path: std::path::PathBuf,
 }
 
@@ -1006,8 +1006,10 @@ pub fn drop_at(
     };
 
     let mut selection_offset = drop_info.insert_info.insertion_position.offset()
-        + new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8()).sum::<usize>()
-            as u32;
+        + TextSize::new(
+            new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8()).sum::<usize>()
+                as u32,
+        );
 
     let (path, _) = drop_info.target_element_node.path_and_offset();
 
@@ -1019,7 +1021,7 @@ pub fn drop_at(
     if let Some(edit) = completion::create_import_edit(doc, component_type, &import_file) {
         if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
             selection_offset =
-                text_edit::TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
+                text_edit::TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset.into());
         }
         edits.push(edit);
     }
@@ -1028,8 +1030,8 @@ pub fn drop_at(
         drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file)
             .drain(..)
             .inspect(|te| {
-                selection_offset =
-                    text_edit::TextOffsetAdjustment::new(te, &source_file).adjust(selection_offset);
+                selection_offset = text_edit::TextOffsetAdjustment::new(te, &source_file)
+                    .adjust(selection_offset.into());
             }),
     );
 
@@ -1039,9 +1041,8 @@ pub fn drop_at(
     );
     let end_pos = util::text_size_to_lsp_position(
         &source_file,
-        (drop_info.insert_info.insertion_position.offset()
-            + drop_info.insert_info.replacement_range)
-            .into(),
+        drop_info.insert_info.insertion_position.offset()
+            + TextSize::new(drop_info.insert_info.replacement_range),
     );
     edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
 
@@ -1202,8 +1203,10 @@ pub fn create_move_element_workspace_edit(
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
     let mut selection_offset = drop_info.insert_info.insertion_position.offset()
-        + new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8()).sum::<usize>()
-            as u32;
+        + TextSize::new(
+            new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8()).sum::<usize>()
+                as u32,
+        );
 
     let mut edits = Vec::with_capacity(3);
 
@@ -1250,8 +1253,8 @@ pub fn create_move_element_workspace_edit(
     let end_pos = util::text_size_to_lsp_position(
         &source_file,
         (drop_info.insert_info.insertion_position.offset()
-            + drop_info.insert_info.replacement_range)
-            .into(),
+            + TextSize::new(drop_info.insert_info.replacement_range))
+        .into(),
     );
     edits.push(common::SingleTextEdit::from_path(
         &document_cache,
@@ -1468,7 +1471,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         assert_eq!(&result[0].contents, output);
 
         assert_eq!(drop_data.path, test::main_test_file_name());
-        assert_eq!(drop_data.selection_offset, selection_offset);
+        assert_eq!(drop_data.selection_offset, selection_offset.into());
 
         assert_eq!(super::workspace_edit_compiles(&document_cache, &workspace_edit), true);
     }

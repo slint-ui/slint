@@ -14,7 +14,7 @@ use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken, TextSize};
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
@@ -26,7 +26,7 @@ use std::path::Path;
 pub(crate) fn completion_at(
     document_cache: &mut DocumentCache,
     token: SyntaxToken,
-    offset: u32,
+    offset: TextSize,
     client_caps: Option<&CompletionClientCapabilities>,
 ) -> Option<Vec<CompletionItem>> {
     let node = token.parent();
@@ -41,7 +41,7 @@ pub(crate) fn completion_at(
             return complete_path_in_string(
                 token.source_file()?.path(),
                 token.text(),
-                offset.checked_sub(token.text_range().start().into())?,
+                offset.checked_sub(token.text_range().start())?,
             )
             .map(|mut r| {
                 if node.kind() == SyntaxKind::ImportSpecifier && !token.text().contains('/') {
@@ -641,12 +641,16 @@ fn resolve_type_scope(
     )
 }
 
-fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<CompletionItem>> {
-    if offset as usize > text.len() || offset == 0 {
+fn complete_path_in_string(
+    base: &Path,
+    text: &str,
+    offset: TextSize,
+) -> Option<Vec<CompletionItem>> {
+    if u32::from(offset) as usize > text.len() || offset == 0.into() {
         return None;
     }
     let mut text = text.strip_prefix('\"')?;
-    text = &text[..(offset - 1) as usize];
+    text = &text[..(u32::from(offset) - 1) as usize];
     let base = i_slint_compiler::typeloader::base_directory(base);
     let path = if let Some(last_slash) = text.rfind('/') {
         base.join(Path::new(&text[..last_slash]))
@@ -877,7 +881,7 @@ mod tests {
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
     fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
         const CURSOR_EMOJI: char = '🔺';
-        let offset = file.find(CURSOR_EMOJI).unwrap() as u32;
+        let offset = (file.find(CURSOR_EMOJI).unwrap() as u32).into();
         let source = file.replace(CURSOR_EMOJI, "");
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source);
 

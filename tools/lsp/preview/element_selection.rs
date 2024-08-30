@@ -3,7 +3,10 @@
 
 use std::{path::PathBuf, rc::Rc};
 
-use i_slint_compiler::object_tree::{Component, ElementRc};
+use i_slint_compiler::{
+    object_tree::{Component, ElementRc},
+    parser::TextSize,
+};
 use i_slint_core::lengths::LogicalPoint;
 use slint_interpreter::ComponentInstance;
 
@@ -14,7 +17,7 @@ use super::{ext::ElementRcNodeExt, ui};
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
     pub path: PathBuf,
-    pub offset: u32,
+    pub offset: TextSize,
     pub instance_index: usize,
 }
 
@@ -23,7 +26,7 @@ impl ElementSelection {
         let component_instance = super::component_instance()?;
 
         let elements =
-            component_instance.element_node_at_source_code_position(&self.path, self.offset);
+            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
@@ -33,8 +36,7 @@ impl ElementSelection {
         let debug_index = {
             let e = element.borrow();
             e.debug.iter().position(|d| {
-                d.node.source_file.path() == self.path
-                    && u32::from(d.node.text_range().start()) == self.offset
+                d.node.source_file.path() == self.path && d.node.text_range().start() == self.offset
             })
         };
 
@@ -88,7 +90,7 @@ pub fn unselect_element() {
 
 pub fn select_element_at_source_code_position(
     path: PathBuf,
-    offset: u32,
+    offset: TextSize,
     position: Option<LogicalPoint>,
     notify_editor_about_selection_after_update: bool,
 ) {
@@ -107,11 +109,11 @@ pub fn select_element_at_source_code_position(
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
     path: PathBuf,
-    offset: u32,
+    offset: TextSize,
     position: Option<LogicalPoint>,
     notify_editor_about_selection_after_update: bool,
 ) {
-    let positions = component_instance.component_positions(&path, offset);
+    let positions = component_instance.component_positions(&path, offset.into());
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
@@ -397,7 +399,7 @@ pub fn reselect_element() {
     let Some(component_instance) = super::component_instance() else {
         return;
     };
-    let positions = component_instance.component_positions(&selected.path, selected.offset);
+    let positions = component_instance.component_positions(&selected.path, selected.offset.into());
 
     super::set_selected_element(Some(selected), &positions, false);
 }
@@ -467,7 +469,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
             let (path, offset) = candidate.as_element_node().unwrap().path_and_offset();
             assert_eq!(&path, &test_file);
-            assert_eq!(offset, *expected_offset);
+            assert_eq!(offset, (*expected_offset).into());
         }
 
         let covers_below = super::collect_all_element_nodes_covering(

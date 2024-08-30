@@ -86,9 +86,15 @@ fn from_slint_code(value: &str) -> MarkupContent {
     }
 }
 
-#[test]
-fn test_tooltip() {
-    let source = r#"
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use i_slint_compiler::parser::TextSize;
+
+    #[test]
+    fn test_tooltip() {
+        let source = r#"
 global Glob {
   in-out property <{a:int,b:float}> hello_world;
   callback cb(string, int) -> [int];
@@ -120,92 +126,100 @@ export component Test {
     border-color: self.background;
   }
 }"#;
-    let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
-    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
 
-    let find_tk = |needle: &str, offset: i32| {
-        crate::language::token_at_offset(
-            &doc,
-            (source.find(needle).unwrap_or_else(|| panic!("'{needle}' not found")) as u32)
-                .saturating_add_signed(offset),
-        )
-        .unwrap()
-    };
+        let find_tk = |needle: &str, offset: TextSize| {
+            crate::language::token_at_offset(
+                &doc,
+                TextSize::new(
+                    source.find(needle).unwrap_or_else(|| panic!("'{needle}' not found")) as u32,
+                ) + offset,
+            )
+            .unwrap()
+        };
 
-    #[track_caller]
-    fn assert_tooltip(h: Option<Hover>, str: &str) {
-        match h.unwrap().contents {
-            HoverContents::Markup(m) => assert_eq!(m.value, str),
-            x => panic!("Found {x:?} ({str})"),
+        #[track_caller]
+        fn assert_tooltip(h: Option<Hover>, str: &str) {
+            match h.unwrap().contents {
+                HoverContents::Markup(m) => assert_eq!(m.value, str),
+                x => panic!("Found {x:?} ({str})"),
+            }
         }
+
+        // properties
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("hello: Glob", 0.into())),
+            "```slint\nproperty <string> hello\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("Glob.hello_world", 8.into())),
+            "```slint\nproperty <{ a: int,b: float,}> hello-world\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("self.enabled", 5.into())),
+            "```slint\nproperty <bool> enabled\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 10.into())),
+            "```slint\nproperty <int> local-prop\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("root-prop.to-float", 1.into())),
+            "```slint\nproperty <string> root-prop\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("background: red", 0.into())),
+            "```slint\nproperty <brush> background\n```",
+        );
+        // callbacks
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("self.www", 5.into())),
+            "```slint\npure callback www()\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("xyz(abc", 0.into())),
+            "```slint\ncallback xyz(string, int)\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("Glob.cb(", 6.into())),
+            "```slint\ncallback cb(string, int) -> [int]\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 1.into())),
+            "```slint\npure function fn-glob(int)\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("root.fn_loc", 8.into())),
+            "```slint\nfunction fn-loc() -> int\n```",
+        );
+        // elements
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("self.enabled", 0.into())),
+            "```slint\nthe-ta := TA { /*...*/ }\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("self.background", 0.into())),
+            "```slint\nRectangle { /*...*/ }\n```",
+        );
+        // global
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("hello: Glob", 8.into())),
+            "```slint\nglobal Glob\n```",
+        );
+
+        //components
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("Rectangle {", 8.into())),
+            "Rectangle (builtin)",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("the-ta := TA {", 11.into())),
+            "```slint\ncomponent TA\n```",
+        );
+
+        // enums
+        assert_tooltip(get_tooltip(&mut dc, find_tk("Eee.E2", 0.into())), "enum Eee");
+        assert_tooltip(get_tooltip(&mut dc, find_tk("Eee.E2", 5.into())), "```slint\nEee.E2\n```");
     }
-
-    // properties
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("hello: Glob", 0)),
-        "```slint\nproperty <string> hello\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("Glob.hello_world", 8)),
-        "```slint\nproperty <{ a: int,b: float,}> hello-world\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("self.enabled", 5)),
-        "```slint\nproperty <bool> enabled\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 10)),
-        "```slint\nproperty <int> local-prop\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("root-prop.to-float", 1)),
-        "```slint\nproperty <string> root-prop\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("background: red", 0)),
-        "```slint\nproperty <brush> background\n```",
-    );
-    // callbacks
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("self.www", 5)),
-        "```slint\npure callback www()\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("xyz(abc", 0)),
-        "```slint\ncallback xyz(string, int)\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("Glob.cb(", 6)),
-        "```slint\ncallback cb(string, int) -> [int]\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 1)),
-        "```slint\npure function fn-glob(int)\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("root.fn_loc", 8)),
-        "```slint\nfunction fn-loc() -> int\n```",
-    );
-    // elements
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("self.enabled", 0)),
-        "```slint\nthe-ta := TA { /*...*/ }\n```",
-    );
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("self.background", 0)),
-        "```slint\nRectangle { /*...*/ }\n```",
-    );
-    // global
-    assert_tooltip(get_tooltip(&mut dc, find_tk("hello: Glob", 8)), "```slint\nglobal Glob\n```");
-
-    //components
-    assert_tooltip(get_tooltip(&mut dc, find_tk("Rectangle {", 8)), "Rectangle (builtin)");
-    assert_tooltip(
-        get_tooltip(&mut dc, find_tk("the-ta := TA {", 11)),
-        "```slint\ncomponent TA\n```",
-    );
-
-    // enums
-    assert_tooltip(get_tooltip(&mut dc, find_tk("Eee.E2", 0)), "enum Eee");
-    assert_tooltip(get_tooltip(&mut dc, find_tk("Eee.E2", 5)), "```slint\nEee.E2\n```");
 }
