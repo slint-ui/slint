@@ -74,6 +74,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_test_code_binding(super::test_code_binding);
     api.on_test_string_binding(super::test_string_binding);
     api.on_set_code_binding(super::set_code_binding);
+    api.on_set_color_binding(super::set_color_binding);
     api.on_set_bool_binding(super::set_bool_binding);
     api.on_set_enum_binding(super::set_enum_binding);
     api.on_set_string_binding(super::set_string_binding);

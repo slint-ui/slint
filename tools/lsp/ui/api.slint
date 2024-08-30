@@ -226,6 +226,7 @@ export global Api {
     pure callback test-code-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string) -> bool;
     pure callback test-string-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* value: */ string) -> bool;
     callback set-code-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string);
+    callback set-color-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ color);
     callback set-bool-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* value: */ bool);
     callback set-enum-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* enum_type: */ string, /* enum_value: */ string);
     callback set-string-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* value: */ string);
