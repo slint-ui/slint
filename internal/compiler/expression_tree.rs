@@ -35,6 +35,7 @@ pub enum BuiltinFunction {
     ACos,
     ASin,
     ATan,
+    ATan2,
     Log,
     Pow,
     SetFocusItem,
@@ -136,6 +137,10 @@ impl BuiltinFunction {
             BuiltinFunction::ACos | BuiltinFunction::ASin | BuiltinFunction::ATan => {
                 Type::Function { return_type: Box::new(Type::Angle), args: vec![Type::Float32] }
             }
+            BuiltinFunction::ATan2 => Type::Function {
+                return_type: Box::new(Type::Angle),
+                args: vec![Type::Float32, Type::Float32],
+            },
             BuiltinFunction::Log | BuiltinFunction::Pow => Type::Function {
                 return_type: Box::new(Type::Float32),
                 args: vec![Type::Float32, Type::Float32],
@@ -342,7 +347,8 @@ impl BuiltinFunction {
             | BuiltinFunction::ASin
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
-            | BuiltinFunction::ATan => true,
+            | BuiltinFunction::ATan
+            | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
@@ -407,7 +413,8 @@ impl BuiltinFunction {
             | BuiltinFunction::ASin
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
-            | BuiltinFunction::ATan => true,
+            | BuiltinFunction::ATan
+            | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,

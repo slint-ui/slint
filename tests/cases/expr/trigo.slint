@@ -11,6 +11,15 @@
         round(atan(tan(45deg))/0.1deg) == 450 &&
         round(asin(sin(45deg))/0.1deg) == 450 &&
         round(acos(cos(45deg))/0.1deg) == 450 &&
+        atan2(0, 0) == 0 &&
+        atan2(0, 10) == 0deg &&
+        atan2(10, 10) == 45deg &&
+        atan2(10, 0) == 90deg &&
+        atan2(10, -10) == 135deg &&
+        atan2(0, -10) == 180deg &&
+        atan2(-10, -10) == -135deg &&
+        atan2(-10, 0) == -90deg &&
+        atan2(-10, 10) == -45deg &&
         true;
     property <bool> test: verify;
 }

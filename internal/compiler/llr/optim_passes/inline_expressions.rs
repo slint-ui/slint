@@ -92,6 +92,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ACos => 10,
         BuiltinFunction::ASin => 10,
         BuiltinFunction::ATan => 10,
+        BuiltinFunction::ATan2 => 10,
         BuiltinFunction::Log => 10,
         BuiltinFunction::Pow => 10,
         BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,

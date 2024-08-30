@@ -479,6 +479,11 @@ fn call_builtin_function(
             let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::Number(x.atan().to_degrees())
         }
+        BuiltinFunction::ATan2 => {
+            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::Number(x.atan2(y).to_degrees())
+        }
         BuiltinFunction::Log => {
             let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
