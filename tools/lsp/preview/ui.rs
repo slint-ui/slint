@@ -257,13 +257,20 @@ fn extract_tr_data(tr_node: &syntax_nodes::AtTr, value: &mut PropertyValue) {
         .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
         .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
         .unwrap_or_default();
+    let plural_expression = tr_node
+        .TrPlural()
+        .and_then(|n| n.child_node(SyntaxKind::Expression))
+        .and_then(|e| e.child_node(SyntaxKind::QualifiedName))
+        .map(|n| i_slint_compiler::object_tree::QualifiedTypeName::from_node(n.into()))
+        .map(|qtn| qtn.to_string());
 
     // We have expressions -> Edit as code
-    if tr_node.Expression().next().is_none() {
+    if tr_node.Expression().next().is_none() && (plural.is_empty() || plural_expression.is_some()) {
         value.kind = PropertyValueKind::String;
         value.is_translatable = true;
         value.tr_context = context.into();
         value.tr_plural = plural.into();
+        value.tr_plural_expression = plural_expression.unwrap_or_default().into();
         value.value_string = text.into();
     }
 }
@@ -703,14 +710,45 @@ mod tests {
         assert!(!result.code.is_empty());
 
         let result = property_conversion_test(
-            r#"export component Test { in property <string> test1: @tr("{n} string" | "{n} strings" % 15); }"#,
-            0,
+            r#"export component Test {
+    property <int> test: 42;
+    in property <string> test1: @tr("{n} string" | "{n} strings" % test);
+}"#,
+            2,
         );
         assert_eq!(result.kind, PropertyValueKind::String);
         assert_eq!(result.is_translatable, true);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "{n} strings");
+        assert_eq!(result.tr_plural_expression, "test");
         assert_eq!(result.value_string, "{n} string");
+        assert!(!result.code.is_empty());
+
+        let result = property_conversion_test(
+            r#"export component Test {
+    property <int> test: 42;
+    in property <string> test1: @tr("{n} string" | "{n} strings" % self.test);
+}"#,
+            2,
+        );
+        assert_eq!(result.kind, PropertyValueKind::String);
+        assert_eq!(result.is_translatable, true);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "{n} strings");
+        assert_eq!(result.tr_plural_expression, "self.test");
+        assert_eq!(result.value_string, "{n} string");
+        assert!(!result.code.is_empty());
+
+        // `15` is not a qualified name
+        let result = property_conversion_test(
+            r#"export component Test { in property <string> test1: @tr("{n} string" | "{n} strings" % 15); }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Code);
+        assert_eq!(result.is_translatable, false);
+        assert_eq!(result.tr_context, "");
+        assert_eq!(result.tr_plural, "");
+        assert_eq!(result.value_string, "");
         assert!(!result.code.is_empty());
 
         let result = property_conversion_test(
