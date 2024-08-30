@@ -24,6 +24,8 @@ export component PreviewUi inherits Window {
         is-user-defined: false,
         is-currently-shown: false,
     };
+    property <bool> show-left-sidebar: true;
+    property <bool> show-right-sidebar: true;
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -49,6 +51,9 @@ export component PreviewUi inherits Window {
         if Api.show-preview-ui: Rectangle {
             VerticalLayout {
                 header-view := HeaderView {
+                    show-left-sidebar <=> root.show-left-sidebar;
+                    show-right-sidebar <=> root.show-right-sidebar;
+
                     edit-mode <=> Api.design-mode;
                     current-style <=> Api.current-style;
                     known-styles <=> Api.known-styles;
@@ -78,7 +83,7 @@ export component PreviewUi inherits Window {
                 HorizontalLayout {
                     spacing: EditorSpaceSettings.default-spacing;
 
-                    if Api.design-mode: LibraryView {
+                    if Api.design-mode && root.show-left-sidebar: LibraryView {
                         known-components: Api.known-components;
                         preview-area-position-x: preview.preview-area-position-x;
                         preview-area-position-y: preview.preview-area-position-y;
@@ -103,7 +108,7 @@ export component PreviewUi inherits Window {
                         visible-component <=> root.visible-component;
                     }
 
-                    if Api.design-mode: PropertyView { }
+                    if Api.design-mode && root.show-right-sidebar: PropertyView { }
                 }
             }
 
