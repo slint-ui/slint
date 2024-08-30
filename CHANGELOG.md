@@ -3,11 +3,17 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## 1.8.0 - Unreleased
 
-### Rust
+### Slint language
 
- - Added `clear` and `swap` to `VecModel`
+ - Postfix function on numbers for math function.
+ - Fixed panic when accessing function witin a PopupWindow. (#5852)
+ - `Timer` builtin pseudo-element. (#5724)
+ - Fixed `@children` order in the root of a component. (#5865)
+ - Fix conversion from float to string adding extra decimal precision by limiting to f32
+ - `debug` will now print space between the arguments instead of coma. (#5991)
+ - Added math function `Math.atan2`.
 
 ### Widgets
 
@@ -15,10 +21,41 @@ All notable changes to this project are documented in this file.
  - Added `scrolled` callback to `ListView` and `ScrollView`.
  - Do not trigger `current-item-changed` on `StandardListView` if `current-item` is set on the same value.
  - Fixed `TimePickerPopup` does not open minute view by click on selected hour.
+ - Visually clamp the slider even if the value is out of bounds (#5770)
 
-### Slint Language
+### Rust
 
- - Added math function `atan2`.
+ - Added `clear` and `swap` to `VecModel`
+ - `spawn_local` can now be called before initializing the backend. (It will initialize it) (#5871)
+ - Fixed error in generated code when calling as an expression a callback that don't return a value. (#5883)
+ - Fixed error in generated code with struct containing `percent` value (#5887)
+
+### C++
+
+ - Split the generated code into a header and an implementation file
+ - Added SMT32 platform integration
+ - cmake: Add ability to download the Slint compiler binary for the host when cross-compiling using binary packages for the target.
+ - Added Pre-build binary packages for cross compilation to arm and xtensa target, and host package for MacOs
+ - Use the "fluent" style by default on freestanding build instead of the platform default
+
+### LSP and tooling
+
+ - Fixed vscode web extension
+ - Fixed race condition in preview diagnistic causing previous diagnostic to remain displayed.
+ - live-preview: Use preferred size when requesting preview.
+ - Don't auto-complete `out` property of builtin elements at element scope.
+ - Don't insert a semicolon after auto-complete of a property name at element scope.
+ - Added support for tooltip on hover of symbols
+ - live-preview: Custom system menu bar so cmd+q don't quit the LSP.
+ - vscode extension: the wasm preview load code in another tab.
+ - vscode extension: Added telemtry to report panics of the LSP server.
+ - vscode extension: Added "Create New Project" command to start from one of our template
+ - vscode extension: Rename the output tab to from "Slint LSP" to "Slint", and make sure it is always there
+
+ ### Misc
+
+ - Added ability to configure scale factor at compile time (usefull for no_std).
+ - Improved property inlining in the compiler.
 
 ## [1.7.2] - 2024-08-14
 
