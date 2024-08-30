@@ -13,7 +13,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(std::abs(instance.get_t1()) < 0.0001);
 assert(std::abs(instance.get_t2() - 45.0) < 0.0001);
-assert(std::abs(instance.get_t3() - -135.0) < 0.0001);
+assert(std::abs(instance.get_t3() - 135.0) < 0.0001);
 assert(std::abs(instance.get_t4() - -45.0) < 0.0001);
 ```
 
@@ -21,7 +21,7 @@ assert(std::abs(instance.get_t4() - -45.0) < 0.0001);
 let instance = TestCase::new().unwrap();
 assert!(instance.get_t1().abs() < 0.0001);
 assert!((instance.get_t2() - 45.0).abs() < 0.0001);
-assert!((instance.get_t3() - -135.0).abs() < 0.0001);
+assert!((instance.get_t3() - 135.0).abs() < 0.0001);
 assert!((instance.get_t4() - -45.0).abs() < 0.0001);
 ```
 
@@ -29,7 +29,7 @@ assert!((instance.get_t4() - -45.0).abs() < 0.0001);
 var instance = new slint.TestCase({});
 assert.equal(instance.t1, 0);
 assert.equal(instance.t2, 45);
-assert.equal(instance.t3, -135);
+assert.equal(instance.t3, 135);
 assert.equal(instance.t4, -45);
 ```
 */
