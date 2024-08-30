@@ -435,6 +435,29 @@ fn set_bool_binding(
     set_binding(element_url, element_version, element_offset, property_name, value.to_string())
 }
 
+fn set_color_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    value: slint::Color,
+) {
+    // We need a CSS value which is rgba, color converts to a argb only :-/
+    let rgba: slint::RgbaColor<u8> = value.into();
+    let value: u32 = ((rgba.red as u32) << 24)
+        + ((rgba.green as u32) << 16)
+        + ((rgba.blue as u32) << 8)
+        + (rgba.alpha as u32);
+
+    set_binding(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        format!("#{:08x}", value),
+    )
+}
+
 fn set_enum_binding(
     element_url: slint::SharedString,
     element_version: i32,
