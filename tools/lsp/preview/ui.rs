@@ -102,7 +102,7 @@ pub fn convert_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Vec
 }
 
 fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
-    let Some(url) = ci.defined_at.as_ref().map(|da| &da.url) else {
+    let Some(url) = ci.defined_at.as_ref().map(|da| da.url()) else {
         return (Default::default(), Default::default());
     };
 
@@ -138,11 +138,11 @@ pub fn ui_set_known_components(
         };
 
         if let Some(position) = &ci.defined_at {
-            if let Some(library) = position.url.path().strip_prefix("/@") {
+            if let Some(library) = position.url().path().strip_prefix("/@") {
                 library_map.entry(format!("@{library}")).or_default().push(item);
             } else {
                 let path = i_slint_compiler::pathutils::clean_path(
-                    &(position.url.to_file_path().unwrap_or_default()),
+                    &(position.url().to_file_path().unwrap_or_default()),
                 );
                 if path != PathBuf::new() {
                     if longest_path_prefix == PathBuf::new() {

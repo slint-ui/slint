@@ -10,7 +10,7 @@ use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::diagnostics;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::syntax_nodes;
+use i_slint_compiler::parser::{syntax_nodes, TextSize};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::model::VecModel;
@@ -64,7 +64,7 @@ struct ContentCache {
     config: PreviewConfig,
     current_previewed_component: Option<PreviewComponent>,
     loading_state: PreviewFutureState,
-    highlight: Option<(Url, u32)>,
+    highlight: Option<(Url, TextSize)>,
     ui_is_visible: bool,
 }
 
@@ -337,7 +337,7 @@ fn evaluate_binding(
 ) -> Option<lsp_types::WorkspaceEdit> {
     let element_url = Url::parse(element_url.as_ref()).ok()?;
     let element_version = if element_version < 0 { None } else { Some(element_version) };
-    let element_offset = u32::try_from(element_offset).ok()?;
+    let element_offset = u32::try_from(element_offset).ok()?.into();
     let property_name = property_name.to_string();
 
     let document_cache = document_cache()?;
@@ -898,7 +898,7 @@ fn finish_parsing(ok: bool) {
                 .iter()
                 .position(|ci| {
                     ci.name == component
-                        && ci.defined_at.as_ref().map(|da| &da.url) == previewed_url.as_ref()
+                        && ci.defined_at.as_ref().map(|da| da.url()) == previewed_url.as_ref()
                 })
                 .unwrap_or(usize::MAX)
         } else {
@@ -1054,7 +1054,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
             if notify_editor {
                 if let Some(component_instance) = component_instance() {
                     if let Some((element, debug_index)) = component_instance
-                        .element_node_at_source_code_position(&se.path, se.offset)
+                        .element_node_at_source_code_position(&se.path, se.offset.into())
                         .first()
                     {
                         let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index)
@@ -1213,7 +1213,7 @@ fn set_preview_factory(
         {
             highlight(Some(url), offset);
         } else {
-            highlight(None, 0);
+            highlight(None, 0.into());
         }
 
         callback(instance.clone_strong());
@@ -1228,7 +1228,7 @@ fn set_preview_factory(
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
-pub fn highlight(url: Option<Url>, offset: u32) {
+pub fn highlight(url: Option<Url>, offset: TextSize) {
     let highlight = url.clone().map(|u| (u, offset));
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
@@ -1410,7 +1410,7 @@ fn set_selected_element(
                         }?;
 
                         let path = identifier.source_file.path().to_path_buf();
-                        let offset = u32::from(identifier.text_range().start());
+                        let offset = identifier.text_range().start();
 
                         Some(ElementSelection { path, offset, instance_index: 0 })
                     })
@@ -1589,7 +1589,7 @@ pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
             load_preview(pc, LoadBehavior::Load);
         }
         M::HighlightFromEditor { url, offset } => {
-            highlight(url, offset);
+            highlight(url, offset.into());
         }
     }
 }

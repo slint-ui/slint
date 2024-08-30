@@ -3,12 +3,14 @@
 
 use std::collections::HashMap;
 
+use i_slint_compiler::parser::TextSize;
+
 use crate::common;
 
 #[derive(Clone, Debug)]
 pub struct TextOffsetAdjustment {
-    pub start_offset: u32,
-    pub end_offset: u32,
+    pub start_offset: TextSize,
+    pub end_offset: TextSize,
     pub new_text_length: u32,
 }
 
@@ -25,25 +27,33 @@ impl TextOffsetAdjustment {
             );
             let eo = source_file
                 .offset(edit.range.end.line as usize + 1, edit.range.end.character as usize + 1);
-            (std::cmp::min(so, eo) as u32, std::cmp::max(so, eo) as u32)
+            (
+                TextSize::new(std::cmp::min(so, eo) as u32),
+                TextSize::new(std::cmp::max(so, eo) as u32),
+            )
         };
 
         Self { start_offset, end_offset, new_text_length }
     }
 
-    pub fn adjust(&self, offset: u32) -> u32 {
+    pub fn adjust(&self, offset: TextSize) -> TextSize {
         // This is a bit simplistic... Worst case: Some unexpected element gets selected. We can live with that.
 
         debug_assert!(self.end_offset >= self.start_offset);
         let old_length = self.end_offset - self.start_offset;
 
         if offset >= self.end_offset {
-            offset + self.new_text_length - old_length
+            offset + TextSize::new(self.new_text_length) - old_length
         } else if offset >= self.start_offset {
-            (offset as i64 + self.new_text_length as i64 - old_length as i64).clamp(
-                self.start_offset as i64,
-                self.end_offset.min(self.start_offset + self.new_text_length) as i64,
-            ) as u32
+            ((u32::from(offset) as i64 + self.new_text_length as i64 - u32::from(old_length) as i64)
+                .clamp(
+                    u32::from(self.start_offset) as i64,
+                    u32::from(
+                        self.end_offset
+                            .min(self.start_offset + TextSize::new(self.new_text_length)),
+                    ) as i64,
+                ) as u32)
+                .into()
         } else {
             offset
         }
@@ -58,11 +68,13 @@ impl TextOffsetAdjustments {
         self.0.push(adjustment);
     }
 
-    pub fn adjust(&self, input: u32) -> u32 {
-        let input_ = i64::from(input);
-        let total_adjustment =
-            self.0.iter().fold(0_i64, |acc, a| acc + i64::from(a.adjust(input)) - input_);
-        (input_ + total_adjustment) as u32
+    pub fn adjust(&self, input: TextSize) -> TextSize {
+        let input_ = i64::from(u32::from(input));
+        let total_adjustment = self
+            .0
+            .iter()
+            .fold(0_i64, |acc, a| acc + i64::from(u32::from(a.adjust(input))) - input_);
+        ((input_ + total_adjustment) as u32).into()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -193,8 +205,8 @@ impl TextEditor {
         };
 
         let adjusted_offset = (
-            self.adjustments.adjust(current_offset.0 as u32) as usize,
-            self.adjustments.adjust(current_offset.1 as u32) as usize,
+            usize::from(self.adjustments.adjust((current_offset.0 as u32).into())),
+            usize::from(self.adjustments.adjust((current_offset.1 as u32).into())),
         );
 
         if self.contents.len() < adjusted_offset.1 {
@@ -262,63 +274,87 @@ fn test_text_offset_adjustments() {
     let mut a = TextOffsetAdjustments::default();
     // same length change
     a.add_adjustment(TextOffsetAdjustment {
-        start_offset: 10,
-        end_offset: 20,
+        start_offset: 10.into(),
+        end_offset: 20.into(),
         new_text_length: 10,
     });
     // insert
-    a.add_adjustment(TextOffsetAdjustment { start_offset: 25, end_offset: 25, new_text_length: 1 });
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 25.into(),
+        end_offset: 25.into(),
+        new_text_length: 1,
+    });
     // smaller replacement
-    a.add_adjustment(TextOffsetAdjustment { start_offset: 30, end_offset: 40, new_text_length: 5 });
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 30.into(),
+        end_offset: 40.into(),
+        new_text_length: 5,
+    });
     // longer replacement
     a.add_adjustment(TextOffsetAdjustment {
-        start_offset: 50,
-        end_offset: 60,
+        start_offset: 50.into(),
+        end_offset: 60.into(),
         new_text_length: 20,
     });
     // deletion
-    a.add_adjustment(TextOffsetAdjustment { start_offset: 70, end_offset: 80, new_text_length: 0 });
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 70.into(),
+        end_offset: 80.into(),
+        new_text_length: 0,
+    });
 
-    assert_eq!(a.adjust(0), 0);
-    assert_eq!(a.adjust(20), 20);
-    assert_eq!(a.adjust(25), 26);
-    assert_eq!(a.adjust(30), 31);
-    assert_eq!(a.adjust(40), 36);
-    assert_eq!(a.adjust(60), 66);
-    assert_eq!(a.adjust(70), 76);
-    assert_eq!(a.adjust(80), 76);
+    assert_eq!(a.adjust(0.into()), 0.into());
+    assert_eq!(a.adjust(20.into()), 20.into());
+    assert_eq!(a.adjust(25.into()), 26.into());
+    assert_eq!(a.adjust(30.into()), 31.into());
+    assert_eq!(a.adjust(40.into()), 36.into());
+    assert_eq!(a.adjust(60.into()), 66.into());
+    assert_eq!(a.adjust(70.into()), 76.into());
+    assert_eq!(a.adjust(80.into()), 76.into());
 }
 
 #[test]
 fn test_text_offset_adjustments_reverse() {
     let mut a = TextOffsetAdjustments::default();
     // deletion
-    a.add_adjustment(TextOffsetAdjustment { start_offset: 70, end_offset: 80, new_text_length: 0 });
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 70.into(),
+        end_offset: 80.into(),
+        new_text_length: 0,
+    });
     // longer replacement
     a.add_adjustment(TextOffsetAdjustment {
-        start_offset: 50,
-        end_offset: 60,
+        start_offset: 50.into(),
+        end_offset: 60.into(),
         new_text_length: 20,
     });
     // smaller replacement
-    a.add_adjustment(TextOffsetAdjustment { start_offset: 30, end_offset: 40, new_text_length: 5 });
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 30.into(),
+        end_offset: 40.into(),
+        new_text_length: 5,
+    });
     // insert
-    a.add_adjustment(TextOffsetAdjustment { start_offset: 25, end_offset: 25, new_text_length: 1 });
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 25.into(),
+        end_offset: 25.into(),
+        new_text_length: 1,
+    });
     // same length change
     a.add_adjustment(TextOffsetAdjustment {
-        start_offset: 10,
-        end_offset: 20,
+        start_offset: 10.into(),
+        end_offset: 20.into(),
         new_text_length: 10,
     });
 
-    assert_eq!(a.adjust(0), 0);
-    assert_eq!(a.adjust(20), 20);
-    assert_eq!(a.adjust(25), 26);
-    assert_eq!(a.adjust(30), 31);
-    assert_eq!(a.adjust(40), 36);
-    assert_eq!(a.adjust(60), 66);
-    assert_eq!(a.adjust(70), 76);
-    assert_eq!(a.adjust(80), 76);
+    assert_eq!(a.adjust(0.into()), 0.into());
+    assert_eq!(a.adjust(20.into()), 20.into());
+    assert_eq!(a.adjust(25.into()), 26.into());
+    assert_eq!(a.adjust(30.into()), 31.into());
+    assert_eq!(a.adjust(40.into()), 36.into());
+    assert_eq!(a.adjust(60.into()), 66.into());
+    assert_eq!(a.adjust(70.into()), 76.into());
+    assert_eq!(a.adjust(80.into()), 76.into());
 }
 
 #[test]
@@ -830,7 +866,7 @@ geh"#
 
     let result = editor.finalize().unwrap();
     assert!(result.0.is_empty());
-    assert_eq!(result.1.adjust(42), 31);
+    assert_eq!(result.1.adjust(42.into()), 31.into());
     assert_eq!(result.2 .0, 0);
     assert_eq!(result.2 .1, 3 * 3 + 2);
 }
@@ -865,7 +901,7 @@ geh"#
 REPLACEMENT
 geh"#
     );
-    assert_eq!(result.1.adjust(42), 50);
+    assert_eq!(result.1.adjust(42.into()), 50.into());
     assert_eq!(result.2 .0, 3 + 1);
     assert_eq!(result.2 .1, 3 + 1 + 3);
 }
@@ -903,7 +939,7 @@ geh"#
 
     let result = editor.finalize().unwrap();
     assert_eq!(&result.0, "REPLACEMENT");
-    assert_eq!(result.1.adjust(42), 42);
+    assert_eq!(result.1.adjust(42.into()), 42.into());
     assert_eq!(result.2 .0, 0);
     assert_eq!(result.2 .1, 3 * 3 + 2);
 }

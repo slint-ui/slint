@@ -19,7 +19,7 @@ use crate::util;
 use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
-    syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange,
+    syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use lsp_types::request::{
@@ -345,7 +345,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             {
                 let range = util::node_to_lsp_range(&p);
                 ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::HighlightFromEditor { url: Some(uri), offset },
+                    common::LspToPreviewMessage::HighlightFromEditor {
+                        url: Some(uri),
+                        offset: offset.into(),
+                    },
                 );
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             }
@@ -561,7 +564,7 @@ fn token_descr(
     document_cache: &mut DocumentCache,
     text_document_uri: &Url,
     pos: &Position,
-) -> Option<(SyntaxToken, u32)> {
+) -> Option<(SyntaxToken, TextSize)> {
     let (doc, o) = document_cache.get_document_and_offset(text_document_uri, pos)?;
     let node = doc.node.as_ref()?;
 
@@ -570,8 +573,8 @@ fn token_descr(
 }
 
 /// Return the token that matches best the token at cursor position
-pub fn token_at_offset(doc: &syntax_nodes::Document, offset: u32) -> Option<SyntaxToken> {
-    let mut taf = doc.token_at_offset(offset.into());
+pub fn token_at_offset(doc: &syntax_nodes::Document, offset: TextSize) -> Option<SyntaxToken> {
+    let mut taf = doc.token_at_offset(offset);
     let token = match (taf.next(), taf.next()) {
         (None, _) => doc.last_token()?,
         (Some(t), None) => t,
@@ -1328,7 +1331,7 @@ enum {}
 
         let check_start_with = |pos, str: &str| {
             let (_, offset) = dc.get_document_and_offset(&uri, &pos).unwrap();
-            assert_eq!(&source[offset as usize..][..str.len()], str);
+            assert_eq!(&source[usize::from(offset)..][..str.len()], str);
         };
 
         let DocumentSymbolResponse::Nested(result) = result else {

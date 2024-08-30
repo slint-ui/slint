@@ -4,7 +4,7 @@
 //! Data structures common between LSP and previewer
 
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextSize};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::path::Path;
@@ -112,7 +112,7 @@ impl std::cmp::PartialEq for ElementRcNode {
 impl std::fmt::Debug for ElementRcNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (path, offset) = self.path_and_offset();
-        write!(f, "ElementNode {{ {path:?}:{offset} }}")
+        write!(f, "ElementNode {{ {path:?}:{offset:?} }}")
     }
 }
 
@@ -201,10 +201,8 @@ impl ElementRcNode {
         func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().node))
     }
 
-    pub fn path_and_offset(&self) -> (PathBuf, u32) {
-        self.with_element_node(|n| {
-            (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
-        })
+    pub fn path_and_offset(&self) -> (PathBuf, TextSize) {
+        self.with_element_node(|n| (n.source_file.path().to_owned(), n.text_range().start()))
     }
 
     pub fn as_element(&self) -> &ElementRc {
@@ -278,9 +276,9 @@ impl ElementRcNode {
         std::rc::Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
     }
 
-    pub fn contains_offset(&self, offset: u32) -> bool {
+    pub fn contains_offset(&self, offset: TextSize) -> bool {
         self.with_element_node(|node| {
-            node.parent().map_or(false, |n| n.text_range().contains(offset.into()))
+            node.parent().map_or(false, |n| n.text_range().contains(offset))
         })
     }
 }
@@ -403,9 +401,24 @@ impl std::fmt::Debug for VersionedUrl {
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Position {
     /// The file url
-    pub url: Url,
+    url: Url,
     /// The offset in the file pointed to by the `url`
-    pub offset: u32,
+    offset: u32,
+}
+
+#[allow(unused)]
+impl Position {
+    pub fn new(url: Url, offset: TextSize) -> Self {
+        Self { url, offset: offset.into() }
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
+    pub fn offset(&self) -> TextSize {
+        self.offset.into()
+    }
 }
 
 /// A versioned file
@@ -419,8 +432,8 @@ pub struct VersionedPosition {
 
 #[allow(unused)]
 impl VersionedPosition {
-    pub fn new(url: VersionedUrl, offset: u32) -> Self {
-        VersionedPosition { url, offset }
+    pub fn new(url: VersionedUrl, offset: TextSize) -> Self {
+        Self { url, offset: offset.into() }
     }
 
     pub fn url(&self) -> &Url {
@@ -431,8 +444,8 @@ impl VersionedPosition {
         self.url.version()
     }
 
-    pub fn offset(&self) -> u32 {
-        self.offset
+    pub fn offset(&self) -> TextSize {
+        self.offset.into()
     }
 }
 

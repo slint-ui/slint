@@ -5,6 +5,7 @@
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::Document;
+use i_slint_compiler::parser::TextSize;
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::Url;
@@ -206,14 +207,15 @@ impl DocumentCache {
         &'a self,
         text_document_uri: &'_ Url,
         pos: &'_ lsp_types::Position,
-    ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
+    ) -> Option<(&'a i_slint_compiler::object_tree::Document, TextSize)> {
         let doc = self.get_document(text_document_uri)?;
-        let o = doc
+        let o = (doc
             .node
             .as_ref()?
             .source_file
-            .offset(pos.line as usize + 1, pos.character as usize + 1) as u32;
-        doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
+            .offset(pos.line as usize + 1, pos.character as usize + 1) as u32)
+            .into();
+        doc.node.as_ref()?.text_range().contains_inclusive(o).then_some((doc, o))
     }
 
     pub fn all_url_documents(&self) -> impl Iterator<Item = (Url, &Document)> + '_ {
@@ -292,15 +294,17 @@ impl DocumentCache {
     fn element_at_document_and_offset(
         &self,
         document: &i_slint_compiler::object_tree::Document,
-        offset: u32,
+        offset: TextSize,
     ) -> Option<ElementRcNode> {
         fn element_contains(
             element: &i_slint_compiler::object_tree::ElementRc,
-            offset: u32,
+            offset: TextSize,
         ) -> Option<usize> {
-            element.borrow().debug.iter().position(|n| {
-                n.node.parent().map_or(false, |n| n.text_range().contains(offset.into()))
-            })
+            element
+                .borrow()
+                .debug
+                .iter()
+                .position(|n| n.node.parent().map_or(false, |n| n.text_range().contains(offset)))
         }
 
         for component in &document.inner_components {
@@ -329,7 +333,11 @@ impl DocumentCache {
         None
     }
 
-    pub fn element_at_offset(&self, text_document_uri: &Url, offset: u32) -> Option<ElementRcNode> {
+    pub fn element_at_offset(
+        &self,
+        text_document_uri: &Url,
+        offset: TextSize,
+    ) -> Option<ElementRcNode> {
         let doc = self.get_document(text_document_uri)?;
         self.element_at_document_and_offset(doc, offset)
     }
