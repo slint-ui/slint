@@ -362,6 +362,31 @@ fn convert_simple_string(input: slint::SharedString) -> String {
     format!("\"{}\"", str::escape_debug(&input.to_string()))
 }
 
+fn convert_string(
+    input: slint::SharedString,
+    is_translatable: bool,
+    tr_context: slint::SharedString,
+    tr_plural: slint::SharedString,
+    tr_plural_expression: slint::SharedString,
+) -> String {
+    let input = convert_simple_string(input);
+    if !is_translatable {
+        input
+    } else {
+        let context = if tr_context.is_empty() {
+            String::new()
+        } else {
+            format!("{} => ", convert_simple_string(tr_context))
+        };
+        let plural = if tr_plural.is_empty() {
+            String::new()
+        } else {
+            format!(" | {} % {}", convert_simple_string(tr_plural), tr_plural_expression)
+        };
+        format!("@tr({context}{input}{plural})")
+    }
+}
+
 // triggered from the UI, running in UI thread
 fn test_code_binding(
     element_url: slint::SharedString,
@@ -386,13 +411,17 @@ fn test_string_binding(
     element_offset: i32,
     property_name: slint::SharedString,
     value: slint::SharedString,
+    is_translatable: bool,
+    tr_context: slint::SharedString,
+    tr_plural: slint::SharedString,
+    tr_plural_expression: slint::SharedString,
 ) -> bool {
     test_binding(
         element_url,
         element_version,
         element_offset,
         property_name,
-        convert_simple_string(value),
+        convert_string(value, is_translatable, tr_context, tr_plural, tr_plural_expression),
     )
 }
 
@@ -408,7 +437,6 @@ fn test_binding(
         .is_some()
 }
 
-// triggered from the UI, running in UI thread
 fn set_code_binding(
     element_url: slint::SharedString,
     element_version: i32,
@@ -454,13 +482,17 @@ fn set_string_binding(
     element_offset: i32,
     property_name: slint::SharedString,
     value: slint::SharedString,
+    is_translatable: bool,
+    tr_context: slint::SharedString,
+    tr_plural: slint::SharedString,
+    tr_plural_expression: slint::SharedString,
 ) {
     set_binding(
         element_url,
         element_version,
         element_offset,
         property_name,
-        convert_simple_string(value),
+        convert_string(value, is_translatable, tr_context, tr_plural, tr_plural_expression),
     )
 }
 
