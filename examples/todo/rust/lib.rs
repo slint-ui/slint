@@ -54,9 +54,7 @@ fn init() -> State {
         }
     });
 
-    let weak_window = main_window.as_weak();
-    main_window.on_popup_confirmed(move || {
-        let window = weak_window.unwrap();
+    main_window.on_popup_confirmed(move |window: &MainWindow| {
         window.hide().unwrap();
     });
 
@@ -76,11 +74,9 @@ fn init() -> State {
     }
 
     main_window.on_apply_sorting_and_filtering({
-        let weak_window = main_window.as_weak();
         let todo_model = todo_model.clone();
 
-        move || {
-            let window = weak_window.unwrap();
+        move |window: &MainWindow| {
             window.set_todo_model(todo_model.clone().into());
 
             if window.get_hide_done_items() {

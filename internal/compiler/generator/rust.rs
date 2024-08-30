@@ -557,16 +557,11 @@ fn public_api(
                 }
             ));
             let on_ident = format_ident!("on_{}", prop_ident);
-            let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
-                pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
+                pub fn #on_ident<E>(&self, f: impl slint::CallbackFn<(#(#callback_args,)*), #return_type, Self, E>) {
                     let _self = #self_init;
-                    #[allow(unused)]
-                    #prop.set_handler(
-                        // FIXME: why do i need to clone here?
-                        move |args| f(#(args.#args_index.clone()),*)
-                    )
+                    #prop.set_handler(f.make_handler(self))
                 }
             ));
         } else if let Type::Function { return_type, args } = &p.ty {

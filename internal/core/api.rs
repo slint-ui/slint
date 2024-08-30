@@ -938,6 +938,42 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<()
         .invoke_from_event_loop(alloc::boxed::Box::new(func))
 }
 
+/// Helper trait for callback
+///
+/// Given a slint callback with args and return type `callback (args...) -> return_type`,
+/// this trait is implemented for `FnMut(args...) -> return_type` and `FnMut(&Component, args...) -> return_type`.
+pub trait CallbackFn<Args, Ret, ComponentOrGlobal, Extra>: 'static {
+    #[doc(hidden)]
+    fn make_handler(self, cmp: &ComponentOrGlobal) -> impl FnMut(&Args) -> Ret + 'static;
+}
+
+macro_rules! impl_callback {
+    ([$($a:ident)*] $next:ident $($rest:tt)*) => {
+        impl_callback!([$($a)* $next] $($rest)*);
+        impl <F, $($a : Clone,)* Ret, C> CallbackFn<($($a,)*), Ret, C, ()> for F
+            where F: FnMut($($a),*) -> Ret + 'static
+        {
+            #[allow(non_snake_case)]
+            fn make_handler(mut self,  _: &C) -> impl FnMut(&($($a,)*)) -> Ret + 'static {
+                move |($($a,)*) : &($($a,)*)| self($($a.clone()),*)
+            }
+        }
+        impl <F, $($a : Clone,)* Ret, C : ComponentHandle + 'static> CallbackFn<($($a,)*), Ret, C, C> for F
+            where F: FnMut(&C, $($a),*) -> Ret + 'static
+        {
+            #[allow(non_snake_case)]
+            fn make_handler(mut self,  c: &C) -> impl FnMut(&($($a,)*)) -> Ret + 'static {
+                let weak = c.as_weak();
+                move |($($a,)*) : &($($a,)*)| self(&weak.unwrap(),$($a.clone()),*)
+            }
+        }
+
+    };
+    ([$($a:ident)*]) => { };
+
+}
+impl_callback!([] A0 A1 A2 A3 A4 A5 A6 A7 A8 A9 A10 A11 A12 A13 A14 A15 A16 A17 A18 A19 A20);
+
 /// Schedules the main event loop for termination. This function is meant
 /// to be called from callbacks triggered by the UI. After calling the function,
 /// it will return immediately and once control is passed back to the event loop,
