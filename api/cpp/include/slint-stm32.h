@@ -48,6 +48,8 @@ struct SlintPlatformConfiguration
             0
 #endif
             ;
+    slint::platform::SoftwareRenderer::RenderingRotation rotation =
+            slint::platform::SoftwareRenderer::RenderingRotation::NoRotation;
 };
 
 namespace slint::private_api {
@@ -77,11 +79,14 @@ struct StmSlintPlatform : public slint::platform::Platform
 
     StmWindowAdapter *m_window = nullptr;
     const slint::PhysicalSize size;
+    slint::platform::SoftwareRenderer::RenderingRotation rotation;
     std::span<Pixel> buffer1;
     std::span<Pixel> buffer2;
 
-    StmSlintPlatform(slint::PhysicalSize size, std::span<Pixel> buffer1, std::span<Pixel> buffer2)
-        : size(size), buffer1(buffer1), buffer2(buffer2)
+    StmSlintPlatform(slint::PhysicalSize size,
+                     slint::platform::SoftwareRenderer::RenderingRotation rotation,
+                     std::span<Pixel> buffer1, std::span<Pixel> buffer2)
+        : size(size), rotation(rotation), buffer1(buffer1), buffer2(buffer2)
     {
         BSP_LCD_LayerConfig_t config;
         config.X0 = 0;
@@ -98,6 +103,7 @@ struct StmSlintPlatform : public slint::platform::Platform
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override
     {
         auto w = std::make_unique<StmWindowAdapter>(size);
+        w->m_renderer.set_rendering_rotation(rotation);
         m_window = w.get();
         return w;
     }
@@ -144,7 +150,15 @@ struct StmSlintPlatform : public slint::platform::Platform
                 if (std::exchange(m_window->needs_redraw, false)) {
                     while (!screen_ready) { }
 
-                    m_window->m_renderer.render(buffer1, m_window->m_size.width);
+                    auto rotated = rotation
+                                    == slint::platform::SoftwareRenderer::RenderingRotation::
+                                            Rotate90
+                            || rotation
+                                    == slint::platform::SoftwareRenderer::RenderingRotation::
+                                            Rotate270;
+
+                    m_window->m_renderer.render(
+                            buffer1, rotated ? m_window->m_size.height : m_window->m_size.width);
 
                     SCB_CleanDCache_by_Addr((uint32_t *)buffer1.data(), buffer1.size());
 
@@ -176,6 +190,6 @@ inline void slint_stm32_init(const SlintPlatformConfiguration &config)
                     config.lcd_layer_1_address),
             a);
 
-    slint::platform::set_platform(
-            std::make_unique<slint::private_api::StmSlintPlatform>(config.size, buffer1, buffer2));
+    slint::platform::set_platform(std::make_unique<slint::private_api::StmSlintPlatform>(
+            config.size, config.rotation, buffer1, buffer2));
 }
