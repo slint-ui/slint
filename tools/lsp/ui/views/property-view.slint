@@ -112,18 +112,19 @@ export component PropertyView {
                                             checked: property-row.property-value.value_bool;
 
                                             toggled() => {
-                                                Api.set-bool-binding(
+                                                Api.set-code-binding(
                                                     root.current-element.source-uri,
                                                     root.current-element.source-version,
                                                     root.current-element.range.start,
                                                     property.name,
-                                                    self.checked,
+                                                    self.checked ? "true" : "false",
                                                 );
                                             }
                                         }
                                         if property-row.property-value.kind == PropertyValueKind.string: LineEdit {
                                             width: 100%;
-                                            height: 100%; // otherwise this gets too high and covers several rows.
+                                            // otherwise this gets too high and covers several rows.
+                                            height: 100%;
                                             text: property-row.property-value.value-string;
 
                                             edited(text) => {
@@ -148,20 +149,20 @@ export component PropertyView {
                                         }
                                         if property-row.property-value.kind == PropertyValueKind.enum: ComboBox {
                                             width: 100%;
-                                            height: 100%; // otherwise this gets too high and covers several rows.
+                                            // otherwise this gets too high and covers several rows.
+                                            height: 100%;
 
                                             current-index: property-row.property-value.value-int;
 
                                             model: property-row.property-value.visual-items;
 
                                             selected(value) => {
-                                                Api.set-enum-binding(
+                                                Api.set-code-binding(
                                                     root.current-element.source-uri,
                                                     root.current-element.source-version,
                                                     root.current-element.range.start,
                                                     property.name,
-                                                    property-value.value_string,
-                                                    value,
+                                                    property-value.value_string + "." + value,
                                                 )
                                             }
                                         }
