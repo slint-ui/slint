@@ -396,33 +396,6 @@ fn test_string_binding(
     )
 }
 
-// // triggered from the UI, running in UI thread
-// fn test_simple_binding(
-//     element_url: slint::SharedString,
-//     element_version: i32,
-//     element_offset: i32,
-//     property_name: slint::SharedString,
-//     simple_property_value: slint::ModelRc<slint::SharedString>,
-// ) -> bool {
-//     if simple_property_value.row_count() <= 1 {
-//         return false;
-//     }
-//     if simple_property_value.row_data(0) == Some("bool".to_string().into()) {
-//         test_binding(
-//             element_url,
-//             element_version,
-//             element_offset,
-//             property_name,
-//             simple_property_value.row_data(1).unwrap(),
-//         )
-//     } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
-//         let property_value = format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into();
-//         test_binding(element_url, element_version, element_offset, property_name, property_value)
-//     } else {
-//         false
-//     }
-// }
-
 // Backend function called by `test_*_binding`
 fn test_binding(
     element_url: slint::SharedString,
