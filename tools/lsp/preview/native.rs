@@ -305,10 +305,7 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
 
     muda::MenuEvent::set_event_handler(Some(move |menu_event: muda::MenuEvent| {
         if menu_event.id == quit_id {
-            i_slint_core::api::invoke_from_event_loop(|| {
-                close_ui();
-            })
-            .ok();
+            close_ui();
         }
     }));
 
