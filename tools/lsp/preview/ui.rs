@@ -603,9 +603,11 @@ mod tests {
     fn property_conversion_test(contents: &str, property_line: u32) -> PropertyValue {
         let (_, pi, _, _) = properties_at_position(contents, property_line, 30).unwrap();
 
+        let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
+
         super::simplify_value(
-            &pi[0].ty,
-            &pi[0].defined_at.as_ref().map(|da| da.code_block_or_expression.clone()),
+            &test1.ty,
+            &test1.defined_at.as_ref().map(|da| da.code_block_or_expression.clone()),
         )
     }
 
