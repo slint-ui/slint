@@ -49,7 +49,7 @@ export component PropertyView {
 
         ScrollView {
             VerticalLayout {
-                  if root.current-element.type-name != "": Rectangle {
+                if root.current-element.properties.length > 0: Rectangle {
                     VerticalLayout {
                         alignment: start;
 
