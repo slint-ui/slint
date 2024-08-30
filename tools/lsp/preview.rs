@@ -425,16 +425,6 @@ fn set_code_binding(
     )
 }
 
-fn set_bool_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    value: bool,
-) {
-    set_binding(element_url, element_version, element_offset, property_name, value.to_string())
-}
-
 fn set_color_binding(
     element_url: slint::SharedString,
     element_version: i32,
@@ -455,23 +445,6 @@ fn set_color_binding(
         element_offset,
         property_name,
         format!("#{:08x}", value),
-    )
-}
-
-fn set_enum_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    enum_type: slint::SharedString,
-    enum_value: slint::SharedString,
-) {
-    set_binding(
-        element_url,
-        element_version,
-        element_offset,
-        property_name,
-        format!("{}.{}", enum_type, enum_value),
     )
 }
 
