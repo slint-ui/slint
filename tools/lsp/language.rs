@@ -336,18 +336,19 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<DocumentHighlightRequest, _>(|params, ctx| async move {
         let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = params.text_document_position_params.text_document.uri;
-        if let Some((tk, offset)) =
+        if let Some((tk, _)) =
             token_descr(document_cache, &uri, &params.text_document_position_params.position)
         {
             let p = tk.parent();
+            let gp = p.parent();
             if p.kind() == SyntaxKind::QualifiedName
-                && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
+                && gp.as_ref().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 let range = util::node_to_lsp_range(&p);
                 ctx.server_notifier.send_message_to_preview(
                     common::LspToPreviewMessage::HighlightFromEditor {
                         url: Some(uri),
-                        offset: offset.into(),
+                        offset: gp.unwrap().text_range().start().into(),
                     },
                 );
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
