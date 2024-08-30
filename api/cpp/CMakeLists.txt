@@ -486,7 +486,13 @@ else()
 endif()
 
 if (NOT Rust_CARGO_TARGET STREQUAL Rust_CARGO_HOST_TARGET)
-    set(CPACK_SYSTEM_NAME "${CPACK_SYSTEM_NAME}-${Rust_CARGO_TARGET}")
+    # If the package contains host dependent content (the slint-compiler), append the target suffix, otherwise
+    # strip the host suffix
+    if (TARGET Slint::slint-compiler)
+        string(APPEND CPACK_SYSTEM_NAME "-${Rust_CARGO_TARGET}")
+    else()
+        set(CPACK_SYSTEM_NAME "${Rust_CARGO_TARGET}")
+    endif()
 endif()
 
 include(CPack)
