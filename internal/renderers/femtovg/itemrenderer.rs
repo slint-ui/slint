@@ -15,12 +15,11 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage, RenderText,
 };
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
-    TextHorizontalAlignment, TextStrokeStyle,
+    self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult, TextStrokeStyle,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PointLengths, RectLengths, ScaleFactor, SizeLengths,
+    RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -360,6 +359,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             text.wrap(),
             text.overflow(),
             false,
+            None,
             &paint,
             |to_draw, pos, _, _| {
                 match (stroke_style, &stroke_paint) {
@@ -430,9 +430,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let font_height = font.height();
         let text: SharedString = visual_representation.text.into();
 
-        let mut cursor_point: Option<PhysicalPoint> = None;
-
-        let next_y = fonts::layout_text_lines(
+        let cursor_point = fonts::layout_text_lines(
             text.as_str(),
             &font,
             PhysicalSize::from_lengths(width, height),
@@ -440,8 +438,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             text_input.wrap(),
             items::TextOverflow::Clip,
             text_input.single_line(),
+            cursor_visible.then_some(cursor_pos),
             &paint,
-            |to_draw, pos, start, metrics| {
+            |to_draw: &str, pos: PhysicalPoint, start, metrics: &femtovg::TextMetrics| {
                 let range = start..(start + to_draw.len());
                 if min_select != max_select
                     && (range.contains(&min_select)
@@ -522,43 +521,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     // no selection on this line
                     canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
                 };
-                if cursor_visible
-                    && (range.contains(&cursor_pos)
-                        || (cursor_pos == range.end
-                            && cursor_pos == text.len()
-                            && !text.ends_with('\n')))
-                {
-                    let cursor_x = PhysicalLength::new(
-                        metrics
-                            .glyphs
-                            .iter()
-                            .find_map(|glyph| {
-                                if glyph.byte_index == (cursor_pos - start) {
-                                    Some(glyph.x)
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or_else(|| metrics.width()),
-                    );
-                    cursor_point = Some(PhysicalPoint::from_lengths(
-                        pos.x_length() + cursor_x,
-                        pos.y_length(),
-                    ));
-                }
             },
         );
 
-        if let Some(cursor_point) = cursor_point.or_else(|| {
-            cursor_visible.then(|| {
-                let x = match text_input.horizontal_alignment() {
-                    TextHorizontalAlignment::Left => PhysicalLength::default(),
-                    TextHorizontalAlignment::Center => width / 2.,
-                    TextHorizontalAlignment::Right => width,
-                };
-                PhysicalPoint::from_lengths(x, next_y)
-            })
-        }) {
+        if let Some(cursor_point) = cursor_point {
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
                 cursor_point.x,
