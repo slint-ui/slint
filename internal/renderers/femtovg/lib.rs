@@ -392,6 +392,7 @@ impl RendererSealed for FemtoVGRenderer {
             text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
             text_input.single_line(),
+            None,
             &paint,
             |line_text, line_pos, start, metrics| {
                 if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
@@ -422,8 +423,6 @@ impl RendererSealed for FemtoVGRenderer {
 
         let font_size = font_request.pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
-        let mut result = PhysicalPoint::default();
-
         let width = text_input.width() * scale_factor;
         let height = text_input.height() * scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
@@ -437,7 +436,7 @@ impl RendererSealed for FemtoVGRenderer {
             .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        fonts::layout_text_lines(
+        let cursor_point = fonts::layout_text_lines(
             text.as_str(),
             &font,
             PhysicalSize::from_lengths(width, height),
@@ -445,28 +444,13 @@ impl RendererSealed for FemtoVGRenderer {
             text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
             text_input.single_line(),
+            Some(byte_offset),
             &paint,
-            |line_text, line_pos, start, metrics| {
-                if (start..=(start + line_text.len())).contains(&byte_offset) {
-                    for glyph in &metrics.glyphs {
-                        if glyph.byte_index == (byte_offset - start) {
-                            result = line_pos + PhysicalPoint::new(glyph.x, 0.0).to_vector();
-                            return;
-                        }
-                    }
-                    if let Some(last) = metrics.glyphs.last() {
-                        if line_text.ends_with('\n') {
-                            result = line_pos + euclid::vec2(0.0, last.y);
-                        } else {
-                            result = line_pos + euclid::vec2(last.x + last.advance_x, 0.0);
-                        }
-                    }
-                }
-            },
+            |_, _, _, _| {},
         );
 
         LogicalRect::new(
-            result / scale_factor,
+            cursor_point.unwrap_or_default() / scale_factor,
             LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
         )
     }

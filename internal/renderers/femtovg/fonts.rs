@@ -9,6 +9,7 @@ use i_slint_common::sharedfontdb::{self, fontdb};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
+use i_slint_core::lengths::PointLengths;
 use i_slint_core::lengths::{LogicalLength, LogicalSize, ScaleFactor, SizeLengths};
 use i_slint_core::{SharedString, SharedVector};
 use std::cell::RefCell;
@@ -548,7 +549,7 @@ impl FontCache {
 /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
 /// The signature of the `layout_line` function is: `(text, pos, start_index, line_metrics)`.
 /// start index is the starting byte of the text in the string.
-/// Returns the y coordinate of where to place the cursor if it is at the end of the text
+/// Returns the coordinates of the cursor, if a cursor byte offset was provided.
 pub(crate) fn layout_text_lines(
     string: &str,
     font: &Font,
@@ -557,9 +558,10 @@ pub(crate) fn layout_text_lines(
     wrap: TextWrap,
     overflow: TextOverflow,
     single_line: bool,
+    cursor_byte_offset: Option<usize>,
     paint: &femtovg::Paint,
     mut layout_line: impl FnMut(&str, PhysicalPoint, usize, &femtovg::TextMetrics),
-) -> PhysicalLength {
+) -> Option<PhysicalPoint> {
     let wrap = wrap != TextWrap::NoWrap;
     let elide = overflow == TextOverflow::Elide;
 
@@ -569,6 +571,8 @@ pub(crate) fn layout_text_lines(
     let text_context = FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
     let font_metrics = text_context.measure_font(paint).unwrap();
     let font_height = PhysicalLength::new(font_metrics.height());
+
+    let mut cursor_point: Option<PhysicalPoint> = None;
 
     let text_height = || {
         if single_line {
@@ -596,7 +600,7 @@ pub(crate) fn layout_text_lines(
     };
 
     let mut process_line =
-        |text: &str, y: PhysicalLength, start: usize, line_metrics: &femtovg::TextMetrics| {
+        |text_span: &str, y: PhysicalLength, start: usize, line_metrics: &femtovg::TextMetrics| {
             let x = match horizontal_alignment {
                 TextHorizontalAlignment::Left => PhysicalLength::default(),
                 TextHorizontalAlignment::Center => {
@@ -606,7 +610,36 @@ pub(crate) fn layout_text_lines(
                     max_width - max_width.min(PhysicalLength::new(line_metrics.width()))
                 }
             };
-            layout_line(text, PhysicalPoint::from_lengths(x, y), start, line_metrics);
+            let line_pos = PhysicalPoint::from_lengths(x, y);
+            layout_line(text_span, line_pos, start, line_metrics);
+
+            if let Some(cursor_byte_offset) = cursor_byte_offset {
+                let text_span_range = start..(start + text_span.len());
+
+                if text_span_range.contains(&cursor_byte_offset)
+                    || (cursor_byte_offset == text_span_range.end
+                        && cursor_byte_offset == string.len()
+                        && !string.ends_with('\n'))
+                {
+                    let cursor_x = PhysicalLength::new(
+                        line_metrics
+                            .glyphs
+                            .iter()
+                            .find_map(|glyph| {
+                                if glyph.byte_index == (cursor_byte_offset - start) {
+                                    Some(glyph.x)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| line_metrics.width()),
+                    );
+                    cursor_point = Some(PhysicalPoint::from_lengths(
+                        line_pos.x_length() + cursor_x,
+                        line_pos.y_length(),
+                    ));
+                }
+            }
         };
 
     let baseline_y = match vertical_alignment {
@@ -680,5 +713,15 @@ pub(crate) fn layout_text_lines(
             start = index;
         }
     }
-    y
+
+    cursor_point.or_else(|| {
+        cursor_byte_offset.map(|_| {
+            let x = match horizontal_alignment {
+                TextHorizontalAlignment::Left => PhysicalLength::default(),
+                TextHorizontalAlignment::Center => max_size.width_length() / 2.,
+                TextHorizontalAlignment::Right => max_size.width_length(),
+            };
+            PhysicalPoint::from_lengths(x, y)
+        })
+    })
 }
