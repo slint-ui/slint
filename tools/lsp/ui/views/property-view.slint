@@ -1,30 +1,106 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button } from "std-widgets.slint";
+import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button, HorizontalBox } from "std-widgets.slint";
 
-import { Api, ElementInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ElementInformation, PropertyValue, PropertyValueKind, PropertyInformation } from "../api.slint";
 import { GroupHeader } from "../components/group.slint";
+import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
-import { EditorSizeSettings } from "../components/styling.slint";
+import { StateLayer } from "../components/state-layer.slint";
+import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings } from "../components/styling.slint";
 
-component TypeHeader inherits Rectangle {
-    in property <string> type-name;
-    in property <string> id;
+component ExpandableGroup {
+    in property <ElementInformation> element-information;
+    in property <string> text;
+    in property <[PropertyInformation]> properties;
 
-    background: Palette.accent-background;
-    VerticalBox {
-        height: self.min-height;
+    property <bool> open: true;
+    
+    Rectangle {
+        background: Palette.alternate-background;
 
-        Text {
-            text: root.type-name;
-            color: Palette.accent-foreground;
-            font-size: 1.2rem;
-        }
+        content-layer := VerticalLayout {
+            // header
+            Rectangle {
+                touch-area := TouchArea {
+                    clicked => {
+                        root.open = !root.open;
+                    }
+                }
 
-        Text {
-            text: root.id;
-            color: Palette.accent-foreground;
+                state-layer := StateLayer {
+                    width: 100%;
+                    height: 100%;
+                    has-hover: touch-area.has-hover;
+                    pressed: touch-area.pressed;
+                }
+                
+                HorizontalBox {
+                    icon-image := Image {
+                        width: EditorSizeSettings.default-icon-width;
+                        colorize: Palette.foreground;
+                        source: Icons.drop-down;
+                        rotation-origin-x: self.width / 2;
+                        rotation-origin-y: self.height / 2;
+                        
+                        states [
+                            closed when !root.open: {
+                                rotation-angle: -0.25turn;
+                            }
+                        ]
+
+                        animate rotation-angle { duration: EditorAnimationSettings.roation-duration; }
+                    }
+                    
+                    BodyStrongText {
+                        text: root.text;
+                    }
+                }
+            }
+
+            if root.open : VerticalBox {
+                for property in root.properties : HorizontalLayout {
+                    spacing: parent.spacing;
+                    
+                    BodyText {
+                        min-width: EditorSizeSettings.min-prefix-text-width;
+                        text: property.name;
+                    }
+
+                    if property.value.kind == PropertyValueKind.string: LineEdit {
+                        text: property.value.value-string;
+
+                        edited(text) => {
+                            // overlay.visible = !Api.test-string-binding(
+                            //     root.element-information.source-uri,
+                            //     root.element-information.source-version,
+                            //     root.element-information.range.start,
+                            //     property.name,
+                            //     text,
+                            //     property.value.is-translatable,
+                            //     property.value.tr-context,
+                            //     property.value.tr-plural,
+                            //     property.value.tr-plural-expression,
+                            // );
+                        }
+
+                        accepted(text) => {
+                            Api.set-string-binding(
+                                root.element-information.source-uri,
+                                root.element-information.source-version,
+                                root.element-information.range.start,
+                                property.name,
+                                text,
+                                property.value.is-translatable,
+                                property.value.tr-context,
+                                property.value.tr-plural,
+                                property.value.tr-plural-expression,
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -32,172 +108,182 @@ component TypeHeader inherits Rectangle {
 export component PropertyView {
     in property <ElementInformation> current-element <=> Api.current-element;
 
-    private property <length> key-width: self.width / 2.5;
+    property <length> key-width: self.width / 2.5;
+    property <bool> element-loaded: root.current-element.type-name != "";
 
-    width: EditorSizeSettings.side-bar-width;
+    width: EditorSizeSettings.property-bar-width;
 
-    background-layer := Rectangle {
-        background: Palette.alternate-background;
-    }
+    // background-layer := Rectangle {
+    //     background: Palette.alternate-background;
+    // }
 
     content-layer := VerticalLayout {
-        padding: background-layer.border-width;
+        // padding: background-layer.border-width;
 
         GroupHeader {
-            title: @tr("Properties");
+            title: @tr("{} Properties", root.current-element.type-name);
+            vertical-stretch: 0;
+        }
+        
+        if !root.element-loaded : Text {
+            text: @tr("Select an Element");
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            vertical-stretch: 1;
         }
 
-        ScrollView {
-            VerticalLayout {
-                if root.current-element.properties.length > 0: Rectangle {
-                    VerticalLayout {
-                        alignment: start;
+        if root.element-loaded : ScrollView {
+            VerticalBox {
+                alignment: start;
 
-                        header := TypeHeader {
-                            type-name: root.current-element.type-name;
-                            id: root.current-element.id;
-                        }
-
-                        for group in root.current-element.properties: Rectangle {
-                            VerticalBox {
-                                if group.group-name != "" && group.group-name != root.current-element.type-name: BodyText {
-                                    text: group.group-name;
-                                }
-
-                                for property in group.properties: property-row := HorizontalLayout {
-                                    private property <string> property-name: property.name;
-                                    private property <string> property-type: property.type-name;
-                                    private property <PropertyValue> property-value: property.value;
-
-                                    private property <bool> is-defined: self.property-value.code != "";
-
-                                    private property <brush> text-foreground: property-row.is-defined ? Palette.foreground : Palette.foreground.transparentize(0.5);
-
-                                    spacing: 4px;
-                                    alignment: stretch;
-
-                                    TouchArea {
-                                        width: root.key-width;
-                                        horizontal-stretch: 0;
-
-                                        key := Text {
-                                            width: 100%;
-                                            color: property-row.text-foreground;
-                                            vertical-alignment: center;
-                                            text: property.name;
-                                        }
-
-                                        clicked() => {
-                                            Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        min-height: 20px;
-                                        horizontal-stretch: 1;
-
-                                        private property <bool> have-simple-ui: false;
-
-                                        if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code != "": Button {
-                                            text: @tr("Code");
-                                            clicked() => {
-                                                Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
-                                            }
-                                        }
-                                        if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code == "": Text {
-                                            text: @tr("<unset>");
-                                        }
-                                        if property-row.property-value.kind == PropertyValueKind.boolean: CheckBox {
-                                            x: 0;
-                                            checked: property-row.property-value.value_bool;
-
-                                            toggled() => {
-                                                Api.set-code-binding(
-                                                    root.current-element.source-uri,
-                                                    root.current-element.source-version,
-                                                    root.current-element.range.start,
-                                                    property.name,
-                                                    self.checked ? "true" : "false",
-                                                );
-                                            }
-                                        }
-                                        if property-row.property-value.kind == PropertyValueKind.string: LineEdit {
-                                            width: 100%;
-                                            // otherwise this gets too high and covers several rows.
-                                            height: 100%;
-                                            text: property-row.property-value.value-string;
-
-                                            edited(text) => {
-                                                overlay.visible = !Api.test-string-binding(
-                                                    root.current-element.source-uri,
-                                                    root.current-element.source-version,
-                                                    root.current-element.range.start,
-                                                    property.name,
-                                                    text,
-                                                    property-row.property-value.is-translatable,
-                                                    property-row.property-value.tr-context,
-                                                    property-row.property-value.tr-plural,
-                                                    property-row.property-value.tr-plural-expression,
-                                                );
-                                            }
-
-                                            accepted(text) => {
-                                                Api.set-string-binding(
-                                                    root.current-element.source-uri,
-                                                    root.current-element.source-version,
-                                                    root.current-element.range.start,
-                                                    property.name,
-                                                    text,
-                                                    property-row.property-value.is-translatable,
-                                                    property-row.property-value.tr-context,
-                                                    property-row.property-value.tr-plural,
-                                                    property-row.property-value.tr-plural-expression,
-                                                );
-                                            }
-                                        }
-                                        if property-row.property-value.kind == PropertyValueKind.enum: ComboBox {
-                                            width: 100%;
-                                            // otherwise this gets too high and covers several rows.
-                                            height: 100%;
-
-                                            current-index: property-row.property-value.value-int;
-
-                                            model: property-row.property-value.visual-items;
-
-                                            selected(value) => {
-                                                Api.set-code-binding(
-                                                    root.current-element.source-uri,
-                                                    root.current-element.source-version,
-                                                    root.current-element.range.start,
-                                                    property.name,
-                                                    property-value.value_string + "." + value,
-                                                )
-                                            }
-                                        }
-
-                                        overlay := Rectangle {
-                                            visible: false;
-                                            background: #80000040;
-
-                                            width: parent.width - 8px;
-                                            height: parent.height - 8px;
-                                            border-radius: 3px;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if root.current-element.type-name == "": VerticalLayout {
-                    Text {
-                        text: "Select an Element";
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                for group in root.current-element.properties : ExpandableGroup {
+                    text: group.group-name;
+                    properties: group.properties;
                 }
             }
+            // VerticalLayout {
+            //     if root.current-element.properties.length > 0: Rectangle {
+            //         VerticalLayout {
+            //             alignment: start;
+
+            //             header := TypeHeader {
+            //                 type-name: root.current-element.type-name;
+            //                 id: root.current-element.id;
+            //             }
+
+            //             for group in root.current-element.properties: Rectangle {
+            //                 VerticalBox {
+            //                     if group.group-name != "" && group.group-name != root.current-element.type-name: BodyText {
+            //                         text: group.group-name;
+            //                     }
+
+            //                     for property in group.properties: property-row := HorizontalLayout {
+            //                         private property <string> property-name: property.name;
+            //                         private property <string> property-type: property.type-name;
+            //                         private property <PropertyValue> property-value: property.value;
+
+            //                         private property <bool> is-defined: self.property-value.code != "";
+
+            //                         private property <brush> text-foreground: property-row.is-defined ? Palette.foreground : Palette.foreground.transparentize(0.5);
+
+            //                         spacing: 4px;
+            //                         alignment: stretch;
+
+            //                         TouchArea {
+            //                             width: root.key-width;
+            //                             horizontal-stretch: 0;
+
+            //                             key := Text {
+            //                                 width: 100%;
+            //                                 color: property-row.text-foreground;
+            //                                 vertical-alignment: center;
+            //                                 text: property.name;
+            //                             }
+
+            //                             clicked() => {
+            //                                 Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
+            //                             }
+            //                         }
+
+            //                         Rectangle {
+            //                             min-height: 20px;
+            //                             horizontal-stretch: 1;
+
+            //                             private property <bool> have-simple-ui: false;
+
+            //                             if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code != "": Button {
+            //                                 text: @tr("Code");
+            //                                 clicked() => {
+            //                                     Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
+            //                                 }
+            //                             }
+            //                             if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code == "": Text {
+            //                                 text: @tr("<unset>");
+            //                             }
+            //                             if property-row.property-value.kind == PropertyValueKind.boolean: CheckBox {
+            //                                 x: 0;
+            //                                 checked: property-row.property-value.value_bool;
+
+            //                                 toggled() => {
+            //                                     Api.set-code-binding(
+            //                                         root.current-element.source-uri,
+            //                                         root.current-element.source-version,
+            //                                         root.current-element.range.start,
+            //                                         property.name,
+            //                                         self.checked ? "true" : "false",
+            //                                     );
+            //                                 }
+            //                             }
+            //                             if property-row.property-value.kind == PropertyValueKind.string: LineEdit {
+            //                                 width: 100%;
+            //                                 // otherwise this gets too high and covers several rows.
+            //                                 height: 100%;
+            //                                 text: property-row.property-value.value-string;
+
+            //                                 edited(text) => {
+            //                                     overlay.visible = !Api.test-string-binding(
+            //                                         root.current-element.source-uri,
+            //                                         root.current-element.source-version,
+            //                                         root.current-element.range.start,
+            //                                         property.name,
+            //                                         text,
+            //                                         property-row.property-value.is-translatable,
+            //                                         property-row.property-value.tr-context,
+            //                                         property-row.property-value.tr-plural,
+            //                                         property-row.property-value.tr-plural-expression,
+            //                                     );
+            //                                 }
+
+            //                                 accepted(text) => {
+            //                                     Api.set-string-binding(
+            //                                         root.current-element.source-uri,
+            //                                         root.current-element.source-version,
+            //                                         root.current-element.range.start,
+            //                                         property.name,
+            //                                         text,
+            //                                         property-row.property-value.is-translatable,
+            //                                         property-row.property-value.tr-context,
+            //                                         property-row.property-value.tr-plural,
+            //                                         property-row.property-value.tr-plural-expression,
+            //                                     );
+            //                                 }
+            //                             }
+            //                             if property-row.property-value.kind == PropertyValueKind.enum: ComboBox {
+            //                                 width: 100%;
+            //                                 // otherwise this gets too high and covers several rows.
+            //                                 height: 100%;
+
+            //                                 current-index: property-row.property-value.value-int;
+
+            //                                 model: property-row.property-value.visual-items;
+
+            //                                 selected(value) => {
+            //                                     Api.set-code-binding(
+            //                                         root.current-element.source-uri,
+            //                                         root.current-element.source-version,
+            //                                         root.current-element.range.start,
+            //                                         property.name,
+            //                                         property-value.value_string + "." + value,
+            //                                     )
+            //                                 }
+            //                             }
+
+            //                             overlay := Rectangle {
+            //                                 visible: false;
+            //                                 background: #80000040;
+
+            //                                 width: parent.width - 8px;
+            //                                 height: parent.height - 8px;
+            //                                 border-radius: 3px;
+            //                             }
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //    }
+
+           //}
         }
     }
 
