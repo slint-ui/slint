@@ -26,7 +26,7 @@ impl<A: Clone + Eq + Hash, B: Clone + Eq + Hash> DepGraph<A, B> {
         self.dependency_index.entry(b).or_default().insert(a);
     }
 
-    pub fn dependents<'a>(&'a self, a: &A) -> impl Iterator<Item = &B> + 'a {
+    pub fn dependents<'a>(&'a self, a: &A) -> impl Iterator<Item = &'a B> + 'a {
         self.dependent_index.get(a).into_iter().flat_map(|x| x.iter())
     }
 
