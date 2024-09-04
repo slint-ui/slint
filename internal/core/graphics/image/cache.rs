@@ -5,7 +5,7 @@
 This module contains image and caching related types for the run-time library.
 */
 
-use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
+use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
 use crate::{slice::Slice, SharedString};
 
 struct ImageWeightInBytes;
@@ -74,7 +74,7 @@ impl ImageCache {
         if path.is_empty() {
             return None;
         }
-        let cache_key = ImageCacheKey::Path(path.clone());
+        let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
         #[cfg(target_arch = "wasm32")]
         return self.lookup_image_in_cache_or_create(cache_key, |_| {
             return Some(ImageInner::HTMLImage(vtable::VRc::new(
@@ -178,4 +178,50 @@ pub fn replace_cached_image(key: ImageCacheKey, value: ImageInner) {
     }
     let _ =
         IMAGE_CACHE.with(|global_cache| global_cache.borrow_mut().0.put_with_weight(key, value));
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use crate::graphics::Rgba8Pixel;
+
+    #[test]
+    fn test_path_cache_invalidation() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let test_path = [temp_dir.path(), std::path::Path::new("testfile.png")]
+            .iter()
+            .collect::<std::path::PathBuf>();
+
+        let red_image = image::RgbImage::from_pixel(10, 10, image::Rgb([255, 0, 0]));
+        red_image.save(&test_path).unwrap();
+        let red_slint_image = crate::graphics::Image::load_from_path(&test_path).unwrap();
+        let buffer = red_slint_image.to_rgba8().unwrap();
+        assert!(buffer
+            .as_slice()
+            .iter()
+            .all(|pixel| *pixel == Rgba8Pixel { r: 255, g: 0, b: 0, a: 255 }));
+
+        let green_image = image::RgbImage::from_pixel(10, 10, image::Rgb([0, 255, 0]));
+
+        std::thread::sleep(std::time::Duration::from_secs(2));
+
+        green_image.save(&test_path).unwrap();
+
+        /* Can't use this until we use Rust 1.78
+        let mod_time = std::fs::metadata(&test_path).unwrap().modified().unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&test_path)
+            .unwrap()
+            .set_modified(mod_time.checked_add(std::time::Duration::from_secs(2)).unwrap())
+            .unwrap();
+        */
+
+        let green_slint_image = crate::graphics::Image::load_from_path(&test_path).unwrap();
+        let buffer = green_slint_image.to_rgba8().unwrap();
+        assert!(buffer
+            .as_slice()
+            .iter()
+            .all(|pixel| *pixel == Rgba8Pixel { r: 0, g: 255, b: 0, a: 255 }));
+    }
 }

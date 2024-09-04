@@ -278,6 +278,30 @@ pub struct StaticTextures {
     pub textures: Slice<'static, StaticTexture>,
 }
 
+/// A struct that provides a path as a string as well as the last modification
+/// time of the file it points to.
+#[derive(PartialEq, Eq, Debug, Hash, Clone)]
+#[repr(C)]
+pub struct CachedPath {
+    path: SharedString,
+    /// SystemTime since UNIX_EPOC as secs
+    last_modified: u64,
+}
+
+impl CachedPath {
+    #[cfg(feature = "std")]
+    fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let path_str = SharedString::from(path.as_ref().to_string_lossy().as_ref());
+        let timestamp = std::fs::metadata(path)
+            .and_then(|md| md.modified())
+            .unwrap_or(std::time::UNIX_EPOCH)
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|t| t.as_secs())
+            .unwrap_or_default();
+        Self { path: path_str, last_modified: timestamp }
+    }
+}
+
 /// ImageCacheKey encapsulates the different ways of indexing images in the
 /// cache of decoded images.
 #[derive(PartialEq, Eq, Debug, Hash, Clone)]
@@ -286,8 +310,8 @@ pub enum ImageCacheKey {
     /// This variant indicates that no image cache key can be created for the image.
     /// For example this is the case for programmatically created images.
     Invalid = 0,
-    /// The image is identified by its path on the file system.
-    Path(SharedString) = 1,
+    /// The image is identified by its path on the file system and the last modification time stamp.
+    Path(CachedPath) = 1,
     /// The image is identified by a URL.
     #[cfg(target_arch = "wasm32")]
     URL(SharedString) = 2,
@@ -826,13 +850,15 @@ impl Image {
     /// ```
     pub fn path(&self) -> Option<&std::path::Path> {
         match &self.0 {
-            ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(path), .. } => {
-                Some(std::path::Path::new(path.as_str()))
-            }
+            ImageInner::EmbeddedImage {
+                cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
+                ..
+            } => Some(std::path::Path::new(path.as_str())),
             ImageInner::NineSlice(nine) => match &nine.0 {
-                ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(path), .. } => {
-                    Some(std::path::Path::new(path.as_str()))
-                }
+                ImageInner::EmbeddedImage {
+                    cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
+                    ..
+                } => Some(std::path::Path::new(path.as_str())),
                 _ => None,
             },
             _ => None,
@@ -1260,12 +1286,12 @@ pub(crate) mod ffi {
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                ImageCacheKey::Path(path) => Some(path),
+                ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
                 _ => None,
             },
             ImageInner::NineSlice(nine) => match &nine.0 {
                 ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                    ImageCacheKey::Path(path) => Some(path),
+                    ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
                     _ => None,
                 },
                 _ => None,
