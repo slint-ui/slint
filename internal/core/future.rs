@@ -24,6 +24,16 @@ enum FutureState<T> {
     Finished(Option<T>),
 }
 
+impl<T> PartialEq for FutureState<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (FutureState::Running(_), FutureState::Running(_)) => true,
+            (FutureState::Finished(_), FutureState::Finished(_)) => true,
+            _ => false
+        }
+    }
+}
+
 struct FutureRunnerInner<T> {
     fut: FutureState<T>,
     wakers: Vec<core::task::Waker>,
@@ -121,6 +131,9 @@ impl<T> JoinHandle<T> {
     pub fn abort(self) {
         self.0.aborted.store(true, atomic::Ordering::Relaxed);
     }
+    /// Checks if the task associated with this `JoinHandle` has finished.
+    pub fn is_finished(&self) -> bool { self.0.inner.lock().expect("Failed to acquire mutex on FutureInner").fut == FutureState::Finished(None)  }
+
 }
 
 #[cfg(feature = "std")]
