@@ -19,25 +19,25 @@ use crate::graphics::{
 };
 use crate::item_rendering::{CachedRenderingData, DirtyRegion, RenderBorderRectangle, RenderImage};
 use crate::items::{ItemRc, TextOverflow, TextWrap};
-use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
-};
+use crate::lengths::{LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths};
 use crate::renderer::{Renderer, RendererSealed};
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
-use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
+use crate::{Brush, Color, Coord, ImageInner, PathData, StaticTextures};
 use alloc::rc::{Rc, Weak};
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Length;
+use lyon_path::Event;
+use lyon_path::math::Point;
 use fixed::Fixed;
 #[allow(unused)]
 use num_traits::Float;
 use num_traits::NumCast;
-
+#[cfg(feature = "std")]
+use resvg::{tiny_skia::{FillRule, Stroke, Paint, Pixmap, PathBuilder, Transform as TinySkiaTransform}};
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
@@ -974,6 +974,15 @@ fn render_window_frame_by_line(
                                     extra_left_clip,
                                 );
                             }
+                            SceneCommand::SkiaPixmap { pixmap_index } => {
+                                let cmd = &scene.vectors.skia_pixmaps[pixmap_index as usize];
+                                draw_functions::draw_skia_pixmap_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    cmd,
+                                    range_buffer,
+                                )
+                            }
                         }
                     }
                 },
@@ -993,6 +1002,7 @@ struct SceneVectors {
     rounded_rectangles: Vec<RoundedRectangle>,
     shared_buffers: Vec<SharedBufferCommand>,
     gradients: Vec<GradientCommand>,
+    skia_pixmaps: Vec<SkiaPixmapCommand>,
 }
 
 struct Scene {
@@ -1252,6 +1262,10 @@ enum SceneCommand {
     Gradient {
         gradient_index: u16,
     },
+    /// rectangle_index is an index in the [`SceneVectors::skia_pixmap`] array
+    SkiaPixmap {
+        pixmap_index: u16,
+    },
 }
 
 struct SceneTexture<'a> {
@@ -1398,6 +1412,12 @@ struct GradientCommand {
     bottom_clip: PhysicalLength,
 }
 
+#[derive(Debug)]
+struct SkiaPixmapCommand {
+    pixmap: Pixmap
+}
+
+
 fn prepare_scene(
     window: &WindowInner,
     size: PhysicalSize,
@@ -1478,6 +1498,7 @@ trait ProcessScene {
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
     fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand);
     fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand);
+    fn process_path(&mut self, geometry: PhysicalRect, pixmap_command: SkiaPixmapCommand);
 }
 
 struct RenderToBuffer<'a, TargetPixel> {
@@ -1579,6 +1600,17 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
             );
         });
     }
+
+    fn process_path(&mut self, geometry: PhysicalRect, pixmap_command: SkiaPixmapCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_skia_pixmap_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &pixmap_command,
+                buffer,
+            )
+        })
+    }
 }
 
 #[derive(Default)]
@@ -1650,6 +1682,20 @@ impl ProcessScene for PrepareScene {
                 z: self.items.len() as u16,
                 command: SceneCommand::Gradient { gradient_index },
             });
+        }
+    }
+
+    fn process_path(&mut self, geometry: PhysicalRect, pixmap_command: SkiaPixmapCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let pixmap_index = self.vectors.gradients.len() as u16;
+            self.vectors.skia_pixmaps.push(pixmap_command);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::SkiaPixmap { pixmap_index },
+            })
         }
     }
 }
@@ -2496,8 +2542,79 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     }
 
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, _path: Pin<&crate::items::Path>, _: &ItemRc, _size: LogicalSize) {
-        // TODO
+    fn draw_path(&mut self, path: Pin<&crate::items::Path>, item: &ItemRc, size: LogicalSize) {
+        let geom = LogicalRect::from(size);
+        let phys_size = geom.size_length().cast() * self.scale_factor;
+
+        let color = path.as_ref().stroke().color();
+        println!("color: {}", color);
+        let mut paint = Paint::default();
+        paint.set_color_rgba8(
+            color.red(),
+            color.green(),
+            color.blue(),
+            color.alpha(),
+        );
+        // paint.set_color_rgba8(
+        //     255,
+        //     255,
+        //     0,
+        //     255,
+        // );
+        paint.anti_alias = true;
+
+        let mut pb = PathBuilder::new();
+
+        let (logical_offset, path_events) = path.fitted_path_events(item).unwrap();
+
+        for event in path_events.iter() {
+            match event {
+                Event::Begin { at } => {
+                    println!("event: begin");
+                    pb.move_to(at.x, at.y)
+                }
+                Event::Line { from: _, to } => {
+                    println!("event: line");
+                    pb.line_to(to.x, to.y)
+                }
+                Event::Quadratic { from: _, ctrl, to } => {
+                    pb.quad_to(
+                        ctrl.x, ctrl.y,
+                        to.x, to.y
+                    )
+                }
+                Event::Cubic { from: _, ctrl1, ctrl2, to } => {
+                    pb.cubic_to(
+                        ctrl1.x, ctrl1.y,
+                        ctrl2.x, ctrl2.y,
+                        to.x, to.y,
+                    )
+                }
+                Event::End { last: _, first: _, close    } => {
+                    if close {
+                        pb.close()
+                    }
+                }
+            }
+        }
+
+        let mut stroke = Stroke::default();
+        stroke.width = 2.0;
+
+        let resolved_path = pb.finish().unwrap();
+
+        let mut pixmap = Pixmap::new(phys_size.width as u32, phys_size.width as u32).unwrap();
+        pixmap.stroke_path(
+            &resolved_path,
+            &paint,
+            &stroke,
+            TinySkiaTransform::identity(),
+            None
+        );
+
+        self.processor.process_path(PhysicalRect::from_size(phys_size.cast()), SkiaPixmapCommand {
+            pixmap
+        })
     }
 
     fn draw_box_shadow(

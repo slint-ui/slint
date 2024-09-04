@@ -6,7 +6,7 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use super::{PhysicalLength, PhysicalRect};
+use super::{PhysicalLength, PhysicalRect, SkiaPixmapCommand};
 use crate::graphics::{PixelFormat, Rgb8Pixel};
 use crate::lengths::{PointLengths, SizeLengths};
 use crate::software_renderer::fixed::Fixed;
@@ -610,6 +610,43 @@ pub(super) fn draw_gradient_line(
             a = a.wrapping_add(da as _);
         }
     }
+}
+
+#[cfg(feature = "std")]
+pub(super) fn draw_skia_pixmap_line(
+    span: &PhysicalRect,
+    line: PhysicalLength,
+    cmd: &super::SkiaPixmapCommand,
+    line_buffer: &mut [impl TargetPixel],
+) {
+    let y = line.0;
+    let min_y = span.origin.y;
+    let max_y = span.origin.y + span.size.height;
+
+    if y > min_y && y < max_y {
+        for (index, pix) in line_buffer.iter_mut().enumerate() {
+            let pixmap_x = index as u32 - span.origin.x as u32;
+            let pixmap_y = y as u32 - span.origin.y as u32;
+
+            if pixmap_x > 0 && pixmap_x < span.size.width as u32 {
+                let pixmap = cmd.pixmap.pixel(pixmap_x, pixmap_y);
+                match pixmap {
+                    Some(pixmap_pix) => {
+                        pix.blend(PremultipliedRgbaColor {
+                            red: pixmap_pix.red(),
+                            green: pixmap_pix.green(),
+                            blue: pixmap_pix.blue(),
+                            alpha: pixmap_pix.alpha(),
+                        })
+                    }
+                    None => {}
+                }
+            }
+        }
+    }
+
+    println!("line: {}", line.0);
+    println!("line_buffer sz: {}", line_buffer.len());
 }
 
 /// A color whose component have been pre-multiplied by alpha
