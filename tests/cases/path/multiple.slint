@@ -1,0 +1,136 @@
+export component MultiplePathTest inherits Window {
+    background: #222;
+    width: 400px;
+    height: 400px;
+
+    VerticalLayout {
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            Path {
+                stroke: red;
+                stroke-width: 4px;
+                MoveTo {
+                    x: 50;
+                    y: 30;
+                }
+
+                LineTo {
+                    x: 80;
+                    y: 80;
+                }
+
+                LineTo {
+                    x: 90;
+                    y: 15;
+                }
+
+                LineTo {
+                    x: 10;
+                    y: 70;
+                }
+            }
+
+            Path {
+                stroke: hotpink;
+                fill: @linear-gradient(45deg, red, blue);
+                stroke-width: 4px;
+                MoveTo {
+                    x: 50;
+                    y: 30;
+                }
+
+                LineTo {
+                    x: 80;
+                    y: 80;
+                }
+
+                LineTo {
+                    x: 90;
+                    y: 15;
+                }
+
+                LineTo {
+                    x: 40;
+                    y: 70;
+                }
+
+                Close { }
+            }
+
+            Path {
+                stroke: green;
+                fill: rgba(0, 255, 100, 0.2);
+                stroke-width: 5px;
+                commands: "150,15 258,77 258,202 150,265 42,202 42,77 Z";
+            }
+        }
+
+        HorizontalLayout {
+            Path {
+                width: 120px;
+                height: 70px;
+                stroke: darkcyan;
+                stroke-width: 8px;
+                commands: "M 100 350 q 150 -300 300 0";
+            }
+
+            Path {
+                width: 100px;
+                height: 50px;
+                viewbox-width: 50;
+                viewbox-height: 50;
+                viewbox-x: 0;
+                viewbox-y: 0;
+                clip: true;
+                stroke: yellow;
+                stroke-width: 4px;
+                MoveTo {
+                    x: 10;
+                    y: 10;
+                }
+
+                LineTo {
+                    x: 80;
+                    y: 30;
+                }
+
+                LineTo {
+                    x: 30;
+                    y: 75;
+                }
+
+                LineTo {
+                    x: 50;
+                    y: 2;
+                }
+            }
+        }
+    }
+    
+    Path {
+            x: 300px;
+            y: 300px;
+            width: 80px;
+            height: 80px;
+            fill: rgba(255, 0, 255, 0.1);
+            stroke: @linear-gradient(10deg, red, green, blue);
+            stroke-width: 10px;
+            MoveTo {
+                x: 10;
+                y: 10;
+            }
+    
+            LineTo {
+                x: 80;
+                y: 30;
+            }
+    
+            LineTo {
+                x: 30;
+                y: 75;
+            }
+    
+            Close { }
+        }
+}
