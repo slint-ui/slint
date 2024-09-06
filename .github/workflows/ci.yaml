@@ -10,6 +10,10 @@ on:
         branches: [master, "feature/*"]
     workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+      
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
 
