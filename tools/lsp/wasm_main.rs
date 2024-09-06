@@ -307,6 +307,9 @@ impl SlintServer {
                     .server_notifier
                     .send_notification::<lsp_types::notification::ShowMessage>(message);
             }
+            M::SendTelementry { message } => {
+                common::send_telemetry(&self.ctx.server_notifier, message)
+            }
         }
         Ok(())
     }

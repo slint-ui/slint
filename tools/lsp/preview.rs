@@ -1018,6 +1018,8 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 preview_component.style.clone()
             };
 
+            send_telemetry(format!("Loading preview with style {style}"));
+
             match reload_preview_impl(preview_component, behavior, style, config).await {
                 Ok(()) => {}
                 Err(e) => {

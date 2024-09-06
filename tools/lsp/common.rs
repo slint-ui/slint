@@ -514,6 +514,8 @@ pub enum PreviewToLspMessage {
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
     /// Pass a `ShowMessage` notification on to the editor
     SendShowMessage { message: lsp_types::ShowMessageParams },
+    /// Report telemetry
+    SendTelemetry { message: String },
 }
 
 /// Information on the Element types available
@@ -574,6 +576,13 @@ pub mod lsp_to_editor {
                 },
             )
             .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+    }
+
+    pub fn send_telemetry(sender: crate::ServerNotifier, message: String) {
+        eprintln!("Sending telemetry: \"{message}\"");
+        let _ = sender.send_notification::<lsp_types::notification::TelemetryEvent>(
+            lsp_types::OneOf::Right(vec![serde_json::Value::String(message)]),
+        );
     }
 
     pub fn notify_lsp_diagnostics(

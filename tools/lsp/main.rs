@@ -544,6 +544,9 @@ async fn handle_preview_to_lsp_message(
             ctx.server_notifier
                 .send_notification::<lsp_types::notification::ShowMessage>(message)?;
         }
+        M::SendTelemetry { message } => {
+            common::lsp_to_editor::send_telemetry(ctx.server_notifier.clone(), message);
+        }
     }
     Ok(())
 }

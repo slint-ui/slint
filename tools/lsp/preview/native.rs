@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use super::PreviewState;
-use crate::common::{PreviewToLspMessage, SourceFileVersion};
+use crate::common::{self, PreviewToLspMessage, SourceFileVersion};
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 use once_cell::sync::Lazy;
@@ -242,6 +242,13 @@ pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
     let Ok(url) = lsp_types::Url::from_file_path(file) else { return };
     let fut = crate::common::lsp_to_editor::send_show_document_to_editor(sender, url, selection);
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
+}
+
+pub fn send_telemetry(message: String) {
+    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
+        return;
+    };
+    common::lsp_to_editor::send_telemetry(sender, message);
 }
 
 pub fn send_message_to_lsp(message: PreviewToLspMessage) {
