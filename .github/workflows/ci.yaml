@@ -143,6 +143,7 @@ jobs:
               working-directory: ./api/node
               run: npm run lint
             - name: Check code formatting
+              if: ${{ runner.os != 'Windows' }}
               working-directory: ./api/node
               run: npm run format
             - name: Build node plugin in debug
