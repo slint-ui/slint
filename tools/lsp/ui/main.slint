@@ -5,13 +5,14 @@
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { Api, ComponentItem } from "api.slint";
-import { PreviewView, DrawAreaMode } from "./views/preview-view.slint";
+
 import { DiagnosticsOverlay } from "./components/diagnostics-overlay.slint";
-import { LibraryView } from "./views/library-view.slint";
-import { PropertyView } from "./views/property-view.slint";
+import { EditorSpaceSettings, Icons } from "./components/styling.slint";
+import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
-import { EditorSpaceSettings } from "./components/styling.slint";
-import { Icons } from "components/styling.slint";
+import { LibraryView } from "./views/library-view.slint";
+import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
+import { PropertyView } from "./views/property-view.slint";
 
 export { Api }
 
@@ -105,6 +106,8 @@ export component PreviewUi inherits Window {
 
                     if Api.design-mode: PropertyView { }
                 }
+
+                StatusLine { }
             }
 
             key-handler := FocusScope {
