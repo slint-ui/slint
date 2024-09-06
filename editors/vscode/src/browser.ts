@@ -12,8 +12,10 @@ import {
 
 import * as wasm_preview from "./wasm_preview";
 import * as common from "./common";
+import { SlintTelemetrySender } from "./telemetry";
 
 let statusBar: vscode.StatusBarItem;
+let telemetryLogger: vscode.TelemetryLogger;
 
 function startClient(
     client: common.ClientHandle,
@@ -62,6 +64,24 @@ function startClient(
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
     statusBar = common.activate(context, (cl, ctx) => startClient(cl, ctx));
+
+    telemetryLogger = vscode.env.createTelemetryLogger(
+        new SlintTelemetrySender(context.extensionMode),
+        {
+            ignoreBuiltInCommonProperties: true,
+            additionalCommonProperties: {
+                common: {
+                    machineId: vscode.env.machineId,
+                    extname: context.extension.packageJSON.name,
+                    extversion: context.extension.packageJSON.version,
+                    vscodeversion: vscode.version,
+                    platform: "web",
+                    language: vscode.env.language,
+                },
+            },
+        },
+    );
+    telemetryLogger.logUsage("extension-activated", {});
 }
 
 export function deactivate(): Thenable<void> | undefined {

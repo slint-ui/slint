@@ -235,7 +235,7 @@ export function activate(context: vscode.ExtensionContext) {
                     extname: context.extension.packageJSON.name,
                     extversion: context.extension.packageJSON.version,
                     vscodeversion: vscode.version,
-                    platform: process?.platform ?? "web",
+                    platform: process.platform,
                     language: vscode.env.language,
                 },
             },
