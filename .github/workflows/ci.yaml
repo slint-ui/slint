@@ -139,6 +139,12 @@ jobs:
             - name: Run npm install
               working-directory: ./api/node
               run: npm install --ignore-scripts
+            - name: Lint node api
+              working-directory: ./api/node
+              run: npm run lint
+            - name: Check code formatting
+              working-directory: ./api/node
+              run: npm run format
             - name: Build node plugin in debug
               run: npm run build:testing
               working-directory: ./api/node

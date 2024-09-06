@@ -1,0 +1,61 @@
+{
+    "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+    "formatter": {
+        "enabled": true,
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "attributePosition": "auto",
+        "ignore": [
+            "./node_modules",
+            "./.pnp",
+            "**/.pnp.js",
+            "./coverage",
+            "**/build/**",
+            "**/out/**",
+            "./dist",
+            "**/.DS_Store",
+            "**/.env.local",
+            "**/.env.development.local",
+            "**/.env.test.local",
+            "**/.env.production.local",
+            "**/npm-debug.log*",
+            "**/yarn-debug.log*",
+            "**/yarn-error.log*",
+            "**/.vscode/**",
+            "*.json",
+            "*/rust-module.d.ts"
+        ]
+    },
+    "organizeImports": { "enabled": false },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": false,
+            "style": {
+                "useBlockStatements": "warn",
+                "noUselessElse": "off"
+            },
+            "suspicious": { "noDoubleEquals": "warn" }
+        },
+        "ignore": [
+            "webviews/**",
+            "**/.vscode/**",
+            "**/build/**",
+            "**/out/**",
+            "rust-module.d.ts"
+        ]
+    },
+    "javascript": {
+        "formatter": {
+            "jsxQuoteStyle": "double",
+            "quoteProperties": "asNeeded",
+            "semicolons": "always",
+            "bracketSpacing": true,
+            "bracketSameLine": false,
+            "quoteStyle": "double",
+            "attributePosition": "auto"
+        }
+    }
+}

@@ -6,12 +6,10 @@ export {
     Diagnostic,
     DiagnosticLevel,
     RgbaColor,
-    Brush
+    Brush,
 } from "./rust-module";
 
-import {
-    Diagnostic
-} from "./rust-module.cjs";
+import { Diagnostic } from "./rust-module.cjs";
 
 /**
  *  Represents a two-dimensional point.
@@ -132,13 +130,13 @@ class ModelIterator<T> implements Iterator<T> {
             this.row++;
             return {
                 done: false,
-                value: this.model.rowData(row)
-            }
+                value: this.model.rowData(row),
+            };
         }
         return {
             done: true,
-            value: undefined
-        }
+            value: undefined,
+        };
     }
 }
 
@@ -242,7 +240,7 @@ export abstract class Model<T> implements Iterable<T> {
      */
     setRowData(_row: number, _data: T): void {
         console.log(
-            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
+            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
         );
     }
 
@@ -402,114 +400,114 @@ export namespace private_api {
      *
      * ```ts
      * import { Model, ArrayModel, MapModel } from "./index";
-    *
-    * interface Name {
-    *     first: string;
-    *     last: string;
-    * }
-    *
-    * const model = new ArrayModel<Name>([
-    *     {
-    *         first: "Hans",
-    *         last: "Emil",
-    *     },
-    *     {
-    *         first: "Max",
-    *         last: "Mustermann",
-    *     },
-    *     {
-    *         first: "Roman",
-    *         last: "Tisch",
-    *     },
-    * ]);
-    *
-    * const mappedModel = new MapModel(
-    *     model,
-    *     (data) => {
-    *         return data.last + ", " + data.first;
-    *     }
-    * );
-    *
-    * // prints "Emil, Hans"
-    * console.log(mappedModel.rowData(0));
-    *
-    * // prints "Mustermann, Max"
-    * console.log(mappedModel.rowData(1));
-    *
-    * // prints "Tisch, Roman"
-    * console.log(mappedModel.rowData(2));
-    *
-    * // Alternatively you can use the shortcut {@link MapModel.map}.
-    *
-    * const model = new ArrayModel<Name>([
-    *     {
-    *         first: "Hans",
-    *         last: "Emil",
-    *     },
-    *     {
-    *         first: "Max",
-    *         last: "Mustermann",
-    *     },
-    *     {
-    *         first: "Roman",
-    *         last: "Tisch",
-    *     },
-    * ]);
-    *
-    * const mappedModel = model.map(
-    *     (data) => {
-    *         return data.last + ", " + data.first;
-    *     }
-    * );
-    *
-    *
-    * // prints "Emil, Hans"
-    * console.log(mappedModel.rowData(0));
-    *
-    * // prints "Mustermann, Max"
-    * console.log(mappedModel.rowData(1));
-    *
-    * // prints "Tisch, Roman"
-    * console.log(mappedModel.rowData(2));
-    *
-    * // You can modifying the underlying {@link ArrayModel}:
-    *
-    * const model = new ArrayModel<Name>([
-    *     {
-    *         first: "Hans",
-    *         last: "Emil",
-    *     },
-    *     {
-    *         first: "Max",
-    *         last: "Mustermann",
-    *     },
-    *     {
-    *         first: "Roman",
-    *         last: "Tisch",
-    *     },
-    * ]);
-    *
-    * const mappedModel = model.map(
-    *     (data) => {
-    *         return data.last + ", " + data.first;
-    *     }
-    * );
-    *
-    * model.setRowData(1, { first: "Minnie", last: "Musterfrau" } );
-    *
-    * // prints "Emil, Hans"
-    * console.log(mappedModel.rowData(0));
-    *
-    * // prints "Musterfrau, Minnie"
-    * console.log(mappedModel.rowData(1));
-    *
-    * // prints "Tisch, Roman"
-    * console.log(mappedModel.rowData(2));
-    * ```
-    */
+     *
+     * interface Name {
+     *     first: string;
+     *     last: string;
+     * }
+     *
+     * const model = new ArrayModel<Name>([
+     *     {
+     *         first: "Hans",
+     *         last: "Emil",
+     *     },
+     *     {
+     *         first: "Max",
+     *         last: "Mustermann",
+     *     },
+     *     {
+     *         first: "Roman",
+     *         last: "Tisch",
+     *     },
+     * ]);
+     *
+     * const mappedModel = new MapModel(
+     *     model,
+     *     (data) => {
+     *         return data.last + ", " + data.first;
+     *     }
+     * );
+     *
+     * // prints "Emil, Hans"
+     * console.log(mappedModel.rowData(0));
+     *
+     * // prints "Mustermann, Max"
+     * console.log(mappedModel.rowData(1));
+     *
+     * // prints "Tisch, Roman"
+     * console.log(mappedModel.rowData(2));
+     *
+     * // Alternatively you can use the shortcut {@link MapModel.map}.
+     *
+     * const model = new ArrayModel<Name>([
+     *     {
+     *         first: "Hans",
+     *         last: "Emil",
+     *     },
+     *     {
+     *         first: "Max",
+     *         last: "Mustermann",
+     *     },
+     *     {
+     *         first: "Roman",
+     *         last: "Tisch",
+     *     },
+     * ]);
+     *
+     * const mappedModel = model.map(
+     *     (data) => {
+     *         return data.last + ", " + data.first;
+     *     }
+     * );
+     *
+     *
+     * // prints "Emil, Hans"
+     * console.log(mappedModel.rowData(0));
+     *
+     * // prints "Mustermann, Max"
+     * console.log(mappedModel.rowData(1));
+     *
+     * // prints "Tisch, Roman"
+     * console.log(mappedModel.rowData(2));
+     *
+     * // You can modifying the underlying {@link ArrayModel}:
+     *
+     * const model = new ArrayModel<Name>([
+     *     {
+     *         first: "Hans",
+     *         last: "Emil",
+     *     },
+     *     {
+     *         first: "Max",
+     *         last: "Mustermann",
+     *     },
+     *     {
+     *         first: "Roman",
+     *         last: "Tisch",
+     *     },
+     * ]);
+     *
+     * const mappedModel = model.map(
+     *     (data) => {
+     *         return data.last + ", " + data.first;
+     *     }
+     * );
+     *
+     * model.setRowData(1, { first: "Minnie", last: "Musterfrau" } );
+     *
+     * // prints "Emil, Hans"
+     * console.log(mappedModel.rowData(0));
+     *
+     * // prints "Musterfrau, Minnie"
+     * console.log(mappedModel.rowData(1));
+     *
+     * // prints "Tisch, Roman"
+     * console.log(mappedModel.rowData(2));
+     * ```
+     */
     export class MapModel<T, U> extends Model<U> {
         readonly sourceModel: Model<T>;
-        #mapFunction: (data: T) => U
+        #mapFunction: (data: T) => U;
 
         /**
          * Constructs the MapModel with a source model and map functions.
@@ -518,10 +516,7 @@ export namespace private_api {
          * @param sourceModel the wrapped model.
          * @param mapFunction maps the data from T to U.
          */
-        constructor(
-            sourceModel: Model<T>,
-            mapFunction: (data: T) => U
-        ) {
+        constructor(sourceModel: Model<T>, mapFunction: (data: T) => U) {
             super();
             this.sourceModel = sourceModel;
             this.#mapFunction = mapFunction;
@@ -598,8 +593,8 @@ class Component implements ComponentHandle {
     }
 
     /**
-    * @hidden
-    */
+     * @hidden
+     */
     get component_instance(): napi.ComponentInstance {
         return this.#instance;
     }
@@ -636,14 +631,15 @@ export class CompileError extends Error {
      */
     constructor(message: string, diagnostics: napi.Diagnostic[]) {
         const formattedDiagnostics = diagnostics
-          .map((d) =>
-            `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`
-          )
-          .join("\n");
-    
+            .map(
+                (d) =>
+                    `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
+            )
+            .join("\n");
+
         let formattedMessage = message;
         if (diagnostics.length > 0) {
-          formattedMessage += `\nDiagnostics:\n${formattedDiagnostics}`;
+            formattedMessage += `\nDiagnostics:\n${formattedDiagnostics}`;
         }
 
         super(formattedMessage);
@@ -676,23 +672,25 @@ export interface LoadFileOptions {
     libraryPaths?: Record<string, string>;
 }
 
-type LoadData = {
-    fileData: {
-        filePath: string,
-        options?: LoadFileOptions
-    },
-    from: 'file'
-} | {
-    fileData: {
-        source: string,
-        filePath: string,
-        options?: LoadFileOptions
-    },
-    from: 'source'
-}
+type LoadData =
+    | {
+          fileData: {
+              filePath: string;
+              options?: LoadFileOptions;
+          };
+          from: "file";
+      }
+    | {
+          fileData: {
+              source: string;
+              filePath: string;
+              options?: LoadFileOptions;
+          };
+          from: "source";
+      };
 
 function loadSlint(loadData: LoadData): Object {
-    const { filePath, options } = loadData.fileData
+    const { filePath, options } = loadData.fileData;
 
     let compiler = new napi.ComponentCompiler();
 
@@ -708,12 +706,15 @@ function loadSlint(loadData: LoadData): Object {
         }
     }
 
-    let definitions = loadData.from === 'file' ? compiler.buildFromPath(filePath) : compiler.buildFromSource(loadData.fileData.source, filePath);
+    let definitions =
+        loadData.from === "file"
+            ? compiler.buildFromPath(filePath)
+            : compiler.buildFromSource(loadData.fileData.source, filePath);
     let diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
         let warnings = diagnostics.filter(
-            (d) => d.level == napi.DiagnosticLevel.Warning
+            (d) => d.level === napi.DiagnosticLevel.Warning,
         );
 
         if (typeof options !== "undefined" && options.quiet !== true) {
@@ -721,7 +722,7 @@ function loadSlint(loadData: LoadData): Object {
         }
 
         let errors = diagnostics.filter(
-            (d) => d.level == napi.DiagnosticLevel.Error
+            (d) => d.level === napi.DiagnosticLevel.Error,
         );
 
         if (errors.length > 0) {
@@ -734,156 +735,246 @@ function loadSlint(loadData: LoadData): Object {
     Object.keys(definitions).forEach((key) => {
         let definition = definitions[key];
 
-        Object.defineProperty(slint_module, definition.name.replace(/-/g, "_"), {
-            value: function (properties: any) {
-                let instance = definition.create();
+        Object.defineProperty(
+            slint_module,
+            definition.name.replace(/-/g, "_"),
+            {
+                value: function (properties: any) {
+                    let instance = definition.create();
 
-                if (instance == null) {
-                    throw Error(
-                        "Could not create a component handle for" + filePath
-                    );
-                }
-
-                for (var key in properties) {
-                    let value = properties[key];
-
-                    if (value instanceof Function) {
-                        instance.setCallback(key, value);
-                    } else {
-                        instance.setProperty(key, properties[key]);
+                    if (instance == null) {
+                        throw Error(
+                            "Could not create a component handle for" +
+                                filePath,
+                        );
                     }
-                }
 
-                let componentHandle = new Component(instance!);
-                instance!.definition().properties.forEach((prop) => {
-                    let propName = prop.name.replace(/-/g, "_");
+                    for (var key in properties) {
+                        let value = properties[key];
 
-                    if (componentHandle[propName] !== undefined) {
-                        console.warn("Duplicated property name " + propName);
-                    } else {
-                        Object.defineProperty(componentHandle, propName, {
-                            get() {
-                                return instance!.getProperty(prop.name);
-                            },
-                            set(value) {
-                                instance!.setProperty(prop.name, value);
-                            },
-                            enumerable: true,
-                        });
+                        if (value instanceof Function) {
+                            instance.setCallback(key, value);
+                        } else {
+                            instance.setProperty(key, properties[key]);
+                        }
                     }
-                });
 
-                instance!.definition().callbacks.forEach((cb) => {
-                    let callbackName = cb.replace(/-/g, "_");
+                    let componentHandle = new Component(instance!);
+                    instance!.definition().properties.forEach((prop) => {
+                        let propName = prop.name.replace(/-/g, "_");
 
-                    if (componentHandle[callbackName] !== undefined) {
-                        console.warn("Duplicated callback name " + callbackName);
-                    } else {
-                        Object.defineProperty(componentHandle, cb.replace(/-/g, "_"), {
-                            get() {
-                                return function () {
-                                    return instance!.invoke(cb, Array.from(arguments));
-                                };
-                            },
-                            set(callback) {
-                                instance!.setCallback(cb, callback);
-                            },
-                            enumerable: true,
-                        });
-                    }
-                });
+                        if (componentHandle[propName] !== undefined) {
+                            console.warn(
+                                "Duplicated property name " + propName,
+                            );
+                        } else {
+                            Object.defineProperty(componentHandle, propName, {
+                                get() {
+                                    return instance!.getProperty(prop.name);
+                                },
+                                set(value) {
+                                    instance!.setProperty(prop.name, value);
+                                },
+                                enumerable: true,
+                            });
+                        }
+                    });
 
-                instance!.definition().functions.forEach((cb) => {
-                    let functionName = cb.replace(/-/g, "_");
+                    instance!.definition().callbacks.forEach((cb) => {
+                        let callbackName = cb.replace(/-/g, "_");
 
-                    if (componentHandle[functionName] !== undefined) {
-                        console.warn("Duplicated function name " + functionName);
-                    } else {
-                        Object.defineProperty(componentHandle, cb.replace(/-/g, "_"), {
-                            get() {
-                                return function () {
-                                    return instance!.invoke(cb, Array.from(arguments));
-                                };
-                            },
-                            enumerable: true,
-                        });
-                    }
-                });
-
-                // globals
-                instance!.definition().globals.forEach((globalName) => {
-                    if (componentHandle[globalName] !== undefined) {
-                        console.warn("Duplicated property name " + globalName);
-                    } else {
-                        let globalObject = Object.create({});
-
-                        instance!.definition().globalProperties(globalName).forEach((prop) => {
-                            let propName = prop.name.replace(/-/g, "_");
-
-                            if (globalObject[propName] !== undefined) {
-                                console.warn("Duplicated property name " + propName + " on global " + global);
-                            } else {
-                                Object.defineProperty(globalObject, propName, {
-                                    get() {
-                                        return instance!.getGlobalProperty(globalName, prop.name);
-                                    },
-                                    set(value) {
-                                        instance!.setGlobalProperty(globalName, prop.name, value);
-                                    },
-                                    enumerable: true,
-                                });
-                            }
-                        });
-
-                        instance!.definition().globalCallbacks(globalName).forEach((cb) => {
-                            let callbackName = cb.replace(/-/g, "_");
-
-                            if (globalObject[callbackName] !== undefined) {
-                                console.warn("Duplicated property name " + cb + " on global " + global);
-                            } else {
-                                Object.defineProperty(globalObject, cb.replace(/-/g, "_"), {
+                        if (componentHandle[callbackName] !== undefined) {
+                            console.warn(
+                                "Duplicated callback name " + callbackName,
+                            );
+                        } else {
+                            Object.defineProperty(
+                                componentHandle,
+                                cb.replace(/-/g, "_"),
+                                {
                                     get() {
                                         return function () {
-                                            return instance!.invokeGlobal(globalName, cb, Array.from(arguments));
+                                            return instance!.invoke(
+                                                cb,
+                                                Array.from(arguments),
+                                            );
                                         };
                                     },
                                     set(callback) {
-                                        instance!.setGlobalCallback(globalName, cb, callback);
+                                        instance!.setCallback(cb, callback);
                                     },
                                     enumerable: true,
-                                });
-                            }
-                        });
+                                },
+                            );
+                        }
+                    });
 
-                        instance!.definition().globalFunctions(globalName).forEach((cb) => {
-                            let functionName = cb.replace(/-/g, "_");
+                    instance!.definition().functions.forEach((cb) => {
+                        let functionName = cb.replace(/-/g, "_");
 
-                            if (globalObject[functionName] !== undefined) {
-                                console.warn("Duplicated function name " + cb + " on global " + global);
-                            } else {
-                                Object.defineProperty(globalObject, cb.replace(/-/g, "_"), {
+                        if (componentHandle[functionName] !== undefined) {
+                            console.warn(
+                                "Duplicated function name " + functionName,
+                            );
+                        } else {
+                            Object.defineProperty(
+                                componentHandle,
+                                cb.replace(/-/g, "_"),
+                                {
                                     get() {
                                         return function () {
-                                            return instance!.invokeGlobal(globalName, cb, Array.from(arguments));
+                                            return instance!.invoke(
+                                                cb,
+                                                Array.from(arguments),
+                                            );
                                         };
                                     },
                                     enumerable: true,
+                                },
+                            );
+                        }
+                    });
+
+                    // globals
+                    instance!.definition().globals.forEach((globalName) => {
+                        if (componentHandle[globalName] !== undefined) {
+                            console.warn(
+                                "Duplicated property name " + globalName,
+                            );
+                        } else {
+                            let globalObject = Object.create({});
+
+                            instance!
+                                .definition()
+                                .globalProperties(globalName)
+                                .forEach((prop) => {
+                                    let propName = prop.name.replace(/-/g, "_");
+
+                                    if (globalObject[propName] !== undefined) {
+                                        console.warn(
+                                            "Duplicated property name " +
+                                                propName +
+                                                " on global " +
+                                                global,
+                                        );
+                                    } else {
+                                        Object.defineProperty(
+                                            globalObject,
+                                            propName,
+                                            {
+                                                get() {
+                                                    return instance!.getGlobalProperty(
+                                                        globalName,
+                                                        prop.name,
+                                                    );
+                                                },
+                                                set(value) {
+                                                    instance!.setGlobalProperty(
+                                                        globalName,
+                                                        prop.name,
+                                                        value,
+                                                    );
+                                                },
+                                                enumerable: true,
+                                            },
+                                        );
+                                    }
                                 });
-                            }
-                        });
 
-                        Object.defineProperty(componentHandle, globalName, {
-                            get() {
-                                return globalObject;
-                            },
-                            enumerable: true,
-                        });
-                    }
-                });
+                            instance!
+                                .definition()
+                                .globalCallbacks(globalName)
+                                .forEach((cb) => {
+                                    let callbackName = cb.replace(/-/g, "_");
 
-                return Object.seal(componentHandle);
+                                    if (
+                                        globalObject[callbackName] !== undefined
+                                    ) {
+                                        console.warn(
+                                            "Duplicated property name " +
+                                                cb +
+                                                " on global " +
+                                                global,
+                                        );
+                                    } else {
+                                        Object.defineProperty(
+                                            globalObject,
+                                            cb.replace(/-/g, "_"),
+                                            {
+                                                get() {
+                                                    return function () {
+                                                        return instance!.invokeGlobal(
+                                                            globalName,
+                                                            cb,
+                                                            Array.from(
+                                                                arguments,
+                                                            ),
+                                                        );
+                                                    };
+                                                },
+                                                set(callback) {
+                                                    instance!.setGlobalCallback(
+                                                        globalName,
+                                                        cb,
+                                                        callback,
+                                                    );
+                                                },
+                                                enumerable: true,
+                                            },
+                                        );
+                                    }
+                                });
+
+                            instance!
+                                .definition()
+                                .globalFunctions(globalName)
+                                .forEach((cb) => {
+                                    let functionName = cb.replace(/-/g, "_");
+
+                                    if (
+                                        globalObject[functionName] !== undefined
+                                    ) {
+                                        console.warn(
+                                            "Duplicated function name " +
+                                                cb +
+                                                " on global " +
+                                                global,
+                                        );
+                                    } else {
+                                        Object.defineProperty(
+                                            globalObject,
+                                            cb.replace(/-/g, "_"),
+                                            {
+                                                get() {
+                                                    return function () {
+                                                        return instance!.invokeGlobal(
+                                                            globalName,
+                                                            cb,
+                                                            Array.from(
+                                                                arguments,
+                                                            ),
+                                                        );
+                                                    };
+                                                },
+                                                enumerable: true,
+                                            },
+                                        );
+                                    }
+                                });
+
+                            Object.defineProperty(componentHandle, globalName, {
+                                get() {
+                                    return globalObject;
+                                },
+                                enumerable: true,
+                            });
+                        }
+                    });
+
+                    return Object.seal(componentHandle);
+                },
             },
-        });
+        );
     });
     return Object.seal(slint_module);
 }
@@ -923,8 +1014,8 @@ function loadSlint(loadData: LoadData): Object {
 export function loadFile(filePath: string, options?: LoadFileOptions): Object {
     return loadSlint({
         fileData: { filePath, options },
-        from: 'file',
-    })
+        from: "file",
+    });
 }
 
 /**
@@ -955,11 +1046,15 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
  *          For further information on the available properties, refer to [Instantiating A Component](../index.html#md:instantiating-a-component).
  * @throws {@link CompileError} if errors occur during compilation.
  */
-export function loadSource(source: string, filePath: string, options?: LoadFileOptions): Object {
+export function loadSource(
+    source: string,
+    filePath: string,
+    options?: LoadFileOptions,
+): Object {
     return loadSlint({
         fileData: { filePath, options, source },
-        from: 'source',
-    })
+        from: "source",
+    });
 }
 
 class EventLoop {
@@ -967,10 +1062,12 @@ class EventLoop {
     #terminationPromise: Promise<unknown> | null = null;
     #terminateResolveFn: ((_value: unknown) => void) | null;
 
-    constructor() {
-    }
+    constructor() {}
 
-    start(running_callback?: Function, quitOnLastWindowClosed: boolean = true): Promise<unknown> {
+    start(
+        running_callback?: Function,
+        quitOnLastWindowClosed: boolean = true,
+    ): Promise<unknown> {
         if (this.#terminationPromise != null) {
             return this.#terminationPromise;
         }
@@ -982,7 +1079,7 @@ class EventLoop {
 
         napi.setQuitOnLastWindowClosed(quitOnLastWindowClosed);
 
-        if (running_callback != undefined) {
+        if (running_callback !== undefined) {
             napi.invokeFromEventLoop(() => {
                 running_callback();
                 running_callback = undefined;
@@ -993,7 +1090,10 @@ class EventLoop {
         // can do right now.
         const nodejsPollInterval = 16;
         let id = setInterval(() => {
-            if (napi.processEvents() == napi.ProcessEventsResult.Exited || this.#quit_loop) {
+            if (
+                napi.processEvents() === napi.ProcessEventsResult.Exited ||
+                this.#quit_loop
+            ) {
                 clearInterval(id);
                 this.#terminateResolveFn!(undefined);
                 this.#terminateResolveFn = null;
@@ -1010,7 +1110,7 @@ class EventLoop {
     }
 }
 
-var globalEventLoop: EventLoop = new EventLoop;
+var globalEventLoop: EventLoop = new EventLoop();
 
 /**
  * Spins the Slint event loop and returns a promise that resolves when the loop terminates.
@@ -1032,7 +1132,11 @@ var globalEventLoop: EventLoop = new EventLoop;
  * application is idle, it continues to consume a low amount of CPU cycles, checking if either
  * event loop has any pending events.
  */
-export function runEventLoop(args?: Function | { runningCallback?: Function; quitOnLastWindowClosed?: boolean }): Promise<unknown> {
+export function runEventLoop(
+    args?:
+        | Function
+        | { runningCallback?: Function; quitOnLastWindowClosed?: boolean },
+): Promise<unknown> {
     if (args === undefined) {
         return globalEventLoop.start(undefined);
     }
@@ -1041,7 +1145,10 @@ export function runEventLoop(args?: Function | { runningCallback?: Function; qui
         return globalEventLoop.start(args);
     }
 
-    return globalEventLoop.start(args.runningCallback, args.quitOnLastWindowClosed);
+    return globalEventLoop.start(
+        args.runningCallback,
+        args.quitOnLastWindowClosed,
+    );
 }
 
 /**
@@ -1049,7 +1156,7 @@ export function runEventLoop(args?: Function | { runningCallback?: Function; qui
  from run_event_loop() will resolve in a later tick of the nodejs event loop.
  */
 export function quitEventLoop() {
-    globalEventLoop.quit()
+    globalEventLoop.quit();
 }
 
 /**
@@ -1073,14 +1180,14 @@ export namespace private_api {
     export function send_mouse_click(
         component: Component,
         x: number,
-        y: number
+        y: number,
     ) {
         component.component_instance.sendMouseClick(x, y);
     }
 
     export function send_keyboard_string_sequence(
         component: Component,
-        s: string
+        s: string,
     ) {
         component.component_instance.sendKeyboardStringSequence(s);
     }
