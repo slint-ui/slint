@@ -7,6 +7,7 @@ import { StateLayer } from "./state-layer.slint";
 import { EditorSizeSettings, EditorAnimationSettings, Icons } from "./styling.slint";
 import { BodyText } from "./body-text.slint";
 import { BodyStrongText } from "./body-strong-text.slint";
+import { StatusLineApi } from "status-line.slint";
 
 
 component HeaderItemTemplate {
@@ -87,6 +88,12 @@ component ItemTemplate {
                 mouse-cursor: MouseCursor.default;
             }
         ]
+
+        changed has-hover => {
+            if self.has-hover {
+                StatusLineApi.help-text = @tr("Drag onto canvas to add {}", text);
+            }
+        }
     }
 
     state-layer := StateLayer {
