@@ -104,10 +104,6 @@ export class Previewer {
     show_ui(): Promise<void> {
         return this.#preview_connector.show_ui();
     }
-
-    current_style(): string {
-        return this.#preview_connector.current_style();
-    }
 }
 
 export class Lsp {
@@ -249,7 +245,6 @@ export class Lsp {
 
     async previewer(
         resource_url_mapper: ResourceUrlMapperFunction,
-        style: string,
     ): Promise<Previewer> {
         if (this.#preview_connector === null) {
             try {
@@ -271,7 +266,6 @@ export class Lsp {
                         );
                     },
                     resource_url_mapper,
-                    style,
                     experimental === "1",
                 );
         }

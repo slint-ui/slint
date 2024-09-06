@@ -79,12 +79,6 @@ impl ContentCache {
         self.current_previewed_component = Some(component);
     }
 
-    pub fn clear_style_of_component(&mut self) {
-        if let Some(pc) = &mut self.current_previewed_component {
-            pc.style = String::new();
-        }
-    }
-
     pub fn rename_current_component(&mut self, url: &Url, old_name: &str, new_name: &str) {
         if let Some(pc) = &mut self.current_previewed_component {
             if pc.url == *url && pc.component.as_deref() == Some(old_name) {
@@ -833,20 +827,6 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
     false
 }
 
-fn change_style() {
-    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let ui_is_visible = cache.ui_is_visible;
-    let Some(current) = cache.current_component() else {
-        return;
-    };
-
-    drop(cache);
-
-    if ui_is_visible {
-        load_preview(current, LoadBehavior::Reload);
-    }
-}
-
 fn start_parsing() {
     set_status_text("Updating Preview...");
     set_diagnostics(&[]);
@@ -1000,7 +980,6 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
             let (preview_component, config) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
                 let Some(preview_component) = cache.current_component() else { return };
-                cache.clear_style_of_component();
 
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
                 if !cache.ui_is_visible && behavior != LoadBehavior::Load {
@@ -1012,9 +991,8 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 (preview_component, cache.config.clone())
             };
             let style = if preview_component.style.is_empty() {
-                get_current_style()
+                default_style()
             } else {
-                set_current_style(preview_component.style.clone());
                 preview_component.style.clone()
             };
 
@@ -1475,28 +1453,6 @@ fn set_show_preview_ui(show_preview_ui: bool) {
             }
         })
     });
-}
-
-fn set_current_style(style: String) {
-    PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow_mut();
-        if let Some(ui) = &preview_state.ui {
-            let api = ui.global::<ui::Api>();
-            api.set_current_style(style.into())
-        }
-    });
-}
-
-fn get_current_style() -> String {
-    PREVIEW_STATE.with(|preview_state| -> String {
-        let preview_state = preview_state.borrow();
-        if let Some(ui) = &preview_state.ui {
-            let api = ui.global::<ui::Api>();
-            api.get_current_style().as_str().to_string()
-        } else {
-            String::new()
-        }
-    })
 }
 
 fn set_status_text(text: &str) {

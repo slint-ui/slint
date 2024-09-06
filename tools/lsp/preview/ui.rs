@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::path::PathBuf;
-use std::{collections::HashMap, iter::once, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use i_slint_compiler::literals;
 use i_slint_compiler::{
@@ -10,7 +10,7 @@ use i_slint_compiler::{
     parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange},
 };
 use lsp_types::Url;
-use slint::{Model, SharedString, VecModel};
+use slint::{SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 
 use crate::common::{self, ComponentInformation};
@@ -21,37 +21,15 @@ use crate::wasm_prelude::*;
 
 slint::include_modules!();
 
-pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
+pub fn create_ui(experimental: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
-
-    // styles:
-    let known_styles = once(&"native")
-        .chain(i_slint_compiler::fileaccess::styles().iter())
-        .filter(|s| s != &&"qt" || i_slint_backend_selector::HAS_NATIVE_STYLE)
-        .cloned()
-        .collect::<Vec<_>>();
-    let style = if known_styles.contains(&style.as_str()) {
-        style
-    } else {
-        known_styles.first().map(|s| s.to_string()).unwrap_or_default()
-    };
-
-    let style_model = Rc::new({
-        let model = VecModel::default();
-        model.extend(known_styles.iter().map(|s| SharedString::from(*s)));
-        assert!(model.row_count() > 1);
-        model
-    });
 
     let api = ui.global::<Api>();
 
-    api.set_current_style(style.clone().into());
     api.set_experimental(experimental);
-    api.set_known_styles(style_model.into());
 
     api.on_add_new_component(super::add_new_component);
     api.on_rename_component(super::rename_component);
-    api.on_style_changed(super::change_style);
     api.on_show_component(super::show_component);
     api.on_show_document(|file, line, column| {
         use lsp_types::{Position, Range};

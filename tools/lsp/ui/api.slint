@@ -162,12 +162,6 @@ export global Api {
     // status message text
     in property <string> status-text;
 
-    // ## Style:
-    // All the known styles
-    in property <[string]> known-styles;
-    // The current style
-    in-out property <string> current-style;
-
     // ## Drawing Area
     // Borders around things
     in property <[Selection]> selections;
@@ -182,9 +176,6 @@ export global Api {
     in property <ElementInformation> current-element;
 
     // # Callbacks
-
-    // ## Style:
-    callback style-changed();
 
     // ## Component life-cycle:
 

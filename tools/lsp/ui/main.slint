@@ -49,15 +49,9 @@ export component PreviewUi inherits Window {
             VerticalLayout {
                 header-view := HeaderView {
                     edit-mode <=> Api.design-mode;
-                    current-style <=> Api.current-style;
-                    known-styles <=> Api.known-styles;
 
                     edit-mode-toggled() => {
                         key-handler.focus();
-                    }
-
-                    style-selected => {
-                        Api.style-changed();
                     }
                 }
 

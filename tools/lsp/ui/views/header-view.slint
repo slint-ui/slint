@@ -8,10 +8,7 @@ import { HeaderText } from "../components/header-text.slint";
 
 export component HeaderView {
     in-out property <bool> edit-mode <=> interaction-switch.checked;
-    in-out property <string> current-style <=> style-combobox.current-value;
-    in property <[string]> known-styles <=> style-combobox.model;
 
-    callback style-selected();
     callback edit-mode-toggled();
 
     background-layer := Rectangle {
@@ -21,19 +18,6 @@ export component HeaderView {
             HeaderText {
                 text: @tr("Preview");
                 horizontal-stretch: 1;
-            }
-
-            BodyText {
-                horizontal-stretch: 0;
-                text: @tr("Style");
-            }
-
-            style-combobox := ComboBox {
-                horizontal-stretch: 0;
-
-                selected => {
-                    root.style-selected();
-                }
             }
 
             HorizontalLayout {

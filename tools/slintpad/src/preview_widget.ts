@@ -30,11 +30,7 @@ export class PreviewWidget extends Widget {
         return node;
     }
 
-    constructor(
-        lsp: Lsp,
-        resource_url_mapper: ResourceUrlMapperFunction,
-        style: string,
-    ) {
+    constructor(lsp: Lsp, resource_url_mapper: ResourceUrlMapperFunction) {
         super({ node: PreviewWidget.createNode() });
 
         this.setFlag(Widget.Flag.DisallowLayout);
@@ -44,7 +40,7 @@ export class PreviewWidget extends Widget {
         this.title.caption = `Slint Viewer`;
         this.title.closable = true;
 
-        lsp.previewer(resource_url_mapper, style).then((p) => {
+        lsp.previewer(resource_url_mapper).then((p) => {
             this.#previewer = p;
 
             // Give the UI some time to wire up the canvas so it can be found
@@ -58,14 +54,6 @@ export class PreviewWidget extends Widget {
                 canvas.style.height = "100%";
             });
         });
-    }
-
-    public current_style(): string {
-        if (this.#previewer) {
-            return this.#previewer.current_style();
-        } else {
-            return "";
-        }
     }
 
     protected onResize(msg: Widget.ResizeMessage): void {

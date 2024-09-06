@@ -60,10 +60,7 @@ function create_settings_menu(): Menu {
     return menu;
 }
 
-function create_project_menu(
-    editor: EditorWidget,
-    preview: PreviewWidget,
-): Menu {
+function create_project_menu(editor: EditorWidget): Menu {
     const menu = new Menu({ commands });
     menu.title.label = "Project";
 
@@ -111,7 +108,7 @@ function create_project_menu(
     menu.addItem({ command: "slint:add_file" });
     menu.addItem({
         type: "submenu",
-        submenu: create_share_menu(editor, preview),
+        submenu: create_share_menu(editor),
     });
     menu.addItem({ type: "separator" });
     menu.addItem({ type: "submenu", submenu: create_settings_menu() });
@@ -119,7 +116,7 @@ function create_project_menu(
     return menu;
 }
 
-function create_share_menu(editor: EditorWidget, preview: PreviewWidget): Menu {
+function create_share_menu(editor: EditorWidget): Menu {
     const menu = new Menu({ commands });
     menu.title.label = "Share";
 
@@ -133,7 +130,6 @@ function create_share_menu(editor: EditorWidget, preview: PreviewWidget): Menu {
         execute: () => {
             const params = new URLSearchParams();
             params.set("snippet", editor.current_editor_content);
-            params.set("style", preview.current_style());
             const this_url = new URL(window.location.toString());
             this_url.search = params.toString();
 
@@ -183,20 +179,15 @@ function create_share_menu(editor: EditorWidget, preview: PreviewWidget): Menu {
     return menu;
 }
 
-const url_params = new URLSearchParams(window.location.search);
-const url_style = url_params.get("style");
-
 function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
-    const preview = new PreviewWidget(
-        lsp,
-        (url: string) => editor.map_url(url),
-        url_style ?? "",
+    const preview = new PreviewWidget(lsp, (url: string) =>
+        editor.map_url(url),
     );
 
     const menu_bar = new MenuBar();
     menu_bar.id = "menuBar";
-    menu_bar.addMenu(create_project_menu(editor, preview));
+    menu_bar.addMenu(create_project_menu(editor));
 
     const main = new SplitPanel({ orientation: "horizontal" });
     main.id = "main";

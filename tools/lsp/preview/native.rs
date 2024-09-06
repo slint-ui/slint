@@ -139,22 +139,27 @@ pub fn quit_ui_event_loop() {
     *SERVER_NOTIFIER.lock().unwrap() = None
 }
 
+pub(super) fn default_style() -> String {
+    let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+
+    let style = cache.config.style.clone();
+    if style.is_empty() {
+        CLI_ARGS.with(|args| args.get().map(|a| a.style.clone()).unwrap_or_default())
+    } else {
+        style
+    }
+}
+
 pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint::PlatformError> {
-    let (default_style, show_preview_ui, fullscreen) = {
+    let (show_preview_ui, fullscreen) = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        let style = cache.config.style.clone();
-        let style = if style.is_empty() {
-            CLI_ARGS.with(|args| args.get().map(|a| a.style.clone()).unwrap_or_default())
-        } else {
-            style
-        };
         let hide_ui = cache
             .config
             .hide_ui
             .or_else(|| CLI_ARGS.with(|args| args.get().map(|a| a.no_toolbar)))
             .unwrap_or(false);
         let fullscreen = CLI_ARGS.with(|args| args.get().map(|a| a.fullscreen).unwrap_or_default());
-        (style, !hide_ui, fullscreen)
+        (!hide_ui, fullscreen)
     };
 
     let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
@@ -162,7 +167,7 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
     let ui = match preview_state.ui.as_ref() {
         Some(ui) => ui,
         None => {
-            let ui = super::ui::create_ui(default_style, experimental)?;
+            let ui = super::ui::create_ui(experimental)?;
 
             let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
             cache.ui_is_visible = true;
