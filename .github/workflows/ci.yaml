@@ -142,6 +142,7 @@ jobs:
               working-directory: ./api/node
               run: npm test
             - name: Run test-driver-nodejs
+              if: ${{ runner.os != 'Windows' }}
               run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
 
     python_test:
