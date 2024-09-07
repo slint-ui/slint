@@ -18,3 +18,5 @@ docs/reference/src/language/builtins/structs.md
 .env
 .envrc
 __pycache__
+
+.idea
