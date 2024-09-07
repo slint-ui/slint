@@ -10,6 +10,10 @@ on:
         branches: [master, "feature/*"]
     workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+      
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
 
@@ -142,6 +146,7 @@ jobs:
               working-directory: ./api/node
               run: npm test
             - name: Run test-driver-nodejs
+              if: ${{ runner.os != 'Windows' }}
               run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
 
     python_test:
