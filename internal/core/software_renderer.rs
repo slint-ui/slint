@@ -2621,7 +2621,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 .transform(transform)
                 .style(
                     zeno::Stroke::new(stroke_width)
-                        .cap(zeno::Cap::Square)
+                        .cap(zeno::Cap::Butt)
+                        .join(zeno::Join::Miter)
                 )
                 .size(geometry.size.width, geometry.size.height)
                 .render_into(&mut mask, None);
