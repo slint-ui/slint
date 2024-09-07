@@ -6,7 +6,7 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use super::{PhysicalLength, PhysicalRect, SkiaPixmapCommand};
+use super::{PhysicalLength, PhysicalRect, ZenoPathCommand};
 use crate::graphics::{PixelFormat, Rgb8Pixel};
 use crate::lengths::{PointLengths, SizeLengths};
 use crate::software_renderer::fixed::Fixed;
@@ -411,8 +411,8 @@ pub(super) fn draw_rounded_rectangle_line(
                         .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
                         .min(width as u32) as usize
                         ..x3.floor()
-                            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
-                            .min(width as u32) as usize],
+                        .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                        .min(width as u32) as usize],
                     rr.border_color,
                 )
             }
@@ -612,41 +612,52 @@ pub(super) fn draw_gradient_line(
     }
 }
 
-#[cfg(feature = "std")]
-pub(super) fn draw_skia_pixmap_line(
+/// Draws a path using two mask buffers and brushes (for fill and stroke)
+#[cfg(feature = "path")]
+pub(super) fn draw_zeno_path_line(
     span: &PhysicalRect,
     line: PhysicalLength,
-    cmd: &super::SkiaPixmapCommand,
+    cmd: &ZenoPathCommand,
     line_buffer: &mut [impl TargetPixel],
 ) {
     let y = line.0;
-    let min_y = span.origin.y;
-    let max_y = span.origin.y + span.size.height;
+    let pixmap_y = (y - span.origin.y) as usize;
+    let y_idx = pixmap_y * span.size.width as usize;
 
-    if y > min_y && y < max_y {
-        for (index, pix) in line_buffer.iter_mut().enumerate() {
-            let pixmap_x = index as u32 - span.origin.x as u32;
-            let pixmap_y = y as u32 - span.origin.y as u32;
+    let fill_mask = cmd.fill_mask.as_ref();
+    let stroke_mask = cmd.stroke_mask.as_ref();
 
-            if pixmap_x > 0 && pixmap_x < span.size.width as u32 {
-                let pixmap = cmd.pixmap.pixel(pixmap_x, pixmap_y);
-                match pixmap {
-                    Some(pixmap_pix) => {
-                        pix.blend(PremultipliedRgbaColor {
-                            red: pixmap_pix.red(),
-                            green: pixmap_pix.green(),
-                            blue: pixmap_pix.blue(),
-                            alpha: pixmap_pix.alpha(),
-                        })
-                    }
-                    None => {}
+    let fill_color = cmd.fill_brush.color();
+    let fill_color_alpha = fill_color.alpha() as f32 / 255.0;
+
+    let stroke_color = cmd.stroke_brush.color();
+    let stroke_color_alpha = stroke_color.alpha() as f32 / 255.0;
+
+    for (pixmap_x, pix) in line_buffer.iter_mut().enumerate() {
+        let pixel_idx = y_idx + pixmap_x;
+
+        if let Some(fill_mask) = fill_mask {
+            if let Some(&pixel) = fill_mask.get(pixel_idx) {
+                if pixel != 0 {
+                    // TODO: render other type of brushes
+                    let fill_alpha = ((pixel as f32) / 255.0) * fill_color_alpha;
+                    let color = fill_color.with_alpha(fill_alpha);
+                    pix.blend(PremultipliedRgbaColor::premultiply(color));
+                }
+            }
+        }
+
+        if let Some(stroke_mask) = stroke_mask {
+            if let Some(&pixel) = stroke_mask.get(pixel_idx) {
+                if pixel != 0 {
+                    // TODO: render other type of brushes
+                    let stroke_alpha = ((pixel as f32) / 255.0) * stroke_color_alpha;
+                    let color = stroke_color.with_alpha(stroke_alpha);
+                    pix.blend(PremultipliedRgbaColor::premultiply(color));
                 }
             }
         }
     }
-
-    println!("line: {}", line.0);
-    println!("line_buffer sz: {}", line_buffer.len());
 }
 
 /// A color whose component have been pre-multiplied by alpha

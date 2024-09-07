@@ -18,12 +18,12 @@ use crate::graphics::{
     BorderRadius, PixelFormat, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
 };
 use crate::item_rendering::{CachedRenderingData, DirtyRegion, RenderBorderRectangle, RenderImage};
-use crate::items::{ItemRc, TextOverflow, TextWrap};
-use crate::lengths::{LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths};
+use crate::items::{ItemRc, TextOverflow, TextWrap, FillRule};
+use crate::lengths::{LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths};
 use crate::renderer::{Renderer, RendererSealed};
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
-use crate::{Brush, Color, Coord, ImageInner, PathData, StaticTextures};
+use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
@@ -31,13 +31,10 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Length;
 use lyon_path::Event;
-use lyon_path::math::Point;
 use fixed::Fixed;
 #[allow(unused)]
 use num_traits::Float;
 use num_traits::NumCast;
-#[cfg(feature = "std")]
-use resvg::{tiny_skia::{FillRule, Stroke, Paint, Pixmap, PathBuilder, Transform as TinySkiaTransform}};
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
@@ -974,9 +971,9 @@ fn render_window_frame_by_line(
                                     extra_left_clip,
                                 );
                             }
-                            SceneCommand::SkiaPixmap { pixmap_index } => {
-                                let cmd = &scene.vectors.skia_pixmaps[pixmap_index as usize];
-                                draw_functions::draw_skia_pixmap_line(
+                            SceneCommand::ZenoPath { zenopath_index } => {
+                                let cmd = &scene.vectors.zeno_paths[zenopath_index as usize];
+                                draw_functions::draw_zeno_path_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
                                     cmd,
@@ -1002,7 +999,7 @@ struct SceneVectors {
     rounded_rectangles: Vec<RoundedRectangle>,
     shared_buffers: Vec<SharedBufferCommand>,
     gradients: Vec<GradientCommand>,
-    skia_pixmaps: Vec<SkiaPixmapCommand>,
+    zeno_paths: Vec<ZenoPathCommand>,
 }
 
 struct Scene {
@@ -1258,14 +1255,14 @@ enum SceneCommand {
     RoundedRectangle {
         rectangle_index: u16,
     },
-    /// rectangle_index is an index in the [`SceneVectors::rounded_gradients`] array
+    /// gradient_index is an index in the [`SceneVectors::rounded_gradients`] array
     Gradient {
         gradient_index: u16,
     },
-    /// rectangle_index is an index in the [`SceneVectors::skia_pixmap`] array
-    SkiaPixmap {
-        pixmap_index: u16,
-    },
+    /// zenopath_index is an index in the [`SceneVectors::zeno_paths`] array
+    ZenoPath {
+        zenopath_index: u16,
+    }
 }
 
 struct SceneTexture<'a> {
@@ -1413,8 +1410,12 @@ struct GradientCommand {
 }
 
 #[derive(Debug)]
-struct SkiaPixmapCommand {
-    pixmap: Pixmap
+struct ZenoPathCommand {
+    stroke_mask: Option<Vec<u8>>,
+    stroke_brush: Brush,
+
+    fill_mask: Option<Vec<u8>>,
+    fill_brush: Brush,
 }
 
 
@@ -1498,7 +1499,7 @@ trait ProcessScene {
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
     fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand);
     fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand);
-    fn process_path(&mut self, geometry: PhysicalRect, pixmap_command: SkiaPixmapCommand);
+    fn process_path(&mut self, geometry: PhysicalRect, path: ZenoPathCommand);
 }
 
 struct RenderToBuffer<'a, TargetPixel> {
@@ -1601,15 +1602,15 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
         });
     }
 
-    fn process_path(&mut self, geometry: PhysicalRect, pixmap_command: SkiaPixmapCommand) {
-        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_skia_pixmap_line(
+    fn process_path(&mut self, geometry: PhysicalRect, path: ZenoPathCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, _extra_left_clip, _extra_right_clip| {
+            draw_functions::draw_zeno_path_line(
                 &geometry,
                 PhysicalLength::new(line),
-                &pixmap_command,
+                &path,
                 buffer,
             )
-        })
+        });
     }
 }
 
@@ -1685,16 +1686,16 @@ impl ProcessScene for PrepareScene {
         }
     }
 
-    fn process_path(&mut self, geometry: PhysicalRect, pixmap_command: SkiaPixmapCommand) {
+    fn process_path(&mut self, geometry: PhysicalRect, path: ZenoPathCommand) {
         let size = geometry.size;
         if !size.is_empty() {
-            let pixmap_index = self.vectors.gradients.len() as u16;
-            self.vectors.skia_pixmaps.push(pixmap_command);
+            let zenopath_index = self.vectors.zeno_paths.len() as u16;
+            self.vectors.zeno_paths.push(path);
             self.items.push(SceneItem {
                 pos: geometry.origin,
                 size,
                 z: self.items.len() as u16,
-                command: SceneCommand::SkiaPixmap { pixmap_index },
+                command: SceneCommand::ZenoPath { zenopath_index },
             })
         }
     }
@@ -2541,80 +2542,99 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "path")]
     fn draw_path(&mut self, path: Pin<&crate::items::Path>, item: &ItemRc, size: LogicalSize) {
+        use zeno::PathBuilder;
         let geom = LogicalRect::from(size);
-        let phys_size = geom.size_length().cast() * self.scale_factor;
 
-        let color = path.as_ref().stroke().color();
-        println!("color: {}", color);
-        let mut paint = Paint::default();
-        paint.set_color_rgba8(
-            color.red(),
-            color.green(),
-            color.blue(),
-            color.alpha(),
-        );
-        // paint.set_color_rgba8(
-        //     255,
-        //     255,
-        //     0,
-        //     255,
-        // );
-        paint.anti_alias = true;
+        let clipped = match geom.intersection(&self.current_state.clip) {
+            Some(geom) => geom,
+            None => return,
+        };
 
-        let mut pb = PathBuilder::new();
+        let geometry = (clipped.translate(self.current_state.offset.to_vector()).cast()
+            * self.scale_factor)
+            .round()
+            .cast()
+            .transformed(self.rotation);
 
-        let (logical_offset, path_events) = path.fitted_path_events(item).unwrap();
+        let path_props = path.as_ref();
+        let mut zeno_pb: Vec<zeno::Command> = Vec::new();
+        let (logical_offset, path_events2) = path.fitted_path_events(item).unwrap();
 
-        for event in path_events.iter() {
+        for event in path_events2.iter() {
             match event {
                 Event::Begin { at } => {
-                    println!("event: begin");
-                    pb.move_to(at.x, at.y)
+                    zeno_pb.move_to([at.x, at.y]);
                 }
                 Event::Line { from: _, to } => {
-                    println!("event: line");
-                    pb.line_to(to.x, to.y)
+                    zeno_pb.line_to([to.x, to.y]);
                 }
                 Event::Quadratic { from: _, ctrl, to } => {
-                    pb.quad_to(
-                        ctrl.x, ctrl.y,
-                        to.x, to.y
-                    )
+                    zeno_pb.quad_to(
+                        [ctrl.x, ctrl.y],
+                        [to.x, to.y]
+                    );
                 }
                 Event::Cubic { from: _, ctrl1, ctrl2, to } => {
-                    pb.cubic_to(
-                        ctrl1.x, ctrl1.y,
-                        ctrl2.x, ctrl2.y,
-                        to.x, to.y,
-                    )
+                    zeno_pb.curve_to(
+                        [ctrl1.x, ctrl1.y],
+                        [ctrl2.x, ctrl2.y],
+                        [to.x, to.y],
+                    );
                 }
                 Event::End { last: _, first: _, close    } => {
                     if close {
-                        pb.close()
+                        zeno_pb.close();
                     }
                 }
             }
         }
 
-        let mut stroke = Stroke::default();
-        stroke.width = 2.0;
+        let transform = Some(zeno::Transform::translation(logical_offset.x, logical_offset.y));
 
-        let resolved_path = pb.finish().unwrap();
+        let fill_mask = if !path_props.fill().is_transparent() {
+            let mut mask = Vec::new();
+            mask.resize((geometry.size.width * geometry.size.height) as usize, 0u8);
 
-        let mut pixmap = Pixmap::new(phys_size.width as u32, phys_size.width as u32).unwrap();
-        pixmap.stroke_path(
-            &resolved_path,
-            &paint,
-            &stroke,
-            TinySkiaTransform::identity(),
-            None
-        );
+            let fill_rule = match path_props.fill_rule() {
+                FillRule::Evenodd => zeno::Fill::EvenOdd,
+                FillRule::Nonzero => zeno::Fill::NonZero,
+            };
 
-        self.processor.process_path(PhysicalRect::from_size(phys_size.cast()), SkiaPixmapCommand {
-            pixmap
-        })
+            zeno::Mask::new(&zeno_pb)
+                .transform(transform)
+                .style(fill_rule)
+                .size(geometry.size.width, geometry.size.height)
+                .render_into(&mut mask, None);
+
+            Some(mask)
+        } else { None };
+
+        let stroke_mask = if !path_props.stroke().is_transparent() {
+            let mut mask = Vec::new();
+            mask.resize((geometry.size.width * geometry.size.height) as usize, 0u8);
+
+            let stroke_width = path_props.stroke_width().0;
+
+            zeno::Mask::new(&zeno_pb)
+                .transform(transform)
+                .style(
+                    zeno::Stroke::new(stroke_width)
+                        .cap(zeno::Cap::Square)
+                )
+                .size(geometry.size.width, geometry.size.height)
+                .render_into(&mut mask, None);
+
+            Some(mask)
+        } else { None };
+
+        self.processor.process_path(geometry.cast(), ZenoPathCommand {
+            stroke_mask,
+            stroke_brush: path_props.stroke(),
+            fill_mask,
+            fill_brush: path_props.fill(),
+        });
     }
 
     fn draw_box_shadow(
@@ -2775,6 +2795,71 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         None
     }
 }
+
+// impl From<Color> for tiny_skia::Color {
+//     fn from(value: Color) -> Self {
+//         Self::from_rgba8(
+//             value.red(),
+//             value.green(),
+//             value.blue(),
+//             value.alpha()
+//         )
+//     }
+// }
+//
+// fn brush_to_paint(brush: Brush, path: tiny_skia::Path) -> Option<tiny_skia::Paint<'static>> {
+//     if brush.is_transparent() {
+//         return None;
+//     }
+//
+//     let mut paint = tiny_skia::Paint::default();
+//     paint.anti_alias = true;
+//
+//     match brush {
+//         Brush::SolidColor(color) => {
+//             paint.set_color(tiny_skia::Color::from(color));
+//         }
+//         Brush::LinearGradient(gradient) => {
+//             let stops = gradient.stops().map(|stop| {
+//                 tiny_skia::GradientStop::new(stop.position, tiny_skia::Color::from(stop.color))
+//             }).collect::<Vec<_>>();
+//
+//             let path_bounds = path.bounds();
+//             let (start, end) = crate::graphics::line_for_angle(
+//                 gradient.angle(),
+//                 [path_bounds.width(), path_bounds.height()].into(),
+//             );
+//
+//             let gradient = tiny_skia::LinearGradient::new(
+//                 tiny_skia::Point::from_xy(start.x, start.y),
+//                 tiny_skia::Point::from_xy(end.x, end.y),
+//                 stops,
+//                 tiny_skia::SpreadMode::Pad,
+//                 tiny_skia::Transform::default(),
+//             ).expect("could not create linear gradient shader");
+//             paint.shader = gradient
+//         }
+//         Brush::RadialGradient(gradient) => {
+//             let stops = gradient.stops().map(|stop| {
+//                 tiny_skia::GradientStop::new(stop.position, tiny_skia::Color::from(stop.color))
+//             }).collect::<Vec<_>>();
+//
+//             let path_bounds = path.bounds();
+//
+//             let gradient = tiny_skia::RadialGradient::new(
+//                 tiny_skia::Point::from_xy(0.0, 0.0),
+//                 tiny_skia::Point::from_xy(path_bounds.width(), path_bounds.height()), // TODO: fix points
+//                 0., // TODO: fix angle
+//                 stops,
+//                 tiny_skia::SpreadMode::Pad,
+//                 tiny_skia::Transform::default(),
+//             ).expect("could not create radial gradient shader");
+//             paint.shader = gradient
+//         }
+//     }
+//
+//     Some(paint)
+// }
 
 /// This is a minimal adapter for a Window that doesn't have any other feature than rendering
 /// using the software renderer.

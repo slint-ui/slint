@@ -24,7 +24,7 @@ libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
 # Use the standard library
-std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std", "chrono/std", "chrono/wasmbind", "chrono/clock", "tiny-skia/std"]
+std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std", "chrono/std", "chrono/wasmbind", "chrono/clock", "tiny-skia/std", "path"]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
 # from a single core, and not in a interrupt or signal handler.
@@ -37,6 +37,8 @@ software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]
 svg = ["dep:resvg", "shared-fontdb"]
+
+path = ["dep:zeno"]
 
 box-shadow-cache = []
 
@@ -85,6 +87,7 @@ clru = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
+zeno = { workspace = true, optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 bitflags = { version = "2.4.2"}
