@@ -1,0 +1,40 @@
+export component MultiplePathTest inherits Window {
+    background: #222;
+    width: 400px;
+    height: 400px;
+    property <float> progress;
+    animate progress {
+        duration: 1000ms;
+        iteration-count: -1;
+    }
+    private property <float> radius: 0.5;
+
+    init => {
+        root.progress = 1.0;
+    }
+
+    path := Path {
+        private property <angle> progress: clamp(root.progress * 1turn, 0, 0.99999turn);
+        viewbox-width: 1;
+        viewbox-height: 1;
+        width: 100%;
+        height: 100%;
+
+        stroke: blue;
+        stroke-width: 10px;
+
+        MoveTo {
+            x: 0.5;
+            y: 0;
+        }
+
+        ArcTo {
+            radius-x: radius;
+            radius-y: radius;
+            x: 0.5 - radius * sin(-(path.progress));
+            y: 0.5 - radius * cos(-(path.progress));
+            sweep: root.progress > 0;
+            large-arc: root.progress > 0.5;
+        }
+    }
+}

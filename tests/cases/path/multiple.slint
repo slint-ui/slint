@@ -107,30 +107,30 @@ export component MultiplePathTest inherits Window {
             }
         }
     }
-    
+
     Path {
             x: 300px;
             y: 300px;
             width: 80px;
             height: 80px;
             fill: rgba(255, 0, 255, 0.1);
-            stroke: @linear-gradient(10deg, red, green, blue);
+            stroke: @linear-gradient(10deg, blue, green, red);
             stroke-width: 10px;
             MoveTo {
                 x: 10;
                 y: 10;
             }
-    
+
             LineTo {
                 x: 80;
                 y: 30;
             }
-    
+
             LineTo {
                 x: 30;
                 y: 75;
             }
-    
+
             Close { }
         }
 }
