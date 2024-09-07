@@ -61,10 +61,24 @@ fn main() {
         std::thread::spawn(move || {
             let x = executor::block_on(handle2);
             assert_eq!(x, "Hello, World");
-            slint::quit_event_loop().unwrap();
         });
     })
     .unwrap();
+
+    // test_is_finished
+    slint::invoke_from_event_loop(|| {
+        let handle_one = slint::spawn_local(async {
+            "Hello, World!"
+        }).unwrap();
+        assert!(!handle_one.is_finished());
+        let handle_two = slint::spawn_local(async move {
+            assert!(handle_one.is_finished());
+        }).unwrap();
+        std::thread::spawn(move || {
+            let _ = executor::block_on(handle_two);
+        });
+        slint::quit_event_loop().unwrap();
+    }).unwrap();
     slint::run_event_loop().unwrap();
 }
 
