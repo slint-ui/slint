@@ -1,0 +1,35 @@
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: lightblue;
+    Path {
+        width: 32px;
+        height: 32px;
+        viewbox-width: 50;
+        viewbox-height: 50;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        clip: true;
+        stroke: yellow;
+        stroke-width: 4px;
+        MoveTo {
+            x: 10;
+            y: 10;
+        }
+
+        LineTo {
+            x: 80;
+            y: 30;
+        }
+
+        LineTo {
+            x: 30;
+            y: 75;
+        }
+
+        LineTo {
+            x: 50;
+            y: 2;
+        }
+    }
+}
