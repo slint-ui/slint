@@ -9,10 +9,10 @@ All notable changes to this project are documented in this file.
 
  - Postfix function on numbers for math function.
  - Fixed panic when accessing function witin a PopupWindow. (#5852)
- - `Timer` builtin pseudo-element. (#5724)
+ - `Timer` built-in pseudo-element. (#5724)
  - Fixed `@children` order in the root of a component. (#5865)
  - Fix conversion from float to string adding extra decimal precision by limiting to f32
- - `debug` will now print space between the arguments instead of coma. (#5991)
+ - `debug` will now print space between the arguments instead of a comma. (#5991)
  - Added math function `Math.atan2`.
 
 ### Widgets
@@ -33,7 +33,7 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Split the generated code into a header and an implementation file
- - Added SMT32 platform integration
+ - Added STM32 platform integration
  - cmake: Add ability to download the Slint compiler binary for the host when cross-compiling using binary packages for the target.
  - Added Pre-build binary packages for cross compilation to arm and xtensa target, and host package for MacOs
  - Use the "fluent" style by default on freestanding build instead of the platform default
@@ -41,20 +41,20 @@ All notable changes to this project are documented in this file.
 ### LSP and tooling
 
  - Fixed vscode web extension
- - Fixed race condition in preview diagnistic causing previous diagnostic to remain displayed.
+ - Fixed race condition in preview diagnostic causing previous diagnostic to remain displayed.
  - live-preview: Use preferred size when requesting preview.
- - Don't auto-complete `out` property of builtin elements at element scope.
+ - Don't auto-complete `out` property of built-in elements at element scope.
  - Don't insert a semicolon after auto-complete of a property name at element scope.
  - Added support for tooltip on hover of symbols
  - live-preview: Custom system menu bar so cmd+q don't quit the LSP.
  - vscode extension: the wasm preview load code in another tab.
- - vscode extension: Added telemtry to report panics of the LSP server.
- - vscode extension: Added "Create New Project" command to start from one of our template
+ - vscode extension: Added telemetry to report panics of the LSP server.
+ - vscode extension: Added "Create New Project" command to start from one of our templates
  - vscode extension: Rename the output tab to from "Slint LSP" to "Slint", and make sure it is always there
 
  ### Misc
 
- - Added ability to configure scale factor at compile time (usefull for no_std).
+ - Added ability to configure scale factor at compile time (useful for no_std).
  - Improved property inlining in the compiler.
 
 ## [1.7.2] - 2024-08-14
@@ -90,7 +90,7 @@ All notable changes to this project are documented in this file.
 ### LSP and tooling
 
  - LSP: report error opening the preview back to the editor instead of panicking. (#204)
- - LSP: don't suggest private properties or functions as bindgins.
+ - LSP: don't suggest private properties or functions as bindings.
  - LSP: implement goto-definition on re-export
  - LSP: Fix goto-definition on properties with underscores
  - Design mode: fix dragging component on the last component of a file without trailing newline (#5695)
@@ -121,7 +121,7 @@ All notable changes to this project are documented in this file.
  - Various fixes to Live-preview's edit mode:
    - Recognize `GridLayout` for dropping widgets into.
    - Remove `PopupWindow`, `Window`, and `Dialog` from the component library.
-   - Add support for compnent libraries.
+   - Add support for component libraries.
    - Fix panic when moving around widgets. (#5642)
    - Don't show unrelated accessibility properties.
 
@@ -138,7 +138,7 @@ All notable changes to this project are documented in this file.
  - Winit backend: Fixed Window::hide on Wayland.
  - Qt backend: fix PopupWindow exiting the application with recent Qt6.
  - LinuxKMS backend: Added support for software rendering and legacy framebuffers.
- - Software renderer: Added `set_rendering_rotation()` to rotate the rendering by multiple of 90 degrees.
+ - Software renderer: Added `set_rendering_rotation()` to rotate the rendering by a multiple of 90 degrees.
  - Software renderer: Fixed dirty region returned by `render()` to not have any overlaps.
  - Skia renderer: Fix quality of control rendering when using `cache-rendering-hint: true;`.
  - Skia renderer: Fix dithering of gradients (PR #5482)
@@ -170,7 +170,7 @@ All notable changes to this project are documented in this file.
 
  - Added `LIBRARY_PATHS` multi-value argument to `slint_target_sources` that takes a list of
    `name=path` items, to allow for the use of component libraries.
- - Fixed compilation with Rust 1.81, caused by extra spaces in `strignify!`.
+ - Fixed compilation with Rust 1.81, caused by extra spaces in `stringify!`.
  - ESP-IDF: Added support for making RGB565 byte swap configurable.
  - Fix build with Rust 1.79.
 
@@ -276,7 +276,7 @@ All notable changes to this project are documented in this file.
  - LSP: Fixed formatting of states, transitions, and functions.
  - LSP preview: Avoid double scroll bar in the preview when showing errors.
  - LSP preview: Don't handle delete shortcut when showing errors.
- - LSP preview: Improved appearence of the element selection in the design mode.
+ - LSP preview: Improved appearance of the element selection in the design mode.
  - LSP preview: Never set the with or height to NaN. (#4848)
 
 ## [1.5.0] - 2024-03-14
@@ -405,7 +405,7 @@ All notable changes to this project are documented in this file.
 
  - Added selection mode to select elements in the preview.
  - Implement code action to add missing import.
- - Fix error when going to the definition of builtin items (#4126).
+ - Fix error when going to the definition of built-in items (#4126).
  - Preserve underscores in property auto-completion.
 
 ## [1.3.2] - 2023-12-01
@@ -546,7 +546,7 @@ All notable changes to this project are documented in this file.
  - Added support for partial rendering to the software renderer when used with the winit backend. (#3457)
  - Fixed builds of the Skia renderer on Windows when built from source within `vcvars.bat` environments.
  - Updated to Skia milestone 117.
- - Fixed panic when using `SLINT_FULLSCREEN=1` in comination with the Skia OpenGL renderer. (#3472)
+ - Fixed panic when using `SLINT_FULLSCREEN=1` in combination with the Skia OpenGL renderer. (#3472)
  - Native style: Fixed scroll bar handle size for `ScrollView`. (#3489)
  - FemtoVG renderer: Fixed empty lines and vertical alignment when eliding text. (#3481)
  - Skia renderer: Fixed eliding of multi-line text. (#3481)
@@ -711,7 +711,7 @@ All notable changes to this project are documented in this file.
  - Fixed the compiler embedding images unnecessarily multiple times when referenced via different relative paths. (#2608)
  - Winit backend: Adjust the window size automatically when an update minimum or maximum size would constrain the existing size.
  - Winit backend: Added internal API in the `i-slint-backend-winit` crate to access the winit window
- - Fix focussing element whose base is focusable (#2622)
+ - Fix focusing element whose base is focusable (#2622)
  - Fix infinite loop in the compiler when there is a loop in `forward-focus`
  - Skia renderer: Add support for password input fields.
 
@@ -820,7 +820,7 @@ All notable changes to this project are documented in this file.
 
 ### C++
 
- - Functions that take a functor as argument are now using C++ 20 concepts.
+ - Functions that take a functor as an argument are now using C++ 20 concepts.
  - **Breaking:** In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
    This includes arguments of virtual functions in `slint::Model` that needs to be adjusted in
    derived classes.
@@ -1023,7 +1023,7 @@ All notable changes to this project are documented in this file.
  - Preferred size of the TabWidget in the fluent style take in account the size of the tabs (#1363).
  - Fixed cursor behavior when typing the Enter key at the end of a TextEdit (#1318).
  - Fixed a memory leak of images when using the GL backend.
- - Fixed starting and stopping `slint::Timer` from withing their callback (#1532).
+ - Fixed starting and stopping `slint::Timer` from within their callback (#1532).
 
 ## [0.2.5] - 2022-07-06
 
@@ -1057,7 +1057,7 @@ All notable changes to this project are documented in this file.
 
  - Fixed crashes with the Qt backend in release mode. (#1230)
  - Fixed panic when drop-shadow is used in a ListView (#1233)
- - Fixed combining a brush and a color to always convert to brush, to avoid loosing gradient information (#1235)
+ - Fixed combining a brush and a color to always convert to brush, to avoid losing gradient information (#1235)
  - Fixed properties not having the right default value when set by some states (#1237)
  - Fixed properties with multiples aliases, and default values.
  - Enable fontdb's fontconfig feature to fix finding some fonts (#1240)
@@ -1433,7 +1433,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
    are created using `T::create()`.
  - In Rust, the generated component implements `Clone` and acts like an `Rc`. `sixtyfps::Weak` can be used to hold weak references.
  - `ARGBColor` was renamed `RgbaColor`
- - `width and `height` of some builtin elements now default to 100% of the parent element.
+ - `width and `height` of some built-in elements now default to 100% of the parent element.
 
 ### Added
  - Allow dashes in identifiers (#52)
