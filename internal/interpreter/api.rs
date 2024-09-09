@@ -325,6 +325,7 @@ macro_rules! handle_private {
 
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
+declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 

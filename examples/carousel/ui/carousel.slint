@@ -3,7 +3,7 @@
 
 import { Theme } from "theme.slint";
 
-export component Carousel inherits FocusScope {
+export component Carousel {
     in-out property <int> selected-index;
     in property <length> spacing;
     in property <length> itemWidth;
@@ -26,6 +26,7 @@ export component Carousel inherits FocusScope {
 
     forward-focus: focus-scope;
     height: Theme.size-big;
+    preferred-width: 100%;
 
     focus-scope:= FocusScope {
         key-pressed(event) => {
@@ -48,29 +49,47 @@ export component Carousel inherits FocusScope {
         }
     }
 
-    TouchArea {
-        clicked => {
-            focus-scope.focus()
+    swipe := SwipeGestureRecognizer {
+        swipe-left: true;
+        swipe-right: true;
+
+        swiped => {
+            if self.current-position.x > self.pressed-position.x + root.itemWidth / 2 {
+                root.move-left();
+            } else if self.current-position.x < self.pressed-position.x - root.itemWidth / 2 {
+                root.move-right();
+            }
         }
 
-        width: parent.width;
-        height: parent.height;
-     }
+        TouchArea {
+            clicked => {
+                focus-scope.focus()
+            }
+        }
 
-    Rectangle {
-        clip: true;
-        background: transparent;
+        Rectangle {
+            clip: true;
 
-        Flickable {
-            interactive: false;
-            viewport-x: root.center-x - root.selected-index * (root.itemWidth + root.spacing);
+            Rectangle {
+                property <length> viewport-x: root.center-x - root.selected-index * (root.itemWidth + root.spacing);
+                animate viewport-x { duration: root.duration; easing: ease-in; }
+                property <length> swipe-offset: 0;
+                x: self.viewport-x + swipe-offset;
+                width: inner-layout.preferred-width;
 
-            animate viewport-x { duration: root.duration; easing: ease-in; }
+                states [
+                    swipping when swipe.swiping : {
+                        //x: self.viewport-x + swipe-offset;
+                        swipe-offset: (swipe.current-position.x - swipe.pressed-position.x).clamp(-root.itemWidth, root.itemWidth);
+                        out { animate swipe-offset { duration: root.duration; easing: ease-in; } }
+                    }
+                ]
 
-            HorizontalLayout {
-                spacing <=> root.spacing;
+                inner-layout := HorizontalLayout {
+                    spacing <=> root.spacing;
 
-                @children
+                    @children
+                }
             }
         }
     }

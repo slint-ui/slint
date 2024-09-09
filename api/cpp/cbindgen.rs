@@ -281,6 +281,7 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "FocusScope",
+        "SwipeGestureRecognizer",
         "Flickable",
         "SimpleText",
         "ComplexText",
@@ -391,6 +392,7 @@ fn gen_corelib(
         "Coord",
         "LogicalRect",
         "LogicalPoint",
+        "LogicalPosition",
         "LogicalLength",
     ]
     .iter()
