@@ -395,30 +395,22 @@ impl super::Surface for VulkanSurface {
     }
 }
 
+// FIXME(madsmtm): Why are we doing this instead of using `Surface::from_window`?
 fn create_surface(
     instance: &Arc<Instance>,
     window_handle: raw_window_handle::WindowHandle<'_>,
     display_handle: raw_window_handle::DisplayHandle<'_>,
 ) -> Result<Arc<Surface>, vulkano::Validated<vulkano::VulkanError>> {
     match (window_handle.as_raw(), display_handle.as_raw()) {
-        #[cfg(target_os = "macos")]
-        (
-            raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
-                ns_view,
-                ..
-            }),
-            _,
-        ) => unsafe {
-            use cocoa::{appkit::NSView, base::id as cocoa_id};
-            use objc::runtime::YES;
-
-            let layer = metal::MetalLayer::new();
-            layer.set_opaque(false);
-            layer.set_presents_with_transaction(false);
-            let view = ns_view.as_ptr() as cocoa_id;
-            view.setWantsLayer(YES);
-            view.setLayer(layer.as_ref() as *const _ as _);
-            Surface::from_metal(instance.clone(), layer.as_ref(), None)
+        #[cfg(target_vendor = "apple")]
+        (raw_window_handle::RawWindowHandle::AppKit(handle), _) => unsafe {
+            let layer = raw_window_metal::Layer::from_ns_view(handle.ns_view);
+            Surface::from_metal(instance.clone(), layer.as_ptr().as_ptr(), None)
+        },
+        #[cfg(target_vendor = "apple")]
+        (raw_window_handle::RawWindowHandle::UiKit(handle), _) => unsafe {
+            let layer = raw_window_metal::Layer::from_ui_view(handle.ui_view);
+            Surface::from_metal(instance.clone(), layer.as_ptr().as_ptr(), None)
         },
         (
             raw_window_handle::RawWindowHandle::Xlib(raw_window_handle::XlibWindowHandle {

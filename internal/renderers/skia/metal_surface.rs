@@ -1,17 +1,28 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use cocoa::{appkit::NSView, base::id as cocoa_id};
 use core_graphics_types::geometry::CGSize;
-use foreign_types::ForeignTypeRef;
+use foreign_types::{ForeignType, ForeignTypeRef};
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use metal::MTLPixelFormat;
-use objc::{rc::autoreleasepool, runtime::YES};
+use objc::{msg_send, sel, sel_impl};
+use objc::{
+    rc::autoreleasepool,
+    runtime::{Object, BOOL, NO},
+};
 
 use skia_safe::gpu::mtl;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+
+#[link(name = "QuartzCore", kind = "framework")]
+extern "C" {
+    #[allow(non_upper_case_globals)]
+    static kCAGravityTopLeft: *mut Object;
+    #[allow(non_upper_case_globals)]
+    static kCAGravityBottomLeft: *mut Object;
+}
 
 /// This surface renders into the given window using Metal. The provided display argument
 /// is ignored, as it has no meaning on macOS.
@@ -27,10 +38,26 @@ impl super::Surface for MetalSurface {
         _display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
+        let layer = match window_handle
+            .window_handle()
+            .map_err(|e| format!("Error obtaining window handle for skia metal renderer: {e}"))?
+            .as_raw()
+        {
+            raw_window_handle::RawWindowHandle::AppKit(handle) => unsafe {
+                raw_window_metal::Layer::from_ns_view(handle.ns_view)
+            },
+            raw_window_handle::RawWindowHandle::UiKit(handle) => unsafe {
+                raw_window_metal::Layer::from_ui_view(handle.ui_view)
+            },
+            _ => return Err("Skia Renderer: Metal surface is only supported with AppKit".into()),
+        };
+
+        // SAFETY: The layer is an initialized instance of `CAMetalLayer`, and
+        // we transfer the retain count to `MetalLayer` using `into_raw`.
+        let layer = unsafe { metal::MetalLayer::from_ptr(layer.into_raw().cast().as_ptr()) };
+
         let device = metal::Device::system_default()
             .ok_or_else(|| format!("Skia Renderer: No metal device found"))?;
-
-        let layer = metal::MetalLayer::new();
         layer.set_device(&device);
         layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
         layer.set_opaque(false);
@@ -38,25 +65,13 @@ impl super::Surface for MetalSurface {
 
         layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
 
-        unsafe {
-            let view = match window_handle
-                .window_handle()
-                .map_err(|e| format!("Error obtaining window handle for skia metal renderer: {e}"))?
-                .as_raw()
-            {
-                raw_window_handle::RawWindowHandle::AppKit(
-                    raw_window_handle::AppKitWindowHandle { ns_view, .. },
-                ) => ns_view.as_ptr(),
-                _ => {
-                    return Err("Skia Renderer: Metal surface is only supported with AppKit".into())
-                }
-            } as cocoa_id;
-            view.setWantsLayer(YES);
-            view.setLayer(layer.as_ref() as *const _ as _);
-            view.setLayerContentsPlacement(
-                cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft,
-            );
-        }
+        let flipped: BOOL = unsafe { msg_send![layer.as_ptr(), contentsAreFlipped] };
+        let gravity = if flipped == NO {
+            unsafe { kCAGravityTopLeft }
+        } else {
+            unsafe { kCAGravityBottomLeft }
+        };
+        let _: () = unsafe { msg_send![layer.as_ptr(), setContentsGravity: gravity] };
 
         let command_queue = device.new_command_queue();
 
@@ -83,10 +98,6 @@ impl super::Surface for MetalSurface {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
         Ok(())
-    }
-
-    fn set_scale_factor(&self, scale_factor: f32) {
-        self.layer.set_contents_scale(scale_factor.into());
     }
 
     fn render(
