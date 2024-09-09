@@ -13,12 +13,13 @@ For example, if a label description ends with `(mX,bY)`, it means person X is th
 
 Apart from area labels, there can be other labels used to provide additional context to issues.
 
-- **Bug**: Indicates that the issue is a bug or a software defect.
-- **Enhancement**: Indicates that the issue suggests an improvement or new feature.
-- **Good First Issue**: Indicates that the issue is suitable for newcomers to contribute to the project.
+- https://github.com/slint-ui/slint/labels/bug: Indicates that the issue is a bug or a software defect.
+- https://github.com/slint-ui/slint/labels/enhancement: Indicates that the issue suggests an improvement or new feature.
+- https://github.com/slint-ui/slint/labels/good%20first%20issue: Indicates that the issue is suitable for newcomers to contribute to the project.
    The issue should have a good description and ideally a comment to describe how to implement it.
-- **Needs More Info**: Indicates that the issue lacks sufficient information to be able to act on it right now and requires additional details from the reporter.
+- https://github.com/slint-ui/slint/labels/needs%20info: Indicates that the issue lacks sufficient information to be able to act on it right now and requires additional details from the reporter.
   The maintainer for the area must remove the tag when more info is provided, or close it if it is too old.
+- https://github.com/slint-ui/slint/labels/need%20triaging: Indicates that the issue needs to be triaged.
 
 ## GitHub Assignee
 
@@ -39,14 +40,22 @@ A clear and concise issue description is crucial for effective communication.
 ## Triage Process
 
 1. The first person who identifies an issue can assign labels to it. Make sure to include at least one area label.
-2. Individuals responsible for the specific area should regularly check issues associated with their labels.
-   - Thank the reporter for reporting the issue.
-   - Assess the severity and other relevant factors.
-   - Try to reproduce the issue and request additional information if necessary.
-3. Ensure that most bugs are fixed before the release, unless they are low priority.
-4. Respond to issues reasonably fast. Ideally, within one business day.
+   Add the `Need Triaging` label to the issue if triaging is not complete, so that the individual responsible
+   for the area can continue with the process.
+2. Investigate the issue by trying to reproduce and analyze it.
+   (Is it for a specific platform? what part of the code is involved? Narrowing down to the root cause)
+3. If the issue can be done in less than one hour, do it now.
+   (Unless it's a low importance bug or some feature that would be a good candidate for a good-first-issue)
+4. Otherwise, evaluate if the area is correct, if this is a bug or an enhancement, set the right tag, maybe a priority.
+   If needed edit the description and title to make it more clear.
+5. Answer the issue by thanking the reporter for reporting the issue. Asking relevant question if any.
+   The comment can add context and information from the analyze step so that the next person looking at the issue can understand it better.
 
+Issues should be responded to reasonably fast. Ideally, within one business day.
 Remember, effective communication and prompt action are essential for successful issue triaging.
+
+If an issue seems like a good candidate for a good-first-issue, add the `good first issue` label to it and add instructions
+in a comment on how to do it, ideally with link to the code.
 
 ## Filters
 
