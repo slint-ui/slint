@@ -153,8 +153,6 @@ export component Example inherits Window {
 
 ## Change Callbacks
 
-**This feature is still experimental**
-
 In Slint, it's possible to define a callback that is invoked when a property's value changes.
 
 ```slint
