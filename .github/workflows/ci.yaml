@@ -154,8 +154,9 @@ jobs:
               working-directory: ./api/node
               run: npm test
             - name: Run test-driver-nodejs
-              if: ${{ runner.os != 'Windows' }}
-              run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
+              # Release is only applied to the harness that drives the node.js invocations, but needed
+              # to avoid crashing on Windows with what looks like an out of stack exception.
+              run: cargo test --verbose --release --all-features -p test-driver-nodejs -p slint-node
 
     python_test:
         env:
