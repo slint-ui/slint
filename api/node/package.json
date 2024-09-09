@@ -20,6 +20,7 @@
   ],
   "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
+    "@biomejs/biome": "1.8.3",
     "@ava/typescript": "^4.1.0",
     "@types/node": "^20.8.6",
     "@types/node-fetch": "^2.6.7",
@@ -40,6 +41,11 @@
     "build:testing": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json --features testing && npm run compile",
     "install": "node build-on-demand.mjs",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
+    "check": "biome check",
+    "format": "biome format",
+    "format:fix": "biome format --write",
+    "lint": "biome lint",
+    "lint:fix": "biome check --apply",
     "test": "ava"
   },
   "ava": {
