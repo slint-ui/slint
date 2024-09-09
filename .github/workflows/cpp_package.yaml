@@ -41,7 +41,7 @@ jobs:
               with:
                   old-ubuntu: true
             - name: Install Qt (Ubuntu)
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               if: matrix.os == 'ubuntu-20.04'
               with:
                   version: 5.15.2
@@ -60,7 +60,7 @@ jobs:
                   echo "CXX=cl.exe" >> $GITHUB_ENV
               if: matrix.os == 'windows-2022'
             - name: C++ Build
-              uses: lukka/run-cmake@v3.4
+              uses: lukka/run-cmake@v10.7
               with:
                   cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                   cmakeListsTxtPath: CMakeLists.txt
@@ -103,7 +103,7 @@ jobs:
               run: bash -x ../../scripts/prepare_binary_package.sh ../..
               working-directory: api/cpp/
             - name: C++ Build
-              uses: lukka/run-cmake@v3.4
+              uses: lukka/run-cmake@v10.7
               with:
                   cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                   cmakeListsTxtPath: CMakeLists.txt
@@ -157,7 +157,7 @@ jobs:
               run: bash -x ../../scripts/prepare_binary_package.sh ../..
               working-directory: api/cpp/
             - name: C++ Build
-              uses: lukka/run-cmake@v3.4
+              uses: lukka/run-cmake@v10.7
               with:
                   cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                   cmakeListsTxtPath: CMakeLists.txt
@@ -201,7 +201,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
             # Build Slint-compiler with CMake so that CMakeLists.txt can configure C++ specific features
             - name: Slint Compiler Build
-              uses: lukka/run-cmake@v3.4
+              uses: lukka/run-cmake@v10.7
               with:
                 cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                 cmakeListsTxtPath: CMakeLists.txt
