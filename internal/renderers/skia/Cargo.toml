@@ -60,7 +60,7 @@ bytemuck = { workspace = true }
 windows = { version = "0.56.0", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
 skia-safe = { version = "0.75.0", features = ["d3d"] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(target_vendor = "apple")'.dependencies]
 cocoa = { version = "0.25.0" }
 core-foundation = { version = "0.9.1" }
 metal = { version = "0.27.0" }
@@ -69,8 +69,9 @@ foreign-types = { version = "0.5.0" }
 objc = { version = "0.2.7" }
 core-graphics-types = { version = "0.1.1" }
 skia-safe = { version = "0.75.0", features = ["metal"] }
+raw-window-metal = "1.0"
 
-[target.'cfg(not(any(target_os = "macos", target_family = "windows")))'.dependencies]
+[target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
 skia-safe = { version = "0.75.0", features = ["gl"] }
 
 [build-dependencies]
