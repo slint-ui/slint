@@ -151,7 +151,6 @@ export component Example inherits Window {
 }
 ```
 
-<!--
 ## Change Callbacks
 
 **This feature is still experimental**
@@ -213,5 +212,3 @@ Using a changed callback forces immediate evaluation of bindings, which are typi
 This practice also compromises the purity of bindings, complicating edits via graphical editors.
 Accumulating excessive changed events can introduce issues and bugs, especially in scenarios involving loops, where a change callback modifies a property, potentially triggering changes to the same property.
 
-
--->
