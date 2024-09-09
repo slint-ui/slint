@@ -17,9 +17,9 @@ use windows::Win32::Graphics::Direct3D12::{
 };
 use windows::Win32::Graphics::Dxgi::{
     Common::{DXGI_FORMAT, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC},
-    CreateDXGIFactory2, IDXGIFactory4, IDXGISwapChain3, DXGI_ADAPTER_DESC1, DXGI_ADAPTER_FLAG,
-    DXGI_ADAPTER_FLAG_NONE, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SWAP_CHAIN_DESC,
-    DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    CreateDXGIFactory2, IDXGIFactory4, IDXGISwapChain3, DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_NONE,
+    DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_CREATE_FACTORY_FLAGS, DXGI_PRESENT, DXGI_SWAP_CHAIN_DESC1,
+    DXGI_SWAP_CHAIN_FLAG, DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
 
@@ -144,7 +144,7 @@ impl SwapChain {
             pre_present_callback();
         }
 
-        let present_result = unsafe { self.swap_chain.Present(1, 0) };
+        let present_result = unsafe { self.swap_chain.Present(1, DXGI_PRESENT(0)) };
         if present_result != S_OK && present_result != DXGI_STATUS_OCCLUDED {
             return Err(format!("Error presenting d3d swap chain: {:x}", present_result.0).into());
         }
@@ -209,8 +209,16 @@ impl SwapChain {
 
         drop(self.surfaces.take());
 
-        unsafe { self.swap_chain.ResizeBuffers(0, width, height, DEFAULT_SURFACE_FORMAT, 0) }
-            .map_platform_error("Error resizing swap chain buffers")?;
+        unsafe {
+            self.swap_chain.ResizeBuffers(
+                0,
+                width,
+                height,
+                DEFAULT_SURFACE_FORMAT,
+                DXGI_SWAP_CHAIN_FLAG(0),
+            )
+        }
+        .map_platform_error("Error resizing swap chain buffers")?;
 
         self.surfaces = Some(Self::create_surfaces(
             &self.swap_chain,
@@ -263,8 +271,9 @@ impl super::Surface for D3DSurface {
         }
         */
 
-        let dxgi_factory: IDXGIFactory4 = unsafe { CreateDXGIFactory2(factory_flags) }
-            .map_platform_error("unable to create DXGIFactory4")?;
+        let dxgi_factory: IDXGIFactory4 =
+            unsafe { CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(factory_flags)) }
+                .map_platform_error("unable to create DXGIFactory4")?;
 
         let mut software_adapter_index = None;
         let use_warp = std::env::var("SLINT_D3D_USE_WARP").is_ok();
@@ -277,8 +286,9 @@ impl super::Surface for D3DSurface {
                     Err(_) => break None,
                 };
 
-                let mut desc = DXGI_ADAPTER_DESC1::default();
-                let _ = unsafe { adapter.GetDesc1(&mut desc) };
+                let Ok(desc) = (unsafe { adapter.GetDesc1() }) else {
+                    continue;
+                };
 
                 let adapter_is_warp = (DXGI_ADAPTER_FLAG(desc.Flags as i32)
                     & DXGI_ADAPTER_FLAG_SOFTWARE)
@@ -396,8 +406,7 @@ impl super::Surface for D3DSurface {
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
-        let mut desc = DXGI_SWAP_CHAIN_DESC::default();
-        unsafe { self.swap_chain.borrow().swap_chain.GetDesc(&mut desc) }
+        let desc = unsafe { self.swap_chain.borrow().swap_chain.GetDesc() }
             .map_platform_error("error getting swap chain description")?;
         Ok(match desc.BufferDesc.Format {
             DEFAULT_SURFACE_FORMAT => 32,
