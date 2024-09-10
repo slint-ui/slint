@@ -55,6 +55,7 @@ export component Resizer {
     in property <bool> is-resizable: true;
     in property <bool> is-moveable: false;
     in property <color> color: Colors.black;
+    in property <color> fill-color: Colors.white;
     out property <bool> resizing: n.resizing || ne.resizing || e.resizing || se.resizing || s.resizing || sw.resizing || w.resizing || nw.resizing;
     out property <bool> moving: resize-area.moving;
     out property <length> handle-size: ResizeState.handle-size;
@@ -140,6 +141,7 @@ export component Resizer {
 
         ne := ResizeHandle {
             my-color: root.color;
+            background: root.fill-color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset + root.width);
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
@@ -169,6 +171,7 @@ export component Resizer {
 
         se := ResizeHandle {
             my-color: root.color;
+            background: root.fill-color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset + root.width);
                 self.new-height = Math.max(0px, y-offset + root.height);
@@ -198,6 +201,7 @@ export component Resizer {
 
         sw := ResizeHandle {
             my-color: root.color;
+            background: root.fill-color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
                 self.new-height = Math.max(0px, y-offset + root.height);
@@ -227,6 +231,7 @@ export component Resizer {
 
         nw := ResizeHandle {
             my-color: root.color;
+            background: root.fill-color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
