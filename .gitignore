@@ -12,6 +12,11 @@ Pipfile.lock
 docs/reference/src/language/builtins/enums.md
 docs/reference/src/language/builtins/structs.md
 
+# Ignore all package-lock.json files
+**/package-lock.json
+# But keep these specific ones
+!editors/vscode/package-lock.json
+
 *.node
 *.d.ts
 
