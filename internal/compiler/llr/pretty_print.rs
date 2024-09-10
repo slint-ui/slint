@@ -70,7 +70,12 @@ impl<'a> PrettyPrinter<'a> {
         }
         for (p1, p2) in &sc.two_way_bindings {
             self.indent()?;
-            writeln!(self.writer, "{} <=> {};", DisplayPropertyRef(p1, &ctx), DisplayPropertyRef(p2, &ctx))?
+            writeln!(
+                self.writer,
+                "{} <=> {};",
+                DisplayPropertyRef(p1, &ctx),
+                DisplayPropertyRef(p2, &ctx)
+            )?
         }
         for (p, init) in &sc.property_init {
             self.indent()?;
