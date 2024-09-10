@@ -254,5 +254,47 @@ async function maybeSendStartupTelemetryEvent(
     }
     telemetryEventSent = true;
 
-    telemetryLogger.logUsage("extension-activated", {});
+    let usageData = {};
+
+    enum ProgrammingLanguage {
+        Rust = "Rust",
+        Cpp = "Cpp",
+        JavaScript = "JavaScript",
+        Python = "Python",
+    }
+
+    const projectLanguages = new Set<ProgrammingLanguage>();
+
+    if (vscode.workspace.workspaceFolders) {
+        const workspaceFolderContents = await Promise.all(
+            vscode.workspace.workspaceFolders.map((workspaceFolder) => {
+                return vscode.workspace.fs.readDirectory(workspaceFolder.uri);
+            }),
+        );
+
+        for (const path of workspaceFolderContents.flatMap((fileEntries) =>
+            fileEntries.map((fileEntry) => fileEntry[0].toLowerCase()),
+        )) {
+            if (path.endsWith("cargo.toml")) {
+                projectLanguages.add(ProgrammingLanguage.Rust);
+            } else if (path.endsWith("cmakelists.txt")) {
+                projectLanguages.add(ProgrammingLanguage.Cpp);
+            } else if (path.endsWith("package.json")) {
+                projectLanguages.add(ProgrammingLanguage.JavaScript);
+            } else if (
+                path.endsWith("pyproject.toml") ||
+                path.endsWith("requirements.txt")
+            ) {
+                projectLanguages.add(ProgrammingLanguage.Python);
+            }
+        }
+    }
+
+    if (projectLanguages.size > 0) {
+        usageData = Object.assign(usageData, {
+            projectLanguages: Array.from(projectLanguages.values()),
+        });
+    }
+
+    telemetryLogger.logUsage("extension-activated", usageData);
 }
