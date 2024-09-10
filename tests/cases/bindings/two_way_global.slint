@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global G1 {
+    in-out property <int> data: 42;
+}
+
+export global G2 {
+    in-out property <int> data <=> G1.data;
+}
+
+export component TestCase inherits Window {
+
+    out property <int> d1: G1.data;
+    out property <int> d2: G2.data;
+    out property <bool> test: G2.data == 42;
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(G1::get(&instance).get_data(), 42);
+assert_eq!(G2::get(&instance).get_data(), 42);
+assert_eq!(instance.get_d1(), 42);
+assert_eq!(instance.get_d2(), 42);
+instance.global::<G1<'_>>().set_data(100);
+assert_eq!(G1::get(&instance).get_data(), 100);
+assert_eq!(G2::get(&instance).get_data(), 100);
+assert_eq!(instance.get_d1(), 100);
+assert_eq!(instance.get_d2(), 100);
+instance.global::<G2<'_>>().set_data(-1);
+assert_eq!(G1::get(&instance).get_data(), -1);
+assert_eq!(G2::get(&instance).get_data(), -1);
+assert_eq!(instance.get_d1(), -1);
+assert_eq!(instance.get_d2(), -1);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.global<G1>().get_data(), 42);
+assert_eq(instance.global<G2>().get_data(), 42);
+assert_eq(instance.get_d1(), 42);
+assert_eq(instance.get_d2(), 42);
+instance.global<G1>().set_data(100);
+assert_eq(instance.global<G1>().get_data(), 100);
+assert_eq(instance.global<G2>().get_data(), 100);
+assert_eq(instance.get_d1(), 100);
+assert_eq(instance.get_d2(), 100);
+instance.global<G2>().set_data(-1);
+assert_eq(instance.global<G1>().get_data(), -1);
+assert_eq(instance.global<G2>().get_data(), -1);
+assert_eq(instance.get_d1(), -1);
+assert_eq(instance.get_d2(), -1);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.G1.data, 42);
+assert.equal(instance.G2.data, 42);
+assert.equal(instance.d1, 42);
+assert.equal(instance.d2, 42);
+instance.G1.data = 100;
+assert.equal(instance.G1.data, 100);
+assert.equal(instance.G2.data, 100);
+assert.equal(instance.d1, 100);
+assert.equal(instance.d2, 100);
+instance.G2.data = -1;
+assert.equal(instance.G1.data, -1);
+assert.equal(instance.G2.data, -1);
+assert.equal(instance.d1, -1);
+assert.equal(instance.d2, -1);
+```
+
+*/
