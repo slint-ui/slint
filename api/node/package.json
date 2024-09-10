@@ -45,7 +45,7 @@
     "format": "biome format",
     "format:fix": "biome format --write",
     "lint": "biome lint",
-    "lint:fix": "biome check --apply",
+    "lint:fix": "biome lint --fix",
     "test": "ava"
   },
   "ava": {

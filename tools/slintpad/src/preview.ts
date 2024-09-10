@@ -64,7 +64,7 @@ export Demo := Window {
                 },
             );
 
-        if (error_string != "") {
+        if (error_string !== "") {
             const text = document.createTextNode(error_string);
             const p = document.createElement("pre");
             p.appendChild(text);

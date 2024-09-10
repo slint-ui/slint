@@ -403,8 +403,6 @@ lazy_static! {
         ("^\\.clang-format$", LicenseLocation::NoLicense),
         ("^\\.github/.*\\.md$", LicenseLocation::NoLicense),
         ("^\\.mailmap$", LicenseLocation::NoLicense),
-        ("^\\.prettierrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("^\\.pre-commit-config\\.yaml$", LicenseLocation::NoLicense),
         ("^\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
         ("^api/cpp/docs/conf\\.py$", LicenseLocation::NoLicense),
         ("^docs/reference/Pipfile$", LicenseLocation::NoLicense),

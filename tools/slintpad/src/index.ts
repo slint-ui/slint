@@ -128,7 +128,7 @@ function create_share_menu(editor: EditorWidget, preview: PreviewWidget): Menu {
         iconClass: "fa fa-share",
         mnemonic: 1,
         isEnabled: () => {
-            return editor.open_document_urls.length == 1;
+            return editor.open_document_urls.length === 1;
         },
         execute: () => {
             const params = new URLSearchParams();
