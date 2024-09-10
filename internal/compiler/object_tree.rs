@@ -452,6 +452,9 @@ pub enum PropertyVisibility {
     InOut,
     /// for builtin properties that must be known at compile time and cannot be changed at runtime
     Constexpr,
+    /// For builtin properties that are meant to just be bindings but cannot be read or written
+    /// (eg, Path's `commands`)
+    Fake,
     /// For functions, not properties
     Public,
     Protected,
@@ -467,6 +470,7 @@ impl Display for PropertyVisibility {
             PropertyVisibility::Constexpr => f.write_str("constexpr"),
             PropertyVisibility::Public => f.write_str("public"),
             PropertyVisibility::Protected => f.write_str("protected"),
+            PropertyVisibility::Fake => f.write_str("fake"),
         }
     }
 }

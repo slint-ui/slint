@@ -1387,8 +1387,10 @@ fn continue_lookup_within_element(
         if !local_to_component && lookup_result.property_visibility == PropertyVisibility::Private {
             ctx.diag.push_error(format!("The property '{}' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components", second.text()), &second);
             return Expression::Invalid;
-        }
-        if lookup_result.resolved_name != prop_name {
+        } else if lookup_result.property_visibility == PropertyVisibility::Fake {
+            ctx.diag.push_error(format!("This special property can only be used to make a binding and cannot be accessed"), &second);
+            return Expression::Invalid;
+        } else if lookup_result.resolved_name != prop_name {
             ctx.diag.push_property_deprecation_warning(
                 &prop_name,
                 &lookup_result.resolved_name,
