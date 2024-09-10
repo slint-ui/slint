@@ -1,6 +1,12 @@
 {
     "events": {
-        "extension-activated": {},
+        "extension-activated": {
+            "projectLanguages": {
+                "classification": "EndUserPseudonymizedInformation",
+                "purpose": "FeatureInsight",
+                "comment": "The programming languages used in the project"
+            }			
+		},
         "lsp-panic": {
             "version": {
                 "classification": "PublicNonPersonalData",
