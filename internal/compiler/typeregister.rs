@@ -385,6 +385,16 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
+        match &mut register.elements.get_mut("Path").unwrap() {
+            ElementType::Builtin(ref mut b) => {
+                let path = Rc::get_mut(b).unwrap();
+                path.properties.get_mut("commands").unwrap().property_visibility =
+                    PropertyVisibility::Fake;
+            }
+
+            _ => unreachable!(),
+        };
+
         register
     }
 

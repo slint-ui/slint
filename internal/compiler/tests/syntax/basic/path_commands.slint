@@ -24,12 +24,21 @@ export TestCase := Rectangle {
         commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 A 100 100 0 1 0 100 0 Z";
     }
 
-    Path {
+    p := Path {
         width: 640px;
         height: 480px;
         commands: "M 0 0 M -100 0 A 100 100 0 1 0 0 A 100 100 0 1 0 100 0 Z";
         //        ^error{Error parsing SVG commands}
     }
+
+    TouchArea {
+        clicked => {
+            p.commands = "M 0 0 M -100 0 A 100 100 0 1 0 100 0 A 100 100 0 1 0 100 0 Z";
+        //    ^error{This special property can only be used to make a binding and cannot be accessed}
+        }
+    }
+    Text { text: p.commands; }
+    //             ^error{This special property can only be used to make a binding and cannot be accessed}
 
     Test2 {}
 

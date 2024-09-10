@@ -444,6 +444,7 @@ export component Example inherits Path {
 The commands are provided in a property:
 
 -   **`commands`** (_in_ _string_): A string providing the commands according to the SVG path specification.
+    This property can only be set in a binding and cannot be accessed in an expression.
 
 #### Path Using SVG Path Elements
 
