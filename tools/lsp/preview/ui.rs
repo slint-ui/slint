@@ -113,6 +113,11 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
     (url.to_string().into(), file_name.into())
 }
 
+pub fn ui_set_uses_widgets(ui: &PreviewUi, uses_widgets: bool) {
+    let api = ui.global::<Api>();
+    api.set_uses_widgets(uses_widgets);
+}
+
 pub fn ui_set_known_components(
     ui: &PreviewUi,
     known_components: &[crate::common::ComponentInformation],

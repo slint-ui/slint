@@ -4,6 +4,7 @@
 import { HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
 import { BodyText } from "../components/body-text.slint";
 import { HeaderText } from "../components/header-text.slint";
+import { Api } from "../api.slint";
 
 
 export component HeaderView {
@@ -30,11 +31,14 @@ export component HeaderView {
             }
 
             BodyText {
+                visible: Api.uses-widgets;
                 horizontal-stretch: 0;
+
                 text: @tr("Style");
             }
 
             style-combobox := ComboBox {
+                visible: Api.uses-widgets;
                 horizontal-stretch: 0;
 
                 selected => {
