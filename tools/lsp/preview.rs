@@ -853,7 +853,7 @@ fn start_parsing() {
     send_status("Loading Preview…", Health::Ok);
 }
 
-fn finish_parsing(ok: bool) {
+fn finish_parsing(preview_url: &Url, ok: bool) {
     set_status_text("");
     if ok {
         send_status("Preview Loaded", Health::Ok);
@@ -880,6 +880,18 @@ fn finish_parsing(ok: bool) {
                 poll_once(document_cache.load_url(url, *version, contents.clone(), &mut diag));
             }
         }
+
+        let uses_widgets = document_cache
+            .get_document(preview_url)
+            .and_then(|d| d.node.as_ref())
+            .map(|n| {
+                n.ImportSpecifier().any(|is| {
+                    is.child_token(i_slint_compiler::parser::SyntaxKind::StringLiteral)
+                        .map(|sl| sl.text() == "\"std-widgets.slint\"")
+                        .unwrap_or_default()
+                })
+            })
+            .unwrap_or_default();
 
         let mut components = Vec::new();
         component_catalog::builtin_components(&document_cache, &mut components);
@@ -912,7 +924,8 @@ fn finish_parsing(ok: bool) {
             preview_state.document_cache.borrow_mut().replace(Rc::new(document_cache));
 
             if let Some(ui) = &preview_state.ui {
-                ui::ui_set_known_components(ui, &preview_state.known_components, index)
+                ui::ui_set_uses_widgets(ui, uses_widgets);
+                ui::ui_set_known_components(ui, &preview_state.known_components, index);
             }
         });
     }
@@ -1192,7 +1205,7 @@ async fn reload_preview_impl(
     let success = compiled.is_some();
     update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 
-    finish_parsing(success);
+    finish_parsing(&component.url, success);
     Ok(())
 }
 
