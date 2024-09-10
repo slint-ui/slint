@@ -19,7 +19,7 @@ Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig*
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: .github/issue_template.md
+Files: .github/issue_template.md .github/pull_request_template.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
