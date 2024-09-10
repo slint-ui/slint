@@ -699,19 +699,6 @@ fn find_filtered_location(
     let drop_target_node =
         find_element_to_drop_into(component_instance, position, filter, component_type)?;
 
-    let (path, _) = drop_target_node.path_and_offset();
-    let tl = component_instance.definition().type_loader();
-    let doc = tl.get_document(&path)?;
-    if let Some(element_type) = drop_target_node.with_element_node(|node| {
-        util::lookup_current_element_type((node.clone()).into(), &doc.local_registry)
-    }) {
-        if drop_target_node.layout_kind() == ui::LayoutKind::None
-            && element_type.accepts_child_element(component_type, &doc.local_registry).is_err()
-        {
-            return None;
-        }
-    }
-
     let layout_kind = drop_target_node.layout_kind();
     if layout_kind != ui::LayoutKind::None {
         let geometry = drop_target_node.geometry_at(component_instance, position)?;
