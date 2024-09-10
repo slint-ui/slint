@@ -20,7 +20,6 @@ import {
 import { newProject } from "./quick_picks.js";
 
 let statusBar: vscode.StatusBarItem;
-let telemetryLogger: vscode.TelemetryLogger;
 
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
@@ -81,6 +80,7 @@ function lspPlatform(): Platform | null {
 function startClient(
     client: common.ClientHandle,
     context: vscode.ExtensionContext,
+    telemetryLogger: vscode.TelemetryLogger,
 ) {
     let lsp_platform = lspPlatform();
     if (lsp_platform === null) {
@@ -195,7 +195,7 @@ function startClient(
         "slint-lsp",
         "Slint",
         serverOptions,
-        common.languageClientOptions(),
+        common.languageClientOptions(telemetryLogger),
     );
 
     common.prepare_client(cl);
@@ -219,13 +219,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
     }
 
-    statusBar = common.activate(context, (cl, ctx) => startClient(cl, ctx));
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand("slint.newProject", newProject),
-    );
-
-    telemetryLogger = vscode.env.createTelemetryLogger(
+    const telemetryLogger = vscode.env.createTelemetryLogger(
         new SlintTelemetrySender(context.extensionMode),
         {
             ignoreBuiltInCommonProperties: true,
@@ -241,7 +235,14 @@ export function activate(context: vscode.ExtensionContext) {
             },
         },
     );
-    telemetryLogger.logUsage("extension-activated", {});
+
+    statusBar = common.activate(context, (cl, ctx) =>
+        startClient(cl, ctx, telemetryLogger),
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("slint.newProject", newProject),
+    );
 }
 
 export function deactivate(): Thenable<void> | undefined {

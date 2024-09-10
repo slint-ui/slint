@@ -101,7 +101,9 @@ export function setServerStatus(
 // Set up our middleware. It is used to redirect/forward to the WASM preview
 // as needed and makes the triggering side so much simpler!
 
-export function languageClientOptions(): LanguageClientOptions {
+export function languageClientOptions(
+    telemetryLogger: vscode.TelemetryLogger,
+): LanguageClientOptions {
     return {
         documentSelector: [{ language: "slint" }, { language: "rust" }],
         middleware: {
@@ -147,6 +149,13 @@ export function languageClientOptions(): LanguageClientOptions {
                     }
                     return await next(params);
                 },
+            },
+            async provideCodeLenses(document, token, next) {
+                const lenses = await next(document, token);
+                if (lenses && lenses.length > 0) {
+                    maybeSendStartupTelemetryEvent(telemetryLogger);
+                }
+                return lenses;
             },
         },
     };
@@ -217,15 +226,6 @@ export function activate(
         new wasm_preview.PreviewSerializer(context),
     );
 
-    vscode.workspace.onDidChangeTextDocument(async (ev) => {
-        if (
-            ev.document.languageId !== "slint" &&
-            ev.document.languageId !== "rust"
-        ) {
-            return;
-        }
-    });
-
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
         if (ev.affectsConfiguration("slint")) {
             client.client?.sendNotification(
@@ -243,4 +243,16 @@ export function deactivate(): Thenable<void> | undefined {
         return undefined;
     }
     return client.stop();
+}
+
+let telemetryEventSent = false;
+async function maybeSendStartupTelemetryEvent(
+    telemetryLogger: vscode.TelemetryLogger,
+) {
+    if (telemetryEventSent) {
+        return;
+    }
+    telemetryEventSent = true;
+
+    telemetryLogger.logUsage("extension-activated", {});
 }

@@ -15,16 +15,16 @@ import * as common from "./common";
 import { SlintTelemetrySender } from "./telemetry";
 
 let statusBar: vscode.StatusBarItem;
-let telemetryLogger: vscode.TelemetryLogger;
 
 function startClient(
     client: common.ClientHandle,
     context: vscode.ExtensionContext,
+    telemetryLogger: vscode.TelemetryLogger,
 ) {
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
 
     // Options to control the language client
-    const clientOptions = common.languageClientOptions();
+    const clientOptions = common.languageClientOptions(telemetryLogger);
     clientOptions.synchronize = {};
     clientOptions.initializationOptions = {};
 
@@ -63,9 +63,7 @@ function startClient(
 
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
-    statusBar = common.activate(context, (cl, ctx) => startClient(cl, ctx));
-
-    telemetryLogger = vscode.env.createTelemetryLogger(
+    const telemetryLogger = vscode.env.createTelemetryLogger(
         new SlintTelemetrySender(context.extensionMode),
         {
             ignoreBuiltInCommonProperties: true,
@@ -81,7 +79,10 @@ export function activate(context: vscode.ExtensionContext) {
             },
         },
     );
-    telemetryLogger.logUsage("extension-activated", {});
+
+    statusBar = common.activate(context, (cl, ctx) =>
+        startClient(cl, ctx, telemetryLogger),
+    );
 }
 
 export function deactivate(): Thenable<void> | undefined {
