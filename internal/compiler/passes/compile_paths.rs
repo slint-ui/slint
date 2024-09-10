@@ -90,6 +90,7 @@ pub fn compile_paths(
             }
         } else {
             let mut elem = elem_.borrow_mut();
+            let enclosing_component = elem.enclosing_component.upgrade().unwrap();
             let new_children = Vec::with_capacity(elem.children.len());
             let old_children = std::mem::replace(&mut elem.children, new_children);
 
@@ -114,8 +115,17 @@ pub fn compile_paths(
                             &*child.borrow(),
                         );
                     } else {
-                        let bindings = std::mem::take(&mut child.borrow_mut().bindings);
+                        let mut bindings = std::collections::BTreeMap::new();
+                        {
+                            let mut child = child.borrow_mut();
+                            for k in element_type.properties.keys() {
+                                if let Some(binding) = child.bindings.remove(k) {
+                                    bindings.insert(k.clone(), binding);
+                                }
+                            }
+                        }
                         path_data.push(PathElement { element_type, bindings });
+                        enclosing_component.optimized_elements.borrow_mut().push(child);
                     }
                 } else {
                     elem.children.push(child);

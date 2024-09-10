@@ -1,12 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Path {
+export component TestCase inherits Path {
     property<float> my_x: 100;
-    property<float> my_y: 200;
-
+    stroke: red;
+    stroke-width: 10px;
+    MoveTo {}
     LineTo {
+        property<float> my_y: 200;
         x: root.my_x;
-        y: root.my_y;
+        y: my_y;
     }
 }
