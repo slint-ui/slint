@@ -189,6 +189,9 @@ export component PreviewView {
             }
 
             main-resizer := Resizer {
+                color: root.design-mode ? Colors.black : Colors.transparent;
+                fill-color: root.design-mode ? Colors.white : Colors.transparent;
+
                 is-moveable: false;
                 is-resizable <=> preview-area-container.is-resizable;
 
