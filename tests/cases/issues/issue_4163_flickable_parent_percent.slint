@@ -18,7 +18,7 @@ component ShowResult inherits Rectangle {
     }
 }
 export component TestCase inherits Window {
-    width: 326px;
+    width: 300px;
     height: 326px;
 
     HorizontalLayout {
@@ -39,9 +39,7 @@ export component TestCase inherits Window {
     }
 
     out property <bool> test:
-        // The % applies to the viewport
-        rec.width == 2000px &&
-        // While the parent applies to the flickable
+        rec.width == 300px &&
         rec.height == 326px;
 }
 
