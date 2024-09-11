@@ -11,6 +11,7 @@ import { LibraryView } from "./views/library-view.slint";
 import { PropertyView } from "./views/property-view.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { EditorSpaceSettings } from "./components/styling.slint";
+import { Icons } from "components/styling.slint";
 
 export { Api }
 
@@ -61,12 +62,12 @@ export component PreviewUi inherits Window {
                     }
 
                     Button {
-                        icon: @image-url("assets/sync.svg");
+                        icon: Icons.sync;
                         colorize-icon: true;
                         clicked => { Api.reload-preview(); }
                     }
                     Button {
-                        icon: @image-url("assets/inspect.svg");
+                        icon: Icons.inspect;
                         colorize-icon: true;
                         checkable: true;
                         checked <=> preview.select-mode;
