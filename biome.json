@@ -20,7 +20,8 @@
             "recommended": false,
             "style": {
                 "useBlockStatements": "warn",
-                "noUselessElse": "off"
+                "noUselessElse": "off",
+                "useConst": "warn"
             },
             "suspicious": { "noDoubleEquals": "warn" }
         }
