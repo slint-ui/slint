@@ -1,0 +1,158 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export global AppState {
+    out property <int> totalLights: 35;
+    property <angle> degreesFilledWithLights: 360deg - (startAngle - endAngle);
+    in-out property <int> volume: (normalizeAngle(angle - startAngle) / degreesFilledWithLights) * totalLights;
+    out property <angle> startAngle: 120deg;
+    out property <angle> endAngle: 60deg;
+    in-out property <angle> angle: startAngle;
+    in-out property <length> elementRadius: 185px;
+
+    pure public function normalizeAngle(angle: angle) -> angle {
+        if angle >= 0 {
+            return Math.mod(angle, 360deg);
+        } else {
+            return 360deg + Math.mod(angle, 360deg);
+        }
+    }
+}
+
+export component Light {
+    in property <int> index;
+    property <angle> gap: (360deg - (AppState.startAngle - AppState.endAngle)) / AppState.totalLights;
+    property <angle> angle: (index * gap) + AppState.startAngle;
+    property <bool> lightOn: index <= AppState.volume;
+
+    x: AppState.elementRadius * Math.cos(root.angle);
+    y: AppState.elementRadius * Math.sin(root.angle);
+    width: 0;
+    height: 0;
+
+    states [
+        lightOff when !root.lightOn: {
+            blueLed.opacity: 0;
+        }
+        lightOn when root.lightOn: {
+            blueLed.opacity: 0.6;
+            in {
+                animate blueLed.opacity {
+                    duration: 100ms;
+                    easing: ease-in-sine;
+                }
+            }
+            out {
+                animate blueLed.opacity {
+                    duration: 600ms;
+                    easing: ease-out-sine;
+                }
+            }
+        }
+    ]
+    Rectangle {
+        Image {
+            source: @image-url("images/light-hole.png");
+        }
+
+        blueLed := Image {
+            source: @image-url("images/light.png");
+            opacity: 0;
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    preferred-width: 500px;
+    preferred-height: 500px;
+    background: #1e1d27;
+
+    Rectangle {
+        width: 425px;
+        height: 427px;
+        background: #1e1d27;
+        knob := Rectangle {
+            base := Image {
+                source: @image-url("images/dial-frame.png");
+                ta := TouchArea {
+                    property <length> centerX: self.width / 2;
+                    property <length> centerY: self.height / 2;
+                    property <length> relativeX;
+                    property <length> relativeY;
+                    property <angle> deltaDegrees;
+                    property <bool> firstTouch: false;
+                    width: parent.width;
+                    height: parent.height;
+
+                    clicked => {
+                        firstTouch = false;
+                    }
+
+                    moved => {
+                        relativeX = ta.mouse-x - centerX;
+                        relativeY = ta.mouse-y - centerY;
+                        // on first touch work out what angle the dial is at. Then use this to create a delta
+                        // So further movement will be relative to this angle.
+                        if !firstTouch {
+                            firstTouch = true;
+                            deltaDegrees = AppState.angle;
+                            if relativeX > 0 {
+                                if relativeY > 0 {
+                                    deltaDegrees = AppState.angle - atan(relativeY / relativeX);
+                                } else {
+                                    deltaDegrees = AppState.angle - (360deg + atan(relativeY / relativeX));
+                                }
+                            } else if relativeX < 0 {
+                                deltaDegrees = AppState.angle - (180deg + atan(relativeY / relativeX));
+                            }
+                        } else {
+                            if relativeX > 0 {
+                                if relativeY > 0 {
+                                    AppState.angle = AppState.normalizeAngle(deltaDegrees + atan(relativeY / relativeX));
+                                } else {
+                                    AppState.angle = AppState.normalizeAngle(deltaDegrees + 360deg + atan(relativeY / relativeX));
+                                }
+                            } else if relativeX < 0 {
+                                AppState.angle = AppState.normalizeAngle(deltaDegrees + 180deg + atan(relativeY / relativeX));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            width: 1px;
+            height: 1px;
+            x: 212px;
+            y: 210px;
+
+            metalKnob := Image {
+                source: @image-url("images/metal-dial.png");
+                rotation-angle: AppState.angle;
+            }
+
+            Image {
+                source: @image-url("images/metal-lights.png");
+            }
+
+            Image {
+                x: 120px * Math.cos(mod(AppState.angle, 360deg));
+                y: 120px * Math.sin(mod(AppState.angle, 360deg));
+                source: @image-url("images/indicator.png");
+            }
+
+            Image {
+                source: @image-url("images/dial-trim.png");
+            }
+
+            lightHolder := Rectangle {
+                x: 0px;
+                y: 2px;
+                for i in AppState.totalLights + 1: Light {
+                    index: i;
+                }
+            }
+        }
+    }
+}
