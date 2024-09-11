@@ -4,7 +4,7 @@
 import { Button, HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
 import { BodyText } from "../components/body-text.slint";
 import { HeaderText } from "../components/header-text.slint";
-import { Api } from "../api.slint";
+import { Api, ComponentItem } from "../api.slint";
 import { EditorSpaceSettings, Icons } from "../components/styling.slint";
 
 
@@ -14,6 +14,13 @@ export component HeaderView {
     in-out property <bool> edit-mode <=> interaction-switch.checked;
     in-out property <string> current-style <=> style-combobox.current-value;
     in property <[string]> known-styles <=> style-combobox.model;
+    in-out property <ComponentItem> preview-view: {
+        name: "",
+        defined-at: "",
+        pretty-location: "",
+        is-user-defined: false,
+        is-currently-shown: false,
+    };
 
     callback style-selected();
     callback edit-mode-toggled();
@@ -22,69 +29,87 @@ export component HeaderView {
         background: Palette.alternate-background;
 
         content-layer := HorizontalBox {
-            HeaderText {
-                text: @tr("Preview");
-                horizontal-stretch: 0;
-            }
-
-            HorizontalLayout {
-                horizontal-stretch: 1;
-                alignment: start;
-                spacing: EditorSpaceSettings.default-spacing;
-                @children
-            }
-
-            BodyText {
-                visible: Api.uses-widgets;
-                horizontal-stretch: 0;
-
-                text: @tr("Style");
-            }
-
-            style-combobox := ComboBox {
-                visible: Api.uses-widgets;
-                horizontal-stretch: 0;
-
-                selected => {
-                    root.style-selected();
-                }
-            }
-
+            horizontal-stretch: 1;
             HorizontalLayout {
                 horizontal-stretch: 0;
                 spacing: 4px;
-
-                BodyText {
-                    text: @tr("Interact");
-                }
-
-                interaction-switch := Switch {
-                    toggled => {
-                        root.edit-mode-toggled();
+                Button {
+                    horizontal-stretch: 0;
+                    max-width: 30px;
+                    icon: Icons.sync;
+                    colorize-icon: true;
+                    clicked => {
+                        Api.reload-preview();
                     }
                 }
 
-                BodyText {
-                    text: @tr("Edit");
+                HeaderText {
+                    text: @tr("Preview");
+                    horizontal-stretch: 0;
                 }
             }
 
-            left-panel-button := Button {
-                horizontal-stretch: 0;
-                
-                checkable: true;
-                icon: Icons.sidebar-left;
-                colorize-icon: true;
-                enabled: root.edit-mode;
+            HorizontalLayout {
+                alignment: start;
+                spacing: EditorSpaceSettings.default-spacing;
+                HorizontalLayout {
+                    @children
+                    spacing:4px;
+                    horizontal-stretch: 0;
+                    BodyText {
+                        text: @tr("Interact");
+                    }
+
+                    interaction-switch := Switch {
+                        toggled => {
+                            root.edit-mode-toggled();
+                        }
+                    }
+
+                    BodyText {
+                        text: @tr("Edit");
+                    }
+                }
+
+                left-panel-button := Button {
+                    horizontal-stretch: 0;
+                    checkable: true;
+                    icon: Icons.sidebar-left;
+                    colorize-icon: true;
+                    enabled: root.edit-mode;
+                    visible:root.edit-mode;
+                }
+
+                right-panel-button := Button {
+                    horizontal-stretch: 0;
+                    checkable: true;
+                    icon: Icons.sidebar-right;
+                    colorize-icon: true;
+                    enabled: root.edit-mode;
+                    visible: root.edit-mode;
+                }
             }
 
-            right-panel-button := Button {
-                horizontal-stretch: 0;
 
-                checkable: true;
-                icon: Icons.sidebar-right;
-                colorize-icon: true;
-                enabled: root.edit-mode;
+
+            HorizontalLayout {
+                alignment: end;
+                horizontal-stretch: 0;
+                spacing:4px;
+                BodyText {
+                    visible: Api.uses-widgets;
+                    horizontal-alignment: right;
+                    text: @tr("Style");
+                }
+
+                style-combobox := ComboBox {
+                    visible: Api.uses-widgets;
+                    horizontal-stretch: 0;
+
+                    selected => {
+                        root.style-selected();
+                    }
+                }
             }
         }
 
