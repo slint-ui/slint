@@ -110,7 +110,9 @@ fn file_local_component_info(
 pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<ComponentInformation>) {
     let registry = document_cache.global_type_registry();
     result.extend(registry.all_elements().iter().filter_map(|(name, ty)| match ty {
-        ElementType::Builtin(b) if !b.is_internal && name != "Dialog" && name != "Window" => {
+        ElementType::Builtin(b)
+            if !b.is_internal && !b.is_non_item_type && name != "Dialog" && name != "Window" =>
+        {
             let fills_parent =
                 matches!(b.default_size_binding, DefaultSizeBinding::ExpandsToParentGeometry);
             Some(builtin_component_info(name, fills_parent))
@@ -242,6 +244,7 @@ mod tests {
         assert!(result.iter().any(|ci| &ci.name == "TouchArea"));
         assert!(!result.iter().any(|ci| &ci.name == "AboutSlint"));
         assert!(!result.iter().any(|ci| &ci.name == "ProgressIndicator"));
+        assert!(!result.iter().any(|ci| &ci.name == "Timer"));
     }
 
     #[test]
