@@ -134,11 +134,10 @@ Run the example with `npm start` and a window appears with the green "Hello Worl
 
 We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
-Install the [template](https://github.com/slint-ui/slint-rust-template) with the following commands:
+Clone or download the template repository:
 
 ```sh
-cargo install cargo-generate
-cargo generate --git https://github.com/slint-ui/slint-rust-template --name memory
+git clone https://github.com/slint-ui/slint-rust-template memory
 cd memory
 ```
 
