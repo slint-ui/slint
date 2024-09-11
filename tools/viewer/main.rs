@@ -17,7 +17,24 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+struct Error(Box<dyn std::error::Error>);
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Use the Display impl of the error instead of the error
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<T> From<T> for Error
+where
+    T: Into<Box<dyn std::error::Error>> + 'static,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
+    }
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -120,7 +137,7 @@ fn main() -> Result<()> {
         std::process::exit(-1);
     };
 
-    let component = c.create().unwrap();
+    let component = c.create()?;
     init_dialog(&component);
 
     if let Some(data_path) = args.load_data {
@@ -132,7 +149,7 @@ fn main() -> Result<()> {
         CURRENT_INSTANCE.with(|current| current.replace(Some(component.clone_strong())));
     }
 
-    component.run().unwrap();
+    component.run()?;
 
     if let Some(data_path) = args.save_data {
         let mut obj = serde_json::Map::new();
@@ -416,7 +433,7 @@ fn install_callbacks(instance: &ComponentInstance, callbacks: &[String]) {
             match instance.set_callback(callback, move |args| {
                 match execute_cmd(&cmd, args) {
                     Ok(()) => (),
-                    Err(e) => eprintln!("Error: {}", e),
+                    Err(e) => eprintln!("Error: {:?}", e),
                 }
                 Value::Void
             }) {
