@@ -19,6 +19,7 @@ export enum DrawAreaMode {
     uninitialized,
     viewing,
     designing,
+    selecting,
     error,
 }
 
@@ -147,6 +148,7 @@ export component PreviewView {
     in property <DropMark> drop-mark <=> Api.drop-mark;
     in property <component-factory> preview-area <=> Api.preview-area;
     in property <bool> design-mode <=> Api.design-mode;
+    in-out property <bool> select-mode: false;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
     out property <DrawAreaMode> mode: uninitialized;
@@ -174,9 +176,10 @@ export component PreviewView {
             unselect-area := TouchArea {
                 clicked => {
                     Api.unselect();
+                    root.select-mode = false;
                 }
                 mouse-cursor: crosshair;
-                enabled: root.mode == DrawAreaMode.designing;
+                enabled: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting;
             }
 
             content-border := Rectangle {
@@ -268,11 +271,12 @@ export component PreviewView {
                             } else if (self.selection-kind == SelectionKind.select-at) {
                                 Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
                             }
+                            root.select-mode = false;
                         }
                         self.selection-kind = SelectionKind.none;
                     }
                     mouse-cursor: crosshair;
-                    enabled: root.mode == DrawAreaMode.designing;
+                    enabled: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting;
                 }
 
                 selection-display-area := Rectangle {
@@ -334,6 +338,9 @@ export component PreviewView {
         }
         designing when root.design-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.designing;
+        }
+        selecting when root.select-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
+            root.mode: DrawAreaMode.selecting;
         }
         viewing when !root.design-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.viewing;
