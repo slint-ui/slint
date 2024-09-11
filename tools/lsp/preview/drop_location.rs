@@ -963,11 +963,11 @@ pub fn drop_at(
             {
                 props.push(common::PropertyChange::new(
                     "x",
-                    format!("{}px", position.x - area.origin.x),
+                    format!("{}px", (position.x - area.origin.x).round()),
                 ));
                 props.push(common::PropertyChange::new(
                     "y",
-                    format!("{}px", position.y - area.origin.y),
+                    format!("{}px", (position.y - area.origin.y).round()),
                 ));
             }
         }
