@@ -1,13 +1,13 @@
 {
     "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
-    "extends": ["../../editors/vscode/biome.json"],
+    "extends": ["../../biome.json"],
     "formatter": {
         "ignore": ["*/rust-module.d.ts"]
     },
     "linter": {
         "ignore": ["rust-module.d.ts"],
         "rules": {
-            "complexity": { 
+            "complexity": {
                 "useArrowFunction": "off",
                 "noForEach": "off",
                 "noUselessConstructor": "off",
@@ -25,8 +25,8 @@
                 "useNodejsImportProtocol": "off",
                 "noParameterAssign": "off"
             },
-            "suspicious": { 
-                "noExplicitAny": "off", 
+            "suspicious": {
+                "noExplicitAny": "off",
                 "noAssignInExpressions": "off",
                 "noImplicitAnyLet": "off",
                 "noDoubleEquals": "warn",

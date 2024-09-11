@@ -10,7 +10,8 @@
         "ignore": [
             "./node_modules",
             "**/.vscode/**",
-            "*.json"
+            "*.json",
+            "!biome.json"
         ]
     },
     "organizeImports": { "enabled": false },
