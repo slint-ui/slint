@@ -46,12 +46,11 @@ fn main() {
 The [`slint` crate documentation](https://slint.dev/docs/rust/slint/)
 contains more advanced examples and alternative ways to use this crate.
 
-To quickly get started, you can use the [Template Repository](https://github.com/slint-ui/slint-rust-template) with
-the code of a minimal application using Slint that can be used as a starting point to your program.
+To quickly get started, use the [Template Repository](https://github.com/slint-ui/slint-rust-template) with
+the code of a minimal application using Slint as a starting point for your program.
 
 ```bash
-cargo install cargo-generate
-cargo generate --git https://github.com/slint-ui/slint-rust-template
+git clone https://github.com/slint-ui/slint-rust-template my-project
 ```
 
 ## More examples
