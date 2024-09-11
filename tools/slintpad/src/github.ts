@@ -60,7 +60,7 @@ export async function manage_github_access(): Promise<boolean | null> {
                 function set_state(nt: string) {
                     new_access_token = nt;
 
-                    if (new_access_token != "") {
+                    if (new_access_token !== "") {
                         token_input.style.display = "none";
                         token_input.value = "";
                         token_input.readOnly = true;
@@ -100,7 +100,7 @@ export async function manage_github_access(): Promise<boolean | null> {
             () => {
                 if (
                     is_valid_token(new_access_token) ||
-                    new_access_token == ""
+                    new_access_token === ""
                 ) {
                     localStorage.setItem(
                         local_storage_key_github_token,
@@ -122,7 +122,7 @@ function get_github_access_token(): string | null {
 
 function url_common_prefix(urls: string[]): number {
     // check border cases size 1 array and empty first word)
-    if (urls.length == 1) return urls[0].lastIndexOf("/") + 1;
+    if (urls.length === 1) { return urls[0].lastIndexOf("/") + 1; }
     let i = 0;
     let last_slash = 0;
     // while all words have the same character at position i, increment i
@@ -147,7 +147,7 @@ export async function export_to_gist(
     // collect data:
     const files: { [key: string]: { [key: string]: string } } = {};
     const urls = editor.open_document_urls;
-    if (urls.length == 0) {
+    if (urls.length === 0) {
         return Promise.reject("Nothing to export");
     }
 
@@ -221,7 +221,7 @@ export async function export_to_gist(
         }
     } else {
         let extra = "";
-        if (response.status == 422) {
+        if (response.status === 422) {
             if (data.length > 50000) {
                 extra = "\n\nYour project too big to create a Gist from.";
             } else {
@@ -245,7 +245,7 @@ async function _process_gist_url(
     const path = url.pathname.split("/");
 
     // A URL to a Gist, not to a specific file in a gist!
-    if (path.length == 3 || path.length == 2) {
+    if (path.length === 3 || path.length === 2) {
         // Raw gist URL: Find a start file!
         const gist_id = path[path.length - 1];
 

@@ -211,7 +211,7 @@
     "format": "biome format",
     "format:fix": "biome format --write",
     "lint": "biome lint",
-    "lint:fix": "biome check --apply",
+    "lint:fix": "biome lint --fix",
     "syntax_check": "tsc --build --force",
     "test": "node ./out/test/runTest.js",
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"

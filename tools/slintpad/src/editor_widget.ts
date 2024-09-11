@@ -358,7 +358,7 @@ class EditorPaneWidget extends Widget {
         monaco.editor.getModels().forEach((m: monaco.editor.ITextModel) => {
             const u = m?.uri.toString();
 
-            if (u != null && u != main_file) {
+            if (u != null && u !== main_file) {
                 result.push(u);
             }
         });
@@ -614,7 +614,7 @@ class EditorPaneWidget extends Widget {
         }
 
         let result_uri = null;
-        if (era == this.#edit_era) {
+        if (era === this.#edit_era) {
             model = await createModel(this.internal_uuid, doc, internal_uri);
             if (model) {
                 result_uri = model.uri;
@@ -718,7 +718,7 @@ export class EditorWidget extends Widget {
             if (url !== null) {
                 title = this.#tab_map.get(url) ?? null;
             }
-            if (this.#tab_bar.currentTitle != title) {
+            if (this.#tab_bar.currentTitle !== title) {
                 this.#tab_bar.currentTitle = title;
             }
         };

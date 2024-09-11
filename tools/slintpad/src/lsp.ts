@@ -130,7 +130,7 @@ export class Lsp {
             new BrowserMessageReader(this.#lsp_worker),
             (data: Message) => {
                 if (
-                    (data as NotificationMessage).method ==
+                    (data as NotificationMessage).method ===
                     "slint/lsp_to_preview"
                 ) {
                     const notification = data as NotificationMessage;
@@ -142,7 +142,7 @@ export class Lsp {
 
                     return true;
                 }
-                if ((data as RequestMessage).method == "slint/load_file") {
+                if ((data as RequestMessage).method === "slint/load_file") {
                     const request = data as RequestMessage;
                     const url = (request.params as string[])[0];
 
@@ -167,7 +167,7 @@ export class Lsp {
 
                     return true;
                 }
-                if ((data as RequestMessage).method == "window/showDocument") {
+                if ((data as RequestMessage).method === "window/showDocument") {
                     const request = data as RequestMessage;
                     const params = request.params as ShowDocumentParams;
 
