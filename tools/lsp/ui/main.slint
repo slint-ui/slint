@@ -65,6 +65,13 @@ export component PreviewUi inherits Window {
                         colorize-icon: true;
                         clicked => { Api.reload-preview(); }
                     }
+                    Button {
+                        icon: @image-url("assets/inspect.svg");
+                        colorize-icon: true;
+                        checkable: true;
+                        checked <=> preview.select-mode;
+                        enabled: !preview.design-mode;
+                    }
                 }
 
                 HorizontalLayout {
