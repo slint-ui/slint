@@ -709,6 +709,9 @@ fn lower_global(
     let mut functions = vec![];
 
     for (p, x) in &global.root_element.borrow().property_declarations {
+        if x.is_alias.is_some() {
+            continue;
+        }
         let property_index = properties.len();
         let nr = NamedReference::new(&global.root_element, p);
 
