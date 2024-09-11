@@ -592,20 +592,29 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
         return false;
     }
 
-    let position = LogicalPoint::new(x, y);
-    let Some(component_type) = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
-
-        preview_state.known_components.get(component_index as usize).map(|ci| ci.name.clone())
-    }) else {
+    let Some(document_cache) = document_cache() else {
         return false;
     };
 
-    drop_location::can_drop_at(position, &component_type)
+    let position = LogicalPoint::new(x, y);
+
+    PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow();
+
+        if let Some(component) = preview_state.known_components.get(component_index as usize) {
+            drop_location::can_drop_at(&document_cache, position, &component)
+        } else {
+            false
+        }
+    })
 }
 
 // triggered from the UI, running in UI thread
 fn drop_component(component_index: i32, x: f32, y: f32) {
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+
     let position = LogicalPoint::new(x, y);
 
     let drop_result = PREVIEW_STATE.with(|preview_state| {
@@ -613,7 +622,8 @@ fn drop_component(component_index: i32, x: f32, y: f32) {
 
         let component = preview_state.known_components.get(component_index as usize)?;
 
-        drop_location::drop_at(position, component).map(|(e, d)| (e, d, component.name.clone()))
+        drop_location::drop_at(&document_cache, position, component)
+            .map(|(e, d)| (e, d, component.name.clone()))
     });
 
     if let Some((edit, drop_data, component_name)) = drop_result {
