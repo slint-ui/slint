@@ -95,13 +95,11 @@ fn main() {
 }
 ```
 
-The [cargo-generate](https://github.com/cargo-generate/cargo-generate) tool is a great tool to up and running quickly with a new
-Rust project. You can use it in combination with our [Template Repository](https://github.com/slint-ui/slint-rust-template) to
-create a skeleton file hierarchy that uses this method:
+Use our [Template Repository](https://github.com/slint-ui/slint-rust-template) to create a skeleton file
+hierarchy that uses this method:
 
 ```bash
-cargo install cargo-generate
-cargo generate --git https://github.com/slint-ui/slint-rust-template
+git clone https://github.com/slint-ui/slint-rust-template my-project
 ```
 
 ## Generated components
