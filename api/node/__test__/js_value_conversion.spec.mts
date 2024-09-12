@@ -6,7 +6,12 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import Jimp = require("jimp");
 
-import { private_api, type ImageData, ArrayModel, type Model } from "../index.js";
+import {
+    private_api,
+    type ImageData,
+    ArrayModel,
+    type Model,
+} from "../index.js";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -789,7 +794,7 @@ test("invoke callback", (t) => {
 
     const instance = definition.App!.create();
     t.not(instance, null);
-    let speakTest:string;
+    let speakTest: string;
 
     instance!.setCallback(
         "great",

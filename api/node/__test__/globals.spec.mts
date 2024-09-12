@@ -137,7 +137,7 @@ test("invoke global callback", (t) => {
         },
     );
 
-    let speakTest:string;
+    let speakTest: string;
     instance!.setGlobalCallback(
         "Global",
         "great",

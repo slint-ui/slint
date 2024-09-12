@@ -811,7 +811,7 @@ export class EditorWidget extends Widget {
                 ? "master"
                 : default_tag;
             {
-                let found:RegExpMatchArray | null;
+                let found: RegExpMatchArray | null;
                 if (
                     (found = window.location.pathname.match(
                         /releases\/([^/]*)\/editor/,
