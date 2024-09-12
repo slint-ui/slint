@@ -187,8 +187,7 @@ export component PreviewView {
                     Api.unselect();
                     root.select-mode = false;
                 }
-                mouse-cursor: crosshair;
-                enabled: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting;
+                mouse-cursor: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
 
                 changed has-hover => {
                     StatusLineApi.help-text = "<click> unselect";
