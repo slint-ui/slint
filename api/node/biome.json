@@ -22,8 +22,7 @@
             },
             "suspicious": {
                 "noExplicitAny": "off",
-                "noAssignInExpressions": "off",
-                "noImplicitAnyLet": "off"
+                "noAssignInExpressions": "off"
             }
         }
     }

@@ -789,7 +789,7 @@ test("invoke callback", (t) => {
 
     const instance = definition.App!.create();
     t.not(instance, null);
-    let speakTest;
+    let speakTest:string;
 
     instance!.setCallback(
         "great",

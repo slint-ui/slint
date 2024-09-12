@@ -32,7 +32,8 @@
             },
             "suspicious": { 
                 "noDoubleEquals": "error",
-                "noRedundantUseStrict": "warn"
+                "noRedundantUseStrict": "warn",
+                "noImplicitAnyLet": "error"
             }
         }
     },
