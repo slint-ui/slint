@@ -126,7 +126,7 @@ class ModelIterator<T> implements Iterator<T> {
 
     public next(): IteratorResult<T> {
         if (this.row < this.model.rowCount()) {
-            let row = this.row;
+            const row = this.row;
             this.row++;
             return {
                 done: false,
@@ -341,7 +341,7 @@ export class ArrayModel<T> extends Model<T> {
      * @param values list of values that will be pushed to the array.
      */
     push(...values: T[]) {
-        let size = this.#array.length;
+        const size = this.#array.length;
         Array.prototype.push.apply(this.#array, values);
         this.notifyRowAdded(size, arguments.length);
     }
@@ -352,7 +352,7 @@ export class ArrayModel<T> extends Model<T> {
      * @returns The removed element or undefined if the array is empty.
      */
     pop(): T | undefined {
-        let last = this.#array.pop();
+        const last = this.#array.pop();
         if (last !== undefined) {
             this.notifyRowRemoved(this.#array.length, 1);
         }
@@ -367,7 +367,7 @@ export class ArrayModel<T> extends Model<T> {
      * @param size number of rows to remove.
      */
     remove(index: number, size: number) {
-        let r = this.#array.splice(index, size);
+        const r = this.#array.splice(index, size);
         this.notifyRowRemoved(index, size);
     }
 
@@ -535,7 +535,7 @@ export namespace private_api {
          * @returns undefined if row is out of range otherwise the data.
          */
         rowData(row: number): U | undefined {
-            let data = this.sourceModel.rowData(row);
+            const data = this.sourceModel.rowData(row);
             if (data === undefined) {
                 return undefined;
             }
@@ -692,7 +692,7 @@ type LoadData =
 function loadSlint(loadData: LoadData): Object {
     const { filePath, options } = loadData.fileData;
 
-    let compiler = new napi.ComponentCompiler();
+    const compiler = new napi.ComponentCompiler();
 
     if (typeof options !== "undefined") {
         if (typeof options.style !== "undefined") {
@@ -706,14 +706,14 @@ function loadSlint(loadData: LoadData): Object {
         }
     }
 
-    let definitions =
+    const definitions =
         loadData.from === "file"
             ? compiler.buildFromPath(filePath)
             : compiler.buildFromSource(loadData.fileData.source, filePath);
-    let diagnostics = compiler.diagnostics;
+    const diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        let warnings = diagnostics.filter(
+        const warnings = diagnostics.filter(
             (d) => d.level === napi.DiagnosticLevel.Warning,
         );
 
@@ -721,7 +721,7 @@ function loadSlint(loadData: LoadData): Object {
             warnings.forEach((w) => console.warn("Warning: " + w));
         }
 
-        let errors = diagnostics.filter(
+        const errors = diagnostics.filter(
             (d) => d.level === napi.DiagnosticLevel.Error,
         );
 
@@ -730,17 +730,17 @@ function loadSlint(loadData: LoadData): Object {
         }
     }
 
-    let slint_module = Object.create({});
+    const slint_module = Object.create({});
 
     Object.keys(definitions).forEach((key) => {
-        let definition = definitions[key];
+        const definition = definitions[key];
 
         Object.defineProperty(
             slint_module,
             definition.name.replace(/-/g, "_"),
             {
                 value: function (properties: any) {
-                    let instance = definition.create();
+                    const instance = definition.create();
 
                     if (instance == null) {
                         throw Error(
@@ -750,7 +750,7 @@ function loadSlint(loadData: LoadData): Object {
                     }
 
                     for (var key in properties) {
-                        let value = properties[key];
+                        const value = properties[key];
 
                         if (value instanceof Function) {
                             instance.setCallback(key, value);
@@ -759,9 +759,9 @@ function loadSlint(loadData: LoadData): Object {
                         }
                     }
 
-                    let componentHandle = new Component(instance!);
+                    const componentHandle = new Component(instance!);
                     instance!.definition().properties.forEach((prop) => {
-                        let propName = prop.name.replace(/-/g, "_");
+                        const propName = prop.name.replace(/-/g, "_");
 
                         if (componentHandle[propName] !== undefined) {
                             console.warn(
@@ -781,7 +781,7 @@ function loadSlint(loadData: LoadData): Object {
                     });
 
                     instance!.definition().callbacks.forEach((cb) => {
-                        let callbackName = cb.replace(/-/g, "_");
+                        const callbackName = cb.replace(/-/g, "_");
 
                         if (componentHandle[callbackName] !== undefined) {
                             console.warn(
@@ -810,7 +810,7 @@ function loadSlint(loadData: LoadData): Object {
                     });
 
                     instance!.definition().functions.forEach((cb) => {
-                        let functionName = cb.replace(/-/g, "_");
+                        const functionName = cb.replace(/-/g, "_");
 
                         if (componentHandle[functionName] !== undefined) {
                             console.warn(
@@ -842,13 +842,13 @@ function loadSlint(loadData: LoadData): Object {
                                 "Duplicated property name " + globalName,
                             );
                         } else {
-                            let globalObject = Object.create({});
+                            const globalObject = Object.create({});
 
                             instance!
                                 .definition()
                                 .globalProperties(globalName)
                                 .forEach((prop) => {
-                                    let propName = prop.name.replace(/-/g, "_");
+                                    const propName = prop.name.replace(/-/g, "_");
 
                                     if (globalObject[propName] !== undefined) {
                                         console.warn(
@@ -885,7 +885,7 @@ function loadSlint(loadData: LoadData): Object {
                                 .definition()
                                 .globalCallbacks(globalName)
                                 .forEach((cb) => {
-                                    let callbackName = cb.replace(/-/g, "_");
+                                    const callbackName = cb.replace(/-/g, "_");
 
                                     if (
                                         globalObject[callbackName] !== undefined
@@ -929,7 +929,7 @@ function loadSlint(loadData: LoadData): Object {
                                 .definition()
                                 .globalFunctions(globalName)
                                 .forEach((cb) => {
-                                    let functionName = cb.replace(/-/g, "_");
+                                    const functionName = cb.replace(/-/g, "_");
 
                                     if (
                                         globalObject[functionName] !== undefined
@@ -1089,7 +1089,7 @@ class EventLoop {
         // Give the nodejs event loop 16 ms to tick. This polling is sub-optimal, but it's the best we
         // can do right now.
         const nodejsPollInterval = 16;
-        let id = setInterval(() => {
+        const id = setInterval(() => {
             if (
                 napi.processEvents() === napi.ProcessEventsResult.Exited ||
                 this.#quit_loop

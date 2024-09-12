@@ -11,11 +11,11 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // loadFile api
 test("loadFile", (t) => {
-    let demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
-    let test = new demo.Test();
+    const demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
+    const test = new demo.Test();
     t.is(test.check, "Test");
 
-    let errorPath = path.join(dirname, "resources/error.slint");
+    const errorPath = path.join(dirname, "resources/error.slint");
 
     const error = t.throws(
         () => {
@@ -63,11 +63,11 @@ test("loadFile", (t) => {
 });
 
 test("loadFile constructor parameters", (t) => {
-    let demo = loadFile(
+    const demo = loadFile(
         path.join(dirname, "resources/test-constructor.slint"),
     ) as any;
     let hello = "";
-    let test = new demo.Test({
+    const test = new demo.Test({
         say_hello: function () {
             hello = "hello";
         },
@@ -82,7 +82,7 @@ test("loadFile constructor parameters", (t) => {
 
 test("loadFile component instances and modules are sealed", (t) => {
     "use strict";
-    let demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
+    const demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
 
     t.throws(
         () => {
@@ -91,7 +91,7 @@ test("loadFile component instances and modules are sealed", (t) => {
         { instanceOf: TypeError },
     );
 
-    let test = new demo.Test();
+    const test = new demo.Test();
     t.is(test.check, "Test");
 
     t.throws(
@@ -108,8 +108,8 @@ test("loadSource", (t) => {
         out property <string> check: "Test";
     }`;
     const path = "api.spec.ts";
-    let demo = loadSource(source, path) as any;
-    let test = new demo.Test();
+    const demo = loadSource(source, path) as any;
+    const test = new demo.Test();
     t.is(test.check, "Test");
 
     const errorSource = `export component Error {
@@ -166,9 +166,9 @@ test("loadSource constructor parameters", (t) => {
         in-out property <string> check;
     }`;
     const path = "api.spec.ts";
-    let demo = loadSource(source, path) as any;
+    const demo = loadSource(source, path) as any;
     let hello = "";
-    let test = new demo.Test({
+    const test = new demo.Test({
         say_hello: function () {
             hello = "hello";
         },
@@ -187,7 +187,7 @@ test("loadSource component instances and modules are sealed", (t) => {
         out property <string> check: "Test";
     }`;
     const path = "api.spec.ts";
-    let demo = loadSource(source, path) as any;
+    const demo = loadSource(source, path) as any;
 
     t.throws(
         () => {
@@ -196,7 +196,7 @@ test("loadSource component instances and modules are sealed", (t) => {
         { instanceOf: TypeError },
     );
 
-    let test = new demo.Test();
+    const test = new demo.Test();
     t.is(test.check, "Test");
 
     t.throws(

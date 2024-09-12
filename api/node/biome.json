@@ -16,7 +16,6 @@
             "style": {
                 "noNonNullAssertion": "off",
                 "noUnusedTemplateLiteral": "off",
-                "useConst": "off",
                 "useTemplate": "off",
                 "noArguments": "off",
                 "noVar": "off",

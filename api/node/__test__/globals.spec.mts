@@ -6,8 +6,8 @@ import test from "ava";
 import { private_api } from "../index.js";
 
 test("get/set global properties", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
     export global Global { in-out property <string> name: "Initial"; }
     export component App {}`,
@@ -15,7 +15,7 @@ test("get/set global properties", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     t.is(instance!.getGlobalProperty("Global", "name"), "Initial");
@@ -85,8 +85,8 @@ test("get/set global properties", (t) => {
 });
 
 test("invoke global callback", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export struct Person {
     name: string
@@ -114,7 +114,7 @@ test("invoke global callback", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     t.throws(

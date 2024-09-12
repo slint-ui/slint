@@ -18,8 +18,8 @@ test("Window constructor", (t) => {
 });
 
 test("Window show / hide", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
 
     export component App inherits Window {
@@ -30,10 +30,10 @@ test("Window show / hide", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
-    let window = instance!.window();
+    const window = instance!.window();
     t.is(window.visible, false);
     window.show();
     t.is(window.visible, true);
