@@ -22,7 +22,9 @@ test("SlintColor from fromArgb", (t) => {
 });
 
 test("SlintColor brighter", (t) => {
-    const color = private_api.SlintRgbaColor.fromRgb(100, 110, 120).brighter(0.1);
+    const color = private_api.SlintRgbaColor.fromRgb(100, 110, 120).brighter(
+        0.1,
+    );
 
     t.deepEqual(color.red, 110);
     t.deepEqual(color.green, 121);

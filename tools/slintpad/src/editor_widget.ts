@@ -13,7 +13,10 @@ import {
     lsp_range_to_editor_range,
 } from "./lsp_integration";
 import type { Lsp } from "./lsp";
-import type { PositionChangeCallback, VersionedDocumentAndPosition } from "./text";
+import type {
+    PositionChangeCallback,
+    VersionedDocumentAndPosition,
+} from "./text";
 import * as github from "./github";
 
 import { BoxLayout, TabBar, type Title, Widget } from "@lumino/widgets";

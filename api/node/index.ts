@@ -848,7 +848,10 @@ function loadSlint(loadData: LoadData): Object {
                                 .definition()
                                 .globalProperties(globalName)
                                 .forEach((prop) => {
-                                    const propName = prop.name.replace(/-/g, "_");
+                                    const propName = prop.name.replace(
+                                        /-/g,
+                                        "_",
+                                    );
 
                                     if (globalObject[propName] !== undefined) {
                                         console.warn(
