@@ -23,8 +23,7 @@
             "suspicious": {
                 "noExplicitAny": "off",
                 "noAssignInExpressions": "off",
-                "noImplicitAnyLet": "off",
-                "noRedundantUseStrict": "off"
+                "noImplicitAnyLet": "off"
             }
         }
     }

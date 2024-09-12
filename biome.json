@@ -30,7 +30,10 @@
                 "useImportType": "error",
                 "useNodejsImportProtocol": "error"
             },
-            "suspicious": { "noDoubleEquals": "error" }
+            "suspicious": { 
+                "noDoubleEquals": "error",
+                "noRedundantUseStrict": "warn"
+            }
         }
     },
     "javascript": {
