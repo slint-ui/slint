@@ -9,11 +9,11 @@ const commonBuildOptions = {
     sourcesContent: false,
 };
 
-let wasmPlugin = {
+const wasmPlugin = {
     name: "wasm",
     setup(build) {
-        let path = require("path");
-        let fs = require("fs");
+        const path = require("path");
+        const fs = require("fs");
 
         // Resolve ".wasm" files to a path with a namespace
         build.onResolve({ filter: /\.wasm$/ }, (args) => {
@@ -41,7 +41,7 @@ let wasmPlugin = {
     },
 };
 
-let esbuild = require("esbuild");
+const esbuild = require("esbuild");
 esbuild
     .build({
         entryPoints: ["src/browser.ts"],
