@@ -2,11 +2,11 @@ This GitHub release is a nightly snapshot of Slint development. It serves to pro
 
 The attached binaries are updated once a day by a GitHub action building from the  `master` branch.
 
-## How To Try Out Nightly
+## How To Try Out This Development Release
 
 ### Rust
 
-For Rust users, please include the following in your Cargo.toml (or .cargo/config.toml):
+For Rust users, include the following in your Cargo.toml (or .cargo/config.toml):
 
 ```toml
 [patch.crates-io]
@@ -20,9 +20,9 @@ Make sure the log shows you are building the right version of Slint.
 
 ### C++
 
-For C++ users with a binary package, download the binary from the "Assets" bellow
+For C++ users with a binary package, download the binary from the "Assets" section below.
 
-If you're building from source with FetchContent, change the `GIT_TAG` to `master`:
+If you're building from source with CMake's `FetchContent`, change the `GIT_TAG` to `master`:
 
 ```cmake
 FetchContent_Declare(
@@ -35,25 +35,25 @@ FetchContent_Declare(
 
 Remember to remove your build directory and re-run cmake.
 
-### Javascript
+### JavaScript / Node.js
 
-Use the latest nightly version of the [slint-ui npm package](https://www.npmjs.com/package/slint-ui?activeTab=versions)
+Run `npm install slint-ui@nightly` to install or upgrade. This works for new and existing projects.
 
-### Editor extension
+### Editors / IDEs
 
-For VSCode, you can download the ["Slint (Nightly)" extension from the Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Slint.slint-nightly).
-Note that you need to disable or uninstall the non-nightly one.
+For VSCode, you download the ["Slint (Nightly)" extension from the Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Slint.slint-nightly).
+Note that you need to disable or uninstall an existing version of the Slint  VS Code extension.
 
-For other editors, you can compile the nightly version with:
+For other editors, you compile the latest version of the Slint Language Server with:
 
 ```sh
 cargo install --git https://github.com/slint-ui/slint slint-lsp
 ```
 
-Or download the binary from "Assets" bellow
+Alternatively, download the binary from "Assets" section below.
 
-### Online demos and docs
+### Online Demos and Documentation
 
- - Docs: https://slint.dev/snapshots/master/docs
- - Slintpad: https://slint.dev/snapshots/master/editor
+ - Documentation: https://slint.dev/snapshots/master/docs
+ - SlintPad: https://slint.dev/snapshots/master/editor
  - Demos: links from https://github.com/slint-ui/slint/tree/master/examples
