@@ -4,7 +4,7 @@
 import { Uri } from "vscode";
 
 import * as vscode from "vscode";
-import { BaseLanguageClient } from "vscode-languageclient";
+import type { BaseLanguageClient } from "vscode-languageclient";
 
 let previewPanel: vscode.WebviewPanel | null = null;
 let to_lsp_queue: object[] = [];

@@ -3,7 +3,7 @@
 
 // cSpell: ignore lumino
 
-import { defineConfig, UserConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import { resolve } from "path";
 
 export default defineConfig(() => {

@@ -12,8 +12,8 @@ import * as lsp_commands from "./lsp_commands";
 import * as snippets from "./snippets";
 
 import {
-    BaseLanguageClient,
-    LanguageClientOptions,
+    type BaseLanguageClient,
+    type LanguageClientOptions,
     NotificationType,
 } from "vscode-languageclient";
 

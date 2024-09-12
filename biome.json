@@ -22,7 +22,8 @@
             "style": {
                 "useBlockStatements": "warn",
                 "noUselessElse": "off",
-                "useConst": "error"
+                "useConst": "error",
+                "useImportType": "error"
             },
             "suspicious": { "noDoubleEquals": "error" }
         }

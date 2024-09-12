@@ -5,22 +5,22 @@ import { FilterProxyReader } from "./proxy";
 import {
     CloseAction,
     ErrorAction,
-    Message,
-    MessageTransports,
-    NotificationMessage,
-    RequestMessage,
-    ResponseMessage,
-    ShowDocumentParams,
+    type Message,
+    type MessageTransports,
+    type NotificationMessage,
+    type RequestMessage,
+    type ResponseMessage,
+    type ShowDocumentParams,
 } from "vscode-languageclient";
 import { MonacoLanguageClient } from "monaco-languageclient";
 
 import {
     BrowserMessageReader,
     BrowserMessageWriter,
-    MessageReader,
-    MessageWriter,
+    type MessageReader,
+    type MessageWriter,
 } from "vscode-languageserver-protocol/browser";
-import { LspPosition } from "./lsp_integration";
+import type { LspPosition } from "./lsp_integration";
 
 import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
 
