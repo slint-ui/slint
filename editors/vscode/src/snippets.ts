@@ -13,7 +13,7 @@
 // cSpell: ignore Tuppeny
 
 import * as vscode from "vscode";
-import {
+import type {
     ClientCapabilities,
     FeatureState,
     StaticFeature,

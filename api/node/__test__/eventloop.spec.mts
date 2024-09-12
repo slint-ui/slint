@@ -32,8 +32,8 @@ test.serial("merged event loops with networking", async (t) => {
     await runEventLoop(() => {
         const server = http.createServer(listener);
         server.listen(async () => {
-            let host = "localhost";
-            let port = (server.address() as any).port;
+            const host = "localhost";
+            const port = (server.address() as any).port;
             console.log(`server ready at ${host}:${port}`);
 
             (fetch as any)(`http://${host}:${port}/`)
@@ -55,8 +55,8 @@ test.serial("merged event loops with networking", async (t) => {
 test.serial(
     "quit event loop on last window closed with callback",
     async (t) => {
-        let compiler = new private_api.ComponentCompiler();
-        let definition = compiler.buildFromSource(
+        const compiler = new private_api.ComponentCompiler();
+        const definition = compiler.buildFromSource(
             `
 
     export component App inherits Window {
@@ -67,7 +67,7 @@ test.serial(
         );
         t.not(definition.App, null);
 
-        let instance = definition.App!.create() as any;
+        const instance = definition.App!.create() as any;
         t.not(instance, null);
 
         instance.window().show();

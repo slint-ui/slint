@@ -7,27 +7,30 @@ import * as monaco from "monaco-editor";
 
 import { slint_language } from "./highlighting";
 import {
-    LspPosition,
-    LspRange,
+    type LspPosition,
+    type LspRange,
     editor_position_to_lsp_position,
     lsp_range_to_editor_range,
 } from "./lsp_integration";
-import { Lsp } from "./lsp";
-import { PositionChangeCallback, VersionedDocumentAndPosition } from "./text";
+import type { Lsp } from "./lsp";
+import type {
+    PositionChangeCallback,
+    VersionedDocumentAndPosition,
+} from "./text";
 import * as github from "./github";
 
-import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
-import { Message as LuminoMessage } from "@lumino/messaging";
+import { BoxLayout, TabBar, type Title, Widget } from "@lumino/widgets";
+import type { Message as LuminoMessage } from "@lumino/messaging";
 
-import { MonacoLanguageClient } from "monaco-languageclient";
+import type { MonacoLanguageClient } from "monaco-languageclient";
 import { createConfiguredEditor } from "vscode/monaco";
 
 import { initialize as initializeMonacoServices } from "vscode/services";
 import getConfigurationServiceOverride from "@codingame/monaco-vscode-configuration-service-override";
 import getEditorServiceOverride, {
-    IReference,
-    IEditorOptions,
-    IResolvedTextEditorModel,
+    type IReference,
+    type IEditorOptions,
+    type IResolvedTextEditorModel,
 } from "@codingame/monaco-vscode-editor-service-override";
 import getSnippetServiceOverride from "@codingame/monaco-vscode-snippets-service-override";
 import getStorageServiceOverride from "@codingame/monaco-vscode-storage-service-override";

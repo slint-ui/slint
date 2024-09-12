@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { URI as LspURI } from "vscode-languageserver-types";
+import type { URI as LspURI } from "vscode-languageserver-types";
 import * as vscode from "vscode";
 
 // Use the auto-registered VSCode command for the custom executables offered

@@ -3,10 +3,10 @@
 
 // cSpell: ignore bindgen lumino
 
-import { Message } from "@lumino/messaging";
+import type { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import { Previewer, Lsp, ResourceUrlMapperFunction } from "./lsp";
+import type { Previewer, Lsp, ResourceUrlMapperFunction } from "./lsp";
 
 const canvas_id = "canvas";
 

@@ -4,7 +4,7 @@
 // cSpell: ignore cupertino lumino permalink
 
 import { EditorWidget, initialize as initializeEditor } from "./editor_widget";
-import { LspWaiter, Lsp } from "./lsp";
+import { LspWaiter, type Lsp } from "./lsp";
 import { PreviewWidget } from "./preview_widget";
 
 import {

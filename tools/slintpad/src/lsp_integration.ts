@@ -6,12 +6,12 @@ export {
     Range as LspRange,
     URI as LspURI,
 } from "vscode-languageserver-types";
-import {
+import type {
     Position as LspPosition,
     Range as LspRange,
 } from "vscode-languageserver-types";
 
-import { TextRange, TextPosition } from "./text";
+import type { TextRange, TextPosition } from "./text";
 
 import * as monaco from "monaco-editor";
 

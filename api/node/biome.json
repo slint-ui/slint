@@ -11,7 +11,7 @@
                 "useArrowFunction": "off",
                 "noForEach": "off",
                 "noUselessConstructor": "off",
-                "noBannedTypes": "off"
+                "noBannedTypes": "warn"
             },
             "style": {
                 "noNonNullAssertion": "off",
@@ -29,7 +29,6 @@
                 "noExplicitAny": "off",
                 "noAssignInExpressions": "off",
                 "noImplicitAnyLet": "off",
-                "noDoubleEquals": "warn",
                 "noRedundantUseStrict": "off"
             }
         }

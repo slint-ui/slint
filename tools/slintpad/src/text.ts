@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
-import * as monaco from "monaco-editor";
+import type * as monaco from "monaco-editor";
 
 export type TextRange = monaco.IRange;
 export type TextPosition = monaco.IPosition;
 export type Uri = monaco.Uri;
 
-import { LspRange, LspPosition } from "./lsp_integration";
+import type { LspRange, LspPosition } from "./lsp_integration";
 
 export type DocumentAndPosition = { uri: string; position: LspPosition };
 export type VersionedDocumentAndPosition = {

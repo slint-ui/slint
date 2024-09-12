@@ -12,14 +12,14 @@ const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
 test("get/set string properties", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `export component App { in-out property <string> name: "Initial"; }`,
         "",
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     t.is(instance!.getProperty("name"), "Initial");
@@ -49,8 +49,8 @@ test("get/set string properties", (t) => {
 });
 
 test("get/set number properties", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
     export component App {
         in-out property <float> age: 42;
@@ -59,7 +59,7 @@ test("get/set number properties", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     t.is(instance!.getProperty("age"), 42);
@@ -89,14 +89,14 @@ test("get/set number properties", (t) => {
 });
 
 test("get/set bool properties", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `export component App { in-out property <bool> ready: true; }`,
         "",
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     t.is(instance!.getProperty("ready"), true);
@@ -126,8 +126,8 @@ test("get/set bool properties", (t) => {
 });
 
 test("set struct properties", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export struct Player {
     name: string,
@@ -146,7 +146,7 @@ test("set struct properties", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     t.deepEqual(instance!.getProperty("player"), {
@@ -190,8 +190,8 @@ test("set struct properties", (t) => {
 });
 
 test("get/set image properties", async (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export component App {
     in-out property <image> image: @image-url("resources/rgb.png");
@@ -202,16 +202,16 @@ test("get/set image properties", async (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
-    let slintImage = instance!.getProperty("image");
+    const slintImage = instance!.getProperty("image");
     if (t.true(slintImage instanceof private_api.SlintImageData)) {
         t.deepEqual((slintImage as private_api.SlintImageData).width, 64);
         t.deepEqual((slintImage as private_api.SlintImageData).height, 64);
         t.true((slintImage as ImageData).path.endsWith("rgb.png"));
 
-        let image = await Jimp.read(path.join(dirname, "resources/rgb.png"));
+        const image = await Jimp.read(path.join(dirname, "resources/rgb.png"));
 
         // Sanity check: setProperty fails when passed definitely a non-image
         t.throws(
@@ -273,8 +273,8 @@ test("get/set image properties", async (t) => {
 });
 
 test("get/set brush properties", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export component App {
     in-out property <brush> black: #000000;
@@ -289,37 +289,37 @@ test("get/set brush properties", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
-    let black = instance!.getProperty("black");
+    const black = instance!.getProperty("black");
 
     t.is((black as private_api.SlintBrush).toString(), "#000000ff");
 
     if (t.true(black instanceof private_api.SlintBrush)) {
-        let blackSlintRgbaColor = (black as private_api.SlintBrush).color;
+        const blackSlintRgbaColor = (black as private_api.SlintBrush).color;
         t.deepEqual(blackSlintRgbaColor.red, 0);
         t.deepEqual(blackSlintRgbaColor.green, 0);
         t.deepEqual(blackSlintRgbaColor.blue, 0);
     }
 
     instance?.setProperty("black", "#ffffff");
-    let white = instance!.getProperty("black");
+    const white = instance!.getProperty("black");
 
     if (t.true(white instanceof private_api.SlintBrush)) {
-        let whiteSlintRgbaColor = (white as private_api.SlintBrush).color;
+        const whiteSlintRgbaColor = (white as private_api.SlintBrush).color;
         t.deepEqual(whiteSlintRgbaColor.red, 255);
         t.deepEqual(whiteSlintRgbaColor.green, 255);
         t.deepEqual(whiteSlintRgbaColor.blue, 255);
     }
 
-    let transparent = instance!.getProperty("trans");
+    const transparent = instance!.getProperty("trans");
 
     if (t.true(black instanceof private_api.SlintBrush)) {
         t.assert((transparent as private_api.SlintBrush).isTransparent);
     }
 
-    let ref = new private_api.SlintBrush({
+    const ref = new private_api.SlintBrush({
         red: 100,
         green: 110,
         blue: 120,
@@ -330,7 +330,7 @@ test("get/set brush properties", (t) => {
     let instance_ref = instance!.getProperty("ref");
 
     if (t.true(instance_ref instanceof private_api.SlintBrush)) {
-        let ref_color = (instance_ref as private_api.SlintBrush).color;
+        const ref_color = (instance_ref as private_api.SlintBrush).color;
         t.deepEqual(ref_color.red, 100);
         t.deepEqual(ref_color.green, 110);
         t.deepEqual(ref_color.blue, 120);
@@ -344,7 +344,7 @@ test("get/set brush properties", (t) => {
     instance_ref = instance!.getProperty("ref");
 
     if (t.true(instance_ref instanceof private_api.SlintBrush)) {
-        let ref_color = (instance_ref as private_api.SlintBrush).color;
+        const ref_color = (instance_ref as private_api.SlintBrush).color;
         t.deepEqual(ref_color.red, 110);
         t.deepEqual(ref_color.green, 120);
         t.deepEqual(ref_color.blue, 125);
@@ -361,7 +361,7 @@ test("get/set brush properties", (t) => {
     instance_ref = instance!.getProperty("ref");
 
     if (t.true(instance_ref instanceof private_api.SlintBrush)) {
-        let ref_color = (instance_ref as private_api.SlintBrush).color;
+        const ref_color = (instance_ref as private_api.SlintBrush).color;
         t.deepEqual(ref_color.red, 110);
         t.deepEqual(ref_color.green, 120);
         t.deepEqual(ref_color.blue, 125);
@@ -373,14 +373,14 @@ test("get/set brush properties", (t) => {
     instance_ref = instance!.getProperty("ref");
 
     if (t.true(instance_ref instanceof private_api.SlintBrush)) {
-        let ref_color = (instance_ref as private_api.SlintBrush).color;
+        const ref_color = (instance_ref as private_api.SlintBrush).color;
         t.deepEqual(ref_color.red, 0);
         t.deepEqual(ref_color.green, 0);
         t.deepEqual(ref_color.blue, 0);
         t.deepEqual(ref_color.alpha, 0);
     }
 
-    let radialGradient = instance!.getProperty("radial-gradient");
+    const radialGradient = instance!.getProperty("radial-gradient");
 
     if (t.true(radialGradient instanceof private_api.SlintBrush)) {
         t.is(
@@ -389,7 +389,7 @@ test("get/set brush properties", (t) => {
         );
     }
 
-    let linearGradient = instance!.getProperty("linear-gradient");
+    const linearGradient = instance!.getProperty("linear-gradient");
 
     if (t.true(linearGradient instanceof private_api.SlintBrush)) {
         t.is(
@@ -484,7 +484,7 @@ test("get/set brush properties", (t) => {
     instance_ref = instance!.getProperty("ref-color");
 
     if (t.true(instance_ref instanceof private_api.SlintBrush)) {
-        let ref_color = (instance_ref as private_api.SlintBrush).color;
+        const ref_color = (instance_ref as private_api.SlintBrush).color;
         t.deepEqual(ref_color.red, 0);
         t.deepEqual(ref_color.green, 0);
         t.deepEqual(ref_color.blue, 0);
@@ -493,8 +493,8 @@ test("get/set brush properties", (t) => {
 });
 
 test("ArrayModel", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export struct Player {
     name: string,
@@ -510,14 +510,14 @@ test("ArrayModel", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     t.deepEqual(Array.from(new ArrayModel([3, 2, 1])), [3, 2, 1]);
 
     instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
 
-    let intArrayModel = instance!.getProperty(
+    const intArrayModel = instance!.getProperty(
         "int-model",
     ) as ArrayModel<number>;
     t.deepEqual(intArrayModel.rowCount(), 3);
@@ -528,7 +528,7 @@ test("ArrayModel", (t) => {
         new ArrayModel(["Simon", "Olivier", "Auri", "Tobias", "Florian"]),
     );
 
-    let stringArrayModel = instance!.getProperty(
+    const stringArrayModel = instance!.getProperty(
         "string-model",
     ) as ArrayModel<number>;
     t.deepEqual(
@@ -550,7 +550,7 @@ test("ArrayModel", (t) => {
         ]),
     );
 
-    let structArrayModel = instance!.getProperty(
+    const structArrayModel = instance!.getProperty(
         "struct-model",
     ) as ArrayModel<object>;
     t.deepEqual(
@@ -563,8 +563,8 @@ test("ArrayModel", (t) => {
 });
 
 test("MapModel", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
     export component App {
       in-out property <[string]> model;
@@ -573,7 +573,7 @@ test("MapModel", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     interface Name {
@@ -602,10 +602,10 @@ test("MapModel", (t) => {
 });
 
 test("MapModel undefined rowData sourcemodel", (t) => {
-    const nameModel: ArrayModel<Number> = new ArrayModel([1, 2, 3]);
+    const nameModel: ArrayModel<number> = new ArrayModel([1, 2, 3]);
 
     let mapFunctionCallCount = 0;
-    const mapModel = new private_api.MapModel<Number, String>(
+    const mapModel = new private_api.MapModel<number, string>(
         nameModel,
         (data) => {
             mapFunctionCallCount++;
@@ -625,8 +625,8 @@ test("MapModel undefined rowData sourcemodel", (t) => {
 });
 
 test("ArrayModel rowCount", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export component App {
     out property <int> model-length: model.length;
@@ -636,10 +636,10 @@ test("ArrayModel rowCount", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
-    let model = new ArrayModel([10, 9, 8]);
+    const model = new ArrayModel([10, 9, 8]);
 
     instance!.setProperty("model", model);
     t.is(3, model.rowCount());
@@ -647,8 +647,8 @@ test("ArrayModel rowCount", (t) => {
 });
 
 test("ArrayModel rowData/setRowData", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export component App {
     callback data(int) -> int;
@@ -663,10 +663,10 @@ test("ArrayModel rowData/setRowData", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
-    let model = new ArrayModel([10, 9, 8]);
+    const model = new ArrayModel([10, 9, 8]);
 
     instance!.setProperty("model", model);
     t.is(9, model.rowData(1));
@@ -678,8 +678,8 @@ test("ArrayModel rowData/setRowData", (t) => {
 });
 
 test("Model notify", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export component App {
     width: 300px;
@@ -704,10 +704,10 @@ test("Model notify", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
-    let model = new ArrayModel([100, 0]);
+    const model = new ArrayModel([100, 0]);
 
     instance!.setProperty("fixed-height-model", model);
     t.is(100, instance!.getProperty("layout-height") as number);
@@ -720,8 +720,8 @@ test("Model notify", (t) => {
 });
 
 test("model from array", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export component App {
     in-out property <[int]> int-array;
@@ -731,11 +731,11 @@ test("model from array", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
 
     instance!.setProperty("int-array", [10, 9, 8]);
-    let wrapped_int_model = instance!.getProperty("int-array");
+    const wrapped_int_model = instance!.getProperty("int-array");
     t.deepEqual(Array.from(wrapped_int_model), [10, 9, 8]);
     t.deepEqual(wrapped_int_model.rowCount(), 3);
     t.deepEqual(wrapped_int_model.rowData(0), 10);
@@ -750,7 +750,7 @@ test("model from array", (t) => {
         "Tobias",
         "Florian",
     ]);
-    let wrapped_string_model = instance!.getProperty("string-array");
+    const wrapped_string_model = instance!.getProperty("string-array");
     t.deepEqual(wrapped_string_model.rowCount(), 5);
     t.deepEqual(wrapped_string_model.rowData(0), "Simon");
     t.deepEqual(wrapped_string_model.rowData(1), "Olivier");
@@ -760,8 +760,8 @@ test("model from array", (t) => {
 });
 
 test("invoke callback", (t) => {
-    let compiler = new private_api.ComponentCompiler();
-    let definition = compiler.buildFromSource(
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
         `
   export struct Person {
     name: string
@@ -787,7 +787,7 @@ test("invoke callback", (t) => {
     );
     t.not(definition.App, null);
 
-    let instance = definition.App!.create();
+    const instance = definition.App!.create();
     t.not(instance, null);
     let speakTest;
 
