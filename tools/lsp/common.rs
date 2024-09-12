@@ -546,8 +546,6 @@ pub struct ComponentInformation {
     pub is_exported: bool,
     /// This is a layout
     pub is_layout: bool,
-    /// This element fills its parent
-    pub fills_parent: bool,
     /// The URL to the file containing this type
     pub defined_at: Option<Position>,
     /// Default property values
