@@ -211,7 +211,7 @@ impl DrmOutput {
         if let Some(last_buffer) = self.last_buffer.replace(Some(Box::new(front_buffer))) {
             self.drm_device
                 .page_flip(self.crtc, framebuffer_handle, drm::control::PageFlipFlags::EVENT, None)
-                .map_err(|e| format!("Error presenting fb: {e}"))?;
+                .map_err(|e| format!("Error presenting framebuffer on screen: {e}"))?;
 
             *self.page_flip_state.borrow_mut() = PageFlipState::WaitingForPageFlip {
                 _buffer_to_keep_alive_until_flip: last_buffer,
@@ -226,7 +226,7 @@ impl DrmOutput {
                     &[self.connector.handle()],
                     Some(self.mode),
                 )
-                .map_err(|e| format!("Error presenting fb: {e}"))?;
+                .map_err(|e| format!("Error presenting framebuffer on screen: {e}"))?;
             *self.page_flip_state.borrow_mut() = PageFlipState::InitialBufferPosted;
 
             // We can render the next frame right away, if needed, since we have at least two buffers. The callback
