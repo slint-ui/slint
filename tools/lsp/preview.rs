@@ -682,30 +682,39 @@ fn delete_selected_element() {
 
 // triggered from the UI, running in UI thread
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
-    let Some((edit, label)) = resize_selected_element_impl(LogicalRect::new(
-        LogicalPoint::new(x, y),
-        LogicalSize::new(width, height),
-    )) else {
+    let Some(element_selection) = &selected_element() else {
+        return;
+    };
+    let Some(element_node) = element_selection.as_element_node() else {
+        return;
+    };
+
+    let Some((edit, label)) = resize_selected_element_impl(
+        &element_node,
+        element_selection.instance_index,
+        LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height)),
+    ) else {
         return;
     };
 
     send_workspace_edit(label, edit, true);
 }
 
-fn resize_selected_element_impl(rect: LogicalRect) -> Option<(lsp_types::WorkspaceEdit, String)> {
-    let selected = selected_element()?;
-    let selected_element_node = selected.as_element_node()?;
+fn resize_selected_element_impl(
+    element_node: &ElementRcNode,
+    instance_index: usize,
+    rect: LogicalRect,
+) -> Option<(lsp_types::WorkspaceEdit, String)> {
     let component_instance = component_instance()?;
 
-    let geometry = selected_element_node
-        .geometries(&component_instance)
-        .get(selected.instance_index)
-        .cloned()?;
+    // They all have the same size anyway:
+    let (path, offset) = element_node.path_and_offset();
+    let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?;
 
     let position = rect.origin;
     let root_element = element_selection::root_element(&component_instance);
 
-    let parent = search_for_parent_element(&root_element, &selected_element_node.element)
+    let parent = search_for_parent_element(&root_element, &element_node.element)
         .and_then(|parent_element| {
             component_instance
                 .element_positions(&parent_element)
@@ -750,14 +759,14 @@ fn resize_selected_element_impl(rect: LogicalRect) -> Option<(lsp_types::Workspa
         return None;
     }
 
-    let url = Url::from_file_path(&selected.path).ok()?;
+    let url = Url::from_file_path(&path).ok()?;
     let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
 
     properties::update_element_properties(
         &document_cache,
-        common::VersionedPosition::new(common::VersionedUrl::new(url, version), selected.offset),
+        common::VersionedPosition::new(common::VersionedUrl::new(url, version), offset),
         properties,
     )
     .map(|edit| (edit, format!("{op} element")))
@@ -777,7 +786,13 @@ fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool
         return false;
     };
 
-    drop_location::can_move_to(&document_cache, position, mouse_position, selected_element_node)
+    drop_location::can_move_to(
+        &document_cache,
+        position,
+        mouse_position,
+        selected_element_node,
+        selected.instance_index,
+    )
 }
 
 // triggered from the UI, running in UI thread
@@ -797,6 +812,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
     if let Some((edit, drop_data)) = drop_location::move_element_to(
         &document_cache,
         selected_element_node,
+        selected.instance_index,
         position,
         mouse_position,
     ) {
