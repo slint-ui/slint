@@ -78,6 +78,17 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_string_binding(super::set_string_binding);
 
+    #[cfg(target_vendor = "apple")]
+    api.set_control_key_name("command".into());
+
+    #[cfg(target_family = "wasm")]
+    if web_sys::window()
+        .and_then(|window| window.navigator().platform().ok())
+        .map_or(false, |platform| platform.to_ascii_lowercase().contains("mac"))
+    {
+        api.set_control_key_name("command".into());
+    }
+
     Ok(ui)
 }
 
