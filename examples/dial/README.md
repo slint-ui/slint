@@ -7,6 +7,9 @@
 
 Work in progress Dial example. Uses Math.atan to calculate the angle and let the user rotate a dial.
 
+[Online Preview](https://slint.dev/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/dial/ui/appwindow.slint)
+[Online code editor](https://slint.dev/snapshots/master/editor/index.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/dial/ui/appwindow.slint) 
+
 # Planned changes
 
 - [ ] Update and simplify the code by using the new Math.atan2 function.
