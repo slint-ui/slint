@@ -603,7 +603,7 @@ pub fn set_bindings(
         .filter_map(|p| set_binding_impl(uri.clone(), version, element, &p.name, p.value.clone()))
         .collect::<Vec<_>>();
 
-    (edits.len() != properties.len())
+    (edits.len() == properties.len())
         .then_some(common::create_workspace_edit_from_text_document_edits(edits))
 }
 
