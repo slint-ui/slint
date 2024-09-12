@@ -570,6 +570,7 @@ jobs:
                 -d '{"ref":"main"}'
 
     nightly-tests:
+        if: github.event.inputs.release != 'true'
         needs: [prepare_release]
         uses: ./.github/workflows/nightly_tests.yaml
 
