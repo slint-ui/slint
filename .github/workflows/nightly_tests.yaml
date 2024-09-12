@@ -6,9 +6,7 @@ name: Nightly tests
 
 on:
     workflow_dispatch:
-
-    schedule:
-        - cron: "0 2 * * *"
+    workflow_call:
 
 jobs:
     qa-esp-idf:
@@ -33,25 +31,25 @@ jobs:
               working-directory: examples/printerdemo_mcu/esp-idf
               run: |
                   . ${IDF_PATH}/export.sh
-                  idf.py build
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
             - name: Build and Test Carousel example s3 box
               shell: bash
               working-directory: examples/carousel/esp-idf/s3-box
               run: |
                   . ${IDF_PATH}/export.sh
-                  idf.py build
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
             - name: Build and Test Carousel example s3 usb otg
               shell: bash
               working-directory: examples/carousel/esp-idf/s3-usb-otg
               run: |
                   . ${IDF_PATH}/export.sh
-                  idf.py build
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
             - name: Build and Test Carousel example s2 kaluga kit
               shell: bash
               working-directory: examples/carousel/esp-idf/s2-kaluga-kit
               run: |
                   . ${IDF_PATH}/export.sh
-                  idf.py build
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
 
     qa-tree-sitter-latest:
         uses: ./.github/workflows/tree_sitter.yaml

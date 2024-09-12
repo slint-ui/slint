@@ -59,6 +59,7 @@ export component Resizer {
     out property <bool> resizing: n.resizing || ne.resizing || e.resizing || se.resizing || s.resizing || sw.resizing || w.resizing || nw.resizing;
     out property <bool> moving: resize-area.moving;
     out property <length> handle-size: ResizeState.handle-size;
+    out property <bool> has-hover <=> ta.has-hover;
 
     callback resize(x: length, y: length, width: length, height: length, done: bool);
     callback can-move-to(x: length, y: length, mouse_x: length, mouse_y: length) -> bool;
@@ -79,7 +80,8 @@ export component Resizer {
 
         @children
 
-        if root.is-moveable: TouchArea {
+        ta := TouchArea {
+            enabled: root.is-moveable;
             private property <length> x-offset: self.mouse-x - self.pressed-x;
             private property <length> y-offset: self.mouse-y - self.pressed-y;
             private property <KeyboardModifiers> modifiers;

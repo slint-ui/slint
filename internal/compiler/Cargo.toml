@@ -38,7 +38,7 @@ i-slint-common = { workspace = true, features = ["default"] }
 num_enum = "0.7"
 strum = { workspace = true }
 rowan = { version = "0.15" }
-smol_str = "0.2.0"
+smol_str = "0.3.1"
 derive_more = { workspace = true }
 codemap-diagnostic = { version = "0.1.1", optional = true }
 codemap = { version = "0.1", optional = true }

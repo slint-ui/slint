@@ -1,14 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
+import { Button, HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
 import { BodyText } from "../components/body-text.slint";
 import { HeaderText } from "../components/header-text.slint";
 import { Api } from "../api.slint";
-import { EditorSpaceSettings } from "../components/styling.slint";
+import { EditorSpaceSettings, Icons } from "../components/styling.slint";
 
 
 export component HeaderView {
+    in-out property <bool> show-left-sidebar <=> left-panel-button.checked;
+    in-out property <bool> show-right-sidebar <=> right-panel-button.checked;
     in-out property <bool> edit-mode <=> interaction-switch.checked;
     in-out property <string> current-style <=> style-combobox.current-value;
     in property <[string]> known-styles <=> style-combobox.model;
@@ -65,6 +67,24 @@ export component HeaderView {
                 BodyText {
                     text: @tr("Edit");
                 }
+            }
+
+            left-panel-button := Button {
+                horizontal-stretch: 0;
+                
+                checkable: true;
+                icon: Icons.sidebar-left;
+                colorize-icon: true;
+                enabled: root.edit-mode;
+            }
+
+            right-panel-button := Button {
+                horizontal-stretch: 0;
+
+                checkable: true;
+                icon: Icons.sidebar-right;
+                colorize-icon: true;
+                enabled: root.edit-mode;
             }
         }
 

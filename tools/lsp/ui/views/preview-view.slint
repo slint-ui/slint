@@ -8,6 +8,7 @@ import { Api, ComponentItem, Diagnostics, DropMark, LayoutKind, Selection } from
 import { DiagnosticsOverlay } from "../components/diagnostics-overlay.slint";
 import { Resizer } from "../components/resizer.slint";
 import { Group, GroupHeader } from "../components/group.slint";
+import { StatusLineApi } from "../components/status-line.slint";
 
 enum SelectionKind {
     none,
@@ -68,6 +69,14 @@ component SelectionFrame {
     if root.interactive && selection.is-primary: Resizer {
         double-clicked(x, y, modifiers) => {
             root.select-behind(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
+        }
+
+        changed has-hover => {
+            if self.has-hover {
+                StatusLineApi.help-text = @tr("<double-click> select behind element, <shift double-click> select before element, <ctrl> ignores component boundaries");
+            } else {
+                StatusLineApi.help-text = "";
+            }
         }
 
         is-moveable: root.selection.is-moveable;
@@ -180,6 +189,10 @@ export component PreviewView {
                 }
                 mouse-cursor: crosshair;
                 enabled: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting;
+
+                changed has-hover => {
+                    StatusLineApi.help-text = "<click> unselect";
+                }
             }
 
             content-border := Rectangle {
@@ -277,6 +290,14 @@ export component PreviewView {
                     }
                     mouse-cursor: crosshair;
                     enabled: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting;
+
+                    changed has-hover => {
+                        if self.has-hover && self.enabled {
+                            StatusLineApi.help-text = @tr("<click> select element in current component, <ctrl-click> to select an element in any component");
+                        } else {
+                            StatusLineApi.help-text = "";
+                        }
+                    }
                 }
 
                 selection-display-area := Rectangle {

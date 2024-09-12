@@ -279,7 +279,11 @@ fn fix_percent_size(
         return matches!(&binding.borrow().expression, Expression::PropertyReference(nr) if nr.name() == property && Rc::ptr_eq(&nr.element(), parent));
     }
     let mut b = binding.borrow_mut();
-    if let Some(parent) = parent {
+    if let Some(mut parent) = parent.clone() {
+        if parent.borrow().is_flickable_viewport {
+            // the `%` in a flickable need to refer to the size of the flickable, not the size of the viewport
+            parent = crate::object_tree::find_parent_element(&parent).unwrap_or(parent)
+        }
         debug_assert_eq!(
             parent.borrow().lookup_property(property).property_type,
             Type::LogicalLength
@@ -292,7 +296,7 @@ fn fix_percent_size(
                 &b.span,
                 diag,
             )),
-            rhs: Box::new(Expression::PropertyReference(NamedReference::new(parent, property))),
+            rhs: Box::new(Expression::PropertyReference(NamedReference::new(&parent, property))),
             op: '*',
         };
         fill
