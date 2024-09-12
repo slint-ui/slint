@@ -602,10 +602,10 @@ test("MapModel", (t) => {
 });
 
 test("MapModel undefined rowData sourcemodel", (t) => {
-    const nameModel: ArrayModel<Number> = new ArrayModel([1, 2, 3]);
+    const nameModel: ArrayModel<number> = new ArrayModel([1, 2, 3]);
 
     let mapFunctionCallCount = 0;
-    const mapModel = new private_api.MapModel<Number, String>(
+    const mapModel = new private_api.MapModel<number, string>(
         nameModel,
         (data) => {
             mapFunctionCallCount++;

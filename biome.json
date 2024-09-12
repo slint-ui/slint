@@ -22,9 +22,9 @@
             "style": {
                 "useBlockStatements": "warn",
                 "noUselessElse": "off",
-                "useConst": "warn"
+                "useConst": "error"
             },
-            "suspicious": { "noDoubleEquals": "warn" }
+            "suspicious": { "noDoubleEquals": "error" }
         }
     },
     "javascript": {
