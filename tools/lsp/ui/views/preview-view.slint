@@ -242,20 +242,26 @@ export component PreviewView {
                     }
                 }
 
-                preview-area-container := ComponentContainer {
-                    property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
+                Rectangle {
+                    clip: true;
 
-                    component-factory: root.preview-area;
+                    HorizontalLayout {
+                        preview-area-container := ComponentContainer {
+                            property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
 
-                    // The width and the height can't depend on the layout info of the inner item otherwise this would
-                    // cause a recursion if this happens (#3989)
-                    // Instead, we use a init function to initialize
-                    width: 0px;
-                    height: 0px;
+                            component-factory: root.preview-area;
 
-                    init => {
-                        self.width = max(self.preferred-width, self.min-width);
-                        self.height = max(self.preferred-height, self.min-height);
+                            // The width and the height can't depend on the layout info of the inner item otherwise this would
+                            // cause a recursion if this happens (#3989)
+                            // Instead, we use a init function to initialize
+                            width: 0px;
+                            height: 0px;
+
+                            init => {
+                                self.width = max(self.preferred-width, self.min-width);
+                                self.height = max(self.preferred-height, self.min-height);
+                            }
+                        }
                     }
                 }
 
