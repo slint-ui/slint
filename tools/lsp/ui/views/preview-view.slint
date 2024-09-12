@@ -73,7 +73,7 @@ component SelectionFrame {
 
         changed has-hover => {
             if self.has-hover {
-                StatusLineApi.help-text = @tr("<double-click> select behind element, <shift double-click> select before element, <ctrl> ignores component boundaries");
+                StatusLineApi.help-text = @tr("<double-click> select behind element, <shift double-click> select before element, <{}> ignores component boundaries", Api.control-key-name);
             } else {
                 StatusLineApi.help-text = "";
             }
@@ -293,7 +293,7 @@ export component PreviewView {
 
                     changed has-hover => {
                         if self.has-hover && self.enabled {
-                            StatusLineApi.help-text = @tr("<click> select element in current component, <ctrl-click> to select an element in any component");
+                            StatusLineApi.help-text = @tr("<click> select element in current component, <{}-click> to select an element in any component", Api.control-key-name);
                         } else {
                             StatusLineApi.help-text = "";
                         }
