@@ -19,6 +19,10 @@
         "enabled": true,
         "rules": {
             "recommended": false,
+            "complexity": {
+                "noBannedTypes": "warn",
+                "noUselessConstructor": "error"
+            },
             "style": {
                 "useBlockStatements": "warn",
                 "noUselessElse": "off",

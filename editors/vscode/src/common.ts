@@ -32,8 +32,6 @@ export class ClientHandle {
     #client: BaseLanguageClient | null = null;
     #updaters: ((c: BaseLanguageClient | null) => void)[] = [];
 
-    constructor() {}
-
     get client(): BaseLanguageClient | null {
         return this.#client;
     }

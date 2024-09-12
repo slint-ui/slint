@@ -9,14 +9,11 @@
         "rules": {
             "complexity": {
                 "useArrowFunction": "off",
-                "noForEach": "off",
-                "noUselessConstructor": "off",
-                "noBannedTypes": "warn"
+                "noForEach": "off"
             },
             "style": {
                 "noNonNullAssertion": "off",
                 "noUnusedTemplateLiteral": "off",
-                "useConst": "off",
                 "useTemplate": "off",
                 "noArguments": "off",
                 "noVar": "off",
