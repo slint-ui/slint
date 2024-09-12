@@ -4,7 +4,7 @@
 // Test that the Slint event loop processes libuv's events.
 
 import test from "ava";
-import * as http from "http";
+import * as http from "node:http";
 import fetch from "node-fetch";
 
 import { runEventLoop, quitEventLoop, private_api } from "../index.js";

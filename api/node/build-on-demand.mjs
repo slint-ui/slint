@@ -5,7 +5,7 @@
 // builds slint if no binary was found.
 
 import { Worker } from "node:worker_threads";
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
 
 const worker = new Worker("./rust-module.cjs");
 // Define dummy error handler to prevent node from aborting on errors

@@ -27,7 +27,8 @@
                 "useBlockStatements": "warn",
                 "noUselessElse": "off",
                 "useConst": "error",
-                "useImportType": "error"
+                "useImportType": "error",
+                "useNodejsImportProtocol": "error"
             },
             "suspicious": { "noDoubleEquals": "error" }
         }

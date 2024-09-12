@@ -3,10 +3,10 @@
 
 import test from "ava";
 import * as path from "node:path";
-import { fileURLToPath } from "url";
+import { fileURLToPath } from "node:url";
 import Jimp = require("jimp");
 
-import { private_api, ImageData, ArrayModel, Model } from "../index.js";
+import { private_api, type ImageData, ArrayModel, type Model } from "../index.js";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);

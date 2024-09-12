@@ -12,8 +12,8 @@ const commonBuildOptions = {
 const wasmPlugin = {
     name: "wasm",
     setup(build) {
-        const path = require("path");
-        const fs = require("fs");
+        const path = require("node:path");
+        const fs = require("node:fs");
 
         // Resolve ".wasm" files to a path with a namespace
         build.onResolve({ filter: /\.wasm$/ }, (args) => {
