@@ -82,7 +82,7 @@ function startClient(
     context: vscode.ExtensionContext,
     telemetryLogger: vscode.TelemetryLogger,
 ) {
-    let lsp_platform = lspPlatform();
+    const lsp_platform = lspPlatform();
     if (lsp_platform === null) {
         return;
     }
@@ -114,7 +114,7 @@ function startClient(
         path.join(context.extensionPath, "bin", lsp_platform.program_name),
     ];
 
-    let serverModule = lspSearchPaths.find((path) => existsSync(path));
+    const serverModule = lspSearchPaths.find((path) => existsSync(path));
 
     if (serverModule === undefined) {
         console.warn(
@@ -123,7 +123,7 @@ function startClient(
         return;
     }
 
-    let options = Object.assign({}, lsp_platform.options);
+    const options = Object.assign({}, lsp_platform.options);
     options.env = Object.assign({}, process.env, lsp_platform.options?.env);
 
     const devBuild = serverModule !== lspSearchPaths[lspSearchPaths.length - 1];
@@ -131,17 +131,17 @@ function startClient(
         options.env["RUST_BACKTRACE"] = "1";
     }
 
-    let slint_lsp_panic_file = vscode.Uri.joinPath(
+    const slint_lsp_panic_file = vscode.Uri.joinPath(
         context.logUri,
         "slint-lsp-panic.log",
     );
     options.env["SLINT_LSP_PANIC_LOG"] = slint_lsp_panic_file.fsPath;
 
-    let args = vscode.workspace
+    const args = vscode.workspace
         .getConfiguration("slint")
         .get<[string]>("lsp-args");
 
-    let serverOptions: ServerOptions = {
+    const serverOptions: ServerOptions = {
         run: { command: serverModule, options: options, args: args },
         debug: { command: serverModule, options: options, args: args },
     };
@@ -156,7 +156,7 @@ function startClient(
         );
 
         cl?.onDidChangeState((event) => {
-            let properly_stopped = cl.hasOwnProperty("slint_stopped");
+            const properly_stopped = cl.hasOwnProperty("slint_stopped");
             if (
                 !properly_stopped &&
                 event.newState === State.Stopped &&

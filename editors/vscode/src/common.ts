@@ -40,7 +40,7 @@ export class ClientHandle {
 
     set client(c: BaseLanguageClient | null) {
         this.#client = c;
-        for (let u of this.#updaters) {
+        for (const u of this.#updaters) {
             u(this.#client);
         }
     }
@@ -51,9 +51,9 @@ export class ClientHandle {
     }
 
     async stop() {
-        let to_stop = this.client;
+        const to_stop = this.client;
         this.client = null;
-        for (let u of this.#updaters) {
+        for (const u of this.#updaters) {
             u(this.#client);
         }
 
@@ -122,17 +122,17 @@ export function languageClientOptions(
             },
             window: {
                 async showDocument(params, next: any) {
-                    let cl = client.client;
+                    const cl = client.client;
                     if (!params.external && cl) {
                         // If the preview panel is open, the default behavior would be to open a document on the same column.
                         // But we want to open the document next to it instead.
-                        let panel = wasm_preview.panel();
+                        const panel = wasm_preview.panel();
                         if (panel && panel.active) {
                             const uri = cl.protocol2CodeConverter.asUri(
                                 params.uri,
                             );
-                            let col = panel.viewColumn || 1;
-                            let options: vscode.TextDocumentShowOptions = {
+                            const col = panel.viewColumn || 1;
+                            const options: vscode.TextDocumentShowOptions = {
                                 viewColumn: col > 1 ? col - 1 : col + 1,
                                 preserveFocus: !params.takeFocus,
                             };
@@ -204,7 +204,7 @@ export function activate(
 
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.showPreview", async function () {
-            let ae = vscode.window.activeTextEditor;
+            const ae = vscode.window.activeTextEditor;
             if (!ae) {
                 return;
             }
