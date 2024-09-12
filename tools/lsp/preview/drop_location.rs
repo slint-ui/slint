@@ -845,6 +845,7 @@ pub fn can_move_to(
     position: LogicalPoint,
     mouse_position: LogicalPoint,
     element_node: common::ElementRcNode,
+    instance_index: usize,
 ) -> bool {
     let Some(component_instance) = preview::component_instance() else {
         return false;
@@ -884,9 +885,13 @@ pub fn can_move_to(
         if let Some(does_compile) = cache.get(&cache_entry) {
             *does_compile
         } else {
-            let does_compile = if let Some((edit, _)) =
-                create_move_element_workspace_edit(&component_instance, dm, &element_node, position)
-            {
+            let does_compile = if let Some((edit, _)) = create_move_element_workspace_edit(
+                &component_instance,
+                dm,
+                &element_node,
+                instance_index,
+                position,
+            ) {
                 workspace_edit_compiles(document_cache, &edit)
             } else {
                 false
@@ -1192,6 +1197,7 @@ pub fn create_move_element_workspace_edit(
     component_instance: &ComponentInstance,
     drop_info: &DropInformation,
     element: &common::ElementRcNode,
+    instance_index: usize,
     position: LogicalPoint,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_type = element.component_type();
@@ -1200,11 +1206,14 @@ pub fn create_move_element_workspace_edit(
     let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
         // We are moving within ourselves!
 
-        let size = element.geometries(component_instance).first().map(|g| g.size)?;
+        let size = element.geometries(component_instance).get(instance_index).map(|g| g.size)?;
 
         if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
-            let (edit, _) =
-                preview::resize_selected_element_impl(LogicalRect::new(position, size))?;
+            let (edit, _) = preview::resize_selected_element_impl(
+                element,
+                instance_index,
+                LogicalRect::new(position, size),
+            )?;
             let (path, selection_offset) = element.path_and_offset();
             return Some((edit, DropData { selection_offset, path }));
         } else {
@@ -1341,6 +1350,7 @@ pub fn create_move_element_workspace_edit(
 pub fn move_element_to(
     document_cache: &common::DocumentCache,
     element: common::ElementRcNode,
+    instance_index: usize,
     position: LogicalPoint,
     mouse_position: LogicalPoint,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
@@ -1354,8 +1364,14 @@ pub fn move_element_to(
         // Can not drop here: Ignore the move
         return None;
     };
-    create_move_element_workspace_edit(&component_instance, &drop_info, &element, position)
-        .and_then(|(e, d)| workspace_edit_compiles(document_cache, &e).then_some((e, d)))
+    create_move_element_workspace_edit(
+        &component_instance,
+        &drop_info,
+        &element,
+        instance_index,
+        position,
+    )
+    .and_then(|(e, d)| workspace_edit_compiles(document_cache, &e).then_some((e, d)))
 }
 
 #[cfg(test)]
