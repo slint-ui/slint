@@ -787,13 +787,9 @@ pub fn can_drop_at(
         if let Some(does_compile) = cache.get(&cache_entry) {
             *does_compile
         } else {
-            let does_compile = if let Some((edit, _)) = create_drop_element_workspace_edit(
-                document_cache,
-                &component_instance,
-                component,
-                dm,
-                position,
-            ) {
+            let does_compile = if let Some((edit, _)) =
+                create_drop_element_workspace_edit(document_cache, component, dm)
+            {
                 workspace_edit_compiles(document_cache, &edit)
             } else {
                 false
@@ -970,20 +966,6 @@ fn drop_ignored_elements_from_node(
     })
 }
 
-fn element_base_type_is_layout(element: &object_tree::ElementRc) -> bool {
-    let base_type = if let i_slint_compiler::langtype::ElementType::Builtin(base_type) =
-        &element.borrow().base_type
-    {
-        base_type.clone()
-    } else {
-        return false;
-    };
-    matches!(
-        base_type.name.as_str(),
-        "Row" | "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "Dialog"
-    )
-}
-
 /// Find a location in a file that would be a good place to insert the new component at
 ///
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
@@ -997,13 +979,7 @@ pub fn drop_at(
 
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
 
-    create_drop_element_workspace_edit(
-        &document_cache,
-        &component_instance,
-        component,
-        &drop_info,
-        position,
-    )
+    create_drop_element_workspace_edit(&document_cache, component, &drop_info)
 }
 
 fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {
@@ -1078,59 +1054,12 @@ fn node_removal_text_edit(
 
 pub fn create_drop_element_workspace_edit(
     document_cache: &common::DocumentCache,
-    component_instance: &ComponentInstance,
     component: &common::ComponentInformation,
     drop_info: &DropInformation,
-    position: LogicalPoint,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
-    let properties = {
-        let mut props = component.default_properties.clone();
-
-        let is_layout = {
-            let is_layout = drop_info.target_element_node.layout_kind() != ui::LayoutKind::None;
-
-            // We go for an target node without any of the optimization passes!
-            if let Some(unopt_target_element_node) =
-                drop_info.target_element_node.in_document_cache(&document_cache)
-            {
-                match &unopt_target_element_node.as_element().borrow().base_type {
-                    i_slint_compiler::langtype::ElementType::Component(component) => {
-                        if let Some((child_insertion_parent, _, _)) =
-                            &*component.child_insertion_point.borrow()
-                        {
-                            element_base_type_is_layout(child_insertion_parent)
-                        } else {
-                            is_layout
-                        }
-                    }
-                    _ => is_layout,
-                }
-            } else {
-                is_layout
-            }
-        };
-
-        if !is_layout && !component.fills_parent {
-            if let Some(area) =
-                drop_info.target_element_node.geometry_at(&component_instance, position)
-            // Use the "real" target_element_node here!
-            {
-                props.push(common::PropertyChange::new(
-                    "x",
-                    format!("{}px", (position.x - area.origin.x).round()),
-                ));
-                props.push(common::PropertyChange::new(
-                    "y",
-                    format!("{}px", (position.y - area.origin.y).round()),
-                ));
-            }
-        }
-
-        props
-    };
     let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
-    let new_text = if properties.is_empty() {
+    let new_text = if component.default_properties.is_empty() {
         format!(
             "{}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component.name, drop_info.insert_info.post_indent
@@ -1138,7 +1067,7 @@ pub fn create_drop_element_workspace_edit(
     } else {
         let mut to_insert =
             format!("{}{} {{{placeholder}\n", drop_info.insert_info.pre_indent, component.name);
-        for p in &properties {
+        for p in &component.default_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
         to_insert +=

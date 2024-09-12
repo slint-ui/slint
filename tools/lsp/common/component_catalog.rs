@@ -8,10 +8,10 @@ use crate::wasm_prelude::*;
 
 use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
 #[cfg(feature = "preview-engine")]
-use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
+use i_slint_compiler::langtype::ElementType;
 
 #[cfg(feature = "preview-engine")]
-fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformation {
+fn builtin_component_info(name: &str) -> ComponentInformation {
     let is_layout = matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout");
 
     let default_properties = match name {
@@ -27,7 +27,6 @@ fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformatio
         is_builtin: true,
         is_std_widget: false,
         is_layout,
-        fills_parent: is_layout || fills_parent,
         is_exported: true,
         defined_at: None,
         default_properties,
@@ -60,7 +59,6 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         is_builtin: false,
         is_std_widget: true,
         is_layout,
-        fills_parent: is_layout,
         is_exported: true,
         defined_at: None,
         default_properties,
@@ -79,7 +77,6 @@ fn exported_project_component_info(
         is_builtin: false,
         is_std_widget: false,
         is_layout: false,
-        fills_parent: false,
         is_exported: true,
         defined_at: Some(position),
         default_properties: vec![],
@@ -99,7 +96,6 @@ fn file_local_component_info(
         is_builtin: false,
         is_std_widget: false,
         is_layout: false,
-        fills_parent: false,
         is_exported: false,
         defined_at: Some(position),
         default_properties: vec![],
@@ -113,9 +109,7 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
         ElementType::Builtin(b)
             if !b.is_internal && !b.is_non_item_type && name != "Dialog" && name != "Window" =>
         {
-            let fills_parent =
-                matches!(b.default_size_binding, DefaultSizeBinding::ExpandsToParentGeometry);
-            Some(builtin_component_info(name, fills_parent))
+            Some(builtin_component_info(name))
         }
         _ => None,
     }));
