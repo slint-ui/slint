@@ -33,7 +33,7 @@
 //! }
 //! ```
 //!
-//! That function must be in a `cdylib` library, and you should enable the "backend-android-activity-06"`
+//! That function must be in a `cdylib` library, and you should enable the "backend-android-activity-06"
 //! feature of the slint crate in your Cargo.toml:
 //!
 //! ```toml
