@@ -19,7 +19,7 @@
 # is happening in an ESP-IDF cross-compilation environment and detect the architecture accordingly, otherwise
 # `${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}` is used.
 #
-# `SLINT_USE_NIGHTLY_VERSION`: When `find_package(Slint)` is called with a version, then this module will 
+# `SLINT_USE_NIGHTLY_VERSION`: When `find_package(Slint)` is called with a version, then this module will
 # attempt to download a pre-compiled binary from the nightly snapshot of Slint.
 
 find_package(Slint ${Slint_FIND_VERSION} QUIET CONFIG)
@@ -64,6 +64,7 @@ set(github_release "${slint_version}")
 
 if (SLINT_USE_NIGHTLY_VERSION)
     set(github_release "nightly")
+    set(slint_version "nightly")
     # Set this to instruct the slint-compiler download to use the same release
     set(SLINT_GITHUB_RELEASE "nightly" CACHE STRING "")
 endif()
