@@ -189,6 +189,12 @@ function startClient(
                     });
             }
         });
+
+        cl?.onRequest("slint/request_restart", async () => {
+            await client.stop();
+            await cl.stop();
+            await cl.start();
+        });
     });
 
     const cl = new LanguageClient(

@@ -303,7 +303,20 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
 
     muda::MenuEvent::set_event_handler(Some(move |menu_event: muda::MenuEvent| {
         if menu_event.id == quit_id {
-            close_ui();
+            slint::invoke_from_event_loop(|| {
+                pub enum SlintRestartRequest {}
+
+                impl lsp_types::request::Request for SlintRestartRequest {
+                    type Params = ();
+                    type Result = ();
+                    const METHOD: &'static str = "slint/request_restart";
+                }
+
+                if let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() {
+                    sender.send_request::<SlintRestartRequest>(()).ok();
+                }
+            })
+            .ok();
         }
     }));
 
