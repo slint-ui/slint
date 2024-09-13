@@ -3,7 +3,7 @@
 
 // cSpell: ignore Heade
 
-import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { Button, ComboBox, ListView, ScrollView, VerticalBox, Palette } from "std-widgets.slint";
 import { Api, ComponentItem } from "api.slint";
 
 import { DiagnosticsOverlay } from "./components/diagnostics-overlay.slint";
@@ -73,7 +73,7 @@ export component PreviewUi inherits Window {
                         checkable: true;
                         checked <=> preview.select-mode;
                         enabled: !preview.design-mode;
-                        visible: !preview.design-mode; 
+                        visible: !preview.design-mode;
                     }
                 }
 
