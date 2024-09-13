@@ -71,9 +71,8 @@ export component HeaderView {
                     horizontal-stretch: 0;
 
                     checkable: true;
-                    icon: Icons.sidebar-left;
+                    icon: self.checked ? Icons.sidebar-left : Icons.sidebar-left-off;
                     colorize-icon: true;
-                    enabled: root.edit-mode;
                     visible:root.edit-mode;
                 }
 
@@ -81,9 +80,8 @@ export component HeaderView {
                     horizontal-stretch: 0;
 
                     checkable: true;
-                    icon: Icons.sidebar-right;
+                    icon: self.checked ? Icons.sidebar-right : Icons.sidebar-right-off;
                     colorize-icon: true;
-                    enabled: root.edit-mode;
                     visible: root.edit-mode;
                 }
             }
