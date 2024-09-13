@@ -11,10 +11,10 @@ import { EditorSpaceSettings, Icons } from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { LibraryView } from "./views/library-view.slint";
-import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
+import { DrawAreaMode, PreviewView, SidebarApi } from "./views/preview-view.slint";
 import { PropertyView } from "./views/property-view.slint";
-
 export { Api }
+
 
 export component PreviewUi inherits Window {
     property <length> border: 20px;
@@ -25,8 +25,6 @@ export component PreviewUi inherits Window {
         is-user-defined: false,
         is-currently-shown: false,
     };
-    property <bool> show-left-sidebar: true;
-    property <bool> show-right-sidebar: true;
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -51,10 +49,8 @@ export component PreviewUi inherits Window {
         }
         if Api.show-preview-ui: Rectangle {
             VerticalLayout {
+                alignment: stretch;
                 header-view := HeaderView {
-                    show-left-sidebar <=> root.show-left-sidebar;
-                    show-right-sidebar <=> root.show-right-sidebar;
-
                     edit-mode <=> Api.design-mode;
                     current-style <=> Api.current-style;
                     known-styles <=> Api.known-styles;
@@ -68,29 +64,39 @@ export component PreviewUi inherits Window {
                     }
 
                     Button {
-                        icon: Icons.sync;
-                        colorize-icon: true;
-                        clicked => { Api.reload-preview(); }
-                    }
-                    Button {
                         icon: Icons.inspect;
                         colorize-icon: true;
                         checkable: true;
+                        width: 30px;
                         checked <=> preview.select-mode;
                         enabled: !preview.design-mode;
+                        visible: !preview.design-mode;
                     }
                 }
 
-                HorizontalLayout {
-                    spacing: EditorSpaceSettings.default-spacing;
+                Rectangle {
+                    // spacing: EditorSpaceSettings.default-spacing;
 
-                    if Api.design-mode && root.show-left-sidebar: LibraryView {
+                    preview := PreviewView {
+                        left-margin: libraryView.width + libraryView.x;
+                        right-margin: self.width - propertyView.x;
+                        visible-component <=> root.visible-component;
+                    }
+
+                    libraryView := LibraryView {
+                        x: (Api.design-mode && SidebarApi.show-left-sidebar) ? 0 : -self.width;
+                        y: 0;
+                        height: 100%;
                         known-components: Api.known-components;
                         preview-area-position-x: preview.preview-area-position-x;
                         preview-area-position-y: preview.preview-area-position-y;
                         preview-area-width: preview.preview-area-width;
                         preview-area-height: preview.preview-area-height;
                         visible-component <=> root.visible-component;
+                        animate x {
+                            duration: 100ms;
+                            easing: ease-in;
+                        }
 
                         can-drop(index, x, y, on-drop-area) => {
                             Api.can-drop(index, x, y, on-drop-area);
@@ -105,14 +111,18 @@ export component PreviewUi inherits Window {
                         }
                     }
 
-                    preview := PreviewView {
-                        visible-component <=> root.visible-component;
+                    propertyView := PropertyView {
+                        x: Api.design-mode && SidebarApi.show-right-sidebar ? (parent.width - self.width) : parent.width;
+                        height: parent.height;
+                        y: 0;
+                        animate x {
+                            duration: 100ms;
+                            easing: ease-in;
+                        }
                     }
-
-                    if Api.design-mode && root.show-right-sidebar: PropertyView { }
                 }
 
-                StatusLine { }
+                statusLine := StatusLine { }
             }
 
             key-handler := FocusScope {

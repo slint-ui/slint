@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Group, GroupHeader } from "../components/group.slint";
+import { Palette } from "std-widgets.slint";
 import { ExpandableListView } from "../components/expandable-listview.slint";
 import { Icons, EditorSizeSettings } from "../components/styling.slint";
 import { ComponentListItem, ComponentItem } from "../api.slint";
 import { IconButton } from "../components/icon-button.slint";
 
-export component LibraryView {
+export component LibraryView inherits Rectangle {
     in property <[ComponentListItem]> known-components <=> component-list-view.known-components;
     in property <length> preview-area-position-x <=> component-list-view.preview-area-position-x;
     in property <length> preview-area-position-y <=> component-list-view.preview-area-position-y;
@@ -18,20 +19,34 @@ export component LibraryView {
     pure callback can-drop <=> component-list-view.can-drop;
     callback drop <=> component-list-view.drop;
     callback show-preview-for <=> component-list-view.show-preview-for;
-
-    width: EditorSizeSettings.side-bar-width;
-    min-height: side-bar.min-height;
-
-    side-bar := Group {
-        width: 100%;
+    clip: true;
+    width: EditorSizeSettings.side-bar-width+5px;
+    background: transparent;
+    Rectangle {
+        width: EditorSizeSettings.side-bar-width;
         height: 100%;
-
-        GroupHeader {
-            title: @tr("Library");
+        x: 0;
+        drop-shadow-blur: 5px;
+        drop-shadow-color: #777;
+        min-height: side-bar.min-height;
+        background-layer := Rectangle {
+            height: 100%;
+            width: 100%;
+            background: Palette.background;
+            z: 0;
         }
 
-        component-list-view := ExpandableListView {
-            vertical-stretch: 1;
+        side-bar := Group {
+            width: 100%;
+            height: 100%;
+
+            GroupHeader {
+                title: @tr("Library");
+            }
+
+            component-list-view := ExpandableListView {
+                vertical-stretch: 1;
+            }
         }
     }
 }

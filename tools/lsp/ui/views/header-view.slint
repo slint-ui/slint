@@ -6,11 +6,9 @@ import { BodyText } from "../components/body-text.slint";
 import { HeaderText } from "../components/header-text.slint";
 import { Api } from "../api.slint";
 import { EditorSpaceSettings, Icons } from "../components/styling.slint";
+import { SidebarApi } from "../views/preview-view.slint";
 
-
-export component HeaderView {
-    in-out property <bool> show-left-sidebar <=> left-panel-button.checked;
-    in-out property <bool> show-right-sidebar <=> right-panel-button.checked;
+export component HeaderView inherits Rectangle {
     in-out property <bool> edit-mode <=> interaction-switch.checked;
     in-out property <string> current-style <=> style-combobox.current-value;
     in property <[string]> known-styles <=> style-combobox.model;
@@ -18,42 +16,39 @@ export component HeaderView {
     callback style-selected();
     callback edit-mode-toggled();
 
-    background-layer := Rectangle {
-        background: Palette.alternate-background;
+    background: Palette.alternate-background;
+    content-layer := HorizontalBox {
+        z: 0;
+        spacing: 5px;
+        horizontal-stretch: 1;
+        alignment: stretch;
+        // spacing:80px;
 
-        content-layer := HorizontalBox {
+            HorizontalLayout {
+            alignment: start;
+            spacing: 5px;
+            Button {
+                width: 30px;
+                icon: Icons.sync;
+                colorize-icon: true;
+                clicked => {
+                    Api.reload-preview();
+                }
+            }
+
             HeaderText {
                 text: @tr("Preview");
                 horizontal-stretch: 0;
             }
+        }
 
+        HorizontalLayout {
+            alignment: center;
+            spacing: 12px;
+
+            @children
             HorizontalLayout {
-                horizontal-stretch: 1;
-                alignment: start;
-                spacing: EditorSpaceSettings.default-spacing;
-                @children
-            }
-
-            BodyText {
-                visible: Api.uses-widgets;
-                horizontal-stretch: 0;
-
-                text: @tr("Style");
-            }
-
-            style-combobox := ComboBox {
-                visible: Api.uses-widgets;
-                horizontal-stretch: 0;
-
-                selected => {
-                    root.style-selected();
-                }
-            }
-
-            HorizontalLayout {
-                horizontal-stretch: 0;
-                spacing: 4px;
-
+                spacing: 5px;
                 BodyText {
                     text: @tr("Interact");
                 }
@@ -69,30 +64,53 @@ export component HeaderView {
                 }
             }
 
-            left-panel-button := Button {
-                horizontal-stretch: 0;
-                
-                checkable: true;
-                icon: Icons.sidebar-left;
-                colorize-icon: true;
-                enabled: root.edit-mode;
-            }
+            HorizontalLayout {
+                visible: root.edit-mode;
+                spacing: 5px;
+                left-panel-button := Button {
+                    width: 30px;
+                    horizontal-stretch: 0;
+                    checkable: true;
+                    icon: SidebarApi.show-left-sidebar ? Icons.sidebar-left : Icons.sidebar-left-off;
+                    colorize-icon: true;
+                    enabled: root.edit-mode;
+                    checked <=> SidebarApi.show-left-sidebar;
+                }
 
-            right-panel-button := Button {
-                horizontal-stretch: 0;
-
-                checkable: true;
-                icon: Icons.sidebar-right;
-                colorize-icon: true;
-                enabled: root.edit-mode;
+                right-panel-button := Button {
+                    horizontal-stretch: 0;
+                    width: 30px;
+                    checkable: true;
+                    icon: SidebarApi.show-right-sidebar ? Icons.sidebar-right : Icons.sidebar-right-off;
+                    colorize-icon: true;
+                    enabled: root.edit-mode;
+                    checked <=> SidebarApi.show-right-sidebar;
+                }
             }
         }
 
-        Rectangle {
-            y: parent.height - self.height;
-            height: 1px;
+        styleContent := HorizontalLayout {
+            alignment: end;
+            spacing: 5px;
+            visible: Api.uses-widgets;
+            BodyText {
+                text: @tr("Style");
+            }
 
-            background: Palette.border;
+            style-combobox := ComboBox {
+                visible: Api.uses-widgets;
+                horizontal-stretch: 0;
+                selected => {
+                    root.style-selected();
+                }
+            }
         }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        height: 1px;
+        z: 2;
+        background: Palette.border;
     }
 }
