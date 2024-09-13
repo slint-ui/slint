@@ -1221,12 +1221,7 @@ impl<'a> GLItemRenderer<'a> {
             None => return original_cache_entry,
         };
 
-        let scaling_flags = match scaling {
-            ImageRendering::Smooth => femtovg::ImageFlags::empty(),
-            ImageRendering::Pixelated => {
-                femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST
-            }
-        };
+        let scaling_flags = super::images::base_image_flags(scaling);
 
         let image_id = original_image.id;
         let colorized_image = self

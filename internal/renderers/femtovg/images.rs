@@ -90,13 +90,7 @@ impl Texture {
         target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
         scaling: ImageRendering,
     ) -> Option<Rc<Self>> {
-        let image_flags = match scaling {
-            ImageRendering::Smooth => femtovg::ImageFlags::empty(),
-            ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
-        };
-
-        let image_flags =
-            image_flags | femtovg::ImageFlags::REPEAT_X | femtovg::ImageFlags::REPEAT_Y;
+        let image_flags = base_image_flags(scaling);
 
         let image_id = match image {
             #[cfg(target_arch = "wasm32")]
@@ -257,4 +251,12 @@ fn image_buffer_to_image_source(
             femtovg::ImageFlags::PREMULTIPLIED,
         ),
     }
+}
+
+pub fn base_image_flags(scaling: ImageRendering) -> femtovg::ImageFlags {
+    let image_flags = match scaling {
+        ImageRendering::Smooth => femtovg::ImageFlags::empty(),
+        ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
+    };
+    image_flags | femtovg::ImageFlags::REPEAT_X | femtovg::ImageFlags::REPEAT_Y
 }
