@@ -167,8 +167,9 @@ export component PreviewView {
     out property <length> preview-area-width: preview-visible ? preview-area-container.width : 0px;
     out property <length> preview-area-height: preview-visible ? preview-area-container.height : 0px;
 
-    preferred-height: max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border;
-    preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
+    preferred-height: max(max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border, 10 * scroll-view.border);
+    preferred-width: max(max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border, 10 * scroll-view.border);
+
 
     scroll-view := ScrollView {
         out property <length> border: 30px;
@@ -234,10 +235,14 @@ export component PreviewView {
                 }
 
                 if Api.resize-to-preferred-size: Rectangle {
+                    // Initially resize to the preferred-size.
+                    // Unless it is not set (both minimum size and preferred size are 0). In that case, try to take the size of the preview area.
+                    function initial_size(preferred-size: length, visible-size: length) -> length {
+                        preferred-size > 0 ? preferred-size : visible-size - scroll-view.border * 2;
+                    }
                     init => {
-                        preview-area-container.width = clamp(preview-area-container.preferred-width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
-                        preview-area-container.height = clamp(preview-area-container.preferred-height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
-
+                        preview-area-container.width = initial_size(preview-area-container.preferred-width.max(preview-area-container.min-width), scroll-view.visible-width).min(preview-area-container.max-height.max(16px));
+                        preview-area-container.height = initial_size(preview-area-container.preferred-height.max(preview-area-container.min-height), scroll-view.viewport-height).min(preview-area-container.max-height.max(16px));
                         Api.resize-to-preferred-size = false;
                     }
                 }
