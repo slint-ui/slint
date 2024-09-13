@@ -167,8 +167,9 @@ export component PreviewView {
     out property <length> preview-area-width: preview-visible ? preview-area-container.width : 0px;
     out property <length> preview-area-height: preview-visible ? preview-area-container.height : 0px;
 
-    preferred-height: max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border;
-    preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
+    preferred-height: max(max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border, 10 * scroll-view.border);
+    preferred-width: max(max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border, 10 * scroll-view.border);
+
 
     scroll-view := ScrollView {
         out property <length> border: 30px;
@@ -181,6 +182,15 @@ export component PreviewView {
         drawing-rect := Rectangle {
             width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);
             height: max(scroll-view.visible-height, main-resizer.height + scroll-view.border);
+            background: Palette.background;
+            Image {
+                width: 100%;
+                height: 100%;
+                source: @image-url("../assets/background.svg");
+                vertical-tiling: repeat;
+                horizontal-tiling: repeat;
+                colorize: Palette.alternate-background;
+            }
 
             unselect-area := TouchArea {
                 clicked => {
@@ -236,7 +246,7 @@ export component PreviewView {
                 if Api.resize-to-preferred-size: Rectangle {
                     private property <length> target-width: 0px;
                     private property <length> target-height: 0px;
-                    
+
                     init => {
                         self.target-width = preview-area-container.preferred-width.abs() < 0.5px ? drawing-rect.width - scroll-view.border : preview-area-container.preferred-width;
                         self.target-height = preview-area-container.preferred-height.abs() < 0.5px ? drawing-rect.height - scroll-view.border : preview-area-container.preferred-height;
