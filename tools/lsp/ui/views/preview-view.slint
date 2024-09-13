@@ -9,6 +9,12 @@ import { DiagnosticsOverlay } from "../components/diagnostics-overlay.slint";
 import { Resizer } from "../components/resizer.slint";
 import { Group, GroupHeader } from "../components/group.slint";
 import { StatusLineApi } from "../components/status-line.slint";
+export global SidebarApi {
+    in-out property <bool> show-left-sidebar:false;
+    in-out property <bool> show-right-sidebar:false;
+    in-out property <length> left-sidebar-width;
+    in-out property <length> right-sidebar-width;
+}
 
 enum SelectionKind {
     none,
@@ -150,13 +156,16 @@ component SelectionFrame {
     }
 }
 
-export component PreviewView {
+export component PreviewView inherits Rectangle {
     in property <[Diagnostics]> diagnostics <=> Api.diagnostics;
     in property <[Selection]> selections <=> Api.selections;
     in property <ComponentItem> visible-component;
     in property <DropMark> drop-mark <=> Api.drop-mark;
     in property <component-factory> preview-area <=> Api.preview-area;
     in property <bool> design-mode <=> Api.design-mode;
+    in property <length> left-margin;
+    in property <length> right-margin;
+
     in-out property <bool> select-mode: false;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
@@ -172,15 +181,20 @@ export component PreviewView {
 
     scroll-view := ScrollView {
         out property <length> border: 30px;
+        private property <length> on-left-sidebar;
 
-        width: 100%;
+        // width: 100% - (SidebarApi.show-left-sidebar ? SidebarApi.left-sidebar-width : 0px) - (SidebarApi.show-right-sidebar ? SidebarApi.right-sidebar-width : 0px);
+        width: parent.width - left-margin - right-margin;
+        x: left-margin;
         height: 100%;
+        // viewport-x: -left-margin;
         viewport-width: drawing-rect.width;
         viewport-height: drawing-rect.height;
+        viewport-x:   root.width - self.viewport-width - left-margin;
 
         drawing-rect := Rectangle {
-            width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);
-            height: max(scroll-view.visible-height, main-resizer.height + scroll-view.border);
+            width: max(root.width, main-resizer.width + scroll-view.border);
+            height: max(root.height, main-resizer.height + scroll-view.border);
 
             unselect-area := TouchArea {
                 clicked => {

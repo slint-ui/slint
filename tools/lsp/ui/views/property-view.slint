@@ -4,7 +4,7 @@
 import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button } from "std-widgets.slint";
 
 import { Api, ElementInformation, PropertyValue, PropertyValueKind } from "../api.slint";
-import { GroupHeader } from "../components/group.slint";
+import { GroupHeader, Group } from "../components/group.slint";
 import { BodyText } from "../components/body-text.slint";
 import { EditorSizeSettings } from "../components/styling.slint";
 
@@ -29,106 +29,116 @@ component TypeHeader inherits Rectangle {
     }
 }
 
-export component PropertyView {
+export component PropertyView inherits Rectangle {
     in property <ElementInformation> current-element <=> Api.current-element;
 
     private property <length> key-width: self.width / 2.5;
 
-    width: EditorSizeSettings.side-bar-width;
-
-    background-layer := Rectangle {
-        background: Palette.alternate-background;
-    }
-
-    content-layer := VerticalLayout {
-        padding: background-layer.border-width;
-
-        GroupHeader {
-            title: @tr("Properties");
+    width: EditorSizeSettings.side-bar-width+10px;
+    height: 100%;
+    background: transparent;
+    clip: true;
+    Rectangle {
+        x:5px;
+        height: 100%;
+        drop-shadow-blur: 5px;
+        drop-shadow-color: #777;
+        content-layer := Rectangle {
+            width: 100%;
+            height: 100%;
+            background: Palette.background;
         }
 
-        ScrollView {
-            VerticalLayout {
-                if root.current-element.properties.length > 0: Rectangle {
-                    VerticalLayout {
-                        alignment: start;
+        side-bar := Group {
+            width: 100%;
+            height: 100%;
+            GroupHeader {
+                title: @tr("Properties");
+            }
 
-                        header := TypeHeader {
-                            type-name: root.current-element.type-name;
-                            id: root.current-element.id;
-                        }
+            ScrollView {
+                VerticalLayout {
+                    if root.current-element.properties.length > 0: Rectangle {
+                        background: Palette.background.transparentize(0);
+                        VerticalLayout {
+                            alignment: start;
 
-                        for group in root.current-element.properties: Rectangle {
-                            VerticalBox {
-                                if group.group-name != "" && group.group-name != root.current-element.type-name: BodyText {
-                                    text: group.group-name;
-                                }
+                            header := TypeHeader {
+                                type-name: root.current-element.type-name;
+                                id: root.current-element.id;
+                            }
 
-                                for property in group.properties: property-row := HorizontalLayout {
-                                    private property <string> property-name: property.name;
-                                    private property <string> property-type: property.type-name;
-                                    private property <PropertyValue> property-value: property.value;
-
-                                    private property <bool> is-defined: self.property-value.code != "";
-
-                                    private property <brush> text-foreground: property-row.is-defined ? Palette.foreground : Palette.foreground.transparentize(0.5);
-
-                                    spacing: 4px;
-                                    alignment: stretch;
-
-                                    TouchArea {
-                                        width: root.key-width;
-                                        horizontal-stretch: 0;
-
-                                        key := Text {
-                                            width: 100%;
-                                            color: property-row.text-foreground;
-                                            vertical-alignment: center;
-                                            text: property.name;
-                                        }
-
-                                        clicked() => {
-                                            Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
-                                        }
+                            for group in root.current-element.properties: Rectangle {
+                                VerticalBox {
+                                    if group.group-name != "" && group.group-name != root.current-element.type-name: BodyText {
+                                        text: group.group-name;
                                     }
 
-                                    Rectangle {
-                                        min-height: 20px;
-                                        horizontal-stretch: 1;
+                                    for property in group.properties: property-row := HorizontalLayout {
+                                        private property <string> property-name: property.name;
+                                        private property <string> property-type: property.type-name;
+                                        private property <PropertyValue> property-value: property.value;
 
-                                        private property <bool> have-simple-ui: false;
+                                        private property <bool> is-defined: self.property-value.code != "";
 
-                                        if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code != "": Button {
-                                            text: @tr("Code");
+                                        private property <brush> text-foreground: property-row.is-defined ? Palette.foreground : Palette.foreground.transparentize(0.5);
+
+                                        spacing: 4px;
+                                        alignment: stretch;
+
+                                        TouchArea {
+                                            width: root.key-width;
+                                            horizontal-stretch: 0;
+
+                                            key := Text {
+                                                width: 100%;
+                                                color: property-row.text-foreground;
+                                                vertical-alignment: center;
+                                                text: property.name;
+                                            }
+
                                             clicked() => {
                                                 Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
                                             }
                                         }
-                                        if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code == "": Text {
-                                            text: @tr("<unset>");
-                                        }
-                                        if property-row.property-value.kind == PropertyValueKind.boolean: CheckBox {
-                                            x: 0;
-                                            checked: property-row.property-value.value_bool;
 
-                                            toggled() => {
-                                                Api.set-code-binding(
+                                        Rectangle {
+                                            min-height: 20px;
+                                            horizontal-stretch: 1;
+
+                                            private property <bool> have-simple-ui: false;
+
+                                            if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code != "": Button {
+                                                text: @tr("Code");
+                                                clicked() => {
+                                                    Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
+                                                }
+                                            }
+                                            if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code == "": Text {
+                                                text: @tr("<unset>");
+                                            }
+                                            if property-row.property-value.kind == PropertyValueKind.boolean: CheckBox {
+                                                x: 0;
+                                                checked: property-row.property-value.value_bool;
+
+                                                toggled() => {
+                                                    Api.set-code-binding(
                                                     root.current-element.source-uri,
                                                     root.current-element.source-version,
                                                     root.current-element.range.start,
                                                     property.name,
                                                     self.checked ? "true" : "false",
                                                 );
+                                                }
                                             }
-                                        }
-                                        if property-row.property-value.kind == PropertyValueKind.string: LineEdit {
-                                            width: 100%;
-                                            // otherwise this gets too high and covers several rows.
+                                            if property-row.property-value.kind == PropertyValueKind.string: LineEdit {
+                                                width: 100%;
+                                                // otherwise this gets too high and covers several rows.
                                             height: 100%;
-                                            text: property-row.property-value.value-string;
+                                                text: property-row.property-value.value-string;
 
-                                            edited(text) => {
-                                                overlay.visible = !Api.test-string-binding(
+                                                edited(text) => {
+                                                    overlay.visible = !Api.test-string-binding(
                                                     root.current-element.source-uri,
                                                     root.current-element.source-version,
                                                     root.current-element.range.start,
@@ -139,10 +149,10 @@ export component PropertyView {
                                                     property-row.property-value.tr-plural,
                                                     property-row.property-value.tr-plural-expression,
                                                 );
-                                            }
+                                                }
 
-                                            accepted(text) => {
-                                                Api.set-string-binding(
+                                                accepted(text) => {
+                                                    Api.set-string-binding(
                                                     root.current-element.source-uri,
                                                     root.current-element.source-version,
                                                     root.current-element.range.start,
@@ -153,48 +163,49 @@ export component PropertyView {
                                                     property-row.property-value.tr-plural,
                                                     property-row.property-value.tr-plural-expression,
                                                 );
+                                                }
                                             }
-                                        }
-                                        if property-row.property-value.kind == PropertyValueKind.enum: ComboBox {
-                                            width: 100%;
-                                            // otherwise this gets too high and covers several rows.
+                                            if property-row.property-value.kind == PropertyValueKind.enum: ComboBox {
+                                                width: 100%;
+                                                // otherwise this gets too high and covers several rows.
                                             height: 100%;
 
-                                            current-index: property-row.property-value.value-int;
+                                                current-index: property-row.property-value.value-int;
 
-                                            model: property-row.property-value.visual-items;
+                                                model: property-row.property-value.visual-items;
 
-                                            selected(value) => {
-                                                Api.set-code-binding(
+                                                selected(value) => {
+                                                    Api.set-code-binding(
                                                     root.current-element.source-uri,
                                                     root.current-element.source-version,
                                                     root.current-element.range.start,
                                                     property.name,
                                                     property-value.value_string + "." + value,
                                                 )
+                                                }
                                             }
-                                        }
 
-                                        overlay := Rectangle {
-                                            visible: false;
-                                            background: #80000040;
+                                            overlay := Rectangle {
+                                                visible: false;
+                                                background: #80000040;
 
-                                            width: parent.width - 8px;
-                                            height: parent.height - 8px;
-                                            border-radius: 3px;
+                                                width: parent.width - 8px;
+                                                height: parent.height - 8px;
+                                                border-radius: 3px;
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                if root.current-element.type-name == "": VerticalLayout {
-                    Text {
-                        text: "Select an Element";
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                    if root.current-element.type-name == "": VerticalLayout {
+                        Text {
+                            text: "Select an Element";
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
                     }
                 }
             }
@@ -202,7 +213,7 @@ export component PropertyView {
     }
 
     Rectangle {
-        x: 0;
+        x: 5px;
         width: 1px;
         background: Palette.border;
     }
