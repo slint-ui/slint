@@ -63,6 +63,8 @@ jobs:
             rustflags: "--cfg=web_sys_unstable_apis"
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
+        with:
+            extra_cmake_flags: ${{ github.event.inputs.release && '' || '-DCPACK_PACKAGE_VERSION=nightly' }}
 
     check-for-secrets:
         runs-on: ubuntu-latest
@@ -508,7 +510,7 @@ jobs:
                   major=`echo $version | sed -e "s,\([0-9]*\)\.[0-9]*\.[0-9]*,\1,"`
                   echo "MAJOR_VERSION=$major" >> $GITHUB_OUTPUT
                   minor=`echo $version | sed -e "s,[0-9]*\.\([0-9]*\)\.[0-9]*,\1,"`
-                  echo "MINOR_VERSION=$minor" >> $GITHUB_OUTPUT                  
+                  echo "MINOR_VERSION=$minor" >> $GITHUB_OUTPUT
             - uses: montudor/action-zip@v1
               with:
                   args: zip -r artifacts/slint-viewer-windows.zip slint-viewer
@@ -518,13 +520,13 @@ jobs:
             - uses: actions/checkout@v4
               with:
                 path: "slint-src"
-                sparse-checkout: docs    
+                sparse-checkout: docs
             - name: prepare release notes
               env:
                    RELEASE_INPUT: ${{ github.event.inputs.release }}
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                    notes_file=slint-src/docs/_templates/nightly-release-notes.md                    
+                    notes_file=slint-src/docs/_templates/nightly-release-notes.md
                   else
                     notes_file=slint-src/docs/_templates/release-notes.md
                   fi
@@ -536,7 +538,7 @@ jobs:
                     sed -i -e "s,{download_version},nightly,g" release-notes.md
                   else
                     sed -i -e "s,{download_version},${{ steps.version.outputs.VERSION}},g" release-notes.md
-                  fi                  
+                  fi
                   cat release-notes.md
             - uses: ncipollo/release-action@v1
               if: github.event.inputs.release == 'true'
