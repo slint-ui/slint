@@ -204,7 +204,7 @@ export class PreviewSerializer implements vscode.WebviewPanelSerializer {
 }
 
 function map_url(webview: vscode.Webview, url_: string) {
-    let result;
+    let result: string | undefined;
 
     try {
         const url = Uri.parse(url_, false);

@@ -274,14 +274,12 @@ async function _process_gist_url(
             const body = await response.json();
 
             const map: { [path: string]: string } = {};
-            let definite_main_file_name;
-            let fallback_main_file_name;
-            let fallback_main_file_url;
+            let definite_main_file_name: any;
+            let fallback_main_file_name: any;
+            let fallback_main_file_url: any;
             for (const [k, v] of Object.entries(body.files)) {
                 if (k === "slint.json") {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const content: any = JSON.parse(
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         (v as any).content as string,
                     );
                     definite_main_file_name = content.main as string;
@@ -293,7 +291,6 @@ async function _process_gist_url(
                         map["/" + f] = u;
                     });
                 } else {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const url = (v as any).raw_url;
                     if (fallback_main_file_name == null) {
                         fallback_main_file_name = k;

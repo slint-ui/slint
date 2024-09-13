@@ -19,13 +19,22 @@
         "enabled": true,
         "rules": {
             "recommended": false,
+            "complexity": {
+                "noBannedTypes": "warn",
+                "noUselessConstructor": "error"
+            },
             "style": {
                 "useBlockStatements": "warn",
                 "noUselessElse": "off",
                 "useConst": "error",
-                "useImportType": "error"
+                "useImportType": "error",
+                "useNodejsImportProtocol": "error"
             },
-            "suspicious": { "noDoubleEquals": "error" }
+            "suspicious": { 
+                "noDoubleEquals": "error",
+                "noRedundantUseStrict": "warn",
+                "noImplicitAnyLet": "error"
+            }
         }
     },
     "javascript": {

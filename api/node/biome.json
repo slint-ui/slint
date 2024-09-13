@@ -5,31 +5,24 @@
         "ignore": ["*/rust-module.d.ts"]
     },
     "linter": {
-        "ignore": ["rust-module.d.ts"],
+        "ignore": ["rust-module.d.ts", "rust-module.cjs"],
         "rules": {
             "complexity": {
                 "useArrowFunction": "off",
-                "noForEach": "off",
-                "noUselessConstructor": "off",
-                "noBannedTypes": "warn"
+                "noForEach": "off"
             },
             "style": {
                 "noNonNullAssertion": "off",
                 "noUnusedTemplateLiteral": "off",
-                "useConst": "off",
                 "useTemplate": "off",
                 "noArguments": "off",
                 "noVar": "off",
                 "noInferrableTypes": "off",
-                "useImportType": "off",
-                "useNodejsImportProtocol": "off",
                 "noParameterAssign": "off"
             },
             "suspicious": {
                 "noExplicitAny": "off",
-                "noAssignInExpressions": "off",
-                "noImplicitAnyLet": "off",
-                "noRedundantUseStrict": "off"
+                "noAssignInExpressions": "off"
             }
         }
     }

@@ -1065,8 +1065,6 @@ class EventLoop {
     #terminationPromise: Promise<unknown> | null = null;
     #terminateResolveFn: ((_value: unknown) => void) | null;
 
-    constructor() {}
-
     start(
         running_callback?: Function,
         quitOnLastWindowClosed: boolean = true,
