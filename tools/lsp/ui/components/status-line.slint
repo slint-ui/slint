@@ -11,10 +11,15 @@ export component StatusLine {
     background-layer := Rectangle {
         background: Palette.alternate-background;
 
-        HorizontalBox {
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-bottom: 6px;
+            padding-top: 4px;
             Text {
                 text <=> StatusLineApi.help-text;
-                height: 1.8rem;
+                height: 1.5rem;
+                font-italic: true;
+                font-weight: 300;
                 vertical-alignment: TextVerticalAlignment.center;
             }
         }
