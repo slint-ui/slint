@@ -19,6 +19,12 @@ export component GroupHeader {
 
         @children
     }
+    Rectangle {
+        height: 1px;
+        background: Palette.foreground.transparentize(0.9);
+        width: 100%;
+        y:parent.height + self.height;
+    }
 }
 
 export component Group {
@@ -27,6 +33,12 @@ export component Group {
 
     background-layer := Rectangle {
         background: Palette.alternate-background;
+    }
+
+    Rectangle {
+        height: 1px;
+        background: Palette.control-background;
+        width: 100%;
     }
 
     content-layer := VerticalLayout {
