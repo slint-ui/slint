@@ -58,7 +58,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_show_document(|file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        super::ask_editor_to_show_document(&file, Range::new(pos, pos))
+        super::ask_editor_to_show_document(&file, Range::new(pos, pos), false)
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);

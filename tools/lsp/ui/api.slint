@@ -220,7 +220,7 @@ export global Api {
     // Show a position consisting of `line` and `column` in a `file` in the editor
     callback show-document(/* file: */ string, /* line: */ int, /* column: */ int);
     // Show a position consisting of `line` and `column` in a `file` in the editor
-    callback show-document-offset-range(/* url: */ string, /* start_offset: */ int, /* end_offset: */ int);
+    callback show-document-offset-range(/* url: */ string, /* start_offset: */ int, /* end_offset: */ int, /* take-focus: */ bool);
 
     // ## Drawing Area
     // Preview some other component

@@ -517,7 +517,7 @@ pub enum PreviewToLspMessage {
     /// Report diagnostics to editor.
     Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
     /// Show a document in the editor.
-    ShowDocument { file: Url, selection: lsp_types::Range },
+    ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
     /// Switch between native and WASM preview (if supported)
     PreviewTypeChanged { is_external: bool },
     /// Request all documents and configuration to be sent from the LSP to the
@@ -603,6 +603,7 @@ pub mod lsp_to_editor {
     fn show_document_request_from_element_callback(
         uri: lsp_types::Url,
         range: lsp_types::Range,
+        take_focus: bool,
     ) -> Option<lsp_types::ShowDocumentParams> {
         if range.start.character == 0 || range.end.character == 0 {
             return None;
@@ -611,7 +612,7 @@ pub mod lsp_to_editor {
         Some(lsp_types::ShowDocumentParams {
             uri,
             external: Some(false),
-            take_focus: Some(false),
+            take_focus: Some(take_focus),
             selection: Some(range),
         })
     }
@@ -620,8 +621,10 @@ pub mod lsp_to_editor {
         sender: crate::ServerNotifier,
         file: lsp_types::Url,
         range: lsp_types::Range,
+        take_focus: bool,
     ) {
-        let Some(params) = show_document_request_from_element_callback(file, range) else {
+        let Some(params) = show_document_request_from_element_callback(file, range, take_focus)
+        else {
             return;
         };
         let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
