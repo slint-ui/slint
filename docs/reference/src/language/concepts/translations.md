@@ -27,6 +27,12 @@ Complete the following steps to translate your application:
 
 At this point, all strings marked for translation are automatically rendered in the target language.
 
+:::{note}
+
+Support for translations via gettext is currently not supported on Windows, see [Add support for translations on Windows #3307](https://github.com/slint-ui/slint/issues/3307).
+
+:::
+
 ## Annotating Translatable Strings
 
 Use the `@tr` macro in `.slint` files to mark that a string for translation. This macro
