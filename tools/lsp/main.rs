@@ -523,11 +523,12 @@ async fn handle_preview_to_lsp_message(
                 diagnostics,
             );
         }
-        M::ShowDocument { file, selection } => {
+        M::ShowDocument { file, selection, take_focus } => {
             crate::common::lsp_to_editor::send_show_document_to_editor(
                 ctx.server_notifier.clone(),
                 file,
                 selection,
+                take_focus,
             )
             .await;
         }

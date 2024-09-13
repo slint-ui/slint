@@ -142,7 +142,7 @@ fn select_element_node(
     );
 
     if let Some(document_position) = lsp_element_node_position(selected_element) {
-        super::ask_editor_to_show_document(&document_position.0, document_position.1);
+        super::ask_editor_to_show_document(&document_position.0, document_position.1, false);
     }
 }
 

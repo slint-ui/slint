@@ -10,6 +10,21 @@ import { BodyText } from "../components/body-text.slint";
 import { StateLayer } from "../components/state-layer.slint";
 import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings } from "../components/styling.slint";
 
+component CodeButton inherits Button {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    text: @tr("Code");
+    clicked => {
+        Api.show-document-offset-range(
+            element-information.source-uri,
+            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+            true,
+        );
+    }
+}
+
 component ExpandableGroup {
     in property <ElementInformation> element-information;
     in property <string> text;
@@ -84,6 +99,10 @@ component ExpandableGroup {
                                 property.value.tr-plural-expression,
                             );
                         }
+                    }
+                    if property.value.kind == PropertyValueKind.code: CodeButton {
+                        element-information <=> root.element-information;
+                        property-information: property;
                     }
                 }
             }

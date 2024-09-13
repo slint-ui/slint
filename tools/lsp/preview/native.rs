@@ -233,12 +233,14 @@ pub fn send_status(message: &str, health: Health) {
     crate::common::lsp_to_editor::send_status_notification(&sender, message, health)
 }
 
-pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
+pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take_focus: bool) {
     let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return;
     };
     let Ok(url) = lsp_types::Url::from_file_path(file) else { return };
-    let fut = crate::common::lsp_to_editor::send_show_document_to_editor(sender, url, selection);
+    let fut = crate::common::lsp_to_editor::send_show_document_to_editor(
+        sender, url, selection, take_focus,
+    );
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }
 

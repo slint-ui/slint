@@ -555,11 +555,11 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
 
     let start =
         util::text_size_to_lsp_position(&identifier.source_file, identifier.text_range().start());
-    ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start))
+    ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start), false)
 }
 
 // triggered from the UI, running in UI thread
-fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32) {
+fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
     fn internal(
         url: slint::SharedString,
         start: i32,
@@ -582,7 +582,7 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32) {
     }
 
     if let Some((f, s, e)) = internal(url, start, end) {
-        ask_editor_to_show_document(&f.to_string_lossy(), lsp_types::Range::new(s, e));
+        ask_editor_to_show_document(&f.to_string_lossy(), lsp_types::Range::new(s, e), take_focus);
     }
 }
 
@@ -1136,6 +1136,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                         ask_editor_to_show_document(
                             &path.to_string_lossy(),
                             lsp_types::Range::new(pos, pos),
+                            false,
                         );
                     }
                 }

@@ -230,7 +230,11 @@ pub fn notify_diagnostics(
     Some(())
 }
 
-pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
+pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take_focus: bool) {
     let Ok(file) = lsp_types::Url::from_file_path(file) else { return };
-    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument { file, selection });
+    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument {
+        file,
+        selection,
+        take_focus,
+    });
 }
