@@ -285,8 +285,6 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
         .append(&app_m)
         .and_then(|_| {
             app_m.append_items(&[
-                &PredefinedMenuItem::about(None, None),
-                &PredefinedMenuItem::separator(),
                 &PredefinedMenuItem::services(None),
                 &PredefinedMenuItem::separator(),
                 &PredefinedMenuItem::hide(None),
