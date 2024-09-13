@@ -14,13 +14,6 @@ export component HeaderView {
     in-out property <bool> edit-mode <=> interaction-switch.checked;
     in-out property <string> current-style <=> style-combobox.current-value;
     in property <[string]> known-styles <=> style-combobox.model;
-    in-out property <ComponentItem> preview-view: {
-        name: "",
-        defined-at: "",
-        pretty-location: "",
-        is-user-defined: false,
-        is-currently-shown: false,
-    };
 
     callback style-selected();
     callback edit-mode-toggled();
@@ -30,12 +23,13 @@ export component HeaderView {
 
         content-layer := HorizontalBox {
             horizontal-stretch: 1;
+
             HorizontalLayout {
+                alignment: start;
                 horizontal-stretch: 0;
-                spacing: 4px;
+                spacing: EditorSpaceSettings.default-spacing / 2;
+
                 Button {
-                    horizontal-stretch: 0;
-                    max-width: 30px;
                     icon: Icons.sync;
                     colorize-icon: true;
                     clicked => {
@@ -45,17 +39,19 @@ export component HeaderView {
 
                 HeaderText {
                     text: @tr("Preview");
-                    horizontal-stretch: 0;
                 }
             }
 
             HorizontalLayout {
                 alignment: start;
                 spacing: EditorSpaceSettings.default-spacing;
+
                 HorizontalLayout {
-                    @children
-                    spacing:4px;
+                    spacing: EditorSpaceSettings.default-spacing / 2;
                     horizontal-stretch: 0;
+
+                    @children
+
                     BodyText {
                         text: @tr("Interact");
                     }
@@ -73,6 +69,7 @@ export component HeaderView {
 
                 left-panel-button := Button {
                     horizontal-stretch: 0;
+
                     checkable: true;
                     icon: Icons.sidebar-left;
                     colorize-icon: true;
@@ -82,6 +79,7 @@ export component HeaderView {
 
                 right-panel-button := Button {
                     horizontal-stretch: 0;
+
                     checkable: true;
                     icon: Icons.sidebar-right;
                     colorize-icon: true;
@@ -90,21 +88,22 @@ export component HeaderView {
                 }
             }
 
-
-
             HorizontalLayout {
                 alignment: end;
-                horizontal-stretch: 0;
                 spacing:4px;
+
                 BodyText {
+                    horizontal-stretch: 0;
+
                     visible: Api.uses-widgets;
                     horizontal-alignment: right;
                     text: @tr("Style");
                 }
 
                 style-combobox := ComboBox {
-                    visible: Api.uses-widgets;
                     horizontal-stretch: 0;
+
+                    visible: Api.uses-widgets;
 
                     selected => {
                         root.style-selected();
