@@ -25,6 +25,22 @@ component CodeButton inherits Button {
     }
 }
 
+component ResetButton inherits Button {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    text: @tr("Reset");
+    clicked => {
+        Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            "",
+        );
+    }
+}
+
 component ExpandableGroup {
     in property <ElementInformation> element-information;
     in property <string> text;
@@ -100,9 +116,15 @@ component ExpandableGroup {
                             );
                         }
                     }
-                    if property.value.kind == PropertyValueKind.code: CodeButton {
-                        element-information <=> root.element-information;
-                        property-information: property;
+                    if property.value.kind == PropertyValueKind.code: HorizontalLayout {
+                        ResetButton {
+                            element-information <=> root.element-information;
+                            property-information: property;
+                        }
+                        CodeButton {
+                            element-information <=> root.element-information;
+                            property-information: property;
+                        }
                     }
                 }
             }
