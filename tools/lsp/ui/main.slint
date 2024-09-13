@@ -68,16 +68,12 @@ export component PreviewUi inherits Window {
                     }
 
                     Button {
-                        icon: Icons.sync;
-                        colorize-icon: true;
-                        clicked => { Api.reload-preview(); }
-                    }
-                    Button {
                         icon: Icons.inspect;
                         colorize-icon: true;
                         checkable: true;
                         checked <=> preview.select-mode;
                         enabled: !preview.design-mode;
+                        visible: !preview.design-mode; 
                     }
                 }
 
