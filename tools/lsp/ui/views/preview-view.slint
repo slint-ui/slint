@@ -214,6 +214,10 @@ export component PreviewView {
             }
 
             main-resizer := Resizer {
+                private property <component-factory> component-factory <=> preview-area-container.component-factory;
+                private property <length> target-width;
+                private property <length> target-height;
+
                 color: root.design-mode ? Colors.black : Colors.transparent;
                 fill-color: root.design-mode ? Colors.white : Colors.transparent;
 
@@ -236,26 +240,20 @@ export component PreviewView {
                 // is called every time the condition is dirty, to make sure that the size
                 // is within the bounds.
                 // Query the preview-area to make sure this is evaluated when it changes
-                if preview-area-container.has-component && root.preview-area == preview-area-container.component-factory: Rectangle {
-                    init => {
-                        preview-area-container.width = clamp(preview-area-container.width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
-                        preview-area-container.height = clamp(preview-area-container.height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
-                    }
-                }
-
-                if Api.resize-to-preferred-size: Rectangle {
-                    private property <length> target-width: 0px;
-                    private property <length> target-height: 0px;
-
-                    init => {
+                changed component-factory => {
+                    if Api.resize-to-preferred-size {
                         self.target-width = preview-area-container.preferred-width.abs() < 0.5px ? drawing-rect.width - scroll-view.border : preview-area-container.preferred-width;
                         self.target-height = preview-area-container.preferred-height.abs() < 0.5px ? drawing-rect.height - scroll-view.border : preview-area-container.preferred-height;
 
                         preview-area-container.width = clamp(self.target-width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
                         preview-area-container.height = clamp(self.target-height, max(preview-area-container.min-height, 16px), max(preview-area-container.max-height, 16px));
 
-                        Api.resize-to-preferred-size = false;
+                    } else {
+                        preview-area-container.width = clamp(preview-area-container.width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
+                        preview-area-container.height = clamp(preview-area-container.height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
                     }
+
+                    Api.resize-to-preferred-size = false;
                 }
 
                 Rectangle {
