@@ -234,9 +234,15 @@ export component PreviewView {
                 }
 
                 if Api.resize-to-preferred-size: Rectangle {
+                    private property <length> target-width: 0px;
+                    private property <length> target-height: 0px;
+                    
                     init => {
-                        preview-area-container.width = clamp(preview-area-container.preferred-width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
-                        preview-area-container.height = clamp(preview-area-container.preferred-height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
+                        self.target-width = preview-area-container.preferred-width.abs() < 0.5px ? drawing-rect.width - scroll-view.border : preview-area-container.preferred-width;
+                        self.target-height = preview-area-container.preferred-height.abs() < 0.5px ? drawing-rect.height - scroll-view.border : preview-area-container.preferred-height;
+
+                        preview-area-container.width = clamp(self.target-width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
+                        preview-area-container.height = clamp(self.target-height, max(preview-area-container.min-height, 16px), max(preview-area-container.max-height, 16px));
 
                         Api.resize-to-preferred-size = false;
                     }
