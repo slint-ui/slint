@@ -120,7 +120,7 @@ Files: examples/printerdemo/zephyr/VERSION
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/dial/ui/images/*.png
+Files: examples/dial/images/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
