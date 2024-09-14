@@ -8,12 +8,17 @@ All notable changes to this project are documented in this file.
 ### Slint language
 
  - Postfix function on numbers for math function.
- - Fixed panic when accessing function witin a PopupWindow. (#5852)
+ - `changed <property>` callbacks. (#112)
  - `Timer` built-in pseudo-element. (#5724)
+ - `SwipeGestureRecognizer` element.
+ - Fixed panic when accessing function within a PopupWindow. (#5852)
  - Fixed `@children` order in the root of a component. (#5865)
  - Fix conversion from float to string adding extra decimal precision by limiting to f32
  - `debug` will now print space between the arguments instead of a comma. (#5991)
  - Added math function `Math.atan2`.
+ - width and height expressed in `%` unit for an element in a Flickable now refer
+   to the size of the Flickable instead of that of the viewport (#4163)
+ - Path: Fix compiler panic when accessing path.commands in expressions (#5564)
 
 ### Widgets
 
@@ -46,16 +51,22 @@ All notable changes to this project are documented in this file.
  - Don't auto-complete `out` property of built-in elements at element scope.
  - Don't insert a semicolon after auto-complete of a property name at element scope.
  - Added support for tooltip on hover of symbols
+ - live-preview: Fixed auto-refresh after closing and reopening the preview.
  - live-preview: Custom system menu bar so cmd+q don't quit the LSP.
+ - live-preview: Polished UI
  - vscode extension: the wasm preview load code in another tab.
  - vscode extension: Added telemetry to report panics of the LSP server.
  - vscode extension: Added "Create New Project" command to start from one of our templates
  - vscode extension: Rename the output tab to from "Slint LSP" to "Slint", and make sure it is always there
 
- ### Misc
+### Misc
 
  - Added ability to configure scale factor at compile time (useful for no_std).
  - Improved property inlining in the compiler.
+ - Fixed colorized tiled images
+ - Fixed generated getter and setter of alias properties in globals (#5855)
+ - Use `raw-window-metal` to do layer creation in skia
+
 
 ## [1.7.2] - 2024-08-14
 
