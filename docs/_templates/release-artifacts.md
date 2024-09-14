@@ -6,8 +6,8 @@ For C++ developers, this release contains the follwing pre-packed builds of Slin
 
 | Operating System | Compiler | Architecture | Download |
 |------------------|----------|--------------|----------|
-| Linux            | gcc      | x86-64       | [Slint-cpp-{version}-Linux-x86_64.tar.gz](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{version}-Linux-x86_64.tar.gz) |
-| Windows          | MSVC     | x86-64       | [Slint-cpp-{version}-win64-MSVC.exe](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{version}-win64-MSVC.exe) |
+| Linux            | gcc      | x86-64       | [Slint-cpp-{download_version}-Linux-x86_64.tar.gz](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{download_version}-Linux-x86_64.tar.gz) |
+| Windows          | MSVC     | x86-64       | [Slint-cpp-{download_version}-win64-MSVC.exe](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{download_version}-win64-MSVC.exe) |
 
 ## Tool Binaries
 

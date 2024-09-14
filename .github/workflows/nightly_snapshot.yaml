@@ -498,19 +498,6 @@ jobs:
                   mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-lsp-macos.tar.gz artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
-            - name: Extract Version
-              id: version
-              run: |
-                  version=$(echo artifacts/Slint-cpp-*-win64-MSVC.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
-                  if [[ -z "$version" ]]; then
-                    echo "Version not found"
-                    exit 1
-                  fi
-                  echo "VERSION=$version" >> $GITHUB_OUTPUT
-                  major=`echo $version | sed -e "s,\([0-9]*\)\.[0-9]*\.[0-9]*,\1,"`
-                  echo "MAJOR_VERSION=$major" >> $GITHUB_OUTPUT
-                  minor=`echo $version | sed -e "s,[0-9]*\.\([0-9]*\)\.[0-9]*,\1,"`
-                  echo "MINOR_VERSION=$minor" >> $GITHUB_OUTPUT
             - uses: montudor/action-zip@v1
               with:
                   args: zip -r artifacts/slint-viewer-windows.zip slint-viewer
@@ -522,23 +509,29 @@ jobs:
                 path: "slint-src"
                 sparse-checkout: docs
             - name: prepare release notes
+              id: version
               env:
                    RELEASE_INPUT: ${{ github.event.inputs.release }}
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     notes_file=slint-src/docs/_templates/nightly-release-notes.md
+                    version=nightly
                   else
                     notes_file=slint-src/docs/_templates/release-notes.md
+                    version=$(echo artifacts/Slint-cpp-*-win64-MSVC.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
+                    if [[ -z "$version" ]]; then
+                      echo "Version not found"
+                      exit 1
+                    fi
+                    major_version=`echo $version | sed -e "s,\([0-9]*\)\.[0-9]*\.[0-9]*,\1,"`
+                    minor_version=`echo $version | sed -e "s,[0-9]*\.\([0-9]*\)\.[0-9]*,\1,"`
                   fi
+                  echo "VERSION=$version" >> $GITHUB_OUTPUT
                   cat $notes_file slint-src/docs/_templates/release-artifacts.md > release-notes.md
-                  sed -i -e "s,{version},${{ steps.version.outputs.VERSION}},g" release-notes.md
-                  sed -i -e "s,{major_version},${{ steps.version.outputs.MAJOR_VERSION}},g" release-notes.md
-                  sed -i -e "s,{minor_version},${{ steps.version.outputs.MINOR_VERSION}},g" release-notes.md
-                  if [ "$RELEASE_INPUT" != "true" ]; then
-                    sed -i -e "s,{download_version},nightly,g" release-notes.md
-                  else
-                    sed -i -e "s,{download_version},${{ steps.version.outputs.VERSION}},g" release-notes.md
-                  fi
+                  sed -i -e "s,{version},$version,g" release-notes.md
+                  sed -i -e "s,{download_version},$version,g" release-notes.md
+                  sed -i -e "s,{major_version},$major_version,g" release-notes.md
+                  sed -i -e "s,{minor_version},$minor_version,g" release-notes.md
                   cat release-notes.md
             - uses: ncipollo/release-action@v1
               if: github.event.inputs.release == 'true'
