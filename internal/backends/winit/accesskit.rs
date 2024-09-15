@@ -355,7 +355,7 @@ impl NodeCollection {
                     i_slint_core::items::AccessibleRole::Button => Role::Button,
                     i_slint_core::items::AccessibleRole::Checkbox => Role::CheckBox,
                     i_slint_core::items::AccessibleRole::Combobox => Role::ComboBox,
-                    i_slint_core::items::AccessibleRole::List => Role::List,
+                    i_slint_core::items::AccessibleRole::List => Role::ListBox,
                     i_slint_core::items::AccessibleRole::Slider => Role::Slider,
                     i_slint_core::items::AccessibleRole::Spinbox => Role::SpinButton,
                     i_slint_core::items::AccessibleRole::Tab => Role::Tab,
