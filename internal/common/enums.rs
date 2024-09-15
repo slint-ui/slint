@@ -369,6 +369,8 @@ macro_rules! for_each_enums {
                 TextInput,
                 /// The element is a [`Switch`](slint-reference:src/language/widgets/switch) or behaves like one.
                 Switch,
+                /// The element is an item in a [`ListView`](slint-reference:src/language/widgets/listview).
+                ListItem,
             }
 
             /// This enum represents the different values of the `sort-order` property.

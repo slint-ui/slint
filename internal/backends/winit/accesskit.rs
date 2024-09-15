@@ -368,6 +368,7 @@ impl NodeCollection {
                         Role::ProgressIndicator
                     }
                     i_slint_core::items::AccessibleRole::Switch => Role::Switch,
+                    i_slint_core::items::AccessibleRole::ListItem => Role::ListBoxOption,
                     _ => Role::Unknown,
                 },
                 item.accessible_string_property(

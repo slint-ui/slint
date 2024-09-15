@@ -526,6 +526,7 @@ fn convert_to_proto_accessible_role(
         }
         i_slint_core::items::AccessibleRole::TextInput => proto::AccessibleRole::TextInput,
         i_slint_core::items::AccessibleRole::Switch => proto::AccessibleRole::Switch,
+        i_slint_core::items::AccessibleRole::ListItem => proto::AccessibleRole::ListItem,
         _ => return None,
     })
 }
@@ -551,6 +552,7 @@ fn convert_from_proto_accessible_role(
         }
         proto::AccessibleRole::TextInput => i_slint_core::items::AccessibleRole::TextInput,
         proto::AccessibleRole::Switch => i_slint_core::items::AccessibleRole::Switch,
+        proto::AccessibleRole::ListItem => i_slint_core::items::AccessibleRole::ListItem,
     })
 }
 

@@ -96,6 +96,7 @@ enum AccessibleRole {
     ProgressIndicator = 12;
     TextInput = 13;
     Switch = 14;
+    ListItem = 15;
 }
 
 message ElementQueryInstruction {
