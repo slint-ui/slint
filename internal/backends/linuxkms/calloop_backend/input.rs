@@ -213,6 +213,8 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 0x110 => PointerEventButton::Left,
                                 0x111 => PointerEventButton::Right,
                                 0x112 => PointerEventButton::Middle,
+                                0x116 => PointerEventButton::Back,
+                                0x115 => PointerEventButton::Forward,
                                 _ => PointerEventButton::Other,
                             };
                             let mouse_pos = self.mouse_pos.as_ref().get().unwrap_or_default();

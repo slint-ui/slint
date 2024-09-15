@@ -52,6 +52,10 @@ export component TestCase  {
                 pointer-event-test += "left";
             } else if (e.button == PointerEventButton.middle) {
                 pointer-event-test += "middle";
+            } else if (e.button == PointerEventButton.back) {
+                pointer-event-test += "back";
+            } else if (e.button == PointerEventButton.forward) {
+                pointer-event-test += "forward";
             } else if (e.button == PointerEventButton.other) {
                 pointer-event-test += "other";
             } else {

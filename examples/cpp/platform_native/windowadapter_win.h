@@ -90,7 +90,7 @@ struct MyWindowAdapter : public slint::platform::WindowAdapter
         SetWindowPos(hwnd, nullptr, x, y, width, height, 0);
     }
 
-    void mouse_event(UINT uMsg, LPARAM lParam)
+    void mouse_event(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         using slint::LogicalPosition;
         using slint::PointerEventButton;
@@ -121,6 +121,17 @@ struct MyWindowAdapter : public slint::platform::WindowAdapter
             window().dispatch_pointer_press_event(LogicalPosition({ x, y }),
                                                   PointerEventButton::Right);
             break;
+        case WM_XBUTTONDOWN:
+            switch (GET_XBUTTON_WPARAM(wParam)) {
+            case XBUTTON1:
+                window().dispatch_pointer_press_event(LogicalPosition({ x, y }),
+                                                      PointerEventButton::Back);
+                break;
+            case XBUTTON2:
+                window().dispatch_pointer_press_event(LogicalPosition({ x, y }),
+                                                      PointerEventButton::Forward);
+                break;
+            }
         case WM_MOUSEMOVE:
             window().dispatch_pointer_move_event(LogicalPosition({ x, y }));
             break;
@@ -162,7 +173,7 @@ struct MyWindowAdapter : public slint::platform::WindowAdapter
         case WM_RBUTTONDOWN:
         case WM_MOUSEMOVE:
             slint::platform::update_timers_and_animations();
-            self->mouse_event(uMsg, lParam);
+            self->mouse_event(uMsg, wParam, lParam);
             return 0;
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
