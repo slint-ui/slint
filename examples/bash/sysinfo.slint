@@ -171,6 +171,7 @@ export component SysInfo inherits Dialog {
                     for disk in root.partitions : HorizontalLayout {
                         padding: 5px;
                         spacing: 5px;
+                        accessible-role: list-item;
 
                         Text { width: t1.width; overflow: elide; text: disk.dev; }
                         Text { width: t2.width; overflow: elide; text: disk.mnt; }
