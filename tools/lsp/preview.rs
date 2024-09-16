@@ -97,6 +97,7 @@ impl ContentCache {
 #[derive(Default)]
 struct PreviewState {
     ui: Option<ui::PreviewUi>,
+    property_range_declarations: Option<ui::PropertyDeclarations>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
     selected: Option<element_selection::ElementSelection>,
@@ -159,6 +160,18 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
         }
     }
     None
+}
+
+// triggered from the UI, running in UI thread
+fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclaration {
+    let name = name.to_string();
+    PREVIEW_STATE
+        .with(|preview_state| {
+            let preview_state = preview_state.borrow();
+
+            preview_state.property_range_declarations.as_ref().and_then(|d| d.get(&name).cloned())
+        })
+        .unwrap_or_default()
 }
 
 // triggered from the UI, running in UI thread
@@ -1477,11 +1490,11 @@ fn set_selected_element(
                         ))
                     })
                 {
-                    ui::ui_set_properties(
+                    preview_state.property_range_declarations = Some(ui::ui_set_properties(
                         ui,
                         &document_cache,
                         properties::query_properties(&uri, version, &selection).ok(),
-                    );
+                    ));
                 }
             }
         }
