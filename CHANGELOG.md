@@ -28,6 +28,8 @@ All notable changes to this project are documented in this file.
  - Fixed `TimePickerPopup` does not open minute view by click on selected hour.
  - Visually clamp the slider even if the value is out of bounds (#5770)
  - Fixed button of Cupertino `ComboBox` not centered when height is bigger than default.
+ - Fixed select text in `SpinBox` on double click (#6104)
+ - Fixed text in `SpinBox` not being selected on double click (#6104)
 
 ### Rust
 
