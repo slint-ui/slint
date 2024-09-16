@@ -93,9 +93,9 @@ export component AppWindow inherits Window {
                         // So further movement will be relative to this angle.
                         if !firstTouch {
                             firstTouch = true;
-                            deltaDegrees = AppState.angle - newAngle;
+                            deltaDegrees = AppState.normalizeAngle(AppState.angle - newAngle);
                         } else {
-                            AppState.angle = deltaDegrees + newAngle;
+                            AppState.angle = AppState.normalizeAngle(deltaDegrees + newAngle);
                         }
                     }
                 }
