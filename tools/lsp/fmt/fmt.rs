@@ -18,6 +18,12 @@ struct FormatState {
     skip_all_whitespace: bool,
     /// The whitespace to add before the next token
     whitespace_to_add: Option<String>,
+
+    /// If the last token was SyntaxKind::WhiteSpace and it was not emit because of skip_all_whitespace,
+    /// this contains the whitespace that was removed, so that it can be added again in case the next
+    /// token is a comment
+    last_removed_whitespace: Option<String>,
+
     /// The level of indentation
     indentation_level: u32,
 
@@ -178,12 +184,22 @@ fn fold(
                 return Ok(());
             } else if t.kind() == SyntaxKind::Whitespace {
                 if state.skip_all_whitespace && !state.after_comment {
+                    state.last_removed_whitespace = Some(t.text().to_string());
                     writer.with_new_content(t, "")?;
                     return Ok(());
                 }
             } else {
                 state.after_comment = t.kind() == SyntaxKind::Comment;
                 state.skip_all_whitespace = false;
+                if let Some(ws) = state.last_removed_whitespace.take() {
+                    if state.after_comment {
+                        // restore the previously skipped spaces before comment.
+                        state.insertion_count += 1;
+                        writer.insert_before(t, &ws)?;
+                        state.whitespace_to_add = None;
+                        return Ok(());
+                    }
+                }
                 if let Some(x) = state.whitespace_to_add.take() {
                     state.insertion_count += 1;
                     writer.insert_before(t, x.as_ref())?;
@@ -1324,11 +1340,33 @@ mod tests {
             }
         "#,
             r#"component /* */ Foo // aaa
-            inherits /* x */  // bbb
-            Window// ccc
-            /*y*/ {
-    // c
-              Foo/*aa*/ /*bb*/ { }
+            inherits  /* x */  // bbb
+            Window // ccc
+            /*y*/ {   // c
+              Foo /*aa*/ /*bb*/ { }
+}
+"#,
+        );
+
+        assert_formatting(
+            r#"//xxx
+component  C1 {
+    // before a property
+    property< int> p1;
+    property<int > p2; // on the same line of a property
+    property <int > p3;
+    // After a property
+    // ...
+}
+"#,
+            r#"//xxx
+component C1 {
+    // before a property
+    property <int> p1;
+    property <int> p2; // on the same line of a property
+    property <int> p3;
+    // After a property
+    // ...
 }
 "#,
         );
