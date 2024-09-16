@@ -17,6 +17,7 @@ import {
     report_export_url_dialog,
     report_export_error_dialog,
     export_gist_dialog,
+    about_dialog,
 } from "./dialogs";
 
 import { CommandRegistry } from "@lumino/commands";
@@ -115,6 +116,14 @@ function create_project_menu(
     });
     menu.addItem({ type: "separator" });
     menu.addItem({ type: "submenu", submenu: create_settings_menu() });
+    menu.addItem({ type: "separator" });
+
+    commands.addCommand("slint:about", {
+        label: "About",
+        iconClass: "fa-info-circle",
+        execute: () => about_dialog(),
+    });
+    menu.addItem({ command: "slint:about" });
 
     return menu;
 }
