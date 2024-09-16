@@ -21,8 +21,8 @@ export component Light {
     property <angle> angle: (index * gap) + AppState.startAngle;
     property <bool> lightOn: index <= AppState.volume;
 
-    x: AppState.elementRadius * Math.cos(root.angle);
-    y: AppState.elementRadius * Math.sin(root.angle);
+    x: AppState.elementRadius * angle.cos();
+    y: AppState.elementRadius * angle.sin();
     width: 0;
     height: 0;
 
@@ -118,8 +118,8 @@ export component AppWindow inherits Window {
             }
 
             Image {
-                x: 120px * Math.cos(mod(AppState.angle, 360deg));
-                y: 120px * Math.sin(mod(AppState.angle, 360deg));
+                x: 120px * AppState.angle.cos();
+                y: 120px * AppState.angle.sin();
                 source: @image-url("images/indicator.png");
             }
 
