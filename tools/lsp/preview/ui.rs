@@ -361,10 +361,19 @@ fn extract_color(
         if let Some(color) = literals::parse_color_literal(&text) {
             value.kind = kind;
             value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(color));
+            value.value_string = text.into();
             return true;
         }
     }
     false
+}
+
+fn set_default_brush(kind: PropertyValueKind, value: &mut PropertyValue) {
+    let text = "#00000000";
+    let color = literals::parse_color_literal(&text).unwrap();
+    value.kind = kind;
+    value.value_string = text.into();
+    value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(color));
 }
 
 fn simplify_value(
@@ -419,7 +428,7 @@ fn simplify_value(
                 // This makes no sense right now, as we have no way to get any
                 // information on the palettes.
             } else if value.code.is_empty() {
-                value.kind = PropertyValueKind::Color;
+                set_default_brush(PropertyValueKind::Color, &mut value);
             }
         }
         Type::Brush => {
@@ -427,7 +436,7 @@ fn simplify_value(
                 extract_color(&expression, PropertyValueKind::Brush, &mut value);
                 // TODO: Handle gradients...
             } else if value.code.is_empty() {
-                value.kind = PropertyValueKind::Brush;
+                set_default_brush(PropertyValueKind::Brush, &mut value);
             }
         }
         Type::Bool => {

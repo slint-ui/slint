@@ -12,6 +12,7 @@ export global Icons {
     out property <image> sidebar-left: @image-url("../assets/layout-sidebar-left.svg");
     out property <image> sidebar-right: @image-url("../assets/layout-sidebar-right.svg");
     out property <image> sync: @image-url("../assets/sync.svg");
+
 }
 
 export struct TextStyle {
@@ -44,6 +45,9 @@ export global EditorFontSettings {
 export global EditorSpaceSettings {
     in property <length> default-spacing: 8px;
     in property <length> default-padding: 8px;
+    in property <length> property-spacing: 2px;
+    in property <length> group-indent: 10px;
+
 }
 
 export global EditorSizeSettings {
@@ -53,6 +57,10 @@ export global EditorSizeSettings {
     in property <length> property-bar-width: 360px;
     in property <length> default-icon-width: 20px;
     in property <length> min-prefix-text-width: 120px;
+    in property <length> eightbit-int-size: 40px;
+    in property <length> hex-size: 80px;
+    in property <length> float-size: 100px;
+    in property <length> length-combo: 70px;
 }
 
 export global EditorPalette {

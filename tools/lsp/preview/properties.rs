@@ -411,6 +411,8 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
         break;
     }
 
+    result.sort_by_key(|i| i.group.clone());
+
     insert_property_definitions(element, result)
 }
 
