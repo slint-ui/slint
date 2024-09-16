@@ -1,14 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button, HorizontalBox } from "std-widgets.slint";
+import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button, HorizontalBox, SpinBox, Slider } from "std-widgets.slint";
 
 import { Api, ElementInformation, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
 import { GroupHeader } from "../components/group.slint";
 import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
 import { StateLayer } from "../components/state-layer.slint";
-import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings } from "../components/styling.slint";
+import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings, EditorFontSettings, EditorPalette } from "../components/styling.slint";
+
+export global style {
+    out property <length> grid-margin:5px;
+    out property <length> min-distance:5px;
+}
 
 component CodeButton inherits Button {
     in property <ElementInformation> element-information;
@@ -41,19 +46,214 @@ component ResetButton inherits Button {
     }
 }
 
+component NameLabel inherits HorizontalLayout {
+    in property <string> property-name;
+
+    horizontal-stretch: 0;
+
+    Rectangle {
+        width: EditorSpaceSettings.group-indent;
+    }
+
+    BodyText {
+        min-width: EditorSizeSettings.min-prefix-text-width;
+        text: root.property-name;
+        font-size: 1rem;
+        overflow: elide;
+    }
+}
+
+component FloatWidget inherits HorizontalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    private property <string> current-unit;
+    spacing: EditorSpaceSettings.default-spacing;
+    padding-top: EditorSpaceSettings.property-spacing;
+    alignment: space-between;
+    width: 100%;
+
+    NameLabel {
+        property-name: property-information.name;
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        number := LineEdit {
+            horizontal-alignment: right;
+            text: property-information.value.value-float;
+            min-width: EditorSizeSettings.float-size;
+            max-width: 14rem;
+            horizontal-stretch: 0;
+            font-size: 1rem;
+
+            accepted(text) => {
+                Api.set-code-binding(
+                    root.element-information.source-uri,
+                    root.element-information.source-version,
+                    root.element-information.range.start,
+                    root.property-information.name,
+                    number.text + root.current-unit,
+                );
+            }
+        }
+
+        if property-information.value.visual-items.length > 1: ComboBox {
+            min-width: EditorSizeSettings.length-combo;
+            model: property-information.value.visual-items;
+            current-index: property-information.value.code == "" ? property-information.value.default-selection : property-information.value.value-int;
+
+            changed current-index => {
+                root.current-unit = self.model[self.current-index];
+            }
+
+            horizontal-stretch: 0;
+
+            selected(unit) => {
+                Api.set-code-binding(
+                    root.element-information.source-uri,
+                    root.element-information.source-version,
+                    root.element-information.range.start,
+                    root.property-information.name,
+                    number.text + root.current-unit,
+                );
+            }
+        }
+        if property-information.value.visual-items.length == 1: Text {
+            text: property-information.value.visual-items[0];
+
+            changed text => {
+                root.current-unit = self.text;
+            }
+        }
+    }
+}
+
+component ColorWidget inherits HorizontalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    spacing: EditorSpaceSettings.default-spacing;
+    alignment: space-between;
+    width: 100%;
+
+    NameLabel {
+        property-name: property-information.name;
+    }
+
+    HorizontalLayout {
+        spacing: parent.spacing;
+
+        alignment: end;
+
+        Rectangle {
+            height: 1.8rem;
+            width: 2 * self.height;
+            
+            background: property-information.value.value-brush;
+            border-width: 1px;
+            border-color: Palette.foreground;
+        }
+
+        Text {
+            vertical-alignment: center;
+            text: property-information.value.value-string;
+        }
+    }
+}
+
+export component ExpandableProperty inherits Rectangle {
+    callback toggled;
+    in-out property <bool> checked:false;
+    property <duration> dur:300ms;
+    in-out property <color> headerBG: Palette.alternate-background;
+    in-out property <bool> enabled:true;
+    in property <string> title: "Title";
+    clip: true;
+    height: header.height + EditorSpaceSettings.default-spacing + (root.checked ? content.preferred-height : 0px);
+    animate height {
+        duration: dur;
+        easing: ease-out;
+    }
+
+    VerticalLayout {
+        x: 0;
+        spacing: EditorSpaceSettings.default-spacing;
+        Rectangle {
+            height: 5px;
+        }
+
+        touch-area := TouchArea {
+            clicked => {
+                if (root.enabled) {
+                    root.checked = !root.checked;
+                    root.toggled();
+                }
+            }
+
+            state-layer := StateLayer {
+                width: 100%;
+                height: 100%;
+                has-hover: touch-area.has-hover;
+                pressed: touch-area.pressed;
+            }
+
+            header := Rectangle {
+                width: 100%;
+                height: 30px;
+                background: headerBG;
+            }
+
+            HorizontalLayout {
+                x: 0;
+                y: 0;
+                width: 100%;
+                alignment: stretch;
+
+                accordionIcon := Image {
+                    width: EditorSpaceSettings.group-indent;
+                    source: Icons.add;
+                    colorize: Palette.foreground;
+                    vertical-alignment: top;
+                    visible: state-layer.has-hover;
+                    rotation-angle: root.checked ? 180deg : 0deg;
+                    animate rotation-angle {
+                        duration: dur / 2;
+                        easing: ease-in;
+                    }
+                }
+
+                content := Rectangle {
+                    background: headerBG;
+                    height: root.checked ? self.preferred-height : 10px;
+                    animate height {
+                        duration: dur;
+                        easing: ease-out;
+                    }
+                    VerticalLayout {
+                        width: 100%;
+                        @children
+                    }
+                }
+            }
+        }
+    }
+}
+
 component ExpandableGroup {
     in property <ElementInformation> element-information;
     in property <string> text;
     in property <[PropertyInformation]> properties;
 
     property <bool> open: true;
-    
     Rectangle {
         background: Palette.alternate-background;
 
         content-layer := VerticalLayout {
             // header
-            Rectangle {
+            spacing: EditorSpaceSettings.default-spacing;
+
+            if text != "": Rectangle {
                 touch-area := TouchArea {
                     clicked => {
                         root.open = !root.open;
@@ -66,15 +266,14 @@ component ExpandableGroup {
                     has-hover: touch-area.has-hover;
                     pressed: touch-area.pressed;
                 }
-                
-                HorizontalBox {
+
+                HorizontalLayout {
                     icon-image := Image {
                         width: EditorSizeSettings.default-icon-width;
                         colorize: Palette.foreground;
                         source: Icons.drop-down;
                         rotation-origin-x: self.width / 2;
                         rotation-origin-y: self.height / 2;
-                        
                         states [
                             closed when !root.open: {
                                 rotation-angle: -0.25turn;
@@ -83,47 +282,142 @@ component ExpandableGroup {
 
                         animate rotation-angle { duration: EditorAnimationSettings.roation-duration; }
                     }
-                    
+
                     BodyStrongText {
                         text: root.text;
                     }
                 }
             }
 
-            if root.open : VerticalBox {
-                for property in root.properties : HorizontalLayout {
-                    spacing: parent.spacing;
-                    
-                    BodyText {
-                        min-width: EditorSizeSettings.min-prefix-text-width;
-                        text: property.name;
-                    }
+            if root.open: VerticalLayout {
+                spacing: EditorSpaceSettings.property-spacing;
+                for property in root.properties: HorizontalLayout {
+                    alignment: stretch;
 
-                    if property.value.kind == PropertyValueKind.string: LineEdit {
-                        text: property.value.value-string;
+                    if property.value.kind == PropertyValueKind.boolean: HorizontalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
 
-                        accepted(text) => {
-                            Api.set-string-binding(
-                                root.element-information.source-uri,
-                                root.element-information.source-version,
-                                root.element-information.range.start,
-                                property.name,
-                                text,
-                                property.value.is-translatable,
-                                property.value.tr-context,
-                                property.value.tr-plural,
-                                property.value.tr-plural-expression,
-                            );
+                        NameLabel {
+                            property-name: property.name;
                         }
+
+                        CheckBox {
+                            checked: property.value.value_bool;
+
+                            toggled() => {
+                                Api.set-code-binding(
+                                    root.element-information.source-uri,
+                                    root.element-information.source-version,
+                                    root.element-information.range.start,
+                                    property.name,
+                                    self.checked ? "true" : "false",
+                                );
+                            }
+                        }
+                    }
+                    if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
+                        element-information <=> root.element-information;
+                        property-information: property;
                     }
                     if property.value.kind == PropertyValueKind.code: HorizontalLayout {
-                        ResetButton {
-                            element-information <=> root.element-information;
-                            property-information: property;
+                        spacing: EditorSpaceSettings.default-spacing;
+                        alignment: space-between;
+                        padding-top: 2px;
+
+                        NameLabel {
+                            property-name: property.name;
                         }
-                        CodeButton {
-                            element-information <=> root.element-information;
-                            property-information: property;
+
+                        if property.value.code == "": HorizontalLayout {
+                            Text {
+                                text: @tr("unset");
+                            }
+                        }
+                        if property.value.code != "": HorizontalLayout {
+                            ResetButton {
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+
+                            CodeButton {
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                        }
+                    }
+                    if property.value.kind == PropertyValueKind.enum: HorizontalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
+
+                        NameLabel {
+                            property-name: property.name;
+                        }
+
+                        HorizontalLayout {
+                            ComboBox {
+                                current-index: property.value.value-int;
+
+                                model: property.value.visual-items;
+
+                                selected(value) => {
+                                    Api.set-code-binding(
+                                        root.element-information.source-uri,
+                                        root.element-information.source-version,
+                                        root.element-information.range.start,
+                                        property.name,
+                                        property.value.value_string + "." + value,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if property.value.kind == PropertyValueKind.float:  FloatWidget {
+                        element-information <=> root.element-information;
+                        property-information: property;
+                    }
+                    if property.value.kind == PropertyValueKind.integer: HorizontalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
+
+                        NameLabel {
+                            property-name: property.name;
+                        }
+
+                        LineEdit {
+                            input-type: number;
+                            text: property.value.value-int;
+
+                            accepted(text) => {
+                                Api.set-code-binding(
+                                    root.element-information.source-uri,
+                                    root.element-information.source-version,
+                                    root.element-information.range.start,
+                                    property.name,
+                                    text,
+                                );
+                            }
+                        }
+                    }
+                    if property.value.kind == PropertyValueKind.string: HorizontalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
+
+                        NameLabel {
+                            property-name: property.name;
+                        }
+
+                        LineEdit {
+                            text: property.value.value-string;
+                            accepted(text) => {
+                                Api.set-string-binding(
+                                    root.element-information.source-uri,
+                                    root.element-information.source-version,
+                                    root.element-information.range.start,
+                                    property.name,
+                                    text,
+                                    property.value.is-translatable,
+                                    property.value.tr-context,
+                                    property.value.tr-plural,
+                                    property.value.tr-plural-expression,
+                                );
+                            }
                         }
                     }
                 }
@@ -146,19 +440,19 @@ export component PropertyView {
             title: @tr("{} Properties", root.current-element.type-name);
             vertical-stretch: 0;
         }
-        
-        if !root.element-loaded : Text {
+
+        if !root.element-loaded: Text {
             text: @tr("Select an Element");
             horizontal-alignment: center;
             vertical-alignment: center;
             vertical-stretch: 1;
         }
 
-        if root.element-loaded : ScrollView {
+        if root.element-loaded: ScrollView {
             VerticalBox {
                 alignment: start;
 
-                for group in root.properties : ExpandableGroup {
+                for group in root.properties: ExpandableGroup {
                     text: group.group-name;
 
                     element-information <=> root.current-element;
