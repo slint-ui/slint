@@ -409,6 +409,12 @@ impl<T> From<Vec<T>> for VecModel<T> {
     }
 }
 
+impl<T> FromIterator<T> for VecModel<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        VecModel::from(Vec::from_iter(iter))
+    }
+}
+
 impl<T: Clone + 'static> Model for VecModel<T> {
     type Data = T;
 
