@@ -18,6 +18,7 @@ build = "build.rs"
 
 [lib]
 crate-type = ["cdylib"]
+path = "rust/lib.rs"
 
 [features]
 default = ["backend-winit", "renderer-femtovg", "renderer-software", "backend-qt", "accessibility"]

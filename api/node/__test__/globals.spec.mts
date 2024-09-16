@@ -3,7 +3,7 @@
 
 import test from "ava";
 
-import { private_api } from "../index.js";
+import { private_api } from "../dist/index.js";
 
 test("get/set global properties", (t) => {
     const compiler = new private_api.ComponentCompiler();

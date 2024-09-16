@@ -7,7 +7,7 @@ import test from "ava";
 import * as http from "node:http";
 import fetch from "node-fetch";
 
-import { runEventLoop, quitEventLoop, private_api } from "../index.js";
+import { runEventLoop, quitEventLoop, private_api } from "../dist/index.js";
 
 test.serial("merged event loops with timer", async (t) => {
     let invoked = false;

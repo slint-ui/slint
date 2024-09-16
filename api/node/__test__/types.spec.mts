@@ -3,7 +3,7 @@
 
 import test from "ava";
 
-import { private_api, ArrayModel } from "../index.js";
+import { private_api, ArrayModel } from "../dist/index.js";
 
 test("SlintColor from fromRgb", (t) => {
     const color = private_api.SlintRgbaColor.fromRgb(100, 110, 120);

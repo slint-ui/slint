@@ -100,7 +100,6 @@ All notable changes to this project are documented in this file.
  - Skia renderer: Improve rendering quality of layers
  - GridLayout: Fixed panic when rowspan or colspan is 0 (#6181)
 
-
 ## [1.7.2] - 2024-08-14
 
 ### General

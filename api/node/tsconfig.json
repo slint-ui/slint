@@ -3,8 +3,9 @@
         "module": "CommonJS",
         "target": "esnext",
         "declaration": true,
+        "outDir": "dist"
     },
     "include": [
-        "index.ts"
+        "typescript/"
     ],
 }

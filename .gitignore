@@ -20,6 +20,8 @@ docs/reference/src/language/builtins/structs.md
 *.node
 *.d.ts
 
+api/node/dist/*
+
 .env
 .envrc
 __pycache__

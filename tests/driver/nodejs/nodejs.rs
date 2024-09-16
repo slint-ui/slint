@@ -49,7 +49,7 @@ lazy_static::lazy_static! {
 
         check_output(o);
 
-        node_dir.join("index.js")
+        node_dir.join("dist/index.js")
     };
 }
 
