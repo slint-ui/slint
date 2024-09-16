@@ -121,6 +121,10 @@ impl<T> JoinHandle<T> {
     pub fn abort(self) {
         self.0.aborted.store(true, atomic::Ordering::Relaxed);
     }
+    /// Checks if the task associated with this `JoinHandle` has finished.
+    pub fn is_finished(&self) -> bool {
+        matches!(self.0.inner().fut, FutureState::Finished(_))
+    }
 }
 
 #[cfg(feature = "std")]
