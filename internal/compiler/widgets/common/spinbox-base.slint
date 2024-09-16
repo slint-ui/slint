@@ -43,6 +43,24 @@ export component SpinBoxBase {
     function set-text-to-value() {
         text-input.text = root.value;
     }
+    
+    TouchArea {
+        enabled: root.enabled;
+
+        scroll-event(event) => {
+            if event.delta-y > 0 {
+                root.increment();
+                return accept;
+            }
+
+            if event.delta-y < 0 {
+                root.decrement();
+                return accept;
+            }
+
+            reject
+        }
+    }
 
     text-input := TextInput {
         vertical-alignment: center;
@@ -67,33 +85,6 @@ export component SpinBoxBase {
             } else if !self.text.is-float() && self.text != "" {
                 root.set-text-to-value();
             }
-        }
-    }
-
-    TouchArea {
-        enabled: root.enabled;
-
-        scroll-event(event) => {
-            if event.delta-y > 0 {
-                root.increment();
-                return accept;
-            }
-
-            if event.delta-y < 0 {
-                root.decrement();
-                return accept;
-            }
-
-            return reject;
-        }
-
-        double-clicked => {
-            text-input.focus();
-            text-input.select-all();
-        }
-
-        clicked => {
-            text-input.focus();
         }
     }
 }
