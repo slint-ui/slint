@@ -3,6 +3,7 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![warn(missing_docs)]
 
 extern crate alloc;
 
@@ -151,60 +152,71 @@ pub const HAS_NATIVE_STYLE: bool = false;
 #[doc(hidden)]
 pub mod native_widgets {}
 
-#[doc = concat!("This struct implements the Slint Platform trait. Use this in conjunction with [`slint::platform::set_platform`](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/platform/fn.set_platform.html) to initialize.")]
-/// Slint to use winit for all windowing system interaction.
-///
-/// ```rust,no_run
-/// use i_slint_backend_winit::Backend;
-/// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
-/// ```
-pub struct Backend {
-    renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
-    event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
-    proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
+/// Use the BackendBuilder to configure the properties of the Winit Backend before creating it.
+/// Create the builder using [`Backend::builder()`], then configure it for example with [`Self::with_renderer_name`],
+/// and build the backend using [`Self::build`].
+pub struct BackendBuilder {
+    window_attributes_hook:
+        Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
+    renderer_name: Option<String>,
+    event_loop_builder: Option<winit::event_loop::EventLoopBuilder<SlintUserEvent>>,
+}
 
-    /// This hook is called before a Window is created.
+impl BackendBuilder {
+    /// Configures this builder to use the specified renderer name when building the backend later.
+    /// Pass `renderer-software` for example to configure the backend to use the Slint software renderer.
+    pub fn with_renderer_name(mut self, name: impl Into<String>) -> Self {
+        self.renderer_name = Some(name.into());
+        self
+    }
+
+    /// Configures this builder to use the specified hook that will be called before a Window is created.
     ///
-    /// It can be used to adjust settings of window that will be created
+    /// It can be used to adjust settings of window that will be created.
     ///
     /// # Example
     ///
     /// ```rust,no_run
-    /// let mut backend = i_slint_backend_winit::Backend::new().unwrap();
-    /// backend.window_attributes_hook = Some(Box::new(|attributes| attributes.with_content_protected(true)));
+    /// let mut backend = i_slint_backend_winit::Backend::builder()
+    ///     .with_window_attributes_hook(|attributes| attributes.with_content_protected(true))
+    ///     .build()
+    ///     .unwrap();
     /// slint::platform::set_platform(Box::new(backend));
     /// ```
-    pub window_attributes_hook:
-        Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
-
-    #[cfg(not(target_arch = "wasm32"))]
-    clipboard: Weak<std::cell::RefCell<clipboard::ClipboardPair>>,
-}
-
-impl Backend {
-    #[doc = concat!("Creates a new winit backend with the default renderer that's compiled in. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
-    /// details on how to select the default renderer.
-    pub fn new() -> Result<Self, PlatformError> {
-        Self::new_with_renderer_by_name(None)
+    pub fn with_window_attributes_hook(
+        mut self,
+        hook: impl Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes + 'static,
+    ) -> Self {
+        self.window_attributes_hook = Some(Box::new(hook));
+        self
     }
 
-    #[doc = concat!("Creates a new winit backend with the renderer specified by name. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
-    /// details on how to select the default renderer.
-    /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
-    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
-        Self::new_with_renderer_by_name_and_event_loop_builder(
-            renderer_name,
-            winit::event_loop::EventLoop::with_user_event(),
-        )
-    }
-
-    #[doc = concat!("Creates a new winit backend with the renderer specified by name and the given event loop builder. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
-    /// details on how to select the default renderer.
-    /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
-    pub fn new_with_renderer_by_name_and_event_loop_builder(
-        renderer_name: Option<&str>,
+    /// Configures this builder to use the specified event loop builder when creating the event
+    /// loop during a subsequent call to [`Self::build`].
+    pub fn with_event_loop_builder(
+        mut self,
         event_loop_builder: winit::event_loop::EventLoopBuilder<SlintUserEvent>,
-    ) -> Result<Self, PlatformError> {
+    ) -> Self {
+        self.event_loop_builder = Some(event_loop_builder);
+        self
+    }
+
+    /// Builds the backend with the parameters configured previously. Set the resulting backend
+    /// with `slint::platform::set_platform()`:
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut backend = i_slint_backend_winit::Backend::builder()
+    ///     .with_renderer_name("renderer-software")
+    ///     .build()
+    ///     .unwrap();
+    /// slint::platform::set_platform(Box::new(backend));
+    /// ```
+    pub fn build(self) -> Result<Backend, PlatformError> {
+        let event_loop_builder =
+            self.event_loop_builder.unwrap_or_else(winit::event_loop::EventLoop::with_user_event);
+
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
 
         let nre = crate::event_loop::NotRunningEventLoop::new(Some(event_loop_builder))?;
@@ -218,7 +230,7 @@ impl Backend {
             *loop_instance.borrow_mut() = Some(nre);
         });
 
-        let renderer_factory_fn = match renderer_name {
+        let renderer_factory_fn = match self.renderer_name.as_deref() {
             #[cfg(feature = "renderer-femtovg")]
             Some("gl") | Some("femtovg") => renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
             #[cfg(enable_skia_renderer)]
@@ -238,14 +250,75 @@ impl Backend {
                 default_renderer_factory
             }
         };
-        Ok(Self {
+        Ok(Backend {
             renderer_factory_fn,
             event_loop_state: Default::default(),
-            window_attributes_hook: None,
+            window_attributes_hook: self.window_attributes_hook,
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: clipboard.into(),
             proxy,
         })
+    }
+}
+
+#[doc = concat!("This struct implements the Slint Platform trait. Use this in conjunction with [`slint::platform::set_platform`](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/platform/fn.set_platform.html) to initialize.")]
+/// Slint to use winit for all windowing system interaction.
+///
+/// ```rust,no_run
+/// use i_slint_backend_winit::Backend;
+/// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
+/// ```
+pub struct Backend {
+    renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
+    event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
+    proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
+
+    /// This hook is called before a Window is created.
+    ///
+    /// It can be used to adjust settings of window that will be created
+    ///
+    /// See also [`BackendBuilder::with_window_attributes_hook`].
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut backend = i_slint_backend_winit::Backend::new().unwrap();
+    /// backend.window_attributes_hook = Some(Box::new(|attributes| attributes.with_content_protected(true)));
+    /// slint::platform::set_platform(Box::new(backend));
+    /// ```
+    pub window_attributes_hook:
+        Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
+
+    #[cfg(not(target_arch = "wasm32"))]
+    clipboard: Weak<std::cell::RefCell<clipboard::ClipboardPair>>,
+}
+
+impl Backend {
+    #[doc = concat!("Creates a new winit backend with the default renderer that's compiled in. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
+    /// details on how to select the default renderer.
+    pub fn new() -> Result<Self, PlatformError> {
+        Self::builder().build()
+    }
+
+    #[doc = concat!("Creates a new winit backend with the renderer specified by name. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
+    /// details on how to select the default renderer.
+    /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
+    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
+        let mut builder = Self::builder();
+        if let Some(name) = renderer_name {
+            builder = builder.with_renderer_name(name.to_string());
+        }
+        builder.build()
+    }
+
+    /// Creates a new BackendBuilder for configuring aspects of the Winit backend before
+    /// setting it as the platform backend.
+    pub fn builder() -> BackendBuilder {
+        BackendBuilder {
+            window_attributes_hook: None,
+            renderer_name: None,
+            event_loop_builder: None,
+        }
     }
 }
 
