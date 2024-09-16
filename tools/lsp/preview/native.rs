@@ -260,9 +260,8 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
     let mut builder = winit::event_loop::EventLoop::with_user_event();
     builder.with_default_menu(false);
 
-    let backend = i_slint_backend_winit::Backend::new_with_renderer_by_name_and_event_loop_builder(
-        None, builder,
-    )?;
+    let backend =
+        i_slint_backend_winit::Backend::builder().with_event_loop_builder(builder).build()?;
 
     slint::platform::set_platform(Box::new(backend)).map_err(|set_platform_err| {
         i_slint_core::api::PlatformError::from(set_platform_err.to_string())
