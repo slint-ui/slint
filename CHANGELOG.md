@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
  - Do not trigger `current-item-changed` on `StandardListView` if `current-item` is set on the same value.
  - Fixed `TimePickerPopup` does not open minute view by click on selected hour.
  - Visually clamp the slider even if the value is out of bounds (#5770)
+ - Fixed button of cupertino `ComboBox` not centered when hight is bigger than default
 
 ### Rust
 

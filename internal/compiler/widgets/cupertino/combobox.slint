@@ -76,6 +76,7 @@ export component ComboBox {
     }
 
     layout := HorizontalLayout {
+        y: (parent.height - self.height) / 2;
         padding-left: 8px;
         padding-right: 8px;
         padding-top: 4px;
@@ -83,6 +84,7 @@ export component ComboBox {
         spacing: 4px;
 
         text := Text {
+            horizontal-stretch: 1;
             horizontal-alignment: left;
             vertical-alignment: center;
             font-size: CupertinoFontSettings.body.font-size;
@@ -91,57 +93,61 @@ export component ComboBox {
             text: root.current-value;
         }
 
-        Rectangle {
-            y: (parent.height - self.height) / 2;
-            width: 16px;
-            height: self.width;
+        VerticalLayout {
+            alignment: center;
+            
+            Rectangle {
+                horizontal-stretch: 0;
+                min-width: 16px;
+                min-height: max(self.min-width, button-layout.min-height);
 
-            if (root.enabled) : Rectangle {
-                width: 100%;
-                height: 100%;
-                drop-shadow-blur: 3px;
-                drop-shadow-color: #00000066;
-                drop-shadow-offset-y: 0.5px;
-                border-radius: 4px;
-                background: CupertinoPalette.accent-background;
-
-                Rectangle {
-                    drop-shadow-blur: 2px;
-                    drop-shadow-color: #00000026;
-                    drop-shadow-offset-y: 1px;
-                    border-radius: parent.border-radius;
-                    background: parent.background;
-                }
-
-                Rectangle {
-                    drop-shadow-blur: 1px;
-                    drop-shadow-color: #00000026;
+                if root.enabled : Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    drop-shadow-blur: 3px;
+                    drop-shadow-color: #00000066;
                     drop-shadow-offset-y: 0.5px;
-                    border-radius: parent.border-radius;
-                    background: parent.background;
+                    border-radius: 4px;
+                    background: CupertinoPalette.accent-background;
+
+                    Rectangle {
+                        drop-shadow-blur: 2px;
+                        drop-shadow-color: #00000026;
+                        drop-shadow-offset-y: 1px;
+                        border-radius: parent.border-radius;
+                        background: parent.background;
+                    }
+
+                    Rectangle {
+                        drop-shadow-blur: 1px;
+                        drop-shadow-color: #00000026;
+                        drop-shadow-offset-y: 0.5px;
+                        border-radius: parent.border-radius;
+                        background: parent.background;
+                    }
+
+                    Rectangle {
+                        border-radius: parent.border-radius;
+                        background: CupertinoPalette.dimmer;
+                        opacity: 0.17;
+                    }
                 }
 
-                Rectangle {
-                    border-radius: parent.border-radius;
-                    background: CupertinoPalette.dimmer;
-                    opacity: 0.17;
-                }
-            }
+                button-layout := VerticalLayout {
+                    padding: 4px;
+                    spacing: 4px;
 
-            VerticalLayout {
-                padding: 4px;
-                spacing: 4px;
+                    top-icon := Image {
+                        x: (parent.width - self.width) / 2;
+                        colorize: CupertinoPalette.accent-foreground;
+                        source: Icons.chevron-up;
+                    }
 
-                top-icon := Image {
-                    x: (parent.width - self.width) / 2;
-                    colorize: CupertinoPalette.accent-foreground;
-                    source: Icons.chevron-up;
-                }
-
-                bottom-icon := Image {
-                    x: (parent.width - self.width) / 2;
-                    colorize: CupertinoPalette.accent-foreground;
-                    source: Icons.chevron-down;
+                    bottom-icon := Image {
+                        x: (parent.width - self.width) / 2;
+                        colorize: CupertinoPalette.accent-foreground;
+                        source: Icons.chevron-down;
+                    }
                 }
             }
         }
