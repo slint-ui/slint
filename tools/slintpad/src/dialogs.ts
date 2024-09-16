@@ -138,3 +138,27 @@ export async function export_gist_dialog(
         () => exporter(description.value, is_public.checked),
     );
 }
+
+export function about_dialog() {
+    const element = document.createElement("div");
+    element.innerHTML = `
+        <div>
+          <center>
+          <h1>Welcome to SlintPad</h1>
+
+          <a href="https://slint.dev/" target="_blank"><img src="https://slint.dev/logo/slint-logo-simple-light.svg"></a>
+          </center>
+
+          <p><a href="https://slint.dev/" target="_blank">Slint</a> is a toolkit to efficiently develop fluid graphical user interfaces for
+          any display: embedded devices and desktop applications. It comes with a custom markup language for user
+          interfaces. This language is easy to learn, to read and write, and provides a powerful way to describe
+          graphical elements. For more details, check out the <a href="https://slint.dev/docs/slint" target="_blank">Slint Language Documentation</a>.</p>
+
+          <p>Use SlintPad to quickly try out Slint code snippets, with auto-completion, code navigation, and live-preview.</p>
+          <p>The same features are also available in the <a href="https://marketplace.visualstudio.com/items?itemName=Slint.slint" target="_blank">Visual Studio Code extension</a>,
+          which runs in your local VS code installation as well as in the <a href="https://vscode.dev/" target="_blank">Visual Studio Code for the Web</a>.</p>
+
+          <p>SlintPad is licensed under the GNU GPLv3. The source code is located in our <a href="https://github.com/slint-ui/slint/tree/master/tools/slintpad" target="_blank">GitHub repository</a>.
+        </div>`;
+    modal_dialog("about_dialog", [element]);
+}
