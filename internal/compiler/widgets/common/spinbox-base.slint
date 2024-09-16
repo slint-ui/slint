@@ -87,6 +87,11 @@ export component SpinBoxBase {
             return reject;
         }
 
+        double-clicked => {
+            text-input.focus();
+            text-input.select-all();
+        }
+
         clicked => {
             text-input.focus();
         }
