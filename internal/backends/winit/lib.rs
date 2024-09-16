@@ -171,10 +171,10 @@ pub struct Backend {
     ///
     /// ```rust,no_run
     /// let mut backend = i_slint_backend_winit::Backend::new().unwrap();
-    /// backend.window_builder_hook = Some(Box::new(|builder| builder.with_content_protected(true)));
+    /// backend.window_attributes_hook = Some(Box::new(|attributes| attributes.with_content_protected(true)));
     /// slint::platform::set_platform(Box::new(backend));
     /// ```
-    pub window_builder_hook:
+    pub window_attributes_hook:
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -241,7 +241,7 @@ impl Backend {
         Ok(Self {
             renderer_factory_fn,
             event_loop_state: Default::default(),
-            window_builder_hook: None,
+            window_attributes_hook: None,
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: clipboard.into(),
             proxy,
@@ -282,23 +282,23 @@ fn send_event_via_global_event_loop_proxy(
 
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        let mut builder = WinitWindowAdapter::window_attributes(
+        let mut attrs = WinitWindowAdapter::window_attributes(
             #[cfg(target_arch = "wasm32")]
             "canvas".into(),
         )?;
 
-        if let Some(hook) = &self.window_builder_hook {
-            builder = hook(builder);
+        if let Some(hook) = &self.window_attributes_hook {
+            attrs = hook(attrs);
         }
 
         let adapter = WinitWindowAdapter::new(
             (self.renderer_factory_fn)(),
-            builder.clone(),
+            attrs.clone(),
             #[cfg(enable_accesskit)]
             self.proxy.clone(),
         )
         .or_else(|e| {
-            try_create_window_with_fallback_renderer(builder, &self.proxy)
+            try_create_window_with_fallback_renderer(attrs, &self.proxy)
                 .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
         })?;
         Ok(adapter)
