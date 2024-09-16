@@ -109,6 +109,8 @@ export struct PropertyDefinition {
 
 /// The Property Declaration
 export struct PropertyDeclaration {
+    defined-at: PropertyDefinition,
+
     source-path: string,
     source-version: int,
     range: Range,
@@ -118,8 +120,6 @@ export struct PropertyDeclaration {
 export struct PropertyInformation {
     name: string,
     type-name: string,
-    declared-at: PropertyDeclaration,
-    defined-at: PropertyDefinition,
     value: PropertyValue,
 }
 
@@ -136,8 +136,6 @@ export struct ElementInformation {
     source-uri: string,
     source-version: int,
     range: Range,
-
-    properties: [PropertyGroup],
 }
 
 export global Api {
@@ -183,7 +181,8 @@ export global Api {
     in property <bool> resize-to-preferred-size: false;
 
     // ## Property Editor
-    in property <ElementInformation> current-element;
+    in-out property <ElementInformation> current-element;
+    in-out property <[PropertyGroup]> properties;
 
     // # Callbacks
 
@@ -234,4 +233,7 @@ export global Api {
     callback set-code-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ string);
     callback set-color-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* property-value: */ color);
     callback set-string-binding(/* element-url: */ string, /* element-version: */ int, /* element-offset: */ int, /* property-name: */ string, /* value: */ string, /* is_translatable: */ bool, /* tr_context: */ string, /* tr_plural: */ string, /* tr_plural_exprression: */ string);
+
+    // Get the property declaration/definition ranges
+    callback property-declaration-ranges(/* property-name: */ string) -> PropertyDeclaration;
 }

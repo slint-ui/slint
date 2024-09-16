@@ -3,7 +3,7 @@
 
 import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button } from "std-widgets.slint";
 
-import { Api, ElementInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ElementInformation, PropertyDeclaration, PropertyGroup, PropertyValue, PropertyValueKind } from "../api.slint";
 import { GroupHeader } from "../components/group.slint";
 import { BodyText } from "../components/body-text.slint";
 import { EditorSizeSettings } from "../components/styling.slint";
@@ -31,6 +31,7 @@ component TypeHeader inherits Rectangle {
 
 export component PropertyView {
     in property <ElementInformation> current-element <=> Api.current-element;
+    in property <[PropertyGroup]> properties <=> Api.properties;
 
     private property <length> key-width: self.width / 2.5;
 
@@ -49,7 +50,7 @@ export component PropertyView {
 
         ScrollView {
             VerticalLayout {
-                if root.current-element.properties.length > 0: Rectangle {
+                if root.properties.length > 0: Rectangle {
                     VerticalLayout {
                         alignment: start;
 
@@ -58,7 +59,7 @@ export component PropertyView {
                             id: root.current-element.id;
                         }
 
-                        for group in root.current-element.properties: Rectangle {
+                        for group in root.properties: Rectangle {
                             VerticalBox {
                                 if group.group-name != "" && group.group-name != root.current-element.type-name: BodyText {
                                     text: group.group-name;
@@ -88,7 +89,7 @@ export component PropertyView {
                                         }
 
                                         clicked() => {
-                                            Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
+                                            Api.show-document-offset-range(root.current-element.source-uri, Api.property-declaration-ranges(property-name).defined-at.expression-range.start, Api.property-declaration-ranges(property-name).defined-at.expression-range.start);
                                         }
                                     }
 
@@ -101,7 +102,7 @@ export component PropertyView {
                                         if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code != "": Button {
                                             text: @tr("Code");
                                             clicked() => {
-                                                Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
+                                                Api.show-document-offset-range(root.current-element.source-uri, Api.property-declaration-ranges(property-name).defined-at.expression-range.start, Api.property-declaration-ranges(property-name).defined-at.expression-range.start);
                                             }
                                         }
                                         if property-row.property-value.kind == PropertyValueKind.code && property-row.property-value.code == "": Text {

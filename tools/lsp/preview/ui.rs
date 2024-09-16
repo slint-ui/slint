@@ -21,6 +21,8 @@ use crate::wasm_prelude::*;
 
 slint::include_modules!();
 
+pub type PropertyDeclarations = HashMap<String, PropertyDeclaration>;
+
 pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
 
@@ -77,6 +79,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_string_binding(super::set_string_binding);
+    api.on_property_declaration_ranges(super::property_declaration_ranges);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
@@ -244,12 +247,14 @@ fn to_ui_range(r: TextRange) -> Option<Range> {
 fn map_property_declaration(
     document_cache: &common::DocumentCache,
     declared_at: &Option<properties::DeclarationInformation>,
+    defined_at: PropertyDefinition,
 ) -> Option<PropertyDeclaration> {
     let da = declared_at.as_ref()?;
     let source_version = document_cache.document_version_by_path(&da.path).unwrap_or(-1);
     let pos = TextRange::new(da.start_position, da.start_position);
 
     Some(PropertyDeclaration {
+        defined_at,
         source_path: da.path.to_string_lossy().to_string().into(),
         source_version,
         range: to_ui_range(pos)?,
@@ -502,7 +507,7 @@ fn map_property_definition(
 fn map_properties_to_ui(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
-) -> Option<ElementInformation> {
+) -> Option<(ElementInformation, HashMap<String, PropertyDeclaration>, PropertyGroupModel)> {
     let properties = &properties?;
     let element = properties.element.as_ref()?;
 
@@ -514,6 +519,8 @@ fn map_properties_to_ui(
     let mut current_group_properties = vec![];
     let mut current_group = String::new();
 
+    let mut declarations = HashMap::new();
+
     fn property_group_from(name: &str, properties: Vec<PropertyInformation>) -> PropertyGroup {
         PropertyGroup {
             group_name: name.into(),
@@ -522,19 +529,22 @@ fn map_properties_to_ui(
     }
 
     for pi in &properties.properties {
-        let declared_at = map_property_declaration(document_cache, &pi.declared_at).unwrap_or(
-            PropertyDeclaration {
-                source_path: String::new().into(),
-                source_version: -1,
-                range: Range { start: 0, end: 0 },
-            },
-        );
         let defined_at = map_property_definition(&pi.defined_at).unwrap_or(PropertyDefinition {
             definition_range: Range { start: 0, end: 0 },
             selection_range: Range { start: 0, end: 0 },
             expression_range: Range { start: 0, end: 0 },
             expression_value: String::new().into(),
         });
+        let declared_at =
+            map_property_declaration(document_cache, &pi.declared_at, defined_at.clone())
+                .unwrap_or(PropertyDeclaration {
+                    defined_at,
+                    source_path: String::new().into(),
+                    source_version: -1,
+                    range: Range { start: 0, end: 0 },
+                });
+
+        declarations.insert(pi.name.clone(), declared_at);
 
         let value = {
             let code_block_or_expression =
@@ -553,8 +563,6 @@ fn map_properties_to_ui(
         current_group_properties.push(PropertyInformation {
             name: pi.name.clone().into(),
             type_name: pi.ty.to_string().into(),
-            declared_at,
-            defined_at,
             value,
         });
     }
@@ -563,34 +571,173 @@ fn map_properties_to_ui(
         property_groups.push(property_group_from(&current_group, current_group_properties));
     }
 
-    Some(ElementInformation {
-        id: element.id.clone().into(),
-        type_name: element.type_name.clone().into(),
-        source_uri,
-        source_version,
-        range: to_ui_range(element.range)?,
+    Some((
+        ElementInformation {
+            id: element.id.clone().into(),
+            type_name: element.type_name.clone().into(),
+            source_uri,
+            source_version,
+            range: to_ui_range(element.range)?,
+        },
+        declarations,
+        Rc::new(VecModel::from(property_groups)).into(),
+    ))
+}
 
-        properties: Rc::new(VecModel::from(property_groups)).into(),
-    })
+fn is_equal_value(c: &PropertyValue, n: &PropertyValue) -> bool {
+    c.value_bool == n.value_bool
+        && c.is_translatable == n.is_translatable
+        && c.kind == n.kind
+        && c.value_brush == n.value_brush
+        && c.value_float == n.value_float
+        && c.value_int == n.value_int
+        && c.default_selection == n.default_selection
+        && c.value_string == n.value_string
+        && c.tr_context == n.tr_context
+        && c.tr_plural == n.tr_plural
+        && c.tr_plural_expression == n.tr_plural_expression
+        && c.visual_items.row_count() == n.visual_items.row_count()
+        && std::iter::zip(c.visual_items.iter(), n.visual_items.iter()).all(|(c, n)| c == n)
+}
+
+fn is_equal_property(c: &PropertyInformation, n: &PropertyInformation) -> bool {
+    c.name == n.name && c.type_name == n.type_name && is_equal_value(&c.value, &n.value)
+}
+
+fn is_equal_element(c: &ElementInformation, n: &ElementInformation) -> bool {
+    c.id == n.id
+        && c.type_name == n.type_name
+        && c.source_uri == n.source_uri
+        && c.range.start == n.range.start
+}
+
+pub type PropertyGroupModel = slint::ModelRc<PropertyGroup>;
+
+fn update_grouped_properties(
+    cvg: &VecModel<PropertyInformation>,
+    nvg: &VecModel<PropertyInformation>,
+) {
+    enum Op {
+        Insert((usize, usize)),
+        Copy((usize, usize)),
+        PushBack(usize),
+        Remove(usize),
+    }
+
+    let mut to_do = Vec::new();
+
+    let mut c_it = cvg.iter();
+    let mut n_it = nvg.iter();
+
+    let mut cp = c_it.next();
+    let mut np = n_it.next();
+
+    let mut c_index = 0_usize;
+    let mut n_index = 0_usize;
+
+    loop {
+        match (cp.as_ref(), np.as_ref()) {
+            (None, None) => break,
+            (Some(_), None) => {
+                to_do.push(Op::Remove(c_index));
+                cp = c_it.next();
+            }
+            (Some(c), Some(n)) => {
+                if c.name < n.name {
+                    to_do.push(Op::Remove(c_index));
+                    cp = c_it.next();
+                } else if c.name > n.name {
+                    to_do.push(Op::Insert((c_index, n_index)));
+                    c_index += 1;
+                    n_index += 1;
+                    np = n_it.next();
+                } else {
+                    if !is_equal_property(c, n) {
+                        to_do.push(Op::Copy((c_index, n_index)));
+                    }
+                    c_index += 1;
+                    n_index += 1;
+                    cp = c_it.next();
+                    np = n_it.next();
+                }
+            }
+            (None, Some(_)) => {
+                to_do.push(Op::PushBack(n_index));
+                n_index += 1;
+                np = n_it.next();
+            }
+        }
+    }
+
+    for op in &to_do {
+        match op {
+            Op::Insert((c, n)) => {
+                cvg.insert(*c, nvg.row_data(*n).unwrap());
+            }
+            Op::Copy((c, n)) => {
+                cvg.set_row_data(*c, nvg.row_data(*n).unwrap());
+            }
+            Op::PushBack(n) => {
+                cvg.push(nvg.row_data(*n).unwrap());
+            }
+            Op::Remove(c) => {
+                cvg.remove(*c);
+            }
+        }
+    }
+}
+
+fn update_properties(
+    current_model: PropertyGroupModel,
+    next_model: PropertyGroupModel,
+) -> PropertyGroupModel {
+    debug_assert_eq!(current_model.row_count(), next_model.row_count());
+
+    for (c, n) in std::iter::zip(current_model.iter(), next_model.iter()) {
+        debug_assert_eq!(c.group_name, n.group_name);
+
+        let cvg = c.properties.as_any().downcast_ref::<VecModel<PropertyInformation>>().unwrap();
+        let nvg = n.properties.as_any().downcast_ref::<VecModel<PropertyInformation>>().unwrap();
+
+        update_grouped_properties(cvg, nvg);
+    }
+
+    current_model
 }
 
 pub fn ui_set_properties(
     ui: &PreviewUi,
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
-) {
-    let element = map_properties_to_ui(document_cache, properties).unwrap_or(ElementInformation {
-        id: "".into(),
-        type_name: "".into(),
-        source_uri: "".into(),
-        source_version: 0,
-        range: Range { start: 0, end: 0 },
-
-        properties: Rc::new(VecModel::from(Vec::<PropertyGroup>::new())).into(),
-    });
+) -> PropertyDeclarations {
+    let (next_element, declarations, next_model) = map_properties_to_ui(document_cache, properties)
+        .unwrap_or((
+            ElementInformation {
+                id: "".into(),
+                type_name: "".into(),
+                source_uri: "".into(),
+                source_version: 0,
+                range: Range { start: 0, end: 0 },
+            },
+            HashMap::new(),
+            Rc::new(VecModel::from(Vec::<PropertyGroup>::new())).into(),
+        ));
 
     let api = ui.global::<Api>();
-    api.set_current_element(element);
+    let current_model = api.get_properties();
+
+    let element = api.get_current_element();
+    if !is_equal_element(&element, &next_element) {
+        api.set_properties(next_model);
+    } else if current_model.row_count() > 0 {
+        update_properties(current_model, next_model);
+    } else {
+        api.set_properties(next_model);
+    }
+
+    api.set_current_element(next_element);
+
+    declarations
 }
 
 #[cfg(test)]
@@ -602,7 +749,7 @@ mod tests {
 
     use i_slint_core::model::Model;
 
-    use super::{PropertyValue, PropertyValueKind};
+    use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     fn properties_at_position(
         source: &str,
@@ -1010,5 +1157,55 @@ export component Test { in property <Foobar> test1; }"#,
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
+    }
+
+    fn create_test_property(name: &str, value: &str) -> PropertyInformation {
+        PropertyInformation {
+            name: name.into(),
+            type_name: "Sometype".into(),
+            value: PropertyValue {
+                kind: PropertyValueKind::String,
+                value_string: value.into(),
+                code: value.into(),
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn test_property_date_update() {
+        let current = slint::VecModel::from(vec![
+            create_test_property("aaa", "AAA"),
+            create_test_property("bbb", "BBB"),
+            create_test_property("ccc", "CCC"),
+        ]);
+        let next = slint::VecModel::from(vec![
+            create_test_property("aaa", "AAA"),
+            create_test_property("aab", "AAB"),
+            create_test_property("abb", "ABB"),
+            create_test_property("bbb", "BBBX"),
+        ]);
+
+        super::update_grouped_properties(&current, &next);
+
+        let mut it = current.iter();
+
+        let t = it.next().unwrap();
+        assert_eq!(t.name.as_str(), "aaa");
+        assert_eq!(t.value.code.as_str(), "AAA");
+
+        let t = it.next().unwrap();
+        assert_eq!(t.name.as_str(), "aab");
+        assert_eq!(t.value.code.as_str(), "AAB");
+
+        let t = it.next().unwrap();
+        assert_eq!(t.name.as_str(), "abb");
+        assert_eq!(t.value.code.as_str(), "ABB");
+
+        let t = it.next().unwrap();
+        assert_eq!(t.name.as_str(), "bbb");
+        assert_eq!(t.value.code.as_str(), "BBBX");
+
+        assert!(it.next().is_none());
     }
 }
