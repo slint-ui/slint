@@ -197,7 +197,7 @@ fn fold(
                         state.insertion_count += 1;
                         writer.insert_before(t, &ws)?;
                         state.whitespace_to_add = None;
-                        return Ok(())
+                        return Ok(());
                     }
                 }
                 if let Some(x) = state.whitespace_to_add.take() {
@@ -1369,7 +1369,6 @@ component C1 {
     // ...
 }
 "#,
-
         );
     }
 
