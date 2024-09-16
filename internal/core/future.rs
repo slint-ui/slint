@@ -123,8 +123,8 @@ impl<T> JoinHandle<T> {
     }
     /// Checks if the task associated with this `JoinHandle` has finished.
     pub fn is_finished(&self) -> bool {
-        matches!(self.0.inner().fut, FutureState::Finished(_)) }
-
+        matches!(self.0.inner().fut, FutureState::Finished(_))
+    }
 }
 
 #[cfg(feature = "std")]
