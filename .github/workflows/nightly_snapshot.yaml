@@ -535,10 +535,14 @@ jobs:
                   cat release-notes.md
 
             - name: generate STM32 template packages
+              env:
+                RELEASE_INPUT: ${{ github.event.inputs.release }}            
               run: |
                 git clone https://github.com/slint-ui/slint-cpp-templates-stm32 --depth 1
                 cd slint-cpp-templates-stm32
-                find . -name "CMakeLists.txt" | xargs sed -i "s/find_package(Slint)/find_package(Slint ${{ steps.version.outputs.VERSION }})/g"
+                if [ "$RELEASE_INPUT" == "true" ]; then
+                    find . -name "CMakeLists.txt" | xargs sed -i "s/find_package(Slint)/find_package(Slint ${{ steps.version.outputs.VERSION }})/g"
+                fi
                 for board in stm32h735g-dk stm32h747i-disco; do
                     mv $board  slint-cpp-template-$board
                     zip -r ../artifacts/slint-cpp-template-$board.zip slint-cpp-template-$board/
