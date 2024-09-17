@@ -2713,7 +2713,10 @@ fn compile_builtin_function_call(
             quote!(sp::animation_tick())
         }
         BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
-        BuiltinFunction::Mod => quote!((#(#a as f64)%*)),
+        BuiltinFunction::Mod => {
+            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
+            quote!((#a1 as f64).rem_euclid(#a2 as f64))
+        }
         BuiltinFunction::Round => quote!((#(#a)* as f64).round()),
         BuiltinFunction::Ceil => quote!((#(#a)* as f64).ceil()),
         BuiltinFunction::Floor => quote!((#(#a)* as f64).floor()),
