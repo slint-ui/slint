@@ -296,6 +296,7 @@ impl<'a> SkiaItemRenderer<'a> {
             });
             children_rect.size_length()
         }) {
+            let _saved_canvas = self.pixel_align_origin();
             self.canvas.draw_image_with_sampling_options(
                 layer_image,
                 skia_safe::Point::default(),
@@ -341,9 +342,7 @@ impl<'a> SkiaItemRenderer<'a> {
             Some(surface.image_snapshot())
         })
     }
-}
 
-impl<'a> SkiaItemRenderer<'a> {
     /// Draws a `Rectangle` using the `GLItemRenderer`.
     pub fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
         let geometry = PhysicalRect::from(size * self.scale_factor);
@@ -357,6 +356,23 @@ impl<'a> SkiaItemRenderer<'a> {
                 None => return,
             };
         self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
+    }
+
+    fn pixel_align_origin(&self) -> Option<skia_safe::canvas::AutoRestoredCanvas<'_>> {
+        let local_to_device = self.canvas.local_to_device_as_3x3();
+        let Some(device_to_local) = local_to_device.invert() else {
+            return None;
+        };
+        let mut target_point = local_to_device.map_point(skia_safe::Point::default());
+
+        target_point.x = target_point.x.round();
+        target_point.y = target_point.y.round();
+
+        let restore_point = skia_safe::AutoCanvasRestore::guard(&self.canvas, true);
+
+        self.canvas.translate(device_to_local.map_point(target_point));
+
+        Some(restore_point)
     }
 }
 
@@ -870,6 +886,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             Some(img) => img,
             None => return,
         };
+        let _saved_canvas = self.pixel_align_origin();
         self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
     }
 
