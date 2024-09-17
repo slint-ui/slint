@@ -19,6 +19,8 @@ All notable changes to this project are documented in this file.
  - width and height expressed in `%` unit for an element in a Flickable now refer
    to the size of the Flickable instead of that of the viewport (#4163)
  - Path: Fix compiler panic when accessing path.commands in expressions (#5564)
+ - The `mod` function was changed to always return a positive value (#6178)
+ - Added `AccesssibleRole.list-item` and used it where relevant
 
 ### Widgets
 
@@ -28,7 +30,6 @@ All notable changes to this project are documented in this file.
  - Fixed `TimePickerPopup` does not open minute view by click on selected hour.
  - Visually clamp the slider even if the value is out of bounds (#5770)
  - Fixed button of Cupertino `ComboBox` not centered when height is bigger than default.
- - Fixed select text in `SpinBox` on double click (#6104)
  - Fixed text in `SpinBox` not being selected on double click (#6104)
 
 ### Rust
@@ -37,6 +38,8 @@ All notable changes to this project are documented in this file.
  - `spawn_local` can now be called before initializing the backend. (It will initialize it) (#5871)
  - Fixed error in generated code when calling as an expression a callback that don't return a value. (#5883)
  - Fixed error in generated code with struct containing `percent` value (#5887)
+ - Added `JoinHandle::is_finished()` (#6034)
+ - Implemented `FromIterator` for `VecModel`
 
 ### C++
 
@@ -54,6 +57,7 @@ All notable changes to this project are documented in this file.
  - Don't auto-complete `out` property of built-in elements at element scope.
  - Don't insert a semicolon after auto-complete of a property name at element scope.
  - Added support for tooltip on hover of symbols
+ - formatter: don't change whitespaces or newlines before comments
  - live-preview: Fixed auto-refresh after closing and reopening the preview.
  - live-preview: Custom system menu bar so cmd+q don't quit the LSP.
  - live-preview: Polished UI
@@ -61,6 +65,7 @@ All notable changes to this project are documented in this file.
  - vscode extension: Added telemetry to report panics of the LSP server.
  - vscode extension: Added "Create New Project" command to start from one of our templates
  - vscode extension: Rename the output tab to from "Slint LSP" to "Slint", and make sure it is always there
+ - Slintpad: Added "about" entry in the menu.
 
 ### Misc
 
