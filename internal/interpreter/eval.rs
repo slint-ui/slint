@@ -433,7 +433,7 @@ fn call_builtin_function(
         }
         BuiltinFunction::Mod => {
             let mut to_num = |e| -> f64 { eval_expression(e, local_context).try_into().unwrap() };
-            Value::Number(to_num(&arguments[0]) % to_num(&arguments[1]))
+            Value::Number(to_num(&arguments[0]).rem_euclid(to_num(&arguments[1])))
         }
         BuiltinFunction::Round => {
             let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();

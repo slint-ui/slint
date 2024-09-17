@@ -3297,7 +3297,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::Mod => {
             ctx.generator_state.conditional_includes.cmath.set(true);
-            format!("std::fmod({}, {})", a.next().unwrap(), a.next().unwrap())
+            format!("([](float a, float b) {{ return a >= 0 ? std::fmod(a, b) : std::fmod(a, b) + std::abs(b); }})({},{})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::Round => {
             ctx.generator_state.conditional_includes.cmath.set(true);

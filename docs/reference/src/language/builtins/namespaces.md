@@ -90,6 +90,8 @@ against the constants below.
 
 These functions are available both in the global scope and in the `Math` namespace.
 
+They can also be called directly as member function of numeric types. (For example `angle.sin()` or `foo.mod(10)`).
+
 ### `abs(T) -> T`
 
 Return the absolute value, where T is a numeric type.
@@ -119,6 +121,8 @@ Return the arguments with the minimum (or maximum) value. All arguments must be 
 ### `mod(T, T) -> T`
 
 Perform a modulo operation, where T is some numeric type.
+Returns the remainder of the euclidean division of the arguments.
+This always returns a positive number between 0 and the absolute value of the second value.
 
 ### `round(float) -> int`
 

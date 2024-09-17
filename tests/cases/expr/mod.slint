@@ -1,13 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property<int> t1: mod(42, 2);
-    property<float> t2: mod(18.5, 10);
-    property<int> t3: mod(153, 10);
-    property <duration> t4: mod(5432ms, 1s);
+ export component TestCase inherits Window {
+    out property<int> t1: mod(42, 2);
+    out property<float> t2: mod(18.5, 10);
+    out property<int> t3: mod(153, 10);
+    out property <duration> t4: mod(5432ms, 1s);
+    out property <length> t5: (-28.2px).mod(10px);
+    out property <float> t6: (42).mod(-10);
+    out property <float> t7: (-420).mod(-5.5);
 
-    property <bool> test: t1 == 0 && t2 == 8.5 && t3 == 3 && t4 == 432ms;
+    out property <bool> test: t1 == 0 && t2 == 8.5 && t3 == 3 && t4 == 432ms && t5 == 1.8px && t6 == 2 && t7 == 3.5;
 }
 /*
 ```cpp
@@ -17,6 +20,9 @@ assert_eq(instance.get_t1(), 0);
 assert_eq(instance.get_t2(), 8.5);
 assert_eq(instance.get_t3(),3);
 assert_eq(instance.get_t4(),432);
+assert_eq(instance.get_t5(), 1.8);
+assert_eq(instance.get_t6(), 2.);
+assert_eq(instance.get_t7(), 3.5);
 ```
 
 
@@ -26,6 +32,9 @@ assert_eq!(instance.get_t1(), 0);
 assert_eq!(instance.get_t2(), 8.5);
 assert_eq!(instance.get_t3(), 3);
 assert_eq!(instance.get_t4(),432);
+assert_eq!(instance.get_t5(), 1.8);
+assert_eq!(instance.get_t6(), 2.);
+assert_eq!(instance.get_t7(), 3.5);
 ```
 
 ```js
@@ -34,6 +43,9 @@ assert.equal(instance.t1, 0);
 assert.equal(instance.t2, 8.5);
 assert.equal(instance.t3, 3);
 assert.equal(instance.t4, 432);
-
+assert.equal(Math.round(instance.t5 * 1000), 1800);
+assert.equal(instance.t6, 2.);
+assert.equal(instance.t7, 3.5);
+assert(instance.test);
 ```
 */
