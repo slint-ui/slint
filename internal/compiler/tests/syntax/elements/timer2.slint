@@ -11,4 +11,12 @@ export component Def {
     //       ^error{Timer cannot be directly repeated or conditional}
 
     if false: Abc {}
+
+    Timer {
+//  ^error{Timer must have a binding set for its 'interval' property}
+        running: false;
+    }
+
+    Timer {}
+//  ^error{Timer must have a binding set for its 'interval' property}
 }

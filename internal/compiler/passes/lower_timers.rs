@@ -42,6 +42,14 @@ fn lower_timer(
         return;
     }
 
+    if !timer_element.borrow().is_binding_set("interval", true) {
+        diag.push_error(
+            "Timer must have a binding set for its 'interval' property".into(),
+            &*timer_element.borrow(),
+        );
+        return;
+    }
+
     // Remove the timer_element from its parent
     let old_size = parent_element.borrow().children.len();
     parent_element.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, timer_element));

@@ -873,7 +873,7 @@ Timer is not an actual element visible in the tree, therefore it doesn't have th
 
 ### Properties
 
- -  **`interval`** (_in_ _duration_): The interval between timer ticks. (default value: `0ms`)
+ -  **`interval`** (_in_ _duration_): The interval between timer ticks. This property is mandatory.
  -  **`running`** (_in_ _bool_): `true` if the timer is running. (default value: `true`)
 
 ### Callbacks
