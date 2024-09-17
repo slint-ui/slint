@@ -458,10 +458,12 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
     for cell in data.cells.iter() {
         let cdata = &layout_data[cell.col_or_row as usize];
         result.push(cdata.pos);
-        result.push({
+        result.push(if cell.span > 0 {
             let first_cell = &layout_data[cell.col_or_row as usize];
             let last_cell = &layout_data[cell.col_or_row as usize + cell.span as usize - 1];
             last_cell.pos + last_cell.size - first_cell.pos
+        } else {
+            0 as Coord
         });
     }
     result
