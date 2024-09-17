@@ -11,11 +11,7 @@ export global AppState {
     in-out property <length> elementRadius: 185px;
 
     pure public function normalizeAngle(angle: angle) -> angle {
-        if angle >= 0 {
-            return Math.mod(angle, 360deg);
-        } else {
-            return 360deg + Math.mod(angle, 360deg);
-        }
+        return (angle + 360deg).mod(360deg);
     }
 }
 
@@ -25,8 +21,8 @@ export component Light {
     property <angle> angle: (index * gap) + AppState.startAngle;
     property <bool> lightOn: index <= AppState.volume;
 
-    x: AppState.elementRadius * Math.cos(root.angle);
-    y: AppState.elementRadius * Math.sin(root.angle);
+    x: AppState.elementRadius * angle.cos();
+    y: AppState.elementRadius * angle.sin();
     width: 0;
     height: 0;
 
@@ -79,6 +75,7 @@ export component AppWindow inherits Window {
                     property <length> centerY: self.height / 2;
                     property <length> relativeX;
                     property <length> relativeY;
+                    property <angle> newAngle;
                     property <angle> deltaDegrees;
                     property <bool> firstTouch: false;
                     width: parent.width;
@@ -91,30 +88,14 @@ export component AppWindow inherits Window {
                     moved => {
                         relativeX = ta.mouse-x - centerX;
                         relativeY = ta.mouse-y - centerY;
+                        newAngle = AppState.normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
                         // on first touch work out what angle the dial is at. Then use this to create a delta
                         // So further movement will be relative to this angle.
                         if !firstTouch {
                             firstTouch = true;
-                            deltaDegrees = AppState.angle;
-                            if relativeX > 0 {
-                                if relativeY > 0 {
-                                    deltaDegrees = AppState.angle - atan(relativeY / relativeX);
-                                } else {
-                                    deltaDegrees = AppState.angle - (360deg + atan(relativeY / relativeX));
-                                }
-                            } else if relativeX < 0 {
-                                deltaDegrees = AppState.angle - (180deg + atan(relativeY / relativeX));
-                            }
+                            deltaDegrees = AppState.normalizeAngle(AppState.angle - newAngle);
                         } else {
-                            if relativeX > 0 {
-                                if relativeY > 0 {
-                                    AppState.angle = AppState.normalizeAngle(deltaDegrees + atan(relativeY / relativeX));
-                                } else {
-                                    AppState.angle = AppState.normalizeAngle(deltaDegrees + 360deg + atan(relativeY / relativeX));
-                                }
-                            } else if relativeX < 0 {
-                                AppState.angle = AppState.normalizeAngle(deltaDegrees + 180deg + atan(relativeY / relativeX));
-                            }
+                            AppState.angle = AppState.normalizeAngle(deltaDegrees + newAngle);
                         }
                     }
                 }
@@ -137,8 +118,8 @@ export component AppWindow inherits Window {
             }
 
             Image {
-                x: 120px * Math.cos(mod(AppState.angle, 360deg));
-                y: 120px * Math.sin(mod(AppState.angle, 360deg));
+                x: 120px * AppState.angle.cos();
+                y: 120px * AppState.angle.sin();
                 source: @image-url("images/indicator.png");
             }
 
