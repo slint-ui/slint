@@ -332,7 +332,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                         ty: Type::Bool,
                         declared_at: None,
                         defined_at: None,
-                        group: String::new(),
+                        group: b.name.clone(),
                     });
                 }
 
@@ -341,14 +341,14 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                     ty: Type::Float32,
                     declared_at: None,
                     defined_at: None,
-                    group: String::new(),
+                    group: b.name.clone(),
                 });
                 result.push(PropertyInformation {
                     name: "visible".into(),
                     ty: Type::Bool,
                     declared_at: None,
                     defined_at: None,
-                    group: String::new(),
+                    group: b.name.clone(),
                 });
 
                 if b.name == "Image" {
@@ -410,8 +410,6 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
         }
         break;
     }
-
-    result.sort_by_key(|i| i.group.clone());
 
     insert_property_definitions(element, result)
 }
