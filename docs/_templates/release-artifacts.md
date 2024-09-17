@@ -4,10 +4,15 @@
 
 For C++ developers, this release contains the follwing pre-packed builds of Slint:
 
-| Operating System | Compiler | Architecture | Download |
-|------------------|----------|--------------|----------|
-| Linux            | gcc      | x86-64       | [Slint-cpp-{download_version}-Linux-x86_64.tar.gz](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{download_version}-Linux-x86_64.tar.gz) |
-| Windows          | MSVC     | x86-64       | [Slint-cpp-{download_version}-win64-MSVC.exe](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{download_version}-win64-MSVC.exe) |
+| Desktop Operating System | Compiler | Architecture | Download |
+|--------------------------|----------|--------------|----------|
+| Linux                    | gcc      | x86-64       | [Slint-cpp-{download_version}-Linux-x86_64.tar.gz](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{download_version}-Linux-x86_64.tar.gz) |
+| Windows                  | MSVC     | x86-64       | [Slint-cpp-{download_version}-win64-MSVC.exe](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{download_version}-win64-MSVC.exe) |
+
+| Templates for Microcontroller Evaluation Board | Download |
+|----------------------------------|----------|
+| [STM32H747I-DISCO](https://www.st.com/en/evaluation-tools/stm32h747i-disco.html): Dual-core Arm M7/M4 MCU with 4” touch LCD display module | [slint-cpp-template-stm32h747i-disco.zip](https://github.com/slint-ui/slint/releases/download/{download_version}/slint-cpp-template-stm32h747i-disco.zip) |
+| [STM32H735G-DK](https://www.st.com/en/evaluation-tools/stm32h735g-dk.html): Arm M7 MCU with 4” touch LCD display module | [slint-cpp-template-stm32h735g-dk.zip](https://github.com/slint-ui/slint/releases/download/{download_version}/slint-cpp-template-stm32h735g-dk.zip) |
 
 ## Tool Binaries
 
