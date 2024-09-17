@@ -217,6 +217,7 @@ pub mod re_exports {
     pub use i_slint_core::SharedString;
     pub use i_slint_core::SharedVector;
     pub use num_traits::float::Float;
+    pub use num_traits::ops::euclid::Euclid;
     pub use once_cell::race::OnceBox;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;

@@ -43,8 +43,9 @@ assert.equal(instance.t1, 0);
 assert.equal(instance.t2, 8.5);
 assert.equal(instance.t3, 3);
 assert.equal(instance.t4, 432);
-assert.equal(instance.t5, 1.8);
+assert.equal(Math.round(instance.t5 * 1000), 1800);
 assert.equal(instance.t6, 2.);
 assert.equal(instance.t7, 3.5);
+assert(instance.test);
 ```
 */

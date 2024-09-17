@@ -2715,7 +2715,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
         BuiltinFunction::Mod => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!((#a1 as f64).rem_euclid(#a2 as f64))
+            quote!(sp::Euclid::rem_euclid(&(#a1 as f64), &(#a2 as f64)))
         }
         BuiltinFunction::Round => quote!((#(#a)* as f64).round()),
         BuiltinFunction::Ceil => quote!((#(#a)* as f64).ceil()),
