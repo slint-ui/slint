@@ -7,7 +7,14 @@
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Introduction
+   :caption: Reference
+
+   src/reference/syntax/index.rst
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Introduction (Old)
 
    src/introduction/index.rst
    src/introduction/supported_platforms.md
@@ -16,7 +23,7 @@
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Language Reference
+   :caption: Language Reference (Old)
 
    src/language/index.rst
    src/language/concepts/index.rst
@@ -27,14 +34,14 @@
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Recipes & Examples
+   :caption: Recipes & Examples (Old)
 
    src/recipes/recipes.md
 
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Advanced Topics
+   :caption: Advanced Topics (Old)
 
    src/advanced/debugging_techniques.md
    src/advanced/style.md
