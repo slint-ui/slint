@@ -11,7 +11,7 @@ These properties are valid on all visible items:
 -   **`x`** and **`y`** (_in_ _length_): The position of the element relative to its parent.
 -   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings.
     The value must be a compile time constant. (default value: 0)
--   **`absolute-position`** (_in_ _Point_): The position of the element within the contained window.
+-   **`absolute-position`** (_out_ _Point_): The position of the element within the contained window.
 
 ### Layout
 
