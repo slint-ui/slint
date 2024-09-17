@@ -2046,7 +2046,7 @@ fn generate_sub_component(
             update_timers
                 .push(format!("   auto interval = std::chrono::milliseconds({interval});"));
             update_timers.push(format!(
-                "   if (!self->{name}.running() || *self->{name}.interval() != interval)"
+                "   if (!self->{name}.running() || self->{name}.interval() != interval)"
             ));
             update_timers.push(format!("       self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
             update_timers.push(format!("}} else {{ self->{name}.stop(); }}").into());
