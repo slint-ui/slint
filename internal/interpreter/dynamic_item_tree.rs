@@ -2328,8 +2328,7 @@ pub fn update_timers(instance: InstanceRef) {
                 continue;
             }
             let interval = core::time::Duration::from_millis(millis as _);
-            let old_interval = timer.interval();
-            if old_interval != Some(interval) || !timer.running() {
+            if !timer.running() || interval != timer.interval() {
                 let callback = desc.triggered.clone();
                 let self_weak = instance.self_weak().get().unwrap().clone();
                 timer.start(i_slint_core::timers::TimerMode::Repeated, interval, move || {

@@ -1068,8 +1068,7 @@ fn generate_sub_component(
             quote!(
                 if #running {
                     let interval = core::time::Duration::from_millis(#interval as u64);
-                    let old_interval = self.#ident.interval();
-                    if old_interval != Some(interval) || !self.#ident.running() {
+                    if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
                         self.#ident.start(sp::TimerMode::Repeated, interval, move || {
                             if let Some(self_rc) = self_weak.upgrade() {

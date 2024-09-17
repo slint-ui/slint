@@ -170,10 +170,11 @@ impl Timer {
     }
 
     /// Returns the interval of the timer.
-    /// Returns `None` if the timer is not running.
-    pub fn interval(&self) -> Option<core::time::Duration> {
+    /// Returns a duration of 0ms if the timer was never started.
+    pub fn interval(&self) -> core::time::Duration {
         self.id()
             .map(|timer_id| CURRENT_TIMERS.with(|timers| timers.borrow().timers[timer_id].duration))
+            .unwrap_or_default()
     }
 
     fn id(&self) -> Option<usize> {
@@ -551,14 +552,14 @@ pub(crate) mod ffi {
         running
     }
 
-    /// Returns the interval in milliseconds if it is running, or -1 otherwise
+    /// Returns the interval in milliseconds. 0 when the timer was never started.
     #[no_mangle]
-    pub extern "C" fn slint_timer_interval(id: usize) -> i64 {
+    pub extern "C" fn slint_timer_interval(id: usize) -> u64 {
         if id == 0 {
-            return -1;
+            return 0;
         }
         let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
-        let val = timer.interval().map_or(-1, |d| d.as_millis() as i64);
+        let val = timer.interval().as_millis() as u64;
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
         val
     }
