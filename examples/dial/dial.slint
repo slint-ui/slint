@@ -89,7 +89,7 @@ export component AppWindow inherits Window {
                         relativeX = ta.mouse-x - centerX;
                         relativeY = ta.mouse-y - centerY;
                         newAngle = AppState.normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
-                        // on first touch work out what angle the dial is t. Then use this to create a delta
+                        // on first touch work out what angle the dial is at. Then use this to create a delta
                         // So further movement will be relative to this angle.
                         if !firstTouch {
                             firstTouch = true;
