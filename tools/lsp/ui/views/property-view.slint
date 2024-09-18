@@ -150,7 +150,6 @@ component FloatWidget inherits VerticalLayout {
     width: 100%;
 
     NameLabel {
-        // debugged;
         property-information: root.property-information;
         element-information: root.element-information;
     }
@@ -222,7 +221,6 @@ component ColorWidget inherits VerticalLayout {
         height: EditorSpaceSettings.property-spacing;
     }
     NameLabel {
-        //debugged
         property-information: root.property-information;
         element-information: root.element-information;
     }
@@ -419,7 +417,6 @@ component ExpandableGroup {
                     if property.value.kind == PropertyValueKind.boolean: VerticalLayout {
 
                         NameLabel {
-                            //debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
@@ -500,7 +497,6 @@ component ExpandableGroup {
                     if property.value.kind == PropertyValueKind.enum: VerticalLayout {
 
                         NameLabel {
-                            // debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
@@ -530,7 +526,6 @@ component ExpandableGroup {
                     }
                     if property.value.kind == PropertyValueKind.integer: VerticalLayout {
                         NameLabel {
-                            // debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
@@ -564,15 +559,11 @@ component ExpandableGroup {
                                 );
                                 }
                             }
-                            Rectangle {
-                                
-                            }
                         }
                     }
                     if property.value.kind == PropertyValueKind.string: VerticalLayout {
 
                         NameLabel {
-                            // debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
