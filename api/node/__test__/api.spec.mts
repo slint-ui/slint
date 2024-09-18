@@ -81,7 +81,6 @@ test("loadFile constructor parameters", (t) => {
 });
 
 test("loadFile component instances and modules are sealed", (t) => {
-    "use strict";
     const demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
 
     t.throws(
@@ -182,7 +181,6 @@ test("loadSource constructor parameters", (t) => {
 });
 
 test("loadSource component instances and modules are sealed", (t) => {
-    "use strict";
     const source = `export component Test {
         out property <string> check: "Test";
     }`;

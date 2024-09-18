@@ -599,11 +599,12 @@ test("MapModel", (t) => {
 
     instance!.setProperty("model", mapModel);
 
-    nameModel.setRowData(1, { first: "Simon", last: "Hausmann" });
+    nameModel.setRowData(0, { first: "Simon", last: "Hausmann" });
+    nameModel.setRowData(1, { first: "Olivier", last: "Goffart" });
 
     const checkModel = instance!.getProperty("model") as Model<string>;
-    t.is(checkModel.rowData(0), "Emil, Hans");
-    t.is(checkModel.rowData(1), "Hausmann, Simon");
+    t.is(checkModel.rowData(0), "Hausmann, Simon");
+    t.is(checkModel.rowData(1), "Goffart, Olivier");
     t.is(checkModel.rowData(2), "Tisch, Roman");
 });
 

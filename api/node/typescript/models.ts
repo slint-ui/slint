@@ -93,8 +93,13 @@ export abstract class Model<T> implements Iterable<T> {
      */
     modelNotify: napi.ExternalObject<napi.SharedModelNotify>;
 
-    constructor() {
-        this.modelNotify = napi.jsModelNotifyNew(this);
+    constructor(modelNotify?: napi.ExternalObject<napi.SharedModelNotify>) {
+        if (modelNotify === undefined) {
+            this.modelNotify = napi.jsModelNotifyNew(this);
+            return;
+        }
+
+        this.modelNotify = modelNotify;
     }
 
     // /**
@@ -404,7 +409,7 @@ export class MapModel<T, U> extends Model<U> {
      * @param mapFunction maps the data from T to U.
      */
     constructor(sourceModel: Model<T>, mapFunction: (data: T) => U) {
-        super();
+        super(sourceModel.modelNotify);
         this.sourceModel = sourceModel;
         this.#mapFunction = mapFunction;
     }
