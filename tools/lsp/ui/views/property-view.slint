@@ -93,7 +93,7 @@ component ResettingLineEdit {
 
     min-height <=> le.min-height;
     preferred-height <=> le.preferred-height;
-    // max-height <=> le.max-height;
+    max-height <=> le.max-height;
 
     le := LineEdit {
         width: 100%;
@@ -150,6 +150,7 @@ component FloatWidget inherits VerticalLayout {
     width: 100%;
 
     NameLabel {
+        // debugged;
         property-information: root.property-information;
         element-information: root.element-information;
     }
@@ -167,6 +168,7 @@ component FloatWidget inherits VerticalLayout {
     HorizontalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         alignment: stretch;
+        height: 2rem;
         number := ResettingLineEdit {
             horizontal-alignment: right;
             min-width: EditorSizeSettings.float-size;
@@ -216,8 +218,11 @@ component ColorWidget inherits VerticalLayout {
     in property <PropertyInformation> property-information;
 
     width: 100%;
-
+    Rectangle {
+        height: EditorSpaceSettings.property-spacing;
+    }
     NameLabel {
+        //debugged
         property-information: root.property-information;
         element-information: root.element-information;
     }
@@ -225,15 +230,6 @@ component ColorWidget inherits VerticalLayout {
     HorizontalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         alignment: stretch;
-
-        color-preview := Rectangle {
-            height: 1.8rem;
-            width: 2 * self.height;
-            horizontal-stretch: 1;
-            background: property-information.value.value-brush;
-            border-width: 1px;
-            border-color: Palette.foreground;
-        }
 
         ResettingLineEdit {
             horizontal-stretch: 0;
@@ -262,6 +258,15 @@ component ColorWidget inherits VerticalLayout {
                     text,
                 );
             }
+        }
+
+        color-preview := Rectangle {
+            height: 1.8rem;
+            min-width: 2 * self.height;
+            horizontal-stretch: 1;
+            background: property-information.value.value-brush;
+            border-width: 1px;
+            border-color: Palette.foreground;
         }
     }
 }
@@ -407,30 +412,41 @@ component ExpandableGroup {
 
             if root.open: VerticalLayout {
                 spacing: EditorSpaceSettings.property-spacing;
+                padding-left: EditorSpaceSettings.group-indent;
                 for property in root.properties: HorizontalLayout {
                     alignment: stretch;
 
                     if property.value.kind == PropertyValueKind.boolean: VerticalLayout {
 
                         NameLabel {
+                            //debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
 
                         HorizontalLayout {
                             alignment: start;
-                            spacing: EditorSpaceSettings.default-spacing;
-                            CheckBox {
-                                checked: property.value.value_bool;
+                            height: 2rem;
+                            Rectangle {
+                                width: 100%;
+                                height: 100%;
+                                background: Palette.alternate-background;
+                                HorizontalLayout {
+                                    alignment: start;
+                                    padding-left: 0;
+                                    CheckBox {
+                                        checked: property.value.value_bool;
 
-                                toggled() => {
-                                    Api.set-code-binding(
+                                        toggled() => {
+                                            Api.set-code-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
                                     property.name,
                                     self.checked ? "true" : "false",
                                 );
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -439,6 +455,7 @@ component ExpandableGroup {
                         element-information <=> root.element-information;
                         property-information: property;
                     }
+
                     if property.value.kind == PropertyValueKind.code: VerticalLayout {
                         padding-top: 2px;
 
@@ -448,12 +465,23 @@ component ExpandableGroup {
                         }
 
                         HorizontalLayout {
+                            height: 2rem;
                             spacing: EditorSpaceSettings.default-spacing;
                             alignment: space-between;
-                            if property.value.code == "": HorizontalLayout {
-                                Text {
-                                    text: @tr("unset");
-                                    font-italic: true;
+                            if property.value.code == "": 
+                                Rectangle {
+                                width: 100%;
+                                height: 100%;
+                                background: Palette.alternate-background;
+                                HorizontalLayout {
+                                    alignment: start;
+                                    padding-left:EditorSpaceSettings.default-padding;
+                                    Text {
+                                        horizontal-alignment: left;
+                                        vertical-alignment: center;
+                                        text: @tr("Not Set");
+                                        font-italic: true;
+                                    }
                                 }
                             }
                             if property.value.code != "": HorizontalLayout {
@@ -472,11 +500,13 @@ component ExpandableGroup {
                     if property.value.kind == PropertyValueKind.enum: VerticalLayout {
 
                         NameLabel {
+                            // debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
 
                         HorizontalLayout {
+                            alignment: start;
                             ComboBox {
                                 current-index: property.value.value-int;
 
@@ -500,13 +530,13 @@ component ExpandableGroup {
                     }
                     if property.value.kind == PropertyValueKind.integer: VerticalLayout {
                         NameLabel {
+                            // debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
 
                         HorizontalLayout {
                             height: 2rem;
-
                             spacing: EditorSpaceSettings.default-spacing;
                             ResettingLineEdit {
                                 horizontal-alignment: right;
@@ -534,11 +564,15 @@ component ExpandableGroup {
                                 );
                                 }
                             }
+                            Rectangle {
+                                
+                            }
                         }
                     }
                     if property.value.kind == PropertyValueKind.string: VerticalLayout {
 
                         NameLabel {
+                            // debugged
                             property-information: property;
                             element-information: root.element-information;
                         }
@@ -583,6 +617,8 @@ component ExpandableGroup {
                 }
             }
         }
+
+        DividerLine { }
     }
 }
 
