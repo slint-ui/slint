@@ -5,7 +5,7 @@ import test from "ava";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadFile, loadSource, CompileError, MapModel, ArrayModel, private_api } from "../dist/index.js";
+import { loadFile, loadSource, CompileError, MapModel, ArrayModel, private_api, Model } from "../dist/index.js";
 
 test("MapModel notify rowChanged", (t) => {
     const source = `
@@ -54,4 +54,37 @@ test("MapModel notify rowChanged", (t) => {
     private_api.send_mouse_click(instance, 5., 5.);
 
     t.is(instance.changed_items, "Goffart, OlivierHausmann, Simon");
+ });
+
+test("MapModel wraps slint model", (t) => {
+    const source = `
+    export component App {
+      in-out property <[int]> source: [1, 2, 3];
+      out property <[int]> target;
+      pure callback map([int]) -> [int];
+
+      map(source) => {
+          source
+      }
+
+    }`;
+    
+    const path = "api.spec.ts";
+
+    private_api.initTesting();
+    const demo = loadSource(source, path) as any;
+    const instance = new demo.App({
+      map: function(source) { return new MapModel(source, (value) => { return value + 1}); }
+    });
+    
+
+    
+
+    
+    t.is(instance.target.rowData(0), 2);
+    
+    // private_api.send_mouse_click(instance, 5., 5.);
+    
+    // private_api.send_mouse_click(instance, 5., 5.);
+
  });
