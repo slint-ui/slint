@@ -606,6 +606,11 @@ test("MapModel", (t) => {
     t.is(checkModel.rowData(0), "Hausmann, Simon");
     t.is(checkModel.rowData(1), "Goffart, Olivier");
     t.is(checkModel.rowData(2), "Tisch, Roman");
+
+
+    
+    // const changedItems = instance!.getProperty("changed-items");
+    // t.is(changedItems, "Goffart, OlivierHausmann, Simon");
 });
 
 test("MapModel undefined rowData sourcemodel", (t) => {
