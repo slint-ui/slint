@@ -104,7 +104,11 @@ component ResettingLineEdit {
 
         // Reset on focus loss:
         changed has-focus => {
-            if !self.has_focus {
+            if !self.has_focus && text != default-text {
+                if root.can-compile{
+                    root.accepted(self.text);   
+                }
+            } else {
                 self.text = root.default-text;
                 root.can-compile = true;
             }
@@ -240,9 +244,15 @@ component ColorWidget inherits HorizontalLayout {
             min-width: 10rem; // Should be enough for 9 chars;-)
 
             edited(text) => {
-                self.can-compile = Api.string-is-color(text);
-                if self.can-compile {
-                    color-preview.background = Api.string-to-color(text);
+                if text == "" {
+                    // allow empty text -- which will delete the property
+                    self.can-compile = true;
+                    color-preview.background = Colors.transparent;
+                } else {
+                    self.can-compile = Api.string-is-color(text);
+                    if self.can-compile {
+                        color-preview.background = Api.string-to-color(text);
+                    }
                 }
             }
 
