@@ -47,7 +47,8 @@ component ResetButton inherits Button {
 }
 
 component NameLabel inherits HorizontalLayout {
-    in property <string> property-name;
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
 
     horizontal-stretch: 0;
 
@@ -57,8 +58,9 @@ component NameLabel inherits HorizontalLayout {
 
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
-        text: root.property-name;
+        text: root.property-information.name;
         font-size: 1rem;
+        font-weight: property-information.value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
         overflow: elide;
     }
 }
@@ -74,7 +76,8 @@ component FloatWidget inherits HorizontalLayout {
     width: 100%;
 
     NameLabel {
-        property-name: property-information.name;
+        property-information: root.property-information;
+        element-information: root.element-information;
     }
 
     HorizontalLayout {
@@ -138,7 +141,8 @@ component ColorWidget inherits HorizontalLayout {
     width: 100%;
 
     NameLabel {
-        property-name: property-information.name;
+        property-information: root.property-information;
+        element-information: root.element-information;
     }
 
     HorizontalLayout {
@@ -298,7 +302,8 @@ component ExpandableGroup {
                         spacing: EditorSpaceSettings.default-spacing;
 
                         NameLabel {
-                            property-name: property.name;
+                            property-information: property;
+                            element-information: root.element-information;
                         }
 
                         CheckBox {
@@ -325,7 +330,8 @@ component ExpandableGroup {
                         padding-top: 2px;
 
                         NameLabel {
-                            property-name: property.name;
+                            property-information: property;
+                            element-information: root.element-information;
                         }
 
                         if property.value.code == "": HorizontalLayout {
@@ -349,7 +355,8 @@ component ExpandableGroup {
                         spacing: EditorSpaceSettings.default-spacing;
 
                         NameLabel {
-                            property-name: property.name;
+                            property-information: property;
+                            element-information: root.element-information;
                         }
 
                         HorizontalLayout {
@@ -378,7 +385,8 @@ component ExpandableGroup {
                         spacing: EditorSpaceSettings.default-spacing;
 
                         NameLabel {
-                            property-name: property.name;
+                            property-information: property;
+                            element-information: root.element-information;
                         }
 
                         LineEdit {
@@ -400,7 +408,8 @@ component ExpandableGroup {
                         spacing: EditorSpaceSettings.default-spacing;
 
                         NameLabel {
-                            property-name: property.name;
+                            property-information: property;
+                            element-information: root.element-information;
                         }
 
                         LineEdit {
