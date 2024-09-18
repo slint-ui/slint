@@ -49,16 +49,7 @@ component ResetButton inherits Button {
 component NameLabel inherits HorizontalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
-    in property <bool> debug;
     horizontal-stretch: 0;
-    if debug: VerticalLayout {
-        alignment: center;
-        Rectangle {
-            background: magenta;
-            width: 2rem;
-            height: 1px;
-        }
-    }
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
 
@@ -66,7 +57,7 @@ component NameLabel inherits HorizontalLayout {
 
         font-size: 1rem;
         font-weight: property-information.value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
-        font-italic: property-information.value.code != "" ? false : true;
+        font-italic: property-information.value.code == "";
 
         overflow: elide;
     }
@@ -502,7 +493,6 @@ component ExpandableGroup {
                         }
 
                         HorizontalLayout {
-                            alignment: start;
                             ComboBox {
                                 current-index: property.value.value-int;
 
@@ -609,7 +599,6 @@ component ExpandableGroup {
             }
         }
 
-        DividerLine { }
     }
 }
 
