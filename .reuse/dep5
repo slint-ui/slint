@@ -27,7 +27,6 @@ Files: docs/_templates/*.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-
 Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
@@ -68,9 +67,13 @@ Files: api/node/__test__/resources/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Files: examples/carousel/icons/*.svg tools/lsp/ui/assets/*.svg
+Files: examples/carousel/icons/*.svg
 Copyright: Material Icons <https://fonts.google.com/icons?selected=Material+Iconse>
 License: Apache-2.0
+
+Files: tools/lsp/ui/assets/chevron-down.svg tools/lsp/ui/assets/inspect.svg tools/lsp/ui/assets/layout-sidebar*.svg tools/lsp/ui/assets/sync.svg
+Copyright: Codicon Icons <https://github.com/microsoft/vscode-codicons/>
+License: CC-BY-4.0
 
 Files: examples/carousel/fonts/*.ttf
 Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
