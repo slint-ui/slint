@@ -49,9 +49,16 @@ component ResetButton inherits Button {
 component NameLabel inherits HorizontalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
-
+    in property <bool> debug;
     horizontal-stretch: 0;
-
+    if debug: VerticalLayout {
+        alignment: center;
+        Rectangle {
+            background: magenta;
+            width: 2rem;
+            height: 1px;
+        }
+    }
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
 
@@ -66,7 +73,6 @@ component NameLabel inherits HorizontalLayout {
 
 component ResettingLineEdit {
     property <length> border: 3px;
-    
     in property <string> default-text;
     in-out property <bool> can-compile: true;
 
@@ -86,7 +92,7 @@ component ResettingLineEdit {
 
     min-height <=> le.min-height;
     preferred-height <=> le.preferred-height;
-    max-height <=> le.max-height;
+    // max-height <=> le.max-height;
 
     le := LineEdit {
         width: 100%;
@@ -113,14 +119,14 @@ component ResettingLineEdit {
     Rectangle {
         visible: !root.can-compile;
 
-        background: Colors.red.transparentize(0.9);
+        background: Colors.red.transparentize(0.94);
         x: root.border;
         y: root.border;
         width: root.width - 2 * root.border;
         height: root.height - 2 * root.border;
 
         border-radius: root.border;
-    } 
+    }
 }
 
 component FloatWidget inherits VerticalLayout {
@@ -224,7 +230,6 @@ component ColorWidget inherits VerticalLayout {
             height: 1.8rem;
             width: 2 * self.height;
             horizontal-stretch: 1;
-            
             background: property-information.value.value-brush;
             border-width: 1px;
             border-color: Palette.foreground;
@@ -393,25 +398,27 @@ component ExpandableGroup {
                 for property in root.properties: HorizontalLayout {
                     alignment: stretch;
 
-                    if property.value.kind == PropertyValueKind.boolean: HorizontalLayout {
-                        spacing: EditorSpaceSettings.default-spacing;
+                    if property.value.kind == PropertyValueKind.boolean: VerticalLayout {
 
                         NameLabel {
                             property-information: property;
                             element-information: root.element-information;
                         }
 
-                        CheckBox {
-                            checked: property.value.value_bool;
+                        HorizontalLayout {
+                            spacing: EditorSpaceSettings.default-spacing;
+                            CheckBox {
+                                checked: property.value.value_bool;
 
-                            toggled() => {
-                                Api.set-code-binding(
+                                toggled() => {
+                                    Api.set-code-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
                                     property.name,
                                     self.checked ? "true" : "false",
                                 );
+                                }
                             }
                         }
                     }
@@ -419,9 +426,7 @@ component ExpandableGroup {
                         element-information <=> root.element-information;
                         property-information: property;
                     }
-                    if property.value.kind == PropertyValueKind.code: HorizontalLayout {
-                        spacing: EditorSpaceSettings.default-spacing;
-                        alignment: space-between;
+                    if property.value.kind == PropertyValueKind.code: VerticalLayout {
                         padding-top: 2px;
 
                         NameLabel {
@@ -429,25 +434,29 @@ component ExpandableGroup {
                             element-information: root.element-information;
                         }
 
-                        if property.value.code == "": HorizontalLayout {
-                            Text {
-                                text: @tr("unset");
+                        HorizontalLayout {
+                            spacing: EditorSpaceSettings.default-spacing;
+                            alignment: space-between;
+                            if property.value.code == "": HorizontalLayout {
+                                Text {
+                                    text: @tr("unset");
+                                    font-italic: true;
+                                }
                             }
-                        }
-                        if property.value.code != "": HorizontalLayout {
-                            ResetButton {
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
+                            if property.value.code != "": HorizontalLayout {
+                                ResetButton {
+                                    element-information <=> root.element-information;
+                                    property-information: property;
+                                }
 
-                            CodeButton {
-                                element-information <=> root.element-information;
-                                property-information: property;
+                                CodeButton {
+                                    element-information <=> root.element-information;
+                                    property-information: property;
+                                }
                             }
                         }
                     }
-                    if property.value.kind == PropertyValueKind.enum: HorizontalLayout {
-                        spacing: EditorSpaceSettings.default-spacing;
+                    if property.value.kind == PropertyValueKind.enum: VerticalLayout {
 
                         NameLabel {
                             property-information: property;
@@ -476,54 +485,60 @@ component ExpandableGroup {
                         element-information <=> root.element-information;
                         property-information: property;
                     }
-                    if property.value.kind == PropertyValueKind.integer: HorizontalLayout {
-                        spacing: EditorSpaceSettings.default-spacing;
-
+                    if property.value.kind == PropertyValueKind.integer: VerticalLayout {
                         NameLabel {
-                            property-information: property;
+                             property-information: property;
                             element-information: root.element-information;
                         }
 
-                        ResettingLineEdit {
-                            horizontal-alignment: right;
-                            input-type: number;
+                        HorizontalLayout {
+                            height: 2rem;
 
-                            default-text: property.value.value-int;
+                            spacing: EditorSpaceSettings.default-spacing;
+                            ResettingLineEdit {
+                                horizontal-alignment: right;
+                                input-type: number;
 
-                            edited(text) => {
-                                self.can-compile = Api.test-code-binding(
+                                default-text: property.value.value-int;
+
+                                edited(text) => {
+                                    self.can-compile = Api.test-code-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
                                     property.name,
                                     text,
                                 );
-                            }
+                                }
 
-                            accepted(text) => {
-                                Api.set-code-binding(
+                                accepted(text) => {
+                                    Api.set-code-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
                                     property.name,
                                     text,
                                 );
+                                }
                             }
                         }
                     }
-                    if property.value.kind == PropertyValueKind.string: HorizontalLayout {
-                        spacing: EditorSpaceSettings.default-spacing;
+                    if property.value.kind == PropertyValueKind.string: VerticalLayout {
 
                         NameLabel {
                             property-information: property;
                             element-information: root.element-information;
                         }
 
-                        ResettingLineEdit {
-                            default-text: property.value.value-string;
+                        HorizontalLayout {
+                            spacing: EditorSpaceSettings.default-spacing;
+                            height: 2rem;
 
-                            edited(text) => {
-                                self.can-compile = Api.test-string-binding(
+                            ResettingLineEdit {
+                                default-text: property.value.value-string;
+
+                                edited(text) => {
+                                    self.can-compile = Api.test-string-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
@@ -534,10 +549,10 @@ component ExpandableGroup {
                                     property.value.tr-plural,
                                     property.value.tr-plural-expression,
                                 );
-                            }
+                                }
 
-                            accepted(text) => {
-                                Api.set-string-binding(
+                                accepted(text) => {
+                                    Api.set-string-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
@@ -548,6 +563,7 @@ component ExpandableGroup {
                                     property.value.tr-plural,
                                     property.value.tr-plural-expression,
                                 );
+                                }
                             }
                         }
                     }
