@@ -404,11 +404,6 @@ impl TimerList {
 
     fn set_interval(&mut self, id: usize, duration: core::time::Duration) {
         let timer = &self.timers[id];
-
-        if !matches!(timer.callback, CallbackVariant::MultiFire { .. }) {
-            return;
-        }
-
         if timer.running {
             self.deactivate_timer(id);
             self.timers[id].duration = duration;
@@ -815,7 +810,6 @@ struct SharedState {
     variable1: usize,
 }
 let state = Rc::new(RefCell::new(SharedState::default()));
-// Note: state will be leaked because of circular dependencies: don't do that in production
 let state_ = state.clone();
 let timer = Timer::default();
 
@@ -953,3 +947,59 @@ assert_eq!(last_fired.get(), true);
  */
 #[cfg(doctest)]
 const _TIMER_CLOSURE_DROP_STARTS_NEW_TIMER: () = ();
+
+/**
+ * Test that it's possible to set a timer's interval from within the callback.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::RefCell, time::Duration};
+#[derive(Default)]
+struct SharedState {
+    // Note: state will be leaked because of circular dependencies: don't do that in production
+    timer: Timer,
+    variable1: usize,
+}
+let state = Rc::new(RefCell::new(SharedState::default()));
+let state_ = state.clone();
+state.borrow().timer.start(TimerMode::Repeated, Duration::from_millis(200), move || {
+    state_.borrow_mut().variable1 += 1;
+    let variable1 = state_.borrow().variable1;
+    if variable1 == 2 {
+        state_.borrow().timer.set_interval(Duration::from_millis(500));
+    } else if variable1 == 3 {
+        state_.borrow().timer.set_interval(Duration::from_millis(100));
+    }
+});
+
+assert!(state.borrow().timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(10);
+assert!(state.borrow().timer.running());
+assert_eq!(state.borrow().variable1, 0);
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 1); // fired
+assert!(state.borrow().timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(180);
+assert_eq!(state.borrow().variable1, 1);
+assert!(state.borrow().timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(30);
+assert_eq!(state.borrow().variable1, 2); // fired
+assert!(state.borrow().timer.running());
+// now the timer interval should be 500
+i_slint_core::tests::slint_mock_elapsed_time(480);
+assert_eq!(state.borrow().variable1, 2);
+assert!(state.borrow().timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(30);
+assert_eq!(state.borrow().variable1, 3); // fired
+assert!(state.borrow().timer.running());
+// now the timer interval should be 100
+i_slint_core::tests::slint_mock_elapsed_time(100);
+assert_eq!(state.borrow().variable1, 4); // fired
+assert!(state.borrow().timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(100);
+assert_eq!(state.borrow().variable1, 5); // fired
+assert!(state.borrow().timer.running());
+```
+ */
+#[cfg(doctest)]
+const _BUG6141_SET_INTERVAL_FROM_CALLBACK: () = ();
