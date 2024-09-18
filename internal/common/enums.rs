@@ -147,8 +147,8 @@ macro_rules! for_each_enums {
             /// typically on a mouse or a pencil.
             #[non_exhaustive]
             enum PointerEventButton {
-                /// A button that is none of left, right or middle. For example
-                /// this is used for a fourth button on a mouse with many buttons.
+                /// A button that is none of left, right, middle, back or forward. For example,
+                /// this is used for the task button on a mouse with many buttons.
                 Other,
                 /// The left button.
                 Left,
@@ -156,6 +156,10 @@ macro_rules! for_each_enums {
                 Right,
                 /// The center button.
                 Middle,
+                /// The back button.
+                Back,
+                /// The forward button.
+                Forward,
             }
 
             /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.

@@ -490,6 +490,12 @@ fn button_for_event(
     if toggled.teriary() {
         return PointerEventButton::Middle;
     }
+    if toggled.back() {
+        return PointerEventButton::Back;
+    }
+    if toggled.forward() {
+        return PointerEventButton::Forward;
+    }
     return PointerEventButton::Other;
 }
 

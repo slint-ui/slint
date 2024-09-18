@@ -589,9 +589,12 @@ fn into_qbrush(
 
 fn from_qt_button(qt_button: u32) -> PointerEventButton {
     match qt_button {
+        // https://doc.qt.io/qt-6/qt.html#MouseButton-enum
         1 => PointerEventButton::Left,
         2 => PointerEventButton::Right,
         4 => PointerEventButton::Middle,
+        8 => PointerEventButton::Back,
+        16 => PointerEventButton::Forward,
         _ => PointerEventButton::Other,
     }
 }
