@@ -73,7 +73,7 @@ component ResettingLineEdit {
     property <length> border: 3px;
     
     in property <string> default-text;
-    in property <bool> can-compile: true;
+    in-out property <bool> can-compile: true;
 
     in property <bool> enabled <=> le.enabled;
     in property <InputType> input-type <=> le.input-type;
@@ -106,6 +106,7 @@ component ResettingLineEdit {
         changed has-focus => {
             if !self.has_focus {
                 self.text = root.default-text;
+                root.can-compile = true;
             }
         }
     }
