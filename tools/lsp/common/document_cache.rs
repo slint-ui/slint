@@ -350,11 +350,6 @@ impl DocumentCache {
         let (doc, offset) = self.get_document_and_offset(text_document_uri, pos)?;
         self.element_at_document_and_offset(doc, offset)
     }
-
-    #[cfg(test)]
-    pub fn type_loader(&self) -> &TypeLoader {
-        &self.type_loader
-    }
 }
 
 #[cfg(test)]
