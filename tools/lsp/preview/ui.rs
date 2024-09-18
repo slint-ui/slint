@@ -647,19 +647,7 @@ fn map_properties_to_ui(
 }
 
 fn is_equal_value(c: &PropertyValue, n: &PropertyValue) -> bool {
-    c.value_bool == n.value_bool
-        && c.is_translatable == n.is_translatable
-        && c.kind == n.kind
-        && c.value_brush == n.value_brush
-        && c.value_float == n.value_float
-        && c.value_int == n.value_int
-        && c.default_selection == n.default_selection
-        && c.value_string == n.value_string
-        && c.tr_context == n.tr_context
-        && c.tr_plural == n.tr_plural
-        && c.tr_plural_expression == n.tr_plural_expression
-        && c.visual_items.row_count() == n.visual_items.row_count()
-        && std::iter::zip(c.visual_items.iter(), n.visual_items.iter()).all(|(c, n)| c == n)
+    c.code == n.code
 }
 
 fn is_equal_property(c: &PropertyInformation, n: &PropertyInformation) -> bool {
