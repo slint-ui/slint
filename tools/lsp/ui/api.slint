@@ -186,6 +186,10 @@ export global Api {
 
     // # Callbacks
 
+    // ## Custom conversion functions:
+    callback string-is-color(string) -> bool;
+    callback string-to-color(string) -> color;
+
     // ## Style:
     callback style-changed();
 

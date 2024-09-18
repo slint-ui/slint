@@ -226,7 +226,7 @@ component ColorWidget inherits HorizontalLayout {
 
         alignment: end;
 
-        Rectangle {
+        color-preview := Rectangle {
             height: 1.8rem;
             width: 2 * self.height;
             
@@ -235,9 +235,26 @@ component ColorWidget inherits HorizontalLayout {
             border-color: Palette.foreground;
         }
 
-        Text {
-            vertical-alignment: center;
-            text: property-information.value.value-string;
+        ResettingLineEdit {
+            default-text: property-information.value.value-string;
+            min-width: 10rem; // Should be enough for 9 chars;-)
+
+            edited(text) => {
+                self.can-compile = Api.string-is-color(text);
+                if self.can-compile {
+                    color-preview.background = Api.string-to-color(text);
+                }
+            }
+
+            accepted(text) => {
+                Api.set-code-binding(
+                    root.element-information.source-uri,
+                    root.element-information.source-version,
+                    root.element-information.range.start,
+                    root.property-information.name,
+                    text,
+                );
+            }
         }
     }
 }

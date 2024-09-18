@@ -81,6 +81,9 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_set_string_binding(super::set_string_binding);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
 
+    api.on_string_to_color(|s| string_to_color(&s.to_string()).unwrap_or_default());
+    api.on_string_is_color(|s| string_to_color(&s.to_string()).is_some());
+
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
 
@@ -332,6 +335,10 @@ fn extract_value_with_unit_impl(
     None
 }
 
+fn string_to_color(text: &str) -> Option<slint::Color> {
+    literals::parse_color_literal(&text).map(|c| slint::Color::from_argb_encoded(c))
+}
+
 fn extract_value_with_unit(
     expression: &Option<syntax_nodes::Expression>,
     units: &[i_slint_compiler::expression_tree::Unit],
@@ -358,9 +365,9 @@ fn extract_color(
     value: &mut PropertyValue,
 ) -> bool {
     if let Some(text) = expression.child_text(SyntaxKind::ColorLiteral) {
-        if let Some(color) = literals::parse_color_literal(&text) {
+        if let Some(color) = string_to_color(&text) {
             value.kind = kind;
-            value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(color));
+            value.value_brush = slint::Brush::SolidColor(color);
             value.value_string = text.into();
             return true;
         }
