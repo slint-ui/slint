@@ -6,6 +6,7 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange};
 use i_slint_compiler::{expression_tree, langtype, literals};
+use itertools::Itertools;
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
@@ -559,6 +560,8 @@ fn map_properties_to_ui(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
 ) -> Option<(ElementInformation, HashMap<String, PropertyDeclaration>, PropertyGroupModel)> {
+    use std::cmp::Ordering;
+
     let properties = &properties?;
     let element = properties.element.as_ref()?;
 
@@ -566,17 +569,18 @@ fn map_properties_to_ui(
     let source_uri: SharedString = raw_source_uri.to_string().into();
     let source_version = properties.source_version;
 
-    let mut property_groups: Vec<PropertyGroup> = vec![];
-    let mut current_group_properties = vec![];
-    let mut current_group = String::new();
+    let mut property_groups: HashMap<(String, usize), Vec<PropertyInformation>> = HashMap::new();
 
     let mut declarations = HashMap::new();
 
-    fn property_group_from(name: &str, properties: Vec<PropertyInformation>) -> PropertyGroup {
-        PropertyGroup {
-            group_name: name.into(),
-            properties: Rc::new(VecModel::from(properties)).into(),
-        }
+    fn property_group_from(
+        groups: &mut HashMap<(String, usize), Vec<PropertyInformation>>,
+        name: String,
+        priority: usize,
+        property: PropertyInformation,
+    ) {
+        let entry = groups.entry((name.clone(), priority));
+        entry.and_modify(|e| e.push(property.clone())).or_insert(vec![property]);
     }
 
     for pi in &properties.properties {
@@ -599,24 +603,27 @@ fn map_properties_to_ui(
 
         let value = simplify_value(&pi);
 
-        if pi.group != current_group {
-            if !current_group_properties.is_empty() {
-                property_groups.push(property_group_from(&current_group, current_group_properties));
-            }
-            current_group_properties = vec![];
-            current_group = pi.group.clone();
-        }
-
-        current_group_properties.push(PropertyInformation {
-            name: pi.name.clone().into(),
-            type_name: pi.ty.to_string().into(),
-            value,
-        });
+        property_group_from(
+            &mut property_groups,
+            pi.group.clone(),
+            pi.priority,
+            PropertyInformation {
+                name: pi.name.clone().into(),
+                type_name: pi.ty.to_string().into(),
+                value,
+            },
+        );
     }
 
-    if !current_group_properties.is_empty() {
-        property_groups.push(property_group_from(&current_group, current_group_properties));
-    }
+    let keys = property_groups
+        .keys()
+        .sorted_by(|a, b| match a.1.cmp(&b.1) {
+            Ordering::Less => Ordering::Less,
+            Ordering::Equal => a.0.cmp(&b.0),
+            Ordering::Greater => Ordering::Greater,
+        })
+        .cloned()
+        .collect::<Vec<_>>();
 
     Some((
         ElementInformation {
@@ -627,7 +634,15 @@ fn map_properties_to_ui(
             range: to_ui_range(element.range)?,
         },
         declarations,
-        Rc::new(VecModel::from(property_groups)).into(),
+        Rc::new(VecModel::from(
+            keys.iter()
+                .map(|k| PropertyGroup {
+                    group_name: k.0.clone().into(),
+                    properties: Rc::new(VecModel::from(property_groups.remove(k).unwrap())).into(),
+                })
+                .collect::<Vec<_>>(),
+        ))
+        .into(),
     ))
 }
 
@@ -1304,12 +1319,15 @@ export component X {
             create_test_property("aaa", "AAA"),
             create_test_property("bbb", "BBB"),
             create_test_property("ccc", "CCC"),
+            create_test_property("ddd", "DDD"),
+            create_test_property("eee", "EEE"),
         ]);
         let next = slint::VecModel::from(vec![
             create_test_property("aaa", "AAA"),
             create_test_property("aab", "AAB"),
             create_test_property("abb", "ABB"),
             create_test_property("bbb", "BBBX"),
+            create_test_property("ddd", "DDD"),
         ]);
 
         super::update_grouped_properties(&current, &next);
@@ -1331,6 +1349,10 @@ export component X {
         let t = it.next().unwrap();
         assert_eq!(t.name.as_str(), "bbb");
         assert_eq!(t.value.code.as_str(), "BBBX");
+
+        let t = it.next().unwrap();
+        assert_eq!(t.name.as_str(), "ddd");
+        assert_eq!(t.value.code.as_str(), "DDD");
 
         assert!(it.next().is_none());
     }

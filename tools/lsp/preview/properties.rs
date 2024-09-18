@@ -63,6 +63,7 @@ pub struct DeclarationInformation {
 #[derive(Clone, Debug)]
 pub struct PropertyInformation {
     pub name: String,
+    pub priority: usize,
     pub ty: Type,
     pub declared_at: Option<DeclarationInformation>,
     /// Range of the binding in the element source file, if it exist
@@ -90,15 +91,19 @@ pub struct QueryPropertyResponse {
 // This gets defined accessibility properties...
 fn get_reserved_properties<'a>(
     group: &'a str,
+    priority: usize,
     properties: impl Iterator<Item = (&'static str, Type)> + 'a,
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
-    properties.filter(|(_, t)| !matches!(t, Type::Callback { .. })).map(|p| PropertyInformation {
-        name: p.0.to_string(),
-        ty: p.1,
-        declared_at: None,
-        defined_at: None,
-        default_value: None,
-        group: group.to_string(),
+    properties.filter(move |(_, t)| !matches!(t, Type::Callback { .. })).map(move |p| {
+        PropertyInformation {
+            name: p.0.to_string(),
+            priority,
+            ty: p.1,
+            declared_at: None,
+            defined_at: None,
+            default_value: None,
+            group: group.to_string(),
+        }
     })
 }
 
@@ -123,6 +128,7 @@ fn property_is_editable(property: &PropertyDeclaration, is_local_element: bool) 
 fn add_element_properties(
     element: &Element,
     group: &str,
+    priority: usize,
     is_local_element: bool,
     result: &mut Vec<PropertyInformation>,
 ) {
@@ -137,6 +143,7 @@ fn add_element_properties(
         });
         Some(PropertyInformation {
             name: name.clone(),
+            priority,
             ty: value.property_type.clone(),
             declared_at,
             defined_at: None,
@@ -323,18 +330,20 @@ fn insert_property_definitions(
 
 pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
-    add_element_properties(&element.element.borrow(), "", true, &mut result);
+    add_element_properties(&element.element.borrow(), "", 0, true, &mut result);
 
     let mut current_element = element.element.clone();
+    let mut depth = 0;
 
     let geometry_prop = HashSet::from(["x", "y", "width", "height"]);
 
     loop {
+        depth += 10;
         let base_type = current_element.borrow().base_type.clone();
         match base_type {
             ElementType::Component(c) => {
                 current_element = c.root_element.clone();
-                add_element_properties(&current_element.borrow(), &c.id, false, &mut result);
+                add_element_properties(&current_element.borrow(), &c.id, depth, false, &mut result);
                 continue;
             }
             ElementType::Builtin(b) => {
@@ -354,6 +363,7 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
 
                     Some(PropertyInformation {
                         name: k.clone(),
+                        priority: depth,
                         ty: t.ty.clone(),
                         declared_at: None,
                         defined_at: None,
@@ -365,16 +375,26 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
                 if b.name == "Rectangle" {
                     result.push(PropertyInformation {
                         name: "clip".into(),
+                        priority: depth,
                         ty: Type::Bool,
                         declared_at: None,
                         defined_at: None,
                         default_value: Some(Expression::BoolLiteral(false)),
                         group: b.name.clone(),
                     });
+
+                    result.extend(get_reserved_properties(
+                        &b.name,
+                        depth,
+                        i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
+                            .iter()
+                            .cloned(),
+                    ));
                 }
 
                 result.push(PropertyInformation {
                     name: "opacity".into(),
+                    priority: depth,
                     ty: Type::Float32,
                     declared_at: None,
                     defined_at: None,
@@ -383,6 +403,7 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
                 });
                 result.push(PropertyInformation {
                     name: "visible".into(),
+                    priority: depth,
                     ty: Type::Bool,
                     declared_at: None,
                     defined_at: None,
@@ -392,17 +413,9 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
 
                 if b.name == "Image" {
                     result.extend(get_reserved_properties(
-                        "rotation",
+                        &b.name,
+                        depth,
                         i_slint_compiler::typeregister::RESERVED_ROTATION_PROPERTIES
-                            .iter()
-                            .cloned(),
-                    ));
-                }
-
-                if b.name == "Rectangle" {
-                    result.extend(get_reserved_properties(
-                        "drop-shadow",
-                        i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
                             .iter()
                             .cloned(),
                     ));
@@ -417,11 +430,13 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
 
         result.extend(get_reserved_properties(
             "geometry",
+            depth + 1000,
             i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter().cloned(),
         ));
         result.extend(
             get_reserved_properties(
                 "layout",
+                depth + 2000,
                 i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES.iter().cloned(),
             )
             // padding arbitrary items is not yet implemented
@@ -430,10 +445,12 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
         // FIXME: ideally only if parent is a grid layout
         result.extend(get_reserved_properties(
             "layout",
+            depth + 2000,
             i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES.iter().cloned(),
         ));
         result.push(PropertyInformation {
             name: "accessible-role".into(),
+            priority: depth + 10000,
             ty: Type::Enumeration(
                 i_slint_compiler::typeregister::BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone()),
             ),
@@ -445,11 +462,14 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
         if current_element.borrow().is_binding_set("accessible-role", true) {
             result.extend(get_reserved_properties(
                 "accessibility",
+                depth + 10000,
                 i_slint_compiler::typeregister::reserved_accessibility_properties(),
             ));
         }
         break;
     }
+
+    result.sort_by_key(|p| p.name.clone());
 
     insert_property_definitions(element, result)
 }
@@ -530,9 +550,9 @@ fn find_insert_position_relative_to_defined_properties(
             if property_index == usize::MAX {
                 previous_property = Some((i, defined_at.selection_range.end()));
             } else {
-                if let Some((pi, pp)) = previous_property {
+                if let Some((pi, _)) = previous_property {
                     if (i - property_index) >= (property_index - pi) {
-                        return Some((TextRange::new(pp, pp), InsertPosition::After));
+                        break;
                     }
                 }
                 let p = defined_at.selection_range.start();
@@ -541,7 +561,7 @@ fn find_insert_position_relative_to_defined_properties(
         }
     }
 
-    None
+    previous_property.map(|(_, pp)| (TextRange::new(pp, pp), InsertPosition::After))
 }
 
 fn find_insert_range_for_property(
@@ -1680,9 +1700,9 @@ component MyComp {
         } else {
             unreachable!();
         };
-        assert_eq!(&tc.new_text, "x: 30px;\n                ");
-        assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 16 });
-        assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 16 });
+        assert_eq!(&tc.new_text, "\n                x: 30px;");
+        assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 33 });
+        assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 33 });
     }
 
     #[test]
