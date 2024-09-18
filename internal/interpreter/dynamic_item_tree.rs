@@ -933,7 +933,7 @@ pub(crate) fn generate_item_tree<'id>(
                 rtti_for::<BorderRectangle>(),
                 rtti_for::<TouchArea>(),
                 rtti_for::<FocusScope>(),
-                rtti_for::<SwipeGestureRecognizer>(),
+                rtti_for::<SwipeGestureHandler>(),
                 rtti_for::<Path>(),
                 rtti_for::<Flickable>(),
                 rtti_for::<WindowItem>(),

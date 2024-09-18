@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file.
  - Postfix function on numbers for math function.
  - `changed <property>` callbacks. (#112)
  - `Timer` built-in pseudo-element. (#5724)
- - `SwipeGestureRecognizer` element.
+ - `SwipeGestureHandler` element.
  - Fixed panic when accessing function within a PopupWindow. (#5852)
  - Fixed `@children` order in the root of a component. (#5865)
  - Fix conversion from float to string adding extra decimal precision by limiting to f32

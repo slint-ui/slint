@@ -151,12 +151,12 @@ export component Flickable inherits Empty {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-export component SwipeGestureRecognizer {
+export component SwipeGestureHandler {
     in property <bool> enabled: true;
-    in property <bool> swipe-left;
-    in property <bool> swipe-right;
-    in property <bool> swipe-up;
-    in property <bool> swipe-down;
+    in property <bool> handle-swipe-left;
+    in property <bool> handle-swipe-right;
+    in property <bool> handle-swipe-up;
+    in property <bool> handle-swipe-down;
 
     // For the future
     //in property <length> swipe-distance-threshold: 8px;
@@ -177,7 +177,8 @@ export component SwipeGestureRecognizer {
     callback cancelled();
 
     // clears state, invokes swipe-cancelled()
-    function cancel() {}
+    function cancel() {
+    }
 
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -197,7 +198,7 @@ component WindowItem {
     in property <image> icon;
 }
 
-export component Window inherits WindowItem {}
+export component Window inherits WindowItem { }
 
 export component BoxShadow inherits Empty {
     in property <length> border_radius;
@@ -241,12 +242,18 @@ export component TextInput {
     out property <string> preedit-text;
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
-    function set-selection-offsets(start: int, end: int) {}
-    function select-all() {}
-    function clear-selection() {}
-    function cut() {}
-    function copy() {}
-    function paste() {}
+    function set-selection-offsets(start: int, end: int) {
+    }
+    function select-all() {
+    }
+    function clear-selection() {
+    }
+    function cut() {
+    }
+    function copy() {
+    }
+    function paste() {
+    }
 }
 
 export component Clip {
@@ -371,12 +378,17 @@ export component Path {
     in property <bool> clip;
 
     //-disallow_global_types_as_child_elements
-    MoveTo {}
-    LineTo {}
-    ArcTo {}
-    CubicTo {}
-    QuadraticTo {}
-    Close {}
+    MoveTo { }
+
+    LineTo { }
+
+    ArcTo { }
+
+    CubicTo { }
+
+    QuadraticTo { }
+
+    Close { }
 
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -390,7 +402,7 @@ export component TabWidget {
     in-out property <int> current-index;
 
     //-disallow_global_types_as_child_elements
-    Tab {}
+    Tab { }
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -418,7 +430,7 @@ export component Timer {
     //-disallow_global_types_as_child_elements
 }
 
-export component Dialog inherits WindowItem {}
+export component Dialog inherits WindowItem { }
 
 component PropertyAnimation {
     in property <duration> delay;
@@ -583,13 +595,13 @@ export component NativeTabWidget {
 }
 
 export component NativeTab {
-    in property<string> title;
-    in property<image> icon;
-    in property<bool> enabled : true;
-    in-out property<int> current; // supposed to be a binding to the tab
-    in property<int> tab-index;
-    in property<int> current-focused;
-    in property<int> num-tabs;
+    in property <string> title;
+    in property <image> icon;
+    in property <bool> enabled: true;
+    in-out property <int> current; // supposed to be a binding to the tab
+    in property <int> tab-index;
+    in property <int> current-focused;
+    in property <int> num-tabs;
     //-is_internal
 }
 

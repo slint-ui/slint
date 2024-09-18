@@ -28,30 +28,27 @@ export component Carousel {
     height: Theme.size-big;
     preferred-width: 100%;
 
-    focus-scope:= FocusScope {
+    focus-scope := FocusScope {
         key-pressed(event) => {
-            if(event.text == Key.UpArrow) {
+            if (event.text == Key.UpArrow) {
                 root.move-focus-up();
                 return accept;
             }
-
-            if(event.text == Key.RightArrow) {
+            if (event.text == Key.RightArrow) {
                 root.move-right();
                 return accept;
             }
-
-            if(event.text == Key.LeftArrow) {
+            if (event.text == Key.LeftArrow) {
                 root.move-left();
                 return accept;
             }
-
             return accept;
         }
     }
 
-    swipe := SwipeGestureRecognizer {
-        swipe-left: true;
-        swipe-right: true;
+    swipe := SwipeGestureHandler {
+        handle-swipe-left: true;
+        handle-swipe-right: true;
 
         swiped => {
             if self.current-position.x > self.pressed-position.x + root.itemWidth / 2 {
@@ -72,16 +69,24 @@ export component Carousel {
 
             Rectangle {
                 property <length> viewport-x: root.center-x - root.selected-index * (root.itemWidth + root.spacing);
-                animate viewport-x { duration: root.duration; easing: ease-in; }
+                animate viewport-x {
+                    duration: root.duration;
+                    easing: ease-in;
+                }
                 property <length> swipe-offset: 0;
                 x: self.viewport-x + swipe-offset;
                 width: inner-layout.preferred-width;
 
                 states [
-                    swipping when swipe.swiping : {
+                    swipping when swipe.swiping: {
                         //x: self.viewport-x + swipe-offset;
                         swipe-offset: (swipe.current-position.x - swipe.pressed-position.x).clamp(-root.itemWidth, root.itemWidth);
-                        out { animate swipe-offset { duration: root.duration; easing: ease-in; } }
+                        out {
+                            animate swipe-offset {
+                                duration: root.duration;
+                                easing: ease-in;
+                            }
+                        }
                     }
                 ]
 
