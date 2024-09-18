@@ -58,18 +58,88 @@ component NameLabel inherits HorizontalLayout {
 
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
+        min-height: 2rem;
+
         text: root.property-information.name;
+
         font-size: 1rem;
         font-weight: property-information.value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
+
         overflow: elide;
     }
+}
+
+component ResettingLineEdit {
+    property <length> border: 3px;
+    
+    in property <string> default-text;
+    in property <bool> can-compile: true;
+
+    in property <bool> enabled <=> le.enabled;
+    in property <InputType> input-type <=> le.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> le.horizontal-alignment;
+    in property <string> placeholder-text <=> le.placeholder-text;
+    out property <bool> has-focus <=> le.has-focus;
+    out property <string> text <=> le.text;
+
+    callback accepted <=> le.accepted;
+    callback edited <=> le.edited;
+
+    min-width <=> le.min-width;
+    preferred-width <=> le.preferred-width;
+    max-width <=> le.max-width;
+
+    min-height <=> le.min-height;
+    preferred-height <=> le.preferred-height;
+    max-height <=> le.max-height;
+
+    le := LineEdit {
+        width: 100%;
+        height: 100%;
+        x: 0px;
+        y: 0px;
+
+        text: root.default-text;
+        font-size: 1rem;
+
+        // Reset on focus loss:
+        changed has-focus => {
+            if !self.has_focus {
+                self.text = root.default-text;
+            }
+        }
+    }
+
+    Rectangle {
+        visible: !root.can-compile;
+
+        background: Colors.red.transparentize(0.9);
+        x: root.border;
+        y: root.border;
+        width: root.width - 2 * root.border;
+        height: root.height - 2 * root.border;
+
+        border-radius: root.border;
+    } 
 }
 
 component FloatWidget inherits HorizontalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
-    private property <string> current-unit;
+    private property <string> current-unit: find_current_unit(property-information.value);
+
+    pure function find_current_unit(value: PropertyValue) -> string {
+        if value.visual-items.length == 0 {
+            return "";
+        }
+        return value.visual-items[self.find-current-index(value)];
+    }
+
+    pure function find_current_index(value: PropertyValue) -> int {
+        return value.code == "" ? value.default-selection : value.value-int;
+    }
+
     spacing: EditorSpaceSettings.default-spacing;
     padding-top: EditorSpaceSettings.property-spacing;
     alignment: space-between;
@@ -80,46 +150,51 @@ component FloatWidget inherits HorizontalLayout {
         element-information: root.element-information;
     }
 
+    function set-binding() {
+        Api.set-code-binding(
+            self.element-information.source-uri,
+            self.element-information.source-version,
+            self.element-information.range.start,
+            self.property-information.name,
+            number.text == "" ? "" : number.text + self.current-unit,
+        );
+    }
+
     HorizontalLayout {
         alignment: end;
-        number := LineEdit {
+        number := ResettingLineEdit {
             horizontal-alignment: right;
-            text: property-information.value.value-float;
             min-width: EditorSizeSettings.float-size;
             max-width: 14rem;
             horizontal-stretch: 0;
-            font-size: 1rem;
 
-            accepted(text) => {
-                Api.set-code-binding(
+            default-text: property-information.value.value-float;
+
+            edited(text) => {
+                self.can-compile = Api.test-code-binding(
                     root.element-information.source-uri,
                     root.element-information.source-version,
                     root.element-information.range.start,
                     root.property-information.name,
-                    number.text + root.current-unit,
+                    number.text == "" ? "" : number.text + root.current-unit,
                 );
+            }
+
+            accepted(text) => {
+                root.set-binding();
             }
         }
 
         if property-information.value.visual-items.length > 1: ComboBox {
-            min-width: EditorSizeSettings.length-combo;
-            model: property-information.value.visual-items;
-            current-index: property-information.value.code == "" ? property-information.value.default-selection : property-information.value.value-int;
-
-            changed current-index => {
-                root.current-unit = self.model[self.current-index];
-            }
-
             horizontal-stretch: 0;
 
+            min-width: EditorSizeSettings.length-combo;
+            model: property-information.value.visual-items;
+            current-index: root.find_current_index(root.property-information.value);
+
             selected(unit) => {
-                Api.set-code-binding(
-                    root.element-information.source-uri,
-                    root.element-information.source-version,
-                    root.element-information.range.start,
-                    root.property-information.name,
-                    number.text + root.current-unit,
-                );
+                root.current-unit = unit;
+                set-binding();
             }
         }
         if property-information.value.visual-items.length == 1: Text {
@@ -389,9 +464,21 @@ component ExpandableGroup {
                             element-information: root.element-information;
                         }
 
-                        LineEdit {
+                        ResettingLineEdit {
+                            horizontal-alignment: right;
                             input-type: number;
-                            text: property.value.value-int;
+
+                            default-text: property.value.value-int;
+
+                            edited(text) => {
+                                self.can-compile = Api.test-code-binding(
+                                    root.element-information.source-uri,
+                                    root.element-information.source-version,
+                                    root.element-information.range.start,
+                                    property.name,
+                                    text,
+                                );
+                            }
 
                             accepted(text) => {
                                 Api.set-code-binding(
@@ -412,8 +499,23 @@ component ExpandableGroup {
                             element-information: root.element-information;
                         }
 
-                        LineEdit {
-                            text: property.value.value-string;
+                        ResettingLineEdit {
+                            default-text: property.value.value-string;
+
+                            edited(text) => {
+                                self.can-compile = Api.test-string-binding(
+                                    root.element-information.source-uri,
+                                    root.element-information.source-version,
+                                    root.element-information.range.start,
+                                    property.name,
+                                    text,
+                                    property.value.is-translatable,
+                                    property.value.tr-context,
+                                    property.value.tr-plural,
+                                    property.value.tr-plural-expression,
+                                );
+                            }
+
                             accepted(text) => {
                                 Api.set-string-binding(
                                     root.element-information.source-uri,
