@@ -4,11 +4,8 @@
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
-use i_slint_compiler::literals;
-use i_slint_compiler::{
-    langtype,
-    parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange},
-};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange};
+use i_slint_compiler::{expression_tree, langtype, literals};
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
@@ -316,6 +313,7 @@ fn convert_number_literal(
 
 fn extract_value_with_unit_impl(
     expression: &Option<syntax_nodes::Expression>,
+    def_val: Option<&expression_tree::Expression>,
     code: &str,
     units: &[i_slint_compiler::expression_tree::Unit],
 ) -> Option<(PropertyValueKind, f32, i32)> {
@@ -329,7 +327,13 @@ fn extract_value_with_unit_impl(
             return Some((PropertyValueKind::Float, value as f32, index as i32));
         }
     } else if code.is_empty() {
-        return Some((PropertyValueKind::Float, 0.0, 0));
+        if let Some(expression_tree::Expression::NumberLiteral(value, unit)) = def_val {
+            let index = units.iter().position(|u| u == unit).unwrap_or(0);
+            return Some((PropertyValueKind::Float, *value as f32, index as i32));
+        } else {
+            // FIXME: if def_vale is Some but not a NumberLiteral, we should not show "0"
+            return Some((PropertyValueKind::Float, 0.0, 0));
+        }
     }
 
     None
@@ -341,10 +345,12 @@ fn string_to_color(text: &str) -> Option<slint::Color> {
 
 fn extract_value_with_unit(
     expression: &Option<syntax_nodes::Expression>,
-    units: &[i_slint_compiler::expression_tree::Unit],
+    def_val: Option<&expression_tree::Expression>,
+    units: &[expression_tree::Unit],
     value: &mut PropertyValue,
 ) {
-    let Some((kind, v, index)) = extract_value_with_unit_impl(expression, &value.code, units)
+    let Some((kind, v, index)) =
+        extract_value_with_unit_impl(expression, def_val, &value.code, units)
     else {
         return;
     };
@@ -375,21 +381,34 @@ fn extract_color(
     false
 }
 
-fn set_default_brush(kind: PropertyValueKind, value: &mut PropertyValue) {
+fn set_default_brush(
+    kind: PropertyValueKind,
+    def_val: Option<&expression_tree::Expression>,
+    value: &mut PropertyValue,
+) {
+    use expression_tree::Expression;
+    value.kind = kind;
+    if let Some(mut def_val) = def_val {
+        if let Expression::Cast { from, .. } = def_val {
+            def_val = &from;
+        }
+        if let Expression::NumberLiteral(v, _) = def_val {
+            value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(*v as _));
+            return;
+        }
+    }
     let text = "#00000000";
     let color = literals::parse_color_literal(&text).unwrap();
-    value.kind = kind;
     value.value_string = text.into();
     value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(color));
 }
 
-fn simplify_value(
-    property_type: &langtype::Type,
-    code_block_or_expression: &Option<properties::CodeBlockOrExpression>,
-) -> PropertyValue {
+fn simplify_value(prop_info: &super::properties::PropertyInformation) -> PropertyValue {
     use i_slint_compiler::expression_tree::Unit;
     use langtype::Type;
 
+    let code_block_or_expression =
+        prop_info.defined_at.as_ref().map(|da| da.code_block_or_expression.clone());
     let expression = code_block_or_expression.as_ref().and_then(|cbe| cbe.expression());
 
     let mut value = PropertyValue {
@@ -402,20 +421,28 @@ fn simplify_value(
         ..Default::default()
     };
 
-    match property_type {
-        Type::Float32 => extract_value_with_unit(&expression, &[], &mut value),
-        Type::Duration => extract_value_with_unit(&expression, &[Unit::S, Unit::Ms], &mut value),
+    let def_val = prop_info.default_value.as_ref();
+
+    match &prop_info.ty {
+        Type::Float32 => extract_value_with_unit(&expression, def_val, &[], &mut value),
+        Type::Duration => {
+            extract_value_with_unit(&expression, def_val, &[Unit::S, Unit::Ms], &mut value)
+        }
         Type::PhysicalLength | Type::LogicalLength | Type::Rem => extract_value_with_unit(
             &expression,
+            def_val,
             &[Unit::Px, Unit::Cm, Unit::Mm, Unit::In, Unit::Pt, Unit::Phx, Unit::Rem],
             &mut value,
         ),
         Type::Angle => extract_value_with_unit(
             &expression,
+            def_val,
             &[Unit::Deg, Unit::Grad, Unit::Turn, Unit::Rad],
             &mut value,
         ),
-        Type::Percent => extract_value_with_unit(&expression, &[Unit::Percent], &mut value),
+        Type::Percent => {
+            extract_value_with_unit(&expression, def_val, &[Unit::Percent], &mut value)
+        }
         Type::Int32 => {
             if let Some(expression) = expression {
                 if let Some((v, unit)) = convert_number_literal(&expression) {
@@ -435,7 +462,7 @@ fn simplify_value(
                 // This makes no sense right now, as we have no way to get any
                 // information on the palettes.
             } else if value.code.is_empty() {
-                set_default_brush(PropertyValueKind::Color, &mut value);
+                set_default_brush(PropertyValueKind::Color, def_val, &mut value);
             }
         }
         Type::Brush => {
@@ -443,7 +470,7 @@ fn simplify_value(
                 extract_color(&expression, PropertyValueKind::Brush, &mut value);
                 // TODO: Handle gradients...
             } else if value.code.is_empty() {
-                set_default_brush(PropertyValueKind::Brush, &mut value);
+                set_default_brush(PropertyValueKind::Brush, def_val, &mut value);
             }
         }
         Type::Bool => {
@@ -455,6 +482,9 @@ fn simplify_value(
                     value.value_bool = &qualified_name == "true";
                 }
             } else if value.code.is_empty() {
+                if let Some(expression_tree::Expression::BoolLiteral(v)) = def_val {
+                    value.value_bool = *v;
+                }
                 value.kind = PropertyValueKind::Boolean;
             }
         }
@@ -470,6 +500,9 @@ fn simplify_value(
                     extract_tr_data(tr_node, &mut value)
                 }
             } else if value.code.is_empty() {
+                if let Some(expression_tree::Expression::StringLiteral(v)) = def_val {
+                    value.value_string = v.into();
+                }
                 value.kind = PropertyValueKind::String;
             }
         }
@@ -499,6 +532,8 @@ fn simplify_value(
                         .and_then(|v| i32::try_from(v).ok())
                         .unwrap_or_default();
                 }
+            } else if let Some(expression_tree::Expression::EnumerationValue(v)) = def_val {
+                value.value_int = v.value as i32
             }
         }
         _ => {}
@@ -562,11 +597,7 @@ fn map_properties_to_ui(
 
         declarations.insert(pi.name.clone(), declared_at);
 
-        let value = {
-            let code_block_or_expression =
-                pi.defined_at.as_ref().map(|da| da.code_block_or_expression.clone());
-            simplify_value(&pi.ty, &code_block_or_expression)
-        };
+        let value = simplify_value(&pi);
 
         if pi.group != current_group {
             if !current_group_properties.is_empty() {
@@ -789,13 +820,8 @@ mod tests {
 
     fn property_conversion_test(contents: &str, property_line: u32) -> PropertyValue {
         let (_, pi, _, _) = properties_at_position(contents, property_line, 30).unwrap();
-
         let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
-
-        super::simplify_value(
-            &test1.ty,
-            &test1.defined_at.as_ref().map(|da| da.code_block_or_expression.clone()),
-        )
+        super::simplify_value(test1)
     }
 
     #[test]
@@ -1173,6 +1199,90 @@ export component Test { in property <Foobar> test1; }"#,
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
+    }
+
+    #[test]
+    fn test_property_with_default_values() {
+        let source = r#"
+import { Button } from "std-widgets.slint";
+component MyButton inherits Button {
+    text: "Ok";
+    in property <color> color: red;
+    in property alias <=> self.xxx;
+    property <length> xxx: 45cm;
+}
+export component X {
+    MyButton {
+        /*CURSOR*/
+    }
+}
+        "#;
+
+        let (dc, url, _diag) = loaded_document_cache(source.to_string());
+        let element = dc
+            .element_at_offset(&url, (source.find("/*CURSOR*/").expect("cursor") as u32).into())
+            .unwrap();
+        let pi = super::properties::get_properties(&element);
+
+        let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
+        let result = super::simplify_value(&prop);
+        assert_eq!(result.kind, PropertyValueKind::Boolean);
+        assert_eq!(result.value_bool, true);
+
+        let prop = pi.iter().find(|pi| pi.name == "enabled").unwrap();
+        let result = super::simplify_value(&prop);
+        assert_eq!(result.kind, PropertyValueKind::Boolean);
+        assert_eq!(result.value_bool, true);
+
+        let prop = pi.iter().find(|pi| pi.name == "text").unwrap();
+        let result = super::simplify_value(&prop);
+        assert_eq!(result.kind, PropertyValueKind::String);
+        assert_eq!(result.value_string, "Ok");
+
+        let prop = pi.iter().find(|pi| pi.name == "alias").unwrap();
+        let result = super::simplify_value(&prop);
+        assert_eq!(result.kind, PropertyValueKind::Float);
+        assert_eq!(result.value_float, 45.);
+        assert_eq!(result.visual_items.row_data(result.value_int as usize).unwrap(), "cm");
+
+        let prop = pi.iter().find(|pi| pi.name == "color").unwrap();
+        let result = super::simplify_value(&prop);
+        assert_eq!(result.kind, PropertyValueKind::Color);
+        assert_eq!(
+            result.value_brush,
+            slint::Brush::SolidColor(slint::Color::from_rgb_u8(255, 0, 0))
+        );
+    }
+
+    #[test]
+    fn test_property_with_default_values_loop() {
+        let source = r#"
+component Abc {
+        // This should be an error, not a infinite loop/hang
+        in property <length> some_loop <=> r.border-width;
+        r:= Rectangle {
+            property <length> some_loop <=> root.some_loop;
+            border-width <=> some_loop;
+        }
+}
+export component X {
+    Abc {
+        /*CURSOR*/
+    }
+}
+        "#;
+
+        let (dc, url, _diag) = loaded_document_cache(source.to_string());
+
+        let element = dc
+            .element_at_offset(&url, (source.find("/*CURSOR*/").expect("cursor") as u32).into())
+            .unwrap();
+        let pi = super::properties::get_properties(&element);
+
+        let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
+        let result = super::simplify_value(&prop);
+        assert_eq!(result.kind, PropertyValueKind::Boolean);
+        assert_eq!(result.value_bool, true);
     }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
