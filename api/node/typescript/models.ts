@@ -94,12 +94,7 @@ export abstract class Model<T> implements Iterable<T> {
     modelNotify: napi.ExternalObject<napi.SharedModelNotify>;
 
     constructor(modelNotify?: napi.ExternalObject<napi.SharedModelNotify>) {
-        if (modelNotify === undefined) {
-            this.modelNotify = napi.jsModelNotifyNew(this);
-            return;
-        }
-
-        this.modelNotify = modelNotify;
+        this.modelNotify = modelNotify ?? napi.jsModelNotifyNew(this);
     }
 
     // /**
