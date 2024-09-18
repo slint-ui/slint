@@ -3,16 +3,14 @@
 
 use crate::common::{self, Result, SourceFileVersion};
 use crate::util;
-
 use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::expression_tree::{Expression, Unit};
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
+use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
     syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
 };
-
 use lsp_types::Url;
-
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -67,7 +65,10 @@ pub struct PropertyInformation {
     pub name: String,
     pub ty: Type,
     pub declared_at: Option<DeclarationInformation>,
-    pub defined_at: Option<DefinitionInformation>, // Range in the elements source file!
+    /// Range of the binding in the element source file, if it exist
+    pub defined_at: Option<DefinitionInformation>,
+    /// Value of the property, which can be the default set from the base
+    pub default_value: Option<Expression>,
     pub group: String,
 }
 
@@ -96,6 +97,7 @@ fn get_reserved_properties<'a>(
         ty: p.1,
         declared_at: None,
         defined_at: None,
+        default_value: None,
         group: group.to_string(),
     })
 }
@@ -138,6 +140,7 @@ fn add_element_properties(
             ty: value.property_type.clone(),
             declared_at,
             defined_at: None,
+            default_value: None,
             group: group.to_string(),
         })
     }))
@@ -277,16 +280,48 @@ fn insert_property_definitions(
     element: &common::ElementRcNode,
     mut properties: Vec<PropertyInformation>,
 ) -> Vec<PropertyInformation> {
+    fn binding_value(element: &ElementRc, prop: &str, count: &mut usize) -> Expression {
+        // prevent infinite recursion while visiting the two-way bindings
+        *count += 1;
+        if *count > 10 {
+            return Expression::Invalid;
+        }
+
+        if let Some(binding) = element.borrow().bindings.get(prop) {
+            let e = binding.borrow().expression.clone();
+            if !matches!(e, Expression::Invalid) {
+                return e;
+            }
+            for nr in &binding.borrow().two_way_bindings {
+                let e = binding_value(&nr.element(), nr.name(), count);
+                if !matches!(e, Expression::Invalid) {
+                    return e;
+                }
+            }
+        }
+        match &element.borrow().base_type {
+            ElementType::Component(c) => binding_value(&c.root_element, prop, &mut 0),
+            ElementType::Builtin(b) => {
+                b.properties.get(prop).and_then(|p| p.default_value.clone()).unwrap_or_default()
+            }
+            _ => Expression::Invalid,
+        }
+    }
+
     for prop_info in properties.iter_mut() {
         if let Some(offset) = find_property_binding_offset(element, prop_info.name.as_str()) {
             prop_info.defined_at =
                 element.with_element_node(|node| find_code_block_or_expression(node, offset));
         }
+        let def_val = binding_value(&element.element, &prop_info.name, &mut 0);
+        if !matches!(def_val, Expression::Invalid) {
+            prop_info.default_value = Some(def_val);
+        }
     }
     properties
 }
 
-fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
+pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
     add_element_properties(&element.element.borrow(), "", true, &mut result);
 
@@ -322,6 +357,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                         ty: t.ty.clone(),
                         declared_at: None,
                         defined_at: None,
+                        default_value: t.default_value.clone(),
                         group: b.name.clone(),
                     })
                 }));
@@ -332,6 +368,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                         ty: Type::Bool,
                         declared_at: None,
                         defined_at: None,
+                        default_value: Some(Expression::BoolLiteral(false)),
                         group: b.name.clone(),
                     });
                 }
@@ -341,6 +378,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                     ty: Type::Float32,
                     declared_at: None,
                     defined_at: None,
+                    default_value: Some(Expression::NumberLiteral(1.0, Unit::None)),
                     group: b.name.clone(),
                 });
                 result.push(PropertyInformation {
@@ -348,6 +386,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                     ty: Type::Bool,
                     declared_at: None,
                     defined_at: None,
+                    default_value: Some(Expression::BoolLiteral(true)),
                     group: b.name.clone(),
                 });
 
@@ -400,6 +439,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
             ),
             declared_at: None,
             defined_at: None,
+            default_value: None,
             group: "accessibility".into(),
         });
         if current_element.borrow().is_binding_set("accessible-role", true) {
