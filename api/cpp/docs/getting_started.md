@@ -89,7 +89,7 @@ game.
 
 ## Template
 
-You can clone the [Template Repository](https://github.com/slint-ui/slint-cpp-template) repository with
+You can check out the [Slint C++ Template](https://github.com/slint-ui/slint-cpp-template) with
 the code of a minimal C++ application using Slint. It provides a convenient starting point to a new program.
 
 Of course you can also read on: We will cover some recipes to handle common

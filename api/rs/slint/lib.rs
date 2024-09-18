@@ -98,8 +98,12 @@ fn main() {
 Use our [Template Repository](https://github.com/slint-ui/slint-rust-template) to create a skeleton file
 hierarchy that uses this method:
 
+1. Download and extract the [ZIP archive of the Rust Template](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip).
+2. Rename the extracted directory and change into it:
+
 ```bash
-git clone https://github.com/slint-ui/slint-rust-template my-project
+mv slint-rust-template-main my-project
+cd my-project
 ```
 
 ## Generated components

@@ -49,8 +49,12 @@ contains more advanced examples and alternative ways to use this crate.
 To quickly get started, use the [Template Repository](https://github.com/slint-ui/slint-rust-template) with
 the code of a minimal application using Slint as a starting point for your program.
 
+1. Download and extract the [ZIP archive of the Rust Template](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip).
+2. Rename the extracted directory and change into it:
+
 ```bash
-git clone https://github.com/slint-ui/slint-rust-template my-project
+mv slint-rust-template-main my-project
+cd my-project
 ```
 
 ## More examples
