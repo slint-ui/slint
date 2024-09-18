@@ -205,12 +205,10 @@ component FloatWidget inherits VerticalLayout {
     }
 }
 
-component ColorWidget inherits HorizontalLayout {
+component ColorWidget inherits VerticalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
-    spacing: EditorSpaceSettings.default-spacing;
-    alignment: space-between;
     width: 100%;
 
     NameLabel {
@@ -219,13 +217,13 @@ component ColorWidget inherits HorizontalLayout {
     }
 
     HorizontalLayout {
-        spacing: parent.spacing;
-
-        alignment: end;
+        spacing: EditorSpaceSettings.default-spacing;
+        alignment: stretch;
 
         color-preview := Rectangle {
             height: 1.8rem;
             width: 2 * self.height;
+            horizontal-stretch: 1;
             
             background: property-information.value.value-brush;
             border-width: 1px;
@@ -233,6 +231,7 @@ component ColorWidget inherits HorizontalLayout {
         }
 
         ResettingLineEdit {
+            horizontal-stretch: 0;
             default-text: property-information.value.value-string;
             min-width: 10rem; // Should be enough for 9 chars;-)
 
