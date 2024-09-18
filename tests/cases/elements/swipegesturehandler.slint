@@ -15,33 +15,40 @@ export component TestCase inherits Window {
     out property right-swiping <=> right-gesture.swiping;
 
     function distance(a: Point, b: Point) -> float {
-        return sqrt((a.x/1px - b.x/1px).pow(2) + (a.y/1px - b.y/1px).pow(2));
+        return sqrt((a.x / 1px - b.x / 1px).pow(2) + (a.y / 1px - b.y / 1px).pow(2));
     }
 
-    down-gesture := SwipeGestureRecognizer {
-        swipe-down: true;
-        swipe-left: false;
+    down-gesture := SwipeGestureHandler {
+        handle-swipe-down: true;
+        handle-swipe-left: false;
         swiped => {
             r += "S1(" + distance(self.current-position, self.pressed-position) + ")";
         }
-        cancelled => { r += "C1(" + distance(self.current-position, self.pressed-position) + ")"; }
+        cancelled => {
+            r += "C1(" + distance(self.current-position, self.pressed-position) + ")";
+        }
         VerticalLayout {
-            left-gesture := SwipeGestureRecognizer {
-                swipe-left: true;
+            left-gesture := SwipeGestureHandler {
+                handle-swipe-left: true;
                 swiped => {
                     r += "S2(" + distance(self.current-position, self.pressed-position) + ")";
                 }
                 moved => {
                     r += "M2(" + distance(self.current-position, self.pressed-position) + ")";
                 }
-                cancelled => { r += "C2(" + distance(self.current-position, self.pressed-position) + ")"; }
-
-            }
-            right-gesture := SwipeGestureRecognizer {
-                swipe-right: true;
-                ta := TouchArea {
-                    clicked => { r += "clicked()" }
+                cancelled => {
+                    r += "C2(" + distance(self.current-position, self.pressed-position) + ")";
                 }
+            }
+
+            right-gesture := SwipeGestureHandler {
+                handle-swipe-right: true;
+                ta := TouchArea {
+                    clicked => {
+                        r += "clicked()"
+                    }
+                }
+
                 swiped => {
                     r += "S3(" + distance(self.current-position, self.pressed-position) + ")";
                 }

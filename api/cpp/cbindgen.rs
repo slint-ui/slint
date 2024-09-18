@@ -281,7 +281,7 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "FocusScope",
-        "SwipeGestureRecognizer",
+        "SwipeGestureHandler",
         "Flickable",
         "SimpleText",
         "ComplexText",

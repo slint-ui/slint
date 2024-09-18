@@ -343,12 +343,12 @@ impl ItemConsts for FocusScope {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct SwipeGestureRecognizer {
+pub struct SwipeGestureHandler {
     pub enabled: Property<bool>,
-    pub swipe_left: Property<bool>,
-    pub swipe_right: Property<bool>,
-    pub swipe_up: Property<bool>,
-    pub swipe_down: Property<bool>,
+    pub handle_swipe_left: Property<bool>,
+    pub handle_swipe_right: Property<bool>,
+    pub handle_swipe_up: Property<bool>,
+    pub handle_swipe_down: Property<bool>,
 
     pub moved: Callback<VoidArg>,
     pub swiped: Callback<VoidArg>,
@@ -366,7 +366,7 @@ pub struct SwipeGestureRecognizer {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for SwipeGestureRecognizer {
+impl Item for SwipeGestureHandler {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -429,10 +429,10 @@ impl Item for SwipeGestureRecognizer {
                     let dx = position.x - pressed_pos.x as Coord;
                     let dy = position.y - pressed_pos.y as Coord;
                     let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                    if (self.swipe_down() && dy > threshold)
-                        || (self.swipe_up() && dy < -threshold)
-                        || (self.swipe_left() && dx < -threshold)
-                        || (self.swipe_right() && dx > threshold)
+                    if (self.handle_swipe_down() && dy > threshold)
+                        || (self.handle_swipe_up() && dy < -threshold)
+                        || (self.handle_swipe_left() && dx < -threshold)
+                        || (self.handle_swipe_right() && dx > threshold)
                     {
                         InputEventFilterResult::Intercept
                     } else {
@@ -481,13 +481,13 @@ impl Item for SwipeGestureRecognizer {
                     let dy = position.y - pressed_pos.y as Coord;
                     let threshold = super::flickable::DISTANCE_THRESHOLD.get();
                     let start_swipe = if dy > threshold {
-                        self.swipe_down()
+                        self.handle_swipe_down()
                     } else if dy < -threshold {
-                        self.swipe_up()
+                        self.handle_swipe_up()
                     } else if dx < -threshold {
-                        self.swipe_left()
+                        self.handle_swipe_left()
                     } else if dx > threshold {
-                        self.swipe_right()
+                        self.handle_swipe_right()
                     } else {
                         return InputEventResult::EventIgnored;
                     };
@@ -533,12 +533,12 @@ impl Item for SwipeGestureRecognizer {
     }
 }
 
-impl ItemConsts for SwipeGestureRecognizer {
+impl ItemConsts for SwipeGestureHandler {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl SwipeGestureRecognizer {
+impl SwipeGestureHandler {
     pub fn copy(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
         self.cancel_impl();
     }

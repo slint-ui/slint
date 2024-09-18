@@ -535,7 +535,7 @@ declare_item_vtable! {
 }
 
 declare_item_vtable! {
-    fn slint_get_SwipeGestureRecognizerVTable() -> SwipeGestureRecognizerVTable for SwipeGestureRecognizer
+    fn slint_get_SwipeGestureHandlerVTable() -> SwipeGestureHandlerVTable for SwipeGestureHandler
 }
 
 #[repr(C)]
