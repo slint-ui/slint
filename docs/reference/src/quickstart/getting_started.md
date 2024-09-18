@@ -17,10 +17,11 @@ Slint has application templates you can use to create a project with dependencie
 
 Before using the template, you need a C++ compiler that supports C++ 20 and to install [CMake](https://cmake.org/download/) 3.21 or newer.
 
-Clone or download the template repository:
+1. Download and extract the [ZIP archive of the C++ Template](https://github.com/slint-ui/slint-cpp-template/archive/refs/heads/main.zip).
+2. Rename the extracted directory and change into it:
 
 ```sh
-git clone https://github.com/slint-ui/slint-cpp-template memory
+mv slint-cpp-template-main memory
 cd memory
 ```
 
@@ -90,14 +91,14 @@ my_application
 ::::{tab-item} NodeJS
 :sync: nodejs
 
-Clone or download the template repository:
+1. Download and extract the [ZIP archive of the Node.js Template](https://github.com/slint-ui/slint-nodejs-template/archive/refs/heads/main.zip).
+2. Rename the extracted directory and change into it:
 
 ```sh
-git clone https://github.com/slint-ui/slint-nodejs-template memory
+mv slint-nodejs-template-main memory
 cd memory
 ```
-
-Install dependencies with npm:
+3. Install dependencies with npm:
 
 ```sh
 npm install
@@ -134,10 +135,11 @@ Run the example with `npm start` and a window appears with the green "Hello Worl
 
 We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
-Clone or download the template repository:
+1. Download and extract the [ZIP archive of the Rust Template](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip).
+2. Rename the extracted directory and change into it:
 
 ```sh
-git clone https://github.com/slint-ui/slint-rust-template memory
+mv slint-rust-template-main memory
 cd memory
 ```
 
