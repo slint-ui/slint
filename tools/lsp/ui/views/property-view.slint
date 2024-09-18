@@ -66,6 +66,7 @@ component NameLabel inherits HorizontalLayout {
 
         font-size: 1rem;
         font-weight: property-information.value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
+        font-italic: property-information.value.code != "" ? false : true;
 
         overflow: elide;
     }
@@ -165,7 +166,6 @@ component FloatWidget inherits VerticalLayout {
 
     HorizontalLayout {
         spacing: EditorSpaceSettings.default-spacing;
-        padding-top: EditorSpaceSettings.property-spacing;
         alignment: stretch;
         number := ResettingLineEdit {
             horizontal-alignment: right;
@@ -344,6 +344,18 @@ export component ExpandableProperty inherits Rectangle {
     }
 }
 
+component DividerLine {
+    VerticalLayout {
+        alignment: end;
+        width: 100%;
+        Rectangle {
+            height: 1px;
+            width: 100%;
+            background: Palette.border.transparentize(0.5);
+        }
+    }
+}
+
 component ExpandableGroup {
     in property <ElementInformation> element-information;
     in property <string> text;
@@ -406,6 +418,7 @@ component ExpandableGroup {
                         }
 
                         HorizontalLayout {
+                            alignment: start;
                             spacing: EditorSpaceSettings.default-spacing;
                             CheckBox {
                                 checked: property.value.value_bool;
@@ -487,7 +500,7 @@ component ExpandableGroup {
                     }
                     if property.value.kind == PropertyValueKind.integer: VerticalLayout {
                         NameLabel {
-                             property-information: property;
+                            property-information: property;
                             element-information: root.element-information;
                         }
 
