@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # STMicroelectronics' STM32Cube Ecosystem
 
 Slint provides a platform integration with into STMicroelectronics' (STM) STM32Cube software platform.
