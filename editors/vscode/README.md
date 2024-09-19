@@ -82,3 +82,15 @@ The code is typechecked with `tsc` and linted/formatted with Biome.
 If using VS Code then install the [biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome).
 To ensure your PR does not fail check everything with `npm run syntax_check && npm run format && npm run lint`.
 `npm run lint:fix` and `npm run format:fix` can be used to auto fix lint and code formatting issues.
+
+## Preview the Library, Preview, and Property Editor
+
+The built-in live-preview can be used to preview itself. For this to work, VS Code needs to be restarted with an environment variable:
+
+1. Close all VS Code Windows and terminate the application.
+2. In a terminal Window, re-launch VS Code:
+   ```bash
+   SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 code
+   ```
+3. Open `tools/lsp/ui/main.slint` and launch the preview, or preview individual components such as the
+   library or properties view.
