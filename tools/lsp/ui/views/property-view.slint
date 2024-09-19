@@ -10,11 +10,6 @@ import { BodyText } from "../components/body-text.slint";
 import { StateLayer } from "../components/state-layer.slint";
 import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings, EditorFontSettings, EditorPalette } from "../components/styling.slint";
 
-export global style {
-    out property <length> grid-margin:5px;
-    out property <length> min-distance:5px;
-}
-
 component CodeButton inherits Button {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -334,18 +329,6 @@ export component ExpandableProperty inherits Rectangle {
                     }
                 }
             }
-        }
-    }
-}
-
-component DividerLine {
-    VerticalLayout {
-        alignment: end;
-        width: 100%;
-        Rectangle {
-            height: 1px;
-            width: 100%;
-            background: Palette.border.transparentize(0.5);
         }
     }
 }
