@@ -209,9 +209,19 @@ export global Api {
                     type-name: "float",
                     value: {
                         kind: PropertyValueKind.float,
-                        value-float: 0,
+                        value-float: 10,
                     }
-                }
+                },
+                {
+                    name: "combobox",
+                    type-name: "string",
+                    value: {
+                        kind: PropertyValueKind.enum,
+                        value-int: 1,
+                        default-selection: 0,
+                        visual-items: ["one", "twenty two", "one hundred", "infinite"],
+                    }
+                },
             ]
         },
         {
@@ -247,7 +257,34 @@ export global Api {
                         value-brush: Colors.green,
                         value-string: "#00ff00"
                     },
+                },
+                {
+                    name: "a-really-long-named-attribute",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 10,
+                    }
+                },
+                {
+                    name: "bar",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: 10/2,
+                    }
+                },
+                {
+                    name: "baz",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: "",
+                    }
                 }
+
             ]
         }
     ];

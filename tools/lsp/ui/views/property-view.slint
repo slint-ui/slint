@@ -28,7 +28,6 @@ component CodeButton inherits Button {
 component ResetButton inherits Button {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
-
     text: @tr("Reset");
     clicked => {
         Api.set-code-binding(
@@ -93,8 +92,8 @@ component ResettingLineEdit {
         // Reset on focus loss:
         changed has-focus => {
             if !self.has_focus && text != default-text {
-                if root.can-compile{
-                    root.accepted(self.text);   
+                if root.can-compile {
+                    root.accepted(self.text);
                 }
             } else {
                 self.text = root.default-text;
@@ -201,11 +200,8 @@ component FloatWidget inherits VerticalLayout {
 component ColorWidget inherits VerticalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
-
+    padding-bottom: EditorSpaceSettings.property-spacing;
     width: 100%;
-    Rectangle {
-        height: EditorSpaceSettings.property-spacing;
-    }
     NameLabel {
         property-information: root.property-information;
         element-information: root.element-information;
@@ -216,9 +212,7 @@ component ColorWidget inherits VerticalLayout {
         alignment: stretch;
 
         ResettingLineEdit {
-            horizontal-stretch: 0;
             default-text: property-information.value.value-string;
-            min-width: 10rem; // Should be enough for 9 chars;-)
 
             edited(text) => {
                 if text == "" {
@@ -246,8 +240,6 @@ component ColorWidget inherits VerticalLayout {
 
         color-preview := Rectangle {
             height: 1.8rem;
-            min-width: 2 * self.height;
-            horizontal-stretch: 1;
             background: property-information.value.value-brush;
             border-width: 1px;
             border-color: Palette.foreground;
@@ -339,12 +331,12 @@ component ExpandableGroup {
     in property <[PropertyInformation]> properties;
 
     property <bool> open: true;
-    Rectangle {
-        background: Palette.alternate-background;
+    group-layer := Rectangle {
 
         content-layer := VerticalLayout {
             // header
-            spacing: EditorSpaceSettings.default-spacing;
+            padding-left: 0;
+            padding-right: EditorSpaceSettings.default-padding;
 
             if text != "": Rectangle {
                 touch-area := TouchArea {
@@ -354,8 +346,10 @@ component ExpandableGroup {
                 }
 
                 state-layer := StateLayer {
-                    width: 100%;
-                    height: 100%;
+                    width: group-layer.width - EditorSpaceSettings.default-padding;
+                    height: group-layer.height;
+                    x: 0;
+                    y: group-layer.y;
                     has-hover: touch-area.has-hover;
                     pressed: touch-area.pressed;
                 }
@@ -365,6 +359,7 @@ component ExpandableGroup {
                         width: EditorSizeSettings.default-icon-width;
                         colorize: Palette.foreground;
                         source: Icons.chevron-down;
+                        height: 2rem;
                         rotation-origin-x: self.width / 2;
                         rotation-origin-y: self.height / 2;
                         states [
@@ -382,80 +377,79 @@ component ExpandableGroup {
                 }
             }
 
-            if root.open: VerticalLayout {
-                spacing: EditorSpaceSettings.property-spacing;
-                padding-left: EditorSpaceSettings.group-indent;
-                for property in root.properties: HorizontalLayout {
-                    alignment: stretch;
+            if root.open: Rectangle {
+                background: Palette.alternate-background;
+                VerticalLayout {
+                    spacing: EditorSpaceSettings.property-spacing;
+                    padding-left: EditorSpaceSettings.group-indent;
+                    padding-right: EditorSpaceSettings.group-indent;
+                    padding-top: EditorSpaceSettings.default-padding;
+                    padding-bottom: EditorSpaceSettings.default-padding;
+                    for property in root.properties: HorizontalLayout {
+                        alignment: stretch;
 
-                    if property.value.kind == PropertyValueKind.boolean: VerticalLayout {
+                        if property.value.kind == PropertyValueKind.boolean: VerticalLayout {
 
-                        NameLabel {
-                            property-information: property;
-                            element-information: root.element-information;
-                        }
+                            NameLabel {
+                                property-information: property;
+                                element-information: root.element-information;
+                            }
 
-                        HorizontalLayout {
-                            alignment: start;
-                            height: 2rem;
-                            Rectangle {
-                                width: 100%;
-                                height: 100%;
-                                background: Palette.alternate-background;
-                                HorizontalLayout {
-                                    alignment: start;
-                                    padding-left: 0;
-                                    CheckBox {
-                                        checked: property.value.value_bool;
+                            HorizontalLayout {
+                                alignment: start;
+                                height: 2rem;
+                                Rectangle {
+                                    width: 100%;
+                                    height: 100%;
+                                    background: Palette.alternate-background;
+                                    HorizontalLayout {
+                                        alignment: start;
+                                        padding-left: 0;
+                                        CheckBox {
+                                            checked: property.value.value_bool;
 
-                                        toggled() => {
-                                            Api.set-code-binding(
+                                            toggled() => {
+                                                Api.set-code-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
                                     property.name,
                                     self.checked ? "true" : "false",
                                 );
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
-                        element-information <=> root.element-information;
-                        property-information: property;
-                    }
-
-                    if property.value.kind == PropertyValueKind.code: VerticalLayout {
-                        padding-top: 2px;
-
-                        NameLabel {
+                        if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
+                            element-information <=> root.element-information;
                             property-information: property;
-                            element-information: root.element-information;
                         }
 
-                        HorizontalLayout {
-                            height: 2rem;
+                        if property.value.kind == PropertyValueKind.code: VerticalLayout {
+                            padding-top: 2px;
+
+                            NameLabel {
+                                property-information: property;
+                                element-information: root.element-information;
+                            }
+
                             spacing: EditorSpaceSettings.default-spacing;
-                            alignment: space-between;
-                            if property.value.code == "": 
-                                Rectangle {
+                            if property.value.code == "": Rectangle {
+                                min-height: 2rem;
                                 width: 100%;
-                                height: 100%;
                                 background: Palette.alternate-background;
-                                HorizontalLayout {
-                                    alignment: start;
-                                    padding-left:EditorSpaceSettings.default-padding;
-                                    Text {
-                                        horizontal-alignment: left;
-                                        vertical-alignment: center;
-                                        text: @tr("Not Set");
-                                        font-italic: true;
-                                    }
+                                Text {
+                                    x: EditorSpaceSettings.default-padding;
+                                    horizontal-alignment: left;
+                                    vertical-alignment: center;
+                                    text: @tr("Not Set");
+                                    font-italic: true;
                                 }
                             }
                             if property.value.code != "": HorizontalLayout {
+                                spacing: EditorSpaceSettings.default-spacing;
                                 ResetButton {
                                     element-information <=> root.element-information;
                                     property-information: property;
@@ -467,89 +461,88 @@ component ExpandableGroup {
                                 }
                             }
                         }
-                    }
-                    if property.value.kind == PropertyValueKind.enum: VerticalLayout {
+                        if property.value.kind == PropertyValueKind.enum: VerticalLayout {
 
-                        NameLabel {
-                            property-information: property;
-                            element-information: root.element-information;
-                        }
+                            NameLabel {
+                                property-information: property;
+                                element-information: root.element-information;
+                            }
 
-                        HorizontalLayout {
-                            ComboBox {
-                                current-index: property.value.value-int;
+                            HorizontalLayout {
+                                ComboBox {
+                                    current-index: property.value.value-int;
 
-                                model: property.value.visual-items;
+                                    model: property.value.visual-items;
 
-                                selected(value) => {
-                                    Api.set-code-binding(
+                                    selected(value) => {
+                                        Api.set-code-binding(
                                         root.element-information.source-uri,
                                         root.element-information.source-version,
                                         root.element-information.range.start,
                                         property.name,
                                         property.value.value_string + "." + value,
                                     )
+                                    }
                                 }
                             }
                         }
-                    }
-                    if property.value.kind == PropertyValueKind.float:  FloatWidget {
-                        element-information <=> root.element-information;
-                        property-information: property;
-                    }
-                    if property.value.kind == PropertyValueKind.integer: VerticalLayout {
-                        NameLabel {
+                        if property.value.kind == PropertyValueKind.float:  FloatWidget {
+                            element-information <=> root.element-information;
                             property-information: property;
-                            element-information: root.element-information;
                         }
+                        if property.value.kind == PropertyValueKind.integer: VerticalLayout {
+                            NameLabel {
+                                property-information: property;
+                                element-information: root.element-information;
+                            }
 
-                        HorizontalLayout {
-                            height: 2rem;
-                            spacing: EditorSpaceSettings.default-spacing;
-                            ResettingLineEdit {
-                                horizontal-alignment: right;
-                                input-type: number;
+                            HorizontalLayout {
+                                height: 2rem;
+                                spacing: EditorSpaceSettings.default-spacing;
+                                ResettingLineEdit {
+                                    horizontal-alignment: right;
+                                    input-type: number;
 
-                                default-text: property.value.value-int;
+                                    default-text: property.value.value-int;
 
-                                edited(text) => {
-                                    self.can-compile = Api.test-code-binding(
+                                    edited(text) => {
+                                        self.can-compile = Api.test-code-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
                                     property.name,
                                     text,
                                 );
-                                }
+                                    }
 
-                                accepted(text) => {
-                                    Api.set-code-binding(
+                                    accepted(text) => {
+                                        Api.set-code-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
                                     property.name,
                                     text,
                                 );
+                                    }
                                 }
                             }
                         }
-                    }
-                    if property.value.kind == PropertyValueKind.string: VerticalLayout {
+                        if property.value.kind == PropertyValueKind.string: VerticalLayout {
 
-                        NameLabel {
-                            property-information: property;
-                            element-information: root.element-information;
-                        }
+                            NameLabel {
+                                property-information: property;
+                                element-information: root.element-information;
+                            }
 
-                        HorizontalLayout {
-                            spacing: EditorSpaceSettings.default-spacing;
-                            height: 2rem;
+                            HorizontalLayout {
+                                spacing: EditorSpaceSettings.default-spacing;
+                                height: 2rem;
 
-                            ResettingLineEdit {
-                                default-text: property.value.value-string;
+                                ResettingLineEdit {
+                                    default-text: property.value.value-string;
 
-                                edited(text) => {
-                                    self.can-compile = Api.test-string-binding(
+                                    edited(text) => {
+                                        self.can-compile = Api.test-string-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
@@ -560,10 +553,10 @@ component ExpandableGroup {
                                     property.value.tr-plural,
                                     property.value.tr-plural-expression,
                                 );
-                                }
+                                    }
 
-                                accepted(text) => {
-                                    Api.set-string-binding(
+                                    accepted(text) => {
+                                        Api.set-string-binding(
                                     root.element-information.source-uri,
                                     root.element-information.source-version,
                                     root.element-information.range.start,
@@ -574,6 +567,7 @@ component ExpandableGroup {
                                     property.value.tr-plural,
                                     property.value.tr-plural-expression,
                                 );
+                                    }
                                 }
                             }
                         }
@@ -581,7 +575,6 @@ component ExpandableGroup {
                 }
             }
         }
-
     }
 }
 
