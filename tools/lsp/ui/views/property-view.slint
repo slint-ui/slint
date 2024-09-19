@@ -625,7 +625,8 @@ export component PropertyView {
         }
 
         if root.element-loaded: ScrollView {
-            VerticalBox {
+            preferred-height: groups.preferred-height;
+            groups := VerticalBox {
                 alignment: start;
 
                 for group in root.properties: ExpandableGroup {
