@@ -19,14 +19,14 @@ The <span class="hljs-keyword">for</span> loop is declarative and automatically 
 the model changes. The loop instantiates all the <span class="hljs-title">MemoryTile</span> elements and places them on a grid based on their
 index with spacing between the tiles.
 
-First, add the tile data structure definition at the top of the `ui/appwindow.slint` file:
+First, add the tile data structure definition at the top of the `ui/app-window.slint` file:
 
 :::{literalinclude} main_multiple_tiles.rs
 :language: slint,no-preview
 :lines: 11-15
 :::
 
-Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `ui/appwindow.slint` file with the following:
+Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `ui/app-window.slint` file with the following:
 
 :::{literalinclude} main_multiple_tiles.rs
 :language: slint,no-preview

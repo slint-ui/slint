@@ -56,7 +56,7 @@ channel = "esp"
 #    define DRAW_BUF_SIZE (BSP_LCD_H_RES * CONFIG_BSP_LCD_DRAW_BUF_HEIGHT)
 #endif
 
-#include "appwindow.h"
+#include "app-window.h"
 
 extern "C" void app_main(void)
 {
@@ -93,7 +93,7 @@ extern "C" void app_main(void)
     ui->run();
 }
 ```
-8. Create `main/appwindow.slint` with the following contents:
+8. Create `main/app-window.slint` with the following contents:
 ```
 import { VerticalBox, AboutSlint } from "std-widgets.slint";
 export component AppWindow inherits Window {
@@ -108,10 +108,10 @@ export component AppWindow inherits Window {
 }
 ```
 9. Edit `main/CMakeLists.txt` to adjust for the new `slint-hello-world.cpp`, add `slint` as required component,
-   and instruction the build system to compile `appwindow.slint` to `appwindow.h`. The file should look like this:
+   and instruction the build system to compile `app-window.slint` to `app-window.h`. The file should look like this:
 ```cmake
 idf_component_register(SRCS "slint-hello-world.cpp" INCLUDE_DIRS "." REQUIRES slint)
-slint_target_sources(${COMPONENT_LIB} appwindow.slint)
+slint_target_sources(${COMPONENT_LIB} app-window.slint)
 ```
 10. Open the configuration editor with `idf.py menuconfig`:
     * Change the stack size under `Component config --> ESP System Settings --> Main task stack size` to at least `8192`. You may need to tweak this value in the future if you run into stack overflows.

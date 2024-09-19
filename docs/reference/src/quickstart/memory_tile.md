@@ -12,7 +12,7 @@ Lengths in Slint have a unit, here, the `px` suffix.
 This makes the code easier to read and the compiler can detect when you accidentally
 mix values with different units attached to them.
 
-Copy the following code into `ui/appwindow.slint` file, replacing the current content:
+Copy the following code into `ui/app-window.slint` file, replacing the current content:
 
 :::{literalinclude} memory_tile.slint
 :language: slint,no-preview
@@ -22,7 +22,7 @@ Copy the following code into `ui/appwindow.slint` file, replacing the current co
 This exports the <span class="hljs-title">MainWindow</span> component so that the game logic code can access it later.
 
 Inside the <span class="hljs-built_in">Rectangle</span> place an <span class="hljs-built_in">Image</span> element that
-loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the location of `ui/appwindow.slint`.
+loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the location of `ui/app-window.slint`.
 
 You need to install this icon and others you use later first. You can download a pre-prepared
 [Zip archive](https://slint.dev/blog/memory-game-tutorial/icons.zip) to the `ui` folder,

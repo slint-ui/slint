@@ -24,7 +24,7 @@ property that can be set when instantiating the element.
 For the final polish, add a
 _solved_ property used to animate the color to a shade of green when a player finds a pair.
 
-Replace the code inside the `ui/appwindow.slint` file with the following:
+Replace the code inside the `ui/app-window.slint` file with the following:
 
 :::{literalinclude} main_polishing_the_tile.rs
 :language: slint,no-preview
