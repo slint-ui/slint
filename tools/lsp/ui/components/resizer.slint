@@ -64,6 +64,7 @@ export component Resizer {
     callback resize(x: length, y: length, width: length, height: length, done: bool);
     callback can-move-to(x: length, y: length, mouse_x: length, mouse_y: length) -> bool;
     callback move-to(x: length, y: length, mouse_x: length, mouse_y: length);
+    callback clicked(x: length, y: length, modifiers: KeyboardModifiers);
     callback double-clicked(x: length, y: length, modifiers: KeyboardModifiers);
 
     // Private!
@@ -92,6 +93,10 @@ export component Resizer {
 
             double-clicked() => {
                 root.double-clicked(self.mouse-x, self.mouse-y, self.modifiers);
+            }
+
+            clicked() => {
+                root.clicked(self.mouse-x, self.mouse-y, self.modifiers);
             }
 
             moved() => {

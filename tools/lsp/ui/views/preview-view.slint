@@ -67,6 +67,10 @@ component SelectionFrame {
     }
 
     if root.interactive && selection.is-primary: Resizer {
+        clicked(x, y, modifiers) => {
+            key-handler.focus();
+        }
+
         double-clicked(x, y, modifiers) => {
             root.select-behind(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
         }
@@ -128,6 +132,22 @@ component SelectionFrame {
             border-color: root.selection-color;
             border-width: 1px;
             background: parent.resizing || parent.moving ? root.selection-color.with-alpha(0.5) : root.selection-color.with-alpha(0.0);
+        }
+
+        key-handler := FocusScope {
+            enabled <=> root.interactive;
+
+            init => {
+                self.focus();
+            }
+
+            key-pressed(event) => {
+                if event.text == Key.Delete {
+                    Api.selected-element-delete();
+                    return accept;
+                }
+                reject
+            }
         }
     }
 
