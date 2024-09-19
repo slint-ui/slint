@@ -281,7 +281,7 @@ export component PreviewView {
 
                     HorizontalLayout {
                         preview-area-container := ComponentContainer {
-                            property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
+                            property <bool> is-resizable: (self.min-width != self.max-width || self.min-height != self.max-height) && self.has-component;
 
                             component-factory: root.preview-area;
 
