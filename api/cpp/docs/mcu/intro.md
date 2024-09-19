@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Introduction
 
 Microcontrollers (MCUs) are highly customizable and each vendor typically provides their own development

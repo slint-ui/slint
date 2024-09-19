@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Generic MCU Environment Setup
 
 We aim to support many different MCUs and their respective software development environments.

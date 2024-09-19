@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Troubleshooting
 
 You may run into compile or run-time issues due to Slint's requirements. The following sections
