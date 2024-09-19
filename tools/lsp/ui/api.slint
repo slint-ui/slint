@@ -182,7 +182,75 @@ export global Api {
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
-    in-out property <[PropertyGroup]> properties;
+    in-out property <[PropertyGroup]> properties: [
+        {
+            group-name: "geometry",
+            properties: [
+                {
+                    name: "width",
+                    type-name: "length",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 100,
+                        visual-items: ["px", "cm", "mm", "in", "pt", "phx"],
+                    }
+                },
+                {
+                    name: "height",
+                    type-name: "length",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 200,
+                        visual-items: ["px", "cm", "mm", "in", "pt", "phx"],
+                    }
+                },
+                {
+                    name: "z",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 0,
+                    }
+                }
+            ]
+        },
+        {
+            group-name: "Button",
+            properties: [
+                {
+                    name: "text",
+                    type-name: "string",
+                    value: {
+                        is-translatable: true,
+                        kind: PropertyValueKind.string,
+                    }
+                },
+                {
+                    name: "checkable",
+                    type-name: "bool",
+                    value: {
+                        kind: PropertyValueKind.boolean,
+                    }
+                },
+                {
+                    name: "icon",
+                    type-name: "image",
+                    value: {
+                        kind: PropertyValueKind.code,
+                    }
+                },
+                {
+                    name: "color",
+                    type-name: "brush",
+                    value: {
+                        kind: PropertyValueKind.brush,
+                        value-brush: Colors.green,
+                        value-string: "#00ff00"
+                    },
+                }
+            ]
+        }
+    ];
 
     // # Callbacks
 
