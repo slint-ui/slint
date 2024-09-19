@@ -77,7 +77,7 @@ code --install-extension slint-*.vsix
 
 Note that the resulting `.vsix` package contains your locally built debug LSP server. It is not suitable for distribution.
 
-## Rules for PR's
+## Rules for PRs
 The code is typechecked with `tsc` and linted/formatted with Biome.
 If using VS Code then install the [biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome).
 To ensure your PR does not fail check everything with `npm run syntax_check && npm run format && npm run lint`.
