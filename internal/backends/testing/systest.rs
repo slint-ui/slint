@@ -359,6 +359,7 @@ impl TestingClient {
             absolute_position: send_logical_position(element.absolute_position()).into(),
             accessible_role: convert_to_proto_accessible_role(element.accessible_role().unwrap())
                 .unwrap_or_default(),
+            computed_opacity: element.computed_opacity(),
         })
     }
 

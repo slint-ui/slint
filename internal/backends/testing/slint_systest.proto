@@ -234,6 +234,7 @@ message ElementPropertiesResponse {
     LogicalSize size = 10;
     LogicalPosition absolute_position = 11;
     AccessibleRole accessible_role = 12;
+    float computed_opacity = 13;
 }
 
 message InvokeElementAccessibilityActionResponse {
