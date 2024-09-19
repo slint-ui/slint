@@ -31,7 +31,9 @@ visible, it is not necessary to save the file.
 
 Issues should be reported in the [Slint issue tracker](https://github.com/slint-ui/slint/labels/vscode-extension).
 
-## Building from source and debugging
+<!-- lines below this marker are stripped from the release -->
+
+## Building from Source and Debugging
 
 The following step will build a local version of the vscode extension and the LSP
 
