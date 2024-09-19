@@ -5,7 +5,7 @@ use core::ops::ControlFlow;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
 use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak};
-use i_slint_core::items::ItemRc;
+use i_slint_core::items::{ItemRc, Opacity};
 use i_slint_core::window::WindowInner;
 use i_slint_core::SharedString;
 
@@ -613,6 +613,27 @@ impl ElementHandle {
             .unwrap_or_default()
     }
 
+    /// Returns the opacity that is applied when rendering this element. This is the product of
+    /// the opacity property multipled with any opacity specified by parent elements. Returns zero
+    /// if the element is not valid.
+    pub fn computed_opacity(&self) -> f32 {
+        self.item
+            .upgrade()
+            .map(|mut item| {
+                let mut opacity = 1.0;
+                while let Some(parent) = item.parent_item() {
+                    if let Some(opacity_item) =
+                        i_slint_core::items::ItemRef::downcast_pin::<Opacity>(item.borrow())
+                    {
+                        opacity *= opacity_item.opacity();
+                    }
+                    item = parent.clone();
+                }
+                opacity
+            })
+            .unwrap_or(0.0)
+    }
+
     /// Invokes the element's `accessible-action-increment` callback, if declared. On widgets such as spinboxes, this
     /// typically increments the value.
     pub fn invoke_accessible_increment_action(&self) {
@@ -927,4 +948,42 @@ fn test_normalize_id() {
 
     assert_eq!(root.query_descendants().match_id("App::the-element").find_all().len(), 1);
     assert_eq!(root.query_descendants().match_id("App::the_element").find_all().len(), 1);
+}
+
+#[test]
+fn test_opacity() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            Rectangle {
+                opacity: 0.5;
+                translucent-label := Text {
+                    opacity: 0.2;
+                }
+            }
+            definitely-there := Text {}
+        }
+    }
+
+    let app = App::new().unwrap();
+
+    let root = app.root_element();
+
+    use i_slint_core::graphics::euclid::approxeq::ApproxEq;
+
+    assert!(root
+        .query_descendants()
+        .match_id("App::translucent-label")
+        .find_first()
+        .unwrap()
+        .computed_opacity()
+        .approx_eq(&0.1));
+    assert!(root
+        .query_descendants()
+        .match_id("App::definitely-there")
+        .find_first()
+        .unwrap()
+        .computed_opacity()
+        .approx_eq(&1.0));
 }
