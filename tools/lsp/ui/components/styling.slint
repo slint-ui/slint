@@ -45,7 +45,7 @@ export global EditorFontSettings {
 export global EditorSpaceSettings {
     in property <length> default-spacing: 8px;
     in property <length> default-padding: 8px;
-    in property <length> property-spacing: 2px;
+    in property <length> property-spacing: 5px;
     in property <length> group-indent: 10px;
 
 }
@@ -64,8 +64,8 @@ export global EditorSizeSettings {
 }
 
 export global EditorPalette {
-    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.3) : #000000.with-alpha(0.3);
-    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
+    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
+    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
     
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 }
