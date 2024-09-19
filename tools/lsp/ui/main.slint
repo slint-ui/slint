@@ -59,10 +59,6 @@ export component PreviewUi inherits Window {
                     current-style <=> Api.current-style;
                     known-styles <=> Api.known-styles;
 
-                    edit-mode-toggled() => {
-                        key-handler.focus();
-                    }
-
                     style-selected => {
                         Api.style-changed();
                     }
@@ -109,23 +105,6 @@ export component PreviewUi inherits Window {
                 }
 
                 StatusLine { }
-            }
-
-            key-handler := FocusScope {
-                enabled: preview.mode == DrawAreaMode.designing;
-
-                key-released(event) => {
-                    if event.text == Key.Delete {
-                        // This `if` should not be necessary, but without it
-                        // we do trigger deletion of Elements while errors
-                        // are on screen.
-                        if preview.mode == DrawAreaMode.designing {
-                            Api.selected-element-delete();
-                        }
-                        return accept;
-                    }
-                    reject
-                }
             }
         }
     }
