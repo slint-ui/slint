@@ -9,11 +9,21 @@ Slint C++ documentation
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Getting Started
+   :caption: Getting Started On Desktop
 
    cmake.md
 
    First Steps <getting_started.md>
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Getting Started on MCU
+
+   mcu/intro.md
+   mcu/esp_idf.md
+   mcu/stm32.md
+   mcu/generic.md
 
 .. toctree::
    :maxdepth: 2
