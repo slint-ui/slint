@@ -5,7 +5,7 @@
 #    define UNICODE
 #endif
 
-#include "appwindow.h"
+#include "app-window.h"
 #include <slint-platform.h>
 
 #if defined(_WIN32) || defined(_WIN64)

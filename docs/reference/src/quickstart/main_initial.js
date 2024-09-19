@@ -5,7 +5,7 @@
 // main.js
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("./ui/appwindow.slint");
+let ui = slint.loadFile("./ui/app-window.slint");
 let mainWindow = new ui.MainWindow();
 await mainWindow.run();
 

@@ -4,7 +4,7 @@
 // ANCHOR: main
 // src/main.cpp
 
-#include "appwindow.h" // generated header from memory.slint
+#include "app-window.h" // generated header from memory.slint
 
 int main(int argc, char **argv)
 {

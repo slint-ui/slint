@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#include "appwindow.h"
+#include "app-window.h"
 
 #include <slint-platform.h>
 

@@ -36,12 +36,12 @@ Replace the content of `src/main.cpp` with the following:
 :::
 
 Also in `CMakeLists.txt` the line
-`slint_target_sources(my_application ui/appwindow.slint)` is a Slint function used to
-add the `appwindow.slint` file to the target.
+`slint_target_sources(my_application ui/app-window.slint)` is a Slint function used to
+add the `app-window.slint` file to the target.
 
-Replace the contents of `ui/appwindow.slint` with the following:
+Replace the contents of `ui/app-window.slint` with the following:
 
-:::{literalinclude} appwindow.slint
+:::{literalinclude} app-window.slint
 :language: slint,no-preview
 :lines: 6-11
 :::
@@ -116,7 +116,7 @@ Replace the contents of `src/main.js` with the following:
 
 The `slint.loadFile` method resolves files from the process's current working directory, so from the `package.json` file's location.
 
-Replace the contents of `ui/appwindow.slint` with the following:
+Replace the contents of `ui/app-window.slint` with the following:
 
 :::{literalinclude} memory.slint
 :language: slint,no-preview
@@ -157,7 +157,7 @@ fn main() -> Result<(), slint::PlatformError> {
 }
 ```
 
-Replace the contents of `ui/appwindow.slint` with the following:
+Replace the contents of `ui/app-window.slint` with the following:
 
 :::{literalinclude} memory.slint
 :language: slint,no-preview
