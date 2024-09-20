@@ -176,6 +176,9 @@ fn main() -> Result<()> {
                     slint_interpreter::Value::EnumerationValue(_class, value) => {
                         Some(value.as_str().into())
                     }
+                    slint_interpreter::Value::Image(image) => {
+                        image.path().and_then(|path| path.to_str()).map(|path| path.into())
+                    }
                     _ => None,
                 }
             }
@@ -382,6 +385,15 @@ fn load_data(
                     }
                     i_slint_compiler::langtype::Type::String => {
                         SharedString::from(s.as_str()).into()
+                    }
+                    i_slint_compiler::langtype::Type::Image => {
+                        match slint_interpreter::Image::load_from_path(std::path::Path::new(s)) {
+                            Ok(image) => image.into(),
+                            Err(_) => {
+                                eprintln!("Warning: Failed to load image from path: {}", s);
+                                slint_interpreter::Value::Void
+                            }
+                        }
                     }
                     _ => slint_interpreter::Value::Void,
                 },
