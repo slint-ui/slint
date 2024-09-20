@@ -63,7 +63,7 @@ pub struct DeclarationInformation {
 #[derive(Clone, Debug)]
 pub struct PropertyInformation {
     pub name: String,
-    pub priority: usize,
+    pub priority: u32,
     pub ty: Type,
     pub declared_at: Option<DeclarationInformation>,
     /// Range of the binding in the element source file, if it exist
@@ -71,6 +71,7 @@ pub struct PropertyInformation {
     /// Value of the property, which can be the default set from the base
     pub default_value: Option<Expression>,
     pub group: String,
+    pub group_priority: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -88,21 +89,24 @@ pub struct QueryPropertyResponse {
     pub source_version: i32,
 }
 
+const DEFAULT_PRIORITY: u32 = 1000;
+
 // This gets defined accessibility properties...
 fn get_reserved_properties<'a>(
     group: &'a str,
-    priority: usize,
+    group_priority: u32,
     properties: impl Iterator<Item = (&'static str, Type)> + 'a,
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
     properties.filter(move |(_, t)| !matches!(t, Type::Callback { .. })).map(move |p| {
         PropertyInformation {
             name: p.0.to_string(),
-            priority,
+            priority: DEFAULT_PRIORITY,
             ty: p.1,
             declared_at: None,
             defined_at: None,
             default_value: None,
             group: group.to_string(),
+            group_priority,
         }
     })
 }
@@ -128,7 +132,7 @@ fn property_is_editable(property: &PropertyDeclaration, is_local_element: bool) 
 fn add_element_properties(
     element: &Element,
     group: &str,
-    priority: usize,
+    group_priority: u32,
     is_local_element: bool,
     result: &mut Vec<PropertyInformation>,
 ) {
@@ -143,12 +147,13 @@ fn add_element_properties(
         });
         Some(PropertyInformation {
             name: name.clone(),
-            priority,
+            priority: DEFAULT_PRIORITY,
             ty: value.property_type.clone(),
             declared_at,
             defined_at: None,
             default_value: None,
             group: group.to_string(),
+            group_priority,
         })
     }))
 }
@@ -333,7 +338,7 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
     add_element_properties(&element.element.borrow(), "", 0, true, &mut result);
 
     let mut current_element = element.element.clone();
-    let mut depth = 0;
+    let mut depth = 0u32;
 
     let geometry_prop = HashSet::from(["x", "y", "width", "height"]);
 
@@ -363,24 +368,26 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
 
                     Some(PropertyInformation {
                         name: k.clone(),
-                        priority: depth,
+                        priority: DEFAULT_PRIORITY,
                         ty: t.ty.clone(),
                         declared_at: None,
                         defined_at: None,
                         default_value: t.default_value.clone(),
                         group: b.name.clone(),
+                        group_priority: depth,
                     })
                 }));
 
                 if b.name == "Rectangle" {
                     result.push(PropertyInformation {
                         name: "clip".into(),
-                        priority: depth,
+                        priority: DEFAULT_PRIORITY,
                         ty: Type::Bool,
                         declared_at: None,
                         defined_at: None,
                         default_value: Some(Expression::BoolLiteral(false)),
                         group: b.name.clone(),
+                        group_priority: depth,
                     });
 
                     result.extend(get_reserved_properties(
@@ -394,21 +401,23 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
 
                 result.push(PropertyInformation {
                     name: "opacity".into(),
-                    priority: depth,
+                    priority: DEFAULT_PRIORITY,
                     ty: Type::Float32,
                     declared_at: None,
                     defined_at: None,
                     default_value: Some(Expression::NumberLiteral(1.0, Unit::None)),
                     group: b.name.clone(),
+                    group_priority: depth,
                 });
                 result.push(PropertyInformation {
                     name: "visible".into(),
-                    priority: depth,
+                    priority: DEFAULT_PRIORITY,
                     ty: Type::Bool,
                     declared_at: None,
                     defined_at: None,
                     default_value: Some(Expression::BoolLiteral(true)),
                     group: b.name.clone(),
+                    group_priority: depth,
                 });
 
                 if b.name == "Image" {
@@ -428,11 +437,23 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
             _ => {}
         }
 
-        result.extend(get_reserved_properties(
-            "geometry",
-            depth + 1000,
-            i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter().cloned(),
-        ));
+        result.extend(
+            get_reserved_properties(
+                "geometry",
+                depth + 1000,
+                i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter().cloned(),
+            )
+            .map(|mut p| {
+                match p.name.as_str() {
+                    "x" => p.priority = 200,
+                    "y" => p.priority = 300,
+                    "width" => p.priority = 400,
+                    "height" => p.priority = 500,
+                    _ => { /* do nothing */ }
+                }
+                p
+            }),
+        );
         result.extend(
             get_reserved_properties(
                 "layout",
@@ -440,7 +461,21 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
                 i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES.iter().cloned(),
             )
             // padding arbitrary items is not yet implemented
-            .filter(|x| !x.name.starts_with("padding")),
+            .filter(|x| !x.name.starts_with("padding"))
+            .map(|mut p| {
+                match p.name.as_str() {
+                    "min-width" => p.priority = 200,
+                    "min-height" => p.priority = 250,
+                    "preferred-width" => p.priority = 300,
+                    "preferred-height" => p.priority = 350,
+                    "max-width" => p.priority = 400,
+                    "max-height" => p.priority = 450,
+                    "horizontal-stretch" => p.priority = 500,
+                    "vertical-stretch" => p.priority = 550,
+                    _ => { /* do nothing */ }
+                }
+                p
+            }),
         );
         // FIXME: ideally only if parent is a grid layout
         result.extend(get_reserved_properties(
@@ -450,7 +485,7 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
         ));
         result.push(PropertyInformation {
             name: "accessible-role".into(),
-            priority: depth + 10000,
+            priority: DEFAULT_PRIORITY - 100,
             ty: Type::Enumeration(
                 i_slint_compiler::typeregister::BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone()),
             ),
@@ -458,6 +493,7 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
             defined_at: None,
             default_value: None,
             group: "accessibility".into(),
+            group_priority: depth + 10000,
         });
         if current_element.borrow().is_binding_set("accessible-role", true) {
             result.extend(get_reserved_properties(
