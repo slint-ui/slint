@@ -14,8 +14,10 @@ myst_parser = ">=2.0.0"
 sphinx-design = ">=0.5.0"
 sphinx-tabs = ">=3.4.5"
 sphinx-markdown-tables = ">=0.0.15"
-furo = ">=2022.12.7"
+sphinx_book_theme = ">=1.1.3"
 sphinxcontrib-jquery = ">=4.1"
+sphinx-copybutton = ">=0.5.2"
+linkify-it-py = ">=2.0.3"
 
 [requires]
 python_version = "3"
