@@ -569,17 +569,17 @@ fn map_properties_to_ui(
     let source_uri: SharedString = raw_source_uri.to_string().into();
     let source_version = properties.source_version;
 
-    let mut property_groups: HashMap<(String, usize), Vec<PropertyInformation>> = HashMap::new();
+    let mut property_groups: HashMap<(String, u32), Vec<PropertyInformation>> = HashMap::new();
 
     let mut declarations = HashMap::new();
 
     fn property_group_from(
-        groups: &mut HashMap<(String, usize), Vec<PropertyInformation>>,
+        groups: &mut HashMap<(String, u32), Vec<PropertyInformation>>,
         name: String,
-        priority: usize,
+        group_priority: u32,
         property: PropertyInformation,
     ) {
-        let entry = groups.entry((name.clone(), priority));
+        let entry = groups.entry((name.clone(), group_priority));
         entry.and_modify(|e| e.push(property.clone())).or_insert(vec![property]);
     }
 
@@ -606,11 +606,12 @@ fn map_properties_to_ui(
         property_group_from(
             &mut property_groups,
             pi.group.clone(),
-            pi.priority,
+            pi.group_priority,
             PropertyInformation {
                 name: pi.name.clone().into(),
                 type_name: pi.ty.to_string().into(),
                 value,
+                display_priority: i32::try_from(pi.priority).unwrap(),
             },
         );
     }
@@ -638,7 +639,16 @@ fn map_properties_to_ui(
             keys.iter()
                 .map(|k| PropertyGroup {
                     group_name: k.0.clone().into(),
-                    properties: Rc::new(VecModel::from(property_groups.remove(k).unwrap())).into(),
+                    properties: Rc::new(VecModel::from({
+                        let mut v = property_groups.remove(k).unwrap();
+                        v.sort_by(|a, b| match a.display_priority.cmp(&b.display_priority) {
+                            Ordering::Less => Ordering::Less,
+                            Ordering::Equal => a.name.cmp(&b.name),
+                            Ordering::Greater => Ordering::Greater,
+                        });
+                        v
+                    }))
+                    .into(),
                 })
                 .collect::<Vec<_>>(),
         ))
@@ -1291,6 +1301,7 @@ export component X {
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
             name: name.into(),
+            display_priority: 1000,
             type_name: "Sometype".into(),
             value: PropertyValue {
                 kind: PropertyValueKind::String,
