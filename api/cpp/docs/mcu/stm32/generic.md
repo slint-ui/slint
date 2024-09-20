@@ -22,29 +22,9 @@ as well as the peripherals of our board.
 8. Open a web browser, navigate to <https://github.com/slint-ui/slint/releases/latest>, and download
    and extract `Slint-cpp-VERSION-thumbv7em-none-eabihf.tar.gz`, replace `VERSION` with the version you see.
 10. Set `CMAKE_PREFIX_PATH` to the extracted directory.
-11. Adjust your `CMakeLists.txt` for use of Slint. Copy the follow snippets and adjust the target names as needed:
-    ```cmake
-    # Locate Slint
-    find_package(Slint)
-    
-    # Embed images and fonts in the binary  
-
-    set_target_properties(your-target PROPERTIES SLINT_EMBED_RESOURCES embed-for-software-renderer)
-    
-    # Replace $BSP_NAME with the name of your concrete BSP,
-    # for example stm32h735g_discovery.
-    target_compile_definitions(your-target PRIVATE
-        SLINT_STM32_BSP_NAME=$BSP_NAME
-    )
-    
-    # Link Slint run-time library
-    target_link_libraries(your-target PRIVATE
-        Slint::Slint
-    )
-    ```
-12. Add a C++ source file to your project, for example `appmain.cpp`, with an `appmain` function and call it
+11. Add a C++ source file to your project, for example `appmain.cpp`, with an `appmain` function and call it
     from the generated `main.c`.
-13. Create `app-window.slint` with the following contents:
+12. Create `app-window.slint` with the following contents:
     ```slint,no-preview
     import { VerticalBox, AboutSlint } from "std-widgets.slint";
     export component AppWindow inherits Window {
@@ -58,11 +38,29 @@ as well as the peripherals of our board.
         }
     }
     ```
-14. Add a `.slint` file to your project and include it in your project by calling `slint_target_sources`:
+13. Adjust your `CMakeLists.txt` for use of Slint. Copy the follow snippets and adjust the target names as needed:
     ```cmake
+    # Locate Slint
+    find_package(Slint)
+    
+    # Compile app-window.slint to app-window.h and app-window.cpp
     slint_target_sources(your-target app-window.slint)
+
+    # Embed images and fonts in the binary  
+    set_target_properties(your-target PROPERTIES SLINT_EMBED_RESOURCES embed-for-software-renderer)
+    
+    # Replace $BSP_NAME with the name of your concrete BSP,
+    # for example stm32h735g_discovery.
+    target_compile_definitions(your-target PRIVATE
+        SLINT_STM32_BSP_NAME=$BSP_NAME
+    )
+    
+    # Link Slint run-time library
+    target_link_libraries(your-target PRIVATE
+        Slint::Slint
+    )
     ```
-15. In your `appmain` function, initialize the screen via `BSP_LCD_InitEx` as well as the touch screen via `BSP_TS_Init`,
+14. In your `appmain` function, initialize the screen via `BSP_LCD_InitEx` as well as the touch screen via `BSP_TS_Init`,
     include `#include <slint-stm32.h>` and call `slint_stm32_init(SlintPlatformConfiguration());` to initialize the
     Slint platform integration for STM32. Finally, include the header file for your `.slint` file, instantiate the generated class, and invoke the event loop by calling `->run()` on the instance. Use the following example as reference:
     ```cpp
