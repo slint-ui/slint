@@ -27,7 +27,8 @@ as well as the peripherals of our board.
     # Locate Slint
     find_package(Slint)
     
-    # Default to pre-compiling images and fonts
+    # Embed images and fonts in the binary  
+
     set_target_properties(your-target PROPERTIES SLINT_EMBED_RESOURCES embed-for-software-renderer)
     
     # Replace $BSP_NAME with the name of your concrete BSP,
