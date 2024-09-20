@@ -28,7 +28,7 @@ as well as the peripherals of our board.
     find_package(Slint)
     
     # Default to pre-compiling images and fonts
-    set(DEFAULT_SLINT_EMBED_RESOURCES embed-for-software-renderer)
+    set_target_properties(your-target PROPERTIES SLINT_EMBED_RESOURCES embed-for-software-renderer)
     
     # Replace $BSP_NAME with the name of your concrete BSP,
     # for example stm32h735g_discovery.
