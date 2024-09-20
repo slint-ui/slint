@@ -129,7 +129,8 @@ options:
    Any attribute lookup in `slint.loader` is searched for in `sys.path`. If a directory with the name exists, it is returned as a loader object, and subsequent
    attribute lookups follow the same logic. If the name matches a file with the `.slint` extension, it is automatically loaded with `load_file` and the
    [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned, which contains classes for each exported component that
-   inherits `Window`.
+   inherits `Window`. If the file name contains a dash, like `app-window.slint`, an attribute lookup for `app_window` will
+   first try to locate `app_window.slint` and then fall back to `app-window.slint`.
 
 ### Accessing Properties
 
