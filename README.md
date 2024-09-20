@@ -6,9 +6,10 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
-Slint is a declarative GUI toolkit to build native user interfaces for desktop
-and embedded applications written in Rust, C++, or JavaScript. The name *Slint*
-is derived from our design goals:
+Slint is a declarative GUI toolkit to build native user interfaces for embedded,
+desktop, and mobile applications written in Rust, C++, JavaScript, or Python. 
+
+The name *Slint* is derived from our design goals:
 
 - **Scalable**: Slint should support responsive UI design, allow cross-platform
     usage across operating systems and processor architectures and support
@@ -187,11 +188,11 @@ configure your favorite editor to work well with Slint.
 
 You can use Slint under ***any*** of the following licenses, at your choice:
 
-1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
-2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
-3. [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
+1. Build proprietary desktop, mobile, or web applications for free with the [Community License](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
+2. Build open source embedded, desktop, mobile, or web applications for free with the [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
+3. Build proprietary embedded, desktop, mobile, or web applications with the [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
 
-See also the [Licensing FAQ](FAQ.md#licensing)
+See the [Slint licensing options on the website](https://slint.dev/pricing.html) and the [Licensing FAQ](FAQ.md#licensing)
 
 ## Contributions
 
@@ -209,7 +210,7 @@ Please see our separate [FAQ](FAQ.md).
 
 We are passionate about software - API design, cross-platform software
 development and user interface components. Our aim is to make developing user
-interfaces fun for everyone: from JavaScript, C++, or Rust developers all the
+interfaces fun for everyone: from Python, JavaScript, C++, or Rust developers all the
 way to UI/UX designers. We believe that software grows organically and keeping
 it open source is the best way to sustain that growth. Our team members are
 located remotely in Germany.
