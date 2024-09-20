@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
  - Path: Fix compiler panic when accessing path.commands in expressions (#5564)
  - The `mod` function was changed to always return a positive value (#6178)
  - Added `AccesssibleRole.list-item` and used it where relevant
+ - Added `PointerEventButton.back` and `PointerEventButton.forward` (#6043)
 
 ### Widgets
 
@@ -40,6 +41,7 @@ All notable changes to this project are documented in this file.
  - Fixed error in generated code with struct containing `percent` value (#5887)
  - Added `JoinHandle::is_finished()` (#6034)
  - Implemented `FromIterator` for `VecModel`
+ - Fixed Timer::set_interval() doesn't work in timer callback (#6141)
 
 ### C++
 
@@ -65,6 +67,7 @@ All notable changes to this project are documented in this file.
  - vscode extension: Added telemetry to report panics of the LSP server.
  - vscode extension: Added "Create New Project" command to start from one of our templates
  - vscode extension: Rename the output tab to from "Slint LSP" to "Slint", and make sure it is always there
+ - slint-viewer: `--save-data`/`--load-data`: support for images with paths. (#6169)
  - Slintpad: Added "about" entry in the menu.
 
 ### Misc
@@ -74,6 +77,9 @@ All notable changes to this project are documented in this file.
  - Fixed colorized tiled images
  - Fixed generated getter and setter of alias properties in globals (#5855)
  - Use `raw-window-metal` to do layer creation in skia
+ - Updated Skia library. (NOTE: requires updated MSVC toolchain)
+ - Skia renderer: Improve rendering quality of layers
+ - GridLayout: Fixed panic when rowspan or colspan is 0 (#6181)
 
 
 ## [1.7.2] - 2024-08-14
