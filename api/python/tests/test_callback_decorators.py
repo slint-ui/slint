@@ -8,7 +8,7 @@ import os
 
 def test_callback_decorators(caplog):
     module = load_file(os.path.join(os.path.dirname(
-        __spec__.origin), "test_load_file.slint"), quiet=False)
+        __spec__.origin), "test-load-file.slint"), quiet=False)
 
     class SubClass(module.App):
         @slint.callback()

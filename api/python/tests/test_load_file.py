@@ -8,7 +8,7 @@ import os
 
 def test_load_file(caplog):
     module = load_file(os.path.join(os.path.dirname(
-        __spec__.origin), "test_load_file.slint"), quiet=False)
+        __spec__.origin), "test-load-file.slint"), quiet=False)
 
     assert "The property 'color' has been deprecated. Please use 'background' instead" in caplog.text
 
@@ -42,7 +42,7 @@ def test_load_file_fail():
 
 def test_load_file_wrapper():
     module = load_file(os.path.join(os.path.dirname(
-        __spec__.origin), "test_load_file.slint"), quiet=False)
+        __spec__.origin), "test-load-file.slint"), quiet=False)
 
     instance = module.App()
 
@@ -66,7 +66,7 @@ def test_load_file_wrapper():
 
 def test_constructor_kwargs():
     module = load_file(os.path.join(os.path.dirname(
-        __spec__.origin), "test_load_file.slint"), quiet=False)
+        __spec__.origin), "test-load-file.slint"), quiet=False)
 
     def early_say_hello(arg):
         return "early:" + arg

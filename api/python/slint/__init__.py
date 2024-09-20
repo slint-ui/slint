@@ -275,6 +275,13 @@ class SlintAutoLoader:
                 setattr(self, name, type_namespace)
                 return type_namespace
 
+            dir_candidate = os.path.join(path, name.replace('_', '-'))
+            file_candidate = dir_candidate + ".slint"
+            if os.path.isfile(file_candidate):
+                type_namespace = load_file(file_candidate)
+                setattr(self, name, type_namespace)
+                return type_namespace
+
         return None
 
 
