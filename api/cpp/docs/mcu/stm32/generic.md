@@ -42,19 +42,19 @@ as well as the peripherals of our board.
     ```cmake
     # Locate Slint
     find_package(Slint)
-    
+
     # Compile app-window.slint to app-window.h and app-window.cpp
     slint_target_sources(your-target app-window.slint)
 
-    # Embed images and fonts in the binary  
+    # Embed images and fonts in the binary
     set_target_properties(your-target PROPERTIES SLINT_EMBED_RESOURCES embed-for-software-renderer)
-    
+
     # Replace $BSP_NAME with the name of your concrete BSP,
     # for example stm32h735g_discovery.
     target_compile_definitions(your-target PRIVATE
         SLINT_STM32_BSP_NAME=$BSP_NAME
     )
-    
+
     # Link Slint run-time library
     target_link_libraries(your-target PRIVATE
         Slint::Slint
@@ -68,31 +68,15 @@ as well as the peripherals of our board.
     #include <stdio.h>
     #include <stm32h735g_discovery.h>
     #include <stm32h735g_discovery_lcd.h>
-    #include <stm32h735g_discovery_ts.h>    
+    #include <stm32h735g_discovery_ts.h>
 
     #include "app-window.h"
 
     // Called from main()
     extern "C" void appmain() {
-        if (BSP_LCD_InitEx(0, LCD_ORIENTATION_LANDSCAPE, LCD_PIXEL_FORMAT_RGB565,
-                            LCD_DEFAULT_WIDTH, LCD_DEFAULT_HEIGHT) != 0) {
+        if (slint_stm32_init(SlintPlatformConfiguration()) != 0) {
             Error_Handler();
         }
-
-        BSP_LCD_DisplayOn(0);
-        BSP_LCD_SetActiveLayer(0, 0);
-
-        TS_Init_t hTS;
-        hTS.Width = LCD_DEFAULT_WIDTH;
-        hTS.Height = LCD_DEFAULT_HEIGHT;
-        hTS.Orientation = TS_SWAP_XY;
-        hTS.Accuracy = 0;
-        /* Touchscreen initialization */
-        if (BSP_TS_Init(0, &hTS) != 0) {
-            Error_Handler();
-        }
-
-        slint_stm32_init(SlintPlatformConfiguration());
 
         auto app_window = AppWindow::create();
 

@@ -178,8 +178,29 @@ inline __IO bool StmSlintPlatform::screen_ready = true;
 
 } // namespace slint::private_api
 
-inline void slint_stm32_init(const SlintPlatformConfiguration &config)
+inline int slint_stm32_init(const SlintPlatformConfiguration &config)
 {
+    /* Display initialization */
+    if (int err = BSP_LCD_InitEx(0, LCD_ORIENTATION_LANDSCAPE, LCD_PIXEL_FORMAT_RGB565,
+                                 config.size.width, config.size.height);
+        err != 0) {
+        return err;
+    }
+
+    BSP_LCD_DisplayOn(0);
+    BSP_LCD_SetActiveLayer(0, 0);
+
+    /* Touchscreen initialization */
+    TS_Init_t hTS {};
+    hTS.Width = config.size.width;
+    hTS.Height = config.size.height;
+    hTS.Orientation = TS_SWAP_XY;
+    hTS.Accuracy = 0;
+    if (int err = BSP_TS_Init(0, &hTS); err != 0) {
+        return err;
+    }
+
+    /* Slint platform initialization */
     auto a = config.size.width * config.size.height;
     std::span<slint::private_api::StmSlintPlatform::Pixel> buffer1(
             reinterpret_cast<slint::private_api::StmSlintPlatform::Pixel *>(
@@ -192,4 +213,5 @@ inline void slint_stm32_init(const SlintPlatformConfiguration &config)
 
     slint::platform::set_platform(std::make_unique<slint::private_api::StmSlintPlatform>(
             config.size, config.rotation, buffer1, buffer2));
+    return 0;
 }
