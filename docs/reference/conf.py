@@ -35,7 +35,7 @@ github_url = "https://github.com/slint-ui/slint"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design"]
+extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_copybutton"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -119,7 +119,7 @@ html_css_files = [
 html_show_sourcelink = False
 
 myst_enable_extensions = [
-    "html_image", "colon_fence"
+    "html_image", "colon_fence", "linkify"
 ]
 
 myst_url_schemes = {

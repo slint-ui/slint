@@ -7,18 +7,43 @@
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Reference
 
-   src/reference/syntax/index.rst
+   SlintPad <https://slintpad.com>
+   Showcase <https://madewithslint.com>
+   Blog <https://blog.slint.dev>
+   Video Tutorials <https://www.youtube.com/@Slint-UI/playlists>
 
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Introduction (Old)
+   :caption: Setting Up
 
    src/introduction/index.rst
-   src/introduction/supported_platforms.md
-   src/quickstart/index.rst
+   src/introduction/embedded.rst
+   src/introduction/desktop.rst
+   src/introduction/mobile.rst
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: First Steps
+
+   src/quickstart/getting_started.rst
+   src/quickstart/memory_tile.md   
+   src/quickstart/polishing_the_tile.md   
+   src/quickstart/from_one_to_multiple_tiles.md   
+   src/quickstart/creating_the_tiles.md   
+   src/quickstart/game_logic.md   
+   src/quickstart/running_in_a_browser.md
+   src/quickstart/ideas_for_the_reader.md   
+   src/quickstart/conclusion.md
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Reference
+
+   src/reference/syntax/index.rst
 
 .. toctree::
    :hidden:
