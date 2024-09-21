@@ -768,15 +768,6 @@ pub fn can_drop_at(
             target_node_index: usize,
             child_index: usize,
         }
-        static mut CACHE: std::cell::OnceCell<RefCell<clru::CLruCache<CacheEntry, bool>>> =
-            std::cell::OnceCell::new();
-
-        // SAFETY: This uses the document_cache, which means it runs in the UI thread.
-        let cache = unsafe {
-            CACHE.get_or_init(|| RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())))
-        };
-        let mut cache = cache.borrow_mut();
-
         let cache_entry = CacheEntry {
             component_type: component.name.to_string(),
             target_element: by_address::ByAddress(dm.target_element_node.element.clone()),
@@ -784,19 +775,22 @@ pub fn can_drop_at(
             child_index: dm.child_index,
         };
 
-        if let Some(does_compile) = cache.get(&cache_entry) {
-            *does_compile
-        } else {
-            let does_compile = if let Some((edit, _)) =
-                create_drop_element_workspace_edit(document_cache, component, dm)
-            {
-                workspace_edit_compiles(document_cache, &edit)
+        thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
+        CACHE.with_borrow_mut(|cache| {
+            if let Some(does_compile) = cache.get(&cache_entry) {
+                *does_compile
             } else {
-                false
-            };
-            cache.put(cache_entry, does_compile);
-            does_compile
-        }
+                let does_compile = if let Some((edit, _)) =
+                    create_drop_element_workspace_edit(document_cache, component, dm)
+                {
+                    workspace_edit_compiles(document_cache, &edit)
+                } else {
+                    false
+                };
+                cache.put(cache_entry, does_compile);
+                does_compile
+            }
+        })
     } else {
         false
     };
@@ -861,15 +855,6 @@ pub fn can_move_to(
             target_node_index: usize,
             child_index: usize,
         }
-        static mut CACHE: std::cell::OnceCell<RefCell<clru::CLruCache<CacheEntry, bool>>> =
-            std::cell::OnceCell::new();
-
-        // SAFETY: This uses the document_cache, which means it runs in the UI thread.
-        let cache = unsafe {
-            CACHE.get_or_init(|| RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())))
-        };
-        let mut cache = cache.borrow_mut();
-
         let cache_entry = CacheEntry {
             source_element: by_address::ByAddress(element_node.element.clone()),
             source_node_index: element_node.debug_index,
@@ -878,23 +863,26 @@ pub fn can_move_to(
             child_index: dm.child_index,
         };
 
-        if let Some(does_compile) = cache.get(&cache_entry) {
-            *does_compile
-        } else {
-            let does_compile = if let Some((edit, _)) = create_move_element_workspace_edit(
-                &component_instance,
-                dm,
-                &element_node,
-                instance_index,
-                position,
-            ) {
-                workspace_edit_compiles(document_cache, &edit)
+        thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
+        CACHE.with_borrow_mut(|cache| {
+            if let Some(does_compile) = cache.get(&cache_entry) {
+                *does_compile
             } else {
-                false
-            };
-            cache.put(cache_entry, does_compile);
-            does_compile
-        }
+                let does_compile = if let Some((edit, _)) = create_move_element_workspace_edit(
+                    &component_instance,
+                    dm,
+                    &element_node,
+                    instance_index,
+                    position,
+                ) {
+                    workspace_edit_compiles(document_cache, &edit)
+                } else {
+                    false
+                };
+                cache.put(cache_entry, does_compile);
+                does_compile
+            }
+        })
     } else {
         false
     };
