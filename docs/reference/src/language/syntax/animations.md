@@ -27,6 +27,11 @@ Fine-tune animations using the following parameters:
 -   `iteration-count`: The number of times an animation should run. A negative value specifies
     infinite reruns. Fractual values are possible.
     For permanently running animations, see [`animation-tick()`](../builtins/functions.md#animation-tick-duration).
+-   `direction`: Can be any of the following. See [`developer.mozilla.org`](https://developer.mozilla.org/en-US/docs/Web/CSS/animation-direction) for reference:
+    -   `normal`
+    -   `reverse`
+    -   `alternate`
+    -   `alternate-reverse`
 -   `easing`: can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
 
     -   `linear`

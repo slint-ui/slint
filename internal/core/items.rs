@@ -922,6 +922,8 @@ pub struct PropertyAnimation {
     #[rtti_field]
     pub iteration_count: f32,
     #[rtti_field]
+    pub direction: AnimationDirection,
+    #[rtti_field]
     pub easing: crate::animations::EasingCurve,
 }
 
@@ -929,7 +931,13 @@ impl Default for PropertyAnimation {
     fn default() -> Self {
         // Defaults for PropertyAnimation are defined here (for internal Rust code doing programmatic animations)
         // as well as in `builtins.slint` (for generated C++ and Rust code)
-        Self { delay: 0, duration: 0, iteration_count: 1., easing: Default::default() }
+        Self {
+            delay: 0,
+            duration: 0,
+            iteration_count: 1.,
+            direction: Default::default(),
+            easing: Default::default(),
+        }
     }
 }
 
