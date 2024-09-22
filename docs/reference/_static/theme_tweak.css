@@ -1,15 +1,26 @@
-.wy-table-responsive table td,
-.wy-table-responsive table th {
-    white-space: normal;
+html[data-theme="light"] {
+    body {
+        background-color:#fff;
+        background-position: top center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        color: #151D21;
+    }
 }
 
-.wy-table-responsive {
-    margin-bottom: 24px;
-    max-width: 100%;
-    overflow: visible;
+html[data-theme="dark"] {
+    body {
+        background-color: #151D21;
+        background-image: url(https://slint.dev/assets/img/bg-dark.svg);
+        background-position: top center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        color: #fff;
+    }
+    --pst-color-background: transparent;
+    --pst-color-on-background: transparent;
 }
 
-img.logo {
-    max-height: 70px;
-    border-radius: 12% !important;
+div.sidebar-primary-item:first-child {
+    text-align: center;
 }

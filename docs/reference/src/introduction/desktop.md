@@ -1,6 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-# Supported Platforms
+# Build Desktop Applications
 
 Slint runs on many desktop and embedded platforms and micro-controllers.
 

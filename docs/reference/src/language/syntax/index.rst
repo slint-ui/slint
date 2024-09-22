@@ -7,10 +7,8 @@ Syntax
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Reference
+   :caption: Reference (Old)
 
-   comments.md
-   identifiers.md
    types.md
    properties.md
    expressions.md

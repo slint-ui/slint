@@ -2,23 +2,138 @@
 
 # Getting Started
 
-Using Slint in your projects needs two components:
+Slint is a toolkit for creating reactive and fluent user interfaces across a range of targets, from embedded devices with limited resources to powerful mobile devices and desktop machines. 
 
-1. `.slint` files, which contain a textual description of the user interface, written in the Slint language.
-2. The programming language of the project where you embed the `.slint` files.
+Slint features an easy-to-learn domain-specific language (DSL) that compiles into native code, optimizing for the target device's capabilities. It facilitates collaboration between designers and developers on shared projects and supports business logic development in Rust, C++, JavaScript, or Python.
 
-    - Slint supports C++, Rust, and JavaScript.
+## Installation
 
-There are three different pathways to get started with Slint:
+### Prerequisites
 
-1. [SlintPad](https://slint.dev/editor) - Use this browser-based tool to get a feel for the Slint language.
-2. As a **UI Designer**, working with Slint files locally, we recommend the following combination of software tools:
+::::{tab-set}
+:::{tab-item} Cargo
+:sync: rust
+:selected: true
 
-    - [Visual Studio Code](https://code.visualstudio.com)
-    - [The Slint for Visual Studio Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+```sh
+cargo add slint
+```
 
-3. As a **Software Developer**, integrating Slint into a new or existing code base, [follow the quickstart](slint-qs:index.html) and then for more in-depth next steps read the language-specific documentation:
+:::
 
-    - [C++](slint-cpp:index.html)
-    - [Rust](slint-rust:index.html)
-    - [JavaScript](slint-node:index.html)
+:::{tab-item} GitHub
+:sync: cpp
+
+```sh
+git clone https://github.com/slint-ui/slint.git
+```
+
+:::
+
+:::{tab-item} NPM
+:sync: nodejs
+
+```sh
+npm init && npm install slint-ui
+```
+
+:::
+
+:::{tab-item} PIP
+:sync: python
+
+```sh
+pip install slint
+```
+
+:::
+
+::::
+
+## Setting up Editors
+
+::::{tab-set}
+:::{tab-item} JetBrains IDE
+
+1. Download and install VS Code
+2. Install [Slint VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+:::
+
+:::{tab-item} Kate
+
+1. Download and install VS Code
+2. Install [Slint VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+:::
+
+:::{tab-item} Qt Creator
+
+1. Download and install VS Code
+2. Install [Slint VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+:::
+
+:::{tab-item} Sublime Text
+
+1. Download and install VS Code
+2. Install [Slint VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+:::
+
+:::{tab-item} Vim
+
+1. Download and install VS Code
+2. Install [Slint VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+:::
+
+:::{tab-item} Visual Studio Code
+:selected: true
+
+1. Download and install VS Code
+2. Install [Slint VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+:::
+
+:::{tab-item} Zed
+
+1. Download and install VS Code
+2. Install [Slint VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+:::
+
+::::
+
+## Start with a Template
+
+::::{tab-set}
+:::{tab-item} C++
+:sync: cpp
+
+```sh
+git clone https://github.com/slint-ui/slint.git
+```
+
+:::
+
+:::{tab-item} NodeJS
+:sync: nodejs
+
+```sh
+git clone https://github.com/slint-ui/slint.git
+```
+
+:::
+
+:::{tab-item} Rust
+:sync: rust
+:selected: true
+
+```sh
+git clone https://github.com/slint-ui/slint.git
+```
+
+:::
+
+::::
