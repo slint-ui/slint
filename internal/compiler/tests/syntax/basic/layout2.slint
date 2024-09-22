@@ -20,10 +20,10 @@ export X := Rectangle {
                 rowspan: 2.2;
 //                       ^error{'rowspan' must be a positive integer}
                 y: 0;
-//                 ^error{The property 'y' cannot be set for elements placed in a layout, because the layout is already setting it}
+//                 ^error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
 
                 animate x { duration: 100ms; }
-//                      ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it}
+//                      ^error{The property 'x' cannot be set for elements placed in this layout, because the layout is already setting it}
 
                 init => {
                     self.colspan = 45;
@@ -34,7 +34,7 @@ export X := Rectangle {
         Row {
             Text {
                 x: 12px;
-//                 ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it}
+//                 ^error{The property 'x' cannot be set for elements placed in this layout, because the layout is already setting it}
             }}
         Text{
             row: 200000; // that's actually bigger than 65535
