@@ -4,6 +4,7 @@
 name: Build the C++ binary package
 
 on:
+    workflow_dispatch:
     workflow_call:
       inputs:
         extra_cmake_flags:
