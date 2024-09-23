@@ -266,15 +266,14 @@ jobs:
                   RELEASE_INPUT: ${{ github.event.inputs.release }}
               working-directory: editors/vscode
               run: |
+                  if grep -q 'lines below this marker are stripped from the release' README.md; then
+                    sed -i '/lines below this marker are stripped from the release/,$ d' README.md
+                  else
+                    echo "Missing strip marker in VS Code Extension README. Either add or fix this script."
+                    exit 1
+                  fi
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     ../../scripts/prepare_vscode_nightly.sh
-                  else
-                    if grep -q 'lines below this marker are stripped from the release' CMakeLists.txt; then
-                      sed -i '/lines below this marker are stripped from the release/,$ d' README.md
-                    else
-                      echo "Missing strip marker in VS Code Extension README. Either add or fix this script."
-                      exit 1
-                    fi                  
                   fi
             - name: "npm install"
               working-directory: editors/vscode
