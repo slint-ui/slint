@@ -29,6 +29,7 @@ are supported by their vendors at the time of a Slint version release.
 | macOS 12 Monterey | x86-64, aarch64 |
 | macOS 13 Ventura  | x86-64, aarch64 |
 | macOS 14 Sonoma   | x86-64, aarch64 |
+| macOS 15 Sequoia  | x86-64, aarch64 |
 
 ### Linux
 
