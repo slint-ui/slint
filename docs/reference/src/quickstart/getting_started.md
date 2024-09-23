@@ -32,7 +32,7 @@ The `CMakeLists.txt` uses the line `add_executable(my_application src/main.cpp)`
 Replace the content of `src/main.cpp` with the following:
 
 :::{literalinclude} main_initial.cpp
-:lines: 9-13
+:lines: 7-13
 :::
 
 Also in `CMakeLists.txt` the line
