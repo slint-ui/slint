@@ -9,7 +9,7 @@
 # 1. First `find_package(Slint ... CONFIG ...)` is called, to locate any packages in the `CMAKE_PREFIX_PATH`.
 # 2. If that failed and if `find_package` was called with a `VERSION`, then this module will attempt to download
 #    a pre-compiled binary package for the specified Slint release, extract it into `${CMAKE_BINARY_DIR}/slint-prebuilt`,
-#    and make it available.
+#    and make it available. If version is unset, download the nightly release.
 #
 # The following variables may be set to affect the behaviour:
 #
@@ -18,9 +18,6 @@
 # STM32 ARM architectures, you'd set this to `thumbv7em-none-eabihf`. If not set, this module will attempt to detect if compilation
 # is happening in an ESP-IDF cross-compilation environment and detect the architecture accordingly, otherwise
 # `${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}` is used.
-#
-# `SLINT_USE_NIGHTLY_VERSION`: When `find_package(Slint)` is called with a version, then this module will
-# attempt to download a pre-compiled binary from the nightly snapshot of Slint.
 
 find_package(Slint ${Slint_FIND_VERSION} QUIET CONFIG)
 if (TARGET Slint::Slint)
@@ -56,20 +53,16 @@ if (NOT SLINT_TARGET_ARCHITECTURE)
 endif()
 
 if (NOT DEFINED Slint_FIND_VERSION)
-    return()
-endif()
-
-set(slint_version "${Slint_FIND_VERSION}")
-set(github_release "${slint_version}")
-
-if (SLINT_USE_NIGHTLY_VERSION)
-    set(github_release "nightly")
-    set(slint_version "nightly")
     # Set this to instruct the slint-compiler download to use the same release
     set(SLINT_GITHUB_RELEASE "nightly" CACHE STRING "")
+    set(github_release "nightly")
+    set(github_filename_infix "nightly")
+else()
+    set(github_release "v${Slint_FIND_VERSION}")
+    set(github_filename_infix "${Slint_FIND_VERSION}")
 endif()
 
-set(prebuilt_archive_filename "Slint-cpp-${slint_version}-${SLINT_TARGET_ARCHITECTURE}.tar.gz")
+set(prebuilt_archive_filename "Slint-cpp-${github_filename_infix}-${SLINT_TARGET_ARCHITECTURE}.tar.gz")
 set(download_target_path "${CMAKE_BINARY_DIR}/slint-prebuilt/")
 set(download_url "https://github.com/slint-ui/slint/releases/download/${github_release}/${prebuilt_archive_filename}")
 
