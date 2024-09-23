@@ -35,13 +35,8 @@ idf.py add-dependency esp-box
 ```bash
 idf.py add-dependency slint/slint
 ```
-5. Ensure that Espressif's Rust toolchain is selected for building. Either set the `RUSTUP_TOOLCHAIN` environment variable to the value `esp` or create a file called `rust-toolchain.toml` in your project directory with the following contents:
-```toml
-[toolchain]
-channel = "esp"
-```
-6. Remove `main/slint-hello-world.c`.
-7. Create a new file `main/slint-hello-world.cpp` with the following contents:
+5. Remove `main/slint-hello-world.c`.
+6. Create a new file `main/slint-hello-world.cpp` with the following contents:
 ```cpp
 #include <stdio.h>
 #include <esp_err.h>
@@ -93,7 +88,7 @@ extern "C" void app_main(void)
     ui->run();
 }
 ```
-8. Create `main/app-window.slint` with the following contents:
+7. Create `main/app-window.slint` with the following contents:
 ```
 import { VerticalBox, AboutSlint } from "std-widgets.slint";
 export component AppWindow inherits Window {
@@ -107,13 +102,13 @@ export component AppWindow inherits Window {
     }
 }
 ```
-9. Edit `main/CMakeLists.txt` to adjust for the new `slint-hello-world.cpp`, add `slint` as required component,
+8. Edit `main/CMakeLists.txt` to adjust for the new `slint-hello-world.cpp`, add `slint` as required component,
    and instruction the build system to compile `app-window.slint` to `app-window.h`. The file should look like this:
 ```cmake
 idf_component_register(SRCS "slint-hello-world.cpp" INCLUDE_DIRS "." REQUIRES slint)
 slint_target_sources(${COMPONENT_LIB} app-window.slint)
 ```
-10. Open the configuration editor with `idf.py menuconfig`:
+8. Open the configuration editor with `idf.py menuconfig`:
     * Change the stack size under `Component config --> ESP System Settings --> Main task stack size` to at least `8192`. You may need to tweak this value in the future if you run into stack overflows.
     * You may need additional device-specific settings. For example if your device has external SPI RAM,
        you may need to enable that. For details for ESP32-S3 based devices see how to [Configure the PSRAM](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/flash_psram_config.html#configure-the-psram).
@@ -121,9 +116,9 @@ slint_target_sources(${COMPONENT_LIB} app-window.slint)
 
     Alternatively, check in a default sdkconfig tweaked from your board that adds the right amount of ram, flash, and use `CONFIG_MAIN_TASK_STACK_SIZE=8192`
 
-11.  Build the project with `idf.py build`.
-12.  Connect your device, then flash and run it with `idf.py flash monitor`.
-13.  Observe Slint rendering "Hello World" on the screen 🎉.
+10.  Build the project with `idf.py build`.
+11.  Connect your device, then flash and run it with `idf.py flash monitor`.
+12.  Observe Slint rendering "Hello World" on the screen 🎉.
 
 Congratulations, you're all set up to develop with Slint.
 
