@@ -15,7 +15,8 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage, RenderText,
 };
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult, TextStrokeStyle,
+    self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
+    TextStrokeStyle,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -978,15 +979,31 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let image_inner: &ImageInner = (&image).into();
 
-        let Some(cached_image) = TextureCacheKey::new(image_inner, None, Default::default())
-            .and_then(|cache_key| {
-                self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(cache_key, || {
-                    Texture::new_from_image(image_inner, &self.canvas, None, Default::default())
+        let Some(cached_image) =
+            TextureCacheKey::new(image_inner, None, Default::default(), Default::default())
+                .and_then(|cache_key| {
+                    self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(
+                        cache_key,
+                        || {
+                            Texture::new_from_image(
+                                image_inner,
+                                &self.canvas,
+                                None,
+                                Default::default(),
+                                Default::default(),
+                            )
+                        },
+                    )
                 })
-            })
-            .or_else(|| {
-                Texture::new_from_image(image_inner, &self.canvas, None, Default::default())
-            })
+                .or_else(|| {
+                    Texture::new_from_image(
+                        image_inner,
+                        &self.canvas,
+                        None,
+                        Default::default(),
+                        Default::default(),
+                    )
+                })
         else {
             return;
         };
@@ -1210,6 +1227,7 @@ impl<'a> GLItemRenderer<'a> {
         original_cache_entry: ItemGraphicsCacheEntry,
         colorize_brush: Brush,
         scaling: ImageRendering,
+        tiling: (ImageTiling, ImageTiling),
     ) -> ItemGraphicsCacheEntry {
         if colorize_brush.is_transparent() {
             return original_cache_entry;
@@ -1221,7 +1239,7 @@ impl<'a> GLItemRenderer<'a> {
             None => return original_cache_entry,
         };
 
-        let scaling_flags = super::images::base_image_flags(scaling);
+        let scaling_flags = super::images::base_image_flags(scaling, tiling);
 
         let image_id = original_image.id;
         let colorized_image = self
@@ -1292,6 +1310,7 @@ impl<'a> GLItemRenderer<'a> {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
                 let image = item.source();
                 let image_inner: &ImageInner = (&image).into();
+                let tiling = item.tiling();
 
                 let target_size_for_scalable_source = if image_inner.is_svg() {
                     let image_size = image.size().cast::<f32>();
@@ -1305,7 +1324,7 @@ impl<'a> GLItemRenderer<'a> {
                         IntRect::from_size(image_size.cast()),
                         self.scale_factor,
                         Default::default(), // We only care about the size, so alignments don't matter
-                        item.tiling(),
+                        tiling,
                     );
                     Some(euclid::size2(
                         (image_size.width * fit.source_to_target_x) as u32,
@@ -1317,32 +1336,39 @@ impl<'a> GLItemRenderer<'a> {
 
                 let image_rendering = item.rendering();
 
-                TextureCacheKey::new(image_inner, target_size_for_scalable_source, image_rendering)
-                    .and_then(|cache_key| {
-                        self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(
-                            cache_key,
-                            || {
-                                Texture::new_from_image(
-                                    image_inner,
-                                    &self.canvas,
-                                    target_size_for_scalable_source,
-                                    image_rendering,
-                                )
-                            },
-                        )
-                    })
-                    .or_else(|| {
-                        Texture::new_from_image(
-                            image_inner,
-                            &self.canvas,
-                            target_size_for_scalable_source,
-                            image_rendering,
-                        )
-                    })
-                    .map(ItemGraphicsCacheEntry::Texture)
-                    .map(|cache_entry| {
-                        self.colorize_image(cache_entry, item.colorize(), image_rendering)
-                    })
+                TextureCacheKey::new(
+                    image_inner,
+                    target_size_for_scalable_source,
+                    image_rendering,
+                    tiling,
+                )
+                .and_then(|cache_key| {
+                    self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(
+                        cache_key,
+                        || {
+                            Texture::new_from_image(
+                                image_inner,
+                                &self.canvas,
+                                target_size_for_scalable_source,
+                                image_rendering,
+                                tiling,
+                            )
+                        },
+                    )
+                })
+                .or_else(|| {
+                    Texture::new_from_image(
+                        image_inner,
+                        &self.canvas,
+                        target_size_for_scalable_source,
+                        image_rendering,
+                        tiling,
+                    )
+                })
+                .map(ItemGraphicsCacheEntry::Texture)
+                .map(|cache_entry| {
+                    self.colorize_image(cache_entry, item.colorize(), image_rendering, tiling)
+                })
             });
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return

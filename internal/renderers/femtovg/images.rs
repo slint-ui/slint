@@ -8,6 +8,7 @@ use i_slint_core::graphics::euclid;
 #[cfg(not(target_arch = "wasm32"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
+use i_slint_core::items::ImageTiling;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::{items::ImageRendering, ImageInner};
 
@@ -89,8 +90,9 @@ impl Texture {
         canvas: &CanvasRc,
         target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
         scaling: ImageRendering,
+        tiling: (ImageTiling, ImageTiling),
     ) -> Option<Rc<Self>> {
-        let image_flags = base_image_flags(scaling);
+        let image_flags = base_image_flags(scaling, tiling);
 
         let image_id = match image {
             #[cfg(target_arch = "wasm32")]
@@ -165,6 +167,7 @@ pub struct TextureCacheKey {
     source_key: ImageCacheKey,
     target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
     gpu_image_flags: ImageRendering,
+    gpu_image_tiling: (ImageTiling, ImageTiling),
 }
 
 impl TextureCacheKey {
@@ -172,11 +175,13 @@ impl TextureCacheKey {
         resource: &ImageInner,
         target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
         gpu_image_flags: ImageRendering,
+        gpu_image_tiling: (ImageTiling, ImageTiling),
     ) -> Option<Self> {
         ImageCacheKey::new(resource).map(|source_key| Self {
             source_key,
             target_size_for_scalable_source,
             gpu_image_flags,
+            gpu_image_tiling,
         })
     }
 }
@@ -253,10 +258,19 @@ fn image_buffer_to_image_source(
     }
 }
 
-pub fn base_image_flags(scaling: ImageRendering) -> femtovg::ImageFlags {
+pub fn base_image_flags(
+    scaling: ImageRendering,
+    tiling: (ImageTiling, ImageTiling),
+) -> femtovg::ImageFlags {
     let image_flags = match scaling {
         ImageRendering::Smooth => femtovg::ImageFlags::empty(),
         ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
+    } | match tiling.0 {
+        ImageTiling::None => femtovg::ImageFlags::empty(),
+        ImageTiling::Repeat | ImageTiling::Round => femtovg::ImageFlags::REPEAT_X,
+    } | match tiling.1 {
+        ImageTiling::None => femtovg::ImageFlags::empty(),
+        ImageTiling::Repeat | ImageTiling::Round => femtovg::ImageFlags::REPEAT_Y,
     };
-    image_flags | femtovg::ImageFlags::REPEAT_X | femtovg::ImageFlags::REPEAT_Y
+    image_flags
 }
