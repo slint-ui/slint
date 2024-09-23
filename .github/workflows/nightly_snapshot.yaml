@@ -522,6 +522,7 @@ jobs:
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     notes_file=slint-src/docs/_templates/nightly-release-notes.md
                     version=nightly
+                    download_version=$version
                   else
                     notes_file=slint-src/docs/_templates/release-notes.md
                     version=$(echo artifacts/Slint-cpp-*-win64-MSVC.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
@@ -531,11 +532,12 @@ jobs:
                     fi
                     major_version=`echo $version | sed -e "s,\([0-9]*\)\.[0-9]*\.[0-9]*,\1,"`
                     minor_version=`echo $version | sed -e "s,[0-9]*\.\([0-9]*\)\.[0-9]*,\1,"`
+                    download_version=v$version
                   fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
                   cat $notes_file slint-src/docs/_templates/release-artifacts.md > release-notes.md
                   sed -i -e "s,{version},$version,g" release-notes.md
-                  sed -i -e "s,{download_version},$version,g" release-notes.md
+                  sed -i -e "s,{download_version},$download_version,g" release-notes.md
                   sed -i -e "s,{major_version},$major_version,g" release-notes.md
                   sed -i -e "s,{minor_version},$minor_version,g" release-notes.md
                   cat release-notes.md
