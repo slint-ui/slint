@@ -63,8 +63,8 @@ jobs:
             rustflags: "--cfg=web_sys_unstable_apis"
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
-        #with:
-        #    extra_cmake_flags: ${{ github.event.inputs.release && '' || '-DCPACK_PACKAGE_VERSION=nightly' }}
+        with:
+            extra_cmake_flags: ${{ github.event.inputs.release && '' || '-DCPACK_PACKAGE_VERSION=nightly' }}
 
     check-for-secrets:
         runs-on: ubuntu-latest
@@ -77,231 +77,231 @@ jobs:
                   [ -n "${{ secrets.VSCODE_MARKETPLACE_PAT }}" ] && echo "has-vscode-marketplace-pat=yes" >> "$GITHUB_OUTPUT"
                   [ -n "${{ secrets.OPENVSX_PAT }}" ] && echo "has-openvsx-pat=yes" >> "$GITHUB_OUTPUT"
 
-    # build_vscode_lsp_linux_windows:
-    #     env:
-    #         SLINT_NO_QT: 1
-    #     strategy:
-    #         matrix:
-    #             include:
-    #                 - os: ubuntu-20.04
-    #                   toolchain: x86_64-unknown-linux-gnu
-    #                   binary_built: slint-lsp
-    #                   artifact_name: slint-lsp-x86_64-unknown-linux-gnu
-    #                 - os: windows-2022
-    #                   toolchain: x86_64-pc-windows-msvc
-    #                   binary_built: slint-lsp.exe
-    #                   artifact_name: slint-lsp-x86_64-pc-windows-msvc.exe
-    #     runs-on: ${{ matrix.os }}
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - uses: ./.github/actions/setup-rust
-    #           with:
-    #               target: ${{ matrix.toolchain }}
-    #         - uses: ./.github/actions/install-linux-dependencies
-    #           with:
-    #               old-ubuntu: true
-    #         - name: Build LSP
-    #           run: cargo build --target ${{ matrix.toolchain }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
-    #         - name: Create artifact directory
-    #           run: |
-    #               mkdir bin
-    #               cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
-    #         - name: "Upload LSP Artifact"
-    #           uses: actions/upload-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-${{ matrix.toolchain }}
-    #               path: |
-    #                   bin
+    build_vscode_lsp_linux_windows:
+        env:
+            SLINT_NO_QT: 1
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-20.04
+                      toolchain: x86_64-unknown-linux-gnu
+                      binary_built: slint-lsp
+                      artifact_name: slint-lsp-x86_64-unknown-linux-gnu
+                    - os: windows-2022
+                      toolchain: x86_64-pc-windows-msvc
+                      binary_built: slint-lsp.exe
+                      artifact_name: slint-lsp-x86_64-pc-windows-msvc.exe
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.toolchain }}
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  old-ubuntu: true
+            - name: Build LSP
+              run: cargo build --target ${{ matrix.toolchain }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
+            - name: Create artifact directory
+              run: |
+                  mkdir bin
+                  cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
+            - name: "Upload LSP Artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: vscode-lsp-binary-${{ matrix.toolchain }}
+                  path: |
+                      bin
 
-    # build_vscode_lsp_macos_x86_64:
-    #     env:
-    #         SLINT_NO_QT: 1
-    #     runs-on: macos-12
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - uses: ./.github/actions/setup-rust
-    #           with:
-    #               target: x86_64-apple-darwin
-    #         - name: Install cargo-bundle
-    #           run: cargo install --version=0.6.0 cargo-bundle
-    #         - name: Build Main LSP Bundle
-    #           working-directory: tools/lsp
-    #           run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }}
-    #         - name: Create artifact directory
-    #           run: |
-    #               mkdir bin
-    #               cp -a target/release/bundle/osx/Slint\ Live\ Preview.app bin
-    #         - name: "Upload LSP Artifact"
-    #           uses: actions/upload-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-x86_64-apple-darwin
-    #               path: |
-    #                   bin
+    build_vscode_lsp_macos_x86_64:
+        env:
+            SLINT_NO_QT: 1
+        runs-on: macos-12
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: x86_64-apple-darwin
+            - name: Install cargo-bundle
+              run: cargo install --version=0.6.0 cargo-bundle
+            - name: Build Main LSP Bundle
+              working-directory: tools/lsp
+              run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }}
+            - name: Create artifact directory
+              run: |
+                  mkdir bin
+                  cp -a target/release/bundle/osx/Slint\ Live\ Preview.app bin
+            - name: "Upload LSP Artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: vscode-lsp-binary-x86_64-apple-darwin
+                  path: |
+                      bin
 
-    # build_vscode_lsp_macos_aarch64:
-    #     env:
-    #         SLINT_NO_QT: 1
-    #     runs-on: macos-latest
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - uses: ./.github/actions/setup-rust
-    #           with:
-    #               target: aarch64-apple-darwin
-    #         - name: Build AArch64 LSP
-    #           run: cargo build --target aarch64-apple-darwin --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
-    #         - name: Create artifact directory
-    #           run: |
-    #               mkdir bin
-    #               cp -a target/aarch64-apple-darwin/release/slint-lsp bin/slint-lsp-aarch64-apple-darwin
-    #         - name: "Upload LSP Artifact"
-    #           uses: actions/upload-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-aarch64-apple-darwin
-    #               path: |
-    #                   bin
+    build_vscode_lsp_macos_aarch64:
+        env:
+            SLINT_NO_QT: 1
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-darwin
+            - name: Build AArch64 LSP
+              run: cargo build --target aarch64-apple-darwin --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
+            - name: Create artifact directory
+              run: |
+                  mkdir bin
+                  cp -a target/aarch64-apple-darwin/release/slint-lsp bin/slint-lsp-aarch64-apple-darwin
+            - name: "Upload LSP Artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: vscode-lsp-binary-aarch64-apple-darwin
+                  path: |
+                      bin
 
-    # build_vscode_lsp_macos_bundle:
-    #     needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
-    #     runs-on: macos-12
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #           with:
-    #               path: "src"
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-x86_64-apple-darwin
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-aarch64-apple-darwin
-    #               path: bin
-    #         - name: Add macOS AArch64 binary to bundle
-    #           run: |
-    #               lipo -create -output tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp bin/slint-lsp-aarch64-apple-darwin
-    #               mv tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp
-    #               rm -rf bin
-    #         - uses: ./src/.github/actions/codesign
-    #           with:
-    #               binary: "Slint Live Preview.app"
-    #               certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-    #               certificate_password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
-    #               keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
-    #               developer_id: ${{ secrets.APPLE_DEV_ID }}
-    #         - name: "Remove temporary source checkout"
-    #           run: rm -rf src
-    #         - name: "Upload LSP macOS bundle Artifact"
-    #           uses: actions/upload-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-darwin
-    #               path: .
+    build_vscode_lsp_macos_bundle:
+        needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
+        runs-on: macos-12
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  path: "src"
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-x86_64-apple-darwin
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-aarch64-apple-darwin
+                  path: bin
+            - name: Add macOS AArch64 binary to bundle
+              run: |
+                  lipo -create -output tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp bin/slint-lsp-aarch64-apple-darwin
+                  mv tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp
+                  rm -rf bin
+            - uses: ./src/.github/actions/codesign
+              with:
+                  binary: "Slint Live Preview.app"
+                  certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+                  certificate_password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+                  keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+                  developer_id: ${{ secrets.APPLE_DEV_ID }}
+            - name: "Remove temporary source checkout"
+              run: rm -rf src
+            - name: "Upload LSP macOS bundle Artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: vscode-lsp-binary-darwin
+                  path: .
 
-    # build_vscode_cross_linux_lsp:
-    #     env:
-    #         SLINT_NO_QT: 1
-    #     strategy:
-    #         matrix:
-    #             target:
-    #                 - armv7-unknown-linux-gnueabihf
-    #                 - aarch64-unknown-linux-gnu
-    #     runs-on: ubuntu-20.04
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - uses: ./.github/actions/setup-rust
-    #           with:
-    #               target: ${{ matrix.target }}
-    #         - uses: baptiste0928/cargo-install@v3
-    #           with:
-    #               crate: cross
-    #         - name: Build LSP
-    #           run: cross build --target ${{ matrix.target }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
-    #         - name: Create artifact directory
-    #           run: |
-    #               mkdir bin
-    #               cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
-    #         - name: "Upload LSP Artifact"
-    #           uses: actions/upload-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-${{ matrix.target }}
-    #               path: |
-    #                   bin
+    build_vscode_cross_linux_lsp:
+        env:
+            SLINT_NO_QT: 1
+        strategy:
+            matrix:
+                target:
+                    - armv7-unknown-linux-gnueabihf
+                    - aarch64-unknown-linux-gnu
+        runs-on: ubuntu-20.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cross
+            - name: Build LSP
+              run: cross build --target ${{ matrix.target }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
+            - name: Create artifact directory
+              run: |
+                  mkdir bin
+                  cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
+            - name: "Upload LSP Artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: vscode-lsp-binary-${{ matrix.target }}
+                  path: |
+                      bin
 
-    # build_vscode_extension:
-    #     needs:
-    #         [
-    #             build_vscode_lsp_linux_windows,
-    #             build_vscode_lsp_macos_bundle,
-    #             build_vscode_cross_linux_lsp,
-    #             check-for-secrets,
-    #         ]
-    #     runs-on: macos-12
-    #     if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - uses: actions/setup-node@v4
-    #           with:
-    #               node-version: 18
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-x86_64-unknown-linux-gnu
-    #               path: editors/vscode/bin
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-x86_64-pc-windows-msvc
-    #               path: editors/vscode/bin
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-darwin
-    #               path: editors/vscode/bin
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
-    #               path: editors/vscode/bin
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: vscode-lsp-binary-aarch64-unknown-linux-gnu
-    #               path: editors/vscode/bin
-    #         - name: Fix permissions
-    #           run: chmod 755 editors/vscode/bin/* editors/vscode/bin/*.app/Contents/MacOS/*
-    #         - name: "Prepare meta-data files for nightly package"
-    #           env:
-    #               RELEASE_INPUT: ${{ github.event.inputs.release }}
-    #           working-directory: editors/vscode
-    #           run: |
-    #               #if grep -q 'lines below this marker are stripped from the release' README.md; then
-    #               #  sed -i '/lines below this marker are stripped from the release/,$ d' README.md
-    #               #else
-    #               #  echo "Missing strip marker in VS Code Extension README. Either add or fix this script."
-    #               #  exit 1
-    #               #fi
-    #               if [ "$RELEASE_INPUT" != "true" ]; then
-    #                 ../../scripts/prepare_vscode_nightly.sh
-    #               fi
-    #         - name: "npm install"
-    #           working-directory: editors/vscode
-    #           run: npm clean-install
-    #         - name: Install wasm-pack
-    #           run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    #         - name: Build package and optionally publish to Visual Studio Marketplace
-    #           id: publishToVSCM
-    #           uses: HaaLeo/publish-vscode-extension@v1
-    #           with:
-    #               pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
-    #               registryUrl: https://marketplace.visualstudio.com
-    #               dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
-    #               packagePath: editors/vscode
-    #         - name: Publish to Open VSX Registry
-    #           continue-on-error: true
-    #           if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
-    #           uses: HaaLeo/publish-vscode-extension@v1
-    #           with:
-    #               pat: ${{ secrets.OPENVSX_PAT }}
-    #               extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
-    #               packagePath: ""
-    #         - name: "Upload extension artifact"
-    #           uses: actions/upload-artifact@v4
-    #           with:
-    #               name: slint-vscode.zip
-    #               path: |
-    #                   ${{ steps.publishToVSCM.outputs.vsixPath }}
+    build_vscode_extension:
+        needs:
+            [
+                build_vscode_lsp_linux_windows,
+                build_vscode_lsp_macos_bundle,
+                build_vscode_cross_linux_lsp,
+                check-for-secrets,
+            ]
+        runs-on: macos-12
+        if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 18
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-x86_64-unknown-linux-gnu
+                  path: editors/vscode/bin
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-x86_64-pc-windows-msvc
+                  path: editors/vscode/bin
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-darwin
+                  path: editors/vscode/bin
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
+                  path: editors/vscode/bin
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-aarch64-unknown-linux-gnu
+                  path: editors/vscode/bin
+            - name: Fix permissions
+              run: chmod 755 editors/vscode/bin/* editors/vscode/bin/*.app/Contents/MacOS/*
+            - name: "Prepare meta-data files for nightly package"
+              env:
+                  RELEASE_INPUT: ${{ github.event.inputs.release }}
+              working-directory: editors/vscode
+              run: |
+                  if grep -q 'lines below this marker are stripped from the release' README.md; then
+                    sed -i '/lines below this marker are stripped from the release/,$ d' README.md
+                  else
+                    echo "Missing strip marker in VS Code Extension README. Either add or fix this script."
+                    exit 1
+                  fi
+                  if [ "$RELEASE_INPUT" != "true" ]; then
+                    ../../scripts/prepare_vscode_nightly.sh
+                  fi
+            - name: "npm install"
+              working-directory: editors/vscode
+              run: npm clean-install
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Build package and optionally publish to Visual Studio Marketplace
+              id: publishToVSCM
+              uses: HaaLeo/publish-vscode-extension@v1
+              with:
+                  pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+                  registryUrl: https://marketplace.visualstudio.com
+                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
+                  packagePath: editors/vscode
+            - name: Publish to Open VSX Registry
+              continue-on-error: true
+              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+              uses: HaaLeo/publish-vscode-extension@v1
+              with:
+                  pat: ${{ secrets.OPENVSX_PAT }}
+                  extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
+                  packagePath: ""
+            - name: "Upload extension artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: slint-vscode.zip
+                  path: |
+                      ${{ steps.publishToVSCM.outputs.vsixPath }}
 
     #  publish_tree_sitter:
     #    if: github.event.inputs.private != 'true'
@@ -314,153 +314,153 @@ jobs:
     #            name: tree-sitter-slint
     #            path: editors/tree-sitter-slint
 
-    # publish_artifacts:
-    #     if: ${{ github.event.inputs.private != 'true' }}
-    #     needs: [docs, wasm_demo, wasm, check-for-secrets, android]
-    #     runs-on: ubuntu-20.04
-    #     steps:
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: docs
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: slintpad
-    #               path: slintpad
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: wasm
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: wasm_demo
-    #         - uses: actions/download-artifact@v4
-    #           with:
-    #               name: android-demo
-    #               path: android
+    publish_artifacts:
+        if: ${{ github.event.inputs.private != 'true' }}
+        needs: [docs, wasm_demo, wasm, check-for-secrets, android]
+        runs-on: ubuntu-20.04
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                  name: docs
+            - uses: actions/download-artifact@v4
+              with:
+                  name: slintpad
+                  path: slintpad
+            - uses: actions/download-artifact@v4
+              with:
+                  name: wasm
+            - uses: actions/download-artifact@v4
+              with:
+                  name: wasm_demo
+            - uses: actions/download-artifact@v4
+              with:
+                  name: android-demo
+                  path: android
 
-    #         - name: Extract Version
-    #           id: version
-    #           run: |
-    #             version=$(grep -oP '(?<=<title>Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
-    #             if [[ -z "$version" ]]; then
-    #               echo "Version not found"
-    #               exit 1
-    #             fi
-    #               echo "VERSION=$version" >> $GITHUB_OUTPUT
+            - name: Extract Version
+              id: version
+              run: |
+                version=$(grep -oP '(?<=<title>Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
+                if [[ -z "$version" ]]; then
+                  echo "Version not found"
+                  exit 1
+                fi
+                  echo "VERSION=$version" >> $GITHUB_OUTPUT
 
-    #         - name: Generate a token
-    #           id: app-token
-    #           uses: actions/create-github-app-token@v1
-    #           with:
-    #             app-id: ${{ vars.READ_WRITE_APP_ID }}
-    #             private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-    #             repositories: www-releases
+            - name: Generate a token
+              id: app-token
+              uses: actions/create-github-app-token@v1
+              with:
+                app-id: ${{ vars.READ_WRITE_APP_ID }}
+                private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                repositories: www-releases
 
-    #         - name: Clone www-releases directory
-    #           uses: actions/checkout@v4
-    #           with:
-    #             repository: slint-ui/www-releases
-    #             path: www-releases
-    #             token: ${{ steps.app-token.outputs.token }}
+            - name: Clone www-releases directory
+              uses: actions/checkout@v4
+              with:
+                repository: slint-ui/www-releases
+                path: www-releases
+                token: ${{ steps.app-token.outputs.token }}
 
-    #         - name: Publish Docs and Demos
-    #           working-directory: ./www-releases
-    #           run: |
-    #             if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
-    #               output_path="releases/${{ steps.version.outputs.VERSION }}"
-    #             else
-    #               output_path="snapshots/${GITHUB_REF##*/}"
-    #             fi
+            - name: Publish Docs and Demos
+              working-directory: ./www-releases
+              run: |
+                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                  output_path="releases/${{ steps.version.outputs.VERSION }}"
+                else
+                  output_path="snapshots/${GITHUB_REF##*/}"
+                fi
 
-    #             rm -rf $output_path/demos
-    #             mkdir -p $output_path/demos
+                rm -rf $output_path/demos
+                mkdir -p $output_path/demos
 
-    #             for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust todo-mvc,rust slide_puzzle, memory, imagefilter,rust plotter, opengl_underlay, carousel,rust energy-monitor, weather-demo,; do
-    #               IFS=',' read demo subdir <<< "${demo_subdir}"
+                for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust todo-mvc,rust slide_puzzle, memory, imagefilter,rust plotter, opengl_underlay, carousel,rust energy-monitor, weather-demo,; do
+                  IFS=',' read demo subdir <<< "${demo_subdir}"
 
-    #               mkdir -p $output_path/demos/$demo
-    #               cp -a ../$demo/$subdir/{pkg,index.html} $output_path/demos/$demo/
-    #             done
+                  mkdir -p $output_path/demos/$demo
+                  cp -a ../$demo/$subdir/{pkg,index.html} $output_path/demos/$demo/
+                done
 
-    #             mkdir -p $output_path/demos/android
-    #             cp -a ../android/* $output_path/demos/android/
+                mkdir -p $output_path/demos/android
+                cp -a ../android/* $output_path/demos/android/
 
-    #             rm -rf $output_path/wasm-interpreter
-    #             mkdir -p $output_path/wasm-interpreter
-    #             cp -a ../api/wasm-interpreter/pkg/* ./$output_path/wasm-interpreter/
+                rm -rf $output_path/wasm-interpreter
+                mkdir -p $output_path/wasm-interpreter
+                cp -a ../api/wasm-interpreter/pkg/* ./$output_path/wasm-interpreter/
 
-    #             rm -rf $output_path/editor
-    #             mkdir -p $output_path/editor
-    #             cp -a ../slintpad/* $output_path/editor/
+                rm -rf $output_path/editor
+                mkdir -p $output_path/editor
+                cp -a ../slintpad/* $output_path/editor/
 
-    #             if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
-    #               version="${{ steps.version.outputs.VERSION }}"
-    #             else
-    #               version="development snapshot"
-    #             fi
-    #             sed -i 's/VERSION/$version/g' ../docs/site/index.html
+                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                  version="${{ steps.version.outputs.VERSION }}"
+                else
+                  version="development snapshot"
+                fi
+                sed -i 's/VERSION/$version/g' ../docs/site/index.html
 
-    #             rm -rf $output_path/docs
-    #             mkdir -p $output_path/docs
-    #             cp -a ../docs/site/* $output_path/docs
-    #             mkdir -p $output_path/docs/cpp
-    #             cp -a ../target/cppdocs/html/* $output_path/docs/cpp/
-    #             mkdir -p $output_path/docs/rust
-    #             cp -a ../target/doc/* $output_path/docs/rust/
+                rm -rf $output_path/docs
+                mkdir -p $output_path/docs
+                cp -a ../docs/site/* $output_path/docs
+                mkdir -p $output_path/docs/cpp
+                cp -a ../target/cppdocs/html/* $output_path/docs/cpp/
+                mkdir -p $output_path/docs/rust
+                cp -a ../target/doc/* $output_path/docs/rust/
 
-    #             # Fix up link to Slint language documentation
-    #             sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
+                # Fix up link to Slint language documentation
+                sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
-    #             mkdir -p $output_path/docs/node
-    #             cp -a ../api/node/docs/* $output_path/docs/node/
-    #             mkdir -p $output_path/docs/slint
-    #             cp -a ../target/slintdocs/html/* $output_path/docs/slint/
+                mkdir -p $output_path/docs/node
+                cp -a ../api/node/docs/* $output_path/docs/node/
+                mkdir -p $output_path/docs/slint
+                cp -a ../target/slintdocs/html/* $output_path/docs/slint/
 
-    #         - name: Adjust redirections
-    #           if: github.event.inputs.release == 'true'
-    #           run: |
-    #             sed -i "/1.0.2/! s,[0-9]*\.[0-9]*\.[0-9]*/\(.*\),${{ steps.version.outputs.VERSION }}/\1," www-releases/releases/_redirects
+            - name: Adjust redirections
+              if: github.event.inputs.release == 'true'
+              run: |
+                sed -i "/1.0.2/! s,[0-9]*\.[0-9]*\.[0-9]*/\(.*\),${{ steps.version.outputs.VERSION }}/\1," www-releases/releases/_redirects
 
-    #         - name: Adjust slintpad default tag
-    #           if: github.event.inputs.release == 'true'
-    #           run: sed -i "s,XXXX_DEFAULT_TAG_XXXX,v${{ steps.version.outputs.VERSION }}," www-releases/releases/${{ steps.version.outputs.VERSION }}/editor/assets/*.js
+            - name: Adjust slintpad default tag
+              if: github.event.inputs.release == 'true'
+              run: sed -i "s,XXXX_DEFAULT_TAG_XXXX,v${{ steps.version.outputs.VERSION }}," www-releases/releases/${{ steps.version.outputs.VERSION }}/editor/assets/*.js
 
-    #         - name: Update versions.txt
-    #           if: github.event.inputs.release == 'true'
-    #           working-directory: www-releases/releases
-    #           run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
+            - name: Update versions.txt
+              if: github.event.inputs.release == 'true'
+              working-directory: www-releases/releases
+              run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
 
-    #         - name: Update SlintPad
-    #           if: github.event.inputs.release == 'true'
-    #           run: |
-    #             rm -rf www-releases/slintpad
-    #             cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
-    #             for f in 404.html script.js LICENSE.md package.json; do
-    #               cp www-releases/releases/$f www-releases/slintpad
-    #             done
-    #             echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
+            - name: Update SlintPad
+              if: github.event.inputs.release == 'true'
+              run: |
+                rm -rf www-releases/slintpad
+                cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
+                for f in 404.html script.js LICENSE.md package.json; do
+                  cp www-releases/releases/$f www-releases/slintpad
+                done
+                echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
 
-    #         - name: Get GitHub App User ID
-    #           id: get-user-id
-    #           run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
-    #           env:
-    #             GH_TOKEN: ${{ steps.app-token.outputs.token }}
+            - name: Get GitHub App User ID
+              id: get-user-id
+              run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+              env:
+                GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
-    #         - name: check for diff
-    #           id: www-releases
-    #           working-directory: ./www-releases
-    #           run: |
-    #             git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
+            - name: check for diff
+              id: www-releases
+              working-directory: ./www-releases
+              run: |
+                git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
 
-    #         - name: commit and push
-    #           if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
-    #           working-directory: ./www-releases
-    #           run: |
-    #             git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
-    #             git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
-    #             git add .
-    #             git add -u .
-    #             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
-    #             git push
+            - name: commit and push
+              if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
+              working-directory: ./www-releases
+              run: |
+                git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+                git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
+                git add .
+                git add -u .
+                git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
+                git push
 
     prepare_release:
         if: github.event.inputs.private != 'true'
@@ -585,10 +585,10 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
-    # nightly-tests:
-    #     if: github.event.inputs.release != 'true'
-    #     needs: [prepare_release]
-    #     uses: ./.github/workflows/nightly_tests.yaml
+    nightly-tests:
+        if: github.event.inputs.release != 'true'
+        needs: [prepare_release]
+        uses: ./.github/workflows/nightly_tests.yaml
 
     android:
         env:
