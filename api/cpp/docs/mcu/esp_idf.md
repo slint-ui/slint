@@ -108,7 +108,7 @@ export component AppWindow inherits Window {
 idf_component_register(SRCS "slint-hello-world.cpp" INCLUDE_DIRS "." REQUIRES slint)
 slint_target_sources(${COMPONENT_LIB} app-window.slint)
 ```
-8. Open the configuration editor with `idf.py menuconfig`:
+9. Open the configuration editor with `idf.py menuconfig`:
     * Change the stack size under `Component config --> ESP System Settings --> Main task stack size` to at least `8192`. You may need to tweak this value in the future if you run into stack overflows.
     * You may need additional device-specific settings. For example if your device has external SPI RAM,
        you may need to enable that. For details for ESP32-S3 based devices see how to [Configure the PSRAM](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/flash_psram_config.html#configure-the-psram).
