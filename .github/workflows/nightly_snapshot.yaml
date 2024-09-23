@@ -275,6 +275,7 @@ jobs:
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     ../../scripts/prepare_vscode_nightly.sh
                   fi
+              shell: bash
             - name: "npm install"
               working-directory: editors/vscode
               run: npm clean-install

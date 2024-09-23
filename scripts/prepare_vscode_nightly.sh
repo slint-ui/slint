@@ -28,6 +28,8 @@ git show HEAD:./package.json | jq --arg nightly_version "${nightly_version}" '
 .description += " (Nightly)" |
 . + {"preview": true}' > package.json
 
+mv README.md README.md.orig
+
 cat >README.md <<EOT
 # Slint for Visual Studio Code Nightly
 
@@ -37,7 +39,9 @@ It is published a regular intervals using the latest development code, to
 preview new features and test bug fixes. This means that it can be broken
 or unstable.
 EOT
-git show HEAD:./README.md | sed '/^# Slint for Visual Studio Code$/d;/^## Building from Source$/,$d' >> README.md
+
+cat README.md.orig >> README.md
+rm README.md.orig
 
 cat > CHANGELOG.md <<EOT
 This nightly build was created from commit $last_commit
