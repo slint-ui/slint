@@ -316,7 +316,7 @@ jobs:
 
     publish_artifacts:
         if: ${{ github.event.inputs.private != 'true' }}
-        needs: [docs, wasm_demo, wasm, check-for-secrets]
+        needs: [docs, wasm_demo, wasm, check-for-secrets, android]
         runs-on: ubuntu-20.04
         steps:
             - uses: actions/download-artifact@v4
