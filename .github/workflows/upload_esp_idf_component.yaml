@@ -25,7 +25,7 @@ jobs:
                 if grep -q 'set(SLINT_USE_NIGHTLY_VERSION TRUE)' CMakeLists.txt; then
                         sed -i '/set(SLINT_USE_NIGHTLY_VERSION TRUE)/d' CMakeLists.txt
                 else
-                    echo "SLINT_USE_NIGHTLY_VERSION marker is missing in CMakeLists.txt. Did you forget to change this script?""
+                    echo "SLINT_USE_NIGHTLY_VERSION marker is missing in CMakeLists.txt. Did you forget to change this script?"
                     exit 1
                 fi
             - name: Upload component
