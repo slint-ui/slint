@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use super::{PreviewState, WindowBehavior};
+use super::{LoadBehavior, PreviewState};
 use crate::common::{PreviewToLspMessage, SourceFileVersion};
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
@@ -141,7 +141,7 @@ pub fn quit_ui_event_loop() {
 
 pub(super) fn open_ui_impl(
     preview_state: &mut PreviewState,
-    window_behaviour: WindowBehavior,
+    behaviour: LoadBehavior,
 ) -> Result<(), slint::PlatformError> {
     let (default_style, show_preview_ui, fullscreen) = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -180,7 +180,7 @@ pub(super) fn open_ui_impl(
         cache.ui_is_visible = false;
         slint::CloseRequestResponse::HideWindow
     });
-    if matches!(window_behaviour, WindowBehavior::BringWindowToFront) {
+    if matches!(behaviour, LoadBehavior::LoadAndBringWindowToFront) {
         use i_slint_backend_winit::WinitWindowAccessor;
         ui.window().with_winit_window(|winit_window| winit_window.focus_window());
     }

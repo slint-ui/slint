@@ -143,7 +143,7 @@ fn set_contents(url: &common::VersionedUrl, content: String) {
         drop(cache);
 
         if ui_is_visible {
-            load_preview(current, LoadBehavior::Reload, WindowBehavior::WindowUnchanged);
+            load_preview(current, LoadBehavior::Reload);
         }
     }
 }
@@ -595,7 +595,7 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
 
     let current = PreviewComponent { url, component: Some(name), style: String::new() };
 
-    load_preview(current, LoadBehavior::Load, WindowBehavior::WindowUnchanged);
+    load_preview(current, LoadBehavior::Load);
 }
 
 // triggered from the UI, running in UI thread
@@ -882,7 +882,7 @@ fn change_style() {
     drop(cache);
 
     if ui_is_visible {
-        load_preview(current, LoadBehavior::Reload, WindowBehavior::WindowUnchanged);
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -987,7 +987,7 @@ fn config_changed(config: PreviewConfig) {
                     set_show_preview_ui(!hide_ui);
                 }
                 if let Some(current) = current {
-                    load_preview(current, LoadBehavior::Reload, WindowBehavior::WindowUnchanged);
+                    load_preview(current, LoadBehavior::Reload);
                 }
             }
         }
@@ -1012,14 +1012,10 @@ fn get_path_from_cache(path: &Path) -> Option<(SourceFileVersion, String)> {
 pub enum LoadBehavior {
     /// We reload the preview, most likely because a file has changed
     Reload,
-    /// We load the preview because the user asked for it. The UI should become visible if it wasn't already
+    /// Load the preview, but don't require focus.
     Load,
-}
-
-#[derive(Copy, Clone)]
-pub enum WindowBehavior {
-    WindowUnchanged,
-    BringWindowToFront,
+    /// We load the preview because the user asked for it. The UI should become visible and focused if it wasn't already
+    LoadAndBringWindowToFront,
 }
 
 pub fn reload_preview() {
@@ -1032,14 +1028,10 @@ pub fn reload_preview() {
         return;
     };
 
-    load_preview(pc, LoadBehavior::Load, WindowBehavior::WindowUnchanged);
+    load_preview(pc, LoadBehavior::Load);
 }
 
-pub fn load_preview(
-    preview_component: PreviewComponent,
-    behavior: LoadBehavior,
-    window_behaviour: WindowBehavior,
-) {
+pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         match behavior {
@@ -1048,7 +1040,9 @@ pub fn load_preview(
                     return;
                 }
             }
-            LoadBehavior::Load => cache.set_current_component(preview_component),
+            LoadBehavior::Load | LoadBehavior::LoadAndBringWindowToFront => {
+                cache.set_current_component(preview_component)
+            }
         }
 
         match cache.loading_state {
@@ -1093,9 +1087,7 @@ pub fn load_preview(
                 preview_component.style.clone()
             };
 
-            match reload_preview_impl(preview_component, behavior, window_behaviour, style, config)
-                .await
-            {
+            match reload_preview_impl(preview_component, behavior, style, config).await {
                 Ok(()) => {}
                 Err(e) => {
                     CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().loading_state =
@@ -1222,7 +1214,6 @@ async fn parse_source(
 async fn reload_preview_impl(
     component: PreviewComponent,
     behavior: LoadBehavior,
-    window_behaviour: WindowBehavior,
     style: String,
     config: PreviewConfig,
 ) -> Result<(), PlatformError> {
@@ -1256,13 +1247,7 @@ async fn reload_preview_impl(
     }
 
     let success = compiled.is_some();
-    update_preview_area(
-        compiled,
-        behavior,
-        window_behaviour,
-        open_import_fallback,
-        source_file_versions,
-    )?;
+    update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 
     finish_parsing(&component.url, success);
     Ok(())
@@ -1619,7 +1604,6 @@ fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
-    _window_behaviour: WindowBehavior,
     open_import_fallback: common::document_cache::OpenImportFallback,
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) -> Result<(), PlatformError> {
@@ -1628,7 +1612,7 @@ fn update_preview_area(
         preview_state.workspace_edit_sent = false;
 
         #[cfg(not(target_arch = "wasm32"))]
-        native::open_ui_impl(&mut preview_state, _window_behaviour)?;
+        native::open_ui_impl(&mut preview_state, behavior)?;
 
         let ui = preview_state.ui.as_ref().unwrap();
 
@@ -1672,7 +1656,7 @@ pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
             config_changed(config);
         }
         M::ShowPreview(pc) => {
-            load_preview(pc, LoadBehavior::Load, WindowBehavior::BringWindowToFront);
+            load_preview(pc, LoadBehavior::LoadAndBringWindowToFront);
         }
         M::HighlightFromEditor { url, offset } => {
             highlight(url, offset.into());
