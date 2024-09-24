@@ -301,6 +301,7 @@ fn gen_corelib(
         "Slice",
         "WindowAdapterRcOpaque",
         "PropertyAnimation",
+        "AnimationDirection",
         "EasingCurve",
         "TextHorizontalAlignment",
         "TextVerticalAlignment",

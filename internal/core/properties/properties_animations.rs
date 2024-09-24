@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
-use crate::{items::PropertyAnimation, lengths::LogicalLength};
+use crate::{
+    items::{AnimationDirection, PropertyAnimation},
+    lengths::LogicalLength,
+};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 enum AnimationState {
     Delaying,
     Animating { current_iteration: u64 },
-    Done,
+    Done { interation_count: u64 },
 }
 
 pub(super) struct PropertyValueAnimationData<T> {
@@ -30,6 +33,14 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
     pub fn compute_interpolated_value(&mut self) -> (T, bool) {
         let new_tick = crate::animations::current_tick();
         let mut time_progress = new_tick.duration_since(self.start_time).as_millis() as u64;
+        let reversed = |iteration: u64| -> bool {
+            match self.details.direction {
+                AnimationDirection::Normal => false,
+                AnimationDirection::Reverse => true,
+                AnimationDirection::Alternate => iteration % 2 == 1,
+                AnimationDirection::AlternateReverse => iteration % 2 == 0,
+            }
+        };
 
         match self.state {
             AnimationState::Delaying => {
@@ -41,7 +52,11 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 let delay = self.details.delay as u64;
 
                 if time_progress < delay {
-                    (self.from_value.clone(), false)
+                    if reversed(0) {
+                        (self.to_value.clone(), false)
+                    } else {
+                        (self.from_value.clone(), false)
+                    }
                 } else {
                     self.start_time =
                         new_tick - core::time::Duration::from_millis(time_progress - delay);
@@ -53,7 +68,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             }
             AnimationState::Animating { mut current_iteration } => {
                 if self.details.duration <= 0 || self.details.iteration_count == 0. {
-                    self.state = AnimationState::Done;
+                    self.state = AnimationState::Done { interation_count: 0 };
                     return self.compute_interpolated_value();
                 }
 
@@ -71,18 +86,32 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 {
                     self.state = AnimationState::Animating { current_iteration };
 
-                    let progress =
-                        (time_progress as f32 / self.details.duration as f32).clamp(0., 1.);
+                    let progress = {
+                        let progress =
+                            (time_progress as f32 / self.details.duration as f32).clamp(0., 1.);
+                        if reversed(current_iteration) {
+                            1. - progress
+                        } else {
+                            progress
+                        }
+                    };
                     let t = crate::animations::easing_curve(&self.details.easing, progress);
                     let val = self.from_value.interpolate(&self.to_value, t);
 
                     (val, false)
                 } else {
-                    self.state = AnimationState::Done;
+                    self.state =
+                        AnimationState::Done { interation_count: current_iteration.max(1) - 1 };
                     self.compute_interpolated_value()
                 }
             }
-            AnimationState::Done => (self.to_value.clone(), true),
+            AnimationState::Done { interation_count } => {
+                if reversed(interation_count) {
+                    (self.from_value.clone(), true)
+                } else {
+                    (self.to_value.clone(), true)
+                }
+            }
         }
     }
 
@@ -740,6 +769,48 @@ mod animation_tests {
 
         // the binding should not be removed as it is still animating!
         compo.width.handle.access(|binding| assert!(binding.is_some()));
+    }
+
+    #[test]
+    fn properties_test_animation_direction_triggered_by_set() {
+        let compo = Component::new_test_component();
+
+        let animation_details = PropertyAnimation {
+            delay: -25,
+            duration: DURATION.as_millis() as _,
+            direction: AnimationDirection::AlternateReverse,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(100);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        let start_time = crate::animations::current_tick();
+
+        compo.width.set_animated_value(200, animation_details);
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+        assert_eq!(get_prop_value(&compo.width_times_two), 300);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        // Overshoot: Always from_value.
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        // the binding should be removed
+        compo.width.handle.access(|binding| assert!(binding.is_none()));
     }
 
     #[test]

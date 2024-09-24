@@ -10,12 +10,15 @@ use itertools::Either;
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
 use super::{Animation, PropertyReference};
-use crate::expression_tree::{BuiltinFunction, Expression as tree_Expression};
 use crate::langtype::{EnumerationValue, Type};
 use crate::layout::Orientation;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
+use crate::{
+    expression_tree::{BuiltinFunction, Expression as tree_Expression},
+    typeregister::BUILTIN_ENUMS,
+};
 
 pub struct ExpressionContext<'a> {
     pub component: &'a Rc<crate::object_tree::Component>,
@@ -407,6 +410,10 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
         IntoIterator::into_iter([
             ("duration".to_string(), Type::Int32),
             ("iteration-count".to_string(), Type::Float32),
+            (
+                "direction".to_string(),
+                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AnimationDirection.clone())),
+            ),
             ("easing".to_string(), Type::Easing),
             ("delay".to_string(), Type::Int32),
         ])

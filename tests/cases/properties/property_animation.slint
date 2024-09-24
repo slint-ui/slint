@@ -22,6 +22,12 @@ TestCase := Rectangle {
         duration: 1200ms;
     }
 
+    property<int> direction: 100;
+    animate direction {
+        duration: 600ms;
+        direction: alternate-reverse;
+        iteration-count: 2;
+    }
 }
 
 /*
@@ -30,34 +36,42 @@ TestCase := Rectangle {
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
+assert_eq!(instance.get_direction(), 100);
 instance.set_condition(false);
 instance.set_hello(60);
+instance.set_direction(200);
 // no time has elapsed yet
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
+assert_eq!(instance.get_direction(), 200);
 
 // Half the animation
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 50);
 assert_eq!(instance.get_binding_dep(), 125);
+assert_eq!(instance.get_direction(), 100);
 
 
 // Remaining half
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
+assert_eq!(instance.get_direction(), 200);
 
 slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
+assert_eq!(instance.get_direction(), 200);
 
 // Changing the value and waiting should have effect without
 // querying the value (because te dirty event should cause the animation to start)
 instance.set_condition(true);
 instance.set_hello(30);
+instance.set_direction(100);
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 45);
 assert_eq!(instance.get_binding_dep(), 125);
+assert_eq!(instance.get_direction(), 200);
 
 ```
 
@@ -67,65 +81,80 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
+assert_eq(instance.get_direction(), 100);
 instance.set_condition(false);
 instance.set_hello(60);
+instance.set_direction(200);
 // no time has elapsed yet
 assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
+assert_eq(instance.get_direction(), 200);
 
 // Half the animation
 slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 50);
 assert_eq(instance.get_binding_dep(), 125);
+assert_eq(instance.get_direction(), 100);
 
 
 // Remaining half
 slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 60);
 assert_eq(instance.get_binding_dep(), 150);
+assert_eq(instance.get_direction(), 200);
 
 slint_testing::mock_elapsed_time(100);
 assert_eq(instance.get_hello(), 60);
 assert_eq(instance.get_binding_dep(), 150);
+assert_eq(instance.get_direction(), 200);
 
 // Changing the value and waiting should have effect without
 // querying the value (because te dirty event should cause the animation to start)
 instance.set_condition(true);
 instance.set_hello(30);
+instance.set_direction(100);
 slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 45);
 assert_eq(instance.get_binding_dep(), 125);
+assert_eq(instance.get_direction(), 200);
 ```
 
 ```js
 var instance = new slint.TestCase({});
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
+assert.equal(instance.direction, 100);
 instance.condition = false;
 instance.hello = 60;
+instance.direction = 200;
 // no time has elapsed yet
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
+assert.equal(instance.direction, 200);
 
 // Half the animation
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 50);
 assert.equal(instance.binding_dep, 125);
+assert.equal(instance.direction, 100);
 // Remaining half
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
+assert.equal(instance.direction, 200);
 slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
+assert.equal(instance.direction, 200);
 
 // Changing the value and waiting should have effect without
 // querying the value (because te dirty event should cause the animation to start)
 instance.condition = true;
 instance.hello = 30;
+instance.direction = 100;
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 45);
 assert.equal(instance.binding_dep, 125);
-
+assert.equal(instance.direction, 200);
 ```
 */

@@ -1210,6 +1210,7 @@ mod tests {
         let res = get_completions(source).unwrap();
         res.iter().find(|ci| ci.label == "delay").unwrap();
         res.iter().find(|ci| ci.label == "duration").unwrap();
+        res.iter().find(|ci| ci.label == "direction").unwrap();
         res.iter().find(|ci| ci.label == "iteration-count").unwrap();
         res.iter().find(|ci| ci.label == "easing").unwrap();
     }
