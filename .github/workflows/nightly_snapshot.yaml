@@ -64,7 +64,7 @@ jobs:
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
         with:
-            extra_cmake_flags: ${{ (github.event.inputs.release == 'false' && '-DCPACK_PACKAGE_VERSION=nightly') || '' }}
+            extra_cmake_flags: ${{ github.event.inputs.release == 'false' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
 
     check-for-secrets:
         runs-on: ubuntu-latest
