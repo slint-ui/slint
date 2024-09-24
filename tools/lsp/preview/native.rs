@@ -270,12 +270,12 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
     })?;
 
     let process_name = objc2_foundation::NSProcessInfo::processInfo().processName().to_string();
-    let quit_app_menu_item = MenuItem::new(
-        format!("Quit {process_name}"),
+    let close_app_menu_item = MenuItem::new(
+        format!("Close {process_name}"),
         true,
         Some(accelerator::Accelerator::new(
             Some(accelerator::Modifiers::META),
-            accelerator::Code::KeyQ,
+            accelerator::Code::KeyW,
         )),
     );
 
@@ -291,20 +291,20 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
                 &PredefinedMenuItem::hide(None),
                 &PredefinedMenuItem::hide_others(None),
                 &PredefinedMenuItem::show_all(None),
-                &quit_app_menu_item,
+                &close_app_menu_item,
             ])
         })
         .map_err(|menu_bar_err| {
             i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
         })?;
 
-    let quit_id = quit_app_menu_item.id().clone();
+    let close_id = close_app_menu_item.id().clone();
 
     muda::MenuEvent::set_event_handler(Some(move |menu_event: muda::MenuEvent| {
-        if menu_event.id == quit_id {
+        if menu_event.id == close_id {
             close_ui();
         }
     }));
 
-    Ok(quit_app_menu_item)
+    Ok(close_app_menu_item)
 }
