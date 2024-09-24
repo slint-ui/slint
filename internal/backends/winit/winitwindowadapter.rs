@@ -1028,6 +1028,12 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             .as_window()
             .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
     }
+
+    fn focus_window(&self) {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            winit_window.focus_window();
+        }
+    }
 }
 
 impl Drop for WinitWindowAdapter {

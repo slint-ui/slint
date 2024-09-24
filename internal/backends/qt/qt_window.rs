@@ -2143,6 +2143,13 @@ impl WindowAdapterInternal for QtWindow {
         });
         ds.as_ref().get()
     }
+
+    fn focus_window(&self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            widget_ptr->activateWindow();
+        }};
+    }
 }
 
 impl i_slint_core::renderer::RendererSealed for QtWindow {

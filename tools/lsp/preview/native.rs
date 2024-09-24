@@ -181,8 +181,12 @@ pub(super) fn open_ui_impl(
         slint::CloseRequestResponse::HideWindow
     });
     if matches!(behaviour, LoadBehavior::LoadAndBringWindowToFront) {
-        use i_slint_backend_winit::WinitWindowAccessor;
-        ui.window().with_winit_window(|winit_window| winit_window.focus_window());
+        let window_inner = i_slint_core::window::WindowInner::from_pub(ui.window());
+        if let Some(window_adapter_internal) =
+            window_inner.window_adapter().internal(i_slint_core::InternalToken)
+        {
+            window_adapter_internal.focus_window()
+        }
     }
     Ok(())
 }
