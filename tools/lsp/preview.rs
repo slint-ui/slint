@@ -1072,7 +1072,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 cache.clear_style_of_component();
 
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
-                if !cache.ui_is_visible && behavior != LoadBehavior::Load {
+                if !cache.ui_is_visible && behavior == LoadBehavior::Reload {
                     cache.loading_state = PreviewFutureState::Pending;
                     return;
                 }
