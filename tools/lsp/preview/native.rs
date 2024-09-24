@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use super::{LoadBehavior, PreviewState};
+use super::PreviewState;
 use crate::common::{PreviewToLspMessage, SourceFileVersion};
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
@@ -139,10 +139,7 @@ pub fn quit_ui_event_loop() {
     *SERVER_NOTIFIER.lock().unwrap() = None
 }
 
-pub(super) fn open_ui_impl(
-    preview_state: &mut PreviewState,
-    behaviour: LoadBehavior,
-) -> Result<(), slint::PlatformError> {
+pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint::PlatformError> {
     let (default_style, show_preview_ui, fullscreen) = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         let style = cache.config.style.clone();
@@ -180,14 +177,7 @@ pub(super) fn open_ui_impl(
         cache.ui_is_visible = false;
         slint::CloseRequestResponse::HideWindow
     });
-    if matches!(behaviour, LoadBehavior::LoadAndBringWindowToFront) {
-        let window_inner = i_slint_core::window::WindowInner::from_pub(ui.window());
-        if let Some(window_adapter_internal) =
-            window_inner.window_adapter().internal(i_slint_core::InternalToken)
-        {
-            window_adapter_internal.focus_window()
-        }
-    }
+
     Ok(())
 }
 

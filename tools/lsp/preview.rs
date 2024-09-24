@@ -1612,7 +1612,7 @@ fn update_preview_area(
         preview_state.workspace_edit_sent = false;
 
         #[cfg(not(target_arch = "wasm32"))]
-        native::open_ui_impl(&mut preview_state, behavior)?;
+        native::open_ui_impl(&mut preview_state)?;
 
         let ui = preview_state.ui.as_ref().unwrap();
 
@@ -1640,7 +1640,18 @@ fn update_preview_area(
             reset_selections(ui);
         }
 
-        ui.show()
+        ui.show().and_then(|_| {
+            if matches!(behavior, LoadBehavior::LoadAndBringWindowToFront) {
+                let window_inner = i_slint_core::window::WindowInner::from_pub(ui.window());
+                if let Some(window_adapter_internal) =
+                    window_inner.window_adapter().internal(i_slint_core::InternalToken)
+                {
+                    window_adapter_internal.focus_window()?;
+                }
+            }
+
+            Ok(())
+        })
     })?;
     element_selection::reselect_element();
     Ok(())
