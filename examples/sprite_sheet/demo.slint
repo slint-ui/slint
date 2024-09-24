@@ -4,13 +4,13 @@
 import { ComboBox } from "std-widgets.slint";
 import { SpriteSheet } from "SpriteSheet.slint";
 
-enum TravelDirection { LEFT, RIGHT }
+enum TravelDirection { left, right }
 
 export component AppWindow inherits Window {
     preferred-width: 1024px;
     preferred-height: 720px;
 
-    property <TravelDirection> travel-direction: TravelDirection.RIGHT;
+    property <TravelDirection> travel-direction: TravelDirection.right;
 
     cb := ComboBox {
         x: 10px;
@@ -29,19 +29,20 @@ export component AppWindow inherits Window {
     }
 
     if cb.current-value == "Boing Ball":  ball := SpriteSheet {
-
+        property <int> frame-base;
         function updateX(){
+       
             if ball.x > root.width - ball.width {
-                travel-direction = TravelDirection.LEFT;
+                travel-direction = TravelDirection.left;
+                frame-base = self.frame;
                 ball.x = 0;
             }
             if ball.x <= 0 {
-                travel-direction = TravelDirection.RIGHT;
+                travel-direction = TravelDirection.right;
+                frame-base = self.frame;
                 ball.x = root.width;
             }
         }
-
-        property <int> frameTick: animation-tick() / 16ms;
         
         source: @image-url("images/sprite.png");
         frames-wide: 5;
@@ -50,16 +51,11 @@ export component AppWindow inherits Window {
         x: 0px;
         animate x { duration: 3s; }
         y: (-400px * abs(sin(360deg * animation-tick() / 3s))) + parent.height - ball.height;
-
+        frame: frame-base + (travel-direction == TravelDirection.left ? 1 : -1) * animation-tick() / 16ms;
+        changed frame => {
+            debug(self.frame);
+        }
         changed x => { updateX() }
-
-        changed frameTick => {
-            if travel-direction == TravelDirection.LEFT {
-                ball.frame = ball.frame + 1;
-            } else {
-                ball.frame = ball.frame - 1;
-            }
-         }
 
         // Update X on start or the ball will be stuck at 0 as no 'changed x' happens
         init => { updateX() }
