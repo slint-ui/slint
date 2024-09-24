@@ -332,7 +332,7 @@ impl FemtoVGRenderer {
         let canvas_id = self.canvas_id.borrow();
 
         let api =
-            GraphicsAPI::WebGL { canvas_element_id: canvas_id.as_str(), context_type: "webgl" };
+            GraphicsAPI::WebGL { canvas_element_id: canvas_id.as_str(), context_type: "webgl2" };
         callback(api);
         Ok(())
     }
@@ -644,6 +644,11 @@ impl FemtoVGRendererExt for FemtoVGRenderer {
                 panic!("Cannot proceed without WebGL - aborting")
             }
         };
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            *self.canvas_id.borrow_mut() = html_canvas.id();
+        }
 
         let femtovg_canvas = femtovg::Canvas::new_with_text_context(
             gl_renderer,

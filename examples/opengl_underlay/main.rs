@@ -209,10 +209,10 @@ pub fn main() {
                             .get_context(context_type)
                             .unwrap()
                             .unwrap()
-                            .dyn_into::<web_sys::WebGlRenderingContext>()
+                            .dyn_into::<web_sys::WebGl2RenderingContext>()
                             .unwrap();
 
-                        glow::Context::from_webgl1_context(webgl1_context)
+                        glow::Context::from_webgl2_context(webgl1_context)
                     }
                     _ => return,
                 };
