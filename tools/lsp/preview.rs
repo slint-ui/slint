@@ -1014,8 +1014,8 @@ pub enum LoadBehavior {
     Reload,
     /// Load the preview and make the window visible if it wasn't already.
     Load,
-    /// We load the preview because the user asked for it. The UI should become visible and focused if it wasn't already
-    LoadAndBringWindowToFront,
+    /// We show the preview because the user asked for it. The UI should become visible and focused if it wasn't already
+    BringWindowToFront,
 }
 
 pub fn reload_preview() {
@@ -1040,7 +1040,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                     return;
                 }
             }
-            LoadBehavior::Load | LoadBehavior::LoadAndBringWindowToFront => {
+            LoadBehavior::Load | LoadBehavior::BringWindowToFront => {
                 cache.set_current_component(preview_component)
             }
         }
@@ -1641,7 +1641,7 @@ fn update_preview_area(
         }
 
         ui.show().and_then(|_| {
-            if matches!(behavior, LoadBehavior::LoadAndBringWindowToFront) {
+            if matches!(behavior, LoadBehavior::BringWindowToFront) {
                 let window_inner = i_slint_core::window::WindowInner::from_pub(ui.window());
                 if let Some(window_adapter_internal) =
                     window_inner.window_adapter().internal(i_slint_core::InternalToken)
@@ -1667,7 +1667,7 @@ pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
             config_changed(config);
         }
         M::ShowPreview(pc) => {
-            load_preview(pc, LoadBehavior::LoadAndBringWindowToFront);
+            load_preview(pc, LoadBehavior::BringWindowToFront);
         }
         M::HighlightFromEditor { url, offset } => {
             highlight(url, offset.into());
