@@ -430,6 +430,17 @@ jobs:
               working-directory: www-releases/releases
               run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
 
+            # Step to use sed with the dynamic version
+            - name: Update version in versions.json
+              run: |
+                sed -i '/"name": "development snapshot"/,/"url": "https:\/\/snapshots\.slint\.dev\/master\/docs"/c\
+                "name": "development snapshot",\
+                "url": "https://snapshots.slint.dev/master/docs"\
+                },\
+                {\
+                "version": "${{ steps.version.outputs.VERSION }}",\
+                "url": "https://releases.slint.dev/?v=${{ steps.version.outputs.VERSION }}"' versions.json
+            
             - name: Update SlintPad
               if: github.event.inputs.release == 'true'
               run: |
