@@ -29,17 +29,15 @@ export component AppWindow inherits Window {
     }
 
     if cb.current-value == "Boing Ball":  ball := SpriteSheet {
-        property <int> frame-base;
+        property <int> frameTick: animation-tick() / 16ms;
         function updateX(){
        
             if ball.x > root.width - ball.width {
                 travel-direction = TravelDirection.left;
-                frame-base = self.frame;
                 ball.x = 0;
             }
             if ball.x <= 0 {
                 travel-direction = TravelDirection.right;
-                frame-base = self.frame;
                 ball.x = root.width;
             }
         }
@@ -51,9 +49,16 @@ export component AppWindow inherits Window {
         x: 0px;
         animate x { duration: 3s; }
         y: (-400px * abs(sin(360deg * animation-tick() / 3s))) + parent.height - ball.height;
-        frame: frame-base + (travel-direction == TravelDirection.left ? 1 : -1) * animation-tick() / 16ms;
 
         changed x => { updateX() }
+
+        changed frameTick => {
+            if travel-direction == TravelDirection.left {
+                ball.frame = ball.frame + 1;
+            } else {
+                ball.frame = ball.frame - 1;
+            }
+         }
 
         // Update X on start or the ball will be stuck at 0 as no 'changed x' happens
         init => { updateX() }
