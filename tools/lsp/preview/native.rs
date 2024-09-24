@@ -177,7 +177,6 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
         cache.ui_is_visible = false;
         slint::CloseRequestResponse::HideWindow
     });
-
     Ok(())
 }
 
