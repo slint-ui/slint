@@ -127,7 +127,7 @@ Files: examples/dial/images/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/sprite_sheet/images/*.png
+Files: examples/sprite-sheet/images/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
