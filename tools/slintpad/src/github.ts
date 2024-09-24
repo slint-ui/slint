@@ -245,7 +245,6 @@ export async function export_to_gist(
 }
 
 async function _process_gist_url(
-    uuid: string,
     url: URL,
 ): Promise<[string, string | null, UrlMapper | null]> {
     const path = url.pathname.split("/");
@@ -300,7 +299,7 @@ async function _process_gist_url(
                 }
             }
 
-            const mapper = new KnownUrlMapper(uuid, map);
+            const mapper = new KnownUrlMapper(map);
 
             if (body.errors) {
                 return Promise.reject(
@@ -334,10 +333,7 @@ async function _process_gist_url(
     return Promise.resolve([url.toString(), null, null]);
 }
 
-async function _process_github_url(
-    _uuid: string,
-    url: URL,
-): Promise<[string, null, null]> {
+async function _process_github_url(url: URL): Promise<[string, null, null]> {
     const path = url.pathname.split("/");
 
     if (path[3] === "blob") {
@@ -354,17 +350,16 @@ async function _process_github_url(
 }
 
 export async function open_url(
-    uuid: string,
     url_string: string,
 ): Promise<[string | null, string | null, UrlMapper | null]> {
     try {
         const url = new URL(url_string);
 
         if (url.hostname === "gist.github.com") {
-            return _process_gist_url(uuid, url);
+            return _process_gist_url(url);
         }
         if (url.hostname === "github.com") {
-            return _process_github_url(uuid, url);
+            return _process_github_url(url);
         }
     } catch (_) {
         return Promise.reject("Failed to process URL");

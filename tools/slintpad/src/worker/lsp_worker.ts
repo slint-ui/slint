@@ -9,7 +9,7 @@ import {
     BrowserMessageWriter,
 } from "vscode-languageserver/browser";
 
-slint_init().then(() => {
+slint_init({}).then(() => {
     const reader = new BrowserMessageReader(self);
     const writer = new BrowserMessageWriter(self);
 
