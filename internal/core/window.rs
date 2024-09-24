@@ -222,6 +222,11 @@ pub trait WindowAdapterInternal {
     {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
+
+    /// Brings the window to the front and focuses it.
+    fn bring_to_front(&self) -> Result<(), PlatformError> {
+        Ok(())
+    }
 }
 
 /// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field

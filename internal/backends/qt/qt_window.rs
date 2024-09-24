@@ -2143,6 +2143,15 @@ impl WindowAdapterInternal for QtWindow {
         });
         ds.as_ref().get()
     }
+
+    fn bring_to_front(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            widget_ptr->raise();
+            widget_ptr->activateWindow();
+        }};
+        Ok(())
+    }
 }
 
 impl i_slint_core::renderer::RendererSealed for QtWindow {

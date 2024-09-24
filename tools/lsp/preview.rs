@@ -1012,8 +1012,10 @@ fn get_path_from_cache(path: &Path) -> Option<(SourceFileVersion, String)> {
 pub enum LoadBehavior {
     /// We reload the preview, most likely because a file has changed
     Reload,
-    /// We load the preview because the user asked for it. The UI should become visible if it wasn't already
+    /// Load the preview and make the window visible if it wasn't already.
     Load,
+    /// We show the preview because the user asked for it. The UI should become visible and focused if it wasn't already
+    BringWindowToFront,
 }
 
 pub fn reload_preview() {
@@ -1038,7 +1040,9 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                     return;
                 }
             }
-            LoadBehavior::Load => cache.set_current_component(preview_component),
+            LoadBehavior::Load | LoadBehavior::BringWindowToFront => {
+                cache.set_current_component(preview_component)
+            }
         }
 
         match cache.loading_state {
@@ -1068,7 +1072,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 cache.clear_style_of_component();
 
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
-                if !cache.ui_is_visible && behavior != LoadBehavior::Load {
+                if !cache.ui_is_visible && behavior == LoadBehavior::Reload {
                     cache.loading_state = PreviewFutureState::Pending;
                     return;
                 }
@@ -1636,7 +1640,18 @@ fn update_preview_area(
             reset_selections(ui);
         }
 
-        ui.show()
+        ui.show().and_then(|_| {
+            if matches!(behavior, LoadBehavior::BringWindowToFront) {
+                let window_inner = i_slint_core::window::WindowInner::from_pub(ui.window());
+                if let Some(window_adapter_internal) =
+                    window_inner.window_adapter().internal(i_slint_core::InternalToken)
+                {
+                    window_adapter_internal.bring_to_front()?;
+                }
+            }
+
+            Ok(())
+        })
     })?;
     element_selection::reselect_element();
     Ok(())
@@ -1652,7 +1667,7 @@ pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
             config_changed(config);
         }
         M::ShowPreview(pc) => {
-            load_preview(pc, LoadBehavior::Load);
+            load_preview(pc, LoadBehavior::BringWindowToFront);
         }
         M::HighlightFromEditor { url, offset } => {
             highlight(url, offset.into());
