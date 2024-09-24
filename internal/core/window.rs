@@ -224,7 +224,7 @@ pub trait WindowAdapterInternal {
     }
 
     /// Brings the window to the front and focuses it.
-    fn focus_window(&self) -> Result<(), PlatformError> {
+    fn bring_to_front(&self) -> Result<(), PlatformError> {
         Ok(())
     }
 }

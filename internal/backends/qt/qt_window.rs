@@ -2144,7 +2144,7 @@ impl WindowAdapterInternal for QtWindow {
         ds.as_ref().get()
     }
 
-    fn focus_window(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn bring_to_front(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->raise();

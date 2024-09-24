@@ -1646,7 +1646,7 @@ fn update_preview_area(
                 if let Some(window_adapter_internal) =
                     window_inner.window_adapter().internal(i_slint_core::InternalToken)
                 {
-                    window_adapter_internal.focus_window()?;
+                    window_adapter_internal.bring_to_front()?;
                 }
             }
 
