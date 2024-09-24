@@ -1012,7 +1012,7 @@ fn get_path_from_cache(path: &Path) -> Option<(SourceFileVersion, String)> {
 pub enum LoadBehavior {
     /// We reload the preview, most likely because a file has changed
     Reload,
-    /// Load the preview, but don't require focus.
+    /// Load the preview and make the window visible if it wasn't already.
     Load,
     /// We load the preview because the user asked for it. The UI should become visible and focused if it wasn't already
     LoadAndBringWindowToFront,
