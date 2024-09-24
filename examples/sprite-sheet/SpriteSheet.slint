@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component SpriteSheet {
+
+    in property <image> source;
+    in property <int> frames-wide;
+    in property <int> frames-high;
+    in property <int> total-frames: frames-wide * frames-high;
+    in-out property <bool> playing: false;
+    in property <duration> duration;
+    in property <int> frame: 0;
+
+    property <int> current-frame: playing ? (total-frames * (animation-tick() / duration)).mod(total-frames) : frame.mod(total-frames).abs();
+    width: sheet.width;
+    height: sheet.height;
+
+    sheet :=Image {
+        source: root.source;
+        source-clip-width: self.source.width / root.frames-wide;
+        source-clip-height: self.source.height / root.frames-high;
+        source-clip-x: self.source-clip-width * current-frame.mod(root.frames-wide);
+        source-clip-y: self.source-clip-height * (current-frame / root.frames-wide).floor();
+        width: self.source.width / root.frames-wide * 1px;
+        height: self.source.height / root.frames-high * 1px;
+    }
+}
