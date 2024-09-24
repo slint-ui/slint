@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component C1  {
+    Rectangle {
+        min-width: 200px;
+        min-height: 300px;
+        inner := Rectangle {}
+    }
+}
+component C2 {
+    Rectangle {
+        min-width: 200px;
+        min-height: 300px;
+        inner := Rectangle {  width: 100%;  }
+    }
+}
+
+component FillParent {
+    preferred-height: 100%;
+    preferred-width: 100%;
+    min-height: l.min-height;
+    min-width: l.min-width;
+
+    l := VerticalLayout {
+        Text {}
+    }
+}
+
+export component Bug6315  {
+    r := Rectangle {
+        width: self.preferred-width;
+        r2 := Rectangle {
+            preferred-width: 100px;
+            Rectangle {
+               preferred-width: 40px;
+            }
+        }
+    }
+
+    Text {
+        text: (
+            "\{r.width / 1px}, " +
+            "\{r2.width / 1px}, " +
+            ""
+        );
+    }
+    out property <bool> ok: r.width == 100px && r2.width == 100px;
+}
+
+
+export component W inherits Window {
+
+    Rectangle {
+        VerticalLayout {
+            FillParent {
+                min-height: self.preferred-height;
+            }
+        }
+    }
+
+    c1:= C1 {}
+    c2:= C2 {}
+
+    bug-6315 := Bug6315 {}
+
+
+    out property <bool> test: c1.min-height == 300px && c1.min-width == 200px
+        && c2.min-height == 300px && c2.min-width == 200px
+        && bug-6315.ok;
+}
