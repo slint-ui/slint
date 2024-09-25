@@ -97,13 +97,13 @@ The script accepts the following arguments
 Example when running locally
 
 ```sh
-$GITHUB_DIR/docs/search/docsearch-scraper.sh
+$GITHUB_DIR/docs/search/docsearch-scraper.sh -b
 ```
 
 Example when running on Typesense Cloud, where `$cluster_name` is the name of the cluster on Typesense Cloud
 
 ```sh
-$GITHUB_DIR/docs/search/docsearch-scraper.sh -a API_Key -r $cluster_name.a1.typesense.net
+$GITHUB_DIR/docs/search/docsearch-scraper.sh -a API_KEY -b -r TYPESENSE_CLOUD_HOST_NAME
 ```
 
 ## Testing search functionality

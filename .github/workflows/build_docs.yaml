@@ -108,6 +108,15 @@ jobs:
                   npm run docs
               working-directory: api/node            
 
+            - name: Extract Version
+              id: version
+              run: |
+                version=$(grep -oP '(?<=<p class="title logo__title">Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
+                if [[ -z "$version" ]]; then
+                  echo "Version not found"
+                  exit 1
+                fi
+                  echo "VERSION=$version" >> $GITHUB_OUTPUT
 
             # Run Typesense DocSearch scraper
             - name: "Typesense DocSearch scraper"
