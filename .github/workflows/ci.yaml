@@ -13,7 +13,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
   cancel-in-progress: true
-      
+
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
 
@@ -30,7 +30,7 @@ jobs:
         strategy:
             matrix:
                 os: [ubuntu-22.04, macos-12, windows-2022]
-                rust_version: [stable, "1.73"]
+                rust_version: [stable, "1.77"]
                 include:
                     - os: windows-2022
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
@@ -44,8 +44,8 @@ jobs:
                     #   rust_version: "nightly"
                 exclude:
                     - os: macos-12
-                      rust_version: "1.73"
-                    # We already test 1.73 and nightly. Stable is in the middle and already covered by other jobs
+                      rust_version: "1.77"
+                    # We already test 1.77 and nightly. Stable is in the middle and already covered by other jobs
                     - os: ubuntu-22.04
                       rust_version: "stable"
 
@@ -79,15 +79,13 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v2
-            - name: Pin dependencies to make it build with our MSRV
-              if: matrix.rust_version == '1.73'
-              shell: bash
-              run: |
-                  if [ ! -f ./Cargo.lock ]; then
-                    cargo update -p clap --precise 4.4.18
-                    cargo update -p rowan --precise 0.15.15
-                    cargo update -p plotters --precise 0.3.6
-                  fi
+            # - name: Pin dependencies to make it build with our MSRV
+            #   if: matrix.rust_version == '1.77'
+            #   shell: bash
+            #   run: |
+            #       if [ ! -f ./Cargo.lock ]; then
+            #         cargo update -p xxx --precise x.y.z
+            #       fi
             - name: Run tests (not qt)
               run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
@@ -244,7 +242,7 @@ jobs:
             matrix:
                 include:
                     - os: macos-12
-                      rust_version: "1.73"
+                      rust_version: "1.77"
                     - os: windows-2022
                       rust_version: "nightly"
                     - os: ubuntu-22.04
@@ -326,7 +324,7 @@ jobs:
                   cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1"
                   buildDirectory: ${{ runner.workspace }}/examples/build
                   buildWithCMakeArgs: "--config Release"
-    
+
     vsce_build_test:
         runs-on: ubuntu-22.04
 
@@ -335,7 +333,7 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
-            - uses: ./.github/actions/install-linux-dependencies            
+            - uses: ./.github/actions/install-linux-dependencies
             - uses: actions/setup-node@v4
               with:
                   node-version: 18
