@@ -39,7 +39,7 @@ be hard to insert otherwise:
 
 Anything else following an unescaped `\` is an error.
 
-```slint,no-preview
+```{code-block} slint
 export component Example inherits Text {
     text: "hello";
 }
