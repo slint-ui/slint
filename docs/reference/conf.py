@@ -79,7 +79,7 @@ html_theme_options = {
     },
     "extra_footer": "<div><a href=\"https://slint.dev\">https://slint.dev</a></div>",
     "article_header_start": ["toggle-primary-sidebar.html"],
-    "article_header_end": ["search-button-field.html", "article-header-buttons.html"]
+    "article_header_end": ["searchbox.html", "article-header-buttons.html"]
 }
 
 html_sidebars = {
@@ -92,7 +92,7 @@ html_sidebars = {
 html_static_path = ["_static"]
 html_js_files = ['expand_tabs.js']
 html_css_files = [
-    'css/theme_tweak.css',
+    'https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.3.0'
 ]
 html_show_sourcelink = False
 

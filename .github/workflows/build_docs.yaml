@@ -82,6 +82,7 @@ jobs:
             - name: Check reuse compliance
               run: cargo xtask check_reuse_compliance
 
+            # Build Docs
             - name: Build Cpp docs
               env:
                 RELEASE_INPUT: ${{ inputs.release }}
@@ -107,6 +108,16 @@ jobs:
                   npm run docs
               working-directory: api/node            
 
+
+            # Run Typesense DocSearch scraper
+            - name: "Typesense DocSearch scraper"
+              run: |
+                  if [ "$RELEASE_INPUT" != "true" ]; then
+                    ./docs/search/docsearch-scraper.sh -a ${{ secrets.TYPESENSE_API_KEY }} -r ${{ secrets.TYPESENSE_SERVER }} -u https://snapshots.slint.dev/master/docs
+                  else
+                    ./docs/search/docsearch-scraper.sh -a ${{ secrets.TYPESENSE_API_KEY }} -r ${{ secrets.TYPESENSE_SERVER }} -i ${{ steps.version.outputs.VERSION }} -u https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs
+                  fi
+                  
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
               id: app-token

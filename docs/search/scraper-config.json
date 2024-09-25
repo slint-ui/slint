@@ -1,0 +1,32 @@
+{
+    "index_name": "$TYPESENSE_INDEX_NAME",
+    "start_urls": [
+        {
+            "url": "http://host.docker.internal",
+            "selectors_key": "docs"
+        }
+    ],
+    "sitemap_urls": [
+        "http://host.docker.internal/sitemap.xml"
+    ],
+    "selectors": {
+        "docs": {
+            "lvl0": {
+                "selector": ".bd-article section h1",
+                "type": "css",
+                "global": true,
+                "default_value": "Documentation"
+            },
+            "lvl1": ".bd-article section h2",
+            "lvl2": ".bd-article section h3",
+            "lvl3": ".bd-article section h4",
+            "lvl4": ".bd-article section h5",
+            "lvl5": ".bd-article section h6",
+            "text": ".bd-article section p, .bd-article section ul li, .bd-article section table tbody tr"
+        }
+    },
+    "strip_chars": " .,;:#",
+    "custom_settings": {
+        "separatorsToIndex": "_/"
+    }
+}
