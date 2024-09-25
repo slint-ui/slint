@@ -9,7 +9,7 @@ following generic instructions on what's needed to compile and use Slint.
 ## Prerequisites
 
 * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.73 or newer. You can check which version you have installed
+  have Rust installed, make sure that it's at least version 1.77 or newer. You can check which version you have installed
   by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
 
 * A C++ cross-compiler compiler that supports C++20.
@@ -44,7 +44,7 @@ cmake -DRust_CARGO_TARGET=thumbv7em-none-eabihf -DSLINT_FEATURE_FREESTANDING=ON
 ```
 
 ## Next Steps
- 
+
  - Check out the [](../getting_started.md) instructions for a generic "Hello World" with C++.
  - Study the [](../api/library_root), in particular the `slint::platform` namespace for
    writing a Slint platform integration to handle touch input and render pixel, which you

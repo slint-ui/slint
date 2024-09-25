@@ -34,8 +34,7 @@ To use Slint with Deno, ensure the following programs are installed:
 Slint-node comes with pre-built binaries for macOS, Linux, and Windows. If you'd like to use Slint-node on a system
 without pre-built binaries, you need to additional software:
 
-  * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.73 or newer)
-  * Depending on your operating system, you may need additional components. For a list of required system libraries,
+  * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.77 or newer) * Depending on your operating system, you may need additional components. For a list of required system libraries,
     see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
 
 ## Getting Started (Node.js)
@@ -259,7 +258,7 @@ The types used for properties in .slint design markup each translate to specific
 [Array properties](../slint/src/language/syntax/types#arrays-and-models) can be set from JavaScript by passing
 either `Array` objects or implementations of the {@link Model} interface.
 
-When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side. 
+When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side.
 
 Reading a Slint array property from JavaScript will always return a @{link Model}.
 

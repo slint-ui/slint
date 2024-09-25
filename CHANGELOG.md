@@ -3,6 +3,25 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 1.9.0 - Unreleased
+
+### General
+
+ - Minumum Supported Rust Version (MSRC) is 1.77
+ - femtovg: Avoid artifacts of texture sampling with accidental wrap-around on texture boundaries
+
+### Slint language
+
+ - Added animation `direction` property. (#6260)
+
+### Widgets
+
+ - Checkbox: fix text color in fluent style (#6239)
+
+### LSP and tooling
+
+ - Bring the window to the front and focus when clicking on "Show preview" in the editor. (#196)
+
 ## 1.8.0 - 2024-09-23
 
 ### Slint language
