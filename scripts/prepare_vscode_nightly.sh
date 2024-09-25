@@ -4,16 +4,6 @@
 
 cd `dirname $0`/../editors/vscode
 
-modified_files="README.md package.json"
-
-git diff --quiet $modified_files
-if [ $? -ne 0 ]; then
-    echo "Aborting, there are local changes to $modified_files . Please commit or undo."
-    exit 1
-fi
-
-git checkout $modified_files
-
 # The version number is a shortend time stamp of the last commit
 nightly_version=`git log -1 --format=%cd --date="format:%Y.%-m.%-d%H"`
 last_commit=`git log -1 --format=%H`
