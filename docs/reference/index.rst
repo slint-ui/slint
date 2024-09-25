@@ -7,7 +7,21 @@
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Introduction
+   :caption: Concepts
+
+   src/concepts/philosophy.md
+   src/concepts/components.md
+   src/concepts/types.md
+   src/concepts/layouts.md
+   src/concepts/states.md
+   src/concepts/animation.md
+   src/concepts/reactive.md
+   src/concepts/functions.md
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Introduction (old)
 
    src/introduction/index.rst
    src/introduction/supported_platforms.md
