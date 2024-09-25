@@ -63,7 +63,7 @@ html_theme_options = {
     "repository_url": "https://github.com/slint-ui/slint",
     "use_repository_button": True,
     "use_issues_button": True,
-    "use_edit_page_button": True,
+    "use_edit_page_button": False,
     "use_download_button": False,
     "use_fullscreen_button": False,
     "home_page_in_toc": True,
