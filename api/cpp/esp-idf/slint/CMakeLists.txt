@@ -35,7 +35,7 @@ if (SLINT_ESP_LOCAL_EXAMPLE)
 else()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
     set(SLINT_USE_NIGHTLY_VERSION TRUE) # Removed by upload_esp_idf_component.yaml
-    find_package(Slint 1.8.0)
+    find_package(Slint 1.9.0)
 
     if (TARGET Slint::Slint)
         # Imported targets are only visible in directory scope by default, but
@@ -46,7 +46,7 @@ else()
         FetchContent_Declare(
             Slint
             GIT_REPOSITORY https://github.com/slint-ui/slint
-            GIT_TAG v1.8.0
+            GIT_TAG v1.9.0
             SOURCE_SUBDIR api/cpp
         )
         FetchContent_MakeAvailable(Slint)

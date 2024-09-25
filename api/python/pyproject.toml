@@ -7,7 +7,7 @@ build-backend = "maturin"
 
 [project]
 name = "slint"
-version = "1.8.0a1"
+version = "1.9.0a1"
 requires-python = ">= 3.10"
 authors = [
     {name = "Slint Team", email = "info@slint.dev"},
