@@ -2139,10 +2139,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         Expression::Array { element_ty: _, values, as_model: _ } => values
                             .iter()
                             .map(|path_elem_expr|
-                                // Close{} is a struct with no fields in markup, and PathElement::Close has no fields, so map to an empty token stream
-                                // and thus later just unit type, which can convert into PathElement::Close.
+                                // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
                                 if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct { fields, .. }, .. } if fields.is_empty()) {
-                                    ::core::default::Default::default()
+                                    quote!(sp::PathElement::Close)
                                 } else {
                                     compile_expression(path_elem_expr, ctx)
                                 }
