@@ -22,7 +22,8 @@ jobs:
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
-            RUSTFLAGS: -D warnings
+            # -A non_local_definitions because of https://github.com/Diggsey/scoped-tls-hkt/issues/5
+            RUSTFLAGS: -D warnings -A non_local_definitions
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1

@@ -22,8 +22,9 @@ jobs:
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
-            RUSTFLAGS: -D warnings -W deprecated
-            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated
+            # -A non_local_definitions because of https://github.com/Diggsey/scoped-tls-hkt/issues/5
+            RUSTFLAGS: -D warnings -W deprecated -A non_local_definitions
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated -A non_local_definitions
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
         steps:
