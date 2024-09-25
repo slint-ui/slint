@@ -236,9 +236,8 @@ macro_rules! declare_syntax {
 
         pub mod syntax_nodes {
             use super::*;
-            use derive_more::*;
             $(
-                #[derive(Debug, Clone, Deref, Into)]
+                #[derive(Debug, Clone, derive_more::Deref, derive_more::Into)]
                 pub struct $nodekind(SyntaxNode);
                 #[cfg(test)]
                 impl SyntaxNodeVerify for $nodekind {
