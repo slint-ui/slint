@@ -203,7 +203,7 @@ impl<'a> SkiaItemRenderer<'a> {
             })
         });
 
-        let skia_image = if let Some(img) = skia_image { img } else { return };
+        let Some(skia_image) = skia_image else { return };
         let source = item.source();
         let source_size = source.size();
         let fits = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&source).into() {
