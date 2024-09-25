@@ -206,6 +206,12 @@ impl<'a> SkiaItemRenderer<'a> {
         let Some(skia_image) = skia_image else { return };
         let source = item.source();
         let source_size = source.size();
+        if source_size.is_empty() {
+            // Not sure how this can happen, but we've seen with #6280
+            // that somehow we end up with a `skia_safe::Image` but a zero
+            // source size.
+            return;
+        }
         let fits = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&source).into() {
             i_slint_core::graphics::fit9slice(
                 source_size.cast(),
