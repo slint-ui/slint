@@ -236,6 +236,8 @@ jobs:
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v4
+            - name: Install GNU Sed
+              run: brew install gnu-sed
             - uses: actions/setup-node@v4
               with:
                   node-version: 18
@@ -267,7 +269,7 @@ jobs:
               working-directory: editors/vscode
               run: |
                   if grep -q 'lines below this marker are stripped from the release' README.md; then
-                    sed -i "/lines below this marker are stripped from the release/,\$d" README.md
+                    gsed -i "/lines below this marker are stripped from the release/,\$d" README.md
                   else
                     echo "Missing strip marker in VS Code Extension README. Either add or fix this script."
                     exit 1
