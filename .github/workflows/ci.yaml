@@ -22,8 +22,7 @@ jobs:
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
-            # -A non_local_definitions because of https://github.com/Diggsey/scoped-tls-hkt/issues/5
-            RUSTFLAGS: -D warnings -A non_local_definitions
+            RUSTFLAGS: -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
@@ -40,8 +39,9 @@ jobs:
                     - os: windows-2022
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: ubuntu-22.04
-                      rust_version: "nightly"
+                    # nightly disabled because of https://github.com/Diggsey/scoped-tls-hkt/issues/5
+                    # - os: ubuntu-22.04
+                    #   rust_version: "nightly"
                 exclude:
                     - os: macos-12
                       rust_version: "1.73"
