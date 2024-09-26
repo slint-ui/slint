@@ -148,6 +148,13 @@ fn analyze_element(
             diag,
         );
     }
+    for cb in elem.borrow().change_callbacks.values() {
+        for e in cb.borrow().iter() {
+            recurse_expression(e, &mut |prop, r| {
+                process_property(prop, r, context, reverse_aliases, diag);
+            });
+        }
+    }
     const P: ReadType = ReadType::PropertyRead;
     for nr in elem.borrow().accessibility_props.0.values() {
         process_property(&PropertyPath::from(nr.clone()), P, context, reverse_aliases, diag);
