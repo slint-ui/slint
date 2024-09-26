@@ -119,7 +119,22 @@ pub fn start_ui_event_loop(cli_args: crate::Cli) {
         }
     }
 
-    slint::run_event_loop_until_quit().unwrap();
+    let loop_result = slint::run_event_loop_until_quit();
+    if let Err(err) = loop_result {
+        let mut state_requested = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
+        match *state_requested {
+            RequestedGuiEventLoopState::InitializationError(_)
+            | RequestedGuiEventLoopState::Uninitialized => unreachable!(),
+            RequestedGuiEventLoopState::QuitLoop => return,
+            RequestedGuiEventLoopState::StartLoop | RequestedGuiEventLoopState::LoopStarted => {
+                *state_requested = RequestedGuiEventLoopState::InitializationError(err.to_string());
+            }
+        }
+        GUI_EVENT_LOOP_NOTIFIER.notify_one();
+        while *state_requested != RequestedGuiEventLoopState::QuitLoop {
+            state_requested = GUI_EVENT_LOOP_NOTIFIER.wait(state_requested).unwrap();
+        }
+    }
 }
 
 pub fn quit_ui_event_loop() {
