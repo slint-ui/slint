@@ -1396,7 +1396,10 @@ fn test_long_chain_integrity() {
     check_all();
 
     // Since VecModel don't have this as public API, just add some function that use row_removed on a wider range.
-    impl<T> VecModel<T> {
+    trait RemoveRange {
+        fn remove_range(&self, range: core::ops::Range<usize>);
+    }
+    impl<T> RemoveRange for VecModel<T> {
         fn remove_range(&self, range: core::ops::Range<usize>) {
             self.array.borrow_mut().drain(range.clone());
             self.notify.row_removed(range.start, range.len())
