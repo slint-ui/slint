@@ -14,7 +14,7 @@ use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken, TextSize};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextSize};
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
@@ -114,6 +114,7 @@ pub(crate) fn completion_at(
                 r.extend(
                     [
                         ("animate", "animate ${1:prop} {\n     $0\n}"),
+                        ("changed", "changed ${1:prop} => {$0}"),
                         ("states", "states [\n    $0\n]"),
                         ("for", "for $1 in $2: ${3:Rectangle} {\n    $0\n}"),
                         ("if", "if $1: ${2:Rectangle} {\n    $0\n}"),
@@ -161,7 +162,16 @@ pub(crate) fn completion_at(
             resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
-        if token.kind() != SyntaxKind::Identifier {
+        if token.kind() == SyntaxKind::Whitespace || token.kind() == SyntaxKind::FatArrow {
+            let ident = n.child_token(SyntaxKind::Identifier)?;
+            if offset >= ident.text_range().end().into()
+                && offset <= n.child_token(SyntaxKind::FatArrow)?.text_range().start().into()
+                && ident.text() == "changed"
+            {
+                return properties_for_changed_callbacks(node, document_cache);
+            }
+            return None;
+        } else if token.kind() != SyntaxKind::Identifier {
             return None;
         }
         let mut parent = n.parent()?;
@@ -402,6 +412,15 @@ pub(crate) fn completion_at(
             })
             .collect::<Vec<_>>();
         return Some(r);
+    } else if node.kind() == SyntaxKind::DeclaredIdentifier {
+        let parent = node.parent()?;
+        if parent.kind() == SyntaxKind::PropertyChangedCallback {
+            return properties_for_changed_callbacks(parent, document_cache);
+        }
+    } else if node.kind() == SyntaxKind::PropertyChangedCallback {
+        if offset > node.child_token(SyntaxKind::Identifier)?.text_range().end().into() {
+            return properties_for_changed_callbacks(node, document_cache);
+        }
     }
     None
 }
@@ -416,6 +435,53 @@ fn with_insert_text(
         c.insert_text = Some(ins_text.to_string());
     }
     c
+}
+
+/// This is different than the properies in resolve_element_scope, because it also include the "out" properties
+fn properties_for_changed_callbacks(
+    mut node: SyntaxNode,
+    document_cache: &mut DocumentCache,
+) -> Option<Vec<CompletionItem>> {
+    let element = loop {
+        if let Some(e) = syntax_nodes::Element::new(node.clone()) {
+            break e;
+        }
+        node = node.parent()?;
+    };
+    let global_tr = document_cache.global_type_registry();
+    let tr = element
+        .source_file()
+        .and_then(|sf| document_cache.get_document_for_source_file(sf))
+        .map(|doc| &doc.local_registry)
+        .unwrap_or(&global_tr);
+    let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
+    let result = element_type
+        .property_list()
+        .into_iter()
+        .filter(|(_, ty)| ty.is_property_type())
+        .map(|(k, ty)| {
+            let k = de_normalize_property_name(&element_type, &k).into_owned();
+            let mut c = CompletionItem::new_simple(k, ty.to_string());
+            c.kind = Some(CompletionItemKind::PROPERTY);
+            c
+        })
+        .chain(element.PropertyDeclaration().filter_map(|pr| {
+            let mut c = CompletionItem::new_simple(
+                pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?,
+                pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
+            );
+            c.kind = Some(CompletionItemKind::PROPERTY);
+            Some(c)
+        }))
+        .chain(i_slint_compiler::typeregister::reserved_properties().filter_map(|(k, ty, _)| {
+            if !ty.is_property_type() {
+                return None;
+            }
+            let mut c = CompletionItem::new_simple(k.into(), ty.to_string());
+            c.kind = Some(CompletionItemKind::PROPERTY);
+            Some(c)
+        }));
+    Some(result.collect())
 }
 
 /// Try to return the completion items for the location inside an element.
@@ -1012,6 +1078,28 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "Rectangle").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "TouchArea").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "VerticalLayout").unwrap().kind, class);
+
+        // keywords
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "changed").unwrap().kind,
+            Some(CompletionItemKind::KEYWORD)
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "animate").unwrap().kind,
+            Some(CompletionItemKind::KEYWORD)
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "states").unwrap().kind,
+            Some(CompletionItemKind::KEYWORD)
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "for").unwrap().kind,
+            Some(CompletionItemKind::KEYWORD)
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "if").unwrap().kind,
+            Some(CompletionItemKind::KEYWORD)
+        );
     }
 
     #[test]
@@ -1258,6 +1346,31 @@ mod tests {
         res.iter().find(|ci| ci.label == "ease-in-out-bounce").unwrap();
         res.iter().find(|ci| ci.label == "linear").unwrap();
         res.iter().find(|ci| ci.label == "cubic-bezier").unwrap();
+    }
+
+    #[test]
+    fn changed_completion() {
+        let source1 = " component Foo { TextInput { property<int> xyz; changed 🔺 => {} } } ";
+        let source2 = " component Foo { TextInput { property<int> xyz; changed 🔺 } } ";
+        let source3 = " component Foo { TextInput { property<int> xyz; changed t🔺 } } ";
+        let source4 = " component Foo { TextInput { property<int> xyz; changed t🔺 => {} } } ";
+        let source5 =
+            " component Foo { TextInput { property<int> xyz; changed 🔺 \n enabled: true; } } ";
+        let source6 =
+            " component Foo { TextInput { property<int> xyz; changed t🔺 \n enabled: true; } } ";
+        for s in [source1, source2, source3, source4, source5, source6] {
+            eprintln!("changed_completion: {s:?}");
+            let res = get_completions(s).unwrap();
+            res.iter().find(|ci| ci.label == "text").unwrap();
+            res.iter().find(|ci| ci.label == "has-focus").unwrap();
+            res.iter().find(|ci| ci.label == "width").unwrap();
+            res.iter().find(|ci| ci.label == "y").unwrap();
+            res.iter().find(|ci| ci.label == "xyz").unwrap();
+
+            assert!(res.iter().find(|ci| ci.label == "Text").is_none());
+            assert!(res.iter().find(|ci| ci.label == "edited").is_none());
+            assert!(res.iter().find(|ci| ci.label == "focus").is_none());
+        }
     }
 
     #[test]

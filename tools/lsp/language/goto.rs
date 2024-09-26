@@ -96,6 +96,7 @@ component Abc {
 export component Test {
     abc := Abc {
         hello: "foo";
+        changed hello => {}
     }
     btn := Button {
         text: abc.hello;
@@ -157,6 +158,15 @@ export component Test {
     let token = crate::language::token_at_offset(&doc, offset).unwrap();
     assert_eq!(token.text(), "text");
     assert!(goto_definition(&mut dc, token).is_none());
+
+    // Jump from a changed callback
+    let offset: TextSize = (source.find("changed hello").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(12)).unwrap();
+    assert_eq!(token.text(), "hello");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri);
+    assert_eq!(link.target_range.start.line, 3);
 }
 
 #[test]

@@ -101,10 +101,15 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     parse_transitions(&mut *p);
                 }
                 _ => {
-                    p.consume();
-                    if !had_parse_error {
-                        p.error("Parse error");
-                        had_parse_error = true;
+                    if p.peek().as_str() == "changed" {
+                        // Try to recover some errors
+                        parse_changed_callback(&mut *p);
+                    } else {
+                        p.consume();
+                        if !had_parse_error {
+                            p.error("Parse error");
+                            had_parse_error = true;
+                        }
                     }
                 }
             },
