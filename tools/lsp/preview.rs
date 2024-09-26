@@ -1439,17 +1439,18 @@ fn set_selected_element(
     positions: &[i_slint_core::lengths::LogicalRect],
     notify_editor_about_selection_after_update: bool,
 ) {
-    let (layout_kind, is_in_layout) = selection
+    let (layout_kind, parent_layout_kind) = selection
         .as_ref()
         .and_then(|s| s.as_element_node())
-        .map(|en| (en.layout_kind(), element_selection::is_element_node_in_layout(&en)))
-        .unwrap_or((ui::LayoutKind::None, false));
+        .map(|en| (en.layout_kind(), element_selection::parent_layout_kind(&en)))
+        .unwrap_or((ui::LayoutKind::None, ui::LayoutKind::None));
 
     set_drop_mark(&None);
 
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
+        let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
         let is_layout = layout_kind != ui::LayoutKind::None;
         set_selections(
             preview_state.ui.as_ref(),
@@ -1495,10 +1496,16 @@ fn set_selected_element(
                         ))
                     })
                 {
+                    let in_layout = match parent_layout_kind {
+                        ui::LayoutKind::None => properties::LayoutKind::None,
+                        ui::LayoutKind::Horizontal => properties::LayoutKind::HorizontalBox,
+                        ui::LayoutKind::Vertical => properties::LayoutKind::VerticalBox,
+                        ui::LayoutKind::Grid => properties::LayoutKind::GridLayout,
+                    };
                     preview_state.property_range_declarations = Some(ui::ui_set_properties(
                         ui,
                         &document_cache,
-                        properties::query_properties(&uri, version, &selection).ok(),
+                        properties::query_properties(&uri, version, &selection, in_layout).ok(),
                     ));
                 }
             }

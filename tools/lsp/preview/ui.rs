@@ -1235,7 +1235,7 @@ export component X {
         let element = dc
             .element_at_offset(&url, (source.find("/*CURSOR*/").expect("cursor") as u32).into())
             .unwrap();
-        let pi = super::properties::get_properties(&element);
+        let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
         let result = super::simplify_value(&prop);
@@ -1290,7 +1290,7 @@ export component X {
         let element = dc
             .element_at_offset(&url, (source.find("/*CURSOR*/").expect("cursor") as u32).into())
             .unwrap();
-        let pi = super::properties::get_properties(&element);
+        let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
         let result = super::simplify_value(&prop);

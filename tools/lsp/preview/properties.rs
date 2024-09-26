@@ -288,6 +288,14 @@ fn find_property_binding_offset(
     None
 }
 
+#[derive(Debug)]
+pub enum LayoutKind {
+    None,
+    HorizontalBox,
+    VerticalBox,
+    GridLayout,
+}
+
 fn insert_property_definitions(
     element: &common::ElementRcNode,
     mut properties: Vec<PropertyInformation>,
@@ -333,7 +341,10 @@ fn insert_property_definitions(
     properties
 }
 
-pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
+pub(super) fn get_properties(
+    element: &common::ElementRcNode,
+    in_layout: LayoutKind,
+) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
     add_element_properties(&element.element.borrow(), "", 0, true, &mut result);
 
@@ -443,6 +454,12 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
                 depth + 1000,
                 i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter().cloned(),
             )
+            .filter(|p| match in_layout {
+                LayoutKind::None => true,
+                LayoutKind::HorizontalBox => p.name.as_str() != "x",
+                LayoutKind::VerticalBox => p.name.as_str() != "y",
+                LayoutKind::GridLayout => !["x", "y"].contains(&p.name.as_str()),
+            })
             .map(|mut p| {
                 match p.name.as_str() {
                     "x" => p.priority = 200,
@@ -477,12 +494,13 @@ pub(super) fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInf
                 p
             }),
         );
-        // FIXME: ideally only if parent is a grid layout
-        result.extend(get_reserved_properties(
-            "layout",
-            depth + 2000,
-            i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES.iter().cloned(),
-        ));
+        if matches!(in_layout, LayoutKind::GridLayout) {
+            result.extend(get_reserved_properties(
+                "layout",
+                depth + 2000,
+                i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES.iter().cloned(),
+            ));
+        }
         result.push(PropertyInformation {
             name: "accessible-role".into(),
             priority: DEFAULT_PRIORITY - 100,
@@ -534,9 +552,10 @@ pub(crate) fn query_properties(
     uri: &Url,
     source_version: SourceFileVersion,
     element: &common::ElementRcNode,
+    in_layout: LayoutKind,
 ) -> Result<QueryPropertyResponse> {
     Ok(QueryPropertyResponse {
-        properties: get_properties(element),
+        properties: get_properties(element, in_layout),
         element: Some(get_element_information(element)),
         source_uri: uri.to_string(),
         source_version: source_version.unwrap_or(i32::MIN),
@@ -663,7 +682,7 @@ pub fn set_binding_impl(
     property_name: &str,
     new_expression: String,
 ) -> Option<lsp_types::TextDocumentEdit> {
-    let properties = get_properties(element);
+    let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
 
     if property.defined_at.is_some() {
@@ -838,7 +857,7 @@ pub mod tests {
     ) -> Option<(common::ElementRcNode, Vec<PropertyInformation>)> {
         let element =
             document_cache.element_at_position(url, &lsp_types::Position { line, character })?;
-        Some((element.clone(), get_properties(&element)))
+        Some((element.clone(), get_properties(&element, LayoutKind::None)))
     }
 
     fn properties_at_position(
