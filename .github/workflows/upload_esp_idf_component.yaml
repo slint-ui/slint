@@ -18,16 +18,21 @@ jobs:
         container: espressif/idf:latest
         steps:
             - uses: actions/checkout@v4
+            - name: Extract Version
+              working-directory: api/cpp/esp-idf/slint
+              id: version
+              run: |
+                version=$(grep -oP '(?<=GIT_TAG v)[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+                if [[ -z "$version" ]]; then
+                  echo "Version not found"
+                  exit 1
+                fi
+                  echo "VERSION=$version" >> $GITHUB_OUTPUT
             - name: Remove use of nightly version
               if: github.event.inputs.release == 'true'
               working-directory: api/cpp/esp-idf/slint
               run: |
-                if grep -q 'set(SLINT_USE_NIGHTLY_VERSION TRUE)' CMakeLists.txt; then
-                    sed -i '/set(SLINT_USE_NIGHTLY_VERSION TRUE)/d' CMakeLists.txt
-                else
-                    echo "SLINT_USE_NIGHTLY_VERSION marker is missing in CMakeLists.txt. Did you forget to change this script?"
-                    exit 1
-                fi
+                sed -i "s/find_package(Slint)/find_package(Slint ${{ steps.version.outputs.VERSION }})/g" CMakeLists.txt
             - name: Upload component
               if: github.event.inputs.release == 'true'
               uses: espressif/upload-components-ci-action@v1
