@@ -287,8 +287,8 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     select_element_node(&component_instance, &en, Some(position));
 }
 
-pub fn is_element_node_in_layout(element: &common::ElementRcNode) -> bool {
-    element.parent().map(|p| p.layout_kind() != ui::LayoutKind::None).unwrap_or(false)
+pub fn parent_layout_kind(element: &common::ElementRcNode) -> ui::LayoutKind {
+    element.parent().map(|p| p.layout_kind()).unwrap_or(ui::LayoutKind::None)
 }
 
 fn filter_nodes_for_selection(
