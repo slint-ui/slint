@@ -23,6 +23,7 @@ import {
     RegisteredMemoryFile,
     registerCustomProvider,
 } from "@codingame/monaco-vscode-files-service-override";
+import getKeybindingsServiceOverride from "@codingame/monaco-vscode-keybindings-service-override";
 import getLanguageServiceOverride from "@codingame/monaco-vscode-languages-service-override";
 import getModelServiceOverride from "@codingame/monaco-vscode-model-service-override";
 import getStorageServiceOverride from "@codingame/monaco-vscode-storage-service-override";
@@ -52,6 +53,7 @@ export function initialize(): Promise<void> {
                             );
                         },
                     ),
+                    ...getKeybindingsServiceOverride(),
                     ...getLanguageServiceOverride(),
                     ...getModelServiceOverride(),
                     ...getStorageServiceOverride(),
@@ -72,6 +74,99 @@ export function initialize(): Promise<void> {
                     extensions: [".slint"],
                     aliases: ["Slint", "slint"],
                     mimetypes: ["application/slint"],
+                });
+                monaco.languages.setLanguageConfiguration("slint", {
+                    comments: {
+                        lineComment: "//",
+                        blockComment: ["/*", "*/"],
+                    },
+                    brackets: [
+                        ["{", "}"],
+                        ["[", "]"],
+                        ["(", ")"],
+                    ],
+                    autoClosingPairs: [
+                        {
+                            open: "{",
+                            close: "}",
+                        },
+                        {
+                            open: "[",
+                            close: "]",
+                        },
+                        {
+                            open: "(",
+                            close: ")",
+                        },
+                        {
+                            open: "'",
+                            close: "'",
+                            notIn: ["string", "comment"],
+                        },
+                        {
+                            open: '"',
+                            close: '"',
+                            notIn: ["string"],
+                        },
+                        {
+                            open: "`",
+                            close: "`",
+                            notIn: ["string", "comment"],
+                        },
+                        {
+                            open: "/**",
+                            close: " */",
+                            notIn: ["string"],
+                        },
+                    ],
+                    autoCloseBefore: ";:.,=}])>` \n\t",
+                    surroundingPairs: [
+                        {
+                            open: "{",
+                            close: "}",
+                        },
+                        {
+                            open: "[",
+                            close: "]",
+                        },
+                        {
+                            open: "(",
+                            close: ")",
+                        },
+                        {
+                            open: "'",
+                            close: "'",
+                        },
+                        {
+                            open: '"',
+                            close: '"',
+                        },
+                        {
+                            open: "`",
+                            close: "`",
+                        },
+                        {
+                            open: "/**",
+                            close: " */",
+                        },
+                    ],
+                    folding: {
+                        markers: {
+                            start: new RegExp("^\\s*//\\s*#?region\\b"),
+                            end: new RegExp("^\\s*//\\s*#?endregion\\b"),
+                        },
+                    },
+                    wordPattern: new RegExp(
+                        "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+                    ),
+                    indentationRules: {
+                        increaseIndentPattern: new RegExp(
+                            "^((?!\\/\\/).)*(\\{[^}\"'`]*|\\([^)\"'`]*|\\[[^\\]\"'`]*)$",
+                        ),
+                        decreaseIndentPattern: new RegExp(
+                            "^((?!.*?\\/\\*).*\\*/)?\\s*[\\}\\]].*$",
+                        ),
+                    },
                 });
                 monaco.languages.onLanguage("slint", () => {
                     monaco.languages.setMonarchTokensProvider(
