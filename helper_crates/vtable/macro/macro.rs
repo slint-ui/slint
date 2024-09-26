@@ -753,30 +753,30 @@ and implements HasStaticVTable for it.
             }
 
             #(#drop_impls)*
-        }
-        #[doc(inline)]
-        #[macro_use]
-        #vis use #module_name::*;
 
-        #[macro_export]
-        #[doc = #static_vtable_macro_doc]
-        macro_rules! #static_vtable_macro_name {
-            ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {
-                $(#[$meta])* $vis static $ident : #vtable_name = {
-                    use vtable::*;
-                    type T = $ty;
-                    #vtable_name {
-                        #(#vtable_ctor)*
-                    }
-                };
-                #[allow(unsafe_code)]
-                unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
-                    fn static_vtable() -> &'static #vtable_name {
-                        &$ident
+            #[macro_export]
+            #[doc = #static_vtable_macro_doc]
+            macro_rules! #static_vtable_macro_name {
+                ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {
+                    $(#[$meta])* $vis static $ident : #vtable_name = {
+                        use vtable::*;
+                        type T = $ty;
+                        #vtable_name {
+                            #(#vtable_ctor)*
+                        }
+                    };
+                    #[allow(unsafe_code)]
+                    unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
+                        fn static_vtable() -> &'static #vtable_name {
+                            &$ident
+                        }
                     }
                 }
             }
         }
+        #[doc(inline)]
+        #[macro_use]
+        #vis use #module_name::*;
     );
     //println!("{}", result);
     result.into()
