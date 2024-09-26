@@ -48,6 +48,11 @@ component SubCompoInline {
     @children
 }
 
+component WithAliasToNative {
+    out property has-focus <=> ti.has_focus;
+    ti := TextInput {}
+}
+
 
 export component TestCase inherits Window {
     in-out property <string> result;
@@ -65,6 +70,11 @@ export component TestCase inherits Window {
     out property<int> count;
     changed result => {
         count += 1;
+    }
+
+    WithAliasToNative {
+        // just make sure this compiles despite has_focus being unused otherwise
+        changed has_focus => { }
     }
 
     chaining := Chaining {}

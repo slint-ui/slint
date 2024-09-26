@@ -583,7 +583,8 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     }
 }
 
-/// Make sure that the is_set_externally is true for all bindings
+/// Make sure that the is_set_externally is true for all bindings.
+/// And change bindings are used externally
 fn mark_used_base_properties(doc: &Document) {
     doc.visit_all_used_components(|component| {
         crate::object_tree::recurse_elem_including_sub_components_no_borrow(
@@ -600,6 +601,12 @@ fn mark_used_base_properties(doc: &Document) {
                             name,
                         );
                     }
+                }
+                for name in element.borrow().change_callbacks.keys() {
+                    crate::namedreference::mark_property_read_derived_in_base(
+                        element.clone(),
+                        name,
+                    );
                 }
             },
         );
