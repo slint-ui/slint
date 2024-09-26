@@ -66,25 +66,31 @@ fi
 # echo "Url: $url";
 # echo "HostPort: $hostport";
 
+if [[ $OSTYPE == 'darwin'* ]]; then
+  sed=gsed
+else
+  sed=sed
+fi
 # Update server and api in searchbox.html and build slint docs
 if $build_docs; then
   searchbox_html="$script_dir/../reference/_templates/searchbox.html"
   cp $searchbox_html temp_searchbox.html
-  sed -i "s/\$TYPESENSE_SEARCH_API_KEY/$api/g" $searchbox_html
-  sed -i "s/\$TYPESENSE_SERVER_PROTOCOL/$protocol/g" $searchbox_html
-  sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $searchbox_html
-  sed -i "s/\$TYPESENSE_SERVER_PORT/$port/g" $searchbox_html
-  sed -i "s/\$TYPESENSE_SERVER_URL/$host/g" $searchbox_html
+  $sed -i "s/\$TYPESENSE_SEARCH_API_KEY/$api/g" $searchbox_html
+  $sed -i "s/\$TYPESENSE_SERVER_PROTOCOL/$protocol/g" $searchbox_html
+  $sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $searchbox_html
+  $sed -i "s/\$TYPESENSE_SERVER_PORT/$port/g" $searchbox_html
+  $sed -i "s/\$TYPESENSE_SERVER_URL/$host/g" $searchbox_html
   cargo xtask slintdocs --show-warnings
 fi
 
 # Start http server
 python3 -m http.server 80 -d $docs &
+http_server_pid=$!
 
 # Update index name in config file
 cp $config temp_config.json
 config=temp_config.json
-sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $config
+$sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $config
 
 
 # Run docsearch-scraper
@@ -94,11 +100,10 @@ docker run -i \
   -e "TYPESENSE_PORT=$port" \
   -e "TYPESENSE_PROTOCOL=$protocol" \
   -e "CONFIG=$(cat $config | jq -r tostring)" \
-  typesense/docsearch-scraper:0.10.0 | tee temp_scraper_output.txt
+  typesense/docsearch-scraper:0.10.0 2>&1 | tee temp_scraper_output.txt
 
 # Kill http server
-killall python
-killall Python
+kill $http_server_pid
 
 # Retrieve the collection name
 pattern=$index'_[0-9]\+'
@@ -109,7 +114,7 @@ curl -H "X-TYPESENSE-API-KEY: $api" \
       "$protocol://$hostport/collections/$collection_name/documents/export" > temp_docs.jsonl
 
 # Replace 'http://host.docker.internal' with 'http://localhost:8000' in mastemp_docs.jsonl
-sed -i "s/http://host.docker.internal/$url/g" temp_docs.jsonl
+$sed -i "s/http://host.docker.internal/$url/g" temp_docs.jsonl
 
 # Update typesense server
 curl -H "X-TYPESENSE-API-KEY: $api" \

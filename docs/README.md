@@ -35,7 +35,7 @@ The .cpp files are built using `cpp/src/CMakeLists.txt`, which is included from 
 
 # Building search database
 
-We use Typsesense for document search.
+We use Typesense for document search.
 
 ## Infrastructure
 
@@ -82,9 +82,9 @@ The script accepts the following arguments
 
 -b : Build Slint docs (for testing locally set this flag ) (default: `false`)
 
--c : Location of config file (default: `$GITHUB_DIR/slint/docs/search/scraper-config.json`)
+-c : Location of config file (default: `docs/search/scraper-config.json`)
 
--d : Location of index.html of docs (default: `$GITHUB_DIR/slint/target/slintdocs/html`)
+-d : Location of index.html of docs (default: `target/slintdocs/html`)
 
 -i : Name of the search index (default: `local`)
 
@@ -92,18 +92,18 @@ The script accepts the following arguments
 
 -r : Remote Server when using Typesense Cloud
 
--u : URL on which the docs will be served (default: `http:\\localhost:8000`)
+-u : URL on which the docs will be served (default: `http://localhost:8000`)
 
 Example when running locally
 
 ```sh
-$GITHUB_DIR/docs/search/docsearch-scraper.sh -b
+docs/search/docsearch-scraper.sh -b
 ```
 
 Example when running on Typesense Cloud, where `$cluster_name` is the name of the cluster on Typesense Cloud
 
 ```sh
-$GITHUB_DIR/docs/search/docsearch-scraper.sh -a API_KEY -b -r TYPESENSE_CLOUD_HOST_NAME
+docs/search/docsearch-scraper.sh -a API_KEY -b -r TYPESENSE_CLOUD_HOST_NAME
 ```
 
 ## Testing search functionality
@@ -111,7 +111,7 @@ $GITHUB_DIR/docs/search/docsearch-scraper.sh -a API_KEY -b -r TYPESENSE_CLOUD_HO
 Run http server
 
 ```sh
-python3 -m http.server -d $GITHUB_DIR/slint/target/slintdocs/html
+python3 -m http.server -d target/slintdocs/html
 ```
 
 Open browser (<http://localhost:8000>) and use the search bar to search for content
