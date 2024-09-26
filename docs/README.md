@@ -86,7 +86,7 @@ The script accepts the following arguments
 
 -d : Location of index.html of docs (default: `$GITHUB_DIR/slint/target/slintdocs/html`)
 
--i : Name of the search index (default: `master`)
+-i : Name of the search index (default: `local`)
 
 -p : Port to access Typesense server (default: `8108`)
 

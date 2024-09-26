@@ -122,7 +122,7 @@ jobs:
             - name: "Typesense DocSearch scraper"
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                    ./docs/search/docsearch-scraper.sh -a ${{ secrets.TYPESENSE_API_KEY }} -r ${{ secrets.TYPESENSE_SERVER }} -u https://snapshots.slint.dev/master/docs
+                    ./docs/search/docsearch-scraper.sh -a ${{ secrets.TYPESENSE_API_KEY }} -r ${{ secrets.TYPESENSE_SERVER }} -i master -u https://snapshots.slint.dev/master/docs
                   else
                     ./docs/search/docsearch-scraper.sh -a ${{ secrets.TYPESENSE_API_KEY }} -r ${{ secrets.TYPESENSE_SERVER }} -i ${{ steps.version.outputs.VERSION }} -u https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs
                   fi

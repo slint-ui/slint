@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -x
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
@@ -32,7 +32,7 @@ if [ -z "$docs" ]; then
   docs="$script_dir/../../target/slintdocs/html"
 fi
 if [ -z "$index" ]; then
-  index=master
+  index=local
 fi
 if [ -z "$port" ]; then
   port=8108
@@ -70,11 +70,11 @@ fi
 if $build_docs; then
   searchbox_html="$script_dir/../reference/_templates/searchbox.html"
   cp $searchbox_html temp_searchbox.html
-  sed -i '' "s|\$TYPESENSE_SEARCH_API_KEY|$api|g" $searchbox_html
-  sed -i '' "s|\$TYPESENSE_SERVER_PROTOCOL|$protocol|g" $searchbox_html
-  sed -i '' "s|\$TYPESENSE_INDEX_NAME|$index|g" $searchbox_html
-  sed -i '' "s|\$TYPESENSE_SERVER_PORT|$port|g" $searchbox_html
-  sed -i '' "s|\$TYPESENSE_SERVER_URL|$host|g" $searchbox_html
+  sed -i '' "s/\$TYPESENSE_SEARCH_API_KEY/$api/g" $searchbox_html
+  sed -i '' "s/\$TYPESENSE_SERVER_PROTOCOL/$protocol/g" $searchbox_html
+  sed -i '' "s/\$TYPESENSE_INDEX_NAME/$index/g" $searchbox_html
+  sed -i '' "s/\$TYPESENSE_SERVER_PORT/$port/g" $searchbox_html
+  sed -i '' "s/\$TYPESENSE_SERVER_URL/$host/g" $searchbox_html
   cargo xtask slintdocs --show-warnings
 fi
 
@@ -85,7 +85,7 @@ python3 -m http.server 80 -d $docs &
 # Update index name in config file
 cp $config temp_config.json
 config=temp_config.json
-sed -i '' "s|\$TYPESENSE_INDEX_NAME|$index|g" $config
+sed -i '' "s/\$TYPESENSE_INDEX_NAME/$index/g" $config
 
 
 # Run docsearch-scraper
@@ -104,14 +104,13 @@ killall Python
 # Retrieve the collection name
 pattern=$index'_[0-9]\+'
 collection_name=$(grep -o -m 1 $pattern temp_scraper_output.txt)
-echo "collection_name: $collection_name";
 
 # Retrieve documents from typesense server
 curl -H "X-TYPESENSE-API-KEY: $api" \
       "$protocol://$hostport/collections/$collection_name/documents/export" > temp_docs.jsonl
 
 # Replace 'http://host.docker.internal' with 'http://localhost:8000' in mastemp_docs.jsonl
-sed -i '' "s|http://host.docker.internal|$url|g" temp_docs.jsonl
+sed -i '' "s/http://host.docker.internal/$url/g" temp_docs.jsonl
 
 # Update typesense server
 curl -H "X-TYPESENSE-API-KEY: $api" \
@@ -119,11 +118,11 @@ curl -H "X-TYPESENSE-API-KEY: $api" \
       -T temp_docs.jsonl \
       "$protocol://$hostport/collections/$collection_name/documents/import?action=update"
 
-# FIX: Currently there is a bug on Typesense Cloud that requires passing the full typesenseCollectionName
-if [[ "${build_docs+x}" && -n "$remote" ]]; then
-  sed -i '' "s|$index|$collection_name|g" $searchbox_html
-  cargo xtask slintdocs --show-warnings
-fi
+curl "$protocol://$hostport/aliases/$index" -X PUT \
+    -H "Content-Type: application/json" \
+    -H "X-TYPESENSE-API-KEY: $api" -d '{
+        "collection_name": "'"$collection_name"'"
+    }'
 
 # Remove temp files
 rm temp_docs.jsonl
