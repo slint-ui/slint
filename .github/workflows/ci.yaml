@@ -39,9 +39,8 @@ jobs:
                     - os: windows-2022
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    # nightly disabled because of https://github.com/Diggsey/scoped-tls-hkt/issues/5
-                    # - os: ubuntu-22.04
-                    #   rust_version: "nightly"
+                    - os: ubuntu-22.04
+                      rust_version: "nightly"
                 exclude:
                     - os: macos-12
                       rust_version: "1.73"
