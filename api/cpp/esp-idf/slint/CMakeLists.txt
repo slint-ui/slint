@@ -34,8 +34,7 @@ if (SLINT_ESP_LOCAL_EXAMPLE)
     add_subdirectory(../.. slint_build)
 else()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-    set(SLINT_USE_NIGHTLY_VERSION TRUE) # Removed by upload_esp_idf_component.yaml
-    find_package(Slint 1.9.0)
+    find_package(Slint)
 
     if (TARGET Slint::Slint)
         # Imported targets are only visible in directory scope by default, but
