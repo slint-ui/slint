@@ -50,6 +50,7 @@ component SubCompoInline {
 
 component WithAliasToNative {
     out property has-focus <=> ti.has_focus;
+    out property text <=> ti.text;
     ti := TextInput {}
 }
 
@@ -74,7 +75,7 @@ export component TestCase inherits Window {
 
     WithAliasToNative {
         // just make sure this compiles despite has_focus being unused otherwise
-        changed has_focus => { }
+        changed has_focus => { debug(self.text); }
     }
 
     chaining := Chaining {}
