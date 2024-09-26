@@ -159,7 +159,7 @@
     justify-content: space-between;
 }
 .dialog.report_export_url .copy_url {
-    margin-left: 5px;
+    margin-right: 5px;
     padding: 5px;
 }
 

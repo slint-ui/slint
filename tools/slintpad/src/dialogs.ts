@@ -99,8 +99,8 @@ export function report_export_url_dialog(...urls: string[]) {
 
         copy_button.appendChild(copy_i);
 
-        url_line_div.appendChild(p_url);
         url_line_div.appendChild(copy_button);
+        url_line_div.appendChild(p_url);
 
         elements.push(url_line_div);
     }
