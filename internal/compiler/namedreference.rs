@@ -247,3 +247,29 @@ pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &s
         element = next;
     }
 }
+
+/// Mark that a given property is `is_read_externally` in all bases
+pub(crate) fn mark_property_read_derived_in_base(mut element: ElementRc, name: &str) {
+    loop {
+        let next = if let ElementType::Component(c) = &element.borrow().base_type {
+            if element.borrow().property_declarations.contains_key(name) {
+                return;
+            };
+            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
+                std::collections::hash_map::Entry::Occupied(e) if e.get().is_read_externally => {
+                    return;
+                }
+                std::collections::hash_map::Entry::Occupied(mut e) => {
+                    e.get_mut().is_read_externally = true;
+                }
+                std::collections::hash_map::Entry::Vacant(e) => {
+                    e.insert(PropertyAnalysis { is_read_externally: true, ..Default::default() });
+                }
+            }
+            c.root_element.clone()
+        } else {
+            return;
+        };
+        element = next;
+    }
+}
