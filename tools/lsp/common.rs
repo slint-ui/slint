@@ -210,30 +210,37 @@ impl ElementRcNode {
     }
 
     pub fn parent(&self) -> Option<ElementRcNode> {
-        let parent = self.with_element_node(|node| {
-            let mut ancestor = node.parent()?;
-            loop {
-                if ancestor.kind() == SyntaxKind::Element {
-                    return Some(ancestor);
-                }
-                ancestor = ancestor.parent()?;
+        let mut ancestor = self.with_element_node(|node| node.parent());
+
+        while let Some(parent) = ancestor {
+            if parent.kind() != SyntaxKind::Element {
+                ancestor = parent.parent();
+                continue;
             }
-        })?;
 
-        let (parent_path, parent_offset) =
-            (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
+            let (parent_path, parent_offset) =
+                (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
 
-        let component = self.element.borrow().enclosing_component.upgrade().unwrap();
-        let current_root = component.root_element.clone();
-        let root_element = if std::rc::Rc::ptr_eq(&current_root, &self.element) {
-            component.parent_element.upgrade().map_or(current_root, |parent| {
-                parent.borrow().enclosing_component.upgrade().unwrap().root_element.clone()
-            })
-        } else {
-            current_root
-        };
+            ancestor = parent.parent();
 
-        Self::find_in_or_below(root_element, &parent_path, parent_offset)
+            let component = self.element.borrow().enclosing_component.upgrade().unwrap();
+            let current_root = component.root_element.clone();
+            let root_element = if std::rc::Rc::ptr_eq(&current_root, &self.element) {
+                component.parent_element.upgrade().map_or(current_root, |parent| {
+                    parent.borrow().enclosing_component.upgrade().unwrap().root_element.clone()
+                })
+            } else {
+                current_root
+            };
+
+            let result = Self::find_in_or_below(root_element, &parent_path, parent_offset);
+
+            if result.is_some() {
+                return result;
+            }
+        }
+
+        None
     }
 
     pub fn children(&self) -> Vec<ElementRcNode> {
