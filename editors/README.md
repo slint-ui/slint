@@ -91,6 +91,28 @@ In order to **preview a component**, when you have a .slint file open, place you
 the name of the component you would like to preview and press *Alt + Enter* to open
 the code action menu. Select *Show Preview* from that menu.
 
+## Helix
+
+To install the Slint Language server, check the [LSP README.md](../tools/lsp/README.md).
+
+[Helix](https://helix-editor.com/) works out of the box without further configuration. To check if Helix detects Slint Language server successfully, run this command:
+
+```sh
+hx --health slint
+```
+
+The output should be like:
+
+```
+Configured language servers:
+  ✓ slint-lsp: /home/user/.local/bin/slint-lsp
+Configured debug adapter: None
+Configured formatter: None
+Highlight queries: ✓
+Textobject queries: ✓
+Indent queries: ✓
+```
+
 ## Vim
 
 To install the Slint Language server, check the [LSP README.md](../tools/lsp/README.md).
