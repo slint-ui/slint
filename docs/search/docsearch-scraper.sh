@@ -88,7 +88,7 @@ sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $config
 
 
 # Run docsearch-scraper
-docker run -it \
+docker run -i \
   -e "TYPESENSE_API_KEY=$api" \
   -e "TYPESENSE_HOST=$server" \
   -e "TYPESENSE_PORT=$port" \
