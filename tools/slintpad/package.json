@@ -34,6 +34,7 @@
         "@biomejs/biome": "1.8.3",
         "@codingame/monaco-vscode-configuration-service-override": "~8.0.4",
         "@codingame/monaco-vscode-files-service-override": "~8.0.4",
+        "@codingame/monaco-vscode-keybindings-service-override": "~8.0.4",
         "@codingame/monaco-vscode-languages-service-override": "~8.0.4",
         "@codingame/monaco-vscode-model-service-override": "~8.0.4",
         "@codingame/monaco-vscode-storage-service-override": "~8.0.4",
