@@ -56,7 +56,7 @@ pip3 install jq
 
 ## Testing Locally
 
-* Install and start Typsense server (<https://typesense.org/docs/guide/install-typesense.html#option-2-local-machine-self-hosting>)
+* Install and start Typesense server (<https://typesense.org/docs/guide/install-typesense.html#option-2-local-machine-self-hosting>)
   * Note down the API key, the default port, and the data directory.
 
 * Verify that the server is running
