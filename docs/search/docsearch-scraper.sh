@@ -70,14 +70,13 @@ fi
 if $build_docs; then
   searchbox_html="$script_dir/../reference/_templates/searchbox.html"
   cp $searchbox_html temp_searchbox.html
-  sed -i '' "s/\$TYPESENSE_SEARCH_API_KEY/$api/g" $searchbox_html
-  sed -i '' "s/\$TYPESENSE_SERVER_PROTOCOL/$protocol/g" $searchbox_html
-  sed -i '' "s/\$TYPESENSE_INDEX_NAME/$index/g" $searchbox_html
-  sed -i '' "s/\$TYPESENSE_SERVER_PORT/$port/g" $searchbox_html
-  sed -i '' "s/\$TYPESENSE_SERVER_URL/$host/g" $searchbox_html
+  sed -i "s/\$TYPESENSE_SEARCH_API_KEY/$api/g" $searchbox_html
+  sed -i "s/\$TYPESENSE_SERVER_PROTOCOL/$protocol/g" $searchbox_html
+  sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $searchbox_html
+  sed -i "s/\$TYPESENSE_SERVER_PORT/$port/g" $searchbox_html
+  sed -i "s/\$TYPESENSE_SERVER_URL/$host/g" $searchbox_html
   cargo xtask slintdocs --show-warnings
 fi
-
 
 # Start http server
 python3 -m http.server 80 -d $docs &
@@ -85,7 +84,7 @@ python3 -m http.server 80 -d $docs &
 # Update index name in config file
 cp $config temp_config.json
 config=temp_config.json
-sed -i '' "s/\$TYPESENSE_INDEX_NAME/$index/g" $config
+sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $config
 
 
 # Run docsearch-scraper
@@ -110,7 +109,7 @@ curl -H "X-TYPESENSE-API-KEY: $api" \
       "$protocol://$hostport/collections/$collection_name/documents/export" > temp_docs.jsonl
 
 # Replace 'http://host.docker.internal' with 'http://localhost:8000' in mastemp_docs.jsonl
-sed -i '' "s/http://host.docker.internal/$url/g" temp_docs.jsonl
+sed -i "s/http://host.docker.internal/$url/g" temp_docs.jsonl
 
 # Update typesense server
 curl -H "X-TYPESENSE-API-KEY: $api" \
