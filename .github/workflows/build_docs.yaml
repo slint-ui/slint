@@ -103,7 +103,7 @@ jobs:
                 searchbox_html=docs/reference/_templates/searchbox.html
                 sed -i "s/\$TYPESENSE_SEARCH_API_KEY/${{ secrets.TYPESENSE_SEARCH_API_KEY }}/g" $searchbox_html
                 sed -i "s/\$TYPESENSE_SERVER_PROTOCOL/https/g" "$searchbox_html"
-                if [ "$RELEASE_INPUT" ]; then
+                if [ "$RELEASE_INPUT" == "true" ]; then
                   version=$(sed -n 's/^version = "\(.*\)"/\1/p' docs/reference/conf.py)
                   sed -i "s/\$TYPESENSE_INDEX_NAME/$version/g" "$searchbox_html"
                 else
