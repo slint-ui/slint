@@ -1,120 +1,129 @@
 # SYNTAX TEST "source.slint" "Example code test"
 
   import { DemoPalette, PageX as Page } from "common.slint";
-# ^^^^^^ keyword.other
-#                                            ^^^^^^^^^^^^^^ string.quoted.double
+# ^^^^^^ keyword.other.import.slint
+#          ^^^^^^^^^^^ entity.name.type.import-list.slint
+#                             ^^ keyword.other.as.slint
+#                                            ^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
 
   // re-export
-# ^^^^^^^^^^^^ comment.line.double-slash
+# ^^^^^^^^^^^^ comment.line.double-slash.slint
   export { PrinterQueue, PrinterSettings, Foo as Bar }
-# ^^^^^^ keyword.other
+# ^^^^^^ keyword.other.export.slint
+#                                         ^^^ entity.name.type.export-list.slint
+#                                             ^^ keyword.other.as.slint
+#                                                ^^^ entity.name.type.export-list.slint
 
   /* Block comment */
-#   ^^^^^^^^^^^^^^^ comment.block
+# ^^^^^^^^^^^^^^^^^^^ comment.block.slint
   struct InkLevel {
-# ^^^^^^ storage.type
-#        ^^^^^^^^ entity.name.type
+# ^^^^^^ keyword.declaration.struct.slint
+#        ^^^^^^^^ entity.name.type.struct.slint
       color: color,
-#     ^^^^^ variable.parameter
-#            ^^^^^ entity.name.type
+#     ^^^^^ variable.other.struct.field.slint
+#            ^^^^^ entity.name.type.struct.field.slint
       level: percent,
-#     ^^^^^ variable.parameter
-#            ^^^^^^^ entity.name.type
+#     ^^^^^ variable.other.struct.field.slint
+#            ^^^^^^^ entity.name.type.struct.field.slint
   }
 
   export global Globus {
-# ^^^^^^ keyword.other
-#        ^^^^^^ storage.type
-#               ^^^^^^ entity.name.type
+# ^^^^^^ keyword.other.export.slint
+#        ^^^^^^ keyword.other.global.slint
+#               ^^^^^^ entity.name.type.global.slint
   }
 
-  import "./fonts/Noto.ttf";
-# ^^^^^^ keyword.other
-#        ^^^^^^^^^^^^^^^^^^ string.quoted.double
-
   component SideBarIcon inherits Rectangle {
-# ^^^^^^^^^ storage.type
-#           ^^^^^^^^^^^ entity.name.type
-#                       ^^^^^^^^ storage.type
-#                                ^^^^^^^^^ entity.name.type
+# ^^^^^^^^^ keyword.other.component.slint
+#           ^^^^^^^^^^^ entity.name.type.component.slint
+#                       ^^^^^^^^ keyword.other.inherits.slint
+#                                ^^^^^^^^^ entity.other.inherited-class.component.slint
 
       in-out property <bool> active;
-#     ^^^^^^ keyword.other
-#            ^^^^^^^^ keyword.other
-#                      ^^^^ entity.name.type
-#                            ^^^^^^ variable.parameter
-      in property <image> icon <=> i.source;
-#     ^^ keyword.other
-#        ^^^^^^^^ keyword.other
-#                  ^^^^^ entity.name.type
-#                         ^^^^ variable.parameter
-      out property <[InkLevel]> ink-levels: [
-#     ^^^ keyword.other
-#         ^^^^^^^^ keyword.other
-#                    ^^^^^^^^ variable.parameter
-#                               ^^^^^^^^^^ variable.parameter
-          {color: #0ff, level: 60%},
-#          ^^^^^ variable.parameter
-#                 ^^^^ constant.other
-#                       ^^^^^ variable.parameter
-#                              ^^ constant.numeric
-      ];
-      private property <int> active-page: 0;
-#     ^^^^^^^ keyword.other
-#             ^^^^^^^^ keyword.other
-#                       ^^^ entity.name.type
-#                            ^^^^^^^^^^^ variable.parameter
-#                                         ^ constant.numeric
+#     ^^^^^^ keyword.other.visibility.slint
+#            ^^^^^^^^ keyword.other.property.slint
+#                      ^^^^ entity.name.type.property.slint
+#                            ^^^^^^ variable.other.property.slint
 
-      callback activate;
-#     ^^^^^^^^ entity.name.function
-#              ^^^^^^^^ entity.name.type
+      pure callback activate;
+#     ^^^^ keyword.other.pure.slint
+#          ^^^^^^^^ keyword.other.function.slint
+#                   ^^^^^^^^ entity.name.function.slint
 
       width: DemoPalette.side-bar-width;
-#     ^^^^^ variable.parameter
+#     ^^^^^ variable.other.property.slint
       height: 72px;
-#     ^^^^^^ variable.parameter
-#             ^^^^ constant.numeric
-
-      if true: Rectangle {
-#     ^^ keyword.control
-#        ^^^^ variable.parameter
-          i := Image {
-#         ^ variable.parameter
-              colorize: root.active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
-#             ^^^^^^^^ variable.parameter
-              animate colorize { duration: 125ms; }
-#             ^^^^^^^ keyword.other
-#                                ^^^^^^^^ variable.parameter
-#                                          ^^^^^ constant.numeric
-          }
-          clicked => { root.activate(); }
-      }
-
-      for page-icon[idx] in [
-#     ^^^ keyword.control
-          @image-url("images/home.svg"),
-#                    ^^^^^^^^^^^^^^^^^ string.quoted.double
-      ]: SideBarIcon { }
+#     ^^^^^^ variable.other.property.slint
+#             ^^^^ constant.numeric.slint
 
       states [
-#     ^^^^^^ keyword.other
+#     ^^^^^^ keyword.other.states.slint
           expanded when root.expanded : {
+#                  ^^^^ keyword.other.when.slint
               height: layout.min-height;
 
               in {
-#             ^^ keyword.other
+#             ^^ keyword.other.state-change.slint
                   animate height { duration: 200rem; easing: ease; }
-#                 ^^^^^^^ keyword.other
-#                                  ^^^^^^^^ variable.parameter
-#                                            ^^^^^^ constant.numeric
-#                                                    ^^^^^^ variable.parameter
-#                                                            ^^^^ support.constant
+#                 ^^^^^^^ keyword.other.animate.slint
+#                         ^^^^^^ variable.other.property.slint
+#                                  ^^^^^^^^ keyword.other.animate.setting.slint
+#                                            ^^^^^^ constant.numeric.slint
+#                                                    ^^^^^^ keyword.other.animate.setting.slint
+#                                                            ^^^^ variable.language.scoped-name.slint
               }
               out {
-#             ^^^ keyword.other
+#             ^^^ keyword.other.state-change.slint
               }
           }
       ]
+
+      if false:id:=Rectangle {
+#     ^^ keyword.control.conditional-element.slint
+#        ^^^^^ constant.language.boolean.slint
+#              ^^ entity.name.tag.element-id.slint
+#                  ^^^^^^^^^ entity.name.type.element.slint
+          i := Image {
+#         ^ entity.name.tag.element-id.slint
+#           ^^ punctuation.assignment.element-id.slint
+#              ^^^^^ entity.name.type.element.slint
+              colorize: root.active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
+#             ^^^^^^^^ variable.other.property.slint
+              animate colorize { duration: 125ms; }
+#             ^^^^^^^ keyword.other.animate.slint
+#                                ^^^^^^^^ keyword.other.animate.setting.slint
+#                                          ^^^^^ constant.numeric.slint
+          }
+          clicked => { }
+#         ^^^^^^^ entity.name.function.slint
+      }
+
+
+      for page-icon[idx] in [
+#     ^^^ keyword.control.repeated-element.slint
+          @image-url("images/home.svg"),
+#         ^^^^^^^^^^ support.function.macro.slint
+#                    ^^^^^^^^^^^^^^^^^ string.quoted.double.slint
+      ]: SideBarIcon { }
+
+      if true: Rectangle {
+#     ^^ keyword.control.conditional-element.slint
+#        ^^^^ constant.language.boolean.slint
+#              ^^^^^^^^^ entity.name.type.element.slint
+          i := Image {
+#         ^ entity.name.tag.element-id.slint
+#           ^^ punctuation.assignment.element-id.slint
+#              ^^^^^ entity.name.type.element.slint
+              colorize: root.active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
+#             ^^^^^^^^ variable.other.property.slint
+              animate colorize { duration: 125ms; }
+#             ^^^^^^^ keyword.other.animate.slint
+#                                ^^^^^^^^ keyword.other.animate.setting.slint
+#                                          ^^^^^ constant.numeric.slint
+          }
+          clicked => { root.activate(); }
+#         ^^^^^^^ entity.name.function.slint
+      }
+
   }
 
