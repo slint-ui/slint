@@ -2,12 +2,12 @@
     "index_name": "$TYPESENSE_INDEX_NAME",
     "start_urls": [
         {
-            "url": "http://localhost:80",
+            "url": "http://host.docker.internal",
             "selectors_key": "docs"
         }
     ],
     "sitemap_urls": [
-        "http://localhost:80/sitemap.xml"
+        "http://host.docker.internal/sitemap.xml"
     ],
     "selectors": {
         "docs": {

@@ -71,6 +71,7 @@ if [[ $OSTYPE == 'darwin'* ]]; then
 else
   sed=sed
 fi
+
 # Update server and api in searchbox.html and build slint docs
 if $build_docs; then
   searchbox_html="$script_dir/../reference/_templates/searchbox.html"
@@ -106,14 +107,14 @@ docker run -i \
 kill $http_server_pid
 
 # Retrieve the collection name
-pattern=$index'_[0-9]\+'
-collection_name=$(grep -o -m 1 $pattern temp_scraper_output.txt)
+collection_name=$(sed -n "s/.*POST \/collections\/\(${index}_[0-9]*\)\/.*/\1/p" temp_scraper_output.txt | sed -n '1p')
+# echo "COLLECTION_NAME: $collection_name";
 
 # Retrieve documents from typesense server
 curl -H "X-TYPESENSE-API-KEY: $api" \
       "$protocol://$hostport/collections/$collection_name/documents/export" > temp_docs.jsonl
 
-# Replace 'http://host.docker.internal' with 'http://localhost:8000' in mastemp_docs.jsonl
+# Replace 'http://host.docker.internal' with 'http://localhost:8000' in temp_docs.jsonl
 $sed -i "s/http://host.docker.internal/$url/g" temp_docs.jsonl
 
 # Update typesense server
@@ -129,8 +130,10 @@ curl "$protocol://$hostport/aliases/$index" -X PUT \
     }'
 
 # Remove temp files
+if $build_docs; then
+  cp temp_searchbox.html $searchbox_html
+  rm temp_searchbox.html
+fi
 rm temp_docs.jsonl
 rm temp_config.json
-cp temp_searchbox.html $searchbox_html
-rm temp_searchbox.html
 rm temp_scraper_output.txt

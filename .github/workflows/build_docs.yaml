@@ -8,7 +8,7 @@ on:
     workflow_call:
       inputs:
         release:
-          type: string
+          type: boolean
           default: false
           required: false
           description: "Release? Enable options for building binaries for a release (i.e. apply a nightly tag, nightly version)"
@@ -27,6 +27,7 @@ jobs:
             RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated -A non_local_definitions
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
+            RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v4
             - name: Set up rgb crate rustdoc link
@@ -84,11 +85,9 @@ jobs:
 
             # Build Docs
             - name: Build Cpp docs
-              env:
-                RELEASE_INPUT: ${{ inputs.release }}
               run: |
                 CPPDOCS_EXTRA_FLAGS="" 
-                if [ "$RELEASE_INPUT" != "true" ]; then
+                if [ "$RELEASE_INPUT" ]; then
                     CPPDOCS_EXTRA_FLAGS="--experimental"
                 fi
                 cargo xtask cppdocs --show-warnings $CPPDOCS_EXTRA_FLAGS
@@ -117,16 +116,7 @@ jobs:
                   exit 1
                 fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
-
-            # Run Typesense DocSearch scraper
-            - name: "Typesense DocSearch scraper"
-              run: |
-                  if [ "$RELEASE_INPUT" != "true" ]; then
-                    ./docs/search/docsearch-scraper.sh -a ${{ secrets.TYPESENSE_API_KEY }} -r ${{ secrets.TYPESENSE_SERVER }} -i master -u https://snapshots.slint.dev/master/docs
-                  else
-                    ./docs/search/docsearch-scraper.sh -a ${{ secrets.TYPESENSE_API_KEY }} -r ${{ secrets.TYPESENSE_SERVER }} -i ${{ steps.version.outputs.VERSION }} -u https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs
-                  fi
-                  
+                
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
               id: app-token
