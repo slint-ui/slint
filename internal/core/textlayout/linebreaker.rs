@@ -622,3 +622,20 @@ fn zero_width_char_wrap() {
     .collect::<Vec<_>>();
     assert_eq!(lines, ["H", "e", "", "H", "e", "o"]);
 }
+
+#[test]
+fn char_wrap_sentences() {
+    let font = FixedTestFont;
+    let text = "Hello world\nHow are you?";
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(80.),
+        None,
+        TextWrap::CharWrap,
+    )
+    .map(|t| t.line_text(text))
+    .collect::<Vec<_>>();
+    assert_eq!(lines, ["Hello wo", "rld", "How are", "you?"]);
+}

@@ -48,6 +48,9 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
         let mut fragment = Self::Item::default();
 
         let next_break_offset = if self.break_anywhere {
+            if first_glyph_cluster.is_line_or_paragraph_separator {
+                fragment.trailing_mandatory_break = true;
+            }
             0
         } else if let Some((next_break_offset, break_type)) = self.line_breaks.next() {
             if matches!(break_type, BreakOpportunity::Mandatory) {
@@ -106,7 +109,7 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
         // Make sure that adjacent fragments are advanced in their byte range:
         // this assertion should hold: fragment.byte_range.end + fragment.trailing_whitespace_bytes == next_fragment.byte_range.start
         // That means characters causing mandatory breaks need to be included.
-        if fragment.trailing_mandatory_break {
+        if fragment.trailing_mandatory_break && !self.break_anywhere {
             fragment.trailing_whitespace_bytes = next_break_offset - fragment.byte_range.end;
         }
 
