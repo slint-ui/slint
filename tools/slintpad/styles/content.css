@@ -159,12 +159,13 @@
     justify-content: space-between;
 }
 .dialog.report_export_url .copy_url {
-    margin-right: 5px;
+    margin-left: 5px;
     padding: 5px;
 }
 
 .dialog.report_export_url .url .url_text {
     font-family: monospace;
+    overflow-wrap: anywhere;
 }
 
 .dialog.manage_github_dialog .description_area {
