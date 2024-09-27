@@ -1,0 +1,120 @@
+# SYNTAX TEST "source.slint" "Example code test"
+
+  import { DemoPalette, PageX as Page } from "common.slint";
+# ^^^^^^ keyword.other
+#                                            ^^^^^^^^^^^^^^ string.quoted.double
+
+  // re-export
+# ^^^^^^^^^^^^ comment.line.double-slash
+  export { PrinterQueue, PrinterSettings, Foo as Bar }
+# ^^^^^^ keyword.other
+
+  /* Block comment */
+#   ^^^^^^^^^^^^^^^ comment.block
+  struct InkLevel {
+# ^^^^^^ storage.type
+#        ^^^^^^^^ entity.name.type
+      color: color,
+#     ^^^^^ variable.parameter
+#            ^^^^^ entity.name.type
+      level: percent,
+#     ^^^^^ variable.parameter
+#            ^^^^^^^ entity.name.type
+  }
+
+  export global Globus {
+# ^^^^^^ keyword.other
+#        ^^^^^^ storage.type
+#               ^^^^^^ entity.name.type
+  }
+
+  import "./fonts/Noto.ttf";
+# ^^^^^^ keyword.other
+#        ^^^^^^^^^^^^^^^^^^ string.quoted.double
+
+  component SideBarIcon inherits Rectangle {
+# ^^^^^^^^^ storage.type
+#           ^^^^^^^^^^^ entity.name.type
+#                       ^^^^^^^^ storage.type
+#                                ^^^^^^^^^ entity.name.type
+
+      in-out property <bool> active;
+#     ^^^^^^ keyword.other
+#            ^^^^^^^^ keyword.other
+#                      ^^^^ entity.name.type
+#                            ^^^^^^ variable.parameter
+      in property <image> icon <=> i.source;
+#     ^^ keyword.other
+#        ^^^^^^^^ keyword.other
+#                  ^^^^^ entity.name.type
+#                         ^^^^ variable.parameter
+      out property <[InkLevel]> ink-levels: [
+#     ^^^ keyword.other
+#         ^^^^^^^^ keyword.other
+#                    ^^^^^^^^ variable.parameter
+#                               ^^^^^^^^^^ variable.parameter
+          {color: #0ff, level: 60%},
+#          ^^^^^ variable.parameter
+#                 ^^^^ constant.other
+#                       ^^^^^ variable.parameter
+#                              ^^ constant.numeric
+      ];
+      private property <int> active-page: 0;
+#     ^^^^^^^ keyword.other
+#             ^^^^^^^^ keyword.other
+#                       ^^^ entity.name.type
+#                            ^^^^^^^^^^^ variable.parameter
+#                                         ^ constant.numeric
+  
+      callback activate;
+#     ^^^^^^^^ entity.name.function
+#              ^^^^^^^^ entity.name.type
+
+      width: DemoPalette.side-bar-width;
+#     ^^^^^ variable.parameter
+      height: 72px;
+#     ^^^^^^ variable.parameter
+#             ^^^^ constant.numeric
+  
+      if true: Rectangle {
+#     ^^ keyword.control
+#        ^^^^ variable.parameter
+          i := Image {
+#         ^ variable.parameter
+              colorize: root.active ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
+#             ^^^^^^^^ variable.parameter
+              animate colorize { duration: 125ms; }
+#             ^^^^^^^ keyword.other
+#                                ^^^^^^^^ variable.parameter
+#                                          ^^^^^ constant.numeric
+          }
+          clicked => { root.activate(); }
+      }
+
+      for page-icon[idx] in [
+#     ^^^ keyword.control
+          @image-url("images/home.svg"),
+#                    ^^^^^^^^^^^^^^^^^ string.quoted.double
+      ]: SideBarIcon { }
+  
+      states [
+#     ^^^^^^ keyword.other
+          expanded when root.expanded : {
+              height: layout.min-height;
+  
+              in {
+#             ^^ keyword.other
+                  animate height { duration: 200rem; easing: ease; }
+#                 ^^^^^^^ keyword.other
+#                                  ^^^^^^^^ variable.parameter
+#                                            ^^^^^^ constant.numeric
+#                                                    ^^^^^^ variable.parameter
+#                                                            ^^^^ support.constant
+              }
+              out {
+#             ^^^ keyword.other
+              }
+          }
+      ]
+  }
+  

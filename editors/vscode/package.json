@@ -212,6 +212,7 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
+    "test_grammar": "vscode-tmgrammar-test \"tests/grammar/*.slint\"",
     "syntax_check": "tsc --build --force",
     "test": "node ./out/test/runTest.js",
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
@@ -230,6 +231,7 @@
     "@types/vscode": "1.82.0",
     "esbuild": "0.23.1",
     "shx": "0.3.4",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "vscode-tmgrammar-test": "^0.1.3"
   }
 }
