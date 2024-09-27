@@ -30,3 +30,7 @@ div.header-article-item button.search-button-field {
     display: inline flex;
     border: 1px solid var(--pst-color-border);
 }
+
+div.search-button__wrapper {
+    display: none;
+}
