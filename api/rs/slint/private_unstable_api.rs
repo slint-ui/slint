@@ -50,14 +50,18 @@ impl<C: 'static> StrongItemTreeRef for Pin<Rc<C>> {
     }
 }
 
-pub fn set_property_binding<T: Clone + 'static, StrongRef: StrongItemTreeRef + 'static>(
+pub fn set_property_binding<
+    T: Clone + Default + 'static,
+    StrongRef: StrongItemTreeRef + 'static,
+>(
     property: Pin<&Property<T>>,
     component_strong: &StrongRef,
     binding: fn(StrongRef) -> T,
 ) {
     let weak = component_strong.to_weak();
-    property
-        .set_binding(move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap()))
+    property.set_binding(move || {
+        <StrongRef as StrongItemTreeRef>::from_weak(&weak).map(binding).unwrap_or_default()
+    })
 }
 
 pub fn set_animated_property_binding<
