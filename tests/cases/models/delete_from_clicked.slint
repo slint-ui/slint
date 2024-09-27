@@ -18,8 +18,10 @@ export global Glob {
 component Button {
     callback clicked();
     in property <string> text;
+    in property enabled <=> fs.enabled;
+
     HorizontalLayout {
-        FocusScope {
+        fs := FocusScope {
             width: 1px;
             height: 3%;
             key-pressed(k) => {
@@ -37,6 +39,7 @@ component Button {
         Text { text: text; }
         TouchArea {
             clicked => {clicked();}
+            enabled: root.enabled;
         }
     }
 }
@@ -45,10 +48,12 @@ component Button {
 export component TestCase inherits Window {
     width: 300px;
     height: 300px;
+    in property <bool> some-variable: true;
     VerticalLayout {
         for string in Glob.model: Rectangle {
             if Glob.condition: Button {
                 text: string;
+                enabled: some-variable;
                 width: 80%;
                 height: 80%;
                 clicked => {
