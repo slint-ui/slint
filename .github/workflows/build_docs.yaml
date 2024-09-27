@@ -8,7 +8,7 @@ on:
     workflow_call:
       inputs:
         release:
-          type: boolean
+          type: string
           default: false
           required: false
           description: "Release? Enable options for building binaries for a release (i.e. apply a nightly tag, nightly version)"
@@ -87,7 +87,7 @@ jobs:
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS="" 
-                if [ "$RELEASE_INPUT" ]; then
+                if [ "$RELEASE_INPUT" != "true" ]; then
                     CPPDOCS_EXTRA_FLAGS="--experimental"
                 fi
                 cargo xtask cppdocs --show-warnings $CPPDOCS_EXTRA_FLAGS
@@ -111,23 +111,13 @@ jobs:
                   sed -i "s/\$TYPESENSE_INDEX_NAME/master/g" "$searchbox_html"
                 fi
                 sed -i "s/\$TYPESENSE_SERVER_PORT/443/g" "$searchbox_html"
-                sed -i "s/\$TYPESENSE_SERVER_URL/062ykax5pgwon3q7p-1.a1.typesense.net/g" "$searchbox_html"
+                sed -i "s/\$TYPESENSE_SERVER_URL/typesense.slint.dev/g" "$searchbox_html"
                 cargo xtask slintdocs --show-warnings
             - name: "Node docs"
               run: |
                   npm install --ignore-scripts
                   npm run docs
-              working-directory: api/node            
-
-            - name: Extract Version
-              id: version
-              run: |
-                version=$(grep -oP '(?<=<p class="title logo__title">Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
-                if [[ -z "$version" ]]; then
-                  echo "Version not found"
-                  exit 1
-                fi
-                  echo "VERSION=$version" >> $GITHUB_OUTPUT
+              working-directory: api/node
                 
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
