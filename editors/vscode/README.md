@@ -96,3 +96,11 @@ The built-in live-preview can be used to preview itself. For this to work, VS Co
    ```
 3. Open `tools/lsp/ui/main.slint` and launch the preview, or preview individual components such as the
    library or properties view.
+
+## Quality Assurance
+
+This extensions comes with some tools to help with QA:
+
+ * `npm run lint` and `npm run lint:fix` run the biome linter on the source code
+ * `npm run syntax_check` run the typescript compiler
+ * `npm run test_grammar` run the tests on the TextMate grammar build into the extension

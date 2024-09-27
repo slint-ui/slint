@@ -13,8 +13,8 @@
                     "include": "#general"
                 },
                 {
-                    "match": "(?<!-)\\b(from|export)\\b(?!-)",
-                    "name": "keyword"
+                    "match": "(?<!-)\\b(import|from|export)\\b(?!-)",
+                    "name": "keyword.other"
                 },
                 {
                     "match": "(?<!-)\\b(animate|states|transitions|private|public|pure|function|in|out|in-out|changed)\\b(?!-)",
@@ -170,7 +170,7 @@
                 },
                 {
                     "match": "//.*$",
-                    "name": "comment.line"
+                    "name": "comment.line.double-slash"
                 },
                 {
                     "name": "string.quoted.double",
@@ -188,7 +188,7 @@
                     "name": "constant.other"
                 },
                 {
-                    "match": "\\b\\d+(\\.\\d*)?(%|px|phx|pt|in|mm|cm|ms|s|deg|rad|turn)?\\b",
+                    "match": "\\b\\d+(\\.\\d*)?(%|px|phx|pt|in|mm|cm|ms|s|deg|rad|rem|turn)?\\b",
                     "name": "constant.numeric"
                 }
             ]
