@@ -115,7 +115,8 @@ curl -H "X-TYPESENSE-API-KEY: $api" \
       "$protocol://$hostport/collections/$collection_name/documents/export" > temp_docs.jsonl
 
 # Replace 'http://host.docker.internal' with 'http://localhost:8000' in temp_docs.jsonl
-$sed -i "s/http://host.docker.internal/$url/g" temp_docs.jsonl
+$sed -i "s/http:\/\/host.docker.internal/$url/g" temp_docs.jsonl
+# $sed -i "s/http:\/\/host.docker.internal/https:\/\/releases.slint.dev\/master\/docs\/slint/g" temp_docs.jsonl
 
 # Update typesense server
 curl -H "X-TYPESENSE-API-KEY: $api" \

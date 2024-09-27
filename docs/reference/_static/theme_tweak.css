@@ -34,3 +34,7 @@ div.header-article-item button.search-button-field {
 div.search-button__wrapper {
     display: none;
 }
+
+div.DocSearch-Logo {
+    display: none;
+}
