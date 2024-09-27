@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, TextRange};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, TextRange};
 use i_slint_compiler::{expression_tree, langtype, literals};
 use itertools::Itertools;
 use lsp_types::Url;
@@ -299,16 +299,25 @@ fn extract_tr_data(tr_node: &syntax_nodes::AtTr, value: &mut PropertyValue) {
 }
 
 fn convert_number_literal(
-    node: &SyntaxNode,
+    node: &syntax_nodes::Expression,
 ) -> Option<(f64, i_slint_compiler::expression_tree::Unit)> {
-    let literal = node.child_text(SyntaxKind::NumberLiteral)?;
-    let expr = literals::parse_number_literal(literal).ok()?;
+    if let Some(unary) = &node.UnaryOpExpression() {
+        let factor = match unary.first_token().unwrap().text() {
+            "-" => -1.0,
+            "+" => 1.0,
+            _ => return None,
+        };
+        convert_number_literal(&unary.Expression()).map(|(v, u)| (factor * v, u))
+    } else {
+        let literal = node.child_text(SyntaxKind::NumberLiteral)?;
+        let expr = literals::parse_number_literal(literal).ok()?;
 
-    match expr {
-        i_slint_compiler::expression_tree::Expression::NumberLiteral(value, unit) => {
-            return Some((value, unit))
+        match expr {
+            i_slint_compiler::expression_tree::Expression::NumberLiteral(value, unit) => {
+                return Some((value, unit))
+            }
+            _ => None,
         }
-        _ => None,
     }
 }
 
@@ -1064,6 +1073,20 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.value_float, 42.0);
 
         let result = property_conversion_test(
+            r#"export component Test { in property <float> test1: +42.0; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Float);
+        assert_eq!(result.value_float, 42.0);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <float> test1: -42.0; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Float);
+        assert_eq!(result.value_float, -42.0);
+
+        let result = property_conversion_test(
             r#"export component Test { in property <float> test1: 42.0 * 23.0; }"#,
             0,
         );
@@ -1084,6 +1107,20 @@ export component Test { in property <Foobar> test1; }"#,
         );
         assert_eq!(result.kind, PropertyValueKind::Integer);
         assert_eq!(result.value_int, 42);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <int> test1: +42; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Integer);
+        assert_eq!(result.value_int, 42);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <int> test1: -42; }"#,
+            1,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Integer);
+        assert_eq!(result.value_int, -42);
 
         let result = property_conversion_test(
             r#"export component Test { in property <int> test1: 42 * 23; }"#,
