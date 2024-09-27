@@ -245,10 +245,7 @@ fn calculate_drop_information_for_layout(
             ) {
                 let hit_rect = LogicalRect::new(
                     LogicalPoint::new(hit_zone.start, geometry.origin.y),
-                    LogicalSize::new(
-                        hit_zone.end - hit_zone.start,
-                        geometry.origin.y + geometry.size.height,
-                    ),
+                    LogicalSize::new(hit_zone.end - hit_zone.start, geometry.size.height),
                 );
                 if hit_rect.contains(position) {
                     return (
@@ -275,10 +272,7 @@ fn calculate_drop_information_for_layout(
             ) {
                 let hit_rect = LogicalRect::new(
                     LogicalPoint::new(geometry.origin.x, hit_zone.start),
-                    LogicalSize::new(
-                        geometry.origin.x + geometry.size.width,
-                        hit_zone.end - hit_zone.start,
-                    ),
+                    LogicalSize::new(geometry.size.width, hit_zone.end - hit_zone.start),
                 );
                 if hit_rect.contains(position) {
                     return (
