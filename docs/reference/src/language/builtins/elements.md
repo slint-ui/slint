@@ -253,18 +253,24 @@ export component Example inherits Window {
 
 ## `GridLayout`
 
-`GridLayout` places its children in a grid. `GridLayout` adds properties to each child: `col`, `row`, `colspan`, `rowspan`.
-These properties must be compile time constants.
-You can control the position of children with `col` and `row`.
-If `col` or `row` aren't specified, they are automatically computed such that the item is next to the previous item, in the same row.
-Alternatively, the item can be put in a `Row` element.
+`GridLayout` places elements on a grid.
+
+It adds the following properties to each cell element: `col`, `row`, `colspan`, `rowspan`.
+These properties must be compile-time constants.
+
+`col` and `row` control the position of a cell on the grid structure.
+`row` must be specified explicitly to be able to advance it&mdash;or it'll stay the same&mdash;which then implicitly resets an unspecified `col` to `0`.
+Wrapping elements in `Row` elements instead will take care of row advancement for you.
+Omitting `col` implicitly means the next column (or the first at the beginning).
+
+If the cell elements' size constraints don't work against this, a `GridLayout` covers its whole surface with its cells. The elements constituting the cells will be stretched inside their allotted space.
 
 ### Properties
 
 -   **`spacing`** (_in_ _length_): The distance between the elements in the layout.
 -   **`spacing-horizontal`**, **`spacing-vertical`** (_in_ _length_):
-    Set these properties to override the spacing on specific directions.
--   **`padding`** (_in_ _length_): The padding within the layout.
+    Set these properties to override the spacing on specific axes.
+-   **`padding`** (_in_ _length_): The padding around the grid structure as a whole.
 -   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in_ _length_):
     Set these properties to override the padding on specific sides.
 
