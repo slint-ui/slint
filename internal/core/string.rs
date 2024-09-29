@@ -12,6 +12,7 @@ use alloc::string::String;
 use core::fmt::{Debug, Display, Write};
 use core::ops::Deref;
 
+#[cfg(feature = "std")]
 use std::borrow::Cow;
 
 /// This macro is the same as [`std::format!`], but it returns a [`SharedString`] instead.
@@ -214,12 +215,14 @@ impl From<&String> for SharedString {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<Cow<'_, str>> for SharedString {
     fn from(s: Cow<'_, str>) -> Self {
         s.as_ref().into()
     }
 }
 
+#[cfg(feature = "std")]
 impl From<&Cow<'_, str>> for SharedString {
     fn from(s: &Cow<'_, str>) -> Self {
         s.as_ref().into()
