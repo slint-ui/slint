@@ -258,12 +258,36 @@ export component Example inherits Window {
 It adds the following properties to each cell element: `col`, `row`, `colspan`, `rowspan`.
 These properties must be compile-time constants.
 
-`col` and `row` control the position of a cell on the grid structure.
-`row` must be specified explicitly to be able to advance it&mdash;or it'll stay the same&mdash;which then implicitly resets an unspecified `col` to `0`.
-Wrapping elements in `Row` elements instead will take care of row advancement for you.
-Omitting `col` implicitly means the next column (or the first at the beginning).
+`col` and `row` control the position of a cell within the grid.
+Without `col`, elements are assigned columns sequentially, within their row.
+Set the `row` property to place an element into a specific row. This implicitly resets the column to `0`.
+Wrap elements in `Row` to avoid having to repeatedly specify row indices.
 
-If the cell elements' size constraints don't work against this, a `GridLayout` covers its whole surface with its cells. The elements constituting the cells will be stretched inside their allotted space.
+The following example creates a 2-by-2 grid with `Row` elements, omitting one cell:
+
+```slint
+GridLayout {
+    Row { // children implicitly on row 0
+        Button { col: 1; text: "Top Right"; } // implicit column after this would be 2
+    }
+    Row { // children implicitly on row 1
+        Button { text: "Bottom Left"; }  // implicitly in column 0...
+        Button { text: "Bottom Right"; } // ...and 1
+    }
+}
+```
+
+The following example creates the same grid with manual placement:
+
+```slint
+GridLayout {
+    Button { row: 0; col: 1; text: "Top Right"; } // `row: 0;` could even be left out at the start
+    Button { row: 1; text: "Bottom Left"; } // new row, implicitly resets column to 0
+    Button { text: "Bottom Right"; } // same row, sequentially assigned column 1
+}
+```
+
+Since a `GridLayout` doesn't align, it covers its entire surface with its cells. The elements constituting the cells will be stretched inside their allotted space. (The only exception being that the cell elements' size constraints like, e.g., `min-width` or `max-width` could work against this.)
 
 ### Properties
 
