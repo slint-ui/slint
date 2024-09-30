@@ -3,7 +3,7 @@
 
 import test from "ava";
 
-import { private_api, Window } from "../index.js";
+import { private_api, Window } from "../dist/index.js";
 
 test("Window constructor", (t) => {
     t.throws(

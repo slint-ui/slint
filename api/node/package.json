@@ -1,8 +1,8 @@
 {
   "name": "slint-ui",
   "version": "1.9.0",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
@@ -20,8 +20,8 @@
   ],
   "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
-    "@biomejs/biome": "1.8.3",
     "@ava/typescript": "^4.1.0",
+    "@biomejs/biome": "1.8.3",
     "@types/node": "^20.8.6",
     "@types/node-fetch": "^2.6.7",
     "ava": "^5.3.0",
@@ -40,7 +40,7 @@
     "build:debug": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json && npm run compile",
     "build:testing": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json --features testing && npm run compile",
     "install": "node build-on-demand.mjs",
-    "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
+    "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md typescript/index.ts",
     "check": "biome check",
     "format": "biome format",
     "format:fix": "biome format --write",
