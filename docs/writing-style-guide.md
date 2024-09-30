@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Writing Style Guide
 
 Use this style guide as a check list when reviewing / writing:
