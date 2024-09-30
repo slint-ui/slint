@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { LineEdit } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    FocusScope {
+        edit := LineEdit {
+            changed has-focus => {
+                result += "changed has-focus("+(self.has-focus?"true":"false")+")";
+            }
+            accepted => {
+                result += "accepted(" + self.text + ")";
+            }
+        }
+        key-pressed(e) => {
+            result += "parent key-press(" + e.text + ")";
+            reject
+        }
+    }
+
+    out property <bool> lineedit-focused <=> edit.has_focus;
+    out property <string> lineedit-text <=> edit.text;
+    callback edited <=> edit.edited;
+    in-out property <string> result;
+}
+
+/*
+
+
+```rust
+use std::cell::RefCell;
+use std::rc::Rc;
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+
+let edits = Rc::new(RefCell::new(Vec::new()));
+instance.on_edited({
+    let edits = edits.clone();
+    move |val| {
+    edits.borrow_mut().push(val);
+}});
+
+assert_eq!(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert!(instance.get_lineedit_focused());
+assert!(edits.borrow().is_empty());
+assert_eq!(instance.get_result(), "changed has-focus(true)");
+
+slint_testing::send_keyboard_string_sequence(&instance, "hello");
+assert_eq!(instance.get_lineedit_text(), "hello");
+assert_eq!(*edits.borrow(), vec!["h", "he", "hel", "hell", "hello"]);
+edits.borrow_mut().clear();
+assert_eq!(instance.get_result(), "changed has-focus(true)");
+
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(slint::platform::Key::UpArrow));
+assert_eq!(instance.get_result(), "changed has-focus(true)parent key-press(\u{f700})");
+slint_testing::send_keyboard_string_sequence(&instance, "\na\tb");
+assert_eq!(instance.get_result(), "changed has-focus(true)parent key-press(\u{f700})accepted(hello)parent key-press(\t)changed has-focus(false)parent key-press(b)");
+assert_eq!(*edits.borrow(), vec!["helloa"]);
+assert_eq!(instance.get_lineedit_text(), "helloa");
+
+
+```
+
+*/

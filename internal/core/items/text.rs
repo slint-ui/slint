@@ -667,6 +667,13 @@ impl Item for TextInput {
                 match event.text_shortcut() {
                     Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
+                            if matches!(
+                                direction,
+                                TextCursorDirection::PreviousLine | TextCursorDirection::NextLine
+                            ) && self.single_line()
+                            {
+                                return KeyEventResult::EventIgnored;
+                            }
                             TextInput::move_cursor(
                                 self,
                                 direction,
