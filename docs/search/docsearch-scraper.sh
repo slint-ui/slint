@@ -51,7 +51,7 @@ else
   hostport=$host:$port
 fi
 if [ -z "$url" ]; then
-  url=http://localhost:8000
+  url="http:\/\/localhost:8000"
 fi
 
 # echo "Script Directory: $script_dir";
