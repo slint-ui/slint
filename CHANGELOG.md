@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 ### Slint language
 
  - Added animation `direction` property. (#6260)
+ - Change brush properties of `Palette` from `out` to `in-out`
 
 ### Widgets
 

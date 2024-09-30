@@ -41,45 +41,45 @@ export global CupertinoPalette {
     }
 
     // base palette
-    out property <brush> background: dark-color-scheme ? #282828 : #ffffff;
-    out property <brush> foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> alternate-background: dark-color-scheme ? #2c2c2c : #00000005;
-    out property <brush> alternate-foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> control-background: dark-color-scheme ? #616161 : #ffffff;
-    out property <brush> control-foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> accent-background: dark-color-scheme ? #0055d1 : #007AFF;
-    out property <brush> accent-foreground: #f0f0f0;
-    out property <brush> selection-background: dark-color-scheme ? #0055d14D : #007AFF4D;
-    out property <brush> selection-foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> border: dark-color-scheme ? #ffffff26 : #00000026;
+    in-out property <brush> background: dark-color-scheme ? #282828 : #ffffff;
+    in-out property <brush> foreground: dark-color-scheme ? #ffffff : #000000;
+    in-out property <brush> alternate-background: dark-color-scheme ? #2c2c2c : #00000005;
+    in-out property <brush> alternate-foreground: dark-color-scheme ? #ffffff : #000000;
+    in-out property <brush> control-background: dark-color-scheme ? #616161 : #ffffff;
+    in-out property <brush> control-foreground: dark-color-scheme ? #ffffff : #000000;
+    in-out property <brush> accent-background: dark-color-scheme ? #0055d1 : #007AFF;
+    in-out property <brush> accent-foreground: #f0f0f0;
+    in-out property <brush> selection-background: dark-color-scheme ? #0055d14D : #007AFF4D;
+    in-out property <brush> selection-foreground: dark-color-scheme ? #ffffff : #000000;
+    in-out property <brush> border: dark-color-scheme ? #ffffff26 : #00000026;
 
     // additional palette
-    out property <brush> tertiary-background: dark-color-scheme ? #1e1e1e : #ffffff;
-    out property <brush> quaternary-background: dark-color-scheme ? #1c1c1c : #f0f0f0;
-    out property <brush> secondary-accent-background: dark-color-scheme ? #2076ee : #0063ea;
-    out property <brush> tertiary-accent-background: dark-color-scheme ? #487aff : #66A1E3;
-    out property <brush> foreground-neg: dark-color-scheme ? #000000 : #ffffff;
-    out property <brush> foreground-secondary: dark-color-scheme ? #ffffff40 : #00000040;
-    out property <brush> secondary-control-background: dark-color-scheme ? #7a7a7a : #f0f0f0;
-    out property <brush> tertiary-control-background: dark-color-scheme ? #616161B3 : #ffffffB3;
-    out property <brush> quaternary-control-background: dark-color-scheme ? #61616180 : #ffffff80;
-    out property <brush> alternate-control-background: dark-color-scheme ? #414141 : #dadada;
-    out property <brush> hover: dark-color-scheme ? #2e2e2e : #e3e3e3;
-    out property <brush> pressed: dark-color-scheme ? #b6b6b6 : #f0f0f0;
-    out property <brush> popup-border: dark-color-scheme ? #525252 :#0000000A;
-    out property <brush> decent-border: dark-color-scheme ? #ffffff14 : #00000014;
-    out property <brush> control-background-thumb: dark-color-scheme ? #cacaca : #ffffff;
-    out property <brush> separator: dark-color-scheme ? #000000 : #d9d9d9;
-    out property <brush> bar-background: dark-color-scheme ? #393939 : #ececec;
-    out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, #484848 0%, #434343 80%, #686868 100%) : #e2e2e2;
-    out property <brush> inner-border: dark-color-scheme ? #2e2e2e : #d7d7d7;
-    out property <brush> inner-shadow: dark-color-scheme ? #313131 : #ececed;
+    in-out property <brush> tertiary-background: dark-color-scheme ? #1e1e1e : #ffffff;
+    in-out property <brush> quaternary-background: dark-color-scheme ? #1c1c1c : #f0f0f0;
+    in-out property <brush> secondary-accent-background: dark-color-scheme ? #2076ee : #0063ea;
+    in-out property <brush> tertiary-accent-background: dark-color-scheme ? #487aff : #66A1E3;
+    in-out property <brush> foreground-neg: dark-color-scheme ? #000000 : #ffffff;
+    in-out property <brush> foreground-secondary: dark-color-scheme ? #ffffff40 : #00000040;
+    in-out property <brush> secondary-control-background: dark-color-scheme ? #7a7a7a : #f0f0f0;
+    in-out property <brush> tertiary-control-background: dark-color-scheme ? #616161B3 : #ffffffB3;
+    in-out property <brush> quaternary-control-background: dark-color-scheme ? #61616180 : #ffffff80;
+    in-out property <brush> alternate-control-background: dark-color-scheme ? #414141 : #dadada;
+    in-out property <brush> hover: dark-color-scheme ? #2e2e2e : #e3e3e3;
+    in-out property <brush> pressed: dark-color-scheme ? #b6b6b6 : #f0f0f0;
+    in-out property <brush> popup-border: dark-color-scheme ? #525252 :#0000000A;
+    in-out property <brush> decent-border: dark-color-scheme ? #ffffff14 : #00000014;
+    in-out property <brush> control-background-thumb: dark-color-scheme ? #cacaca : #ffffff;
+    in-out property <brush> separator: dark-color-scheme ? #000000 : #d9d9d9;
+    in-out property <brush> bar-background: dark-color-scheme ? #393939 : #ececec;
+    in-out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, #484848 0%, #434343 80%, #686868 100%) : #e2e2e2;
+    in-out property <brush> inner-border: dark-color-scheme ? #2e2e2e : #d7d7d7;
+    in-out property <brush> inner-shadow: dark-color-scheme ? #313131 : #ececed;
     
-    out property <brush> state: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> state-secondary: dark-color-scheme ? #000000 : #ffffff;
+    in-out property <brush> state: dark-color-scheme ? #ffffff : #000000;
+    in-out property <brush> state-secondary: dark-color-scheme ? #000000 : #ffffff;
 
     // FIXME: dark color
-    out property <brush> dimmer: @linear-gradient(180deg, #FFFFFFFF 100%, #FFFFFF00 0%);
+    in-out property <brush> dimmer: @linear-gradient(180deg, #FFFFFFFF 100%, #FFFFFF00 0%);
 }
 
 export global Icons {
