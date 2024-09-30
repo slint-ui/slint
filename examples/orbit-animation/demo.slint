@@ -14,6 +14,7 @@ export component AppWindow inherits Window {
     // Demo data
     property <[angle]> offSets: [0deg, 45deg, 90deg, 135deg, 180deg, 225deg, 270deg, 315deg];
     property <[[angle]]> attacks: [[0deg, 0deg], [45deg, 45deg], [90deg, 90deg], [0deg, 180deg], [45deg, 225deg], [90deg, 270deg]];
+    property <image> slint-logo: @image-url("../../logo/slint-logo-small-dark.svg");
 
     background: cb.current-value != "Demo 4" ? lightgrey : black;
     animate background {
@@ -65,7 +66,8 @@ export component AppWindow inherits Window {
             orbit-rotation: orbit-animation;
             offset: offSet;
             orbit-attack: attack-animation;
-            source: @image-url("images/slint-logo.svg");
+            source: slint-logo;
+            colorize: white.mix(black, self.scale);
         }
     }
    
@@ -76,7 +78,7 @@ export component AppWindow inherits Window {
     }
 
     if cb.current-value == "Demo 4": Image {
-        source: @image-url("images/slint-logo.svg");
+        source: slint-logo;
         width: 200px;
         colorize: #1161FF;
     }
@@ -113,7 +115,8 @@ export component AppWindow inherits Window {
             orbit-rotation: orbit-animation;
             offset: offSet;
             orbit-attack: attack-animation;
-            source: @image-url("images/slint-logo.svg");
+            source: slint-logo;
+            colorize: white.mix(black, self.scale);
         }
     }
 }
