@@ -137,9 +137,14 @@ impl JsComponentInstance {
             self.inner
                 .set_callback(callback_name.as_str(), {
                     let return_type = return_type.clone();
+                    let callback_name = callback_name.clone();
 
                     move |args| {
-                        let callback: JsFunction = function_ref.get().unwrap();
+                        let Ok(callback) = function_ref.get::<JsFunction>() else {
+                            eprintln!("Ndoe.js: callback {} throws an exception", callback_name);
+                            return Value::Void;
+                        };
+
                         let result = callback
                             .call(
                                 None,
@@ -151,7 +156,15 @@ impl JsComponentInstance {
                             .unwrap();
 
                         if let Some(return_type) = &return_type {
-                            super::to_value(&env, result, return_type).unwrap()
+                            if let Ok(value) = super::to_value(&env, result, return_type) {
+                                return value;
+                            } else {
+                                eprintln!(
+                                    "Ndoe.js: callback {} throws an exception",
+                                    callback_name
+                                );
+                                return Value::Void;
+                            }
                         } else {
                             Value::Void
                         }
@@ -192,9 +205,17 @@ impl JsComponentInstance {
             self.inner
                 .set_global_callback(global_name.as_str(), callback_name.as_str(), {
                     let return_type = return_type.clone();
+                    let global_name = global_name.clone();
+                    let callback_name = callback_name.clone();
 
                     move |args| {
-                        let callback: JsFunction = function_ref.get().unwrap();
+                        let Ok(callback) = function_ref.get::<JsFunction>() else {
+                            eprintln!(
+                                "Ndoe.js: global {} callback {} throws an exception",
+                                global_name, callback_name
+                            );
+                            return Value::Void;
+                        };
                         let result = callback
                             .call(
                                 None,
@@ -206,7 +227,15 @@ impl JsComponentInstance {
                             .unwrap();
 
                         if let Some(return_type) = &return_type {
-                            super::to_value(&env, result, return_type).unwrap()
+                            if let Ok(value) = super::to_value(&env, result, return_type) {
+                                return value;
+                            } else {
+                                eprintln!(
+                                    "Ndoe.js: callback {} throws an exception",
+                                    callback_name
+                                );
+                                return Value::Void;
+                            }
                         } else {
                             Value::Void
                         }
