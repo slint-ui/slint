@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { StyleMetrics } from "std-widgets.slint";
+import { Palette } from "std-widgets.slint";
 
 SubElement := Rectangle {
     property sub_color <=> sub.color;
@@ -10,7 +10,7 @@ SubElement := Rectangle {
 
 TestCase := Rectangle {
     // This binding allow the test to set the style's default color so that we can compare it
-    property<color> binding_to_default_text_color <=> StyleMetrics.default-text-color;
+    property<color> binding_to_default_text_color: Palette.foreground;
 
     default_text := Text { text: "default"; }
     text_with_color := Text {
@@ -26,8 +26,8 @@ TestCase := Rectangle {
     property <color> color_of_sub_element_text: text_in_sub_element.sub_color;
     property <color> color_in_state: text-in-state.color;
 
-    property <bool> test: default_text_color == StyleMetrics.default-text-color && color-of-initialized-text == #ffff00ff
-        && color_of_sub_element_text == #ff0000 && color-in-state == StyleMetrics.default-text-color;
+    property <bool> test: default_text_color == Palette.foreground && color-of-initialized-text == #ffff00ff
+        && color_of_sub_element_text == #ff0000 && color-in-state == Palette.foreground;
 }
 
 
@@ -36,21 +36,18 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-instance.set_binding_to_default_text_color(slint::Color::from_rgb_uint8(0, 0, 255));
-assert_eq(instance.get_default_text_color(), slint::Color::from_rgb_uint8(0, 0, 255));
+assert_eq(instance.get_default_text_color(), instance.get_binding_to_default_text_color());
 assert_eq(instance.get_color_of_initialized_text(), slint::Color::from_rgb_uint8(255, 255, 0));
 assert_eq(instance.get_color_of_sub_element_text(), slint::Color::from_rgb_uint8(255, 0, 0));
-assert_eq(instance.get_color_in_state(), slint::Color::from_rgb_uint8(0, 0, 255));
-
+assert_eq(instance.get_color_in_state(), instance.get_binding_to_default_text_color());
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
-instance.set_binding_to_default_text_color(slint::Color::from_rgb_u8(0, 0, 133));
-assert_eq!(instance.get_default_text_color(), slint::Color::from_rgb_u8(0, 0, 133));
+assert_eq!(instance.get_default_text_color(), instance.get_binding_to_default_text_color());
 assert_eq!(instance.get_color_of_initialized_text(), slint::Color::from_rgb_u8(255, 255, 0));
 assert_eq!(instance.get_color_of_sub_element_text(), slint::Color::from_rgb_u8(255, 0, 0));
-assert_eq!(instance.get_color_in_state(), slint::Color::from_rgb_u8(0, 0, 133));
+assert_eq!(instance.get_color_in_state(), instance.get_binding_to_default_text_color());
 ```
 
 */
