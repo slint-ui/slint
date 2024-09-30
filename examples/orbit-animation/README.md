@@ -3,7 +3,7 @@
 
 # Orbit Animation Demo
 
-Demonstrate how to fake simple orbit animations
+Demonstrates how to fake orbit animations using Slint's trigonometric math functions.
 
 [Online Preview](https://slint.dev/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/orbit-animation/demo.slint)
 [Online code editor](https://slint.dev/snapshots/master/editor/index.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/orbit-animation/demo.slint)
