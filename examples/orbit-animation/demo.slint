@@ -1,0 +1,119 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ComboBox } from "std-widgets.slint";
+import { Orbiter } from "orbiter.slint";
+
+export component AppWindow inherits Window {
+    property <duration> orbitDuration: 5s;
+
+    // Animation drivers
+    property <angle> orbit-animation:  (360deg * animation-tick() / orbitDuration).mod(360deg);
+    property <angle> attack-animation: (360deg * animation-tick() / 20s).mod(360deg);
+
+    // Demo data
+    property <[angle]> offSets: [0deg, 45deg, 90deg, 135deg, 180deg, 225deg, 270deg, 315deg];
+    property <[[angle]]> attacks: [[0deg, 0deg], [45deg, 45deg], [90deg, 90deg], [0deg, 180deg], [45deg, 225deg], [90deg, 270deg]];
+
+    background: cb.current-value != "Demo 4" ? lightgrey : black;
+    animate background {
+        duration: 1000ms;
+        easing: ease-in-out-sine;
+    }
+
+    preferred-width: 600px;
+    preferred-height: 600px;
+
+    cb := ComboBox {
+        x: 10px;
+        y: 10px;
+        model: ["Demo 1", "Demo 2", "Demo 3", "Demo 4"];
+        current-value: "Demo 1";
+    }
+
+    if cb.current-value == "Demo 1": Rectangle {
+        Orbiter {
+            state: back;
+            orbit-rotation: orbit-animation;
+            orbit-attack: 45deg;
+        }
+    }
+
+
+
+    if cb.current-value == "Demo 2": Rectangle {
+        for offSet in offSets:  Orbiter {
+            state: back;
+            orbit-rotation: orbit-animation;
+            offset: offSet;
+            orbit-attack: attack-animation;
+        }
+    }
+
+    if cb.current-value == "Demo 3": Rectangle {
+        for attack[index] in attacks:  Orbiter {
+            state: back;
+            orbit-rotation: orbit-animation;
+            orbit-attack: attack[0];
+            offset: attack[1];
+        }
+    }
+
+    if cb.current-value == "Demo 4": Rectangle {
+        for offSet in offSets:  Orbiter {
+            state: back;
+            orbit-rotation: orbit-animation;
+            offset: offSet;
+            orbit-attack: attack-animation;
+            source: @image-url("images/slint-logo.svg");
+        }
+    }
+   
+
+    if cb.current-value != "Demo 4":Image {
+        source: @image-url("images/sphere.png");
+        width: 200px;
+    }
+
+    if cb.current-value == "Demo 4": Image {
+        source: @image-url("images/slint-logo.svg");
+        width: 200px;
+        colorize: #1161FF;
+    }
+
+    if cb.current-value == "Demo 1": Rectangle {
+        Orbiter {
+            state: front;
+            orbit-rotation: orbit-animation; 
+            orbit-attack: 45deg;
+        }
+    }
+
+    if cb.current-value == "Demo 2": Rectangle {
+        for offSet in offSets:  Orbiter {
+            state: front;
+            orbit-rotation: orbit-animation;
+            offset: offSet;
+            orbit-attack: attack-animation;
+        }
+    }
+
+    if cb.current-value == "Demo 3": Rectangle {
+        for attack in attacks:  Orbiter {
+            state: front;
+            orbit-rotation: orbit-animation;
+            orbit-attack: attack[0];
+            offset: attack[1];
+        }
+    }
+
+    if cb.current-value == "Demo 4": Rectangle {
+        for offSet in offSets:  Orbiter {
+            state: front;
+            orbit-rotation: orbit-animation;
+            offset: offSet;
+            orbit-attack: attack-animation;
+            source: @image-url("images/slint-logo.svg");
+        }
+    }
+}

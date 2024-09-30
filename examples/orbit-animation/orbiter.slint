@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+enum OrbiterState { front, back }
+
+export component Orbiter {
+    in property <OrbiterState> state: OrbiterState.front;
+    in-out property source <=> img.source;
+    in-out property colorize <=> img.colorize;
+    in property <angle> orbit-rotation: 0deg;
+    in property <angle> offset: 45deg;
+    in property <length> radius: 220px;
+    property <angle> internal-rotation: orbit-rotation + offset;
+    in property <angle> orbit-attack: 180deg;      
+    in property <length> ball-size: 60px;
+    property <length> zPos: sin(internal-rotation) * radius;
+    property <float> scale: 0.3 + 0.7 * (zPos + radius) / (2 * radius);
+    property <bool> infront: internal-rotation.mod(360deg) < 180deg;
+
+    function isVisible() -> bool {
+        if (infront && state == OrbiterState.front) || (!infront && state == OrbiterState.back) {
+            return true;
+        } else   {
+            return false;
+        }
+    }
+
+    visible: isVisible();
+
+    Rectangle {
+        x: cos(orbit-attack) * cos(internal-rotation) * radius;
+        y: sin(orbit-attack) * cos(internal-rotation) * radius;
+        img := Image {
+            width: root.ball-size * scale; 
+            height: root.ball-size * scale;
+            source: @image-url("images/sphere-small.png");
+        }
+    }
+   
+}
