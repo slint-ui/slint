@@ -23,16 +23,16 @@ export global StyleMetrics  {
 }
 
 export global Palette {
-    out property <brush> background: CosmicPalette.background;
-    out property <brush> foreground: CosmicPalette.foreground;
-    out property <brush> alternate-background: CosmicPalette.alternate-background;
-    out property <brush> alternate-foreground: CosmicPalette.alternate-foreground;
-    out property <brush> control-background: CosmicPalette.control-background;
-    out property <brush> control-foreground: CosmicPalette.control-foreground;
-    out property <brush> accent-background: CosmicPalette.accent-background;
-    out property <brush> accent-foreground: CosmicPalette.accent-foreground;
-    out property <brush> selection-background: CosmicPalette.selection-background;
-    out property <brush> selection-foreground: CosmicPalette.selection-foreground;
-    out property <brush> border: CosmicPalette.border;
+    in-out property <brush> background <=> CosmicPalette.background;
+    in-out property <brush> foreground <=> CosmicPalette.foreground;
+    in-out property <brush> alternate-background <=> CosmicPalette.alternate-background;
+    in-out property <brush> alternate-foreground <=> CosmicPalette.alternate-foreground;
+    in-out property <brush> control-background <=> CosmicPalette.control-background;
+    in-out property <brush> control-foreground <=> CosmicPalette.control-foreground;
+    in-out property <brush> accent-background <=> CosmicPalette.accent-background;
+    in-out property <brush> accent-foreground <=> CosmicPalette.accent-foreground;
+    in-out property <brush> selection-background <=> CosmicPalette.selection-background;
+    in-out property <brush> selection-foreground <=> CosmicPalette.selection-foreground;
+    in-out property <brush> border <=> CosmicPalette.border;
     in-out property <ColorScheme> color-scheme <=> CosmicPalette.color-scheme;
 }
