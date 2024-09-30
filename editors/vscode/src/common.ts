@@ -100,10 +100,17 @@ export function setServerStatus(
 // as needed and makes the triggering side so much simpler!
 
 export function languageClientOptions(
+    schemes: string[],
     telemetryLogger: vscode.TelemetryLogger,
 ): LanguageClientOptions {
+    var document_selector = [];
+    for (var scheme of schemes) {
+        document_selector.push({ scheme: scheme, language: "slint" });
+        document_selector.push({ scheme: scheme, language: "rust" });
+    }
+
     return {
-        documentSelector: [{ language: "slint" }, { language: "rust" }],
+        documentSelector: document_selector,
         middleware: {
             async provideCodeActions(
                 document: vscode.TextDocument,

@@ -195,7 +195,7 @@ function startClient(
         "slint-lsp",
         "Slint",
         serverOptions,
-        common.languageClientOptions(telemetryLogger),
+        common.languageClientOptions(["file"], telemetryLogger),
     );
 
     common.prepare_client(cl);

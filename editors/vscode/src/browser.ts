@@ -24,7 +24,25 @@ function startClient(
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
 
     // Options to control the language client
-    const clientOptions = common.languageClientOptions(telemetryLogger);
+    // Note: This works with way more schemes than the native LSP as it goes
+    // through VSCode to open files by necessity.
+    // https://github.com/microsoft/vscode/blob/main/src/vs/base/common/network.ts
+    // lists all the known schemes in VSCode (without extensions). I err on the
+    // side of allowing too much here I think...
+    const clientOptions = common.languageClientOptions(
+        [
+            "file",
+            "http",
+            "https",
+            "inmemory",
+            "vscode-file",
+            "vscode-remote",
+            "vscode-remote-resource",
+            "vscode-vfs", // github.dev uses this
+            "vsls",
+        ],
+        telemetryLogger,
+    );
     clientOptions.synchronize = {};
     clientOptions.initializationOptions = {};
 
