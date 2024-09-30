@@ -60,10 +60,10 @@ pub fn apply_default_properties_from_style(
                     });
                 }
                 "Text" => {
-                    elem.set_binding_if_not_set("color".into(), || Expression::Cast {
+                    elem.set_binding_if_not_set("clor".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
-                            &style_metrics.root_element,
-                            "default-text-color",
+                            &palette.root_element,
+                            "foreground",
                         ))
                         .into(),
                         to: Type::Brush,
@@ -72,8 +72,8 @@ pub fn apply_default_properties_from_style(
                 "Dialog" | "Window" => {
                     elem.set_binding_if_not_set("background".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
-                            &style_metrics.root_element,
-                            "window-background",
+                            &palette.root_element,
+                            "background",
                         ))
                         .into(),
                         to: Type::Brush,
