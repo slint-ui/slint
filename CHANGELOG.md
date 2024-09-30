@@ -17,7 +17,6 @@ All notable changes to this project are documented in this file.
 ### Widgets
 
  - Checkbox: fix text color in fluent style (#6239)
- - TextInput: fix selection colors not used from style (#6326)
 
 ### LSP and tooling
 
