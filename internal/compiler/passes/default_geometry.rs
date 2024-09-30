@@ -216,6 +216,14 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
     let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
 
+    let explicit_constraints = LayoutConstraints::new(elem, diag);
+    if !explicit_constraints.fixed_width {
+        merge_explicit_constraints(&mut expr_h, &explicit_constraints, Orientation::Horizontal);
+    }
+    if !explicit_constraints.fixed_height {
+        merge_explicit_constraints(&mut expr_v, &explicit_constraints, Orientation::Vertical);
+    }
+
     for child_info in child_infos {
         if let Some(h) = child_info.0 {
             expr_h = Expression::BinaryExpression {
@@ -237,6 +245,55 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v.into());
     let expr_h = BindingExpression::new_with_span(expr_h, elem.borrow().to_source_location());
     li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h.into());
+}
+
+fn merge_explicit_constraints(
+    expr: &mut Expression,
+    constraints: &LayoutConstraints,
+    orientation: Orientation,
+) {
+    if constraints.has_explicit_restrictions(orientation) {
+        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let unique_name =
+            format!("layout_info_{}", COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+        let ty = expr.ty();
+        let store = Expression::StoreLocalVariable {
+            name: unique_name.clone(),
+            value: Box::new(std::mem::take(expr)),
+        };
+        let Type::Struct { fields, .. } = &ty else { unreachable!() };
+        let mut values = fields
+            .keys()
+            .map(|p| {
+                (
+                    p.clone(),
+                    Expression::StructFieldAccess {
+                        base: Expression::ReadLocalVariable {
+                            name: unique_name.clone(),
+                            ty: ty.clone(),
+                        }
+                        .into(),
+                        name: p.clone(),
+                    },
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        for (nr, s) in constraints.for_each_restrictions(orientation) {
+            let e = nr
+                .element()
+                .borrow()
+                .bindings
+                .get(nr.name())
+                .expect("constraint must have binding")
+                .borrow()
+                .expression
+                .clone();
+            debug_assert!(!matches!(e, Expression::Invalid));
+            values.insert(s.into(), e);
+        }
+        *expr = Expression::CodeBlock([store, Expression::Struct { ty, values }].into());
+    }
 }
 
 fn explicit_layout_info(e: &ElementRc, orientation: Orientation) -> Expression {

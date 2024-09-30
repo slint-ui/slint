@@ -179,10 +179,10 @@ impl LayoutConstraints {
             apply_size_constraint("height", s, enclosing, depth, &mut constraints.max_height);
         });
         find_binding(element, "width", |s, enclosing, depth| {
+            constraints.fixed_width = true;
             if s.expression.ty() == Type::Percent {
                 apply_size_constraint("width", s, enclosing, depth, &mut constraints.min_width);
             } else {
-                constraints.fixed_width = true;
                 apply_size_constraint("width", s, enclosing, depth, &mut constraints.min_width);
                 apply_size_constraint("width", s, enclosing, depth, &mut constraints.max_width);
             }
