@@ -1,6 +1,6 @@
 html[data-theme="light"] {
     body {
-        background-color:#fff;
+        background-color: #fff;
         background-position: top center;
         background-repeat: no-repeat;
         background-size: cover;
@@ -17,6 +17,7 @@ html[data-theme="dark"] {
         background-size: cover;
         color: #fff;
     }
+
     --pst-color-background: transparent;
     --pst-color-on-background: transparent;
 }
@@ -37,4 +38,19 @@ div.search-button__wrapper {
 
 div.DocSearch-Logo {
     display: none;
+}
+
+.bd-search-container {
+    display: none;
+}
+
+.bd-header-article .search-button {
+    display: none;
+}
+
+@media (max-width: 750px) {
+    header.DocSearch-SearchBar {
+        padding-top: 4rem;
+        ;
+    }
 }
