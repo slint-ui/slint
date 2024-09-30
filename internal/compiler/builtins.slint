@@ -217,8 +217,8 @@ export component TextInput {
     in property <bool> font-italic;
     in property <int> font-weight;
     in property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
-    in property <color> selection-foreground-color: #000;
-    in property <color> selection-background-color: #808080;
+    in property <color> selection-foreground-color; // Palette.selection-foreground set in apply_default_properties_from_style
+    in property <color> selection-background-color; // Palette.selection-background set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
     in property <TextWrap> wrap;

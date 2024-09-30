@@ -68,6 +68,14 @@ pub async fn run_passes(
             .await
             .unwrap_or_else(|| panic!("can't load style metrics"))
     };
+    let palette = {
+        // Ignore import errors
+        let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
+        type_loader
+            .import_component("std-widgets.slint", "Palette", &mut build_diags_to_ignore)
+            .await
+            .unwrap_or_else(|| panic!("can't load palette"))
+    };
 
     let global_type_registry = type_loader.global_type_registry.clone();
     run_import_passes(doc, type_loader, diag);
@@ -92,6 +100,7 @@ pub async fn run_passes(
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
             &style_metrics,
+            &palette,
             diag,
         );
         lower_states::lower_states(component, &doc.local_registry, diag);
