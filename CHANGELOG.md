@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file.
 ### Widgets
 
  - Checkbox: fix text color in fluent style (#6239)
+ - LineEdit: fix cursor draws out of bounds (#6243)
 
 ### LSP and tooling
 

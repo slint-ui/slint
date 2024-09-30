@@ -6,78 +6,78 @@ import { LineEditBase} from "../common/lineedit-base.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
 export component LineEdit {
-    in property <length> font-size <=> i-base.font-size;
-    in property <string> placeholder-text <=> i-base.placeholder-text;
-    in property <bool> enabled <=> i-base.enabled;
-    in property input-type <=> i-base.input-type;
-    in property horizontal-alignment <=> i-base.horizontal-alignment;
-    in property read-only <=> i-base.read-only;
-    out property <bool> has-focus: i-base.has-focus;
-    in-out property <string> text <=> i-base.text;
+    in property <length> font-size <=> base.font-size;
+    in property <string> placeholder-text <=> base.placeholder-text;
+    in property <bool> enabled <=> base.enabled;
+    in property input-type <=> base.input-type;
+    in property horizontal-alignment <=> base.horizontal-alignment;
+    in property read-only <=> base.read-only;
+    out property <bool> has-focus: base.has-focus;
+    in-out property <string> text <=> base.text;
 
-    callback accepted <=> i-base.accepted;
-    callback edited <=> i-base.edited;
+    callback accepted <=> base.accepted;
+    callback edited <=> base.edited;
     accessible-role: text-input;
     accessible-value <=> text;
     accessible-placeholder-text: text == "" ? placeholder-text : "";
     accessible-action-set-value(v) => { text = v; edited(v); }
 
     public function set-selection-offsets(start: int, end: int) {
-        i-base.set-selection-offsets(start, end);
+        base.set-selection-offsets(start, end);
     }
 
     public function select-all() {
-        i-base.select-all();
+        base.select-all();
     }
     public function clear-selection() {
-        i-base.clear-selection();
+        base.clear-selection();
     }
     public function cut() {
-        i-base.cut();
+        base.cut();
     }
     public function copy() {
-        i-base.copy();
+        base.copy();
     }
     public function paste() {
-        i-base.paste();
+        base.paste();
     }
 
-    min-width: max(120px, i-layout.min-width);
-    min-height: max(56px, i-layout.min-height);
-    forward-focus: i-base;
+    min-width: max(120px, layout.min-width);
+    min-height: max(56px, layout.min-height);
+    forward-focus: base;
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: MaterialPalette.control-foreground;
-            i-background.opacity: 0.38;
-            i-base.opacity: 0.38;
+            background.border-color: MaterialPalette.control-foreground;
+            background.opacity: 0.38;
+            base.opacity: 0.38;
         }
         focused when root.has-focus : {
-            i-background.border-width: 2px;
-            i-background.border-color: MaterialPalette.accent-background;
+            background.border-width: 2px;
+            background.border-color: MaterialPalette.accent-background;
         }
     ]
 
-    i-background := Rectangle {
+    background := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 4px;
         border-width: 1px;
         border-color: MaterialPalette.border;
-    }
 
-    i-layout := HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
+        layout := HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
 
-        i-base := LineEditBase {
-            text-color: MaterialPalette.foreground;
-            font-size: MaterialFontSettings.body-large.font-size;
-            font-weight: MaterialFontSettings.body-large.font-weight;
-            selection-foreground-color: MaterialPalette.selection-foreground;
-            margin: i-layout.padding-left + i-layout.padding-right;
-            placeholder-color: MaterialPalette.border-variant;
-            selection-background-color: MaterialPalette.selection-background;
+            base := LineEditBase {
+                text-color: MaterialPalette.foreground;
+                font-size: MaterialFontSettings.body-large.font-size;
+                font-weight: MaterialFontSettings.body-large.font-weight;
+                selection-foreground-color: MaterialPalette.selection-foreground;
+                margin: layout.padding-left + layout.padding-right;
+                placeholder-color: MaterialPalette.border-variant;
+                selection-background-color: MaterialPalette.selection-background;
+            }
         }
     }
 }
