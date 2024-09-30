@@ -48,6 +48,10 @@ div.DocSearch-Logo {
     display: none;
 }
 
+div.DocSearch-Container {
+    z-index: 1022;
+}
+
 @media (max-width: 750px) {
     header.DocSearch-SearchBar {
         padding-top: 4rem;

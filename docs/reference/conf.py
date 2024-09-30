@@ -23,6 +23,7 @@ import textwrap
 
 # The full version, including alpha/beta/rc tags
 version = "1.9.0"
+release = version
 
 project = "Slint Reference"
 html_title = f'Slint {version} Reference' # Set title here, otherwise it will say "Slint Reference documentation"
@@ -79,7 +80,8 @@ html_theme_options = {
     },
     "extra_footer": "<div><a href=\"https://slint.dev\">https://slint.dev</a></div>",
     "article_header_start": ["toggle-primary-sidebar.html"],
-    "article_header_end": ["searchbox.html", "article-header-buttons.html"]
+    "article_header_end": ["searchbox.html", "article-header-buttons.html"],
+    "show_version_warning_banner": True
 }
 html_baseurl = 'https://docs.slint.dev/'
 sitemap_url_scheme = "master/docs/slint/{link}"
