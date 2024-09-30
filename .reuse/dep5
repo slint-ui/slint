@@ -55,7 +55,7 @@ Files: tools/slintpad/*.html tools/slintpad/styles/*.css tools/slintpad/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Files: editors/vscode/*.json editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt
+Files: editors/vscode/*.json editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt editors/vscode/tests/grammar/*.slint
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
