@@ -15,6 +15,7 @@ use std::rc::Rc;
 pub fn apply_default_properties_from_style(
     root_component: &Rc<Component>,
     style_metrics: &Rc<Component>,
+    palette: &Rc<Component>,
     _diag: &mut BuildDiagnostics,
 ) {
     crate::object_tree::recurse_elem_including_sub_components(
@@ -30,20 +31,39 @@ pub fn apply_default_properties_from_style(
                             "text-cursor-width",
                         ))
                     });
-                    elem.set_binding_if_not_set("color".into(), || Expression::Cast {
-                        from: Expression::PropertyReference(NamedReference::new(
-                            &style_metrics.root_element,
-                            "default-text-color",
+                    elem.set_binding_if_not_set("color".into(), || {
+                        Expression::PropertyReference(NamedReference::new(
+                            &palette.root_element,
+                            "foreground",
                         ))
-                        .into(),
-                        to: Type::Brush,
+                        .into()
+                    });
+                    elem.set_binding_if_not_set("selection-background-color".into(), || {
+                        Expression::Cast {
+                            from: Expression::PropertyReference(NamedReference::new(
+                                &palette.root_element,
+                                "selection-background",
+                            ))
+                            .into(),
+                            to: Type::Color,
+                        }
+                    });
+                    elem.set_binding_if_not_set("selection-foreground-color".into(), || {
+                        Expression::Cast {
+                            from: Expression::PropertyReference(NamedReference::new(
+                                &palette.root_element,
+                                "selection-foreground",
+                            ))
+                            .into(),
+                            to: Type::Color,
+                        }
                     });
                 }
                 "Text" => {
                     elem.set_binding_if_not_set("color".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
-                            &style_metrics.root_element,
-                            "default-text-color",
+                            &palette.root_element,
+                            "foreground",
                         ))
                         .into(),
                         to: Type::Brush,
@@ -52,8 +72,8 @@ pub fn apply_default_properties_from_style(
                 "Dialog" | "Window" => {
                     elem.set_binding_if_not_set("background".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
-                            &style_metrics.root_element,
-                            "window-background",
+                            &palette.root_element,
+                            "background",
                         ))
                         .into(),
                         to: Type::Brush,

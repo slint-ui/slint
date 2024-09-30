@@ -94,7 +94,7 @@ component SimpleText inherits Empty {
     in property <string> text;
     in property <length> font-size;
     in property <int> font-weight;
-    in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+    in property <brush> color;  // Palette.default-text-color  set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
     //-default_size_binding:implicit_size
@@ -186,7 +186,7 @@ export component SwipeGestureHandler {
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
-    in property <brush> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
+    in property <brush> background; // Palette.background  set in apply_default_properties_from_style
     in property <brush> color <=> background;
     in property <string> title: "Slint Window";
     in property <bool> no-frame;
@@ -216,9 +216,9 @@ export component TextInput {
     in property <length> font-size;
     in property <bool> font-italic;
     in property <int> font-weight;
-    in property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
-    in property <color> selection-foreground-color: #000;
-    in property <color> selection-background-color: #808080;
+    in property <brush> color; // Palette.default-text-color  set in apply_default_properties_from_style
+    in property <color> selection-foreground-color; // Palette.selection-foreground set in apply_default_properties_from_style
+    in property <color> selection-background-color; // Palette.selection-background set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
     in property <TextWrap> wrap;
