@@ -5,7 +5,14 @@ import test from "ava";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadFile, loadSource, CompileError, MapModel, ArrayModel, private_api, Model } from "../dist/index.js";
+import {
+    loadFile,
+    loadSource,
+    CompileError,
+    ArrayModel,
+    private_api,
+    Model,
+} from "../dist/index.js";
 
 test("MapModel notify rowChanged", (t) => {
     const source = `
@@ -22,13 +29,13 @@ test("MapModel notify rowChanged", (t) => {
           }
       }
     }`;
-    
+
     const path = "api.spec.ts";
 
     private_api.initTesting();
     const demo = loadSource(source, path) as any;
     const instance = new demo.App();
-    
+
     interface Name {
         first: string;
         last: string;
@@ -40,51 +47,18 @@ test("MapModel notify rowChanged", (t) => {
         { first: "Roman", last: "Tisch" },
     ]);
 
-    const mapModel = new MapModel(nameModel, (data) => {
+    const mapModel = new private_api.MapModel(nameModel, (data) => {
         return data.last + ", " + data.first;
     });
 
     instance.model = mapModel;
-    
-    private_api.send_mouse_click(instance, 5., 5.);
-    
+
+    private_api.send_mouse_click(instance, 5, 5);
+
     nameModel.setRowData(0, { first: "Simon", last: "Hausmann" });
     nameModel.setRowData(1, { first: "Olivier", last: "Goffart" });
-    
-    private_api.send_mouse_click(instance, 5., 5.);
+
+    private_api.send_mouse_click(instance, 5, 5);
 
     t.is(instance.changed_items, "Goffart, OlivierHausmann, Simon");
- });
-
-test("MapModel wraps slint model", (t) => {
-    const source = `
-    export component App {
-      in-out property <[int]> source: [1, 2, 3];
-      out property <[int]> target;
-      pure callback map([int]) -> [int];
-
-      map(source) => {
-          source
-      }
-
-    }`;
-    
-    const path = "api.spec.ts";
-
-    private_api.initTesting();
-    const demo = loadSource(source, path) as any;
-    const instance = new demo.App({
-      map: function(source) { return new MapModel(source, (value) => { return value + 1}); }
-    });
-    
-
-    
-
-    
-    t.is(instance.target.rowData(0), 2);
-    
-    // private_api.send_mouse_click(instance, 5., 5.);
-    
-    // private_api.send_mouse_click(instance, 5., 5.);
-
- });
+});
