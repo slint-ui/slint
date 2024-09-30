@@ -358,12 +358,27 @@ jobs:
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: www-releases
 
-            - name: Clone www-releases directory
+            - name: Clone www-releases/releases and slintpad directory
               uses: actions/checkout@v4
+              if: ${{ github.event.inputs.release  == 'true' }}
               with:
                 repository: slint-ui/www-releases
                 path: www-releases
                 token: ${{ steps.app-token.outputs.token }}
+                sparse-checkout: |
+                  releases/versions.txt
+                  releases/versions.json
+                  slintpad
+
+            - name: Clone www-releases/snapshots directory
+              uses: actions/checkout@v4
+              if: ${{ github.event.inputs.release  != 'true' }}
+              with:
+                repository: slint-ui/www-releases
+                path: www-releases
+                token: ${{ steps.app-token.outputs.token }}
+                sparse-checkout: |
+                  snapshots
 
             - name: Publish Docs and Demos
               working-directory: ./www-releases
@@ -432,6 +447,28 @@ jobs:
               working-directory: www-releases/releases
               run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
 
+            - name: Print contents before update
+              if: github.event.inputs.release == 'true'
+              run: cat releases/versions.json
+      
+            - name: Update version in versions.json
+              if: github.event.inputs.release == 'true'
+              run: |
+                  sed -i '/"name": "development snapshot"/,/"preferred": true,/c\
+                          "name": "development snapshot",\
+                          "url": "https://snapshots.slint.dev/master/docs"\
+                      },\
+                      {\
+                          "preferred": true,\
+                          "version": "${{ steps.version.outputs.VERSION }}",\
+                          "url": "https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs/slint"\
+                      },\
+                      {' releases/versions.json
+      
+            - name: Print contents before update
+              if: github.event.inputs.release == 'true'
+              run: cat releases/versions.json
+            
             - name: Update SlintPad
               if: github.event.inputs.release == 'true'
               run: |
