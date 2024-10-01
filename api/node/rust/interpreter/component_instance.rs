@@ -154,7 +154,7 @@ impl JsComponentInstance {
                                     .as_ref()
                             ) else {
                                 eprintln!("Node.js: cannot call callback {}", callback_name);
-                                return Value::Void;   
+                                return Value::Void;
                             };
 
                         if let Some(return_type) = &return_type {
