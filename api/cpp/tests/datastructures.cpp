@@ -13,6 +13,7 @@ SCENARIO("SharedString API")
     slint::SharedString str;
 
     REQUIRE(str.empty());
+    REQUIRE(str.size() == 0);
     REQUIRE(str == "");
     REQUIRE(std::string_view(str.data()) == ""); // this test null termination of data()
 
@@ -44,6 +45,12 @@ SCENARIO("SharedString API")
     {
         str = "Hello";
         REQUIRE(str.begin() + std::string_view(str).size() == str.end());
+    }
+
+    SECTION("size")
+    {
+        str = "Hello";
+        REQUIRE(str.size() == 5);
     }
 }
 
