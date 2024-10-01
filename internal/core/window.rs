@@ -726,9 +726,15 @@ impl WindowInner {
         if self.prevent_focus_change.get() {
             return;
         }
-        if !set_focus {
-            let current_focus_item = self.focus_item.borrow().clone();
-            if let Some(current_focus_item_rc) = current_focus_item.upgrade() {
+
+        let current_focus_item = self.focus_item.borrow().clone();
+        if let Some(current_focus_item_rc) = current_focus_item.upgrade() {
+            if set_focus {
+                if current_focus_item_rc == *new_focus_item {
+                    // don't send focus out and in even to the same item if focus doesn't change
+                    return;
+                }
+            } else {
                 if current_focus_item_rc != *new_focus_item {
                     // can't clear focus unless called with currently focused item.
                     return;
