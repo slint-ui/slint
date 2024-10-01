@@ -138,6 +138,9 @@ jobs:
             - name: Run npm install
               working-directory: ./api/node
               run: npm install --ignore-scripts
+            - name: Build node plugin in debug
+              run: npm run build:testing
+              working-directory: ./api/node
             - name: Lint node api
               working-directory: ./api/node
               run: npm run lint
@@ -145,9 +148,6 @@ jobs:
               if: ${{ runner.os != 'Windows' }}
               working-directory: ./api/node
               run: npm run format
-            - name: Build node plugin in debug
-              run: npm run build:testing
-              working-directory: ./api/node
             - name: Run node tests
               working-directory: ./api/node
               run: npm test
