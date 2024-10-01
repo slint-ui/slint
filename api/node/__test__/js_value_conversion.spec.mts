@@ -498,6 +498,54 @@ test("get/set brush properties", (t) => {
     }
 });
 
+test("get/set enum properties", (t) => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `export enum Direction { up, down }
+         export component App { in-out property <Direction> direction: up; }`,
+        "",
+    );
+    t.not(definition.App, null);
+
+    const instance = definition.App!.create();
+    t.not(instance, null);
+
+    t.is(instance!.getProperty("direction"), "up");
+
+    instance!.setProperty("direction", "down");
+    t.is(instance!.getProperty("direction"), "down");
+
+    t.throws(
+        () => {
+            instance!.setProperty("direction", 42);
+        },
+        {
+            code: "InvalidArg",
+            message: "expect String, got: Number",
+        },
+    );
+
+    t.throws(
+        () => {
+            instance!.setProperty("direction", { blah: "foo" });
+        },
+        {
+            code: "InvalidArg",
+            message: "expect String, got: Object",
+        },
+    );
+
+    t.throws(
+        () => {
+            instance!.setProperty("direction", "left");
+        },
+        {
+            code: "GenericFailure",
+            message: "left is not a value of enum Direction",
+        },
+    );
+});
+
 test("ArrayModel", (t) => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(

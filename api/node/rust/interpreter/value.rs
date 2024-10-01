@@ -78,6 +78,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
                 model_wrapper.into_js(env)
             }
         }
+        Value::EnumerationValue(_, value) => env.create_string(value).map(|v| v.into_unknown()),
         _ => env.get_undefined().map(|v| v.into_unknown()),
     }
 }
@@ -257,7 +258,19 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 Ok(Value::Model(rust_model))
             }
         }
-        Type::Enumeration(_) => todo!(),
+        Type::Enumeration(e) => {
+            let js_string: JsString = unknown.try_into()?;
+            let value: String = js_string.into_utf8()?.as_str()?.into();
+
+            if !e.values.contains(&value) {
+                return Err(napi::Error::from_reason(format!(
+                    "{value} is not a value of enum {}",
+                    e.name
+                )));
+            }
+
+            Ok(Value::EnumerationValue(e.name.clone(), value))
+        }
         Type::Invalid
         | Type::Model
         | Type::Void

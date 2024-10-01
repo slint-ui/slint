@@ -23,6 +23,11 @@ All notable changes to this project are documented in this file.
 
  - Bring the window to the front and focus when clicking on "Show preview" in the editor. (#196)
 
+
+### Node API
+
+ - Added support for enums
+
 ## 1.8.0 - 2024-09-23
 
 ### Slint language
