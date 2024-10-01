@@ -459,3 +459,14 @@ fn test_serialize_deserialize_sharedstring() {
     let deserialized: SharedString = serde_json::from_str(&serialized).unwrap();
     assert_eq!(v, deserialized);
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn test_from_cow() {
+    let borrowed = Cow::from("Foo");
+    let owned = Cow::from("Bar".to_string());
+    assert_eq!(SharedString::from("Foo"), SharedString::from(&borrowed));
+    assert_eq!(SharedString::from("Foo"), SharedString::from(borrowed));
+    assert_eq!(SharedString::from("Bar"), SharedString::from(&owned));
+    assert_eq!(SharedString::from("Bar"), SharedString::from(owned));
+}
