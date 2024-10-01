@@ -141,29 +141,32 @@ impl JsComponentInstance {
 
                     move |args| {
                         let Ok(callback) = function_ref.get::<JsFunction>() else {
-                            eprintln!("Ndoe.js: callback {} throws an exception", callback_name);
+                            eprintln!("Node.js: cannot get reference of callback {} because it has the wrong type", callback_name);
                             return Value::Void;
                         };
 
-                        let result = callback
+
+                        let Ok(result) = callback
                             .call(
                                 None,
                                 args.iter()
                                     .map(|v| super::value::to_js_unknown(&env, v).unwrap())
                                     .collect::<Vec<JsUnknown>>()
-                                    .as_ref(),
-                            )
-                            .unwrap();
+                                    .as_ref()
+                            ) else {
+                            eprintln!("Node.js: cannot call callback {}", callback_name);
+                            return Value::Void;
+                        };
 
                         if let Some(return_type) = &return_type {
                             if let Ok(value) = super::to_value(&env, result, return_type) {
                                 return value;
                             } else {
                                 eprintln!(
-                                    "Ndoe.js: callback {} throws an exception",
+                                    "Node.js: cannot convert return type of callback {}",
                                     callback_name
                                 );
-                                return Value::Void;
+                                return slint_interpreter::default_value_for_type(return_type);
                             }
                         } else {
                             Value::Void
@@ -211,30 +214,33 @@ impl JsComponentInstance {
                     move |args| {
                         let Ok(callback) = function_ref.get::<JsFunction>() else {
                             eprintln!(
-                                "Ndoe.js: global {} callback {} throws an exception",
-                                global_name, callback_name
+                                "Node.js: cannot get reference of callback {} of global {} because it has the wrong type",
+                                callback_name, global_name
                             );
                             return Value::Void;
                         };
-                        let result = callback
+
+                        let Ok(result) = callback
                             .call(
                                 None,
                                 args.iter()
                                     .map(|v| super::value::to_js_unknown(&env, v).unwrap())
                                     .collect::<Vec<JsUnknown>>()
-                                    .as_ref(),
-                            )
-                            .unwrap();
+                                    .as_ref()
+                            ) else {
+                            eprintln!("Node.js: cannot call callback {} of global {}", callback_name, global_name);
+                            return Value::Void;
+                        };
 
                         if let Some(return_type) = &return_type {
                             if let Ok(value) = super::to_value(&env, result, return_type) {
                                 return value;
                             } else {
                                 eprintln!(
-                                    "Ndoe.js: callback {} throws an exception",
+                                    "Node.js: cannot convert return type of callback {}",
                                     callback_name
                                 );
-                                return Value::Void;
+                                return slint_interpreter::default_value_for_type(return_type);
                             }
                         } else {
                             Value::Void
