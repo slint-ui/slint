@@ -811,7 +811,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         self.canvas.draw_image(
             cached_shadow_image,
             to_skia_point(offset - PhysicalPoint::from_lengths(blur, blur).to_vector()),
-            None,
+            self.default_paint().as_ref(),
         );
     }
 
