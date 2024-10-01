@@ -239,7 +239,14 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 let mut vec = vec![];
 
                 for i in 0..array.len() {
-                    vec.push(to_value(env, array.get(i)?.unwrap(), a)?);
+                    vec.push(to_value(
+                        env,
+                        array.get(i)?.ok_or(napi::Error::from_reason(format!(
+                            "Cannot access array element at index {}",
+                            i
+                        )))?,
+                        a,
+                    )?);
                 }
                 Ok(Value::Model(ModelRc::new(SharedVectorModel::from(SharedVector::from_slice(
                     &vec,

@@ -90,7 +90,10 @@ impl Model for JsModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        let model: Object = self.js_impl.get().unwrap();
+        let Ok(model) = self.js_impl.get::<Object>() else {
+            eprintln!("Node.js: JavaScript Model<T>'s rowCount throws an exception");
+            return 0;
+        };
 
         let Ok(row_count_property) = model.get::<&str, JsFunction>("rowCount") else {
             eprintln!("Node.js: JavaScript Model<T> implementation is missing rowCount property");
@@ -121,7 +124,11 @@ impl Model for JsModel {
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        let model: Object = self.js_impl.get().unwrap();
+        let Ok(model) = self.js_impl.get::<Object>() else {
+            eprintln!("Node.js: JavaScript Model<T>'s rowData throws an exception");
+            return None;
+        };
+
         let Ok(row_data_property) = model.get::<&str, JsFunction>("rowData") else {
             eprintln!("Node.js: JavaScript Model<T> implementation is missing rowData property");
             return None;
@@ -152,7 +159,10 @@ impl Model for JsModel {
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        let model: Object = self.js_impl.get().unwrap();
+        let Ok(model) = self.js_impl.get::<Object>() else {
+            eprintln!("Node.js: JavaScript Model<T>'s setRowData throws an exception");
+            return;
+        };
 
         let Ok(set_row_data_property) = model.get::<&str, JsFunction>("setRowData") else {
             eprintln!("Node.js: JavaScript Model<T> implementation is missing setRowData property");

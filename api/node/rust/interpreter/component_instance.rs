@@ -137,21 +137,36 @@ impl JsComponentInstance {
             self.inner
                 .set_callback(callback_name.as_str(), {
                     let return_type = return_type.clone();
+                    let callback_name = callback_name.clone();
 
                     move |args| {
-                        let callback: JsFunction = function_ref.get().unwrap();
-                        let result = callback
+                        let Ok(callback) = function_ref.get::<JsFunction>() else {
+                            eprintln!("Node.js: cannot get reference of callback {} because it has the wrong type", callback_name);
+                            return Value::Void;
+                        };
+
+                        let Ok(result) = callback
                             .call(
                                 None,
                                 args.iter()
                                     .map(|v| super::value::to_js_unknown(&env, v).unwrap())
                                     .collect::<Vec<JsUnknown>>()
-                                    .as_ref(),
-                            )
-                            .unwrap();
+                                    .as_ref()
+                            ) else {
+                                eprintln!("Node.js: cannot call callback {}", callback_name);
+                                return Value::Void;
+                            };
 
                         if let Some(return_type) = &return_type {
-                            super::to_value(&env, result, return_type).unwrap()
+                            if let Ok(value) = super::to_value(&env, result, return_type) {
+                                return value;
+                            } else {
+                                eprintln!(
+                                    "Node.js: cannot convert return type of callback {}",
+                                    callback_name
+                                );
+                                return slint_interpreter::default_value_for_type(return_type);
+                            }
                         } else {
                             Value::Void
                         }
@@ -192,21 +207,40 @@ impl JsComponentInstance {
             self.inner
                 .set_global_callback(global_name.as_str(), callback_name.as_str(), {
                     let return_type = return_type.clone();
+                    let global_name = global_name.clone();
+                    let callback_name = callback_name.clone();
 
                     move |args| {
-                        let callback: JsFunction = function_ref.get().unwrap();
-                        let result = callback
+                        let Ok(callback) = function_ref.get::<JsFunction>() else {
+                            eprintln!(
+                                "Node.js: cannot get reference of callback {} of global {} because it has the wrong type",
+                                callback_name, global_name
+                            );
+                            return Value::Void;
+                        };
+
+                        let Ok(result) = callback
                             .call(
                                 None,
                                 args.iter()
                                     .map(|v| super::value::to_js_unknown(&env, v).unwrap())
                                     .collect::<Vec<JsUnknown>>()
-                                    .as_ref(),
-                            )
-                            .unwrap();
+                                    .as_ref()
+                            ) else {
+                            eprintln!("Node.js: cannot call callback {} of global {}", callback_name, global_name);
+                            return Value::Void;
+                        };
 
                         if let Some(return_type) = &return_type {
-                            super::to_value(&env, result, return_type).unwrap()
+                            if let Ok(value) = super::to_value(&env, result, return_type) {
+                                return value;
+                            } else {
+                                eprintln!(
+                                    "Node.js: cannot convert return type of callback {}",
+                                    callback_name
+                                );
+                                return slint_interpreter::default_value_for_type(return_type);
+                            }
                         } else {
                             Value::Void
                         }

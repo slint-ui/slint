@@ -827,3 +827,103 @@ test("invoke callback", (t) => {
     t.deepEqual(instance!.invoke("get-string", []), "string");
     t.deepEqual(instance!.invoke("person", []), { name: "florian" });
 });
+
+test("wrong callback return type ", (t) => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+  export struct Person {
+    name: string,
+    age: int,
+    
+  }
+  export component App {
+    callback get-string() -> string;
+    callback get-int() -> int;
+    callback get-bool() -> bool;
+    callback get-person() -> Person;
+  }
+  `,
+        "",
+    );
+    t.not(definition.App, null);
+
+    const instance = definition.App!.create();
+    t.not(instance, null);
+    let speakTest: string;
+
+    instance!.setCallback("get-string", () => {
+        return 20;
+    });
+
+    const string = instance!.invoke("get-string", []);
+    t.deepEqual(string, "");
+
+    instance!.setCallback("get-int", () => {
+        return "string";
+    });
+
+    const int = instance!.invoke("get-int", []);
+    t.deepEqual(int, 0);
+
+    instance!.setCallback("get-bool", () => {
+        return "string";
+    });
+
+    const bool = instance!.invoke("get-bool", []);
+    t.deepEqual(bool, false);
+
+    instance!.setCallback("get-person", () => {
+        return "string";
+    });
+
+    const person = instance!.invoke("get-person", []);
+    t.deepEqual(person, { name: "", age: 0 });
+});
+
+test("wrong global callback return type ", (t) => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+        export struct Person {
+            name: string,
+            age: int,
+        }
+        export global Global {   
+            callback get-string() -> string;
+            callback get-int() -> int;
+            callback get-bool() -> bool;
+            callback get-person() -> Person;
+        }
+        export component App {
+        }
+  `,
+        "",
+    );
+    t.not(definition.App, null);
+
+    const instance = definition.App!.create();
+    t.not(instance, null);
+    let speakTest: string;
+
+    instance!.setGlobalCallback("Global", "get-string", () => {
+        return 20;
+    });
+
+    const string = instance!.invokeGlobal("Global", "get-string", []);
+    t.deepEqual(string, "");
+
+    instance!.setGlobalCallback("Global", "get-bool", () => {
+        return "string";
+    });
+
+    const bool = instance!.invokeGlobal("Global", "get-bool", []);
+    t.deepEqual(bool, false);
+
+    instance!.setGlobalCallback("Global", "get-person", () => {
+        return "string";
+    });
+
+    const person = instance!.invokeGlobal("Global", "get-person", []);
+    t.deepEqual(person, { name: "", age: 0 });
+});
