@@ -242,7 +242,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                     vec.push(to_value(
                         env,
                         array.get(i)?.ok_or(napi::Error::from_reason(format!(
-                            "Cannot access element at Array on index {}",
+                            "Cannot access array element at index {}",
                             i
                         )))?,
                         a,
