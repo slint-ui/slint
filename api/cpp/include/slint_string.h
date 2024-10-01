@@ -83,6 +83,8 @@ struct SharedString
     /// Provides a raw pointer to the string data. The returned pointer is only valid as long as at
     /// least this SharedString exists.
     auto data() const -> const char * { return cbindgen_private::slint_shared_string_bytes(this); }
+    /// Size of the string, in bytes. This excludes the terminating null character.
+    std::size_t size() const { return std::string_view(*this).size(); }
 
     /// Returns a pointer to the first character. It is only safe to dereference the pointer if the
     /// string contains at least one character.
