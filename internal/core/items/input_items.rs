@@ -6,7 +6,6 @@ use super::{
     PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent,
     PointerScrollEventArg, RenderingResult, VoidArg,
 };
-use crate::animations::Instant;
 use crate::api::LogicalPosition;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -358,7 +357,6 @@ pub struct SwipeGestureHandler {
     pub current_position: Property<LogicalPosition>,
     pub swiping: Property<bool>,
 
-    pressed_time: Cell<Instant>,
     // true when the cursor is pressed down and we haven't cancelled yet for another reason
     pressed: Cell<bool>,
     // capture_events: Cell<bool>,
@@ -397,7 +395,6 @@ impl Item for SwipeGestureHandler {
                     .apply_pin(self)
                     .set(crate::lengths::logical_position_to_api(position));
                 self.pressed.set(true);
-                self.pressed_time.set(crate::animations::current_tick());
                 InputEventFilterResult::DelayForwarding(
                     super::flickable::FORWARD_DELAY.as_millis() as _
                 )
@@ -419,11 +416,6 @@ impl Item for SwipeGestureHandler {
                     InputEventFilterResult::Intercept
                 } else if !self.pressed.get() {
                     InputEventFilterResult::ForwardEvent
-                } else if crate::animations::current_tick() - self.pressed_time.get()
-                    > super::flickable::DURATION_THRESHOLD
-                {
-                    self.pressed.set(false);
-                    InputEventFilterResult::ForwardAndIgnore
                 } else {
                     let pressed_pos = self.pressed_position();
                     let dx = position.x - pressed_pos.x as Coord;
@@ -460,7 +452,11 @@ impl Item for SwipeGestureHandler {
                 self.cancel_impl();
                 InputEventResult::EventIgnored
             }
-            MouseEvent::Released { .. } => {
+            MouseEvent::Released { position, .. } => {
+                if !self.pressed.get() && !self.swiping() {
+                    return InputEventResult::EventIgnored;
+                }
+                self.current_position.set(crate::lengths::logical_position_to_api(position));
                 self.pressed.set(false);
                 if self.swiping() {
                     Self::FIELD_OFFSETS.swiping.apply_pin(self).set(false);
@@ -480,21 +476,14 @@ impl Item for SwipeGestureHandler {
                     let dx = position.x - pressed_pos.x as Coord;
                     let dy = position.y - pressed_pos.y as Coord;
                     let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                    let start_swipe = if dy > threshold {
-                        self.handle_swipe_down()
-                    } else if dy < -threshold {
-                        self.handle_swipe_up()
-                    } else if dx < -threshold {
-                        self.handle_swipe_left()
-                    } else if dx > threshold {
-                        self.handle_swipe_right()
-                    } else {
-                        return InputEventResult::EventIgnored;
-                    };
+                    let start_swipe = (self.handle_swipe_down() && dy > threshold)
+                        || (self.handle_swipe_up() && dy < -threshold)
+                        || (self.handle_swipe_left() && dx < -threshold)
+                        || (self.handle_swipe_right() && dx > threshold);
+
                     if start_swipe {
                         Self::FIELD_OFFSETS.swiping.apply_pin(self).set(true);
                     } else {
-                        self.cancel_impl();
                         return InputEventResult::EventIgnored;
                     }
                 }
