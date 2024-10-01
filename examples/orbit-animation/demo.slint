@@ -25,12 +25,22 @@ export component AppWindow inherits Window {
     preferred-width: 600px;
     preferred-height: 600px;
 
+    combo-backer := Rectangle {
+        x: cb.x;
+        y: cb.y;
+        width: cb.width;
+        height: cb.height;
+        background: black;
+        border-radius: 3px;
+    }
+
     cb := ComboBox {
         x: 10px;
         y: 10px;
         model: ["Demo 1", "Demo 2", "Demo 3", "Demo 4"];
         current-value: "Demo 1";
     }
+    
 
     if cb.current-value == "Demo 1": Rectangle {
         Orbiter {
@@ -119,4 +129,5 @@ export component AppWindow inherits Window {
             colorize: white.mix(black, self.scale);
         }
     }
+    
 }
