@@ -1326,7 +1326,7 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_image_to_rgb8(
+    pub extern "C" fn slint_image_to_rgb8(
         image: &Image,
         data: &mut SharedVector<Rgb8Pixel>,
         width: &mut u32,
@@ -1341,7 +1341,7 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_image_to_rgba8(
+    pub extern "C" fn slint_image_to_rgba8(
         image: &Image,
         data: &mut SharedVector<Rgba8Pixel>,
         width: &mut u32,
@@ -1356,7 +1356,7 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_image_to_rgba8_premultiplied(
+    pub extern "C" fn slint_image_to_rgba8_premultiplied(
         image: &Image,
         data: &mut SharedVector<Rgba8Pixel>,
         width: &mut u32,
