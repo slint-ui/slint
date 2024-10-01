@@ -71,6 +71,15 @@ impl Item for TouchArea {
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if !self.enabled() {
+            self.has_hover.set(false);
+            if self.grabbed.replace(false) {
+                self.pressed.set(false);
+                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    button: PointerEventButton::Other,
+                    kind: PointerEventKind::Cancel,
+                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                },));
+            }
             return InputEventFilterResult::ForwardAndIgnore;
         }
         if let Some(pos) = event.position() {
