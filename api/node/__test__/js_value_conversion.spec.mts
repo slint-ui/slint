@@ -945,13 +945,16 @@ test("throw exception in callback", (t) => {
     t.not(instance, null);
     let speakTest: string;
 
-    instance!.setCallback("throw-something", () => {        
+    instance!.setCallback("throw-something", () => {
         throw new Error("I'm an error");
     });
 
     const output = captureStderr(() => {
         instance!.invoke("throw-something", []);
     });
-    t.assert(output.includes("Node.js: Invoking callback 'throw-something' failed:"), `Output was ${output}`);
+    t.assert(
+        output.includes("Node.js: Invoking callback 'throw-something' failed:"),
+        `Output was ${output}`,
+    );
     t.assert(output.includes("I'm an error"), `Output was ${output}`);
 });
