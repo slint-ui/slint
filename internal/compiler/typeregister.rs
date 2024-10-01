@@ -131,8 +131,8 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_ROTATION_PROPERTIES.iter())
-        .map(|(k, v)| (*k, v.clone(), PropertyVisibility::InOut))
-        .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::InOut)))
+        .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
+        .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::Input)))
         .chain(
             RESERVED_GRIDLAYOUT_PROPERTIES
                 .iter()

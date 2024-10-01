@@ -171,12 +171,12 @@ component SelectionFrame {
 }
 
 export component PreviewView {
-    in property <[Diagnostics]> diagnostics <=> Api.diagnostics;
-    in property <[Selection]> selections <=> Api.selections;
+    property <[Diagnostics]> diagnostics <=> Api.diagnostics;
+    property <[Selection]> selections <=> Api.selections;
     in property <ComponentItem> visible-component;
-    in property <DropMark> drop-mark <=> Api.drop-mark;
-    in property <component-factory> preview-area <=> Api.preview-area;
-    in property <bool> design-mode <=> Api.design-mode;
+    property <DropMark> drop-mark <=> Api.drop-mark;
+    property <component-factory> preview-area <=> Api.preview-area;
+    out property <bool> design-mode <=> Api.design-mode;
     in-out property <bool> select-mode: false;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;

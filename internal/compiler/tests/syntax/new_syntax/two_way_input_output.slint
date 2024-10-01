@@ -85,6 +85,7 @@ export component C3 {
     // checked is "input/output" in Button
     out <=> b.checked;
     in <=> b.checked;
+//  ^warning{Linking input properties to input output properties is deprecated}
     inout <=> b.checked;
     priv <=> b.checked;
 
@@ -289,6 +290,28 @@ export component C11 {
 //          ^error{Assignment on a input property}
             inout = !inout;
             priv = !priv;
+        }
+    }
+}
+
+export component C12 {
+    in property <bool> in1 <=> btn.pressed;
+//                         ^error{Cannot link to a output property}
+    in property <bool> in2 <=> btn.checked;
+//                         ^warning{Linking input properties to input output properties is deprecated}
+    in property <bool> in3 <=> btn.enabled;
+    in property <bool> in4 <=> btn.accessible-checked;
+    in property <bool> in5 <=> inout1;
+//                         ^error{Cannot link input property}
+
+    in-out property <bool> inout1;
+
+    btn := Button {
+        clicked => {
+            self.checked = !self.checked;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+            self.enabled = !self.enabled;
+//          ^error{Cannot modify a property that is linked to a read-only property}
         }
     }
 }
