@@ -5,6 +5,7 @@ import test from "ava";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import Jimp = require("jimp");
+import { captureStderr } from "capture-console";
 
 import {
     private_api,
@@ -926,4 +927,34 @@ test("wrong global callback return type ", (t) => {
 
     const person = instance!.invokeGlobal("Global", "get-person", []);
     t.deepEqual(person, { name: "", age: 0 });
+});
+
+test("throw exception in callback", (t) => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+  export component App {
+    callback throw-something();
+  }
+  `,
+        "",
+    );
+    t.not(definition.App, null);
+
+    const instance = definition.App!.create();
+    t.not(instance, null);
+    let speakTest: string;
+
+    instance!.setCallback("throw-something", () => {
+        throw new Error("I'm an error");
+    });
+
+    const output = captureStderr(() => {
+        instance!.invoke("throw-something", []);
+    });
+    t.assert(
+        output.includes("Node.js: Invoking callback 'throw-something' failed:"),
+        `Output was ${output}`,
+    );
+    t.assert(output.includes("I'm an error"), `Output was ${output}`);
 });

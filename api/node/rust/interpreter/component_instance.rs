@@ -145,17 +145,20 @@ impl JsComponentInstance {
                             return Value::Void;
                         };
 
-                        let Ok(result) = callback
+                        let result = match callback
                             .call(
                                 None,
                                 args.iter()
                                     .map(|v| super::value::to_js_unknown(&env, v).unwrap())
                                     .collect::<Vec<JsUnknown>>()
                                     .as_ref()
-                            ) else {
-                                eprintln!("Node.js: cannot call callback {}", callback_name);
+                            ) {
+                            Ok(result) => result,
+                            Err(err) => {
+                                crate::console_err!(env, "Node.js: Invoking callback '{callback_name}' failed: {err}");
                                 return Value::Void;
-                            };
+                            }
+                        };
 
                         if let Some(return_type) = &return_type {
                             if let Ok(value) = super::to_value(&env, result, return_type) {
@@ -219,16 +222,19 @@ impl JsComponentInstance {
                             return Value::Void;
                         };
 
-                        let Ok(result) = callback
+                        let result = match callback
                             .call(
                                 None,
                                 args.iter()
                                     .map(|v| super::value::to_js_unknown(&env, v).unwrap())
                                     .collect::<Vec<JsUnknown>>()
                                     .as_ref()
-                            ) else {
-                            eprintln!("Node.js: cannot call callback {} of global {}", callback_name, global_name);
-                            return Value::Void;
+                            ) {
+                            Ok(result) => result,
+                            Err(err) => {
+                                crate::console_err!(env, "Node.js: Invoking global callback '{callback_name}' failed: {err}");
+                                return Value::Void;
+                            }
                         };
 
                         if let Some(return_type) = &return_type {

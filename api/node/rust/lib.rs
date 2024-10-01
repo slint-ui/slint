@@ -7,7 +7,7 @@ pub use interpreter::*;
 mod types;
 pub use types::*;
 
-use napi::{Env, JsFunction};
+use napi::{Env, JsFunction, JsObject};
 
 #[macro_use]
 extern crate napi_derive;
@@ -84,4 +84,39 @@ pub fn set_quit_on_last_window_closed(
 pub fn init_testing() {
     #[cfg(feature = "testing")]
     i_slint_backend_testing::init_integration_test_with_mock_time();
+}
+
+pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Arguments) {
+    let Ok(global) = env.get_global() else {
+        eprintln!("Unable to obtain global object");
+        return;
+    };
+
+    let Ok(console_object) = global
+        .get_named_property::<JsObject>("console")
+        .and_then(|console| console.coerce_to_object())
+    else {
+        eprintln!("Unable to obtain console object for logging");
+        return;
+    };
+
+    let Ok(Some(log_fn)) = console_object.get::<&str, JsFunction>(function) else {
+        eprintln!("Unable to obtain console.{function}");
+        return;
+    };
+
+    let message = arguments.to_string();
+    let Ok(js_message) = env.create_string(&message) else {
+        eprintln!("Unable to provide log message to JS env");
+        return;
+    };
+
+    if let Err(err) = log_fn.call(None, &vec![js_message.into_unknown()]) {
+        eprintln!("Unable to invoke console.{function}: {err}");
+    }
+}
+
+#[macro_export]
+macro_rules! console_err {
+    ($env:expr, $($t:tt)*) => ($crate::print_to_console($env, "error", format_args!($($t)*)))
 }
