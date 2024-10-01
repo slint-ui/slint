@@ -218,6 +218,48 @@ public:
         cbindgen_private::types::slint_image_set_nine_slice_edges(&data, top, right, bottom, left);
     }
 
+    /// Returns the pixel buffer for the Image if available in RGB format without alpha.
+    /// Returns nullopt if the pixels cannot be obtained, for example when the image was created
+    /// from borrowed OpenGL textures.
+    std::optional<SharedPixelBuffer<Rgb8Pixel>> to_rgb8() const
+    {
+        SharedPixelBuffer<Rgb8Pixel> result;
+        if (cbindgen_private ::types::slint_image_to_rgb8(&data, &result.m_data, &result.m_width,
+                                                          &result.m_height)) {
+            return result;
+        } else {
+            return {};
+        }
+    }
+
+    /// Returns the pixel buffer for the Image if available in RGBA format.
+    /// Returns nullopt if the pixels cannot be obtained, for example when the image was created
+    /// from borrowed OpenGL textures.
+    std::optional<SharedPixelBuffer<Rgba8Pixel>> to_rgba8() const
+    {
+        SharedPixelBuffer<Rgba8Pixel> result;
+        if (cbindgen_private ::types::slint_image_to_rgba8(&data, &result.m_data, &result.m_width,
+                                                           &result.m_height)) {
+            return result;
+        } else {
+            return {};
+        }
+    }
+
+    /// Returns the pixel buffer for the Image if available in RGBA format, with the alpha channel
+    /// pre-multiplied to the red, green, and blue channels. Returns nullopt if the pixels cannot be
+    /// obtained, for example when the image was created from borrowed OpenGL textures.
+    std::optional<SharedPixelBuffer<Rgba8Pixel>> to_rgba8_premultiplied() const
+    {
+        SharedPixelBuffer<Rgba8Pixel> result;
+        if (cbindgen_private ::types::slint_image_to_rgba8_premultiplied(
+                    &data, &result.m_data, &result.m_width, &result.m_height)) {
+            return result;
+        } else {
+            return {};
+        }
+    }
+
     /// Returns true if \a a refers to the same image as \a b; false otherwise.
     friend bool operator==(const Image &a, const Image &b)
     {
