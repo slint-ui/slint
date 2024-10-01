@@ -68,7 +68,7 @@ preview-lense = []
 ## to provide an implementation of the external preview API when building for WASM)
 preview-api = ["preview-external"]
 ## Build in the actual code to act as a preview for slint files.
-preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "dep:slint-build", "dep:i-slint-common", "dep:i-slint-backend-winit", "dep:muda", "dep:objc2-foundation"]
+preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "dep:slint-build", "dep:i-slint-backend-winit", "dep:muda", "dep:objc2-foundation"]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
@@ -82,7 +82,6 @@ i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 by_address = { workspace = true }
 clru = { workspace = true }
 dissimilar = "1.0.7"
-euclid = { workspace = true }
 itertools = { workspace = true }
 lsp-types = { version = "0.95.0", features = ["proposed"] }
 serde = { workspace = true }
@@ -90,7 +89,6 @@ serde_json = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }
-i-slint-common = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "highlight", "internal"], optional = true  }
