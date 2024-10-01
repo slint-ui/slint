@@ -145,7 +145,6 @@ impl JsComponentInstance {
                             return Value::Void;
                         };
 
-
                         let Ok(result) = callback
                             .call(
                                 None,
@@ -154,9 +153,9 @@ impl JsComponentInstance {
                                     .collect::<Vec<JsUnknown>>()
                                     .as_ref()
                             ) else {
-                            eprintln!("Node.js: cannot call callback {}", callback_name);
-                            return Value::Void;
-                        };
+                                eprintln!("Node.js: cannot call callback {}", callback_name);
+                                return Value::Void;   
+                            };
 
                         if let Some(return_type) = &return_type {
                             if let Ok(value) = super::to_value(&env, result, return_type) {
