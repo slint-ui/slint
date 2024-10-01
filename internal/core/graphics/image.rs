@@ -1324,6 +1324,51 @@ pub(crate) mod ffi {
     ) {
         image.set_nine_slice_edges(top, right, bottom, left);
     }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_image_to_rgb8(
+        image: &Image,
+        data: &mut SharedVector<Rgb8Pixel>,
+        width: &mut u32,
+        height: &mut u32,
+    ) -> bool {
+        image.to_rgb8().map_or(false, |pixel_buffer| {
+            *data = pixel_buffer.data.clone();
+            *width = pixel_buffer.width();
+            *height = pixel_buffer.height();
+            true
+        })
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_image_to_rgba8(
+        image: &Image,
+        data: &mut SharedVector<Rgba8Pixel>,
+        width: &mut u32,
+        height: &mut u32,
+    ) -> bool {
+        image.to_rgba8().map_or(false, |pixel_buffer| {
+            *data = pixel_buffer.data.clone();
+            *width = pixel_buffer.width();
+            *height = pixel_buffer.height();
+            true
+        })
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_image_to_rgba8_premultiplied(
+        image: &Image,
+        data: &mut SharedVector<Rgba8Pixel>,
+        width: &mut u32,
+        height: &mut u32,
+    ) -> bool {
+        image.to_rgba8_premultiplied().map_or(false, |pixel_buffer| {
+            *data = pixel_buffer.data.clone();
+            *width = pixel_buffer.width();
+            *height = pixel_buffer.height();
+            true
+        })
+    }
 }
 
 /// This structure contains fields to identify and render an OpenGL texture that Slint borrows from the application code.
