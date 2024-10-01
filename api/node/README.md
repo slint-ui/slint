@@ -193,6 +193,7 @@ The types used for properties in .slint design markup each translate to specific
 | `angle` | `Number` | The angle in degrees |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
 | array | `Array` or any implementation of Model | |
+| enum | `String` | The value of an enum |
 
 ### Arrays and Models
 
