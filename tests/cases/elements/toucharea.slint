@@ -8,6 +8,11 @@ export component TestCase  {
 
     in-out property <string> pointer-event-test;
 
+    in property <bool> enabled2 <=> ta2.enabled;
+    out property <bool> pressed2 <=> ta2.pressed;
+    out property <bool> has-hover2 <=> ta2.has-hover;
+
+
     TouchArea {
         x: 100phx;
         y: 100phx;
@@ -24,7 +29,7 @@ export component TestCase  {
             mouse-cursor: default;
         }
     }
-    TouchArea {
+    ta2 := TouchArea {
         x: 100phx;
         y: 100phx;
         width: 5phx;
@@ -177,6 +182,53 @@ slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
 slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_pointer_event_test().as_str(), "downleft(ctrl)clickupleft(shift)moveother(shift)");
+```
+
+```rust
+// disable while pressed
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::private_unstable_api::re_exports::MouseCursor;
+
+let instance = TestCase::new().unwrap();
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+
+// press on second one
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(102.0, 102.0) });
+assert_eq!(instance.get_has_hover2(), true);
+assert_eq!(instance.get_pressed2(), false);
+assert_eq!(instance.get_pointer_event_test().as_str(), "moveother");
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherdownleft");
+assert_eq!(instance.get_has_hover2(), true);
+assert_eq!(instance.get_pressed2(), true);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(51.0, 51.0) });
+assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherdownleftmoveother");
+instance.set_pointer_event_test("".into());
+assert_eq!(instance.get_has_hover2(), true);
+assert_eq!(instance.get_pressed2(), true);
+
+instance.set_enabled2(false);
+// Only setting enabled is not enough to change the properties...
+assert_eq!(instance.get_has_hover2(), true);
+assert_eq!(instance.get_pressed2(), true);
+assert_eq!(instance.get_pointer_event_test().as_str(), "");
+
+// next cursor move does
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(251.0, 1.0) });
+assert_eq!(instance.get_pointer_event_test().as_str(), "cancelother");
+instance.set_pointer_event_test("".into());
+assert_eq!(instance.get_has_hover2(), false);
+assert_eq!(instance.get_pressed2(), false);
+
+// now click on it again, it forwards to the first one since the second one is disabled
+slint_testing::send_mouse_click(&instance, 101., 101.);
+assert_eq!(instance.get_touch1(), 1);
+assert_eq!(instance.get_touch2(), 0);
+assert_eq!(instance.get_touch3(), 0);
+assert_eq!(instance.get_has_hover2(), false);
+assert_eq!(instance.get_pressed2(), false);
+assert_eq!(instance.get_pointer_event_test().as_str(), "");
+
 ```
 
 ```js
