@@ -91,7 +91,7 @@ impl Model for JsModel {
 
     fn row_count(&self) -> usize {
         let Ok(model) = self.js_impl.get::<Object>() else {
-            eprintln!("Node.js: JavaScript Model<T>'s rowCount throws an exception");
+            eprintln!("Node.js: JavaScript Model<T>'s rowCount threw an exception");
             return 0;
         };
 
@@ -125,7 +125,7 @@ impl Model for JsModel {
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         let Ok(model) = self.js_impl.get::<Object>() else {
-            eprintln!("Node.js: JavaScript Model<T>'s rowData throws an exception");
+            eprintln!("Node.js: JavaScript Model<T>'s rowData threw an exception");
             return None;
         };
 
@@ -160,7 +160,7 @@ impl Model for JsModel {
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
         let Ok(model) = self.js_impl.get::<Object>() else {
-            eprintln!("Node.js: JavaScript Model<T>'s setRowData throws an exception");
+            eprintln!("Node.js: JavaScript Model<T>'s setRowData threw an exception");
             return;
         };
 

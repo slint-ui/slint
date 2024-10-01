@@ -55,7 +55,7 @@ pub fn invoke_from_event_loop(env: Env, callback: JsFunction) -> napi::Result<na
     i_slint_core::api::invoke_from_event_loop(move || {
         let function_ref = function_ref.take();
         let Ok(callback) = function_ref.get::<JsFunction>() else {
-            eprintln!("Node.js: JavaScript invoke_from_event_loop throws an exception");
+            eprintln!("Node.js: JavaScript invoke_from_event_loop threw an exception");
             return;
         };
         callback.call_without_args(None).ok();
