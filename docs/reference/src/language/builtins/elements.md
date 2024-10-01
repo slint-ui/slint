@@ -322,7 +322,7 @@ An `Image` can be used to represent an image loaded from a file.
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
     When these properties are set, the `Image` can't have children.
--   **`source`** (_in_ _image_): The image to load. Use the [`@image-url("...")` macro](../syntax/types#images) to specify the location of the image.
+-   **`source`** (_in_ _image_): The image to load. Use the [`@image-url("...")` macro](../syntax/types.md#images) to specify the location of the image.
 -   **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (_in_ _int_): Properties in source
     image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
     | Property | Default Binding |
