@@ -74,15 +74,15 @@ udisksctl mount -b /dev/sda1
 elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 ```
 
-#### Using probe-run
+#### Using probe-rs
 
-This require [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install probe-run`)
-and to connect the pico via a probe (for example another pico running the probe)
+This requires [probe-rs](https://probe.rs) and to connect the pico via a probe
+(for example another pico running the probe).
 
 Then you can simply run with `cargo run`
 
 ```sh
-CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-run --chip RP2040" cargo run -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
+CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-rs run --chip RP2040" cargo run -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
 #### Flashing and Debugging the Pico with `probe-rs`'s VSCode Plugin
@@ -158,10 +158,10 @@ This was tested using a second Raspberry Pi Pico programmed as a probe with [Dap
 
 ### STM32H735G-DK
 
-Using [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install probe-run`)
+Using [probe-rs](https://probe.rs).
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-rs --chip STM32H735IGKx" cargo run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
 
 ### ESP32
