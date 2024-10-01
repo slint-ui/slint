@@ -15,6 +15,10 @@ Files: api/cpp/docs/*/*.html api/cpp/docs/*/*.css docs/*/*.css docs/*/*.html doc
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
+Files: api/cpp/tests/redpixel.png
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
 Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig*
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
