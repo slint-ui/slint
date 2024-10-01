@@ -95,6 +95,8 @@ together and always contain the same value.
 
 The right hand side of the `<=>` must be a reference to a property of the same type.
 The property type is optional with two-way bindings, it will be inferred if not specified.
+The initial value of a linked property will be the value of the right hand side of the binding.
+The two linked properties must be compatible in terms of input/output.
 
 ```slint,no-preview
 export component Example  {

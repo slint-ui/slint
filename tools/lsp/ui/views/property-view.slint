@@ -579,8 +579,8 @@ component ExpandableGroup {
 }
 
 export component PropertyView {
-    in property <ElementInformation> current-element <=> Api.current-element;
-    in property <[PropertyGroup]> properties <=> Api.properties;
+    property <ElementInformation> current-element <=> Api.current-element;
+    property <[PropertyGroup]> properties <=> Api.properties;
 
     property <length> key-width: self.width / 2.5;
     property <bool> element-loaded: root.properties.length > 0;

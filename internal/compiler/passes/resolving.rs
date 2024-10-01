@@ -1618,6 +1618,11 @@ fn resolve_two_way_bindings(
                                     } else {
                                         diag.push_error("Cannot link input property".into(), &node);
                                     }
+                                } else if rhs_lookup.property_visibility
+                                    == PropertyVisibility::InOut
+                                {
+                                    diag.push_warning("Linking input properties to input output properties is deprecated".into(), &node);
+                                    marked_linked_read_only(&nr.element(), nr.name());
                                 } else {
                                     // This is allowed, but then the rhs must also become read only.
                                     marked_linked_read_only(&nr.element(), nr.name());

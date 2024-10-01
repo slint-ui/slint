@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component LineEditBase inherits Rectangle {
-    in-out property <string> placeholder-text;
-    in-out property <length> font-size <=> i-text-input.font-size;
+    in property <string> placeholder-text;
+    in property <length> font-size <=> i-text-input.font-size;
     in-out property <string> text <=> i-text-input.text;
     in-out property <brush> placeholder-color;
-    in-out property <bool> enabled <=> i-text-input.enabled;
-    in-out property <bool> has-focus: i-text-input.has-focus;
-    in-out property <InputType> input-type <=> i-text-input.input-type;
-    in-out property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
-    in-out property <bool> read-only <=> i-text-input.read-only;
+    in property <bool> enabled <=> i-text-input.enabled;
+    out property <bool> has-focus: i-text-input.has-focus;
+    in property <InputType> input-type <=> i-text-input.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in property <bool> read-only <=> i-text-input.read-only;
     in property <int> font-weight <=> i-text-input.font-weight;
     in property <brush> text-color;
     in property <color> selection-background-color <=> i-text-input.selection-background-color;
