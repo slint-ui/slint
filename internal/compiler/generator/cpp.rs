@@ -6,10 +6,14 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
+use std::collections::HashSet;
 use std::fmt::Write;
+use std::fs::File;
+use std::io::BufReader;
 use std::io::BufWriter;
 
 use lyon_path::geom::euclid::approxeq::ApproxEq;
+use serde_json::Error;
 
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -19,8 +23,30 @@ pub struct Config {
     pub header_include: String,
 }
 
+// Function loading C++ keywords from JSON
+fn load_cpp_keywords_from_file(file_path: &str) -> Result<HashSet<String>, Error> {
+    // Open File
+    let file = File::open(file_path).expect("File cannot be open!");
+    let reader = BufReader::new(file);
+
+    // Parse JSON
+    let keywords: Vec<String> = serde_json::from_reader(reader)?;
+
+    // Convert into HashSet for fast access
+    Ok(keywords.into_iter().collect())
+}
+
+// Check if word is one of C++ keywords
+fn is_cpp_keyword(word: &str, cpp_keywords: &HashSet<String>) -> bool {
+    cpp_keywords.contains(word)
+}
+
 fn ident(ident: &str) -> String {
-    if ident.contains('-') {
+    let cpp_keywords =
+        load_cpp_keywords_from_file("cpp_keywords.json").expect("Failed to load C++ keywords JSON File");
+    if is_cpp_keyword(ident, &cpp_keywords) {
+        format!("{}_", ident)
+    } else if ident.contains('-') {
         ident.replace('-', "_")
     } else {
         ident.into()
