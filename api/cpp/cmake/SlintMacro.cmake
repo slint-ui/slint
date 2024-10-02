@@ -50,11 +50,11 @@ function(SLINT_TARGET_SOURCES target)
         get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
 
-        set(t_prop "$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>")
+        set(t_prop "$<GENEX_EVAL:$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>>")
         set(global_fallback "${DEFAULT_SLINT_EMBED_RESOURCES}")
         set(embed "$<IF:$<STREQUAL:${t_prop},>,${global_fallback},${t_prop}>")
 
-        set(scale_factor_target_prop "$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>")
+        set(scale_factor_target_prop "$<GENEX_EVAL:$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>>")
         set(scale_factor_arg "$<IF:$<STREQUAL:${scale_factor_target_prop},>,,--scale-factor=${scale_factor_target_prop}>")
 
         if (compilation_units GREATER 0)
