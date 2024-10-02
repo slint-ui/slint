@@ -53,7 +53,7 @@ compile_error!(
 use std::collections::HashMap;
 use std::env;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 
@@ -370,8 +370,40 @@ pub fn compile_with_config(
     let path = Path::new(&env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?)
         .join(path.as_ref());
 
+    let output_file_path = Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?)
+        .join(
+            path.file_stem()
+                .map(Path::new)
+                .unwrap_or_else(|| Path::new("slint_out"))
+                .with_extension("rs"),
+        );
+
+    let dependencies = compile_input_output_with_config(path, output_file_path.clone(), config)?;
+
+    for dependency in dependencies {
+        println!("cargo:rerun-if-changed={}", dependency.display());
+    }
+
+    println!("cargo:rerun-if-env-changed=SLINT_STYLE");
+    println!("cargo:rerun-if-env-changed=SLINT_FONT_SIZES");
+    println!("cargo:rerun-if-env-changed=SLINT_SCALE_FACTOR");
+    println!("cargo:rerun-if-env-changed=SLINT_ASSET_SECTION");
+    println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
+    println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
+
+    println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
+
+    Ok(())
+}
+
+/// Compile the input file to an output file and list dependencies.
+pub fn compile_input_output_with_config(
+    input_slint_file_path: impl AsRef<std::path::Path> + Clone,
+    output_rust_file_path: impl AsRef<std::path::Path>,
+    config: CompilerConfiguration,
+) -> Result<Vec<std::path::PathBuf>, CompileError> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse_file(&path, &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse_file(&input_slint_file_path, &mut diag);
 
     if diag.has_errors() {
         let vec = diag.to_string_vec();
@@ -394,21 +426,16 @@ pub fn compile_with_config(
         return Err(CompileError::CompileError(vec));
     }
 
-    let output_file_path = Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?)
-        .join(
-            path.file_stem()
-                .map(Path::new)
-                .unwrap_or_else(|| Path::new("slint_out"))
-                .with_extension("rs"),
-        );
-
-    let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formatter = CodeFormatter::new(BufWriter::new(file));
+    let output_file =
+        std::fs::File::create(&output_rust_file_path).map_err(CompileError::SaveError)?;
+    let mut code_formatter = CodeFormatter::new(BufWriter::new(output_file));
     let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config);
+
+    let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 
     for x in &diag.all_loaded_files {
         if x.is_absolute() {
-            println!("cargo:rerun-if-changed={}", x.display());
+            dependencies.push(x.clone());
         }
     }
 
@@ -420,23 +447,16 @@ pub fn compile_with_config(
     });
 
     write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
-    println!("cargo:rerun-if-changed={}", path.display());
+    dependencies.push(input_slint_file_path.clone());
 
     for resource in doc.embedded_file_resources.borrow().keys() {
         if !resource.starts_with("builtin:") {
             println!("cargo:rerun-if-changed={}", resource);
+            dependencies.push(Path::new(resource).to_path_buf());
         }
     }
-    println!("cargo:rerun-if-env-changed=SLINT_STYLE");
-    println!("cargo:rerun-if-env-changed=SLINT_FONT_SIZES");
-    println!("cargo:rerun-if-env-changed=SLINT_SCALE_FACTOR");
-    println!("cargo:rerun-if-env-changed=SLINT_ASSET_SECTION");
-    println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
-    println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
 
-    println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
-
-    Ok(())
+    Ok(dependencies)
 }
 
 /// This function is for use the application's build script, in order to print any device specific
