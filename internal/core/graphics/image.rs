@@ -704,36 +704,34 @@ impl Image {
     /// Returns the pixel buffer for the Image if available in RGBA format.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     pub fn to_rgba8(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.0.render_to_buffer(None).and_then(|image| match image {
-            SharedImageBuffer::RGB8(buffer) => Some(SharedPixelBuffer::<Rgba8Pixel> {
+        self.0.render_to_buffer(None).map(|image| match image {
+            SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
                 data: buffer.data.into_iter().map(Into::into).collect(),
-            }),
-            SharedImageBuffer::RGBA8(buffer) => Some(buffer),
-            SharedImageBuffer::RGBA8Premultiplied(buffer) => {
-                Some(SharedPixelBuffer::<Rgba8Pixel> {
-                    width: buffer.width,
-                    height: buffer.height,
-                    data: buffer
-                        .data
-                        .into_iter()
-                        .map(|rgba_premul| {
-                            if rgba_premul.a == 0 {
-                                Rgba8Pixel::new(0, 0, 0, 0)
-                            } else {
-                                let af = rgba_premul.a as f32 / 255.0;
-                                Rgba8Pixel {
-                                    r: (rgba_premul.r as f32 * 255. / af) as u8,
-                                    g: (rgba_premul.g as f32 * 255. / af) as u8,
-                                    b: (rgba_premul.b as f32 * 255. / af) as u8,
-                                    a: rgba_premul.a,
-                                }
+            },
+            SharedImageBuffer::RGBA8(buffer) => buffer,
+            SharedImageBuffer::RGBA8Premultiplied(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
+                width: buffer.width,
+                height: buffer.height,
+                data: buffer
+                    .data
+                    .into_iter()
+                    .map(|rgba_premul| {
+                        if rgba_premul.a == 0 {
+                            Rgba8Pixel::new(0, 0, 0, 0)
+                        } else {
+                            let af = rgba_premul.a as f32 / 255.0;
+                            Rgba8Pixel {
+                                r: (rgba_premul.r as f32 * 255. / af) as u8,
+                                g: (rgba_premul.g as f32 * 255. / af) as u8,
+                                b: (rgba_premul.b as f32 * 255. / af) as u8,
+                                a: rgba_premul.a,
                             }
-                        })
-                        .collect(),
-                })
-            }
+                        }
+                    })
+                    .collect(),
+            },
         })
     }
 
@@ -741,13 +739,13 @@ impl Image {
     /// to the red, green, and blue channels.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     pub fn to_rgba8_premultiplied(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.0.render_to_buffer(None).and_then(|image| match image {
-            SharedImageBuffer::RGB8(buffer) => Some(SharedPixelBuffer::<Rgba8Pixel> {
+        self.0.render_to_buffer(None).map(|image| match image {
+            SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
                 data: buffer.data.into_iter().map(Into::into).collect(),
-            }),
-            SharedImageBuffer::RGBA8(buffer) => Some(SharedPixelBuffer::<Rgba8Pixel> {
+            },
+            SharedImageBuffer::RGBA8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
                 data: buffer
@@ -767,8 +765,8 @@ impl Image {
                         }
                     })
                     .collect(),
-            }),
-            SharedImageBuffer::RGBA8Premultiplied(buffer) => Some(buffer),
+            },
+            SharedImageBuffer::RGBA8Premultiplied(buffer) => buffer,
         })
     }
 

@@ -118,3 +118,8 @@ tempfile = { version = "3.12.0" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)"] }
+
+[lints.clippy]
+# Coord is an alias for f32 in most architectures, but not always, so the cast
+# to f32 *is* necessary.
+unnecessary_cast = { level = "allow" }
