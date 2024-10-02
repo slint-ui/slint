@@ -1018,10 +1018,17 @@ impl WindowInner {
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
         {
             None => {
+                let clip = LogicalRect::new(
+                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+                );
+                let rect = popup::place_popup(
+                    popup::Placement::Fixed(LogicalRect::new(position, size)),
+                    &Some(clip),
+                );
                 self.window_adapter().request_redraw();
-                PopupWindowLocation::ChildWindow(position)
+                PopupWindowLocation::ChildWindow(rect.origin)
             }
-
             Some(window_adapter) => {
                 WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
                 PopupWindowLocation::TopLevel(window_adapter)
