@@ -255,13 +255,14 @@ export component Example inherits Window {
 
 `GridLayout` places elements on a grid.
 
-It adds the following properties to each cell element: `col`, `row`, `colspan`, `rowspan`.
-These properties must be compile-time constants.
+Cell elements inside a `GridLayout` obtain the following new properties. Any bindings to these properties must be compile-time constants:
 
-`col` and `row` control the position of a cell within the grid.
-Without `col`, elements are assigned columns sequentially, within their row.
-Set the `row` property to place an element into a specific row. This implicitly resets the column to `0`.
-Wrap elements in `Row` to avoid having to repeatedly specify row indices.
+-   **`row`** (_in_ _int_): The index of the element's row within the grid. Setting this property resets the element's column to zero, unless explicitly set.
+-   **`col`** (_in_ _int_): The index of the element's column within the grid. Set this property to override the sequential column assignment (e.g., to skip a column).
+-   **`rowspan`** (_in_ _int_): The number of rows this element should span. (default value: `1`)
+-   **`colspan`** (_in_ _int_): The number of columns this element should span. (default value: `1`)
+
+To implicitly sequentially assign row indices&mdash;just like with `col`&mdash;wrap cell elements in `Row` elements.
 
 The following example creates a 2-by-2 grid with `Row` elements, omitting one cell:
 
@@ -277,7 +278,7 @@ GridLayout {
 }
 ```
 
-The following example creates the same grid with manual placement:
+The following example creates the same grid using the `row` property. Row indices must be taken care of manually:
 
 ```slint
 GridLayout {
@@ -287,7 +288,7 @@ GridLayout {
 }
 ```
 
-Since a `GridLayout` doesn't align, it covers its entire surface with its cells. The elements constituting the cells will be stretched inside their allotted space. (The only exception being that the cell elements' size constraints like, e.g., `min-width` or `max-width` could work against this.)
+`GridLayout` covers its entire surface with cells. Cells are not aligned. The elements constituting the cells will be stretched inside their allocated space, unless their size constraints&mdash;like, e.g., `min-height` or `max-width`&mdash;work against this.
 
 ### Properties
 
