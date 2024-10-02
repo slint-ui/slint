@@ -1031,6 +1031,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     fn bring_to_front(&self) -> Result<(), PlatformError> {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            winit_window.set_minimized(false);
             winit_window.focus_window();
         }
         Ok(())
