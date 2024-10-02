@@ -379,7 +379,7 @@ pub fn compile_with_config(
         );
 
     let paths_dependencies =
-        compile_input_output_with_config(path, absolute_rust_output_file_path.clone(), config)?;
+        compile_with_output(path, absolute_rust_output_file_path.clone(), config)?;
 
     for path_dependency in paths_dependencies {
         println!("cargo:rerun-if-changed={}", path_dependency.display());
@@ -401,7 +401,7 @@ pub fn compile_with_config(
 }
 
 /// Compile the input file to an output file and list dependencies.
-pub fn compile_input_output_with_config(
+pub fn compile_with_output(
     input_slint_file_path: impl AsRef<std::path::Path>,
     output_rust_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
@@ -455,7 +455,6 @@ pub fn compile_input_output_with_config(
 
     for resource in doc.embedded_file_resources.borrow().keys() {
         if !resource.starts_with("builtin:") {
-            println!("cargo:rerun-if-changed={}", resource);
             dependencies.push(Path::new(resource).to_path_buf());
         }
     }
