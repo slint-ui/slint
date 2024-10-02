@@ -267,13 +267,18 @@ To implicitly sequentially assign row indices&mdash;just like with `col`&mdash;w
 The following example creates a 2-by-2 grid with `Row` elements, omitting one cell:
 
 ```slint
-GridLayout {
-    Row { // children implicitly on row 0
-        Button { col: 1; text: "Top Right"; } // implicit column after this would be 2
-    }
-    Row { // children implicitly on row 1
-        Button { text: "Bottom Left"; }  // implicitly in column 0...
-        Button { text: "Bottom Right"; } // ...and 1
+import { Button } from "std-widgets.slint";
+export component Foo inherits Window {
+    width: 200px;
+    height: 100px;
+    GridLayout {
+        Row { // children implicitly on row 0
+            Button { col: 1; text: "Top Right"; } // implicit column after this would be 2
+        }
+        Row { // children implicitly on row 1
+            Button { text: "Bottom Left"; }  // implicitly in column 0...
+            Button { text: "Bottom Right"; } // ...and 1
+        }
     }
 }
 ```
@@ -281,10 +286,15 @@ GridLayout {
 The following example creates the same grid using the `row` property. Row indices must be taken care of manually:
 
 ```slint
-GridLayout {
-    Button { row: 0; col: 1; text: "Top Right"; } // `row: 0;` could even be left out at the start
-    Button { row: 1; text: "Bottom Left"; } // new row, implicitly resets column to 0
-    Button { text: "Bottom Right"; } // same row, sequentially assigned column 1
+import { Button } from "std-widgets.slint";
+export component Foo inherits Window {
+    width: 200px;
+    height: 100px;
+    GridLayout {
+        Button { row: 0; col: 1; text: "Top Right"; } // `row: 0;` could even be left out at the start
+        Button { row: 1; text: "Bottom Left"; } // new row, implicitly resets column to 0
+        Button { text: "Bottom Right"; } // same row, sequentially assigned column 1
+    }
 }
 ```
 
