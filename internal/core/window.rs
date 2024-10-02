@@ -30,6 +30,8 @@ use core::pin::Pin;
 use euclid::num::Zero;
 use vtable::VRcMapped;
 
+pub mod popup;
+
 fn next_focus_item(item: ItemRc) -> ItemRc {
     item.next_focus_item()
 }
