@@ -53,7 +53,7 @@ compile_error!(
 use std::collections::HashMap;
 use std::env;
 use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 
@@ -364,24 +364,25 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 /// slint_build::compile_with_config("ui/hello.slint", config).unwrap();
 /// ```
 pub fn compile_with_config(
-    path: impl AsRef<std::path::Path>,
+    relative_slint_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<(), CompileError> {
     let path = Path::new(&env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?)
-        .join(path.as_ref());
+        .join(relative_slint_file_path.as_ref());
 
-    let output_file_path = Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?)
-        .join(
+    let absolute_rust_output_file_path =
+        Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?).join(
             path.file_stem()
                 .map(Path::new)
                 .unwrap_or_else(|| Path::new("slint_out"))
                 .with_extension("rs"),
         );
 
-    let dependencies = compile_input_output_with_config(path, output_file_path.clone(), config)?;
+    let paths_dependencies =
+        compile_input_output_with_config(path, absolute_rust_output_file_path.clone(), config)?;
 
-    for dependency in dependencies {
-        println!("cargo:rerun-if-changed={}", dependency.display());
+    for path_dependency in paths_dependencies {
+        println!("cargo:rerun-if-changed={}", path_dependency.display());
     }
 
     println!("cargo:rerun-if-env-changed=SLINT_STYLE");
@@ -391,7 +392,10 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
     println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
 
-    println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
+    println!(
+        "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",
+        absolute_rust_output_file_path.display()
+    );
 
     Ok(())
 }
