@@ -398,7 +398,7 @@ pub fn compile_with_config(
 
 /// Compile the input file to an output file and list dependencies.
 pub fn compile_input_output_with_config(
-    input_slint_file_path: impl AsRef<std::path::Path> + Clone,
+    input_slint_file_path: impl AsRef<std::path::Path>,
     output_rust_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
@@ -447,7 +447,7 @@ pub fn compile_input_output_with_config(
     });
 
     write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
-    dependencies.push(input_slint_file_path.clone());
+    dependencies.push(input_slint_file_path.as_ref().to_path_buf());
 
     for resource in doc.embedded_file_resources.borrow().keys() {
         if !resource.starts_with("builtin:") {
