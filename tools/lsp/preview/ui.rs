@@ -29,6 +29,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         .chain(i_slint_compiler::fileaccess::styles().iter())
         .filter(|s| s != &&"qt" || i_slint_backend_selector::HAS_NATIVE_STYLE)
         .cloned()
+        .sorted()
         .collect::<Vec<_>>();
     let style = if known_styles.contains(&style.as_str()) {
         style
