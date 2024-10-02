@@ -1293,7 +1293,7 @@ fn set_preview_factory(
 
     let api = ui.global::<ui::Api>();
     api.set_preview_area(factory);
-    api.set_resize_to_preferred_size(behavior == LoadBehavior::Load);
+    api.set_resize_to_preferred_size(behavior != LoadBehavior::Reload);
 }
 
 /// Highlight the element pointed at the offset in the path.
