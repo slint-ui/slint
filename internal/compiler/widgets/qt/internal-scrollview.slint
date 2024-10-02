@@ -15,6 +15,8 @@ export component InternalScrollView {
     out property <length> visible-height <=> fli.height;
     in-out property <bool> has-focus <=> native.has-focus;
     in property <bool> enabled <=> native.enabled;
+    out property <ScrollBarPolicy> vertical-bar-policy <=> native.vertical-bar-policy;
+    out property <ScrollBarPolicy> horizontal-bar-policy <=> native.horizontal-bar-policy;
 
     // Used by the StandardTableView
     out property <length> native-padding-left: native.native-padding-left;

@@ -11,12 +11,14 @@ export component ScrollBar {
     in-out property <length> maximum;
     in-out property <length> page-size;
     in-out property <length> value;
+    in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
 
     private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
     private property <length> step-size: 10px;
     private property <length> offset: 2px;
 
     opacity: 0.7;
+    visible: (self.policy == ScrollBarPolicy.always-on) || (self.policy == ScrollBarPolicy.as-needed && self.maximum > 0);
 
     Rectangle {
         border-radius: thumb.border-radius;
@@ -84,6 +86,8 @@ export component ScrollView {
     in-out property <length> viewport-height <=> flickable.viewport-height;
     in-out property <length> viewport-x <=> flickable.viewport-x;
     in-out property <length> viewport-y <=> flickable.viewport-y;
+    out property <ScrollBarPolicy> vertical-bar-policy <=> vertical-bar.policy;
+    out property <ScrollBarPolicy> horizontal-bar-policy <=> horizontal-bar.policy;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
 
@@ -115,7 +119,6 @@ export component ScrollView {
         horizontal: false;
         maximum:  flickable.viewport-height - flickable.height;
         page-size:  flickable.height;
-        visible: flickable.viewport-height > flickable.height;
     }
 
     horizontal-bar := ScrollBar {
@@ -127,6 +130,5 @@ export component ScrollView {
         horizontal: true;
         maximum:  flickable.viewport-width - flickable.width;
         page-size:  flickable.width;
-        visible: flickable.viewport-width > flickable.width;
     }
 }
