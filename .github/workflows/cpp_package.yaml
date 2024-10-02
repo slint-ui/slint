@@ -129,8 +129,10 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                idf_target: [esp32s2, esp32s3, esp32p4]
+                idf_target: [esp32, esp32s2, esp32s3, esp32p4]
                 include:
+                  - idf_target: esp32
+                    rust_target: xtensa-esp32-none-elf
                   - idf_target: esp32s2
                     rust_target: xtensa-esp32s2-none-elf
                   - idf_target: esp32s3
