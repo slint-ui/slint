@@ -734,11 +734,9 @@ impl WindowInner {
                     // don't send focus out and in even to the same item if focus doesn't change
                     return;
                 }
-            } else {
-                if current_focus_item_rc != *new_focus_item {
-                    // can't clear focus unless called with currently focused item.
-                    return;
-                }
+            } else if current_focus_item_rc != *new_focus_item {
+                // can't clear focus unless called with currently focused item.
+                return;
             }
         }
 
