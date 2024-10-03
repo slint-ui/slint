@@ -10,6 +10,7 @@ use crate::expression_tree::*;
 use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
@@ -88,7 +89,7 @@ fn lower_state_in_element(
                 true_expr: Box::new(expr),
                 false_expr: Box::new(property_expr),
             };
-            match e.borrow_mut().bindings.entry(ne.name().to_owned()) {
+            match e.borrow_mut().bindings.entry(ne.name().into()) {
                 std::collections::btree_map::Entry::Occupied(mut e) => {
                     e.get_mut().get_mut().expression = new_expr
                 }
@@ -126,7 +127,7 @@ fn lower_state_in_element(
 fn lower_transitions_in_element(
     elem: &ElementRc,
     state_property: Expression,
-    states_id: HashMap<String, i32>,
+    states_id: HashMap<SmolStr, i32>,
     affected_properties: HashSet<NamedReference>,
     diag: &mut BuildDiagnostics,
 ) {
@@ -183,14 +184,14 @@ fn lower_transitions_in_element(
 }
 
 /// Returns a suitable unique name for the "state" property
-fn compute_state_property_name(root_element: &ElementRc) -> String {
+fn compute_state_property_name(root_element: &ElementRc) -> SmolStr {
     let mut property_name = "state".to_owned();
     while root_element.borrow().lookup_property(property_name.as_ref()).property_type
         != Type::Invalid
     {
         property_name += "-";
     }
-    property_name
+    property_name.into()
 }
 
 enum ExpressionForProperty {

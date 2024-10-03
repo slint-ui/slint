@@ -136,7 +136,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             &elem.borrow().enclosing_component,
             &to_elem.borrow().enclosing_component,
         );
-        match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
+        match to_elem.borrow_mut().bindings.entry(to.name().into()) {
             Entry::Occupied(mut e) => {
                 let b = e.get_mut().get_mut();
                 remove_from_binding_expression(b, &to);
@@ -159,10 +159,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             let mut elem = elem.borrow_mut();
             if let Some(old_change_callback) = elem.change_callbacks.remove(remove.name()) {
                 drop(elem);
-                to_elem
-                    .borrow_mut()
-                    .change_callbacks
-                    .insert(to.name().to_owned(), old_change_callback);
+                to_elem.borrow_mut().change_callbacks.insert(to.name().into(), old_change_callback);
             }
         }
 
@@ -189,7 +186,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                             .borrow()
                             .property_analysis
                             .borrow_mut()
-                            .entry(to.name().to_owned())
+                            .entry(to.name().into())
                             .or_default()
                             .merge(&analysis);
                     };
@@ -197,7 +194,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             } else {
                 // This is not a declaration, we must re-create the binding
                 elem.bindings.insert(
-                    remove.name().to_owned(),
+                    remove.name().into(),
                     BindingExpression::new_two_way(to.clone()).into(),
                 );
                 drop(elem);

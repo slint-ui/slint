@@ -54,6 +54,7 @@ itertools = { workspace = true }
 send_wrapper = { workspace = true }
 # Removed by node_package xtask
 i-slint-backend-testing = { workspace = true, optional = true }
+smol_str = { workspace = true }
 
 [build-dependencies]
 napi-build = "2.1.0"

@@ -7,12 +7,13 @@ use crate::langtype::Type;
 use crate::layout::Orientation;
 use core::num::NonZeroUsize;
 use itertools::Either;
+use smol_str::SmolStr;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
-    StringLiteral(String),
+    StringLiteral(SmolStr),
     /// Number
     NumberLiteral(f64),
     /// Bool
@@ -29,14 +30,14 @@ pub enum Expression {
 
     /// Should be directly within a CodeBlock expression, and store the value of the expression in a local variable
     StoreLocalVariable {
-        name: String,
+        name: SmolStr,
         value: Box<Expression>,
     },
 
     /// a reference to the local variable with the given name. The type system should ensure that a variable has been stored
     /// with this name and this type before in one of the statement of an enclosing codeblock
     ReadLocalVariable {
-        name: String,
+        name: SmolStr,
         ty: Type,
     },
 
@@ -44,7 +45,7 @@ pub enum Expression {
     StructFieldAccess {
         /// This expression should have [`Type::Struct`] type
         base: Box<Expression>,
-        name: String,
+        name: SmolStr,
     },
 
     /// Access to a index within an array.
@@ -135,7 +136,7 @@ pub enum Expression {
     },
     Struct {
         ty: Type,
-        values: HashMap<String, Expression>,
+        values: HashMap<SmolStr, Expression>,
     },
 
     EasingCurve(crate::expression_tree::EasingCurve),
@@ -166,7 +167,7 @@ pub enum Expression {
         /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the sell
         cells_variable: String,
         /// The name for the local variable that contains the repeater indices
-        repeater_indices: Option<String>,
+        repeater_indices: Option<SmolStr>,
         /// Either an expression of type BoxLayoutCellData, or an index to the repeater
         elements: Vec<Either<Expression, u32>>,
         orientation: Orientation,
@@ -211,7 +212,7 @@ impl Expression {
             | Type::Rem
             | Type::UnitProduct(_) => Expression::NumberLiteral(0.),
             Type::Percent => Expression::NumberLiteral(1.),
-            Type::String => Expression::StringLiteral(String::new()),
+            Type::String => Expression::StringLiteral(SmolStr::default()),
             Type::Color => {
                 Expression::Cast { from: Box::new(Expression::NumberLiteral(0.)), to: ty.clone() }
             }

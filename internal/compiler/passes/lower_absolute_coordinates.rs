@@ -59,11 +59,11 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
                 values: IntoIterator::into_iter(["x", "y"])
                     .map(|coord| {
                         (
-                            coord.to_string(),
+                            coord.into(),
                             Expression::BinaryExpression {
                                 lhs: Expression::StructFieldAccess {
                                     base: parent_position_var.clone(),
-                                    name: coord.to_string(),
+                                    name: coord.into(),
                                 }
                                 .into(),
                                 rhs: Expression::PropertyReference(NamedReference::new(
@@ -78,6 +78,6 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
             },
         ]);
 
-        elem.borrow_mut().bindings.insert(nr.name().to_string(), RefCell::new(binding.into()));
+        elem.borrow_mut().bindings.insert(nr.name().into(), RefCell::new(binding.into()));
     }
 }

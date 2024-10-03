@@ -5,6 +5,7 @@
     Parse the contents of builtins.slint and fill the builtin type registry
 */
 
+use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -34,7 +35,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
     assert_eq!(node.kind(), crate::parser::SyntaxKind::Document);
     let doc: syntax_nodes::Document = node.into();
 
-    let mut natives = HashMap::<String, Rc<BuiltinElement>>::new();
+    let mut natives = HashMap::<SmolStr, Rc<BuiltinElement>>::new();
 
     let exports = doc
         .ExportsList()
@@ -145,7 +146,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         let base = if c.child_text(SyntaxKind::Identifier).map_or(false, |t| t == "global") {
             Base::Global
         } else if let Some(base) = e.QualifiedName() {
-            let base = QualifiedTypeName::from_node(base).to_string();
+            let base = QualifiedTypeName::from_node(base).to_smolstr();
             let base = natives.get(&base).unwrap().clone();
             n.parent = Some(base.native_class.clone());
             Base::NativeParent(base)
@@ -256,7 +257,7 @@ fn compiled(
 /// Find out if there are comments that starts with `//-key` and returns `None`
 /// if no annotation with this key is found, or `Some(None)` if it is found without a value
 /// or `Some(Some(value))` if there is a `//-key:value`  match
-fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<String>> {
+fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<SmolStr>> {
     for x in node.children_with_tokens() {
         if x.kind() == SyntaxKind::Comment {
             if let Some(comment) = x
@@ -270,7 +271,7 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<String>> {
                     return Some(None);
                 }
                 if let Some(comment) = comment.strip_prefix(':') {
-                    return Some(Some(comment.to_owned()));
+                    return Some(Some(comment.into()));
                 }
             }
         }

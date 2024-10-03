@@ -190,7 +190,10 @@ fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclara
         .with(|preview_state| {
             let preview_state = preview_state.borrow();
 
-            preview_state.property_range_declarations.as_ref().and_then(|d| d.get(&name).cloned())
+            preview_state
+                .property_range_declarations
+                .as_ref()
+                .and_then(|d| d.get(name.as_str()).cloned())
         })
         .unwrap_or_default()
 }

@@ -3,6 +3,7 @@
 
 //! Pass that lowers synthetic `clip` properties to Clip element
 
+use smol_str::{format_smolstr, SmolStr};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -59,7 +60,7 @@ pub fn handle_clip(
 fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     let mut parent = parent_elem.borrow_mut();
     let clip = Element::make_rc(Element {
-        id: format!("{}-clip", parent.id),
+        id: format_smolstr!("{}-clip", parent.id),
         base_type: crate::langtype::ElementType::Native(native_clip.clone()),
         children: std::mem::take(&mut parent.children),
         enclosing_component: parent.enclosing_component.clone(),
@@ -72,7 +73,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
         .iter()
         .map(|prop| {
             (
-                (*prop).to_owned(),
+                SmolStr::new_static(prop),
                 RefCell::new(
                     Expression::PropertyReference(NamedReference::new(parent_elem, prop)).into(),
                 ),
@@ -91,7 +92,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     } else if parent_elem.borrow().bindings.contains_key("border-radius") {
         for prop in super::border_radius::BORDER_RADIUS_PROPERTIES.iter() {
             clip.borrow_mut().bindings.insert(
-                prop.to_string(),
+                SmolStr::new(prop),
                 RefCell::new(
                     Expression::PropertyReference(NamedReference::new(
                         parent_elem,
@@ -103,7 +104,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
         }
     }
     clip.borrow_mut().bindings.insert(
-        "clip".to_owned(),
+        SmolStr::new_static("clip"),
         BindingExpression::new_two_way(NamedReference::new(parent_elem, "clip")).into(),
     );
 }
@@ -111,7 +112,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
 fn copy_optional_binding(parent_elem: &ElementRc, optional_binding: &str, clip: &ElementRc) {
     if parent_elem.borrow().bindings.contains_key(optional_binding) {
         clip.borrow_mut().bindings.insert(
-            optional_binding.to_string(),
+            optional_binding.into(),
             RefCell::new(
                 Expression::PropertyReference(NamedReference::new(parent_elem, optional_binding))
                     .into(),

@@ -4,6 +4,7 @@
 use crate::expression_tree::Expression;
 use crate::expression_tree::Unit;
 use itertools::Itertools;
+use smol_str::SmolStr;
 use strum::IntoEnumIterator;
 
 /// Returns `0xaarrggbb`
@@ -59,7 +60,7 @@ fn test_parse_color_literal() {
     assert_eq!(parse_color_literal("#1234567890"), None);
 }
 
-pub fn unescape_string(string: &str) -> Option<String> {
+pub fn unescape_string(string: &str) -> Option<SmolStr> {
     if string.contains('\n') {
         // FIXME: new line in string literal not yet supported
         return None;
@@ -76,7 +77,7 @@ pub fn unescape_string(string: &str) -> Option<String> {
             Some(stop) => pos + stop,
             None => {
                 result += &string[pos..];
-                return Some(result);
+                return Some(result.into());
             }
         };
         if stop + 1 >= string.len() {
@@ -126,7 +127,7 @@ fn test_unescape_string() {
     assert_eq!(unescape_string(r#""xxx\u{1234567890}""#), None);
 }
 
-pub fn parse_number_literal(s: String) -> Result<Expression, String> {
+pub fn parse_number_literal(s: SmolStr) -> Result<Expression, SmolStr> {
     let bytes = s.as_bytes();
     let mut end = 0;
     while end < bytes.len() && matches!(bytes[end], b'0'..=b'9' | b'.') {
@@ -146,8 +147,9 @@ pub fn parse_number_literal(s: String) -> Result<Expression, String> {
 #[test]
 fn test_parse_number_literal() {
     use crate::expression_tree::Unit;
+    use smol_str::{format_smolstr, ToSmolStr};
 
-    fn doit(s: &str) -> Result<(f64, Unit), String> {
+    fn doit(s: &str) -> Result<(f64, Unit), SmolStr> {
         parse_number_literal(s.into()).map(|e| match e {
             Expression::NumberLiteral(a, b) => (a, b),
             _ => panic!(),
@@ -163,14 +165,16 @@ fn test_parse_number_literal() {
     assert_eq!(doit("10000000"), Ok((10000000., Unit::None)));
     assert_eq!(doit("10000001phx"), Ok((10000001., Unit::Phx)));
 
-    let cannot_parse = Err("Cannot parse number literal".to_owned());
+    let cannot_parse = Err("Cannot parse number literal".to_smolstr());
     assert_eq!(doit("12.10.12phx"), cannot_parse);
 
     let valid_units = Unit::iter().filter(|x| x.to_string().len() > 0).join(", ");
-    let wrong_unit_spaced = Err(format!("Invalid unit ' phx'. Valid units are: {}", valid_units));
+    let wrong_unit_spaced =
+        Err(format_smolstr!("Invalid unit ' phx'. Valid units are: {}", valid_units));
     assert_eq!(doit("10000001 phx"), wrong_unit_spaced);
-    let wrong_unit_oo = Err(format!("Invalid unit 'oo'. Valid units are: {}", valid_units));
+    let wrong_unit_oo = Err(format_smolstr!("Invalid unit 'oo'. Valid units are: {}", valid_units));
     assert_eq!(doit("12.12oo"), wrong_unit_oo);
-    let wrong_unit_euro = Err(format!("Invalid unit '€'. Valid units are: {}", valid_units));
+    let wrong_unit_euro =
+        Err(format_smolstr!("Invalid unit '€'. Valid units are: {}", valid_units));
     assert_eq!(doit("12.12€"), wrong_unit_euro);
 }

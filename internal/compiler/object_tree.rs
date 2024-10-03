@@ -19,6 +19,7 @@ use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use itertools::Either;
 use once_cell::unsync::OnceCell;
+use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -47,13 +48,13 @@ pub struct Document {
     pub local_registry: TypeRegister,
     /// A list of paths to .ttf/.ttc files that are supposed to be registered on
     /// startup for custom font use.
-    pub custom_fonts: Vec<(String, crate::parser::SyntaxToken)>,
+    pub custom_fonts: Vec<(SmolStr, crate::parser::SyntaxToken)>,
     pub exports: Exports,
 
     /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
     /// disk on the build system
     pub embedded_file_resources:
-        RefCell<HashMap<String, crate::embedded_resources::EmbeddedResources>>,
+        RefCell<HashMap<SmolStr, crate::embedded_resources::EmbeddedResources>>,
 
     /// The list of used extra types used recursively.
     pub used_types: RefCell<UsedSubTypes>,
@@ -85,7 +86,7 @@ impl Document {
                               diag: &mut BuildDiagnostics,
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
-            let rust_attributes = n.AtRustAttr().map(|child| vec![child.text().to_string()]);
+            let rust_attributes = n.AtRustAttr().map(|child| vec![child.text().to_smolstr()]);
             let mut ty =
                 type_struct_from_node(n.ObjectType(), diag, local_registry, rust_attributes);
             if let Type::Struct { name, .. } = &mut ty {
@@ -182,10 +183,7 @@ impl Document {
                         || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
                             .is_some()
                     {
-                        Some((
-                            import_file_path.to_string_lossy().to_string(),
-                            import.import_uri_token,
-                        ))
+                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token))
                     } else {
                         diag.push_error(
                             format!("File \"{}\" not found", import.file),
@@ -334,7 +332,7 @@ impl InitCode {
 #[derive(Default, Debug)]
 pub struct Component {
     pub node: Option<SyntaxNode>,
-    pub id: String,
+    pub id: SmolStr,
     pub root_element: ElementRc,
 
     /// The parent element within the parent component if this component represents a repeated element
@@ -365,7 +363,7 @@ pub struct Component {
 
     /// The list of properties (name and type) declared as private in the component.
     /// This is used to issue better error in the generated code if the property is used.
-    pub private_properties: RefCell<Vec<(String, Type)>>,
+    pub private_properties: RefCell<Vec<(SmolStr, Type)>>,
 }
 
 impl Component {
@@ -402,7 +400,7 @@ impl Component {
             if let Some(qualified_id) =
                 e.borrow_mut().debug.first_mut().and_then(|x| x.qualified_id.as_mut())
             {
-                *qualified_id = format!("{}::{}", c.id, qualified_id);
+                *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
         c
@@ -419,7 +417,7 @@ impl Component {
 
     /// Returns the names of aliases to global singletons, exactly as
     /// specified in the .slint markup (not normalized).
-    pub fn global_aliases(&self) -> Vec<String> {
+    pub fn global_aliases(&self) -> Vec<SmolStr> {
         self.exported_global_names
             .borrow()
             .iter()
@@ -597,12 +595,12 @@ impl GeometryProps {
     }
 }
 
-pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
+pub type BindingsMap = BTreeMap<SmolStr, RefCell<BindingExpression>>;
 
 #[derive(Clone)]
 pub struct ElementDebugInfo {
     // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
-    pub qualified_id: Option<String>,
+    pub qualified_id: Option<SmolStr>,
     pub type_name: String,
     pub node: syntax_nodes::Element,
     // Field to indicate wether this element was a layout that had
@@ -635,19 +633,19 @@ pub struct Element {
     /// Note that it can only be used for lookup before inlining.
     /// After inlining there can be duplicated id in the component.
     /// The id are then re-assigned unique id in the assign_id pass
-    pub id: String,
+    pub id: SmolStr,
     //pub base: QualifiedTypeName,
     pub base_type: ElementType,
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: BindingsMap,
-    pub change_callbacks: BTreeMap<String, RefCell<Vec<Expression>>>,
-    pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
+    pub change_callbacks: BTreeMap<SmolStr, RefCell<Vec<Expression>>>,
+    pub property_analysis: RefCell<HashMap<SmolStr, PropertyAnalysis>>,
 
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
     pub enclosing_component: Weak<Component>,
 
-    pub property_declarations: BTreeMap<String, PropertyDeclaration>,
+    pub property_declarations: BTreeMap<SmolStr, PropertyDeclaration>,
 
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
@@ -866,8 +864,8 @@ pub struct ListViewInfo {
 /// If the parent element is a repeated element, this has information about the models
 pub struct RepeatedElementInfo {
     pub model: Expression,
-    pub model_data_id: String,
-    pub index_id: String,
+    pub model_data_id: SmolStr,
+    pub index_id: SmolStr,
     /// A conditional element is just a for whose model is a boolean expression
     ///
     /// When this is true, the model is of type boolean instead of Model
@@ -889,7 +887,7 @@ impl Element {
 
     pub fn from_node(
         node: syntax_nodes::Element,
-        id: String,
+        id: SmolStr,
         parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
         is_legacy_syntax: bool,
@@ -1039,7 +1037,7 @@ impl Element {
             });
 
             r.property_declarations.insert(
-                prop_name.to_string(),
+                prop_name.clone().into(),
                 PropertyDeclaration {
                     property_type: prop_type,
                     node: Some(prop_decl.clone().into()),
@@ -1049,7 +1047,7 @@ impl Element {
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
-                match r.bindings.entry(prop_name.to_string()) {
+                match r.bindings.entry(prop_name.clone().into()) {
                     Entry::Vacant(e) => {
                         e.insert(BindingExpression::new_uncompiled(csn.into()).into());
                     }
@@ -1279,7 +1277,7 @@ impl Element {
                 }
                 continue;
             }
-            match r.bindings.entry(resolved_name.into_owned()) {
+            match r.bindings.entry(resolved_name.into()) {
                 Entry::Vacant(e) => {
                     e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
                 }
@@ -1332,7 +1330,7 @@ impl Element {
 
                             let expr_binding = r
                                 .bindings
-                                .entry(lookup_result.resolved_name.to_string())
+                                .entry(lookup_result.resolved_name.into())
                                 .or_insert_with(|| {
                                     let mut r = BindingExpression::from(Expression::Invalid);
                                     r.priority = 1;
@@ -1545,7 +1543,7 @@ impl Element {
                 format!("'{}' is a reserved id", id),
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
-            id = String::new();
+            id = SmolStr::default();
         }
         Element::from_node(
             node.Element(),
@@ -1612,8 +1610,8 @@ impl Element {
     ) -> ElementRc {
         let rei = RepeatedElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
-            model_data_id: String::new(),
-            index_id: String::new(),
+            model_data_id: SmolStr::default(),
+            index_id: SmolStr::default(),
             is_conditional_element: true,
             is_listview: None,
         };
@@ -1704,7 +1702,7 @@ impl Element {
                 }
             }
 
-            if lookup_result.resolved_name != unresolved_name {
+            if *lookup_result.resolved_name != *unresolved_name {
                 diag.push_property_deprecation_warning(
                     &unresolved_name,
                     &lookup_result.resolved_name,
@@ -1712,7 +1710,7 @@ impl Element {
                 );
             }
 
-            match self.bindings.entry(lookup_result.resolved_name.to_string()) {
+            match self.bindings.entry(lookup_result.resolved_name.into()) {
                 Entry::Occupied(_) => {
                     diag.push_error("Duplicated property binding".into(), &name_token);
                 }
@@ -1758,11 +1756,11 @@ impl Element {
     }
 
     /// Returns the element's name as specified in the markup, not normalized.
-    pub fn original_name(&self) -> String {
+    pub fn original_name(&self) -> SmolStr {
         self.debug
             .first()
             .and_then(|n| n.node.child_token(parser::SyntaxKind::Identifier))
-            .map(|n| n.to_string())
+            .map(|n| n.to_smolstr())
             .unwrap_or_else(|| self.id.clone())
     }
 
@@ -1788,7 +1786,7 @@ impl Element {
     /// returns true if the binding was changed
     pub fn set_binding_if_not_set(
         &mut self,
-        property_name: String,
+        property_name: SmolStr,
         expression_fn: impl FnOnce() -> Expression,
     ) -> bool {
         if self.is_binding_set(&property_name, false) {
@@ -1897,7 +1895,7 @@ pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
-    rust_attributes: Option<Vec<String>>,
+    rust_attributes: Option<Vec<SmolStr>>,
 ) -> Type {
     let fields = object_node
         .ObjectTypeMember()
@@ -1947,7 +1945,7 @@ fn animation_element_from_node(
 
 #[derive(Default, Debug, Clone)]
 pub struct QualifiedTypeName {
-    pub members: Vec<String>,
+    pub members: Vec<SmolStr>,
 }
 
 impl QualifiedTypeName {
@@ -2367,7 +2365,7 @@ pub fn visit_all_expressions(
 
 #[derive(Debug, Clone)]
 pub struct State {
-    pub id: String,
+    pub id: SmolStr,
     pub condition: Option<Expression>,
     pub property_changes: Vec<(NamedReference, Expression, syntax_nodes::StatePropertyChange)>,
 }
@@ -2376,7 +2374,7 @@ pub struct State {
 pub struct Transition {
     /// false for 'to', true for 'out'
     pub is_out: bool,
-    pub state_id: String,
+    pub state_id: SmolStr,
     pub property_animations: Vec<(NamedReference, SourceLocation, ElementRc)>,
     pub node: syntax_nodes::Transition,
 }
@@ -2417,25 +2415,25 @@ impl Transition {
 #[derive(Clone, Debug, derive_more::Deref)]
 pub struct ExportedName {
     #[deref]
-    pub name: String, // normalized
+    pub name: SmolStr, // normalized
     pub name_ident: SyntaxNode,
 }
 
 impl ExportedName {
-    pub fn original_name(&self) -> String {
+    pub fn original_name(&self) -> SmolStr {
         self.name_ident
             .child_token(parser::SyntaxKind::Identifier)
-            .map(|n| n.to_string())
+            .map(|n| n.to_smolstr())
             .unwrap_or_else(|| self.name.clone())
     }
 
     pub fn from_export_specifier(
         export_specifier: &syntax_nodes::ExportSpecifier,
-    ) -> (String, ExportedName) {
+    ) -> (SmolStr, ExportedName) {
         let internal_name =
             parser::identifier_text(&export_specifier.ExportIdentifier()).unwrap_or_default();
 
-        let (name, name_ident): (String, SyntaxNode) = export_specifier
+        let (name, name_ident): (SmolStr, SyntaxNode) = export_specifier
             .ExportName()
             .and_then(|ident| {
                 parser::identifier_text(&ident).map(|text| (text, ident.clone().into()))
@@ -2517,7 +2515,7 @@ impl Exports {
                 let name =
                     parser::identifier_text(&component.DeclaredIdentifier()).unwrap_or_else(|| {
                         debug_assert!(diag.has_errors());
-                        String::new()
+                        SmolStr::default()
                     });
 
                 let compo_or_type =
@@ -2539,7 +2537,7 @@ impl Exports {
                 .filter_map(|name_ident| {
                     let name = parser::identifier_text(&name_ident).unwrap_or_else(|| {
                         debug_assert!(diag.has_errors());
-                        String::new()
+                        SmolStr::default()
                     });
 
                     let name_ident = name_ident.into();

@@ -86,6 +86,7 @@ itertools = { workspace = true }
 lsp-types = { version = "0.95.0", features = ["proposed"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+smol_str = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }

@@ -8,6 +8,7 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
+use smol_str::format_smolstr;
 use std::rc::{Rc, Weak};
 
 pub fn lower_popups(
@@ -128,7 +129,7 @@ fn lower_popup_window(
     // children should be rendered starting with a (0, 0) offset.
     {
         let mut popup_mut = popup_comp.root_element.borrow_mut();
-        let name = format!("popup-{}-dummy", popup_mut.id);
+        let name = format_smolstr!("popup-{}-dummy", popup_mut.id);
         popup_mut.property_declarations.insert(name.clone(), Type::LogicalLength.into());
         drop(popup_mut);
         let dummy1 = NamedReference::new(&popup_comp.root_element, &name);

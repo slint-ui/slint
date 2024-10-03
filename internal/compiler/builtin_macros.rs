@@ -10,6 +10,7 @@ use crate::expression_tree::{
 };
 use crate::langtype::{EnumerationValue, Type};
 use crate::parser::NodeOrToken;
+use smol_str::{format_smolstr, ToSmolStr};
 
 /// Used for uniquely name some variables
 static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
@@ -371,7 +372,7 @@ fn to_debug_string(
             ),
             op: '+',
             rhs: Box::new(Expression::StringLiteral(
-                Type::UnitProduct(ty.as_unit_product().unwrap()).to_string(),
+                Type::UnitProduct(ty.as_unit_product().unwrap()).to_smolstr(),
             )),
         },
         Type::Bool => Expression::Condition {
@@ -380,14 +381,17 @@ fn to_debug_string(
             false_expr: Box::new(Expression::StringLiteral("false".into())),
         },
         Type::Struct { fields, .. } => {
-            let local_object = format!(
+            let local_object = format_smolstr!(
                 "debug_struct{}",
                 COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             );
             let mut string = None;
             for k in fields.keys() {
-                let field_name =
-                    if string.is_some() { format!(", {}: ", k) } else { format!("{{ {}: ", k) };
+                let field_name = if string.is_some() {
+                    format_smolstr!(", {}: ", k)
+                } else {
+                    format_smolstr!("{{ {}: ", k)
+                };
                 let value = to_debug_string(
                     Expression::StructFieldAccess {
                         base: Box::new(Expression::ReadLocalVariable {
@@ -431,7 +435,8 @@ fn to_debug_string(
                 name: local_object.into(),
                 value: Box::new(expr),
             }];
-            let mut cond = Expression::StringLiteral(format!("Error: invalid value for {}", ty));
+            let mut cond =
+                Expression::StringLiteral(format_smolstr!("Error: invalid value for {}", ty));
             for (idx, val) in enu.values.iter().enumerate() {
                 cond = Expression::Condition {
                     condition: Box::new(Expression::BinaryExpression {

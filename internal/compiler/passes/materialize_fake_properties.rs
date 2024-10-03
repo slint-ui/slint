@@ -11,6 +11,7 @@ use crate::langtype::{ElementType, Type};
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -47,7 +48,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
         let elem = nr.element();
 
         elem.borrow_mut().property_declarations.insert(
-            nr.name().to_owned(),
+            nr.name().into(),
             PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
         );
 
@@ -84,7 +85,7 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
 
 /// Returns a type if the property needs to be materialized.
 fn should_materialize(
-    property_declarations: &BTreeMap<String, PropertyDeclaration>,
+    property_declarations: &BTreeMap<SmolStr, PropertyDeclaration>,
     base_type: &ElementType,
     prop: &str,
 ) -> Option<Type> {

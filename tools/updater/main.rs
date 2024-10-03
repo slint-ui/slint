@@ -10,6 +10,7 @@ use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::object_tree::{self, Component, Document, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use i_slint_compiler::typeloader::TypeLoader;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -168,7 +169,7 @@ fn init_state(syntax_node: &SyntaxNode, diag: &mut BuildDiagnostics) -> State {
 #[derive(Default, Clone)]
 struct State {
     /// When visiting a binding, this is the name of the current property
-    property_name: Option<String>,
+    property_name: Option<SmolStr>,
 
     /// The Document being visited
     current_doc: Option<Rc<Document>>,
@@ -201,7 +202,7 @@ fn visit_node(
                     &syntax_nodes::Component::from(node.clone())
                         .DeclaredIdentifier()
                         .child_text(SyntaxKind::Identifier)
-                        .unwrap_or(String::new()),
+                        .unwrap_or(SmolStr::default()),
                 );
 
                 state.current_component =

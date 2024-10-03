@@ -13,7 +13,7 @@ This module has different sub modules with the actual parser functions
 */
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
-pub use smol_str::SmolStr;
+use smol_str::{SmolStr, StrExt};
 use std::fmt::Display;
 
 mod document;
@@ -820,11 +820,11 @@ impl SyntaxNode {
             .and_then(|x| x.into_token())
             .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
     }
-    pub fn child_text(&self, kind: SyntaxKind) -> Option<String> {
+    pub fn child_text(&self, kind: SyntaxKind) -> Option<SmolStr> {
         self.node
             .children_with_tokens()
             .find(|n| n.kind() == kind)
-            .and_then(|x| x.as_token().map(|x| x.text().to_string()))
+            .and_then(|x| x.as_token().map(|x| x.text().into()))
     }
     pub fn kind(&self) -> SyntaxKind {
         self.node.kind()
@@ -1002,12 +1002,12 @@ impl Spanned for Option<SyntaxToken> {
 }
 
 /// return the normalized identifier string of the first SyntaxKind::Identifier in this node
-pub fn identifier_text(node: &SyntaxNode) -> Option<String> {
+pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
     node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))
 }
 
-pub fn normalize_identifier(ident: &str) -> String {
-    ident.replace('_', "-")
+pub fn normalize_identifier(ident: &str) -> SmolStr {
+    ident.replace_smolstr("_", "-")
 }
 
 // Actual parser

@@ -1002,7 +1002,7 @@ fn get_document_symbols(
             Some(DocumentSymbol {
                 range: util::node_to_lsp_range(&component_node),
                 selection_range,
-                name: c.id.clone(),
+                name: c.id.to_string(),
                 kind: if c.is_global() {
                     lsp_types::SymbolKind::OBJECT
                 } else {
@@ -1020,14 +1020,14 @@ fn get_document_symbols(
             selection_range: util::node_to_lsp_range(
                 &node.parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
             ),
-            name: name.clone(),
+            name: name.to_string(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
         }),
         Type::Enumeration(enumeration) => enumeration.node.as_ref().map(|node| DocumentSymbol {
             range: util::node_to_lsp_range(node),
             selection_range: util::node_to_lsp_range(&node.DeclaredIdentifier()),
-            name: enumeration.name.clone(),
+            name: enumeration.name.to_string(),
             kind: lsp_types::SymbolKind::ENUM,
             ..ds.clone()
         }),
@@ -1050,7 +1050,7 @@ fn get_document_symbols(
                         element_node.QualifiedName().as_ref()?,
                     ),
                     name: e.base_type.to_string(),
-                    detail: (!e.id.is_empty()).then(|| e.id.clone()),
+                    detail: (!e.id.is_empty()).then(|| e.id.to_string()),
                     kind: lsp_types::SymbolKind::VARIABLE,
                     children: gen_children(child, ds),
                     ..ds.clone()

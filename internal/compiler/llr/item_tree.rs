@@ -3,6 +3,7 @@
 
 use super::{EvaluationContext, Expression, ParentCtx};
 use crate::langtype::{NativeClass, Type};
+use smol_str::SmolStr;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroUsize;
@@ -50,7 +51,7 @@ pub struct BindingExpression {
 
 #[derive(Debug)]
 pub struct GlobalComponent {
-    pub name: String,
+    pub name: SmolStr,
     pub properties: Vec<Property>,
     pub functions: Vec<Function>,
     /// One entry per property
@@ -62,7 +63,7 @@ pub struct GlobalComponent {
     pub exported: bool,
     /// The extra names under which this component should be accessible
     /// if it is exported several time.
-    pub aliases: Vec<String>,
+    pub aliases: Vec<SmolStr>,
     /// True when this is a built-in global that does not need to be generated
     pub is_builtin: bool,
 
@@ -99,7 +100,7 @@ pub enum PropertyReference {
 
 #[derive(Debug, Default)]
 pub struct Property {
-    pub name: String,
+    pub name: SmolStr,
     pub ty: Type,
     /// The amount of time this property is used of another property
     /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
@@ -108,7 +109,7 @@ pub struct Property {
 
 #[derive(Debug)]
 pub struct Function {
-    pub name: String,
+    pub name: SmolStr,
     pub ret_ty: Type,
     pub args: Vec<Type>,
     pub code: Expression,
@@ -160,7 +161,7 @@ pub struct ComponentContainerElement {
 
 pub struct Item {
     pub ty: Rc<NativeClass>,
-    pub name: String,
+    pub name: SmolStr,
     /// Index in the item tree array
     pub index_in_tree: u32,
 }
@@ -231,7 +232,7 @@ impl TreeNode {
 
 #[derive(Debug)]
 pub struct SubComponent {
-    pub name: String,
+    pub name: SmolStr,
     pub properties: Vec<Property>,
     pub functions: Vec<Function>,
     pub items: Vec<Item>,
@@ -322,7 +323,7 @@ impl SubComponent {
 
 pub struct SubComponentInstance {
     pub ty: Rc<SubComponent>,
-    pub name: String,
+    pub name: SmolStr,
     pub index_in_tree: u32,
     pub index_of_first_child_in_tree: u32,
     pub repeater_offset: u32,
@@ -348,7 +349,7 @@ pub struct ItemTree {
     /// This tree has a parent. e.g: it is a Repeater or a PopupMenu whose property can access
     /// the parent ItemTree.
     /// The String is the type of the parent ItemTree
-    pub parent_context: Option<String>,
+    pub parent_context: Option<SmolStr>,
 }
 
 #[derive(Debug)]
@@ -356,7 +357,7 @@ pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
-    pub name: String,
+    pub name: SmolStr,
 }
 
 #[derive(Debug)]
@@ -439,10 +440,10 @@ impl CompilationUnit {
 
 #[derive(Debug, Clone)]
 pub struct PublicProperty {
-    pub name: String,
+    pub name: SmolStr,
     pub ty: Type,
     pub prop: PropertyReference,
     pub read_only: bool,
 }
 pub type PublicProperties = Vec<PublicProperty>;
-pub type PrivateProperties = Vec<(String, Type)>;
+pub type PrivateProperties = Vec<(SmolStr, Type)>;

@@ -14,6 +14,7 @@ use napi::JsString;
 use napi::JsUnknown;
 use slint_interpreter::Compiler;
 use slint_interpreter::Value;
+use smol_str::StrExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -147,14 +148,14 @@ impl JsComponentCompiler {
                     let mut o = env.create_object().ok()?;
 
                     for value in en.values.iter() {
-                        let value = value.replace('-', "_");
+                        let value = value.replace_smolstr("-", "_");
                         o.set_property(
                             env.create_string(&value).ok()?,
                             env.create_string(&value).ok()?.into_unknown(),
                         )
                         .ok()?;
                     }
-                    return Some((en.name.clone(), o.into_unknown()));
+                    return Some((en.name.to_string(), o.into_unknown()));
                 }
                 _ => return None,
             }

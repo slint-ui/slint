@@ -10,6 +10,7 @@ use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use i_slint_compiler::pathutils::clean_path;
+use smol_str::{SmolStr, ToSmolStr};
 use std::path::Path;
 
 pub enum TokenInfo {
@@ -21,7 +22,7 @@ pub enum TokenInfo {
     FileName(std::path::PathBuf),
     LocalProperty(syntax_nodes::PropertyDeclaration),
     LocalCallback(syntax_nodes::CallbackDeclaration),
-    IncompleteNamedReference(ElementType, String),
+    IncompleteNamedReference(ElementType, SmolStr),
 }
 
 pub fn token_info(document_cache: &mut DocumentCache, token: SyntaxToken) -> Option<TokenInfo> {
@@ -194,5 +195,5 @@ fn find_property_declaration_in_base(
         .unwrap_or(&global_tr);
 
     let element_type = crate::util::lookup_current_element_type((*element).clone(), tr)?;
-    Some(TokenInfo::IncompleteNamedReference(element_type, prop_name.to_string()))
+    Some(TokenInfo::IncompleteNamedReference(element_type, prop_name.to_smolstr()))
 }

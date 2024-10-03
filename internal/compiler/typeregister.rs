@@ -3,6 +3,7 @@
 
 // cSpell: ignore imum
 
+use smol_str::{format_smolstr, SmolStr, StrExt, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
@@ -55,8 +56,8 @@ macro_rules! declare_enums {
             fn new() -> Self {
                 Self {
                     $($Name : Rc::new(Enumeration {
-                        name: stringify!($Name).replace('_', "-"),
-                        values: vec![$(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#"))),*],
+                        name: stringify!($Name).replace_smolstr("_", "-"),
+                        values: vec![$(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#")).into()),*],
                         default_value: 0,
                         node: None,
                     })),*
@@ -66,7 +67,7 @@ macro_rules! declare_enums {
                 $(if stringify!($Name) != "PathEvent" {
                     register.insert_type_with_name(
                         Type::Enumeration(self.$Name.clone()),
-                        stringify!($Name).replace('_', "-")
+                        stringify!($Name).replace_smolstr("_", "-")
                     );
                 })*
             }
@@ -224,15 +225,15 @@ pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
 #[derive(Debug, Default)]
 pub struct TypeRegister {
     /// The set of property types.
-    types: HashMap<String, Type>,
+    types: HashMap<SmolStr, Type>,
     /// The set of element types
-    elements: HashMap<String, ElementType>,
+    elements: HashMap<SmolStr, ElementType>,
     supported_property_animation_types: HashSet<String>,
     pub(crate) property_animation_type: ElementType,
     pub(crate) empty_type: ElementType,
     /// Map from a context restricted type to the list of contexts (parent type) it is allowed in. This is
     /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
-    context_restricted_types: HashMap<String, HashSet<String>>,
+    context_restricted_types: HashMap<SmolStr, HashSet<SmolStr>>,
     parent_registry: Option<Rc<RefCell<TypeRegister>>>,
     /// If the lookup function should return types that are marked as internal
     pub(crate) expose_internal_types: bool,
@@ -262,9 +263,9 @@ impl TypeRegister {
 
     /// FIXME: same as 'add' ?
     pub fn insert_type(&mut self, t: Type) {
-        self.types.insert(t.to_string(), t);
+        self.types.insert(t.to_smolstr(), t);
     }
-    pub fn insert_type_with_name(&mut self, t: Type, name: String) {
+    pub fn insert_type_with_name(&mut self, t: Type, name: SmolStr) {
         self.types.insert(name, t);
     }
 
@@ -331,13 +332,13 @@ impl TypeRegister {
             )*) => { $(
                 let $Name = Type::Struct {
                     fields: BTreeMap::from([
-                        $((stringify!($pub_field).replace('_', "-"), map_type!($pub_type, $pub_type))),*
+                        $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
                     ]),
-                    name: Some(format!("{}", $inner_name)),
+                    name: Some(format_smolstr!("{}", $inner_name)),
                     node: None,
                     rust_attributes: None,
                 };
-                register.insert_type_with_name(maybe_clone!($Name, $Name), stringify!($Name).to_string());
+                register.insert_type_with_name(maybe_clone!($Name, $Name), SmolStr::new(stringify!($Name)));
             )* };
         }
         i_slint_common::for_each_builtin_structs!(register_builtin_structs);
@@ -467,7 +468,7 @@ impl TypeRegister {
     fn lookup_element_as_result(
         &self,
         name: &str,
-    ) -> Result<ElementType, HashMap<String, HashSet<String>>> {
+    ) -> Result<ElementType, HashMap<SmolStr, HashSet<SmolStr>>> {
         match self.elements.get(name).cloned() {
             Some(ty) => Ok(ty),
             None => match &self.parent_registry {
@@ -521,7 +522,7 @@ impl TypeRegister {
         self.add_with_name(comp.id.clone(), comp);
     }
 
-    pub fn add_with_name(&mut self, name: String, comp: Rc<Component>) {
+    pub fn add_with_name(&mut self, name: SmolStr, comp: Rc<Component>) {
         self.elements.insert(name, ElementType::Component(comp));
     }
 
@@ -543,7 +544,7 @@ impl TypeRegister {
     }
 
     /// Return a hashmap with all the registered type
-    pub fn all_types(&self) -> HashMap<String, Type> {
+    pub fn all_types(&self) -> HashMap<SmolStr, Type> {
         let mut all =
             self.parent_registry.as_ref().map(|r| r.borrow().all_types()).unwrap_or_default();
         for (k, v) in &self.types {
@@ -553,7 +554,7 @@ impl TypeRegister {
     }
 
     /// Return a hashmap with all the registered element type
-    pub fn all_elements(&self) -> HashMap<String, ElementType> {
+    pub fn all_elements(&self) -> HashMap<SmolStr, ElementType> {
         let mut all =
             self.parent_registry.as_ref().map(|r| r.borrow().all_elements()).unwrap_or_default();
         for (k, v) in &self.elements {
@@ -573,8 +574,8 @@ impl TypeRegister {
 pub fn logical_point_type() -> Type {
     Type::Struct {
         fields: IntoIterator::into_iter([
-            ("x".to_owned(), Type::LogicalLength),
-            ("y".to_owned(), Type::LogicalLength),
+            (SmolStr::new_static("x"), Type::LogicalLength),
+            (SmolStr::new_static("y"), Type::LogicalLength),
         ])
         .collect(),
         name: Some("slint::LogicalPosition".into()),
@@ -586,10 +587,10 @@ pub fn logical_point_type() -> Type {
 pub fn font_metrics_type() -> Type {
     Type::Struct {
         fields: IntoIterator::into_iter([
-            ("ascent".to_string(), Type::LogicalLength),
-            ("descent".to_string(), Type::LogicalLength),
-            ("x-height".to_string(), Type::LogicalLength),
-            ("cap-height".to_string(), Type::LogicalLength),
+            (SmolStr::new_static("ascent"), Type::LogicalLength),
+            (SmolStr::new_static("descent"), Type::LogicalLength),
+            (SmolStr::new_static("x-height"), Type::LogicalLength),
+            (SmolStr::new_static("cap-height"), Type::LogicalLength),
         ])
         .collect(),
         name: Some("slint::private_api::FontMetrics".into()),

@@ -10,6 +10,7 @@ use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
 use crate::CompilerConfiguration;
+use smol_str::{format_smolstr, SmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
@@ -181,13 +182,13 @@ impl LoweringState {
     }
 }
 
-fn component_id(component: &Rc<Component>) -> String {
+fn component_id(component: &Rc<Component>) -> SmolStr {
     if component.is_global() {
         component.root_element.borrow().id.clone()
     } else if component.id.is_empty() {
-        format!("Component_{}", component.root_element.borrow().id)
+        format_smolstr!("Component_{}", component.root_element.borrow().id)
     } else {
-        format!("{}_{}", component.id, component.root_element.borrow().id)
+        format_smolstr!("{}_{}", component.id, component.root_element.borrow().id)
     }
 }
 
@@ -261,7 +262,7 @@ fn lower_sub_component(
                     PropertyReference::Function { sub_component_path: vec![], function_index },
                 );
                 sub_component.functions.push(Function {
-                    name: p.into(),
+                    name: p.clone(),
                     ret_ty: (**return_type).clone(),
                     args: args.clone(),
                     // will be replaced later
@@ -275,7 +276,7 @@ fn lower_sub_component(
                 PropertyReference::Local { sub_component_path: vec![], property_index },
             );
             sub_component.properties.push(Property {
-                name: format!("{}_{}", elem.id, p),
+                name: format_smolstr!("{}_{}", elem.id, p),
                 ty: x.property_type.clone(),
                 ..Property::default()
             });
@@ -726,7 +727,7 @@ fn lower_global(
                 PropertyReference::GlobalFunction { global_index, function_index },
             );
             functions.push(Function {
-                name: p.into(),
+                name: p.clone(),
                 ret_ty: (**return_type).clone(),
                 args: args.clone(),
                 // will be replaced later

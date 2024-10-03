@@ -6,6 +6,7 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
 use crate::object_tree::Component;
+use smol_str::SmolStr;
 use std::rc::Rc;
 
 pub const BORDER_RADIUS_PROPERTIES: [&str; 4] = [
@@ -29,7 +30,7 @@ pub fn handle_border_radius(root_component: &Rc<Component>, _diag: &mut BuildDia
             {
                 let border_radius = NamedReference::new(elem, "border-radius");
                 for property_name in BORDER_RADIUS_PROPERTIES.iter() {
-                    elem.borrow_mut().set_binding_if_not_set(property_name.to_string(), || {
+                    elem.borrow_mut().set_binding_if_not_set(SmolStr::new(property_name), || {
                         Expression::PropertyReference(border_radius.clone())
                     });
                 }

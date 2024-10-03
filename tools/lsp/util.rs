@@ -8,6 +8,7 @@ use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
+use smol_str::SmolStr;
 
 use crate::common;
 
@@ -146,12 +147,12 @@ pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> O
 #[derive(Debug)]
 pub struct ExpressionContextInfo {
     element: syntax_nodes::Element,
-    property_name: String,
+    property_name: SmolStr,
     is_animate: bool,
 }
 
 impl ExpressionContextInfo {
-    pub fn new(element: syntax_nodes::Element, property_name: String, is_animate: bool) -> Self {
+    pub fn new(element: syntax_nodes::Element, property_name: SmolStr, is_animate: bool) -> Self {
         ExpressionContextInfo { element, property_name, is_animate }
     }
 }
@@ -293,12 +294,12 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
             }
             SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
                 let element = syntax_nodes::Element::new(n.parent()?)?;
-                break (element, "$model".to_string(), false);
+                break (element, "$model".into(), false);
             }
             SyntaxKind::Element => {
                 // oops: missed it
                 let element = syntax_nodes::Element::new(n)?;
-                break (element, String::new(), false);
+                break (element, SmolStr::default(), false);
             }
             _ => n = n.parent()?,
         }

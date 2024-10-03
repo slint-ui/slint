@@ -130,7 +130,7 @@ impl NamedReference {
             .borrow()
             .property_analysis
             .borrow_mut()
-            .entry(self.name().to_owned())
+            .entry(self.name().into())
             .or_default()
             .is_set = true;
         mark_property_set_derived_in_base(element, self.name())
@@ -230,7 +230,7 @@ pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &s
             if element.borrow().property_declarations.contains_key(name) {
                 return;
             };
-            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
+            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.into()) {
                 std::collections::hash_map::Entry::Occupied(e) if e.get().is_set_externally => {
                     return;
                 }
@@ -256,7 +256,7 @@ pub(crate) fn mark_property_read_derived_in_base(mut element: ElementRc, name: &
             if element.borrow().property_declarations.contains_key(name) {
                 return;
             };
-            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
+            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.into()) {
                 std::collections::hash_map::Entry::Occupied(e) if e.get().is_read_externally => {
                     return;
                 }

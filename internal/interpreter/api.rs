@@ -962,7 +962,7 @@ impl ComponentDefinition {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties()
+        self.inner.unerase(guard).properties().map(|(s, t)| (s.to_string(), t))
     }
 
     /// Returns an iterator over all publicly declared properties. Each iterator item is a tuple of property name
@@ -973,7 +973,7 @@ impl ComponentDefinition {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
             if prop_type.is_property_type() {
-                Some((prop_name, prop_type.into()))
+                Some((prop_name.to_string(), prop_type.into()))
             } else {
                 None
             }
@@ -987,7 +987,7 @@ impl ComponentDefinition {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
             if matches!(prop_type, LangType::Callback { .. }) {
-                Some(prop_name)
+                Some(prop_name.to_string())
             } else {
                 None
             }
@@ -1001,7 +1001,7 @@ impl ComponentDefinition {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
             if matches!(prop_type, LangType::Function { .. }) {
-                Some(prop_name)
+                Some(prop_name.to_string())
             } else {
                 None
             }
@@ -1016,7 +1016,7 @@ impl ComponentDefinition {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_names()
+        self.inner.unerase(guard).global_names().map(|s| s.to_string())
     }
 
     /// List of publicly declared properties or callback in the exported global singleton specified by its name.
@@ -1031,7 +1031,10 @@ impl ComponentDefinition {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).global_properties(global_name)
+        self.inner
+            .unerase(guard)
+            .global_properties(global_name)
+            .map(|o| o.map(|(s, t)| (s.to_string(), t)))
     }
 
     /// List of publicly declared properties in the exported global singleton specified by its name.
@@ -1045,7 +1048,7 @@ impl ComponentDefinition {
         self.inner.unerase(guard).global_properties(global_name).map(|iter| {
             iter.filter_map(|(prop_name, prop_type)| {
                 if prop_type.is_property_type() {
-                    Some((prop_name, prop_type.into()))
+                    Some((prop_name.to_string(), prop_type.into()))
                 } else {
                     None
                 }
@@ -1061,7 +1064,7 @@ impl ComponentDefinition {
         self.inner.unerase(guard).global_properties(global_name).map(|iter| {
             iter.filter_map(|(prop_name, prop_type)| {
                 if matches!(prop_type, LangType::Callback { .. }) {
-                    Some(prop_name)
+                    Some(prop_name.to_string())
                 } else {
                     None
                 }
@@ -1077,7 +1080,7 @@ impl ComponentDefinition {
         self.inner.unerase(guard).global_properties(global_name).map(|iter| {
             iter.filter_map(|(prop_name, prop_type)| {
                 if matches!(prop_type, LangType::Function { .. }) {
-                    Some(prop_name)
+                    Some(prop_name.to_string())
                 } else {
                     None
                 }

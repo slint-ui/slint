@@ -12,6 +12,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
+use smol_str::{format_smolstr, SmolStr};
 use std::cell::RefCell;
 
 pub async fn lower_tabwidget(
@@ -82,7 +83,10 @@ fn process_tabwidget(
         }
         let index = tabs.len();
         child.borrow_mut().base_type = empty_type.clone();
-        child.borrow_mut().property_declarations.insert("title".to_owned(), Type::String.into());
+        child
+            .borrow_mut()
+            .property_declarations
+            .insert(SmolStr::new_static("title"), Type::String.into());
         set_geometry_prop(elem, child, "x", diag);
         set_geometry_prop(elem, child, "y", diag);
         set_geometry_prop(elem, child, "width", diag);
@@ -95,7 +99,7 @@ fn process_tabwidget(
         let old = child
             .borrow_mut()
             .bindings
-            .insert("visible".to_owned(), RefCell::new(condition.into()));
+            .insert(SmolStr::new_static("visible"), RefCell::new(condition.into()));
         if let Some(old) = old {
             diag.push_error(
                 "The property 'visible' cannot be set for Tabs inside a TabWidget".to_owned(),
@@ -104,36 +108,36 @@ fn process_tabwidget(
         }
 
         let mut tab = Element {
-            id: format!("{}-tab{}", elem.borrow().id, index),
+            id: format_smolstr!("{}-tab{}", elem.borrow().id, index),
             base_type: tab_impl.clone(),
             enclosing_component: elem.borrow().enclosing_component.clone(),
             ..Default::default()
         };
         tab.bindings.insert(
-            "title".to_owned(),
+            SmolStr::new_static("title"),
             BindingExpression::new_two_way(NamedReference::new(child, "title")).into(),
         );
         tab.bindings.insert(
-            "current".to_owned(),
+            SmolStr::new_static("current"),
             BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
         );
         tab.bindings.insert(
-            "current-focused".to_owned(),
+            SmolStr::new_static("current-focused"),
             BindingExpression::new_two_way(NamedReference::new(elem, "current-focused")).into(),
         );
         tab.bindings.insert(
-            "tab-index".to_owned(),
+            SmolStr::new_static("tab-index"),
             RefCell::new(Expression::NumberLiteral(index as _, Unit::None).into()),
         );
         tab.bindings.insert(
-            "num-tabs".to_owned(),
+            SmolStr::new_static("num-tabs"),
             RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
         );
         tabs.push(Element::make_rc(tab));
     }
 
     let tabbar = Element {
-        id: format!("{}-tabbar", elem.borrow().id),
+        id: format_smolstr!("{}-tabbar", elem.borrow().id),
         base_type: tabbar_impl,
         enclosing_component: elem.borrow().enclosing_component.clone(),
         children: tabs,
@@ -145,23 +149,23 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
     tabbar.borrow_mut().bindings.insert(
-        "num-tabs".to_owned(),
+        SmolStr::new_static("num-tabs"),
         RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
     );
     tabbar.borrow_mut().bindings.insert(
-        "current".to_owned(),
+        SmolStr::new_static("current"),
         BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
     );
     elem.borrow_mut().bindings.insert(
-        "current-focused".to_owned(),
+        SmolStr::new_static("current-focused"),
         BindingExpression::new_two_way(NamedReference::new(&tabbar, "current-focused")).into(),
     );
     elem.borrow_mut().bindings.insert(
-        "tabbar-preferred-width".to_owned(),
+        SmolStr::new_static("tabbar-preferred-width"),
         BindingExpression::new_two_way(NamedReference::new(&tabbar, "preferred-width")).into(),
     );
     elem.borrow_mut().bindings.insert(
-        "tabbar-preferred-height".to_owned(),
+        SmolStr::new_static("tabbar-preferred-height"),
         BindingExpression::new_two_way(NamedReference::new(&tabbar, "preferred-height")).into(),
     );
 

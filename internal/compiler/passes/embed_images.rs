@@ -8,6 +8,7 @@ use crate::object_tree::*;
 use crate::EmbedResourcesKind;
 #[cfg(feature = "software-renderer")]
 use image::GenericImageView;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
@@ -32,7 +33,7 @@ pub async fn embed_images(
     let all_components = all_components;
 
     let mapped_urls = {
-        let mut urls = HashMap::<String, Option<String>>::new();
+        let mut urls = HashMap::<SmolStr, Option<SmolStr>>::new();
 
         if let Some(mapper) = resource_url_mapper {
             // Collect URLs (sync!):
@@ -44,7 +45,7 @@ pub async fn embed_images(
 
             // Map URLs (async -- well, not really):
             for i in urls.iter_mut() {
-                *i.1 = (*mapper)(i.0).await;
+                *i.1 = (*mapper)(i.0).await.map(SmolStr::new);
             }
         }
 
@@ -66,7 +67,10 @@ pub async fn embed_images(
     }
 }
 
-fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<String, Option<String>>) {
+fn collect_image_urls_from_expression(
+    e: &Expression,
+    urls: &mut HashMap<SmolStr, Option<SmolStr>>,
+) {
     if let Expression::ImageReference { ref resource_ref, .. } = e {
         if let ImageReference::AbsolutePath(path) = resource_ref {
             urls.insert(path.clone(), None);
@@ -78,8 +82,8 @@ fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<String,
 
 fn embed_images_from_expression(
     e: &mut Expression,
-    urls: &HashMap<String, Option<String>>,
-    global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
+    urls: &HashMap<SmolStr, Option<SmolStr>>,
+    global_embedded_resources: &RefCell<HashMap<SmolStr, EmbeddedResources>>,
     embed_files: EmbedResourcesKind,
     scale_factor: f64,
     diag: &mut BuildDiagnostics,
@@ -122,7 +126,7 @@ fn embed_images_from_expression(
 }
 
 fn embed_image(
-    global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
+    global_embedded_resources: &RefCell<HashMap<SmolStr, EmbeddedResources>>,
     _embed_files: EmbedResourcesKind,
     path: &str,
     _scale_factor: f64,

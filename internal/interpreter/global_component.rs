@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use core::pin::Pin;
+use smol_str::SmolStr;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
@@ -19,7 +20,7 @@ pub struct CompiledGlobalCollection {
     pub compiled_globals: Vec<CompiledGlobal>,
     /// Map of all exported global singletons and their index in the compiled_globals vector. The key
     /// is the normalized name of the global.
-    pub exported_globals_by_name: BTreeMap<String, usize>,
+    pub exported_globals_by_name: BTreeMap<SmolStr, usize>,
 }
 
 impl CompiledGlobalCollection {
@@ -59,21 +60,21 @@ pub type GlobalStorage = HashMap<String, Pin<Rc<dyn GlobalComponent>>>;
 
 pub enum CompiledGlobal {
     Builtin {
-        name: String,
+        name: SmolStr,
         element: Rc<i_slint_compiler::langtype::BuiltinElement>,
         // dummy needed for iterator accessor
-        public_properties: BTreeMap<String, PropertyDeclaration>,
+        public_properties: BTreeMap<SmolStr, PropertyDeclaration>,
         /// keep the Component alive as it is boing referenced by `NamedReference`s
         _original: Rc<Component>,
     },
     Component {
         component: ErasedItemTreeDescription,
-        public_properties: BTreeMap<String, PropertyDeclaration>,
+        public_properties: BTreeMap<SmolStr, PropertyDeclaration>,
     },
 }
 
 impl CompiledGlobal {
-    pub fn names(&self) -> Vec<String> {
+    pub fn names(&self) -> Vec<SmolStr> {
         match self {
             CompiledGlobal::Builtin { name, .. } => vec![name.clone()],
             CompiledGlobal::Component { component, .. } => {
@@ -98,7 +99,7 @@ impl CompiledGlobal {
         }
     }
 
-    pub fn public_properties(&self) -> impl Iterator<Item = (&String, &PropertyDeclaration)> + '_ {
+    pub fn public_properties(&self) -> impl Iterator<Item = (&SmolStr, &PropertyDeclaration)> + '_ {
         match self {
             CompiledGlobal::Builtin { public_properties, .. } => public_properties.iter(),
             CompiledGlobal::Component { public_properties, .. } => public_properties.iter(),
@@ -107,7 +108,7 @@ impl CompiledGlobal {
 
     pub fn extend_public_properties(
         &mut self,
-        iter: impl IntoIterator<Item = (String, PropertyDeclaration)>,
+        iter: impl IntoIterator<Item = (SmolStr, PropertyDeclaration)>,
     ) {
         match self {
             CompiledGlobal::Builtin { public_properties, .. } => public_properties.extend(iter),

@@ -8,6 +8,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
+use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Display;
@@ -34,8 +35,8 @@ struct Component {
 
 #[derive(Default)]
 struct Style {
-    components: BTreeMap<String, Component>,
-    structs: BTreeMap<String, Type>,
+    components: BTreeMap<SmolStr, Component>,
+    structs: BTreeMap<SmolStr, Type>,
 }
 
 fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> Component {
@@ -49,7 +50,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                 .filter(|(_, v)| v.visibility != PropertyVisibility::Private)
                 .map(|(k, v)| {
                     (
-                        k.clone(),
+                        k.to_string(),
                         PropertyInfo {
                             ty: v.property_type.clone(),
                             vis: v.visibility,
@@ -64,7 +65,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                 match &role.borrow().expression {
                     Expression::Invalid => (),
                     Expression::EnumerationValue(e) => {
-                        result.accessible_role = Some(e.enumeration.values[e.value].clone())
+                        result.accessible_role = Some(e.enumeration.values[e.value].to_string())
                     }
                     e => panic!(
                         "accessible-role not an EnumerationValue : {e:?}    (for {:?})",
@@ -78,12 +79,12 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
             i_slint_compiler::langtype::ElementType::Component(r) => r.root_element.clone(),
             i_slint_compiler::langtype::ElementType::Builtin(b) => {
                 let builtins = i_slint_compiler::typeregister::reserved_properties()
-                    .map(|x| x.0.to_owned())
+                    .map(|x| x.0.to_smolstr())
                     .collect::<HashSet<_>>();
                 result.properties.extend(
                     b.properties.iter().filter(|(k, _)| !builtins.contains(*k)).map(|(k, v)| {
                         (
-                            k.clone(),
+                            k.to_string(),
                             PropertyInfo {
                                 ty: v.ty.clone(),
                                 vis: v.property_visibility,
