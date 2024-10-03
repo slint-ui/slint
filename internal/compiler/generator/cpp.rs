@@ -6,14 +6,16 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
-use std::collections::HashSet;
 use std::fmt::Write;
-use std::fs::File;
-use std::io::BufReader;
 use std::io::BufWriter;
 
 use lyon_path::geom::euclid::approxeq::ApproxEq;
-use serde_json::Error;
+
+use lazy_static::lazy_static;
+use std::collections::HashSet;
+
+
+
 
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -23,29 +25,38 @@ pub struct Config {
     pub header_include: String,
 }
 
-// Function loading C++ keywords from JSON
-fn load_cpp_keywords_from_file(file_path: &str) -> Result<HashSet<String>, Error> {
-    // Open File
-    let file = File::open(file_path).expect("File cannot be open!");
-    let reader = BufReader::new(file);
-
-    // Parse JSON
-    let keywords: Vec<String> = serde_json::from_reader(reader)?;
-
-    // Convert into HashSet for fast access
-    Ok(keywords.into_iter().collect())
+// static initialization of C++ keywords Hashset
+lazy_static! {
+    static ref CPP_KEYWORDS: HashSet<&'static str> = {
+        let keywords: HashSet<&str> = HashSet::from([
+            "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit",
+            "atomic_noexcept", "auto", "bitand", "bitor", "bool", "break", "case", "catch",
+            "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept", "const",
+            "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await",
+            "co_return", "co_yield", "decltype", "default", "delete", "do", "double",
+            "dynamic_cast", "else", "enum", "explicit", "export", "extern", "false", "float",
+            "for", "friend", "goto", "if", "inline", "int", "long", "mutable", "namespace",
+            "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private",
+            "protected", "public", "reflexpr", "register", "reinterpret_cast", "requires",
+            "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast",
+            "struct", "switch", "synchronized", "template", "this", "thread_local", "throw",
+            "true", "try", "typedef", "typeid", "typename", "union", "unsigned", "using",
+            "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
+        ]);
+        keywords
+    };
 }
 
 // Check if word is one of C++ keywords
-fn is_cpp_keyword(word: &str, cpp_keywords: &HashSet<String>) -> bool {
-    cpp_keywords.contains(word)
+fn is_cpp_keyword(word: &str) -> bool {
+    CPP_KEYWORDS.contains(word)
 }
 
 fn ident(ident: &str) -> String {
-    let cpp_keywords =
-        load_cpp_keywords_from_file("cpp_keywords.json").expect("Failed to load C++ keywords JSON File");
-    if is_cpp_keyword(ident, &cpp_keywords) {
+   
+    if is_cpp_keyword(ident) {
         format!("{}_", ident)
+        // ident.into()
     } else if ident.contains('-') {
         ident.replace('-', "_")
     } else {
