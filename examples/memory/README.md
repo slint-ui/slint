@@ -2,10 +2,7 @@
 
 ### `memory`
 
-A basic memory game used as an example the tutorial:
-
-* [Memory Game Tutorial (Rust)](https://slint.dev/docs/quickstart/rust)
-* [Memory Game Tutorial (C++)](https://slint.dev/docs/quickstart/cpp)
+A basic memory game used as an example the [tutorial](https://slint.dev/docs/slint/src/quickstart/)
 
 | `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- |

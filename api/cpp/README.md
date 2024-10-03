@@ -9,8 +9,6 @@ Slint.cpp is the C++ API to interact with a Slint UI from C++.
 
 The complete C++ documentation can be viewed online at https://slint.dev/docs/cpp/.
 
-If you are new to Slint, you might also consider going through our [Walk-through tutorial](https://slint.dev/docs/quickstart/cpp).
-
 ## Installing or Building Slint
 
 Slint comes with a CMake integration that automates the compilation step of the `.slint` markup language files and
@@ -250,7 +248,6 @@ int main() {
 
 That's it.
 
-For more details, check the [Online documentation](https://slint.dev/docs/cpp) and the full
-  [Walk-through tutorial](https://slint.dev/docs/quickstart/cpp).
+For more details, check the [Online documentation](https://slint.dev/docs/cpp).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-cpp-template) repository with
 the code of a minimal C++ application using Slint that can be used as a starting point to your program.

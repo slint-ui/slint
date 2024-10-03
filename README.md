@@ -120,9 +120,9 @@ The `docs` folder contains a lot more information, including
 
 Refer to the README of each language directory in the `api` folder:
 
-- [C++](api/cpp) ([Documentation][#15] | [Tutorial][#16] | [Getting Started Template][#17])
-- [Rust](api/rs/slint) [![Crates.io][#18]][#19] ([Documentation][#20] | [Tutorial][#21] | [Tutorial Video][#22] | [Getting Started Template][#23])
-- [JavaScript/NodeJS (Beta)](api/node) [![npm][#24]][#25] ([Documentation][#26] | [Tutorial][#27] | [Getting Started Template][#28])
+- [C++](api/cpp) ([Documentation][#15] | [Getting Started Template][#17])
+- [Rust](api/rs/slint) [![Crates.io][#18]][#19] ([Documentation][#20] | [Tutorial Video][#22] | [Getting Started Template][#23])
+- [JavaScript/NodeJS (Beta)](api/node) [![npm][#24]][#25] ([Documentation][#26] | [Getting Started Template][#28])
 
 ## Architecture
 
@@ -247,18 +247,15 @@ You can of course also contact us privately via email to [info@slint.dev](mailto
 [#13]: https://slint.dev/resources/gallery_screenshot.png "Gallery Demo"
 [#14]: https://slint.dev/demos/gallery/
 [#15]: https://slint.dev/latest/docs/cpp
-[#16]: https://slint.dev/latest/docs/quickstart/cpp
 [#17]: https://github.com/slint-ui/slint-cpp-template
 [#18]: https://img.shields.io/crates/v/slint
 [#19]: https://crates.io/crates/slint
 [#20]: https://slint.dev/latest/docs/rust/slint/
-[#21]: https://slint.dev/latest/docs/quickstart/rust
 [#22]: https://youtu.be/WBcv4V-whHk
 [#23]: https://github.com/slint-ui/slint-rust-template
 [#24]: https://img.shields.io/npm/v/slint-ui
 [#25]: https://www.npmjs.com/package/slint-ui
 [#26]: https://slint.dev/latest/docs/node
-[#27]: https://slint.dev/latest/docs/quickstart/node
 [#28]: https://github.com/slint-ui/slint-nodejs-template
 [#29]: ./examples/weather-demo/docs/img/desktop-preview.png "Weather Demo"
 [#30]: https://slint.dev/demos/weather-demo/
