@@ -4,6 +4,7 @@
 //! After inlining and moving declarations, all Element::base_type should be Type::BuiltinElement. This pass resolves them
 //! to NativeClass and picking a variant that only contains the used properties.
 
+use smol_str::SmolStr;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -64,7 +65,7 @@ fn lookup_property_distance(mut class: Rc<NativeClass>, name: &str) -> (usize, R
 
 fn select_minimal_class_based_on_property_usage<'a>(
     class: &Rc<NativeClass>,
-    properties_used: impl Iterator<Item = &'a String>,
+    properties_used: impl Iterator<Item = &'a SmolStr>,
 ) -> Rc<NativeClass> {
     let mut minimal_class = class.clone();
     while let Some(class) = minimal_class.parent.clone() {
@@ -88,31 +89,32 @@ fn select_minimal_class_based_on_property_usage<'a>(
 #[test]
 fn test_select_minimal_class_based_on_property_usage() {
     use crate::langtype::{BuiltinPropertyInfo, Type};
+    use smol_str::ToSmolStr;
     let first = Rc::new(NativeClass::new_with_properties(
         "first_class",
-        [("first_prop".to_owned(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
+        [("first_prop".to_smolstr(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
     ));
 
     let mut second = NativeClass::new_with_properties(
         "second_class",
-        [("second_prop".to_owned(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
+        [("second_prop".to_smolstr(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
     );
     second.parent = Some(first.clone());
     let second = Rc::new(second);
 
     let reduce_to_first =
-        select_minimal_class_based_on_property_usage(&second, ["first_prop".to_owned()].iter());
+        select_minimal_class_based_on_property_usage(&second, ["first_prop".to_smolstr()].iter());
 
     assert_eq!(reduce_to_first.class_name, first.class_name);
 
     let reduce_to_second =
-        select_minimal_class_based_on_property_usage(&second, ["second_prop".to_owned()].iter());
+        select_minimal_class_based_on_property_usage(&second, ["second_prop".to_smolstr()].iter());
 
     assert_eq!(reduce_to_second.class_name, second.class_name);
 
     let reduce_to_second = select_minimal_class_based_on_property_usage(
         &second,
-        ["first_prop".to_owned(), "second_prop".to_owned()].iter(),
+        ["first_prop".to_smolstr(), "second_prop".to_smolstr()].iter(),
     );
 
     assert_eq!(reduce_to_second.class_name, second.class_name);
@@ -120,6 +122,7 @@ fn test_select_minimal_class_based_on_property_usage() {
 
 #[test]
 fn select_minimal_class() {
+    use smol_str::ToSmolStr;
     let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     let rect = tr.lookup_element("Rectangle").unwrap();
@@ -127,7 +130,7 @@ fn select_minimal_class() {
     assert_eq!(
         select_minimal_class_based_on_property_usage(
             &rect.native_class,
-            ["x".to_owned(), "width".to_owned()].iter()
+            ["x".to_smolstr(), "width".to_smolstr()].iter()
         )
         .class_name,
         "Empty",
@@ -139,7 +142,7 @@ fn select_minimal_class() {
     assert_eq!(
         select_minimal_class_based_on_property_usage(
             &rect.native_class,
-            ["border-width".to_owned()].iter()
+            ["border-width".to_smolstr()].iter()
         )
         .class_name,
         "BasicBorderRectangle",
@@ -147,7 +150,7 @@ fn select_minimal_class() {
     assert_eq!(
         select_minimal_class_based_on_property_usage(
             &rect.native_class,
-            ["border-width".to_owned(), "x".to_owned()].iter()
+            ["border-width".to_smolstr(), "x".to_smolstr()].iter()
         )
         .class_name,
         "BasicBorderRectangle",
@@ -155,7 +158,7 @@ fn select_minimal_class() {
     assert_eq!(
         select_minimal_class_based_on_property_usage(
             &rect.native_class,
-            ["border-top-left-radius".to_owned(), "x".to_owned()].iter()
+            ["border-top-left-radius".to_smolstr(), "x".to_smolstr()].iter()
         )
         .class_name,
         "BorderRectangle",

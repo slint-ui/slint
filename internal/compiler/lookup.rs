@@ -14,6 +14,7 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 
 mod named_colors;
@@ -34,7 +35,7 @@ pub struct LookupCtx<'a> {
     pub diag: &'a mut BuildDiagnostics,
 
     /// The name of the arguments of the callback or function
-    pub arguments: Vec<String>,
+    pub arguments: Vec<SmolStr>,
 
     /// The type register in which to look for Globals
     pub type_register: &'a TypeRegister,
@@ -585,7 +586,8 @@ macro_rules! special_keys_lookup {
             ) -> Option<R> {
                 None
                 $(.or_else(|| {
-                    f(stringify!($name), Expression::StringLiteral($char.into()).into())
+                    let mut tmp = [0; 4];
+                    f(stringify!($name), Expression::StringLiteral(SmolStr::new_inline($char.encode_utf8(&mut tmp))).into())
                 }))*
             }
         }
@@ -990,7 +992,7 @@ impl LookupObject for Expression {
                 Type::Struct { fields, .. } => fields.contains_key(name).then(|| {
                     LookupResult::from(Expression::StructFieldAccess {
                         base: Box::new(self.clone()),
-                        name: name.to_string(),
+                        name: name.into(),
                     })
                 }),
                 Type::String => StringExpression(self).lookup(ctx, name),

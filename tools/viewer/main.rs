@@ -11,6 +11,7 @@ use itertools::Itertools;
 use slint_interpreter::{
     ComponentDefinition, ComponentHandle, ComponentInstance, SharedString, Value,
 };
+use smol_str::ToSmolStr;
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
@@ -183,7 +184,7 @@ fn main() -> Result<()> {
                 }
             }
             if let Some(v) = to_json(component.get_property(&name).unwrap()) {
-                obj.insert(name, v);
+                obj.insert(name.into(), v);
             }
         }
         if data_path == std::path::Path::new("-") {
@@ -373,11 +374,9 @@ fn load_data(
                 }
                 serde_json::Value::String(s) => match t {
                     i_slint_compiler::langtype::Type::Enumeration(e) => {
-                        if e.values.contains(s) {
-                            slint_interpreter::Value::EnumerationValue(
-                                e.name.to_string(),
-                                s.to_string(),
-                            )
+                        let s = s.to_smolstr();
+                        if e.values.contains(&s) {
+                            slint_interpreter::Value::EnumerationValue(e.name.to_string(), s.into())
                         } else {
                             eprintln!("Warning: Unexpected value for enum '{}': {}", e.name, s);
                             slint_interpreter::Value::Void
@@ -408,11 +407,14 @@ fn load_data(
                 serde_json::Value::Object(obj) => match t {
                     i_slint_compiler::langtype::Type::Struct { fields, .. } => obj
                         .iter()
-                        .filter_map(|(k, v)| match fields.get(k) {
-                            Some(t) => Some((k.clone(), from_json(t, v))),
-                            None => {
-                                eprintln!("Warning: ignoring unknown property: {}", k);
-                                None
+                        .filter_map(|(k, v)| {
+                            let k = k.to_smolstr();
+                            match fields.get(&k) {
+                                Some(t) => Some((k.to_string(), from_json(t, v))),
+                                None => {
+                                    eprintln!("Warning: ignoring unknown property: {}", k);
+                                    None
+                                }
                             }
                         })
                         .collect::<slint_interpreter::Struct>()
@@ -422,7 +424,7 @@ fn load_data(
             }
         }
 
-        match types.get(name) {
+        match types.get(name.as_str()) {
             Some(t) => {
                 match instance.set_property(name, from_json(t, v)) {
                     Ok(()) => (),

@@ -7,11 +7,12 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::ElementType;
 use crate::object_tree::*;
 use core::cell::RefCell;
+use smol_str::{format_smolstr, SmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 struct Declarations {
-    property_declarations: BTreeMap<String, PropertyDeclaration>,
+    property_declarations: BTreeMap<SmolStr, PropertyDeclaration>,
 }
 impl Declarations {
     fn take_from_element(e: &mut Element) -> Self {
@@ -75,7 +76,7 @@ fn do_move_declarations(component: &Rc<Component>) {
 
         // Also move the changed callback
         let change_callbacks = core::mem::take(&mut elem.borrow_mut().change_callbacks);
-        let mut new_change_callbacks = BTreeMap::<String, RefCell<Vec<Expression>>>::default();
+        let mut new_change_callbacks = BTreeMap::<SmolStr, RefCell<Vec<Expression>>>::default();
         for (k, e) in change_callbacks {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
             if will_be_moved {
@@ -138,8 +139,8 @@ fn fixup_reference(nr: &mut NamedReference) {
     }
 }
 
-fn map_name(e: &ElementRc, s: &str) -> String {
-    format!("{}-{}", e.borrow().id, s)
+fn map_name(e: &ElementRc, s: &str) -> SmolStr {
+    format_smolstr!("{}-{}", e.borrow().id, s)
 }
 
 fn simplify_optimized_items_recursive(component: &Rc<Component>) {

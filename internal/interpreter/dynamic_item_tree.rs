@@ -37,6 +37,7 @@ use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
 use itertools::Either;
 use once_cell::unsync::OnceCell;
+use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
@@ -383,12 +384,12 @@ pub struct ItemTreeDescription<'id> {
     item_tree: Vec<ItemTreeNode>,
     item_array:
         Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
-    pub(crate) items: HashMap<String, ItemWithinItemTree>,
-    pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
-    pub(crate) custom_callbacks: HashMap<String, FieldOffset<Instance<'id>, Callback>>,
+    pub(crate) items: HashMap<SmolStr, ItemWithinItemTree>,
+    pub(crate) custom_properties: HashMap<SmolStr, PropertiesWithinComponent>,
+    pub(crate) custom_callbacks: HashMap<SmolStr, FieldOffset<Instance<'id>, Callback>>,
     repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
     /// Map the Element::id of the repeater to the index in the `repeater` vec
-    pub repeater_names: HashMap<String, usize>,
+    pub repeater_names: HashMap<SmolStr, usize>,
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_item_tree_offset:
         Option<FieldOffset<Instance<'id>, OnceCell<ErasedItemTreeBoxWeak>>>,
@@ -402,7 +403,7 @@ pub struct ItemTreeDescription<'id> {
     /// Maps from an item_id to the original element it came from
     pub(crate) original_elements: Vec<ElementRc>,
     /// Copy of original.root_element.property_declarations, without a guarded refcell
-    public_properties: BTreeMap<String, PropertyDeclaration>,
+    public_properties: BTreeMap<SmolStr, PropertyDeclaration>,
     change_trackers: Option<(
         FieldOffset<Instance<'id>, OnceCell<Vec<ChangeTracker>>>,
         Vec<(NamedReference, Expression)>,
@@ -425,8 +426,8 @@ pub struct ItemTreeDescription<'id> {
 }
 
 fn internal_properties_to_public<'a>(
-    prop_iter: impl Iterator<Item = (&'a String, &'a PropertyDeclaration)> + 'a,
-) -> impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + 'a {
+    prop_iter: impl Iterator<Item = (&'a SmolStr, &'a PropertyDeclaration)> + 'a,
+) -> impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + 'a {
     prop_iter.filter(|(_, v)| v.expose_in_public_api).map(|(s, v)| {
         let name = v
             .node
@@ -435,8 +436,8 @@ fn internal_properties_to_public<'a>(
                 n.child_node(parser::SyntaxKind::DeclaredIdentifier)
                     .and_then(|n| n.child_token(parser::SyntaxKind::Identifier))
             })
-            .map(|n| n.to_string())
-            .unwrap_or_else(|| s.clone());
+            .map(|n| n.to_smolstr())
+            .unwrap_or_else(|| s.to_smolstr());
         (name, v.property_type.clone())
     })
 }
@@ -465,12 +466,12 @@ impl<'id> ItemTreeDescription<'id> {
     /// We try to preserve the dashes and underscore as written in the property declaration
     pub fn properties(
         &self,
-    ) -> impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_ {
+    ) -> impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + '_ {
         internal_properties_to_public(self.public_properties.iter())
     }
 
     /// List names of exported global singletons
-    pub fn global_names(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn global_names(&self) -> impl Iterator<Item = SmolStr> + '_ {
         self.compiled_globals
             .as_ref()
             .expect("Root component should have globals")
@@ -483,7 +484,7 @@ impl<'id> ItemTreeDescription<'id> {
     pub fn global_properties(
         &self,
         name: &str,
-    ) -> Option<impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_> {
+    ) -> Option<impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + '_> {
         let g = self.compiled_globals.as_ref().expect("Root component should have globals");
         g.exported_globals_by_name
             .get(crate::normalize_identifier(name).as_ref())
@@ -870,7 +871,7 @@ pub async fn load(
             let _ = it.type_loader.set(loader.clone());
             let _ = it.raw_type_loader.set(raw_type_loader.clone());
         }
-        components.insert(c.id.clone(), ComponentDefinition { inner: it.into() });
+        components.insert(c.id.to_string(), ComponentDefinition { inner: it.into() });
     }
 
     if components.is_empty() {
@@ -898,7 +899,7 @@ pub async fn load(
             _ => None,
         })
         .filter(|(export_name, type_name)| *export_name != *type_name)
-        .map(|(export_name, type_name)| (type_name.clone(), export_name.clone()))
+        .map(|(export_name, type_name)| (type_name.to_string(), export_name.to_string()))
         .collect::<Vec<_>>();
 
     CompilationResult {
@@ -973,10 +974,10 @@ pub(crate) fn generate_item_tree<'id>(
         item_array:
             Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
         original_elements: Vec<ElementRc>,
-        items_types: HashMap<String, ItemWithinItemTree>,
+        items_types: HashMap<SmolStr, ItemWithinItemTree>,
         type_builder: dynamic_type::TypeBuilder<'id>,
         repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
-        repeater_names: HashMap<String, usize>,
+        repeater_names: HashMap<SmolStr, usize>,
         rtti: Rc<HashMap<&'static str, Rc<ItemRTTI>>>,
         change_callbacks: Vec<(NamedReference, Expression)>,
     }

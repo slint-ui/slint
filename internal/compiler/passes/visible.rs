@@ -3,6 +3,7 @@
 
 //! Pass that lowers synthetic `visible` properties to Clip element
 
+use smol_str::{format_smolstr, SmolStr};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -82,11 +83,11 @@ pub fn handle_visible(
 
 fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
     let element = Element {
-        id: format!("{}-visibility", child.borrow().id),
+        id: format_smolstr!("{}-visibility", child.borrow().id),
         base_type: ElementType::Native(native_clip.clone()),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((
-            "clip".to_owned(),
+            SmolStr::new_static("clip"),
             RefCell::new(
                 Expression::UnaryOp {
                     sub: Box::new(Expression::PropertyReference(NamedReference::new(

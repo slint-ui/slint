@@ -8,6 +8,7 @@ use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
+use smol_str::SmolStr;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -44,7 +45,7 @@ pub enum BuiltinFunction {
     ClosePopupWindow,
     SetSelectionOffsets,
     /// A function that belongs to an item (such as TextInput's select-all function).
-    ItemMemberFunction(String),
+    ItemMemberFunction(SmolStr),
     ItemFontMetrics,
     /// the "42".to_float()
     StringToFloat,
@@ -185,10 +186,10 @@ impl BuiltinFunction {
             BuiltinFunction::ColorRgbaStruct => Type::Function {
                 return_type: Box::new(Type::Struct {
                     fields: IntoIterator::into_iter([
-                        ("red".to_string(), Type::Int32),
-                        ("green".to_string(), Type::Int32),
-                        ("blue".to_string(), Type::Int32),
-                        ("alpha".to_string(), Type::Int32),
+                        (SmolStr::new_static("red"), Type::Int32),
+                        (SmolStr::new_static("green"), Type::Int32),
+                        (SmolStr::new_static("blue"), Type::Int32),
+                        (SmolStr::new_static("alpha"), Type::Int32),
                     ])
                     .collect(),
                     name: Some("Color".into()),
@@ -200,10 +201,10 @@ impl BuiltinFunction {
             BuiltinFunction::ColorHsvaStruct => Type::Function {
                 return_type: Box::new(Type::Struct {
                     fields: IntoIterator::into_iter([
-                        ("hue".to_string(), Type::Float32),
-                        ("saturation".to_string(), Type::Float32),
-                        ("value".to_string(), Type::Float32),
-                        ("alpha".to_string(), Type::Float32),
+                        (SmolStr::new_static("hue"), Type::Float32),
+                        (SmolStr::new_static("saturation"), Type::Float32),
+                        (SmolStr::new_static("value"), Type::Float32),
+                        (SmolStr::new_static("alpha"), Type::Float32),
                     ])
                     .collect(),
                     name: Some("Color".into()),
@@ -235,11 +236,11 @@ impl BuiltinFunction {
             BuiltinFunction::ImageSize => Type::Function {
                 return_type: Box::new(Type::Struct {
                     fields: IntoIterator::into_iter([
-                        ("width".to_string(), Type::Int32),
-                        ("height".to_string(), Type::Int32),
+                        (SmolStr::new_static("width"), Type::Int32),
+                        (SmolStr::new_static("height"), Type::Int32),
                     ])
                     .collect(),
-                    name: Some("Size".to_string()),
+                    name: Some("Size".into()),
                     node: None,
                     rust_attributes: None,
                 }),
@@ -576,7 +577,7 @@ pub enum Expression {
     Uncompiled(SyntaxNode),
 
     /// A string literal. The .0 is the content of the string, without the quotes
-    StringLiteral(String),
+    StringLiteral(SmolStr),
     /// Number
     NumberLiteral(f64, Unit),
     /// Bool
@@ -636,14 +637,14 @@ pub enum Expression {
 
     /// Should be directly within a CodeBlock expression, and store the value of the expression in a local variable
     StoreLocalVariable {
-        name: String,
+        name: SmolStr,
         value: Box<Expression>,
     },
 
     /// a reference to the local variable with the given name. The type system should ensure that a variable has been stored
     /// with this name and this type before in one of the statement of an enclosing codeblock
     ReadLocalVariable {
-        name: String,
+        name: SmolStr,
         ty: Type,
     },
 
@@ -651,7 +652,7 @@ pub enum Expression {
     StructFieldAccess {
         /// This expression should have [`Type::Struct`] type
         base: Box<Expression>,
-        name: String,
+        name: SmolStr,
     },
 
     /// Access to a index within an array.
@@ -717,7 +718,7 @@ pub enum Expression {
     },
     Struct {
         ty: Type,
-        values: HashMap<String, Expression>,
+        values: HashMap<SmolStr, Expression>,
     },
 
     PathData(Path),
@@ -1367,7 +1368,7 @@ impl Expression {
             | Type::LayoutCache => Expression::Invalid,
             Type::Void => Expression::CodeBlock(vec![]),
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
-            Type::String => Expression::StringLiteral(String::new()),
+            Type::String => Expression::StringLiteral(SmolStr::default()),
             Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {
                 from: Box::new(Expression::NumberLiteral(0., Unit::None)),
                 to: ty.clone(),
@@ -1640,7 +1641,7 @@ pub enum EasingCurve {
 #[derive(Clone, Debug)]
 pub enum ImageReference {
     None,
-    AbsolutePath(String),
+    AbsolutePath(SmolStr),
     EmbeddedData { resource_id: usize, extension: String },
     EmbeddedTexture { resource_id: usize },
 }

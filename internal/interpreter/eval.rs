@@ -16,6 +16,7 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
+use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -98,7 +99,7 @@ pub(crate) enum ComponentInstance<'a, 'id> {
 
 /// The local variable needed for binding evaluation
 pub struct EvalLocalContext<'a, 'id> {
-    local_variables: HashMap<String, Value>,
+    local_variables: HashMap<SmolStr, Value>,
     function_arguments: Vec<Value>,
     pub(crate) component_instance: ComponentInstance<'a, 'id>,
     /// When Some, a return statement was executed and one must stop evaluating
@@ -137,7 +138,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
     match expression {
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
-        Expression::StringLiteral(s) => Value::String(s.into()),
+        Expression::StringLiteral(s) => Value::String(s.as_str().into()),
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::CallbackReference { .. } => panic!("callback in expression"),
@@ -316,7 +317,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Struct { values, .. } => Value::Struct(
             values
                 .iter()
-                .map(|(k, v)| (k.clone(), eval_expression(v, local_context)))
+                .map(|(k, v)| (k.to_string(), eval_expression(v, local_context)))
                 .collect(),
         ),
         Expression::PathData(data)  => {
@@ -358,7 +359,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }))))
         }
         Expression::EnumerationValue(value) => {
-            Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
+            Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
@@ -1237,7 +1238,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
             if let Value::Struct(mut o) = eval_expression(base, local_context) {
                 let mut r = o.get_field(name).unwrap().clone();
                 r = if op == '=' { rhs } else { eval(std::mem::take(&mut r)) };
-                o.set_field(name.to_owned(), r);
+                o.set_field(name.to_string(), r);
                 eval_assignment(base, '=', Value::Struct(o), local_context)
             }
         }
@@ -1681,13 +1682,17 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Bool => Value::Bool(false),
         Type::Callback { .. } => Value::Void,
         Type::Struct { fields, .. } => Value::Struct(
-            fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))).collect::<Struct>(),
+            fields
+                .iter()
+                .map(|(n, t)| (n.to_string(), default_value_for_type(t)))
+                .collect::<Struct>(),
         ),
         Type::Array(_) | Type::Model => Value::Model(Default::default()),
         Type::Percent => Value::Number(0.),
-        Type::Enumeration(e) => {
-            Value::EnumerationValue(e.name.clone(), e.values.get(e.default_value).unwrap().clone())
-        }
+        Type::Enumeration(e) => Value::EnumerationValue(
+            e.name.to_string(),
+            e.values.get(e.default_value).unwrap().to_string(),
+        ),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

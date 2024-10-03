@@ -19,6 +19,7 @@ use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
 };
+use smol_str::SmolStr;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -263,7 +264,7 @@ pub(crate) fn completion_at(
                             ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
                             _ => return None,
                         };
-                        let mut c = CompletionItem::new_simple(k, "element".into());
+                        let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
                         c.kind = Some(CompletionItemKind::CLASS);
                         Some(c)
                     })
@@ -334,7 +335,7 @@ pub(crate) fn completion_at(
             doc.exports
                 .iter()
                 .map(|(exported_name, _)| CompletionItem {
-                    label: exported_name.name.clone(),
+                    label: exported_name.name.to_string(),
                     ..Default::default()
                 })
                 .collect(),
@@ -402,7 +403,7 @@ pub(crate) fn completion_at(
             .property_list()
             .into_iter()
             .map(|(k, t)| {
-                let mut c = CompletionItem::new_simple(k, t.to_string());
+                let mut c = CompletionItem::new_simple(k.to_string(), t.to_string());
                 c.kind = Some(CompletionItemKind::PROPERTY);
                 if snippet_support {
                     c.insert_text_format = Some(InsertTextFormat::SNIPPET);
@@ -467,7 +468,7 @@ fn properties_for_changed_callbacks(
         })
         .chain(element.PropertyDeclaration().filter_map(|pr| {
             let mut c = CompletionItem::new_simple(
-                pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?,
+                pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?.to_string(),
                 pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
             );
             c.kind = Some(CompletionItemKind::PROPERTY);
@@ -522,7 +523,10 @@ fn resolve_element_scope(
         })
         .chain(element.PropertyDeclaration().filter_map(|pr| {
             let mut c = CompletionItem::new_simple(
-                pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?,
+                pr.DeclaredIdentifier()
+                    .child_text(SyntaxKind::Identifier)
+                    .as_ref()
+                    .map(SmolStr::to_string)?,
                 pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
             );
             c.kind = Some(CompletionItemKind::PROPERTY);
@@ -531,7 +535,10 @@ fn resolve_element_scope(
         }))
         .chain(element.CallbackDeclaration().filter_map(|cd| {
             let mut c = CompletionItem::new_simple(
-                cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?,
+                cd.DeclaredIdentifier()
+                    .child_text(SyntaxKind::Identifier)
+                    .as_ref()
+                    .map(SmolStr::to_string)?,
                 "callback".into(),
             );
             c.kind = Some(CompletionItemKind::METHOD);
@@ -561,7 +568,7 @@ fn resolve_element_scope(
                         ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
                         _ => return None,
                     };
-                    let mut c = CompletionItem::new_simple(k, "element".into());
+                    let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
                     c.kind = Some(CompletionItemKind::CLASS);
                     Some(c)
                 })),
@@ -587,7 +594,7 @@ fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a st
             .as_ref()
             .and_then(|n| n.child_node(SyntaxKind::DeclaredIdentifier))
             .and_then(|n| n.child_text(SyntaxKind::Identifier))
-            .map_or(prop.into(), |x| x.into())
+            .map_or(prop.into(), |x| x.to_string().into())
     } else {
         de_normalize_property_name(&element.borrow().base_type, prop)
     }
@@ -684,7 +691,7 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             c
         }
         LookupResult::Enumeration(e) => {
-            let mut c = CompletionItem::new_simple(str.to_string(), e.name.clone());
+            let mut c = CompletionItem::new_simple(str.to_string(), e.name.to_string());
             c.kind = Some(CompletionItemKind::ENUM);
             c
         }
@@ -711,7 +718,7 @@ fn resolve_type_scope(
             .into_iter()
             .filter_map(|(k, t)| {
                 t.is_property_type().then(|| {
-                    let mut c = CompletionItem::new_simple(k, String::new());
+                    let mut c = CompletionItem::new_simple(k.to_string(), String::new());
                     c.kind = Some(CompletionItemKind::TYPE_PARAMETER);
                     c
                 })

@@ -10,6 +10,7 @@ use itertools::Itertools;
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
+use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
 use crate::preview::properties;
@@ -19,7 +20,7 @@ use crate::wasm_prelude::*;
 
 slint::include_modules!();
 
-pub type PropertyDeclarations = HashMap<String, PropertyDeclaration>;
+pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
@@ -292,10 +293,10 @@ fn extract_tr_data(tr_node: &syntax_nodes::AtTr, value: &mut PropertyValue) {
     if tr_node.Expression().next().is_none() && (plural.is_empty() || plural_expression.is_some()) {
         value.kind = PropertyValueKind::String;
         value.is_translatable = true;
-        value.tr_context = context.into();
-        value.tr_plural = plural.into();
+        value.tr_context = context.as_str().into();
+        value.tr_plural = plural.as_str().into();
         value.tr_plural_expression = plural_expression.unwrap_or_default().into();
-        value.value_string = text.into();
+        value.value_string = text.as_str().into();
     }
 }
 
@@ -385,7 +386,7 @@ fn extract_color(
         if let Some(color) = string_to_color(&text) {
             value.kind = kind;
             value.value_brush = slint::Brush::SolidColor(color);
-            value.value_string = text.into();
+            value.value_string = text.as_str().into();
             return true;
         }
     }
@@ -506,23 +507,27 @@ fn simplify_value(prop_info: &super::properties::PropertyInformation) -> Propert
                     .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
                 {
                     value.kind = PropertyValueKind::String;
-                    value.value_string = text.into();
+                    value.value_string = text.as_str().into();
                 } else if let Some(tr_node) = &expression.AtTr() {
                     extract_tr_data(tr_node, &mut value)
                 }
             } else if value.code.is_empty() {
                 if let Some(expression_tree::Expression::StringLiteral(v)) = def_val {
-                    value.value_string = v.into();
+                    value.value_string = v.as_str().into();
                 }
                 value.kind = PropertyValueKind::String;
             }
         }
         Type::Enumeration(enumeration) => {
             value.kind = PropertyValueKind::Enum;
-            value.value_string = enumeration.name.clone().into();
+            value.value_string = enumeration.name.as_str().into();
             value.default_selection = i32::try_from(enumeration.default_value).unwrap_or_default();
             value.visual_items = Rc::new(VecModel::from(
-                enumeration.values.iter().map(SharedString::from).collect::<Vec<_>>(),
+                enumeration
+                    .values
+                    .iter()
+                    .map(|s| SharedString::from(s.as_str()))
+                    .collect::<Vec<_>>(),
             ))
             .into();
 
@@ -569,7 +574,7 @@ fn map_property_definition(
 fn map_properties_to_ui(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
-) -> Option<(ElementInformation, HashMap<String, PropertyDeclaration>, PropertyGroupModel)> {
+) -> Option<(ElementInformation, HashMap<SmolStr, PropertyDeclaration>, PropertyGroupModel)> {
     use std::cmp::Ordering;
 
     let properties = &properties?;
@@ -579,13 +584,13 @@ fn map_properties_to_ui(
     let source_uri: SharedString = raw_source_uri.to_string().into();
     let source_version = properties.source_version;
 
-    let mut property_groups: HashMap<(String, u32), Vec<PropertyInformation>> = HashMap::new();
+    let mut property_groups: HashMap<(SmolStr, u32), Vec<PropertyInformation>> = HashMap::new();
 
     let mut declarations = HashMap::new();
 
     fn property_group_from(
-        groups: &mut HashMap<(String, u32), Vec<PropertyInformation>>,
-        name: String,
+        groups: &mut HashMap<(SmolStr, u32), Vec<PropertyInformation>>,
+        name: SmolStr,
         group_priority: u32,
         property: PropertyInformation,
     ) {
@@ -618,7 +623,7 @@ fn map_properties_to_ui(
             pi.group.clone(),
             pi.group_priority,
             PropertyInformation {
-                name: pi.name.clone().into(),
+                name: pi.name.as_str().into(),
                 type_name: pi.ty.to_string().into(),
                 value,
                 display_priority: i32::try_from(pi.priority).unwrap(),
@@ -638,8 +643,8 @@ fn map_properties_to_ui(
 
     Some((
         ElementInformation {
-            id: element.id.clone().into(),
-            type_name: element.type_name.clone().into(),
+            id: element.id.as_str().into(),
+            type_name: element.type_name.as_str().into(),
             source_uri,
             source_version,
             range: to_ui_range(element.range)?,
@@ -648,7 +653,7 @@ fn map_properties_to_ui(
         Rc::new(VecModel::from(
             keys.iter()
                 .map(|k| PropertyGroup {
-                    group_name: k.0.clone().into(),
+                    group_name: k.0.as_str().into(),
                     properties: Rc::new(VecModel::from({
                         let mut v = property_groups.remove(k).unwrap();
                         v.sort_by(|a, b| match a.display_priority.cmp(&b.display_priority) {

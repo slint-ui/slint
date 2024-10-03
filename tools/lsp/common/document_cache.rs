@@ -366,7 +366,7 @@ mod tests {
     fn id_at_position(dc: &DocumentCache, url: &Url, line: u32, character: u32) -> Option<String> {
         let result = dc.element_at_position(url, &lsp_types::Position { line, character })?;
         let element = result.element.borrow();
-        Some(element.id.clone())
+        Some(element.id.to_string())
     }
 
     fn base_type_at_position(

@@ -4,6 +4,7 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::ElementType;
 use crate::object_tree::*;
+use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -29,16 +30,16 @@ fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
         let old_id = if !elem_mut.id.is_empty() {
             elem_mut.id.clone()
         } else {
-            elem_mut.base_type.to_string().to_ascii_lowercase()
+            elem_mut.base_type.to_string().to_ascii_lowercase().into()
         };
-        elem_mut.id = format!("{}-{}", old_id, count);
+        elem_mut.id = format_smolstr!("{}-{}", old_id, count);
 
         let enclosing = elem_mut.enclosing_component.upgrade().unwrap();
         if Rc::ptr_eq(&elem, &enclosing.root_element) {
             for o in enclosing.optimized_elements.borrow().iter() {
                 *count += 1;
                 let mut elem_mut = o.borrow_mut();
-                elem_mut.id = format!("optimized-{}-{}", elem_mut.id, count);
+                elem_mut.id = format_smolstr!("optimized-{}-{}", elem_mut.id, count);
             }
         }
     });
@@ -53,9 +54,9 @@ fn rename_globals(doc: &Document, mut count: u32) {
             // builtin global keeps its name
             root.id.clone_from(&g.id);
         } else if let Some(s) = g.exported_global_names.borrow().first() {
-            root.id = s.to_string();
+            root.id = s.to_smolstr();
         } else {
-            root.id = format!("{}-{}", g.id, count);
+            root.id = format_smolstr!("{}-{}", g.id, count);
         }
     }
 }
@@ -72,7 +73,7 @@ fn check_unique_id_in_component(component: &Rc<Component>, diag: &mut BuildDiagn
         element: ElementRc,
         error_reported: bool,
     }
-    let mut seen_ids: HashMap<String, SeenId> = HashMap::new();
+    let mut seen_ids: HashMap<SmolStr, SeenId> = HashMap::new();
 
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         let elem_bor = elem.borrow();

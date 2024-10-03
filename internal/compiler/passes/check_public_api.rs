@@ -71,7 +71,7 @@ pub fn check_public_api(
                 if let Ok(ElementType::Component(c)) = doc.local_registry.lookup_element(name) {
                     if let Some(name_ident) = c.node.clone() {
                         doc.exports.add_reexports(
-                            [(ExportedName{ name: name.clone(), name_ident }, Either::Left(c))],
+                            [(ExportedName{ name: name.into(), name_ident }, Either::Left(c))],
                             diag,
                         );
                     }
@@ -105,7 +105,7 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
             } else {
                 d.expose_in_public_api = true;
                 if d.visibility != PropertyVisibility::Output {
-                    pa.entry(n.to_string()).or_default().is_set = true;
+                    pa.entry(n.clone()).or_default().is_set = true;
                 }
             }
         } else {

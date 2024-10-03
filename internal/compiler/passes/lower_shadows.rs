@@ -9,6 +9,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::BindingExpression;
 use crate::{expression_tree::Expression, object_tree::*};
 use crate::{expression_tree::NamedReference, typeregister::TypeRegister};
+use smol_str::{format_smolstr, SmolStr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -16,7 +17,7 @@ use std::rc::Rc;
 // Creates a new element for the drop shadow properties that'll be a sibling to the specified
 // sibling element.
 fn create_box_shadow_element(
-    shadow_property_bindings: HashMap<String, BindingExpression>,
+    shadow_property_bindings: HashMap<SmolStr, BindingExpression>,
     sibling_element: &ElementRc,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
@@ -32,13 +33,13 @@ fn create_box_shadow_element(
     }
 
     let mut element = Element {
-        id: format!("{}-shadow", sibling_element.borrow().id),
+        id: format_smolstr!("{}-shadow", sibling_element.borrow().id),
         base_type: type_register.lookup_builtin_element("BoxShadow").unwrap(),
         enclosing_component: sibling_element.borrow().enclosing_component.clone(),
         bindings: shadow_property_bindings
             .into_iter()
             .map(|(shadow_prop_name, expr)| {
-                (shadow_prop_name.strip_prefix("drop-shadow-").unwrap().to_string(), expr.into())
+                (shadow_prop_name.strip_prefix("drop-shadow-").unwrap().into(), expr.into())
             })
             .collect(),
         ..Default::default()
@@ -47,7 +48,7 @@ fn create_box_shadow_element(
     // FIXME: remove the border-radius manual mapping.
     if sibling_element.borrow().bindings.contains_key("border-radius") {
         element.bindings.insert(
-            "border-radius".to_string(),
+            "border-radius".into(),
             RefCell::new(
                 Expression::PropertyReference(NamedReference::new(
                     sibling_element,
@@ -64,7 +65,7 @@ fn create_box_shadow_element(
 // For a repeated element, this function creates a new element for the drop shadow properties that
 // will act as the new root element in the repeater. The former root will become a child.
 fn inject_shadow_element_in_repeated_element(
-    shadow_property_bindings: HashMap<String, BindingExpression>,
+    shadow_property_bindings: HashMap<SmolStr, BindingExpression>,
     repeated_element: &ElementRc,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
@@ -88,11 +89,11 @@ fn inject_shadow_element_in_repeated_element(
     );
 }
 
-fn take_shadow_property_bindings(element: &ElementRc) -> HashMap<String, BindingExpression> {
+fn take_shadow_property_bindings(element: &ElementRc) -> HashMap<SmolStr, BindingExpression> {
     crate::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
         .iter()
         .flat_map(|(shadow_property_name, _)| {
-            let shadow_property_name = shadow_property_name.to_string();
+            let shadow_property_name = SmolStr::new(shadow_property_name);
             let mut element = element.borrow_mut();
             element.bindings.remove(&shadow_property_name).map(|binding| {
                 // Remove the drop-shadow property that was also materialized as a fake property by now.

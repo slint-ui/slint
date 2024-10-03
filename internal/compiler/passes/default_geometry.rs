@@ -19,6 +19,7 @@ use crate::expression_tree::{
 use crate::langtype::{BuiltinElement, DefaultSizeBinding, Type};
 use crate::layout::{implicit_layout_info_call, LayoutConstraints, Orientation};
 use crate::object_tree::{Component, ElementRc};
+use smol_str::format_smolstr;
 use std::collections::HashMap;
 
 pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
@@ -254,8 +255,10 @@ fn merge_explicit_constraints(
 ) {
     if constraints.has_explicit_restrictions(orientation) {
         static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let unique_name =
-            format!("layout_info_{}", COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+        let unique_name = format_smolstr!(
+            "layout_info_{}",
+            COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        );
         let ty = expr.ty();
         let store = Expression::StoreLocalVariable {
             name: unique_name.clone(),
@@ -366,7 +369,7 @@ fn fix_percent_size(
 /// Generate a size property that covers the parent.
 /// Return true if it was changed
 fn make_default_100(prop: &NamedReference, parent_prop: &NamedReference) -> bool {
-    prop.element().borrow_mut().set_binding_if_not_set(prop.name().to_string(), || {
+    prop.element().borrow_mut().set_binding_if_not_set(prop.name().into(), || {
         Expression::PropertyReference(parent_prop.clone())
     })
 }
@@ -455,9 +458,7 @@ fn make_default_aspect_ratio_preserving_binding(
         op: '*',
     };
 
-    elem.borrow_mut()
-        .bindings
-        .insert(missing_size_property.to_string(), RefCell::new(binding.into()));
+    elem.borrow_mut().bindings.insert(missing_size_property.into(), RefCell::new(binding.into()));
 }
 
 fn maybe_center_in_parent(elem: &ElementRc, parent: &ElementRc, pos_prop: &str, size_prop: &str) {

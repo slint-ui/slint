@@ -15,6 +15,7 @@ use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use crate::EmbedResourcesKind;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -153,8 +154,8 @@ fn compile_path_from_string_literal(
     let event_enum = crate::typeregister::BUILTIN_ENUMS.with(|e| e.PathEvent.clone());
     let point_type = Type::Struct {
         fields: IntoIterator::into_iter([
-            ("x".to_owned(), Type::Float32),
-            ("y".to_owned(), Type::Float32),
+            (SmolStr::new_static("x"), Type::Float32),
+            (SmolStr::new_static("y"), Type::Float32),
         ])
         .collect(),
         name: Some("slint::private_api::Point".into()),
@@ -207,8 +208,8 @@ fn compile_path_from_string_literal(
         .map(|point| Expression::Struct {
             ty: point_type.clone(),
             values: IntoIterator::into_iter([
-                ("x".to_owned(), Expression::NumberLiteral(point.x as _, Unit::None)),
-                ("y".to_owned(), Expression::NumberLiteral(point.y as _, Unit::None)),
+                (SmolStr::new_static("x"), Expression::NumberLiteral(point.x as _, Unit::None)),
+                (SmolStr::new_static("y"), Expression::NumberLiteral(point.y as _, Unit::None)),
             ])
             .collect(),
         })

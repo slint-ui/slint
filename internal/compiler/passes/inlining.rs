@@ -8,6 +8,7 @@ use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use by_address::ByAddress;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -456,11 +457,11 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
 /// Clone and increase the priority of a binding
 /// and duplicate its animation
 fn duplicate_binding(
-    (k, b): (&String, &RefCell<BindingExpression>),
+    (k, b): (&SmolStr, &RefCell<BindingExpression>),
     mapping: &mut Mapping,
     root_component: &Rc<Component>,
     priority_delta: i32,
-) -> (String, RefCell<BindingExpression>) {
+) -> (SmolStr, RefCell<BindingExpression>) {
     let b = b.borrow();
     let b = BindingExpression {
         expression: b.expression.clone(),

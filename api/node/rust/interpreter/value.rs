@@ -13,6 +13,7 @@ use napi::bindgen_prelude::*;
 use napi::{Env, JsBoolean, JsNumber, JsObject, JsString, JsUnknown, Result};
 use napi_derive::napi;
 use slint_interpreter::Value;
+use smol_str::SmolStr;
 
 #[napi(js_name = "ValueType")]
 pub enum JsValueType {
@@ -229,7 +230,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                         } else {
                             to_value(env, prop, pro_ty)?
                         };
-                        Ok((pro_name.clone(), prop_value))
+                        Ok((pro_name.to_string(), prop_value))
                     })
                     .collect::<Result<_, _>>()?,
             ))
@@ -260,7 +261,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         }
         Type::Enumeration(e) => {
             let js_string: JsString = unknown.try_into()?;
-            let value: String = js_string.into_utf8()?.as_str()?.into();
+            let value: SmolStr = js_string.into_utf8()?.as_str()?.into();
 
             if !e.values.contains(&value) {
                 return Err(napi::Error::from_reason(format!(
@@ -269,7 +270,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 )));
             }
 
-            Ok(Value::EnumerationValue(e.name.clone(), value))
+            Ok(Value::EnumerationValue(e.name.to_string(), value.to_string()))
         }
         Type::Invalid
         | Type::Model

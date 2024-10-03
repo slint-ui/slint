@@ -11,6 +11,7 @@ use i_slint_compiler::{
     object_tree::ElementRc,
     parser::{SyntaxKind, SyntaxNode},
 };
+use smol_str::{format_smolstr, SmolStr};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -27,10 +28,10 @@ pub struct LookupChangeState {
     extra_component_stuff: Rc<RefCell<Vec<u8>>>,
 
     /// Replace `self.` with that id
-    replace_self: Option<String>,
+    replace_self: Option<SmolStr>,
 
     /// Elements that should get an id
-    elements_id: HashMap<ByAddress<ElementRc>, String>,
+    elements_id: HashMap<ByAddress<ElementRc>, SmolStr>,
 
     /// the full lookup scope
     pub scope: Vec<ElementRc>,
@@ -267,7 +268,7 @@ pub(crate) fn with_lookup_ctx<R>(
         .zip(state.property_name.as_ref())
         .map_or(Type::Invalid, |(e, n)| e.borrow().lookup_property(&n).property_type);
 
-    lookup_context.property_name = state.property_name.as_ref().map(String::as_str);
+    lookup_context.property_name = state.property_name.as_ref().map(SmolStr::as_str);
     lookup_context.property_type = ty;
     lookup_context.component_scope = &state.lookup_change.scope;
     Some(f(&mut lookup_context))
@@ -314,12 +315,12 @@ pub(crate) fn collect_movable_properties(state: &mut crate::State) {
 
 fn ensure_element_has_id(
     element: &ElementRc,
-    elements_id: &mut HashMap<ByAddress<ElementRc>, String>,
+    elements_id: &mut HashMap<ByAddress<ElementRc>, SmolStr>,
 ) {
     static ID_GEN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     if element.borrow().id.is_empty() {
         elements_id.entry(ByAddress(element.clone())).or_insert_with(|| {
-            format!("_{}", ID_GEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+            format_smolstr!("_{}", ID_GEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
         });
     }
 }

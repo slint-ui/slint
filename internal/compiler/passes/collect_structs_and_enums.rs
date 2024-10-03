@@ -6,6 +6,7 @@
 use crate::expression_tree::Expression;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -31,13 +32,13 @@ pub fn collect_structs_and_enums(doc: &Document) {
     }
 }
 
-fn maybe_collect_object(ty: &Type, hash: &mut BTreeMap<String, Type>) {
+fn maybe_collect_object(ty: &Type, hash: &mut BTreeMap<SmolStr, Type>) {
     visit_declared_type(ty, &mut |name, sub_ty| {
         hash.entry(name.clone()).or_insert_with(|| sub_ty.clone());
     });
 }
 
-fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<String, Type>) {
+fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<SmolStr, Type>) {
     recurse_elem_including_sub_components_no_borrow(root_component, &(), &mut |elem, _| {
         for x in elem.borrow().property_declarations.values() {
             maybe_collect_object(&x.property_type, hash);
@@ -58,7 +59,7 @@ fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMa
 
 /// Move the object named `key` from hash to vector, making sure that all object used by
 /// it are placed before in the vector
-fn sort_types(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str) {
+fn sort_types(hash: &mut BTreeMap<SmolStr, Type>, vec: &mut Vec<Type>, key: &str) {
     let ty = if let Some(ty) = hash.remove(key) { ty } else { return };
     if let Type::Struct { fields, name: Some(name), .. } = &ty {
         if name.contains("::") {
@@ -75,7 +76,7 @@ fn sort_types(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str)
 }
 
 /// Will call the `visitor` for every named struct or enum that is not builtin
-fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
+fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
     match ty {
         Type::Struct { fields, name, node, .. } => {
             if node.is_some() {

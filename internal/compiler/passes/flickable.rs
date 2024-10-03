@@ -14,6 +14,7 @@ use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedRefer
 use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
+use smol_str::format_smolstr;
 use std::rc::Rc;
 
 pub fn is_flickable_element(element: &ElementRc) -> bool {
@@ -43,7 +44,7 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
 fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>) {
     let children = std::mem::take(&mut flickable.borrow_mut().children);
     let viewport = Element::make_rc(Element {
-        id: format!("{}-viewport", flickable.borrow().id),
+        id: format_smolstr!("{}-viewport", flickable.borrow().id),
         base_type: ElementType::Native(native_empty.clone()),
         children,
         enclosing_component: flickable.borrow().enclosing_component.clone(),
@@ -55,7 +56,7 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
         if let Some(vp_prop) = prop.strip_prefix("viewport-") {
             // bind the viewport's property to the flickable property, such as:  `width <=> parent.viewport-width`
             viewport.borrow_mut().bindings.insert(
-                vp_prop.to_owned(),
+                vp_prop.into(),
                 BindingExpression::new_two_way(NamedReference::new(flickable, prop)).into(),
             );
         }

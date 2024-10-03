@@ -6,6 +6,7 @@
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::{format_smolstr, SmolStr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -72,10 +73,10 @@ impl<'a> DedupPropState<'a> {
         }
     }
 
-    fn get_mapping(&self, nr: &NamedReference) -> Option<String> {
+    fn get_mapping(&self, nr: &NamedReference) -> Option<SmolStr> {
         self.parent_state.and_then(|pr| pr.get_mapping(nr)).or_else(|| {
             if self.counts.borrow().counts.get(nr).map_or(false, |c| *c > 1) {
-                Some(format!("tmp_{}_{}", nr.element().borrow().id, nr.name()))
+                Some(format_smolstr!("tmp_{}_{}", nr.element().borrow().id, nr.name()))
             } else {
                 None
             }

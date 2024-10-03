@@ -7,6 +7,7 @@ use crate::expression_tree::*;
 use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::{format_smolstr, ToSmolStr};
 
 pub fn const_propagation(component: &Component) {
     visit_all_expressions(component, |expr, ty| {
@@ -38,7 +39,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
 
             let new = match (*op, &mut **lhs, &mut **rhs) {
                 ('+', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
-                    Some(Expression::StringLiteral(format!("{}{}", a, b)))
+                    Some(Expression::StringLiteral(format_smolstr!("{}{}", a, b)))
                 }
                 ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
                     if un1 == un2 =>
@@ -116,7 +117,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             } else {
                 match (&**from, to) {
                     (Expression::NumberLiteral(x, Unit::None), Type::String) => {
-                        Some(Expression::StringLiteral((*x).to_string()))
+                        Some(Expression::StringLiteral((*x).to_smolstr()))
                     }
                     (Expression::Struct { values, .. }, to @ Type::Struct { .. }) => {
                         Some(Expression::Struct { ty: to.clone(), values: values.clone() })

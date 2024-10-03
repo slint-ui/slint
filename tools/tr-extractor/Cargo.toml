@@ -19,6 +19,7 @@ i-slint-compiler = { workspace = true, features = ["default", "display-diagnosti
 chrono = {version = "0.4.24", default-features = false, features = ["clock"] }
 clap = { workspace = true }
 polib = "0.2"
+smol_str = { workspace = true }
 
 [dev-dependencies]
 itertools = { workspace = true }

@@ -8,6 +8,8 @@ use std::rc::Rc;
 
 use itertools::Itertools;
 
+use smol_str::SmolStr;
+
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::parser::syntax_nodes;
@@ -57,14 +59,14 @@ pub enum Type {
     /// This is usually a model
     Array(Box<Type>),
     Struct {
-        fields: BTreeMap<String, Type>,
+        fields: BTreeMap<SmolStr, Type>,
         /// When declared in .slint as  `struct Foo := { }`, then the name is "Foo"
         /// When there is no node, but there is a name, then it is a builtin type
-        name: Option<String>,
+        name: Option<SmolStr>,
         /// When declared in .slint, this is the node of the declaration.
         node: Option<syntax_nodes::ObjectType>,
         /// derived
-        rust_attributes: Option<Vec<String>>,
+        rust_attributes: Option<Vec<SmolStr>>,
     },
     Enumeration(Rc<Enumeration>),
 
@@ -247,7 +249,7 @@ impl Type {
 
     /// Return true if the type can be converted to the other type
     pub fn can_convert(&self, other: &Self) -> bool {
-        let can_convert_struct = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
+        let can_convert_struct = |a: &BTreeMap<SmolStr, Type>, b: &BTreeMap<SmolStr, Type>| {
             // the struct `b` has property that the struct `a` doesn't
             let mut has_more_property = false;
             for (k, v) in b {
@@ -485,7 +487,7 @@ impl ElementType {
     }
 
     /// List of sub properties valid for the auto completion
-    pub fn property_list(&self) -> Vec<(String, Type)> {
+    pub fn property_list(&self) -> Vec<(SmolStr, Type)> {
         match self {
             Self::Component(c) => {
                 let mut r = c.root_element.borrow().base_type.property_list();
@@ -598,7 +600,7 @@ impl ElementType {
 
     pub fn collect_contextual_types(
         &self,
-        context_restricted_types: &mut HashMap<String, HashSet<String>>,
+        context_restricted_types: &mut HashMap<SmolStr, HashSet<SmolStr>>,
     ) {
         let builtin = match self {
             Self::Builtin(ty) => ty,
@@ -677,12 +679,12 @@ impl Default for ElementType {
 #[derive(Debug, Clone, Default)]
 pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
-    pub class_name: String,
+    pub class_name: SmolStr,
     pub cpp_vtable_getter: String,
-    pub properties: HashMap<String, BuiltinPropertyInfo>,
-    pub deprecated_aliases: HashMap<String, String>,
-    pub cpp_type: Option<String>,
-    pub rust_type_constructor: Option<String>,
+    pub properties: HashMap<SmolStr, BuiltinPropertyInfo>,
+    pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
+    pub cpp_type: Option<SmolStr>,
+    pub rust_type_constructor: Option<SmolStr>,
 }
 
 impl NativeClass {
@@ -698,7 +700,7 @@ impl NativeClass {
 
     pub fn new_with_properties(
         class_name: &str,
-        properties: impl IntoIterator<Item = (String, BuiltinPropertyInfo)>,
+        properties: impl IntoIterator<Item = (SmolStr, BuiltinPropertyInfo)>,
     ) -> Self {
         let mut class = Self::new(class_name);
         class.properties = properties.into_iter().collect();
@@ -745,16 +747,16 @@ pub enum DefaultSizeBinding {
 
 #[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
-    pub name: String,
+    pub name: SmolStr,
     pub native_class: Rc<NativeClass>,
-    pub properties: BTreeMap<String, BuiltinPropertyInfo>,
-    pub reserved_properties: BTreeMap<String, BuiltinPropertyInfo>,
-    pub additional_accepted_child_types: HashMap<String, ElementType>,
+    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
+    pub reserved_properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
+    pub additional_accepted_child_types: HashMap<SmolStr, ElementType>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,
     pub accepts_focus: bool,
-    pub member_functions: HashMap<String, BuiltinFunction>,
+    pub member_functions: HashMap<SmolStr, BuiltinFunction>,
     pub is_global: bool,
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
@@ -797,8 +799,8 @@ impl<'a> PropertyLookupResult<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Enumeration {
-    pub name: String,
-    pub values: Vec<String>,
+    pub name: SmolStr,
+    pub values: Vec<SmolStr>,
     pub default_value: usize, // index in values
     // For non-builtins enums, this is the declaration node
     pub node: Option<syntax_nodes::EnumDeclaration>,

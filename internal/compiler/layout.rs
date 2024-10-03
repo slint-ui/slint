@@ -8,6 +8,8 @@ use crate::expression_tree::*;
 use crate::langtype::{ElementType, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
 
+use smol_str::{format_smolstr, SmolStr};
+
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -436,7 +438,7 @@ fn init_fake_property(
             grid_layout_element
                 .borrow_mut()
                 .bindings
-                .insert(name.to_owned(), RefCell::new(Expression::PropertyReference(e).into()));
+                .insert(name.into(), RefCell::new(Expression::PropertyReference(e).into()));
         }
     }
 }
@@ -451,7 +453,7 @@ pub struct GridLayout {
 
     /// When this GridLayout is actually the layout of a Dialog, then the cells start with all the buttons,
     /// and this variable contains their roles. The string is actually one of the values from the i_slint_core::layout::DialogButtonRole
-    pub dialog_button_roles: Option<Vec<String>>,
+    pub dialog_button_roles: Option<Vec<SmolStr>>,
 }
 
 impl GridLayout {
@@ -486,11 +488,11 @@ pub fn layout_info_type() -> Type {
     Type::Struct {
         fields: ["min", "max", "preferred"]
             .iter()
-            .map(|s| (s.to_string(), Type::LogicalLength))
+            .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
             .chain(
                 ["min_percent", "max_percent", "stretch"]
                     .iter()
-                    .map(|s| (s.to_string(), Type::Float32)),
+                    .map(|s| (SmolStr::new_static(s), Type::Float32)),
             )
             .collect(),
         name: Some("slint::private_api::LayoutInfo".into()),
@@ -537,12 +539,17 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                     ty: layout_info_type(),
                     values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
                         .iter()
-                        .map(|(s, v)| (s.to_string(), Expression::NumberLiteral(*v as _, Unit::Px)))
+                        .map(|(s, v)| {
+                            (SmolStr::new_static(s), Expression::NumberLiteral(*v as _, Unit::Px))
+                        })
                         .chain(
                             [("min_percent", 0.), ("max_percent", 100.), ("stretch", 1.)]
                                 .iter()
                                 .map(|(s, v)| {
-                                    (s.to_string(), Expression::NumberLiteral(*v, Unit::None))
+                                    (
+                                        SmolStr::new_static(s),
+                                        Expression::NumberLiteral(*v, Unit::None),
+                                    )
                                 }),
                         )
                         .collect(),
@@ -571,7 +578,7 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> Name
         let mut counter = 0;
         loop {
             counter += 1;
-            let name = format!("{}{}", tentative_name, counter);
+            let name = format_smolstr!("{}{}", tentative_name, counter);
             if !e.lookup_property(&name).is_valid() {
                 e.property_declarations.insert(name.clone(), ty.into());
                 drop(e);

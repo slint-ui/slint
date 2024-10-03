@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use smol_str::{format_smolstr, SmolStr};
 use std::collections::{BTreeMap, HashMap};
 
 use crate::expression_tree::Expression;
@@ -172,8 +173,10 @@ fn continue_codeblock(
 ) -> ExpressionResult {
     let rest = process_codeblock(iter, ty, ctx).into_return_object(ty, &ctx.ret_ty);
     static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let unique_name =
-        format!("return_check_merge{}", COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+    let unique_name = format_smolstr!(
+        "return_check_merge{}",
+        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    );
     let load = Box::new(Expression::ReadLocalVariable {
         name: unique_name.clone(),
         ty: return_object.ty(),
@@ -256,7 +259,7 @@ impl ExpressionResult {
             ExpressionResult::ReturnObject { value, has_value, has_return_value } => {
                 static COUNT: std::sync::atomic::AtomicUsize =
                     std::sync::atomic::AtomicUsize::new(0);
-                let name = format!(
+                let name = format_smolstr!(
                     "returned_expression{}",
                     COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
                 );
@@ -370,7 +373,7 @@ impl ExpressionResult {
                 }
                 static COUNT: std::sync::atomic::AtomicUsize =
                     std::sync::atomic::AtomicUsize::new(0);
-                let name = format!(
+                let name = format_smolstr!(
                     "mapped_expression{}",
                     COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
                 );
@@ -412,8 +415,8 @@ fn codeblock_with_expr(mut pre_statements: Vec<Expression>, expr: Expression) ->
 }
 
 fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Expression {
-    let mut fields = BTreeMap::<String, Type>::new();
-    let mut values = HashMap::<String, Expression>::new();
+    let mut fields = BTreeMap::<SmolStr, Type>::new();
+    let mut values = HashMap::<SmolStr, Expression>::new();
     let mut voids = Vec::new();
     for (name, ty, expr) in it {
         if matches!(ty, Type::Void | Type::Invalid) {
@@ -422,8 +425,8 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
             }
             continue;
         }
-        fields.insert(name.to_string(), ty);
-        values.insert(name.to_string(), expr);
+        fields.insert(name.into(), ty);
+        values.insert(name.into(), expr);
     }
     codeblock_with_expr(
         voids,

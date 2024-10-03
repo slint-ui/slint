@@ -14,6 +14,7 @@ use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::TypeRegister;
+use smol_str::format_smolstr;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -538,7 +539,7 @@ fn lower_dialog_layout(
                                 dialog_element
                                     .borrow_mut()
                                     .property_declarations
-                                    .entry(format!("{}-clicked", kind))
+                                    .entry(format_smolstr!("{}-clicked", kind))
                                     .or_insert_with(|| PropertyDeclaration {
                                         property_type: clicked_ty,
                                         node: None,
@@ -662,14 +663,14 @@ fn create_layout_item(
         }
         let mut item = item.borrow_mut();
         let b = item.bindings.remove(prop).unwrap();
-        item.bindings.insert(format!("min-{}", prop), b.clone());
-        item.bindings.insert(format!("max-{}", prop), b);
+        item.bindings.insert(format_smolstr!("min-{}", prop), b.clone());
+        item.bindings.insert(format_smolstr!("max-{}", prop), b);
         item.property_declarations.insert(
-            format!("min-{}", prop),
+            format_smolstr!("min-{}", prop),
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
         item.property_declarations.insert(
-            format!("max-{}", prop),
+            format_smolstr!("max-{}", prop),
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
     };
@@ -791,15 +792,15 @@ fn adjust_window_layout(component: &Rc<Component>, prop: &str) {
     {
         let mut root = component.root_element.borrow_mut();
         if let Some(b) = root.bindings.remove(prop) {
-            root.bindings.insert(new_prop.name().to_string(), b);
+            root.bindings.insert(new_prop.name().into(), b);
         };
         let mut analysis = root.property_analysis.borrow_mut();
         if let Some(a) = analysis.remove(prop) {
-            analysis.insert(new_prop.name().to_string(), a);
+            analysis.insert(new_prop.name().into(), a);
         };
         drop(analysis);
         root.bindings.insert(
-            prop.to_string(),
+            prop.into(),
             RefCell::new(Expression::PropertyReference(new_prop.clone()).into()),
         );
     }
