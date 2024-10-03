@@ -11,6 +11,7 @@ use crate::SharedVector;
 use alloc::string::String;
 use core::fmt::{Debug, Display, Write};
 use core::ops::Deref;
+use smol_str::SmolStr;
 
 /// This macro is the same as [`std::format!`], but it returns a [`SharedString`] instead.
 ///
@@ -208,6 +209,18 @@ impl From<String> for SharedString {
 
 impl From<&String> for SharedString {
     fn from(s: &String) -> Self {
+        s.as_str().into()
+    }
+}
+
+impl From<SmolStr> for SharedString {
+    fn from(s: SmolStr) -> Self {
+        s.as_str().into()
+    }
+}
+
+impl From<&SmolStr> for SharedString {
+    fn from(s: &SmolStr) -> Self {
         s.as_str().into()
     }
 }

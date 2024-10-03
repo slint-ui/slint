@@ -18,6 +18,7 @@ use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use std::collections::HashMap;
 use std::rc::Rc;
+use smol_str::SmolStr;
 
 /// This represents a scope for the Component, where Component is the repeated component, but
 /// does not represent a component in the .slint file
@@ -290,7 +291,7 @@ impl Expression {
                     .map(crate::literals::parse_number_literal)
                     .transpose()
                     .unwrap_or_else(|e| {
-                        ctx.diag.push_error(e, &node);
+                        ctx.diag.push_error(e.to_string(), &node);
                         Some(Self::Invalid)
                     })
             })
@@ -356,13 +357,13 @@ impl Expression {
                     .and_then(|loader| {
                         loader.resolve_import_path(Some(&(*node).clone().into()), &s)
                     })
-                    .map(|i| i.0.to_string_lossy().to_string())
+                    .map(|i| i.0.to_string_lossy().into())
                     .unwrap_or_else(|| {
                         crate::pathutils::join(
                             &crate::pathutils::dirname(node.source_file.path()),
                             path,
                         )
-                        .map(|p| p.to_string_lossy().to_string())
+                        .map(|p| p.to_string_lossy().into())
                         .unwrap_or(s.clone())
                     })
             }
@@ -707,7 +708,7 @@ impl Expression {
             }
         }
 
-        let plural = plural.unwrap_or((String::new(), Expression::NumberLiteral(1., Unit::None)));
+        let plural = plural.unwrap_or((SmolStr::default(), Expression::NumberLiteral(1., Unit::None)));
 
         let get_component_name = || {
             ctx.component_scope
@@ -1190,7 +1191,7 @@ impl Expression {
         node: syntax_nodes::ObjectLiteral,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let values: HashMap<String, Expression> = node
+        let values: HashMap<SmolStr, Expression> = node
             .ObjectMember()
             .map(|n| {
                 (
@@ -1390,7 +1391,7 @@ fn continue_lookup_within_element(
         } else if lookup_result.property_visibility == PropertyVisibility::Fake {
             ctx.diag.push_error(format!("This special property can only be used to make a binding and cannot be accessed"), &second);
             return Expression::Invalid;
-        } else if lookup_result.resolved_name != prop_name {
+        } else if lookup_result.resolved_name != prop_name.as_str() {
             ctx.diag.push_property_deprecation_warning(
                 &prop_name,
                 &lookup_result.resolved_name,
@@ -1556,7 +1557,7 @@ fn resolve_two_way_bindings(
                                 .borrow()
                                 .property_analysis
                                 .borrow_mut()
-                                .entry(nr.name().to_string())
+                                .entry(nr.name().into())
                                 .or_default()
                                 .is_linked = true;
 
@@ -1640,7 +1641,7 @@ fn resolve_two_way_bindings(
         elem.borrow()
             .property_analysis
             .borrow_mut()
-            .entry(prop_name.to_string())
+            .entry(prop_name.into())
             .or_default()
             .is_linked_to_read_only = true;
     }

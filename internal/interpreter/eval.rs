@@ -18,6 +18,7 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
 use std::collections::HashMap;
 use std::rc::Rc;
+use smol_str::{SmolStr, ToSmolStr};
 
 pub trait ErasedPropertyInfo {
     fn get(&self, item: Pin<ItemRef>) -> Value;
@@ -98,7 +99,7 @@ pub(crate) enum ComponentInstance<'a, 'id> {
 
 /// The local variable needed for binding evaluation
 pub struct EvalLocalContext<'a, 'id> {
-    local_variables: HashMap<String, Value>,
+    local_variables: HashMap<SmolStr, Value>,
     function_arguments: Vec<Value>,
     pub(crate) component_instance: ComponentInstance<'a, 'id>,
     /// When Some, a return statement was executed and one must stop evaluating
@@ -137,7 +138,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
     match expression {
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
-        Expression::StringLiteral(s) => Value::String(s.into()),
+        Expression::StringLiteral(s) => Value::String(s.as_str().into()),
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::CallbackReference { .. } => panic!("callback in expression"),
@@ -358,7 +359,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }))))
         }
         Expression::EnumerationValue(value) => {
-            Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
+            Value::EnumerationValue(value.enumeration.name.clone(), value.to_smolstr())
         }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
@@ -803,10 +804,10 @@ fn call_builtin_function(
             if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
                 let color = brush.color();
                 let values = IntoIterator::into_iter([
-                    ("red".to_string(), Value::Number(color.red().into())),
-                    ("green".to_string(), Value::Number(color.green().into())),
-                    ("blue".to_string(), Value::Number(color.blue().into())),
-                    ("alpha".to_string(), Value::Number(color.alpha().into())),
+                    (SmolStr::new_static("red"), Value::Number(color.red().into())),
+                    (SmolStr::new_static("green"), Value::Number(color.green().into())),
+                    (SmolStr::new_static("blue"), Value::Number(color.blue().into())),
+                    (SmolStr::new_static("alpha"), Value::Number(color.alpha().into())),
                 ])
                 .collect();
                 Value::Struct(values)
@@ -821,10 +822,10 @@ fn call_builtin_function(
             if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
                 let color = brush.color().to_hsva();
                 let values = IntoIterator::into_iter([
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("saturation".to_string(), Value::Number(color.saturation.into())),
-                    ("value".to_string(), Value::Number(color.value.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
+                    (SmolStr::new_static("hue"), Value::Number(color.hue.into())),
+                    (SmolStr::new_static("saturation"), Value::Number(color.saturation.into())),
+                    (SmolStr::new_static("value"), Value::Number(color.value.into())),
+                    (SmolStr::new_static("alpha"), Value::Number(color.alpha.into())),
                 ])
                 .collect();
                 Value::Struct(values)
@@ -925,8 +926,8 @@ fn call_builtin_function(
             if let Value::Image(img) = eval_expression(&arguments[0], local_context) {
                 let size = img.size();
                 let values = IntoIterator::into_iter([
-                    ("width".to_string(), Value::Number(size.width as f64)),
-                    ("height".to_string(), Value::Number(size.height as f64)),
+                    (SmolStr::new_static("width"), Value::Number(size.width as f64)),
+                    (SmolStr::new_static("height"), Value::Number(size.height as f64)),
                 ])
                 .collect();
                 Value::Struct(values)

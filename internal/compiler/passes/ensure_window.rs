@@ -12,6 +12,7 @@ use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
+use smol_str::SmolStr;
 
 pub fn ensure_window(
     component: &Rc<Component>,
@@ -79,7 +80,7 @@ pub fn ensure_window(
 
     let mut must_update = HashSet::new();
 
-    let mut base_props: HashSet<String> =
+    let mut base_props: HashSet<SmolStr> =
         new_root.borrow().base_type.property_list().into_iter().map(|x| x.0).collect();
     base_props.extend(win_elem.borrow().bindings.keys().cloned());
     for prop in base_props {

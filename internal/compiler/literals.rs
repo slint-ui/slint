@@ -5,6 +5,7 @@ use crate::expression_tree::Expression;
 use crate::expression_tree::Unit;
 use itertools::Itertools;
 use strum::IntoEnumIterator;
+use smol_str::SmolStr;
 
 /// Returns `0xaarrggbb`
 pub fn parse_color_literal(str: &str) -> Option<u32> {
@@ -59,7 +60,7 @@ fn test_parse_color_literal() {
     assert_eq!(parse_color_literal("#1234567890"), None);
 }
 
-pub fn unescape_string(string: &str) -> Option<String> {
+pub fn unescape_string(string: &str) -> Option<SmolStr> {
     if string.contains('\n') {
         // FIXME: new line in string literal not yet supported
         return None;
@@ -76,7 +77,7 @@ pub fn unescape_string(string: &str) -> Option<String> {
             Some(stop) => pos + stop,
             None => {
                 result += &string[pos..];
-                return Some(result);
+                return Some(result.into());
             }
         };
         if stop + 1 >= string.len() {
@@ -126,7 +127,7 @@ fn test_unescape_string() {
     assert_eq!(unescape_string(r#""xxx\u{1234567890}""#), None);
 }
 
-pub fn parse_number_literal(s: String) -> Result<Expression, String> {
+pub fn parse_number_literal(s: SmolStr) -> Result<Expression, SmolStr> {
     let bytes = s.as_bytes();
     let mut end = 0;
     while end < bytes.len() && matches!(bytes[end], b'0'..=b'9' | b'.') {
@@ -147,7 +148,7 @@ pub fn parse_number_literal(s: String) -> Result<Expression, String> {
 fn test_parse_number_literal() {
     use crate::expression_tree::Unit;
 
-    fn doit(s: &str) -> Result<(f64, Unit), String> {
+    fn doit(s: &str) -> Result<(f64, Unit), SmolStr> {
         parse_number_literal(s.into()).map(|e| match e {
             Expression::NumberLiteral(a, b) => (a, b),
             _ => panic!(),

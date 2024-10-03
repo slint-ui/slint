@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
+use smol_str::SmolStr;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::object_tree::{self, Document, ExportedName, Exports};
@@ -42,9 +43,9 @@ pub struct ImportedTypes {
 #[derive(Debug)]
 pub struct ImportedName {
     // name of export to match in the other file
-    pub external_name: String,
+    pub external_name: SmolStr,
     // name to be used locally
-    pub internal_name: String,
+    pub internal_name: SmolStr,
 }
 
 impl ImportedName {

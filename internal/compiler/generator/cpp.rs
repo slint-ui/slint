@@ -9,6 +9,8 @@
 use std::fmt::Write;
 use std::io::BufWriter;
 
+use smol_str::{SmolStr, format_smolstr, StrExt};
+
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 
 /// The configuration for the C++ code generator
@@ -19,9 +21,9 @@ pub struct Config {
     pub header_include: String,
 }
 
-fn ident(ident: &str) -> String {
+fn ident(ident: &str) -> SmolStr {
     if ident.contains('-') {
-        ident.replace('-', "_")
+        ident.replace_smolstr("-", "_")
     } else {
         ident.into()
     }
@@ -72,6 +74,9 @@ mod cpp_ast {
 
     use std::cell::Cell;
     use std::fmt::{Display, Error, Formatter};
+
+    use smol_str::{SmolStr, format_smolstr};
+
     thread_local!(static INDENTATION : Cell<u32> = Cell::new(0));
     fn indent(f: &mut Formatter<'_>) -> Result<(), Error> {
         INDENTATION.with(|i| {
@@ -86,7 +91,7 @@ mod cpp_ast {
     #[derive(Default, Debug)]
     pub struct File {
         pub is_cpp_file: bool,
-        pub includes: Vec<String>,
+        pub includes: Vec<SmolStr>,
         pub after_includes: String,
         pub namespace: Option<String>,
         pub declarations: Vec<Declaration>,
@@ -133,7 +138,7 @@ mod cpp_ast {
                     })
                     .collect::<Vec<_>>();
 
-                let cpp_includes = vec![format!("\"{header_file_name}\"")];
+                let cpp_includes = vec![format_smolstr!("\"{header_file_name}\"")];
 
                 let def_chunk_size = definitions.len() / count;
                 let res_chunk_size = cpp_resources.len() / count;
@@ -220,9 +225,9 @@ mod cpp_ast {
 
     #[derive(Default, Debug)]
     pub struct Struct {
-        pub name: String,
+        pub name: SmolStr,
         pub members: Vec<(Access, Declaration)>,
-        pub friends: Vec<String>,
+        pub friends: Vec<SmolStr>,
     }
 
     impl Display for Struct {
@@ -262,7 +267,7 @@ mod cpp_ast {
             self.members.iter_mut().filter_map(move |x| match &mut x.1 {
                 Declaration::Function(f) if f.statements.is_some() => {
                     Some(Declaration::Function(Function {
-                        name: format!("{}::{}", struct_name, f.name),
+                        name: format_smolstr!("{}::{}", struct_name, f.name),
                         signature: f.signature.clone(),
                         is_constructor_or_destructor: f.is_constructor_or_destructor,
                         is_static: false,
@@ -280,8 +285,8 @@ mod cpp_ast {
 
     #[derive(Default, Debug)]
     pub struct Enum {
-        pub name: String,
-        pub values: Vec<String>,
+        pub name: SmolStr,
+        pub values: Vec<SmolStr>,
     }
 
     impl Display for Enum {
@@ -301,7 +306,7 @@ mod cpp_ast {
     /// Function or method
     #[derive(Default, Debug)]
     pub struct Function {
-        pub name: String,
+        pub name: SmolStr,
         /// "(...) -> ..."
         pub signature: String,
         /// The function does not have return type
@@ -359,8 +364,8 @@ mod cpp_ast {
     pub struct Var {
         pub is_inline: bool,
         pub is_extern: bool,
-        pub ty: String,
-        pub name: String,
+        pub ty: SmolStr,
+        pub name: SmolStr,
         pub array_size: Option<usize>,
         pub init: Option<String>,
     }
@@ -387,8 +392,8 @@ mod cpp_ast {
 
     #[derive(Default, Debug)]
     pub struct TypeAlias {
-        pub new_name: String,
-        pub old_name: String,
+        pub new_name: SmolStr,
+        pub old_name: SmolStr,
     }
 
     impl Display for TypeAlias {
@@ -399,7 +404,7 @@ mod cpp_ast {
     }
 
     pub trait CppType {
-        fn cpp_type(&self) -> Option<String>;
+        fn cpp_type(&self) -> Option<SmolStr>;
     }
 
     pub fn escape_string(str: &str) -> String {
@@ -455,44 +460,44 @@ type EvaluationContext<'a> = llr_EvaluationContext<'a, CppGeneratorContext<'a>>;
 type ParentCtx<'a> = llr_ParentCtx<'a, CppGeneratorContext<'a>>;
 
 impl CppType for Type {
-    fn cpp_type(&self) -> Option<String> {
+    fn cpp_type(&self) -> Option<SmolStr> {
         match self {
-            Type::Void => Some("void".to_owned()),
-            Type::Float32 => Some("float".to_owned()),
-            Type::Int32 => Some("int".to_owned()),
-            Type::String => Some("slint::SharedString".to_owned()),
-            Type::Color => Some("slint::Color".to_owned()),
-            Type::Duration => Some("std::int64_t".to_owned()),
-            Type::Angle => Some("float".to_owned()),
-            Type::PhysicalLength => Some("float".to_owned()),
-            Type::LogicalLength => Some("float".to_owned()),
-            Type::Rem => Some("float".to_owned()),
-            Type::Percent => Some("float".to_owned()),
-            Type::Bool => Some("bool".to_owned()),
+            Type::Void => Some("void".into()),
+            Type::Float32 => Some("float".into()),
+            Type::Int32 => Some("int".into()),
+            Type::String => Some("slint::SharedString".into()),
+            Type::Color => Some("slint::Color".into()),
+            Type::Duration => Some("std::int64_t".into()),
+            Type::Angle => Some("float".into()),
+            Type::PhysicalLength => Some("float".into()),
+            Type::LogicalLength => Some("float".into()),
+            Type::Rem => Some("float".into()),
+            Type::Percent => Some("float".into()),
+            Type::Bool => Some("bool".into()),
             Type::Struct { name: Some(name), node: Some(_), .. } => Some(ident(name)),
             Type::Struct { name: Some(name), node: None, .. } => {
                 Some(if name.starts_with("slint::") {
                     name.clone()
                 } else {
-                    format!("slint::cbindgen_private::{}", ident(name))
+                    format_smolstr!("slint::cbindgen_private::{}", ident(name))
                 })
             }
             Type::Struct { fields, .. } => {
                 let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
 
-                Some(format!("std::tuple<{}>", elem.join(", ")))
+                Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
             }
 
-            Type::Array(i) => Some(format!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?)),
-            Type::Image => Some("slint::Image".to_owned()),
+            Type::Array(i) => Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?)),
+            Type::Image => Some("slint::Image".into()),
             Type::Enumeration(enumeration) => {
                 if enumeration.node.is_some() {
                     Some(ident(&enumeration.name))
                 } else {
-                    Some(format!("slint::cbindgen_private::{}", ident(&enumeration.name)))
+                    Some(format_smolstr!("slint::cbindgen_private::{}", ident(&enumeration.name)))
                 }
             }
-            Type::Brush => Some("slint::Brush".to_owned()),
+            Type::Brush => Some("slint::Brush".into()),
             Type::LayoutCache => Some("slint::SharedVector<float>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             _ => None,
@@ -739,7 +744,7 @@ pub fn generate(
 
     for glob in &llr.globals {
         let ty = if glob.is_builtin {
-            format!("slint::cbindgen_private::{}", glob.name)
+            format_smolstr!("slint::cbindgen_private::{}", glob.name)
         } else if glob.must_generate() {
             generate_global(&mut file, &conditional_includes, glob, &llr);
             file.definitions.extend(glob.aliases.iter().map(|name| {
@@ -756,8 +761,8 @@ pub fn generate(
         globals_struct.members.push((
             Access::Public,
             Declaration::Var(Var {
-                ty: format!("std::shared_ptr<{}>", ty),
-                name: format!("global_{}", ident(&glob.name)),
+                ty: format_smolstr!("std::shared_ptr<{}>", ty),
+                name: format_smolstr!("global_{}", ident(&glob.name)),
                 init: Some(format!("std::make_shared<{}>(this)", ty)),
                 ..Default::default()
             }),
@@ -804,7 +809,7 @@ pub fn generate(
 
 fn embed_resource(
     resource: &crate::embedded_resources::EmbeddedResources,
-    path: &String,
+    path: &SmolStr,
     declarations: &mut Vec<Declaration>,
 ) {
     match &resource.kind {
@@ -828,7 +833,7 @@ fn embed_resource(
 
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
-                name: format!("slint_embedded_resource_{}", resource.id),
+                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
                 array_size: Some(data.len()),
                 init: Some(init),
                 ..Default::default()
@@ -854,7 +859,7 @@ fn embed_resource(
             };
             let count = data.len();
             let data = data.iter().map(ToString::to_string).join(", ");
-            let data_name = format!("slint_embedded_resource_{}_data", resource.id);
+            let data_name = format_smolstr!("slint_embedded_resource_{}_data", resource.id);
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
                 name: data_name.clone(),
@@ -862,7 +867,7 @@ fn embed_resource(
                 init: Some(format!("{{ {data} }}")),
                 ..Default::default()
             }));
-            let texture_name = format!("slint_embedded_resource_{}_texture", resource.id);
+            let texture_name = format_smolstr!("slint_embedded_resource_{}_texture", resource.id);
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::types::StaticTexture".into(),
                 name: texture_name.clone(),
@@ -885,7 +890,7 @@ fn embed_resource(
                     }}");
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::types::StaticTextures".into(),
-                name: format!("slint_embedded_resource_{}", resource.id),
+                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
                 array_size: None,
                 init: Some(init),
                 ..Default::default()
@@ -906,7 +911,7 @@ fn embed_resource(
                 italic,
             },
         ) => {
-            let family_name_var = format!("slint_embedded_resource_{}_family_name", resource.id);
+            let family_name_var = format_smolstr!("slint_embedded_resource_{}_family_name", resource.id);
             let family_name_size = family_name.len();
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
@@ -919,7 +924,7 @@ fn embed_resource(
                 ..Default::default()
             }));
 
-            let charmap_var = format!("slint_embedded_resource_{}_charmap", resource.id);
+            let charmap_var = format_smolstr!("slint_embedded_resource_{}_charmap", resource.id);
             let charmap_size = character_map.len();
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::CharacterMapEntry".into(),
@@ -942,7 +947,7 @@ fn embed_resource(
                 for (glyph_index, glyph) in glyphset.glyph_data.iter().enumerate() {
                     declarations.push(Declaration::Var(Var {
                         ty: "const uint8_t".into(),
-                        name: format!(
+                        name: format_smolstr!(
                             "slint_embedded_resource_{}_gs_{}_gd_{}",
                             resource.id, glyphset_index, glyph_index
                         ),
@@ -957,7 +962,7 @@ fn embed_resource(
 
                 declarations.push(Declaration::Var(Var{
                     ty: "const slint::cbindgen_private::BitmapGlyph".into(),
-                    name: format!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index),
+                    name: format_smolstr!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index),
                     array_size: Some(glyphset.glyph_data.len()),
                     init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
                         format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = slint::cbindgen_private::Slice<uint8_t>{{ {}, {} }} }}",
@@ -970,7 +975,7 @@ fn embed_resource(
                 }));
             }
 
-            let glyphsets_var = format!("slint_embedded_resource_{}_glyphsets", resource.id);
+            let glyphsets_var = format_smolstr!("slint_embedded_resource_{}_glyphsets", resource.id);
             let glyphsets_size = glyphs.len();
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::BitmapGlyphs".into(),
@@ -1010,7 +1015,7 @@ fn embed_resource(
 
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::BitmapFont".into(),
-                name: format!("slint_embedded_resource_{}", resource.id),
+                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
                 array_size: None,
                 init: Some(init),
                 ..Default::default()
@@ -1022,7 +1027,7 @@ fn embed_resource(
 fn generate_struct(
     file: &mut File,
     name: &str,
-    fields: &BTreeMap<String, Type>,
+    fields: &BTreeMap<SmolStr, Type>,
     node: &syntax_nodes::ObjectType,
 ) {
     let name = ident(name);
@@ -1044,7 +1049,7 @@ fn generate_struct(
     members.push((
         Access::Public,
         Declaration::Function(Function {
-            name: "operator==".to_owned(),
+            name: "operator==".into(),
             signature: format!("(const class {0} &a, const class {0} &b) -> bool = default", name),
             is_friend: true,
             statements: None,
@@ -1207,7 +1212,7 @@ fn generate_public_component(
 
     add_friends(&mut component_struct.friends, &component.item_tree.root, true);
 
-    fn add_friends(friends: &mut Vec<String>, sc: &llr::SubComponent, is_root: bool) {
+    fn add_friends(friends: &mut Vec<SmolStr>, sc: &llr::SubComponent, is_root: bool) {
         if !is_root {
             friends.push(ident(&sc.name));
         }
@@ -1228,14 +1233,14 @@ fn generate_item_tree(
     sub_tree: &llr::ItemTree,
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
-    item_tree_class_name: String,
+    item_tree_class_name: SmolStr,
     field_access: Access,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
     target_struct
         .friends
-        .push(format!("vtable::VRc<slint::private_api::ItemTreeVTable, {}>", item_tree_class_name));
+        .push(format_smolstr!("vtable::VRc<slint::private_api::ItemTreeVTable, {}>", item_tree_class_name));
 
     generate_sub_component(
         target_struct,
@@ -1606,15 +1611,15 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
-            ty: "static const slint::private_api::ItemTreeVTable".to_owned(),
-            name: "static_vtable".to_owned(),
+            ty: "static const slint::private_api::ItemTreeVTable".into(),
+            name: "static_vtable".into(),
             ..Default::default()
         }),
     ));
 
     file.definitions.push(Declaration::Var(Var {
-        ty: "const slint::private_api::ItemTreeVTable".to_owned(),
-        name: format!("{}::static_vtable", item_tree_class_name),
+        ty: "const slint::private_api::ItemTreeVTable".into(),
+        name: format_smolstr!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
@@ -1691,7 +1696,7 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
-            name: format!("~{}", target_struct.name),
+            name: format_smolstr!("~{}", target_struct.name),
             signature: "()".to_owned(),
             is_constructor_or_destructor: true,
             statements: Some(destructor),
@@ -1733,8 +1738,8 @@ fn generate_sub_component(
     target_struct.members.push((
         field_access,
         Declaration::Var(Var {
-            ty: globals_type_ptr.to_owned(),
-            name: "globals".to_owned(),
+            ty: globals_type_ptr.into(),
+            name: "globals".into(),
             ..Default::default()
         }),
     ));
@@ -1743,8 +1748,8 @@ fn generate_sub_component(
     target_struct.members.push((
         field_access,
         Declaration::Var(Var {
-            ty: "uint32_t".to_owned(),
-            name: "tree_index_of_first_child".to_owned(),
+            ty: "uint32_t".into(),
+            name: "tree_index_of_first_child".into(),
             ..Default::default()
         }),
     ));
@@ -1753,8 +1758,8 @@ fn generate_sub_component(
     target_struct.members.push((
         field_access,
         Declaration::Var(Var {
-            ty: "uint32_t".to_owned(),
-            name: "tree_index".to_owned(),
+            ty: "uint32_t".into(),
+            name: "tree_index".into(),
             ..Default::default()
         }),
     ));
@@ -1762,14 +1767,14 @@ fn generate_sub_component(
 
     if let Some(parent_ctx) = &parent_ctx {
         let parent_type =
-            format!("class {} const *", ident(&parent_ctx.ctx.current_sub_component.unwrap().name));
+            format_smolstr!("class {} const *", ident(&parent_ctx.ctx.current_sub_component.unwrap().name));
         init_parameters.push(format!("{} parent", parent_type));
 
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
                 ty: parent_type,
-                name: "parent".to_owned(),
+                name: "parent".into(),
                 ..Default::default()
             }),
         ));
@@ -1806,10 +1811,10 @@ fn generate_sub_component(
         let ty = if let Type::Callback { args, return_type } = &property.ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let return_type =
-                return_type.as_ref().map_or("void".to_owned(), |t| t.cpp_type().unwrap());
-            format!("slint::private_api::Callback<{}({})>", return_type, param_types.join(", "))
+                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+            format_smolstr!("slint::private_api::Callback<{}({})>", return_type, param_types.join(", "))
         } else {
-            format!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap())
+            format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap())
         };
 
         target_struct.members.push((
@@ -1823,7 +1828,7 @@ fn generate_sub_component(
             field_access,
             Declaration::Var(Var {
                 ty: "slint::private_api::ChangeTracker".into(),
-                name: format!("change_tracker{}", i),
+                name: format_smolstr!("change_tracker{}", i),
                 ..Default::default()
             }),
         ));
@@ -1925,7 +1930,7 @@ fn generate_sub_component(
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
-                ty: format!("slint::cbindgen_private::{}", ident(&item.ty.class_name)),
+                ty: format_smolstr!("slint::cbindgen_private::{}", ident(&item.ty.class_name)),
                 name: ident(&item.name),
                 init: Some("{}".to_owned()),
                 ..Default::default()
@@ -1950,7 +1955,7 @@ fn generate_sub_component(
             conditional_includes,
         );
 
-        let repeater_id = format!("repeater_{}", idx);
+        let repeater_id = format_smolstr!("repeater_{}", idx);
 
         let mut model = compile_expression(&repeated.model.borrow(), &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
@@ -2013,7 +2018,7 @@ fn generate_sub_component(
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
-                ty: format!(
+                ty: format_smolstr!(
                     "slint::private_api::Repeater<class {}, {}>",
                     ident(&repeated.sub_tree.root.name),
                     data_type.cpp_type().unwrap(),
@@ -2042,7 +2047,7 @@ fn generate_sub_component(
         let mut update_timers = vec!["auto self = this;".into()];
         for (i, tmr) in component.timers.iter().enumerate() {
             user_init.push(format!("self->update_timers();"));
-            let name = format!("timer{}", i);
+            let name = format_smolstr!("timer{}", i);
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
@@ -2062,7 +2067,7 @@ fn generate_sub_component(
         target_struct.members.push((
             field_access,
             Declaration::Function(Function {
-                name: "update_timers".to_owned(),
+                name: "update_timers".into(),
                 signature: "() -> void".into(),
                 statements: Some(update_timers),
                 ..Default::default()
@@ -2077,7 +2082,7 @@ fn generate_sub_component(
     target_struct.members.push((
         field_access,
         Declaration::Function(Function {
-            name: "init".to_owned(),
+            name: "init".into(),
             signature: format!("({}) -> void", init_parameters.join(",")),
             statements: Some(init),
             ..Default::default()
@@ -2087,7 +2092,7 @@ fn generate_sub_component(
     target_struct.members.push((
         field_access,
         Declaration::Function(Function {
-            name: "user_init".to_owned(),
+            name: "user_init".into(),
             signature: "() -> void".into(),
             statements: Some(user_init),
             ..Default::default()
@@ -2441,10 +2446,10 @@ fn generate_global(
         let ty = if let Type::Callback { args, return_type } = &property.ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let return_type =
-                return_type.as_ref().map_or("void".to_owned(), |t| t.cpp_type().unwrap());
-            format!("slint::private_api::Callback<{}({})>", return_type, param_types.join(", "))
+                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+            format_smolstr!("slint::private_api::Callback<{}({})>", return_type, param_types.join(", "))
         } else {
-            format!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap())
+            format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap())
         };
 
         global_struct.members.push((
@@ -2492,8 +2497,8 @@ fn generate_global(
     global_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: "const class SharedGlobals*".to_owned(),
-            name: "globals".to_owned(),
+            ty: "const class SharedGlobals*".into(),
+            name: "globals".into(),
             ..Default::default()
         }),
     ));
@@ -2566,7 +2571,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("invoke_{prop_ident}"),
+                    name: format_smolstr!("invoke_{prop_ident}"),
                     signature: format!(
                         "({}) const -> {}",
                         param_types
@@ -2583,7 +2588,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("on_{}", ident(&p.name)),
+                    name: format_smolstr!("on_{}", ident(&p.name)),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -2610,7 +2615,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("invoke_{}", ident(&p.name)),
+                    name: format_smolstr!("invoke_{}", ident(&p.name)),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -2632,7 +2637,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("get_{}", &prop_ident),
+                    name: format_smolstr!("get_{}", &prop_ident),
                     signature: format!("() const -> {}", &cpp_property_type),
                     statements: Some(prop_getter),
                     ..Default::default()
@@ -2647,7 +2652,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: format!("set_{}", &prop_ident),
+                        name: format_smolstr!("set_{}", &prop_ident),
                         signature: format!("(const {} &value) const -> void", &cpp_property_type),
                         statements: Some(prop_setter),
                         ..Default::default()
@@ -2657,7 +2662,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Private,
                     Declaration::Function(Function {
-                        name: format!("set_{}", &prop_ident),
+                        name: format_smolstr!("set_{}", &prop_ident),
                         signature: format!(
                             "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", p.name
                         ),
@@ -2676,7 +2681,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format!("invoke_{prop_ident}"),
+                    name: format_smolstr!("invoke_{prop_ident}"),
                     signature: format!(
                         "({param_types}) const = delete /* the function '{name}' is declared as private. Declare it as 'public' */",
                     ),
@@ -2687,7 +2692,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format!("get_{prop_ident}"),
+                    name: format_smolstr!("get_{prop_ident}"),
                     signature: format!(
                         "() const = delete /* the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public */",
                     ),
@@ -2697,7 +2702,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format!("set_{}", &prop_ident),
+                    name: format_smolstr!("set_{}", &prop_ident),
                     signature: format!(
                         "(const auto &) const = delete /* property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public */",
                     ),
@@ -2911,7 +2916,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::StoreLocalVariable { name, value } => {
             format!("auto {} = {};", ident(name), compile_expression(value, ctx))
         }
-        Expression::ReadLocalVariable { name, .. } => ident(name),
+        Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
             Type::Struct { fields, name : None, .. } => {
                 let index = fields
@@ -3129,7 +3134,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let false_code = return_compile_expression(false_expr, ctx, Some(&ty));
             format!(
                 r#"[&]() -> {} {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
-                ty.cpp_type().unwrap_or_else(|| "void".to_string()),
+                ty.cpp_type().unwrap_or_else(|| "void".into()),
                 cond_code,
                 true_code,
                 false_code
@@ -3237,7 +3242,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
         } => box_layout_function(
             cells_variable,
-            repeater_indices.as_ref().map(String::as_str),
+            repeater_indices.as_ref().map(SmolStr::as_str),
             elements,
             *orientation,
             sub_expression,

@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use smol_str::{SmolStr, StrExt, ToSmolStr};
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
@@ -123,7 +124,7 @@ pub enum Value {
     #[doc(hidden)]
     /// An enumeration, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
-    EnumerationValue(String, String) = 10,
+    EnumerationValue(SmolStr, SmolStr) = 10,
     #[doc(hidden)]
     LayoutCache(SharedVector<f32>) = 11,
     #[doc(hidden)]
@@ -338,8 +339,8 @@ macro_rules! declare_value_enum_conversion {
         impl From<i_slint_core::items::$Name> for Value {
             fn from(v: i_slint_core::items::$Name) -> Self {
                 Value::EnumerationValue(
-                    stringify!($Name).to_owned(),
-                    v.to_string().trim_start_matches("r#").replace('_', "-"),
+                    stringify!($Name).to_smolstr(),
+                    v.to_string().trim_start_matches("r#").replace_smolstr("_", "-"),
                 )
             }
         }
@@ -464,16 +465,16 @@ pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
 /// assert_eq!(s.get_field("foo").cloned().unwrap().try_into(), Ok(45u32));
 /// ```
 #[derive(Clone, PartialEq, Debug, Default)]
-pub struct Struct(HashMap<String, Value>);
+pub struct Struct(HashMap<SmolStr, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
         self.0.get(&*normalize_identifier(name))
     }
     /// Set the value of a given struct field
-    pub fn set_field(&mut self, name: String, value: Value) {
+    pub fn set_field(&mut self, name: SmolStr, value: Value) {
         if name.contains('_') {
-            self.0.insert(name.replace('_', "-"), value);
+            self.0.insert(name.replace_smolstr("_", "-"), value);
         } else {
             self.0.insert(name, value);
         }
@@ -485,11 +486,11 @@ impl Struct {
     }
 }
 
-impl FromIterator<(String, Value)> for Struct {
-    fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
+impl FromIterator<(SmolStr, Value)> for Struct {
+    fn from_iter<T: IntoIterator<Item = (SmolStr, Value)>>(iter: T) -> Self {
         Self(
             iter.into_iter()
-                .map(|(s, v)| (if s.contains('_') { s.replace('_', "-") } else { s }, v))
+                .map(|(s, v)| (if s.contains('_') { s.replace_smolstr("_", "-") } else { s }, v))
                 .collect(),
         )
     }
@@ -561,7 +562,7 @@ impl ComponentCompiler {
     }
 
     /// The domain used for translations
-    pub fn set_translation_domain(&mut self, domain: String) {
+    pub fn set_translation_domain(&mut self, domain: SmolStr) {
         self.config.translation_domain = Some(domain);
     }
 
@@ -722,7 +723,7 @@ impl Compiler {
     }
 
     /// The domain used for translations
-    pub fn set_translation_domain(&mut self, domain: String) {
+    pub fn set_translation_domain(&mut self, domain: SmolStr) {
         self.config.translation_domain = Some(domain);
     }
 
@@ -806,13 +807,13 @@ impl Compiler {
 /// The components can be retrieved using [`Self::components()`]
 #[derive(Clone)]
 pub struct CompilationResult {
-    pub(crate) components: HashMap<String, ComponentDefinition>,
+    pub(crate) components: HashMap<SmolStr, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
     #[cfg(feature = "internal")]
-    pub(crate) named_exports: Vec<(String, String)>,
+    pub(crate) named_exports: Vec<(SmolStr, SmolStr)>,
 }
 
 impl core::fmt::Debug for CompilationResult {
@@ -881,7 +882,7 @@ impl CompilationResult {
     pub fn named_exports(
         &self,
         _: i_slint_core::InternalToken,
-    ) -> impl Iterator<Item = &(String, String)> {
+    ) -> impl Iterator<Item = &(SmolStr, SmolStr)> {
         self.named_exports.iter()
     }
 }
@@ -958,7 +959,7 @@ impl ComponentDefinition {
     #[cfg(feature = "internal")]
     pub fn properties_and_callbacks(
         &self,
-    ) -> impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_ {
+    ) -> impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -967,7 +968,7 @@ impl ComponentDefinition {
 
     /// Returns an iterator over all publicly declared properties. Each iterator item is a tuple of property name
     /// and property type for each of them.
-    pub fn properties(&self) -> impl Iterator<Item = (String, ValueType)> + '_ {
+    pub fn properties(&self) -> impl Iterator<Item = (SmolStr, ValueType)> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -981,7 +982,7 @@ impl ComponentDefinition {
     }
 
     /// Returns the names of all publicly declared callbacks.
-    pub fn callbacks(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn callbacks(&self) -> impl Iterator<Item = SmolStr> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -995,7 +996,7 @@ impl ComponentDefinition {
     }
 
     /// Returns the names of all publicly declared functions.
-    pub fn functions(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn functions(&self) -> impl Iterator<Item = SmolStr> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -1012,7 +1013,7 @@ impl ComponentDefinition {
     ///
     /// **Note:** Only globals that are exported or re-exported from the main .slint file will
     /// be exposed in the API
-    pub fn globals(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn globals(&self) -> impl Iterator<Item = SmolStr> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -1027,7 +1028,7 @@ impl ComponentDefinition {
     pub fn global_properties_and_callbacks(
         &self,
         global_name: &str,
-    ) -> Option<impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_> {
+    ) -> Option<impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + '_> {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -1038,7 +1039,7 @@ impl ComponentDefinition {
     pub fn global_properties(
         &self,
         global_name: &str,
-    ) -> Option<impl Iterator<Item = (String, ValueType)> + '_> {
+    ) -> Option<impl Iterator<Item = (SmolStr, ValueType)> + '_> {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -1054,7 +1055,7 @@ impl ComponentDefinition {
     }
 
     /// List of publicly declared callbacks in the exported global singleton specified by its name.
-    pub fn global_callbacks(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
+    pub fn global_callbacks(&self, global_name: &str) -> Option<impl Iterator<Item = SmolStr> + '_> {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -1070,7 +1071,7 @@ impl ComponentDefinition {
     }
 
     /// List of publicly declared functions in the exported global singleton specified by its name.
-    pub fn global_functions(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
+    pub fn global_functions(&self, global_name: &str) -> Option<impl Iterator<Item = SmolStr> + '_> {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -1750,8 +1751,8 @@ fn globals() {
 
     assert!(definition.global_properties("not-there").is_none());
     {
-        let expected_properties = vec![("the-property".to_string(), ValueType::Number)];
-        let expected_callbacks = vec!["my-callback".to_string()];
+        let expected_properties = vec![(SmolStr::new_static("the-property"), ValueType::Number)];
+        let expected_callbacks = vec![SmolStr::new_static("my-callback")];
 
         let assert_properties_and_callbacks = |global_name| {
             assert_eq!(

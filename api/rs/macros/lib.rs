@@ -13,6 +13,7 @@ use i_slint_compiler::parser::SyntaxKind;
 use i_slint_compiler::*;
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::quote;
+use smol_str::SmolStr;
 
 /// Returns true if the two token are touching. For example the two token `foo`and `-` are touching if
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
@@ -407,7 +408,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     }
 
     //println!("{:#?}", syntax_node);
-    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
+    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").as_ref().map(|s| SmolStr::new(s.as_str())).ok();
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);

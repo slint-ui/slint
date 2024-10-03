@@ -54,6 +54,7 @@ use std::collections::HashMap;
 use std::env;
 use std::io::{BufWriter, Write};
 use std::path::Path;
+use smol_str::SmolStr;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 
@@ -426,7 +427,7 @@ pub fn compile_with_output(
     }
 
     let mut compiler_config = config.config;
-    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
+    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").as_ref().map(|s| SmolStr::new(s.as_str())).ok();
 
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 

@@ -9,6 +9,7 @@ use i_slint_compiler::parser::TextSize;
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::Url;
+use smol_str::SmolStr;
 
 use std::{
     cell::RefCell,
@@ -47,7 +48,7 @@ pub struct CompilerConfiguration {
     pub style: Option<String>,
     pub open_import_fallback: OpenImportFallback,
     pub resource_url_mapper:
-        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<SmolStr>>>>>>,
 }
 
 impl Default for CompilerConfiguration {
@@ -361,7 +362,7 @@ mod tests {
     fn id_at_position(dc: &DocumentCache, url: &Url, line: u32, character: u32) -> Option<String> {
         let result = dc.element_at_position(url, &lsp_types::Position { line, character })?;
         let element = result.element.borrow();
-        Some(element.id.clone())
+        Some(element.id.to_string())
     }
 
     fn base_type_at_position(

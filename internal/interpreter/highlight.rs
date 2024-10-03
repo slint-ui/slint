@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 use vtable::VRc;
+use smol_str::SmolStr;
 
 fn normalize_repeated_element(element: ElementRc) -> ElementRc {
     if element.borrow().repeated.is_some() {
@@ -88,7 +89,7 @@ pub(crate) fn element_node_at_source_code_position(
 }
 
 fn fill_highlight_data(
-    repeater_path: &[String],
+    repeater_path: &[SmolStr],
     element: &ElementRc,
     component_instance: &ItemTreeBox,
     root_component_instance: &ItemTreeBox,
@@ -165,7 +166,7 @@ fn find_element_node_at_source_code_position(
     result
 }
 
-fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
+fn repeater_path(elem: &ElementRc) -> Option<Vec<SmolStr>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
         // This is not a repeater, it might be a popup menu which is not supported ATM

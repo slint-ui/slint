@@ -8,6 +8,7 @@ use crate::{
     object_tree::*,
 };
 use std::collections::BTreeSet;
+use smol_str::SmolStr;
 
 /// Fill the root_component's used_globals
 pub fn collect_custom_fonts<'a>(
@@ -27,7 +28,7 @@ pub fn collect_custom_fonts<'a>(
         Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, None)
     };
 
-    let prepare_font_registration_argument: Box<dyn Fn(&String) -> Expression> = if embed_fonts {
+    let prepare_font_registration_argument: Box<dyn Fn(&SmolStr) -> Expression> = if embed_fonts {
         Box::new(|font_path| {
             Expression::NumberLiteral(
                 {

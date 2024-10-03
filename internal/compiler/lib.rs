@@ -39,6 +39,7 @@ pub mod passes;
 
 use crate::generator::OutputFormat;
 use std::path::Path;
+use smol_str::SmolStr;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -108,7 +109,7 @@ pub struct CompilerConfiguration {
     ///
     /// The function takes the url and returns the mapped URL (or None if not mapped)
     pub resource_url_mapper:
-        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<SmolStr>>>>>>,
 
     /// Run the pass that inlines all the elements.
     ///
@@ -127,7 +128,7 @@ pub struct CompilerConfiguration {
     pub enable_experimental: bool,
 
     /// The domain used as one of the parameter to the translate function
-    pub translation_domain: Option<String>,
+    pub translation_domain: Option<SmolStr>,
 
     /// C++ namespace
     pub cpp_namespace: Option<String>,

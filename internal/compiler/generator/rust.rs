@@ -28,6 +28,7 @@ use quote::{format_ident, quote};
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
+use smol_str::SmolStr;
 
 #[derive(Clone)]
 struct RustGeneratorContext {
@@ -382,8 +383,8 @@ fn generate_shared_globals(
 
 fn generate_struct(
     name: &str,
-    fields: &BTreeMap<String, Type>,
-    rust_attributes: &Option<Vec<String>>,
+    fields: &BTreeMap<SmolStr, Type>,
+    rust_attributes: &Option<Vec<SmolStr>>,
 ) -> TokenStream {
     let component_id = struct_name_to_tokens(name);
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
@@ -2080,6 +2081,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => {
+            let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
@@ -2332,6 +2334,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     quote!(sp::Image::default())
                 }
                 crate::expression_tree::ImageReference::AbsolutePath(path) => {
+                    let path = path.as_str();
                     quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
                 }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
@@ -2493,7 +2496,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             sub_expression,
         } => box_layout_function(
             cells_variable,
-            repeater_indices.as_ref().map(String::as_str),
+            repeater_indices.as_ref().map(SmolStr::as_str),
             elements,
             *orientation,
             sub_expression,
@@ -2673,6 +2676,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
                 let window_adapter_tokens = access_window_adapter_field(ctx);
+                let path = path.as_str();
                 quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {:?}", arguments)

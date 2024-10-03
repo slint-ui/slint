@@ -255,7 +255,7 @@ fn embed_glyphs_with_fontdb<'a>(
 
         let resource_id = doc.embedded_file_resources.borrow().len();
         doc.embedded_file_resources.borrow_mut().insert(
-            path.to_string_lossy().to_string(),
+            path.to_string_lossy().into(),
             crate::embedded_resources::EmbeddedResources {
                 id: resource_id,
                 kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
