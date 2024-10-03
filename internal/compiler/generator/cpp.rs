@@ -136,7 +136,6 @@ fn is_cpp_keyword(word: &str) -> bool {
 fn ident(ident: &str) -> String {
     if is_cpp_keyword(ident) {
         format!("{}_", ident)
-        // ident.into()
     } else if ident.contains('-') {
         ident.replace('-', "_")
     } else {
