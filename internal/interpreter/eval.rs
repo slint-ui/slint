@@ -619,7 +619,7 @@ fn call_builtin_function(
                         )
                     },
                     popup.close_on_click,
-                    component.self_weak().get().unwrap().clone(),
+                    enclosing_component.self_weak().get().unwrap().clone(),
                     component.window_adapter(),
                     &parent_item,
                 );
