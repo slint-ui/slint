@@ -37,7 +37,7 @@ component ScrollBar inherits Rectangle {
     in-out property <length> maximum;
     in-out property <length> page-size;
     in-out property <length> value;
-    out property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
+    in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
     in property <bool> enabled;
 
     private property <length> offset: 16px;
@@ -135,8 +135,8 @@ export component ScrollView {
     in-out property <length> viewport-height <=> flickable.viewport-height;
     in-out property <length> viewport-x <=> flickable.viewport-x;
     in-out property <length> viewport-y <=> flickable.viewport-y;
-    out property <ScrollBarPolicy> vertical-bar-policy <=> vertical-bar.policy;
-    out property <ScrollBarPolicy> horizontal-bar-policy <=> horizontal-bar.policy;
+    in property <ScrollBarPolicy> vertical-bar-policy <=> vertical-bar.policy;
+    in property <ScrollBarPolicy> horizontal-bar-policy <=> horizontal-bar.policy;
 
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
