@@ -21,7 +21,8 @@ pub(super) fn draw_texture_line(
     line: PhysicalLength,
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
-    extra_clip: i16,
+    extra_clip_begin: i16,
+    extra_clip_end: i16,
 ) {
     let super::SceneTexture {
         data,
@@ -38,7 +39,7 @@ pub(super) fn draw_texture_line(
     let off_y = Fixed::<i32, 8>::from_fixed(off_y);
     let dx = Fixed::<i32, 8>::from_fixed(dx);
     let dy = Fixed::<i32, 8>::from_fixed(dy);
-    let off_x = Fixed::<i32, 8>::from_fixed(off_x) + dx * extra_clip as i32;
+    let off_x = Fixed::<i32, 8>::from_fixed(off_x);
 
     if !rotation.is_transpose() {
         let mut delta = dx;
@@ -57,7 +58,8 @@ pub(super) fn draw_texture_line(
         // the accumulated error in image pixels
         let mut acc_err;
         if rotation.mirror_height() {
-            let o = (off_x + (delta * (len as i32 - 1))) % Fixed::from_integer(source_size.width);
+            let o = (off_x + (delta * (extra_clip_end as i32 + len as i32 - 1)))
+                % Fixed::from_integer(source_size.width);
             pos = init + o;
             init += Fixed::from_integer(source_size.width);
             end = (o / delta) as usize + 1;
@@ -65,7 +67,8 @@ pub(super) fn draw_texture_line(
             delta = -delta;
             remainder = -remainder;
         } else {
-            let o = off_x % Fixed::from_integer(source_size.width);
+            let o =
+                (off_x + delta * extra_clip_begin as i32) % Fixed::from_integer(source_size.width);
             pos = init + o;
             end = ((Fixed::from_integer(source_size.width) - o) / delta) as usize;
             acc_err = (Fixed::from_integer(source_size.width) - o) % delta;
@@ -122,14 +125,15 @@ pub(super) fn draw_texture_line(
         let mut acc_err;
         if rotation.mirror_height() {
             row_init = Fixed::from_integer(source_size.height);
-            row =
-                (off_y + (row_delta * (len as i32 - 1))) % Fixed::from_integer(source_size.height);
+            row = (off_y + (row_delta * (extra_clip_end as i32 + len as i32 - 1)))
+                % Fixed::from_integer(source_size.height);
             end = (row / row_delta) as usize + 1;
             acc_err = -row_delta + row % row_delta;
             row_delta = -row_delta;
             remainder = -remainder;
         } else {
-            row = off_y % Fixed::from_integer(source_size.height);
+            row = (off_y + row_delta * extra_clip_begin as i32)
+                % Fixed::from_integer(source_size.height);
             end = ((Fixed::from_integer(source_size.height) - row) / row_delta) as usize;
             acc_err = (Fixed::from_integer(source_size.height) - row) % row_delta;
             if acc_err != Fixed::default() {
