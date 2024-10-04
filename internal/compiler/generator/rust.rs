@@ -1442,20 +1442,6 @@ fn generate_item_tree(
         quote!(sp::Rc::new(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc))))
     };
 
-    let new_end = if let Some(parent_ctx) = parent_ctx {
-        if parent_ctx.repeater_index.is_some() {
-            // Repeaters run their user_init() code from RepeatedItemTree::init() after update() initialized model_data/index.
-            quote!(core::result::Result::Ok(self_rc))
-        } else {
-            quote! {
-                Self::user_init(sp::VRc::map(self_rc.clone(), |x| x));
-                core::result::Result::Ok(self_rc)
-            }
-        }
-    } else {
-        quote!(core::result::Result::Ok(self_rc))
-    };
-
     let embedding_function = if parent_ctx.is_some() {
         quote!(todo!("Components written in Rust can not get embedded yet."))
     } else {
@@ -1546,7 +1532,7 @@ fn generate_item_tree(
                 let globals = #globals;
                 sp::register_item_tree(&self_dyn_rc, globals.maybe_window_adapter_impl());
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
-                #new_end
+                core::result::Result::Ok(self_rc)
             }
 
             fn item_tree() -> &'static [sp::ItemTreeNode] {

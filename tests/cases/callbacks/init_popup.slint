@@ -7,11 +7,11 @@ TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
 
-    out property <bool> popup-created;
+    out property <int> popup-created;
 
     popup := PopupWindow {
         init => {
-            root.popup-created = true;
+            root.popup-created += 1;
         }
     }
 
@@ -27,21 +27,21 @@ TestCase := Rectangle {
 let instance = TestCase::new().unwrap();
 
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert!(instance.get_popup_created());
+assert_eq!(instance.get_popup_created(), 1);
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert(instance.get_popup_created());
+assert_eq(instance.get_popup_created(), 1);
 ```
 
 
 ```js
 var instance = new slint.TestCase({});
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
-assert(instance.popup_created);
+assert.equal(instance.popup_created, 1);
 ```
 
 
