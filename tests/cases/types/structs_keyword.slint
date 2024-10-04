@@ -13,7 +13,7 @@ match := Rectangle {
 }
 
 
-// testing C++ keywords
+// // testing C++ keywords
 export struct struct {
     not: image
 }
@@ -26,16 +26,22 @@ export struct operator {
     dynamic-cast: image
 }
 
+export struct static_assert {}
+export struct unsigned {} 
+export struct namespace {} 
+
 export component char {
-    property <int> protected;
+    property <static_assert> protected;
 }
 
-export global const {  
-    in-out property<struct> return;  
-}  
+export global void{ 
+    in-out property<unsigned> atomic-commit;
+    in-out property<namespace> enum;  
+ }
 
 export global char16_t{ 
     in-out property<dynamic_cast> atomic_commit;
+    in-out property<struct> return;  
  }
 
 
