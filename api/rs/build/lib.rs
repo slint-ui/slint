@@ -350,6 +350,8 @@ fn formatter_test() {
 ///
 /// Please check out the documentation of the `slint` crate for more information
 /// about how to use the generated code.
+///
+/// This function can only be called within a build script run by cargo.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     compile_with_config(path, CompilerConfiguration::default())
 }
@@ -400,7 +402,15 @@ pub fn compile_with_config(
     Ok(())
 }
 
-/// Compile the input file to an output file and list dependencies.
+/// Similar to [`compile_with_config`], but meant to be used independently of cargo.
+///
+/// Will compile the input file and write the result in the given output file.
+///
+/// Both input_slint_file_path and output_rust_file_path should be absolute paths.
+///
+/// Doesn't print any cargo messages.
+///
+/// Returns a list of all input files that were used to generate the output file. (dependencies)
 pub fn compile_with_output(
     input_slint_file_path: impl AsRef<std::path::Path>,
     output_rust_file_path: impl AsRef<std::path::Path>,
