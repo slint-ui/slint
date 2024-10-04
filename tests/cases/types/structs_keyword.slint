@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Right now, this test is only testing rust keyword, but it should be expanded to JS and C++ keywords
+// Right now, this test is only testing rust and C++ keyword, but it should be expanded to JS keywords
 
 export struct mod := {
     loop: string,
@@ -10,6 +10,10 @@ export struct mod := {
 match := Rectangle {
     property<mod> move: {loop : "mod" };
     property<bool> test: move.loop == "mod";
+}
+
+export struct Name {
+    delete: image
 }
 
 /*
