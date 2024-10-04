@@ -47,13 +47,14 @@ fn is_cpp_keyword(word: &str) -> bool {
 }
 
 fn ident(ident: &str) -> String {
-    if is_cpp_keyword(ident) {
-        format!("{}_", ident)
-    } else if ident.contains('-') {
-        ident.replace('-', "_")
-    } else {
-        ident.into()
+    let mut new_ident = String::from(ident);
+    if ident.contains('-') {
+        new_ident = ident.replace('-', "_");
     }
+    if is_cpp_keyword(new_ident.as_str()) {
+        new_ident = format!("{}_", ident);
+    }
+    new_ident
 }
 
 /// Given a property reference to a native item (eg, the property name is empty)
