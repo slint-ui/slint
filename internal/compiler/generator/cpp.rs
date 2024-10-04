@@ -52,7 +52,7 @@ fn ident(ident: &str) -> String {
         new_ident = ident.replace('-', "_");
     }
     if is_cpp_keyword(new_ident.as_str()) {
-        new_ident = format!("{}_", ident);
+        new_ident = format!("{}_", new_ident);
     }
     new_ident
 }
