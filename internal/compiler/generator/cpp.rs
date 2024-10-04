@@ -57,6 +57,15 @@ fn ident(ident: &str) -> String {
     new_ident
 }
 
+
+fn concatenate_ident(ident: &str) -> String {
+    if ident.contains('-') {
+        ident.replace('-', "_")
+    } else {
+        ident.into()
+    }
+}
+
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
 fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
@@ -787,7 +796,7 @@ pub fn generate(
             Access::Public,
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
-                name: format!("global_{}", ident(&glob.name)),
+                name: format!("global_{}", concatenate_ident(&glob.name)),
                 init: Some(format!("std::make_shared<{}>(this)", ty)),
                 ..Default::default()
             }),
@@ -1124,7 +1133,7 @@ fn generate_public_component(
         let accessor_statement = format!(
             "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
             if global_accessor_function_body.is_empty() { "" } else { "else " },
-            ident(&glob.name),
+            concatenate_ident(&glob.name),
         );
         global_accessor_function_body.push(accessor_statement);
     }
@@ -2551,7 +2560,7 @@ fn generate_functions<'a>(
             format!("{ret}{};", compile_expression(&f.code, &ctx2)),
         ];
         Declaration::Function(Function {
-            name: ident(&format!("fn_{}", f.name)),
+            name: concatenate_ident(&format!("fn_{}", f.name)),
             signature: format!(
                 "({}) const -> {}",
                 f.args
@@ -2574,7 +2583,7 @@ fn generate_public_api_for_properties(
     ctx: &EvaluationContext,
 ) {
     for p in public_properties {
-        let prop_ident = ident(&p.name);
+        let prop_ident = concatenate_ident(&p.name);
 
         let access = access_member(&p.prop, ctx);
 
@@ -2609,7 +2618,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("on_{}", ident(&p.name)),
+                    name: format!("on_{}", concatenate_ident(&p.name)),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -2636,7 +2645,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("invoke_{}", ident(&p.name)),
+                    name: format!("invoke_{}", concatenate_ident(&p.name)),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -2695,7 +2704,7 @@ fn generate_public_api_for_properties(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = ident(name);
+        let prop_ident = concatenate_ident(name);
 
         if let Type::Function { args, .. } = &ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
@@ -2757,7 +2766,7 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 /// to be used like:
 /// ```ignore
 /// let access = access_member(...);
-/// format!("{}.get()", access)
+// format!("{}.get()", access)
 /// ```
 /// or for a function
 /// ```ignore
@@ -2851,7 +2860,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         llr::PropertyReference::Global { global_index, property_index } => {
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
-            let global_id = format!("global_{}", ident(&global.name));
+            let global_id = format!("global_{}", concatenate_ident(&global.name));
             let property_name = ident(
                 &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
             );
@@ -2860,9 +2869,9 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         llr::PropertyReference::GlobalFunction { global_index, function_index } => {
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
-            let global_id = format!("global_{}", ident(&global.name));
+            let global_id = format!("global_{}", concatenate_ident(&global.name));
             let name =
-                ident(&ctx.compilation_unit.globals[*global_index].functions[*function_index].name);
+            concatenate_ident(&ctx.compilation_unit.globals[*global_index].functions[*function_index].name);
             format!("{global_access}->{global_id}->fn_{name}")
         }
     }
