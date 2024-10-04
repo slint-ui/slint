@@ -52,7 +52,6 @@ itertools = { workspace = true }
 once_cell = "1"
 url = "2.2.1"
 linked_hash_set = "0.1.4"
-lazy_static = "1.4"
 
 # for processing and embedding the rendered image (texture)
 image = { workspace = true, optional = true, features = ["default"] }
