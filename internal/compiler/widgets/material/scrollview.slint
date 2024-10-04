@@ -11,7 +11,7 @@ component ScrollBar inherits Rectangle {
     // this is always negative and bigger than  -maximum
     in-out property <length> value;
     in-out property <bool> enabled <=> touch-area.enabled;
-    out property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
+    in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
 
     states [
         disabled when !touch-area.enabled : {
