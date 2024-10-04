@@ -422,13 +422,13 @@ macro_rules! for_each_enums {
                 AlternateReverse,
             }
 
-            // This enum describes the scrollbar visibility
+            /// This enum describes the scrollbar visibility
             enum ScrollBarPolicy {
-                // Scrolbar will be visible only when needed
+                /// Scrolbar will be visible only when needed
                 AsNeeded,
-                // Scrollbar never shown
+                /// Scrollbar never shown
                 AlwaysOff,
-                // Scrollbar always visible
+                /// Scrollbar always visible
                 AlwaysOn,
             }
         ];
