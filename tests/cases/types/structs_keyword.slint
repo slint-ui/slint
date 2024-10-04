@@ -12,9 +12,33 @@ match := Rectangle {
     property<bool> test: move.loop == "mod";
 }
 
-export struct Name {
+
+// testing C++ keywords
+export struct struct {
+    not: image
+}
+
+export struct dynamic_cast {
     delete: image
 }
+
+export struct operator {
+    dynamic-cast: image
+}
+
+export component char {
+    property <int> protected;
+}
+
+export global const {  
+    in-out property<struct> return;  
+}  
+
+export global char16_t{ 
+    in-out property<dynamic_cast> atomic_commit;
+ }
+
+
 
 /*
 ```rust
