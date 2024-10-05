@@ -222,10 +222,10 @@ pub fn font_metrics(
 ) -> crate::items::FontMetrics {
     let font = match_font(&font_request, scale_factor);
 
-    let ascent: LogicalLength = font.ascent().cast() / scale_factor;
-    let descent: LogicalLength = font.descent().cast() / scale_factor;
-    let x_height: LogicalLength = font.x_height().cast() / scale_factor;
-    let cap_height: LogicalLength = font.cap_height().cast() / scale_factor;
+    let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
+    let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
+    let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
+    let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
 
     crate::items::FontMetrics {
         ascent: ascent.get() as _,
