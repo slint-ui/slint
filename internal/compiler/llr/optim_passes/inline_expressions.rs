@@ -99,7 +99,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
         BuiltinFunction::ItemMemberFunction(..) => isize::MAX,
-        BuiltinFunction::ItemFontMetrics => isize::MAX,
+        BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
         BuiltinFunction::ColorRgbaStruct => 50,
