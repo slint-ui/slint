@@ -9,7 +9,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
-use crate::langtype::{BuiltinElement, Enumeration, NativeClass, Type};
+use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, Enumeration, NativeClass, Type};
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
@@ -1851,7 +1851,7 @@ fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
     if let ElementType::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {
-            if let Some(expr) = &info.default_value {
+            if let BuiltinPropertyDefault::Expr(expr) = &info.default_value {
                 element.bindings.entry(prop.clone()).or_insert_with(|| {
                     let mut binding = BindingExpression::from(expr.clone());
                     binding.priority = i32::MAX;

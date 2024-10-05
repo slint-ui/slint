@@ -347,19 +347,41 @@ impl Type {
     }
 }
 
+#[derive(Debug, Clone)]
+
+pub enum BuiltinPropertyDefault {
+    None,
+    Expr(Expression),
+    Fn(fn(&crate::object_tree::ElementRc) -> Expression),
+}
+
+impl BuiltinPropertyDefault {
+    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
+        match self {
+            BuiltinPropertyDefault::None => None,
+            BuiltinPropertyDefault::Expr(expression) => Some(expression.clone()),
+            BuiltinPropertyDefault::Fn(init_expr) => Some(init_expr(elem)),
+        }
+    }
+}
+
 /// Information about properties in NativeClass
 #[derive(Debug, Clone)]
 pub struct BuiltinPropertyInfo {
     /// The property type
     pub ty: Type,
-    /// When set, this is the initial value that we will have to set if no other binding were specified
-    pub default_value: Option<Expression>,
+    /// When != None, this is the initial value that we will have to set if no other binding were specified
+    pub default_value: BuiltinPropertyDefault,
     pub property_visibility: PropertyVisibility,
 }
 
 impl BuiltinPropertyInfo {
     pub fn new(ty: Type) -> Self {
-        Self { ty, default_value: None, property_visibility: PropertyVisibility::InOut }
+        Self {
+            ty,
+            default_value: BuiltinPropertyDefault::None,
+            property_visibility: PropertyVisibility::InOut,
+        }
     }
 
     pub fn is_native_output(&self) -> bool {
@@ -405,22 +427,17 @@ impl ElementType {
                     } else {
                         Cow::Borrowed(name)
                     };
-                match b.properties.get(resolved_name.as_ref()) {
+                match b
+                    .properties
+                    .get(resolved_name.as_ref())
+                    .or_else(|| b.reserved_properties.get(resolved_name.as_ref()))
+                {
                     None => {
                         if b.is_non_item_type {
                             PropertyLookupResult {
                                 resolved_name,
                                 property_type: Type::Invalid,
                                 property_visibility: PropertyVisibility::Private,
-                                declared_pure: None,
-                                is_local_to_component: false,
-                                is_in_direct_base: false,
-                            }
-                        } else if let Some(ri) = b.reserved_properties.get(resolved_name.as_ref()) {
-                            PropertyLookupResult {
-                                resolved_name,
-                                property_type: ri.ty.clone(),
-                                property_visibility: ri.property_visibility,
                                 declared_pure: None,
                                 is_local_to_component: false,
                                 is_in_direct_base: false,
@@ -484,8 +501,8 @@ impl ElementType {
             Self::Builtin(b) => b
                 .properties
                 .iter()
+                .chain(b.reserved_properties.iter())
                 .map(|(k, t)| (k.clone(), t.ty.clone()))
-                .chain(b.reserved_properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())))
                 .collect(),
             Self::Native(n) => {
                 n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
@@ -726,20 +743,12 @@ pub enum DefaultSizeBinding {
     ImplicitSize,
 }
 
-#[derive(Debug, Clone)]
-pub struct ReservedBuiltinPropertyInfo {
-    /// The property type
-    pub ty: Type,
-    pub property_visibility: PropertyVisibility,
-    pub init_expr_fn: fn(&crate::object_tree::ElementRc) -> Expression,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
     pub name: String,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<String, BuiltinPropertyInfo>,
-    pub reserved_properties: BTreeMap<String, ReservedBuiltinPropertyInfo>,
+    pub reserved_properties: BTreeMap<String, BuiltinPropertyInfo>,
     pub additional_accepted_child_types: HashMap<String, ElementType>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)

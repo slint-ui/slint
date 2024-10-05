@@ -9,7 +9,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyInfo, ElementType, Enumeration, PropertyLookupResult, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Enumeration,
+    PropertyLookupResult, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -370,19 +371,23 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
-        let font_metrics_prop = crate::langtype::ReservedBuiltinPropertyInfo {
+        let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
             ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,
-            init_expr_fn: |elem| crate::expression_tree::Expression::FunctionCall {
-                function: Box::new(crate::expression_tree::Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ItemFontMetrics,
-                    None,
-                )),
-                arguments: vec![crate::expression_tree::Expression::ElementReference(
-                    Rc::downgrade(elem),
-                )],
-                source_location: None,
-            },
+            default_value: BuiltinPropertyDefault::Fn(|elem| {
+                crate::expression_tree::Expression::FunctionCall {
+                    function: Box::new(
+                        crate::expression_tree::Expression::BuiltinFunctionReference(
+                            BuiltinFunction::ItemFontMetrics,
+                            None,
+                        ),
+                    ),
+                    arguments: vec![crate::expression_tree::Expression::ElementReference(
+                        Rc::downgrade(elem),
+                    )],
+                    source_location: None,
+                }
+            }),
         };
 
         match &mut register.elements.get_mut("TextInput").unwrap() {
