@@ -26,12 +26,6 @@ div.sidebar-primary-item:first-child {
     text-align: center;
 }
 
-div.header-article-item button.search-button-field {
-    font-size: 0.9rem;
-    display: inline flex;
-    border: 1px solid var(--pst-color-border);
-}
-
 div.search-button__wrapper {
     display: none;
 }
