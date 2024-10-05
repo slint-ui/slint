@@ -162,6 +162,26 @@ macro_rules! for_each_builtin_structs {
                     change_time: crate::animations::Instant,
                 }
             }
+
+            /// A structure to hold metrics of a font for a specified pixel size.
+            struct FontMetrics {
+                @name = "slint::private_api::FontMetrics"
+                export {
+                    /// The distance between the baseline and the top of the tallest glyph in the font.
+                    ascent: Coord,
+                    /// The distance between the baseline and the bottom of the tallest glyph in the font.
+                    /// This is usually negative.
+                    descent: Coord,
+                    /// The distance between the baseline and the horizontal midpoint of the tallest glyph in the font,
+                    /// or zero if not specified by the font.
+                    x_height: Coord,
+                    /// The distance between the baseline and the top of a regular upper-case glyph in the font,
+                    /// or zero if not specified by the font.
+                    cap_height: Coord,
+                }
+                private {
+                }
+            }
         ];
     };
 }

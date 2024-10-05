@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 pub use fontdb;
+pub use ttf_parser;
 
 #[derive(derive_more::Deref)]
 pub struct FontDatabase {
@@ -219,4 +220,27 @@ pub fn register_font_from_path(_path: &std::path::Path) -> Result<(), Box<dyn st
         "Registering fonts from paths is not supported in WASM builds",
     )
     .into());
+}
+
+/// Font metrics in design space. Scale with desired pixel size and divided by units_per_em
+/// to obtain pixel metrics.
+#[derive(Clone)]
+pub struct DesignFontMetrics {
+    pub ascent: f32,
+    pub descent: f32,
+    pub x_height: f32,
+    pub cap_height: f32,
+    pub units_per_em: f32,
+}
+
+impl DesignFontMetrics {
+    pub fn new(face: ttf_parser::Face<'_>) -> Self {
+        Self {
+            ascent: face.ascender() as f32,
+            descent: face.descender() as f32,
+            x_height: face.x_height().unwrap_or_default() as f32,
+            cap_height: face.capital_height().unwrap_or_default() as f32,
+            units_per_em: face.units_per_em() as f32,
+        }
+    }
 }

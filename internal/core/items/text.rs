@@ -8,9 +8,9 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{
-    InputType, Item, ItemConsts, ItemRc, KeyEventResult, KeyEventType, PointArg,
-    PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow, TextStrokeStyle,
-    TextVerticalAlignment, TextWrap, VoidArg,
+    FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventResult, KeyEventType,
+    PointArg, PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
+    TextStrokeStyle, TextVerticalAlignment, TextWrap, VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -200,6 +200,15 @@ impl RenderText for ComplexText {
     }
 }
 
+impl ComplexText {
+    pub fn font_metrics(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontMetrics {
+        let window_inner = WindowInner::from_pub(window_adapter.window());
+        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+        let font_request = self.font_request(window_inner);
+        window_adapter.renderer().font_metrics(font_request, scale_factor)
+    }
+}
+
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -346,6 +355,15 @@ impl RenderText for SimpleText {
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         Default::default()
+    }
+}
+
+impl SimpleText {
+    pub fn font_metrics(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontMetrics {
+        let window_inner = WindowInner::from_pub(window_adapter.window());
+        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+        let font_request = self.font_request(window_inner);
+        window_adapter.renderer().font_metrics(font_request, scale_factor)
     }
 }
 
@@ -1822,6 +1840,13 @@ impl TextInput {
         undo_items.push(last);
         self.undo_items.set(undo_items);
     }
+
+    pub fn font_metrics(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontMetrics {
+        let window_inner = WindowInner::from_pub(window_adapter.window());
+        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+        let font_request = self.font_request(window_adapter);
+        window_adapter.renderer().font_metrics(font_request, scale_factor)
+    }
 }
 
 fn next_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
@@ -1943,4 +1968,32 @@ pub unsafe extern "C" fn slint_textinput_paste(
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     text_input.paste(window_adapter, &self_rc);
+}
+
+pub fn slint_text_item_fontmetrics(
+    window_adapter: &Rc<dyn WindowAdapter>,
+    item_ref: Pin<ItemRef<'_>>,
+) -> FontMetrics {
+    if let Some(simple_text) = ItemRef::downcast_pin::<SimpleText>(item_ref) {
+        simple_text.font_metrics(&window_adapter)
+    } else if let Some(complex_text) = ItemRef::downcast_pin::<ComplexText>(item_ref) {
+        complex_text.font_metrics(&window_adapter)
+    } else if let Some(text_input) = ItemRef::downcast_pin::<TextInput>(item_ref) {
+        text_input.font_metrics(&window_adapter)
+    } else {
+        Default::default()
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) -> FontMetrics {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    let self_ref = self_rc.borrow();
+    slint_text_item_fontmetrics(window_adapter, self_ref)
 }

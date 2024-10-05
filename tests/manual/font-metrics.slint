@@ -1,0 +1,91 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Slider, Palette } from "std-widgets.slint";
+
+component MetricsLabel {
+    in property <string> name;
+    in property <length> value;
+    in property <length> baseline;
+    in property <color> color: t.color;
+    out property <length> text-width: t.preferred-width;
+
+    Rectangle {
+        y: root.baseline - root.value;
+        height: 1px;
+        border-color: root.color;
+        border-width: 1px;
+
+        t := Text {
+            x: 0; //parent.width - self.width;
+            y: - self.height;
+            text: {
+                if root.name == "baseline" {
+                    return root.name;
+                }
+                "\{root.name} (\{Math.round(root.value / 1px)}px)";
+            }
+        }
+    }
+}
+
+import "../../../examples/printerdemo/ui/fonts/NotoSans-Regular.ttf";
+
+export component AppWindow inherits Window {
+    width: l.x + l.width;
+    height: l.y + 2 * l.font-size;
+
+    l := Text {
+        y: self.font-size / 2;
+        x: max(baseline.text-width, ascent.text-width, descent.text-width, x-height.text-width, cap-height.text-width);
+        text: "Sphinx";
+        font-family: "Noto Sans";
+        font-size: 96px;
+    }
+
+    baseline := MetricsLabel {
+        x: 0;
+        y: l.y;
+        width: 100%;
+        name: "baseline";
+        value: 0;
+        baseline: l.font-metrics.ascent;
+        color: red;
+    }
+
+    ascent := MetricsLabel {
+        x: 0;
+        y: l.y;
+        width: 100%;
+        name: "ascent";
+        value: l.font-metrics.ascent;
+        baseline: l.font-metrics.ascent;
+    }
+
+    descent := MetricsLabel {
+        x: 0;
+        y: l.y;
+        width: 100%;
+        name: "descent";
+        value: l.font-metrics.descent;
+        baseline: l.font-metrics.ascent;
+    }
+
+    x-height := MetricsLabel {
+        x: 0;
+        y: l.y;
+        width: 100%;
+        name: "x-height";
+        value: l.font-metrics.x-height;
+        baseline: l.font-metrics.ascent;
+    }
+
+    cap-height := MetricsLabel {
+        x: 0;
+        y: l.y;
+        width: 100%;
+        name: "cap-height";
+        value: l.font-metrics.cap-height;
+        baseline: l.font-metrics.ascent;
+    }
+}

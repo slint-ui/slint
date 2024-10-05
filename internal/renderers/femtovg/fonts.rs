@@ -107,10 +107,32 @@ pub(crate) fn text_size(
         / scale_factor
 }
 
-#[derive(Copy, Clone)]
+pub(crate) fn font_metrics(
+    font_request: i_slint_core::graphics::FontRequest,
+) -> i_slint_core::items::FontMetrics {
+    let primary_font = FONT_CACHE.with(|cache| {
+        let query = font_request.to_fontdb_query();
+
+        cache.borrow_mut().load_single_font(font_request.family.as_ref(), query)
+    });
+
+    let logical_pixel_size = (font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE)).get();
+
+    let units_per_em = primary_font.design_font_metrics.units_per_em;
+
+    i_slint_core::items::FontMetrics {
+        ascent: primary_font.design_font_metrics.ascent * logical_pixel_size / units_per_em,
+        descent: primary_font.design_font_metrics.descent * logical_pixel_size / units_per_em,
+        x_height: primary_font.design_font_metrics.x_height * logical_pixel_size / units_per_em,
+        cap_height: primary_font.design_font_metrics.cap_height * logical_pixel_size / units_per_em,
+    }
+}
+
+#[derive(Clone)]
 struct LoadedFont {
     femtovg_font_id: femtovg::FontId,
     fontdb_face_id: fontdb::ID,
+    design_font_metrics: i_slint_common::sharedfontdb::DesignFontMetrics,
 }
 
 struct SharedFontData(std::sync::Arc<dyn AsRef<[u8]>>);
@@ -189,7 +211,7 @@ impl FontCache {
         };
 
         if let Some(loaded_font) = self.loaded_fonts.get(&cache_key) {
-            return *loaded_font;
+            return loaded_font.clone();
         }
 
         //let now = std::time::Instant::now();
@@ -233,13 +255,18 @@ impl FontCache {
                 .expect("invalid fontdb face id")
         });
 
+        let design_font_metrics = {
+            let face = ttf_parser::Face::parse(shared_data.as_ref().as_ref(), face_index).unwrap();
+            i_slint_common::sharedfontdb::DesignFontMetrics::new(face)
+        };
+
         let femtovg_font_id = text_context
             .add_shared_font_with_index(SharedFontData(shared_data), face_index)
             .unwrap();
 
         //println!("Loaded {:#?} in {}ms.", request, now.elapsed().as_millis());
-        let new_font = LoadedFont { femtovg_font_id, fontdb_face_id };
-        self.loaded_fonts.insert(cache_key, new_font);
+        let new_font = LoadedFont { femtovg_font_id, fontdb_face_id, design_font_metrics };
+        self.loaded_fonts.insert(cache_key, new_font.clone());
         new_font
     }
 

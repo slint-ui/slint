@@ -2163,11 +2163,25 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         _scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        get_font(font_request).text_size(
+        get_font(font_request).font_metrics().text_size(
             text,
             max_width.map(|logical_width| logical_width.get()),
             text_wrap,
         )
+    }
+
+    fn font_metrics(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+        _scale_factor: ScaleFactor,
+    ) -> i_slint_core::items::FontMetrics {
+        let qt_font_metrics = get_font(font_request).font_metrics();
+        i_slint_core::items::FontMetrics {
+            ascent: qt_font_metrics.ascent(),
+            descent: -qt_font_metrics.descent(),
+            x_height: qt_font_metrics.x_height(),
+            cap_height: qt_font_metrics.cap_height(),
+        }
     }
 
     fn text_input_byte_offset_for_position(
@@ -2407,9 +2421,9 @@ fn get_font(request: FontRequest) -> QFont {
     })
 }
 
-cpp_class! {pub unsafe struct QFont as "QFont"}
+cpp_class! {pub unsafe struct QFontMetricsF as "QFontMetricsF"}
 
-impl QFont {
+impl QFontMetricsF {
     fn text_size(&self, text: &str, max_width: Option<f32>, text_wrap: TextWrap) -> LogicalSize {
         let string = qttypes::QString::from(text);
         let char_wrap = text_wrap == TextWrap::CharWrap;
@@ -2418,11 +2432,49 @@ impl QFont {
             r.height = f32::MAX as _;
             r.width = max as _;
         }
-        let size = cpp! { unsafe [self as "const QFont*", string as "QString", r as "QRectF", char_wrap as "bool"]
-                -> qttypes::QSizeF as "QSizeF"{
-            return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : ((char_wrap) ? Qt::TextWrapAnywhere : Qt::TextWordWrap) , string).size();
+        let size = cpp! { unsafe [self as "const QFontMetricsF*", string as "QString", r as "QRectF", char_wrap as "bool"]
+                -> qttypes::QSizeF as "QSizeF" {
+            return self->boundingRect(r, r.isEmpty() ? 0 : ((char_wrap) ? Qt::TextWrapAnywhere : Qt::TextWordWrap) , string).size();
         }};
         LogicalSize::new(size.width as _, size.height as _)
+    }
+
+    fn ascent(&self) -> f32 {
+        cpp! { unsafe [self as "const QFontMetricsF*"]
+                -> f32 as "float" {
+            return self->ascent();
+        }}
+    }
+
+    fn descent(&self) -> f32 {
+        cpp! { unsafe [self as "const QFontMetricsF*"]
+                -> f32 as "float" {
+            return self->descent();
+        }}
+    }
+
+    fn cap_height(&self) -> f32 {
+        cpp! { unsafe [self as "const QFontMetricsF*"]
+                -> f32 as "float" {
+            return self->capHeight();
+        }}
+    }
+
+    fn x_height(&self) -> f32 {
+        cpp! { unsafe [self as "const QFontMetricsF*"]
+                -> f32 as "float" {
+            return self->xHeight();
+        }}
+    }
+}
+
+cpp_class! {pub unsafe struct QFont as "QFont"}
+
+impl QFont {
+    fn font_metrics(&self) -> QFontMetricsF {
+        cpp! { unsafe [self as "const QFont *"] -> QFontMetricsF as "QFontMetricsF" {
+            return QFontMetricsF(*self);
+        }}
     }
 }
 

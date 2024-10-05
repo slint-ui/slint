@@ -26,6 +26,14 @@ impl BitmapGlyphs {
     pub fn pixel_size(&self) -> PhysicalLength {
         PhysicalLength::new(self.pixel_size)
     }
+    /// Returns the x-height of the font scaled to the font's pixel size.
+    pub fn x_height(&self, font: &BitmapFont) -> PhysicalLength {
+        (PhysicalLength::new(self.pixel_size).cast() * font.x_height / font.units_per_em).cast()
+    }
+    /// Returns the cap-height of the font scaled to the font's pixel size.
+    pub fn cap_height(&self, font: &BitmapFont) -> PhysicalLength {
+        (PhysicalLength::new(self.pixel_size).cast() * font.cap_height / font.units_per_em).cast()
+    }
 }
 
 // A font that is resolved to a specific pixel size.
@@ -126,5 +134,13 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for PixelFont {
 
     fn height(&self) -> PhysicalLength {
         self.glyphs.height(self.bitmap_font)
+    }
+
+    fn x_height(&self) -> PhysicalLength {
+        self.glyphs.x_height(&self.bitmap_font)
+    }
+
+    fn cap_height(&self) -> PhysicalLength {
+        self.glyphs.cap_height(&self.bitmap_font)
     }
 }

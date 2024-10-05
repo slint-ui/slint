@@ -899,6 +899,8 @@ fn embed_resource(
                 units_per_em,
                 ascent,
                 descent,
+                x_height,
+                cap_height,
                 glyphs,
                 weight,
                 italic,
@@ -998,6 +1000,8 @@ fn embed_resource(
                         .units_per_em = {units_per_em},
                         .ascent = {ascent},
                         .descent = {descent},
+                        .x_height = {x_height},
+                        .cap_height = {cap_height},
                         .glyphs = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyphs>{{ {glyphsets_var}, {glyphsets_size} }},
                         .weight = {weight},
                         .italic = {italic},
@@ -3540,6 +3544,20 @@ fn compile_builtin_function_call(
                 format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
             } else {
                 panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ItemFontMetrics => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                let window = access_window_field(ctx);
+
+                let function_name = format!(
+                    "slint_cpp_text_item_fontmetrics",
+                );
+
+                format!("{function_name}(&{window}.handle(), &{item_rc})")
+            } else {
+                panic!("internal error: invalid args to ItemFontMetrics {:?}", arguments)
             }
         }
         BuiltinFunction::ItemAbsolutePosition => {

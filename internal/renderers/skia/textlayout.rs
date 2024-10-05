@@ -22,7 +22,7 @@ enum CustomFontSource {
 }
 
 struct FontCache {
-    font_collection: skia_safe::textlayout::FontCollection,
+    font_collection: RefCell<skia_safe::textlayout::FontCollection>,
     font_mgr: skia_safe::FontMgr,
     type_face_font_provider: RefCell<skia_safe::textlayout::TypefaceFontProvider>,
     custom_fonts: RefCell<HashMap<String, CustomFontSource>>,
@@ -39,7 +39,7 @@ thread_local! {
         // to pick up the custom font.
         font_collection.set_asset_font_manager(Some(type_face_font_provider.clone().into()));
         font_collection.set_dynamic_font_manager(font_mgr.clone());
-        FontCache { font_collection, font_mgr, type_face_font_provider: RefCell::new(type_face_font_provider), custom_fonts: Default::default() }
+        FontCache { font_collection: RefCell::new(font_collection), font_mgr, type_face_font_provider: RefCell::new(type_face_font_provider), custom_fonts: Default::default() }
     }
 }
 
@@ -58,6 +58,18 @@ pub struct Selection {
     pub underline: bool,
 }
 
+fn font_style_for_request(font_request: &FontRequest) -> skia_safe::FontStyle {
+    skia_safe::FontStyle::new(
+        font_request.weight.map_or(skia_safe::font_style::Weight::NORMAL, |w| w.into()),
+        skia_safe::font_style::Width::NORMAL,
+        if font_request.italic {
+            skia_safe::font_style::Slant::Italic
+        } else {
+            skia_safe::font_style::Slant::Upright
+        },
+    )
+}
+
 pub fn create_layout(
     font_request: FontRequest,
     scale_factor: ScaleFactor,
@@ -73,7 +85,7 @@ pub fn create_layout(
 ) -> (skia_safe::textlayout::Paragraph, PhysicalPoint) {
     let mut text_style = text_style.unwrap_or_default();
 
-    if let Some(family_name) = font_request.family {
+    if let Some(family_name) = font_request.family.as_ref() {
         text_style.set_font_families(&[family_name.as_str()]);
     }
 
@@ -83,15 +95,7 @@ pub fn create_layout(
         text_style.set_letter_spacing((letter_spacing * scale_factor).get());
     }
     text_style.set_font_size(pixel_size.get());
-    text_style.set_font_style(skia_safe::FontStyle::new(
-        font_request.weight.map_or(skia_safe::font_style::Weight::NORMAL, |w| w.into()),
-        skia_safe::font_style::Width::NORMAL,
-        if font_request.italic {
-            skia_safe::font_style::Slant::Italic
-        } else {
-            skia_safe::font_style::Slant::Upright
-        },
-    ));
+    text_style.set_font_style(font_style_for_request(&font_request));
 
     let mut style = skia_safe::textlayout::ParagraphStyle::new();
 
@@ -113,7 +117,10 @@ pub fn create_layout(
     style.set_text_style(&text_style);
 
     let mut builder = FONT_CACHE.with(|font_cache| {
-        skia_safe::textlayout::ParagraphBuilder::new(&style, font_cache.font_collection.clone())
+        skia_safe::textlayout::ParagraphBuilder::new(
+            &style,
+            font_cache.font_collection.borrow().clone(),
+        )
     });
 
     if let Some(selection) = selection {
@@ -164,6 +171,40 @@ pub fn create_layout(
     };
 
     (paragraph, PhysicalPoint::from_lengths(Default::default(), layout_top_y))
+}
+
+pub fn font_metrics(
+    font_request: i_slint_core::graphics::FontRequest,
+    scale_factor: ScaleFactor,
+) -> i_slint_core::items::FontMetrics {
+    let (layout, _) = create_layout(
+        font_request,
+        scale_factor,
+        " ",
+        None,
+        None,
+        PhysicalLength::new(f32::MAX),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        None,
+    );
+
+    let fonts = layout.get_fonts();
+
+    let Some(font_info) = fonts.first() else {
+        return Default::default();
+    };
+
+    let metrics = font_info.font.metrics().1;
+
+    i_slint_core::items::FontMetrics {
+        ascent: -metrics.ascent / scale_factor.get(),
+        descent: -metrics.descent / scale_factor.get(),
+        x_height: metrics.x_height / scale_factor.get(),
+        cap_height: metrics.cap_height / scale_factor.get(),
+    }
 }
 
 fn register_font(source: CustomFontSource) -> Result<(), Box<dyn std::error::Error>> {

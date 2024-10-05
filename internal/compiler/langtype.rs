@@ -416,6 +416,15 @@ impl ElementType {
                                 is_local_to_component: false,
                                 is_in_direct_base: false,
                             }
+                        } else if let Some(ri) = b.reserved_properties.get(resolved_name.as_ref()) {
+                            PropertyLookupResult {
+                                resolved_name,
+                                property_type: ri.ty.clone(),
+                                property_visibility: ri.property_visibility,
+                                declared_pure: None,
+                                is_local_to_component: false,
+                                is_in_direct_base: false,
+                            }
                         } else {
                             crate::typeregister::reserved_property(name)
                         }
@@ -472,9 +481,12 @@ impl ElementType {
                 );
                 r
             }
-            Self::Builtin(b) => {
-                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
-            }
+            Self::Builtin(b) => b
+                .properties
+                .iter()
+                .map(|(k, t)| (k.clone(), t.ty.clone()))
+                .chain(b.reserved_properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())))
+                .collect(),
             Self::Native(n) => {
                 n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
             }
@@ -714,11 +726,20 @@ pub enum DefaultSizeBinding {
     ImplicitSize,
 }
 
+#[derive(Debug, Clone)]
+pub struct ReservedBuiltinPropertyInfo {
+    /// The property type
+    pub ty: Type,
+    pub property_visibility: PropertyVisibility,
+    pub init_expr_fn: fn(&crate::object_tree::ElementRc) -> Expression,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct BuiltinElement {
     pub name: String,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<String, BuiltinPropertyInfo>,
+    pub reserved_properties: BTreeMap<String, ReservedBuiltinPropertyInfo>,
     pub additional_accepted_child_types: HashMap<String, ElementType>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)

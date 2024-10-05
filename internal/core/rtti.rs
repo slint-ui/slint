@@ -47,6 +47,7 @@ macro_rules! declare_ValueType_2 {
             crate::lengths::LogicalLength,
             crate::component_factory::ComponentFactory,
             crate::api::LogicalPosition,
+            crate::items::FontMetrics,
             $(crate::items::$Name,)*
         ];
     };

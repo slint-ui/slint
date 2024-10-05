@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    simple-text := Text { }
+
+    complex-text := Text {
+        stroke-width: 2px;
+    }
+
+    text-input := TextInput { }
+
+    out property <bool> test: simple-text.font-metrics.ascent == complex-text.font-metrics.ascent && complex-text.font-metrics.ascent == text-input.font-metrics.ascent && text-input.font-metrics.ascent == 7px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test, 1);
+```
+
+*/

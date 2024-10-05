@@ -74,6 +74,8 @@ pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
     }
     fn ascent(&self) -> Length;
     fn descent(&self) -> Length;
+    fn x_height(&self) -> Length;
+    fn cap_height(&self) -> Length;
 }
 
 pub trait AbstractFont: TextShaper + FontMetrics<<Self as TextShaper>::Length> {}
@@ -297,6 +299,14 @@ impl<'a> FontMetrics<f32> for &rustybuzz::Face<'a> {
 
     fn descent(&self) -> f32 {
         self.descender() as _
+    }
+
+    fn x_height(&self) -> f32 {
+        rustybuzz::ttf_parser::Face::x_height(self).unwrap_or_default() as _
+    }
+
+    fn cap_height(&self) -> f32 {
+        rustybuzz::ttf_parser::Face::capital_height(self).unwrap_or_default() as _
     }
 }
 

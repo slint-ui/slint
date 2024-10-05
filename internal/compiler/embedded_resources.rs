@@ -78,6 +78,8 @@ pub struct BitmapFont {
     pub units_per_em: f32,
     pub ascent: f32,
     pub descent: f32,
+    pub x_height: f32,
+    pub cap_height: f32,
     pub glyphs: Vec<BitmapGlyphs>,
     pub weight: u16,
     pub italic: bool,

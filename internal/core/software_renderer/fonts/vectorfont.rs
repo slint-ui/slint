@@ -52,6 +52,8 @@ pub struct VectorFont {
     height: PhysicalLength,
     scale: FontScaleFactor,
     pixel_size: PhysicalLength,
+    x_height: PhysicalLength,
+    cap_height: PhysicalLength,
 }
 
 impl VectorFont {
@@ -68,6 +70,9 @@ impl VectorFont {
                     let ascender = FontLength::new(face.ascender() as _);
                     let descender = FontLength::new(face.descender() as _);
                     let height = FontLength::new(face.height() as _);
+                    let x_height = FontLength::new(face.x_height().unwrap_or_default() as _);
+                    let cap_height =
+                        FontLength::new(face.capital_height().unwrap_or_default() as _);
                     let units_per_em = face.units_per_em();
                     let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
                     Self {
@@ -78,6 +83,8 @@ impl VectorFont {
                         height: (height.cast() * scale).cast(),
                         scale,
                         pixel_size,
+                        x_height: (x_height.cast() * scale).cast(),
+                        cap_height: (cap_height.cast() * scale).cast(),
                     }
                 })
                 .unwrap()
@@ -172,6 +179,14 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for VectorFont {
 
     fn descent(&self) -> PhysicalLength {
         self.descender
+    }
+
+    fn x_height(&self) -> PhysicalLength {
+        self.x_height
+    }
+
+    fn cap_height(&self) -> PhysicalLength {
+        self.cap_height
     }
 }
 

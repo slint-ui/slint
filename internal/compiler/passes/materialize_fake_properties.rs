@@ -93,7 +93,12 @@ fn should_materialize(
     }
     let has_declared_property = match base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
-        ElementType::Builtin(b) => b.properties.contains_key(prop),
+        ElementType::Builtin(b) => {
+            if let Some(info) = b.reserved_properties.get(prop) {
+                return Some(info.ty.clone());
+            }
+            b.properties.contains_key(prop) || b.reserved_properties.contains_key(prop)
+        }
         ElementType::Native(n) => {
             n.lookup_property(prop).map_or(false, |prop_type| prop_type.is_property_type())
         }
@@ -128,6 +133,12 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 
 /// Initialize a sensible default binding for the now materialized property
 pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
+    if let ElementType::Builtin(b) = &elem.borrow().base_type {
+        if let Some(ri) = b.reserved_properties.get(name) {
+            return Some((ri.init_expr_fn)(elem));
+        }
+    }
+
     let expr = match name {
         "min-height" => layout_constraint_prop(elem, "min", Orientation::Vertical),
         "min-width" => layout_constraint_prop(elem, "min", Orientation::Horizontal),

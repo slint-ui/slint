@@ -357,6 +357,14 @@ impl RendererSealed for FemtoVGRenderer {
         crate::fonts::text_size(&font_request, scale_factor, text, max_width)
     }
 
+    fn font_metrics(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+        _scale_factor: ScaleFactor,
+    ) -> i_slint_core::items::FontMetrics {
+        crate::fonts::font_metrics(font_request)
+    }
+
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
