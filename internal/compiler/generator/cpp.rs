@@ -3550,12 +3550,7 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
-
-                let function_name = format!(
-                    "slint_cpp_text_item_fontmetrics",
-                );
-
-                format!("{function_name}(&{window}.handle(), &{item_rc})")
+                format!("slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc})")
             } else {
                 panic!("internal error: invalid args to ItemFontMetrics {:?}", arguments)
             }
