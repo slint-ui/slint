@@ -321,9 +321,11 @@ fn insert_property_definitions(
         }
         match &element.borrow().base_type {
             ElementType::Component(c) => binding_value(&c.root_element, prop, &mut 0),
-            ElementType::Builtin(b) => {
-                b.properties.get(prop).and_then(|p| p.default_value.clone()).unwrap_or_default()
-            }
+            ElementType::Builtin(b) => b
+                .properties
+                .get(prop)
+                .and_then(|p| p.default_value.expr(element))
+                .unwrap_or_default(),
             _ => Expression::Invalid,
         }
     }
@@ -383,7 +385,7 @@ pub(super) fn get_properties(
                         ty: t.ty.clone(),
                         declared_at: None,
                         defined_at: None,
-                        default_value: t.default_value.clone(),
+                        default_value: t.default_value.expr(&current_element),
                         group: b.name.clone(),
                         group_priority: depth,
                     })
