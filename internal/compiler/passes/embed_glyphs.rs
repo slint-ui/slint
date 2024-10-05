@@ -20,6 +20,7 @@ struct Font {
     id: fontdb::ID,
     #[deref]
     fontdue_font: Rc<fontdue::Font>,
+    metrics: i_slint_common::sharedfontdb::DesignFontMetrics,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -212,6 +213,20 @@ fn embed_glyphs_with_fontdb<'a>(
             }
         };
 
+        let Some(Ok(metrics)) = i_slint_common::sharedfontdb::FONT_DB.with(|fontdb| {
+            fontdb.borrow().with_face_data(face_id, |font_data, face_index| {
+                i_slint_common::sharedfontdb::ttf_parser::Face::parse(font_data, face_index)
+                    .map(|face| i_slint_common::sharedfontdb::DesignFontMetrics::new(face))
+            })
+        }) else {
+            diag.push_error(
+                format!("error parsing font for embedding {}", path.display()),
+                &generic_diag_location,
+            );
+
+            return;
+        };
+
         let Some(family_name) = fontdb
             .face(face_id)
             .expect("must succeed as we are within face_data with same face_id")
@@ -232,7 +247,7 @@ fn embed_glyphs_with_fontdb<'a>(
         let embedded_bitmap_font = embed_font(
             &fontdb,
             family_name,
-            Font { id: face_id, fontdue_font },
+            Font { id: face_id, fontdue_font, metrics },
             &pixel_sizes,
             characters_seen.iter().cloned(),
             &fallback_fonts,
@@ -373,19 +388,16 @@ fn embed_font(
         })
         .collect();
 
-    // Get the basic metrics in design coordinates
-    let metrics = font
-        .horizontal_line_metrics(font.units_per_em())
-        .expect("encountered font without hmtx table");
-
     let face_info = fontdb.face(font.id).unwrap();
 
     BitmapFont {
         family_name,
         character_map,
-        units_per_em: font.units_per_em(),
-        ascent: metrics.ascent,
-        descent: metrics.descent,
+        units_per_em: font.metrics.units_per_em,
+        ascent: font.metrics.ascent,
+        descent: font.metrics.descent,
+        x_height: font.metrics.x_height,
+        cap_height: font.metrics.cap_height,
         glyphs,
         weight: face_info.weight.0,
         italic: face_info.style != fontdb::Style::Normal,

@@ -426,6 +426,14 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             / scale_factor
     }
 
+    fn font_metrics(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+        scale_factor: ScaleFactor,
+    ) -> i_slint_core::items::FontMetrics {
+        textlayout::font_metrics(font_request, scale_factor)
+    }
+
     fn text_input_byte_offset_for_position(
         &self,
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,

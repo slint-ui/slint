@@ -11,7 +11,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyInfo, DefaultSizeBinding, ElementType, NativeClass, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, DefaultSizeBinding, ElementType,
+    NativeClass, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
@@ -93,7 +94,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
 
                     if let Some(e) = p.BindingExpression() {
                         let ty = info.ty.clone();
-                        info.default_value = Some(compiled(e, register, ty));
+                        info.default_value = BuiltinPropertyDefault::Expr(compiled(e, register, ty));
                     }
 
                     (prop_name, info)

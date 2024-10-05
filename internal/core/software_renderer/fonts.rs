@@ -13,7 +13,7 @@ use super::{PhysicalLength, PhysicalSize};
 use crate::graphics::{BitmapFont, FontRequest};
 use crate::items::TextWrap;
 use crate::lengths::{LogicalLength, LogicalSize, ScaleFactor};
-use crate::textlayout::TextLayout;
+use crate::textlayout::{FontMetrics, TextLayout};
 use crate::Coord;
 
 thread_local! {
@@ -59,6 +59,48 @@ pub enum Font {
     PixelFont(pixelfont::PixelFont),
     #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
     VectorFont(vectorfont::VectorFont),
+}
+
+impl crate::textlayout::FontMetrics<PhysicalLength> for Font {
+    fn ascent(&self) -> PhysicalLength {
+        match self {
+            Font::PixelFont(pixel_font) => pixel_font.ascent(),
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            Font::VectorFont(vector_font) => vector_font.ascent(),
+        }
+    }
+
+    fn height(&self) -> PhysicalLength {
+        match self {
+            Font::PixelFont(pixel_font) => pixel_font.height(),
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            Font::VectorFont(vector_font) => vector_font.height(),
+        }
+    }
+
+    fn descent(&self) -> PhysicalLength {
+        match self {
+            Font::PixelFont(pixel_font) => pixel_font.descent(),
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            Font::VectorFont(vector_font) => vector_font.descent(),
+        }
+    }
+
+    fn x_height(&self) -> PhysicalLength {
+        match self {
+            Font::PixelFont(pixel_font) => pixel_font.x_height(),
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            Font::VectorFont(vector_font) => vector_font.x_height(),
+        }
+    }
+
+    fn cap_height(&self) -> PhysicalLength {
+        match self {
+            Font::PixelFont(pixel_font) => pixel_font.cap_height(),
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            Font::VectorFont(vector_font) => vector_font.cap_height(),
+        }
+    }
 }
 
 pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
@@ -172,4 +214,23 @@ pub fn text_size(
     };
 
     (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+}
+
+pub fn font_metrics(
+    font_request: FontRequest,
+    scale_factor: ScaleFactor,
+) -> crate::items::FontMetrics {
+    let font = match_font(&font_request, scale_factor);
+
+    let ascent: LogicalLength = (font.ascent().cast() / scale_factor).cast();
+    let descent: LogicalLength = (font.descent().cast() / scale_factor).cast();
+    let x_height: LogicalLength = (font.x_height().cast() / scale_factor).cast();
+    let cap_height: LogicalLength = (font.cap_height().cast() / scale_factor).cast();
+
+    crate::items::FontMetrics {
+        ascent: ascent.get() as _,
+        descent: descent.get() as _,
+        x_height: x_height.get() as _,
+        cap_height: cap_height.get() as _,
+    }
 }

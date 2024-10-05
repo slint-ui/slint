@@ -45,6 +45,7 @@ pub enum BuiltinFunction {
     SetSelectionOffsets,
     /// A function that belongs to an item (such as TextInput's select-all function).
     ItemMemberFunction(String),
+    ItemFontMetrics,
     /// the "42".to_float()
     StringToFloat,
     /// the "42".is_float()
@@ -165,6 +166,10 @@ impl BuiltinFunction {
             },
             BuiltinFunction::ItemMemberFunction(..) => Type::Function {
                 return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference],
+            },
+            BuiltinFunction::ItemFontMetrics => Type::Function {
+                return_type: Box::new(crate::typeregister::font_metrics_type()),
                 args: vec![Type::ElementReference],
             },
             BuiltinFunction::StringToFloat => {
@@ -353,6 +358,7 @@ impl BuiltinFunction {
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
+            BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -419,6 +425,7 @@ impl BuiltinFunction {
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
+            BuiltinFunction::ItemFontMetrics => true,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct

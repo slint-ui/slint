@@ -745,6 +745,37 @@ fn call_builtin_function(
                 panic!("internal error: argument to set-selection-offsetsAll must be an element")
             }
         }
+        BuiltinFunction::ItemFontMetrics => {
+            if arguments.len() != 1 {
+                panic!(
+                    "internal error: incorrect argument count to item font metrics function call"
+                )
+            }
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!(
+                        "Cannot invoke item font metrics function on item from a global component"
+                    )
+                }
+            };
+            if let Expression::ElementReference(element) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let elem = element.upgrade().unwrap();
+                let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+                let description = enclosing_component.description;
+                let item_info = &description.items[elem.borrow().id.as_str()];
+                let item_ref =
+                    unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+                let window_adapter = component.window_adapter();
+                let metrics =
+                    i_slint_core::items::slint_text_item_fontmetrics(&window_adapter, item_ref);
+                metrics.into()
+            } else {
+                panic!("internal error: argument to set-selection-offsetsAll must be an element")
+            }
+        }
         BuiltinFunction::StringIsFloat => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to StringIsFloat")

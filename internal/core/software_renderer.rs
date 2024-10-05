@@ -672,6 +672,14 @@ impl RendererSealed for SoftwareRenderer {
         fonts::text_size(font_request, text, max_width, scale_factor, text_wrap)
     }
 
+    fn font_metrics(
+        &self,
+        font_request: crate::graphics::FontRequest,
+        scale_factor: ScaleFactor,
+    ) -> crate::items::FontMetrics {
+        fonts::font_metrics(font_request, scale_factor)
+    }
+
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&crate::items::TextInput>,

@@ -2644,6 +2644,19 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
             }
         }
+        BuiltinFunction::ItemFontMetrics => {
+            if let [Expression::PropertyReference(pr)] = arguments {
+                let item = access_member(pr, ctx);
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                item.then(|item| {
+                    quote!(
+                        #item.font_metrics(#window_adapter_tokens)
+                    )
+                })
+            } else {
+                panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
+            }
+        }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item = access_member(pr, ctx);
@@ -2985,7 +2998,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     )
                 },
                 #[cfg(feature = "software-renderer")]
-                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs, weight, italic }) => {
+                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic }) => {
 
                     let character_map_size = character_map.len();
 
@@ -3037,6 +3050,8 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                             units_per_em: #units_per_em,
                             ascent: #ascent,
                             descent: #descent,
+                            x_height: #x_height,
+                            cap_height: #cap_height,
                             glyphs: sp::Slice::from_slice({
                                 #link_section
                                 static GLYPHS : [sp::BitmapGlyphs; #glyphs_size] = [#(#glyphs),*];

@@ -56,6 +56,10 @@ pub struct BitmapFont {
     pub ascent: f32,
     /// The font descent in design metrics (typically negative)
     pub descent: f32,
+    /// The font's x-height.
+    pub x_height: f32,
+    /// The font's cap-height.
+    pub cap_height: f32,
     /// A vector of pre-rendered glyph sets. Each glyph set must have the same number of glyphs,
     /// which must be at least as big as the largest glyph index in the character map.
     pub glyphs: Slice<'static, BitmapGlyphs>,

@@ -173,6 +173,14 @@ impl RendererSealed for TestingWindow {
         LogicalSize::new(text.len() as f32 * 10., 10.)
     }
 
+    fn font_metrics(
+        &self,
+        _font_request: i_slint_core::graphics::FontRequest,
+        _scale_factor: ScaleFactor,
+    ) -> i_slint_core::items::FontMetrics {
+        i_slint_core::items::FontMetrics { ascent: 7., descent: 3., x_height: 3., cap_height: 7. }
+    }
+
     // this works only for single line text
     fn text_input_byte_offset_for_position(
         &self,

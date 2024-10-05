@@ -38,6 +38,13 @@ pub trait RendererSealed {
         text_wrap: TextWrap,
     ) -> LogicalSize;
 
+    /// Returns the metrics of the given font.
+    fn font_metrics(
+        &self,
+        font_request: crate::graphics::FontRequest,
+        scale_factor: ScaleFactor,
+    ) -> crate::items::FontMetrics;
+
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
     /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
