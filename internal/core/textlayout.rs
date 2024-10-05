@@ -413,6 +413,14 @@ impl FontMetrics<f32> for FixedTestFont {
     fn descent(&self) -> f32 {
         -5.
     }
+
+    fn x_height(&self) -> f32 {
+        3.
+    }
+
+    fn cap_height(&self) -> f32 {
+        4.
+    }
 }
 
 #[test]
