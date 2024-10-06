@@ -63,7 +63,7 @@ pub mod generated_code {
         /// Assigns a new value to the `user_name` property.
         pub fn set_user_name(&self, value: crate::SharedString) {}
 
-        /// For each callback declared at the root of the component, a function to call that
+        /// For each callback declared at the root of the component, a function to synchronously call that
         /// callback is generated. This is the function that calls the `hello` callback declared
         /// in the `.slint` design markup.
         pub fn invoke_hello(&self) {}
@@ -83,7 +83,7 @@ pub mod generated_code {
         /// ```
         pub fn on_hello(&self, f: impl Fn() + 'static) {}
 
-        /// For each public function declared at the root of the component, a function to call
+        /// For each public function declared at the root of the component, a function to synchronously call
         /// that function is generated. This is the function that calls the `do-something` function
         /// declared in the `.slint` design markup.
         pub fn invoke_do_something(&self, d: i32) -> bool {
