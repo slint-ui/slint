@@ -20,17 +20,17 @@
   ],
   "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
-    "@ava/typescript": "^4.1.0",
+    "@ava/typescript": "4.1.0",
     "@biomejs/biome": "1.8.3",
-    "@types/capture-console": "^1.0.5",
-    "@types/node": "^20.8.6",
-    "@types/node-fetch": "^2.6.7",
-    "ava": "^5.3.0",
-    "capture-console": "^1.0.2",
-    "jimp": "^0.22.8",
-    "ts-node": "^10.9.1",
-    "typedoc": "^0.25.2",
-    "typescript": "^5.2.2"
+    "@types/capture-console": "1.0.5",
+    "@types/node": "20.8.6",
+    "@types/node-fetch": "2.6.7",
+    "ava": "5.3.0",
+    "capture-console": "1.0.2",
+    "jimp": "0.22.8",
+    "ts-node": "10.9.1",
+    "typedoc": "0.25.2",
+    "typescript": "5.2.2"
   },
   "engines": {
     "node": ">= 10"
@@ -39,10 +39,10 @@
     "artifacts": "napi artifacts",
     "compile": "tsc",
     "build": "napi build --platform --release --js rust-module.cjs --dts rust-module.d.ts -c binaries.json",
-    "build:debug": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json && npm run compile",
-    "build:testing": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json --features testing && npm run compile",
+    "build:debug": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json && pnpm compile",
+    "build:testing": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json --features testing && pnpm compile",
     "install": "node build-on-demand.mjs",
-    "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md typescript/index.ts",
+    "docs": "pnpm build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md typescript/index.ts",
     "check": "biome check",
     "format": "biome format",
     "format:fix": "biome format --write",
@@ -64,6 +64,6 @@
     "workerThreads": false
   },
   "dependencies": {
-    "@napi-rs/cli": "^2.16.5"
+    "@napi-rs/cli": "2.16.5"
   }
 }
