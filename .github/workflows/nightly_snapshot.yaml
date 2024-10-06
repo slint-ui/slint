@@ -243,7 +243,7 @@ jobs:
               run: brew install gnu-sed
             - uses: actions/setup-node@v4
               with:
-                  node-version: 18
+                  node-version: 20
             - uses: actions/download-artifact@v4
               with:
                   name: vscode-lsp-binary-x86_64-unknown-linux-gnu

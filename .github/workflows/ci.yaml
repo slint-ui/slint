@@ -132,7 +132,7 @@ jobs:
               uses: pyvista/setup-headless-display-action@v1
             - uses: actions/setup-node@v4
               with:
-                node-version: 18
+                node-version: 20
               id: node-install
             - uses: pnpm/action-setup@v4.0.0
               with:
@@ -141,20 +141,20 @@ jobs:
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
             - name: Run pnpm install
-              working-directory: ./api/node
+              working-directory: api/node
               run: pnpm install --frozen-lockfile
             - name: Build node plugin in debug
               run: pnpm build:testing
-              working-directory: ./api/node
+              working-directory: api/node
             - name: Lint node api
-              working-directory: ./api/node
+              working-directory: api/node
               run: pnpm lint
             - name: Check code formatting
               if: ${{ runner.os != 'Windows' }}
-              working-directory: ./api/node
+              working-directory: api/node
               run: pnpm format
             - name: Run node tests
-              working-directory: ./api/node
+              working-directory: api/node
               run: pnpm test
             - name: Run test-driver-nodejs
               # Release is only applied to the harness that drives the node.js invocations, but needed
@@ -343,7 +343,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: actions/setup-node@v4
               with:
-                  node-version: 18
+                  node-version: 20
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
