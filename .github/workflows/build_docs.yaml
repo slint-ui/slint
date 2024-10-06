@@ -36,7 +36,9 @@ jobs:
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
                   echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 -Z unstable-options" >> $GITHUB_ENV
-            - uses: ./.github/actions/install-nodejs
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 18
             - name: Cache mdbook and mdbook-linkcheck
               uses: actions/cache@v4
               with:

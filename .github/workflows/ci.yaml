@@ -130,7 +130,9 @@ jobs:
               run: choco upgrade llvm
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v1
-            - uses: ./.github/actions/install-nodejs
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 18
               id: node-install
             - uses: pnpm/action-setup@v4.0.0
               with:
