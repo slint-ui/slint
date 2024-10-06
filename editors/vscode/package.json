@@ -213,7 +213,7 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "test_grammar": "vscode-tmgrammar-test \"tests/grammar/*.slint\"",
-    "syntax_check": "tsc --build --force",
+    "syntax_check": "tsc --noEmit",
     "test": "node ./out/test/runTest.js",
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
   },

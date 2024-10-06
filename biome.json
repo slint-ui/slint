@@ -11,12 +11,17 @@
             "./node_modules",
             "**/.vscode/**",
             "*.json",
-            "!biome.json"
+            "!biome.json",
+            "api/node/docs/assets/**",
+            "editors/vscode/out/**"
         ]
     },
     "organizeImports": { "enabled": false },
     "linter": {
         "enabled": true,
+        "ignore": [
+            "api/node/docs/assets/**"
+        ],
         "rules": {
             "recommended": false,
             "complexity": {
