@@ -341,16 +341,42 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         {
             let p = tk.parent();
             let gp = p.parent();
+
+            if p.kind() == SyntaxKind::DeclaredIdentifier
+                && gp.as_ref().map_or(false, |n| n.kind() == SyntaxKind::Component)
+            {
+                let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
+
+                ctx.server_notifier.send_message_to_preview(
+                    common::LspToPreviewMessage::HighlightFromEditor {
+                        url: Some(uri),
+                        offset: element.text_range().start().into(),
+                    },
+                );
+
+                let range = util::node_to_lsp_range(&p);
+                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
+            }
+
             if p.kind() == SyntaxKind::QualifiedName
                 && gp.as_ref().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 let range = util::node_to_lsp_range(&p);
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::HighlightFromEditor {
-                        url: Some(uri),
-                        offset: gp.unwrap().text_range().start().into(),
-                    },
-                );
+
+                if gp
+                    .as_ref()
+                    .unwrap()
+                    .parent()
+                    .as_ref()
+                    .map_or(false, |n| n.kind() != SyntaxKind::Component)
+                {
+                    ctx.server_notifier.send_message_to_preview(
+                        common::LspToPreviewMessage::HighlightFromEditor {
+                            url: Some(uri),
+                            offset: gp.unwrap().text_range().start().into(),
+                        },
+                    );
+                }
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             }
 
