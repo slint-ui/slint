@@ -130,27 +130,32 @@ jobs:
               run: choco upgrade llvm
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v1
-            - uses: ./.github/actions/install-nodejs
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
               id: node-install
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-            - name: Run npm install
-              working-directory: ./api/node
-              run: npm install --ignore-scripts
+            - name: Run pnpm install
+              working-directory: api/node
+              run: pnpm install --frozen-lockfile --ignore-scripts
             - name: Build node plugin in debug
-              run: npm run build:testing
-              working-directory: ./api/node
+              run: pnpm build:testing
+              working-directory: api/node
             - name: Lint node api
-              working-directory: ./api/node
-              run: npm run lint
+              working-directory: api/node
+              run: pnpm lint
             - name: Check code formatting
               if: ${{ runner.os != 'Windows' }}
-              working-directory: ./api/node
-              run: npm run format
+              working-directory: api/node
+              run: pnpm format
             - name: Run node tests
-              working-directory: ./api/node
-              run: npm test
+              working-directory: api/node
+              run: pnpm test
             - name: Run test-driver-nodejs
               # Release is only applied to the harness that drives the node.js invocations, but needed
               # to avoid crashing on Windows with what looks like an out of stack exception.
@@ -190,7 +195,7 @@ jobs:
                   python-version: "3.10"
             - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
-              working-directory: ./api/python
+              working-directory: api/python
               run: nox
 
     cpp_test_driver:
@@ -329,37 +334,40 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
             - uses: ./.github/actions/install-linux-dependencies
             - uses: actions/setup-node@v4
               with:
-                  node-version: 18
+                  node-version: 20
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
               run: |
                   mkdir -p target/debug
                   echo 1 > target/debug/slint-lsp
-            - name: Run npm install
-              working-directory: ./editors/vscode
-              run: npm clean-install
+            - name: Run pnpm install
+              working-directory: editors/vscode
+              run: pnpm install --frozen-lockfile --ignore-scripts
             - name: Lint vscode project
-              working-directory: ./editors/vscode
-              run: npm run lint
+              working-directory: editors/vscode
+              run: pnpm lint
             - name: Check code formatting
-              working-directory: ./editors/vscode
-              run: npm run format
+              working-directory: editors/vscode
+              run: pnpm format
             - name: vscode prebuild
-              working-directory: ./editors/vscode
-              run: npm run vscode:prepublish
+              working-directory: editors/vscode
+              run: pnpm vscode:prepublish
             - name: Build VS Code extension
-              working-directory: ./editors/vscode
-              run: npm run local-package
+              working-directory: editors/vscode
+              run: pnpm local-package
             - name: Typescript syntax check # has to run after the build as it depends on the wasm
-              working-directory: ./editors/vscode
-              run: npm run syntax_check
+              working-directory: editors/vscode
+              run: pnpm type-check
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:

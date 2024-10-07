@@ -29,11 +29,16 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
             - name: Set up rgb crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
                   echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 -Z unstable-options" >> $GITHUB_ENV
-            - uses: ./.github/actions/install-nodejs
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
             - name: Cache mdbook and mdbook-linkcheck
               uses: actions/cache@v4
               with:
@@ -114,9 +119,10 @@ jobs:
                 sed -i "s/\$TYPESENSE_SERVER_URL/typesense.slint.dev/g" "$searchbox_html"
                 cargo xtask slintdocs --show-warnings
             - name: "Node docs"
+
               run: |
-                  npm install --ignore-scripts
-                  npm run docs
+                  pnpm install --frozen-lockfile --ignore-scripts
+                  pnpm run docs
               working-directory: api/node
                 
             - name: Generate a token

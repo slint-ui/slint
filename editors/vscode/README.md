@@ -35,19 +35,23 @@ Issues should be reported in the [Slint issue tracker](https://github.com/slint-
 
 ## Building from Source and Debugging
 
+You need to install the following components:
+* **[Node.js](https://nodejs.org/download/release/)** (v20. or newer)
+* **[pnpm](https://www.pnpm.io/)**
+
 The following step will build a local version of the vscode extension and the LSP
 
 ```sh
 cargo install wasm-pack
 cargo build -p slint-lsp
 cd editors/vscode
-npm clean-install
-npm run build:wasm_lsp
-npm run compile
+pnpm clean-install
+pnpm build:wasm_lsp
+pnpm compile
 ```
 
 Later, you only need to do the steps for the part you change like `cargo build -p slint-lsp` to rebuild the lsp binary
-or `npm run compile` to rebuild the typescript.
+or `pnpm compile` to rebuild the typescript.
 
 You can run vscode with that extension by running, in the `editors/vscode` directory:
 
@@ -66,7 +70,7 @@ To create a `.vsix` package for local installation:
 2. Create a `.vsix` package (needs `vsce` installed)
 
 ```sh
-npm run local-package
+pnpm local-package
 ```
 
 3. Install the `.vsix` file with
@@ -82,8 +86,8 @@ Note that the resulting `.vsix` package contains your locally built debug LSP se
 ## Rules for PRs
 The code is typechecked with `tsc` and linted/formatted with Biome.
 If using VS Code then install the [biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome).
-To ensure your PR does not fail check everything with `npm run syntax_check && npm run format && npm run lint`.
-`npm run lint:fix` and `npm run format:fix` can be used to auto fix lint and code formatting issues.
+To ensure your PR does not fail check everything with `pnpm type-check && pnpm format && pnpm lint`.
+`pnpm lint:fix` and `pnpm format:fix` can be used to auto fix lint and code formatting issues.
 
 ## Preview the Library, Preview, and Property Editor
 
@@ -101,6 +105,6 @@ The built-in live-preview can be used to preview itself. For this to work, VS Co
 
 This extensions comes with some tools to help with QA:
 
- * `npm run lint` and `npm run lint:fix` run the biome linter on the source code
- * `npm run syntax_check` run the typescript compiler
- * `npm run test_grammar` run the tests on the TextMate grammar build into the extension
+ * `pnpm lint` and `pnpm lint:fix` run the biome linter on the source code
+ * `pnpm type-check` run the typescript compiler
+ * `pnpm test_grammar` run the tests on the TextMate grammar build into the extension

@@ -1,0 +1,14 @@
+{
+  "name": "slint_repository",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "format": "pnpm --stream -r format",
+    "format:write": "pnpm -r format:write",
+    "lint": "pnpm --stream -r lint",
+    "lint:fix": "pnpm -r lint:fix",
+    "type-check": "pnpm --stream -r type-check"
+  },
+  "packageManager": "pnpm@9.11.0"
+}

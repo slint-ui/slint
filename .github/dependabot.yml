@@ -15,10 +15,12 @@ updates:
       github-actions:
         patterns:
           - "*"  # Group all Actions updates into a single larger pull request
+    ignore:
+      - dependency-name: "lukka/run-cmake"
     
 
   - package-ecosystem: "npm" # See documentation for possible values
-    directory: "/editors/vscode" # Location of package manifests
+    directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
       time: "04:00"

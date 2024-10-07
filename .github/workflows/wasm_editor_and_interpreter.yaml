@@ -21,7 +21,12 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
-            - uses: ./.github/actions/install-nodejs
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
@@ -35,7 +40,7 @@ jobs:
             - name: Build slint-wasm-lsp
               env:
                   SLINT_STYLE: fluent-light
-              run: npm run build:wasm_lsp-release
+              run: pnpm build:wasm_lsp-release
               working-directory: tools/slintpad
 
             - name: "Upload wasm Artifacts"
@@ -51,24 +56,22 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
-            - uses: ./.github/actions/install-nodejs
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
             - name: Download wasm_lsp Artifacts
               uses: actions/download-artifact@v4
               with:
                   name: wasm
-            - uses: actions/cache@v4
-              with:
-                  path: ~/.npm
-                  key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
-                  restore-keys: |
-                      ${{ runner.os }}-${{ github.job }}-node-
-
             - name: Install NPM dependencies
-              run: npm install
+              run: pnpm install --frozen-lockfile --ignore-scripts
               working-directory: tools/slintpad
 
             - name: Compile slintpad
-              run: npm run build
+              run: pnpm build
               working-directory: tools/slintpad
 
             - name: "Upload slintpad Artifacts"
@@ -82,26 +85,24 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
-            - uses: ./.github/actions/install-nodejs
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
             - name: Download wasm_lsp Artifacts
               uses: actions/download-artifact@v4
               with:
                   name: wasm
-            - uses: actions/cache@v4
-              with:
-                  path: ~/.npm
-                  key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
-                  restore-keys: |
-                      ${{ runner.os }}-${{ github.job }}-node-
-
             - name: Install NPM dependencies
-              run: npm install
+              run: pnpm install --frozen-lockfile --ignore-scripts
               working-directory: tools/slintpad
 
             - name: Lint slintpad # This needs the WASM!
               run: |
-                  npm run syntax_check
-                  npm run lint
+                  pnpm type-check
+                  pnpm lint
               working-directory: tools/slintpad
 
     # test-slintpad-ff:

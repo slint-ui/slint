@@ -6,20 +6,24 @@ This directory contains the frontend code for SlintPad, the online code editor
 which is hosted on https://slint.dev/editor (last stable) and
 https://slint.dev/snapshots/master/editor (nightly).
 
+You need to install the following components:
+* **[Node.js](https://nodejs.org/download/release/)** (v20. or newer)
+* **[pnpm](https://www.pnpm.io/)**
+
 To try it out locally type this in this directory:
 
 ```sh
 ## only need to run this once
-npm install
-npm run build:wasm_interpreter  # Build the wasm interpreter used in `preview.html`
-npm run build:wasm_lsp          # Build the wasm LSP used by the text editor
+pnpm install
+pnpm build:wasm_interpreter  # Build the wasm interpreter used in `preview.html`
+pnpm build:wasm_lsp          # Build the wasm LSP used by the text editor
 
 ## Run this to refresh slintpad (dev mode!)
-npm run start                   # Run in development mode
+pnpm start                   # Run in development mode
 
 ## Run this to refresh slintpad (build mode!)
-npm run build                   # Build the web UI code
-npx vite preview                # Start a server serving the slintpad UI
+pnpm build                   # Build the web UI code
+pnpm start:vite              # Start a server serving the slintpad UI
 ```
 
 ## Documentation

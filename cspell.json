@@ -47,12 +47,22 @@
         },
         {
             "languageId": "restructuredtext",
-            "words": ["genindex", "modindex", "toctree"],
-            "ignoreRegExpList": ["/:.+:/"]
+            "words": [
+                "genindex",
+                "modindex",
+                "toctree"
+            ],
+            "ignoreRegExpList": [
+                "/:.+:/"
+            ]
         },
         {
             "languageId": "markdown",
-            "words": ["rustup", "SUBDIR", "Yocto"],
+            "words": [
+                "rustup",
+                "SUBDIR",
+                "Yocto"
+            ],
             "ignoreRegExpList": [
                 // Ignore simple code blocks
                 "`[^`]+`"
@@ -72,7 +82,7 @@
         "datastructures",
         "dealloc",
         "flickable",
-        "focusable", // common term in UI (css, dom, toolkits)
+        "focusable",
         "fullscreen",
         "gles",
         "Goffart",
@@ -82,7 +92,7 @@
         "Hausmann",
         "Helvetica",
         "inout",
-        "layouting", // This would be worth renaming in the ItemVTable to layout_info
+        "layouting",
         "linebreak",
         "lineedit",
         "listview",
@@ -95,6 +105,7 @@
         "opengl",
         "opengles",
         "pixmap",
+        "printerdemo",
         "riscv",
         "rowspan",
         "rustc",
@@ -123,14 +134,14 @@
         "uefi",
         "uncompiled",
         "unerase",
-        "unmapping", // present participle of unmap
+        "unmapping",
         "untracked",
         "viewbox",
         "vtable",
         "vulkan",
         "wasm",
         "webassembly",
-        "windowrc", // use in slint_windowrc_foo FFI functions
+        "windowrc",
         "winit",
         "xtask",
         "xtensa"

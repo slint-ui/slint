@@ -5,7 +5,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "build": "npm run clean && npx vite build",
+        "build": "pnpm clean && vite build",
         "build:wasm_experimental_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview,experimental",
         "build:wasm_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "build:wasm_lsp-release": "wasm-pack build --release --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
@@ -17,16 +17,16 @@
         "lint": "biome lint",
         "lint:fix": "biome lint --fix",
         "clean": "rimraf dist dev-dist pkg",
-        "start": "npm run clean && npm run build:wasm_lsp && npm run start:vite",
-        "start:vite": "vite --open",
+        "start": "pnpm clean && pnpm build:wasm_lsp && pnpm start:vite",
+        "start:vite": "vite preview --open",
         "start:vite_cypress": "vite --port=3001",
         "start:vite_cypress-preview": "vite preview --port=3001",
-        "syntax_check": "tsc --build --force",
+        "type-check": "tsc --noEmit",
         "test:cypress_run-chromium": "cypress run --browser=chromium --e2e",
         "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",
         "test:cypress_run-ff": "cypress run --browser=firefox --e2e",
         "test:cypress_open-ff": "cypress open --browser=firefox --e2e",
-        "slintpad:prepublish": "npm run clean && npm run build:wasm_lsp-release && npm run build:wasm_interpreter-release"
+        "slintpad:prepublish": "pnpm clean && pnpm build:wasm_lsp-release && pnpm build:wasm_interpreter-release"
     },
     "keywords": [],
     "author": "",
@@ -44,13 +44,13 @@
         "monaco-editor": "npm:@codingame/monaco-vscode-editor-api@~8.0.4",
         "monaco-editor-wrapper": "~5.5.3",
         "monaco-languageclient": "~8.8.3",
-        "path-browserify": "^1.0.1",
-        "rimraf": "^5.0.0",
-        "typescript": "~5.3.3",
-        "vite": "^5.1.5",
+        "path-browserify": "1.0.1",
+        "rimraf": "6.0.1",
+        "typescript": "5.3.3",
+        "vite": "5.1.5",
         "vscode": "npm:@codingame/monaco-vscode-api@~8.0.4",
-        "vscode-languageclient": "~9.0.1",
-        "vscode-languageserver": "~9.0.1",
-        "vscode-uri": "~3.0.8"
+        "vscode-languageclient": "9.0.1",
+        "vscode-languageserver": "9.0.1",
+        "vscode-uri": "3.0.8"
     }
 }
