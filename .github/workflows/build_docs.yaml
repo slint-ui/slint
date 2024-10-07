@@ -112,6 +112,9 @@ jobs:
                 fi
                 sed -i "s/\$TYPESENSE_SERVER_PORT/443/g" "$searchbox_html"
                 sed -i "s/\$TYPESENSE_SERVER_URL/typesense.slint.dev/g" "$searchbox_html"
+                npm install --prefix docs/reference
+                cd docs/editor && npm install
+                npx rollup codemirror.js -f iife -o ../reference/_static/cm6.bundle.js -p @rollup/plugin-node-resolve --output.name cm6
                 cargo xtask slintdocs --show-warnings
             - name: "Node docs"
               run: |

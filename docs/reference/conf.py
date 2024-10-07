@@ -13,9 +13,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.append(os.path.abspath('./_ext'))
 import textwrap
 
 
@@ -36,7 +36,7 @@ github_url = "https://github.com/slint-ui/slint"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_copybutton", "sphinx_sitemap"]
+extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_copybutton", "sphinx_sitemap", "codemirror"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -93,8 +93,11 @@ html_sidebars = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_js_files = ['expand_tabs.js']
+html_js_files = [
+    'cm6.bundle.js', 
+    'expand_tabs.js']
 html_css_files = [
+    'theme_tweak.css',
     'https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.3.0'
 ]
 html_show_sourcelink = False
@@ -118,7 +121,3 @@ myst_heading_anchors = 4
 
 rst_epilog = """
 """
-
-
-def setup(app):
-    app.add_css_file("theme_tweak.css")

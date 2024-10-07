@@ -58,3 +58,11 @@ div.DocSearch-Container {
         ;
     }
 }
+
+div.cm-activeLine {
+    background: transparent !important;
+}
+
+div.cm-focused div.cm-activeLine {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
