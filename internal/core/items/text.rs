@@ -632,6 +632,8 @@ impl Item for TextInput {
                 );
                 self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
             }
+            // Other mouse buttons should still be accepted even if we don't handle them
+            MouseEvent::Released { .. } => {}
             MouseEvent::Exit => {
                 if let Some(x) = window_adapter.internal(crate::InternalToken) {
                     x.set_mouse_cursor(super::MouseCursor::Default);
