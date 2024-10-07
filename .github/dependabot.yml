@@ -26,6 +26,7 @@ updates:
       time: "04:00"
     ignore:
       - dependency-name: "@types/node"
+      - dependency-name: "@types/vscode"
     groups:
       vscode_major:
         patterns:
