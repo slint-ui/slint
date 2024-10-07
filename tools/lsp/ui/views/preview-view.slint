@@ -301,6 +301,14 @@ export component PreviewView {
                             changed max-width => {
                                 main-resizer.resize-to-preview-constraints(self.width, self.height);
                             }
+
+                            changed width => {
+                                Api.reselect();
+                            }
+
+                            changed height => {
+                                Api.reselect();
+                            }
                         }
                     }
                 }
