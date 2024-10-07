@@ -28,8 +28,8 @@
     "capture-console": "1.0.2",
     "jimp": "0.22.8",
     "ts-node": "10.9.2",
-    "typedoc": "0.26.8",
-    "typescript": "5.5.4"
+    "typedoc": "0.25.13",
+    "typescript": "5.2.2"
   },
   "engines": {
     "node": ">= 10"
