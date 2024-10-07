@@ -294,6 +294,7 @@ jobs:
                   registryUrl: https://marketplace.visualstudio.com
                   dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
                   packagePath: editors/vscode
+                  dependencies: false
             - name: Publish to Open VSX Registry
               continue-on-error: true
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
