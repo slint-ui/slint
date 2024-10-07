@@ -36,7 +36,7 @@ github_url = "https://github.com/slint-ui/slint"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_sitemap"]
+extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_copybutton", "sphinx_sitemap"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -81,8 +81,7 @@ html_theme_options = {
     "extra_footer": "<div><a href=\"https://slint.dev\">https://slint.dev</a></div>",
     "article_header_start": ["toggle-primary-sidebar.html"],
     "article_header_end": ["searchbox.html", "article-header-buttons.html"],
-    "show_version_warning_banner": True,
-    "navbar_persistent": ""
+    "show_version_warning_banner": True
 }
 html_baseurl = 'https://docs.slint.dev/'
 sitemap_url_scheme = "master/docs/slint/{link}"
@@ -94,14 +93,8 @@ html_sidebars = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_js_files = [
-    'expand_tabs.js',
-    'cm6.bundle.min.js',
-    'clipboard.min.js',
-]
+html_js_files = ['expand_tabs.js']
 html_css_files = [
-    'theme_tweak.css',
-    'cta.css',
     'https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.3.0'
 ]
 html_show_sourcelink = False
@@ -125,3 +118,7 @@ myst_heading_anchors = 4
 
 rst_epilog = """
 """
+
+
+def setup(app):
+    app.add_css_file("theme_tweak.css")
