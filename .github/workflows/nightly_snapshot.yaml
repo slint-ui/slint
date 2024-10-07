@@ -283,7 +283,7 @@ jobs:
               shell: bash
             - name: "pnpm install"
               working-directory: editors/vscode
-              run: pnpm install --frozen-lockfile
+              run: pnpm install --frozen-lockfile --ignore-scripts
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Build package and optionally publish to Visual Studio Marketplace

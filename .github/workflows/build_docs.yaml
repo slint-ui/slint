@@ -121,7 +121,7 @@ jobs:
             - name: "Node docs"
 
               run: |
-                  pnpm install --ignore-scripts --frozen-lockfile
+                  pnpm install --frozen-lockfile --ignore-scripts
                   pnpm run docs
               working-directory: api/node
                 

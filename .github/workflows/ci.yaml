@@ -352,7 +352,7 @@ jobs:
                   echo 1 > target/debug/slint-lsp
             - name: Run pnpm install
               working-directory: editors/vscode
-              run: pnpm install --frozen-lockfile
+              run: pnpm install --frozen-lockfile --ignore-scripts
             - name: Lint vscode project
               working-directory: editors/vscode
               run: pnpm lint

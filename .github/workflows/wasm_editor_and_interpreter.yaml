@@ -67,7 +67,7 @@ jobs:
               with:
                   name: wasm
             - name: Install NPM dependencies
-              run: pnpm install --frozen-lockfile
+              run: pnpm install --frozen-lockfile --ignore-scripts
               working-directory: tools/slintpad
 
             - name: Compile slintpad
@@ -96,7 +96,7 @@ jobs:
               with:
                   name: wasm
             - name: Install NPM dependencies
-              run: pnpm install --frozen-lockfile
+              run: pnpm install --frozen-lockfile --ignore-scripts
               working-directory: tools/slintpad
 
             - name: Lint slintpad # This needs the WASM!
