@@ -40,10 +40,7 @@ impl AudioPlaybackThread {
                 smol::block_on(async move {
                     let output_channel_layout = match config.channels() {
                         1 => ffmpeg_next::util::channel_layout::ChannelLayout::MONO,
-                        2 => {
-                            ffmpeg_next::util::channel_layout::ChannelLayout::STEREO_LEFT
-                                | ffmpeg_next::util::channel_layout::ChannelLayout::STEREO_RIGHT
-                        }
+                        2 => ffmpeg_next::util::channel_layout::ChannelLayout::STEREO,
                         _ => todo!(),
                     };
 
