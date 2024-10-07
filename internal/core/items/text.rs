@@ -474,6 +474,7 @@ pub struct TextInput {
     pub accepted: Callback<VoidArg>,
     pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
+    pub selected: Callback<VoidArg>,
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
@@ -598,6 +599,7 @@ impl Item for TextInput {
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
+                Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
                 #[cfg(target_os = "android")]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
