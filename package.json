@@ -1,5 +1,5 @@
 {
-  "name": "gb-slint",
+  "name": "slint_repository",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,8 +10,5 @@
     "lint:fix": "pnpm -r lint:fix",
     "type-check": "pnpm --stream -r type-check"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "packageManager": "pnpm@9.11.0"
 }
