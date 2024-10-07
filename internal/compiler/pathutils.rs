@@ -6,6 +6,7 @@
 //!
 //! This is not helped by us using URLs in place of paths *sometimes*.
 
+use smol_str::{format_smolstr, SmolStr, SmolStrBuilder};
 use std::path::{Path, PathBuf};
 
 /// Check whether a `Path` is actually an URL.
@@ -315,7 +316,7 @@ impl<'a> Iterator for Components<'a> {
     }
 }
 
-fn clean_path_string(path: &str) -> String {
+fn clean_path_string(path: &str) -> SmolStr {
     use PathComponent as PC;
 
     let separator = find_path_separator(path);
@@ -356,27 +357,27 @@ fn clean_path_string(path: &str) -> String {
         }
     }
     if clean_components.is_empty() {
-        ".".to_string()
+        SmolStr::new_static(".")
     } else {
-        let mut result = String::new();
+        let mut result = SmolStrBuilder::default();
         for c in clean_components {
             match c {
                 PC::Root(v) => {
-                    result = v.to_string();
+                    result.push_str(v);
                 }
                 PC::Empty | PC::SameDirectory(_) => {
                     unreachable!("Never in the vector!")
                 }
                 PC::ParentDirectory(v) => {
-                    result += &format!("{v}{separator}");
+                    result.push_str(&format_smolstr!("{v}{separator}"));
                 }
-                PC::Directory(v) => result += &format!("{v}{separator}"),
+                PC::Directory(v) => result.push_str(&format_smolstr!("{v}{separator}")),
                 PC::File(v) => {
-                    result += v;
+                    result.push_str(v);
                 }
             }
         }
-        result
+        result.finish()
     }
 }
 
@@ -407,7 +408,7 @@ pub fn clean_path(path: &Path) -> PathBuf {
         // URL is cleaned up while parsing!
         PathBuf::from(url.to_string())
     } else {
-        PathBuf::from(clean_path_string(path_str))
+        PathBuf::from(clean_path_string(path_str).to_string())
     }
 }
 
@@ -484,7 +485,7 @@ pub fn join(base: &Path, path: &Path) -> Option<PathBuf> {
 
         let base_path = base_url.path();
         if !base_path.is_empty() && !base_path.ends_with('/') {
-            base_url.set_path(&format!("{base_path}/"));
+            base_url.set_path(&format_smolstr!("{base_path}/"));
         }
 
         Some(PathBuf::from(base_url.join(&path_str).ok()?.to_string()))
@@ -495,8 +496,8 @@ pub fn join(base: &Path, path: &Path) -> Option<PathBuf> {
         } else {
             path_str.to_string()
         };
-        let joined = clean_path_string(&format!("{base_str}{base_separator}{path_str}"));
-        Some(PathBuf::from(joined))
+        let joined = clean_path_string(&format_smolstr!("{base_str}{base_separator}{path_str}"));
+        Some(PathBuf::from(joined.to_string()))
     }
 }
 
