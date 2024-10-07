@@ -5,7 +5,6 @@
 
 import test from "ava";
 import * as http from "node:http";
-import fetch from "node-fetch";
 
 import { runEventLoop, quitEventLoop, private_api } from "../dist/index.js";
 
