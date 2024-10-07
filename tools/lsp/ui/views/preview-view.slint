@@ -10,6 +10,10 @@ import { Resizer } from "../components/resizer.slint";
 import { Group, GroupHeader } from "../components/group.slint";
 import { StatusLineApi } from "../components/status-line.slint";
 
+global PreviewState {
+    out property <length> minimum-preview-size: 16px;
+}
+
 enum SelectionKind {
     none,
     select_at,
@@ -248,9 +252,7 @@ export component PreviewView {
                 y-position: parent.y;
 
                 resize(_, _, w, h) => {
-                    preview-area-container.width = clamp(w, preview-area-container.min-width, preview-area-container.max-width);
-                    preview-area-container.height = clamp(h, preview-area-container.min-height, preview-area-container.max-height);
-                    Api.reselect();
+                    resize-to-preview-constraints(w, h);
                 }
 
                 width: preview-area-container.width;
@@ -270,8 +272,8 @@ export component PreviewView {
                 }
 
                 function resize-to-preview-constraints(width: length, height: length) {
-                    preview-area-container.width = clamp(width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
-                    preview-area-container.height = clamp(height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
+                    preview-area-container.width = clamp(width, max(preview-area-container.min-width, PreviewState.minimum-preview-size), max(preview-area-container.max-width, PreviewState.minimum-preview-size));
+                    preview-area-container.height = clamp(height, max(preview-area-container.min-height, PreviewState.minimum-preview-size),  max(preview-area-container.max-height, PreviewState.minimum-preview-size));
                 }
 
                 Rectangle {
