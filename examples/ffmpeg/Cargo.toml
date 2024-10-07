@@ -16,7 +16,7 @@ name = "ffmpeg"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
-ffmpeg-next = { version = "6.0.0" }
+ffmpeg-next = { version = "7.1.0" }
 smol = { version = "2.0.0" }
 anyhow = { version = "1.0" }
 futures = { version = "0.3.28" }
