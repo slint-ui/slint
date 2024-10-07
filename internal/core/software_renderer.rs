@@ -2553,7 +2553,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {
-        todo!()
+        // TODO (#6068)
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
