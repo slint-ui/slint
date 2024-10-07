@@ -195,7 +195,7 @@ jobs:
                   python-version: "3.10"
             - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
-              working-directory: ./api/python
+              working-directory: api/python
               run: nox
 
     cpp_test_driver:
@@ -351,23 +351,23 @@ jobs:
                   mkdir -p target/debug
                   echo 1 > target/debug/slint-lsp
             - name: Run pnpm install
-              working-directory: ./editors/vscode
+              working-directory: editors/vscode
               run: pnpm install --frozen-lockfile
             - name: Lint vscode project
-              working-directory: ./editors/vscode
+              working-directory: editors/vscode
               run: pnpm lint
             - name: Check code formatting
-              working-directory: ./editors/vscode
+              working-directory: editors/vscode
               run: pnpm format
             - name: vscode prebuild
-              working-directory: ./editors/vscode
+              working-directory: editors/vscode
               run: pnpm vscode:prepublish
             - name: Build VS Code extension
-              working-directory: ./editors/vscode
+              working-directory: editors/vscode
               run: pnpm local-package
             - name: Typescript syntax check # has to run after the build as it depends on the wasm
-              working-directory: ./editors/vscode
-              run: pnpm syntax_check
+              working-directory: editors/vscode
+              run: pnpm type-check
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:

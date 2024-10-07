@@ -101,7 +101,7 @@ jobs:
 
             - name: Lint slintpad # This needs the WASM!
               run: |
-                  pnpm syntax_check
+                  pnpm type-check
                   pnpm lint
               working-directory: tools/slintpad
 

@@ -12,7 +12,6 @@
             "**/.vscode/**",
             "*.json",
             "!biome.json",
-            "api/node/docs/assets/**",
             "editors/vscode/out/**"
         ]
     },
