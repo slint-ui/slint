@@ -83,10 +83,6 @@ impl super::Presenter for GbmDisplay {
         &self,
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Workaround for https://github.com/Smithay/gbm.rs/issues/36:
-        // call gbm_sys::gbm_surface_lock_front_buffer() directly to
-        // avoid the failing has_free_buffers() check on the vivante gbm backend.
-
         let mut front_buffer = unsafe {
             self.gbm_surface
                 .lock_front_buffer()
