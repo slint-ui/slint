@@ -31,7 +31,7 @@
     "keywords": [],
     "author": "",
     "devDependencies": {
-        "@biomejs/biome": "1.8.3",
+        "@biomejs/biome": "1.9.3",
         "@codingame/monaco-vscode-configuration-service-override": "~8.0.4",
         "@codingame/monaco-vscode-files-service-override": "~8.0.4",
         "@codingame/monaco-vscode-keybindings-service-override": "~8.0.4",

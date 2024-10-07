@@ -21,7 +21,7 @@
   "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
     "@ava/typescript": "4.1.0",
-    "@biomejs/biome": "1.8.3",
+    "@biomejs/biome": "1.9.3",
     "@types/capture-console": "1.0.5",
     "@types/node": "20.8.6",
     "@types/node-fetch": "2.6.7",
