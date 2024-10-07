@@ -596,10 +596,15 @@ impl Item for TextInput {
                 #[cfg(not(target_os = "android"))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
-            MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
+                let released_offset = self.byte_offset_for_position(position, window_adapter) as i32;
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
-                Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
+                
+                if self.anchor_position_byte_offset() != released_offset {
+                    Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
+                }
+                
                 #[cfg(target_os = "android")]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
