@@ -18,7 +18,7 @@
         "lint:fix": "biome lint --fix",
         "clean": "rimraf dist dev-dist pkg",
         "start": "pnpm clean && pnpm build:wasm_lsp && pnpm start:vite",
-        "start:vite": "vite --open --port=3001",
+        "start:vite": "vite --open --port=3000",
         "start:vite_cypress": "vite --port=3001",
         "start:vite_cypress-preview": "vite --open --port=3001",
         "type-check": "tsc --noEmit",
