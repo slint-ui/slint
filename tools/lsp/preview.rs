@@ -17,6 +17,7 @@ use i_slint_core::model::VecModel;
 use lsp_types::Url;
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -121,6 +122,23 @@ pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     match future.poll(&mut ctx) {
         std::task::Poll::Ready(result) => Some(result),
         std::task::Poll::Pending => None,
+    }
+}
+
+fn invalidate_contents(url: &lsp_types::Url) {
+    let component = {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+
+        cache.source_code.remove(url);
+
+        (cache.dependency.contains(url) && cache.ui_is_visible)
+            .then_some(cache.current_component())
+            .flatten()
+    };
+
+    // No need to bother with the document_cache: It follows the preview state at all times!
+    if let Some(component) = component {
+        load_preview(component, LoadBehavior::Reload);
     }
 }
 
@@ -960,7 +978,7 @@ fn finish_parsing(preview_url: &Url, ok: bool) {
             let mut preview_state = preview_state.borrow_mut();
             preview_state.known_components = components;
 
-            preview_state.document_cache.borrow_mut().replace(Rc::new(document_cache));
+            preview_state.document_cache.borrow_mut().replace(Some(Rc::new(document_cache)));
 
             if let Some(ui) = &preview_state.ui {
                 ui::ui_set_uses_widgets(ui, uses_widgets);
@@ -1667,6 +1685,7 @@ fn update_preview_area(
 pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
     use crate::common::LspToPreviewMessage as M;
     match message {
+        M::InvalidateContents { url } => invalidate_contents(&url),
         M::SetContents { url, contents } => {
             set_contents(&url, contents);
         }

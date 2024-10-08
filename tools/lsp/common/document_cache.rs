@@ -281,6 +281,11 @@ impl DocumentCache {
         Ok(())
     }
 
+    pub fn drop_document(&mut self, url: &Url) -> Result<()> {
+        let path = uri_to_file(url).ok_or("Failed to convert path")?;
+        Ok(self.type_loader.drop_document(&path)?)
+    }
+
     pub fn compiler_configuration(&self) -> CompilerConfiguration {
         CompilerConfiguration {
             include_paths: self.type_loader.compiler_config.include_paths.clone(),
