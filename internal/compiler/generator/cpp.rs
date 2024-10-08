@@ -2766,7 +2766,7 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 /// to be used like:
 /// ```ignore
 /// let access = access_member(...);
-// format!("{}.get()", access)
+/// format!("{}.get()", access)
 /// ```
 /// or for a function
 /// ```ignore
