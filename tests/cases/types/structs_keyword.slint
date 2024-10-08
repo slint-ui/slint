@@ -3,17 +3,6 @@
 
 // Right now, this test is only testing rust and C++ keyword, but it should be expanded to JS keywords
 
-export struct mod := {
-    loop: string,
-}
-
-match := Rectangle {
-    property<mod> move: {loop : "mod" };
-    property<bool> test: move.loop == "mod";
-}
-
-
-// // testing C++ keywords
 export struct struct {
     not: image
 }
@@ -30,21 +19,14 @@ export struct static_assert {}
 export struct unsigned {} 
 export struct namespace {} 
 
-export component char {
-    property <static_assert> protected;
+export struct mod := {
+    loop: string,
 }
 
-export global void{ 
-    in-out property<unsigned> atomic-commit;
-    in-out property<namespace> enum;  
- }
-
-export global char16_t{ 
-    in-out property<dynamic_cast> atomic_commit;
-    in-out property<struct> return;  
- }
-
-
+match := Rectangle {
+    property<mod> move: {loop : "mod" };
+    property<bool> test: move.loop == "mod";
+}
 
 /*
 ```rust
