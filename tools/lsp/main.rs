@@ -19,12 +19,12 @@ use common::Result;
 use language::*;
 
 use lsp_types::notification::{
-    DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidOpenTextDocument,
-    Notification,
+    DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
+    DidOpenTextDocument, Notification,
 };
 use lsp_types::{
-    DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidOpenTextDocumentParams,
-    InitializeParams, Url,
+    DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, InitializeParams, Url,
 };
 
 use clap::{Args, Parser, Subcommand};
@@ -353,6 +353,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         init_param,
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
+        open_urls: Default::default(),
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
@@ -431,7 +432,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            reload_document(
+            open_document(
                 ctx,
                 params.text_document.text,
                 params.text_document.uri,
@@ -439,6 +440,10 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 &mut ctx.document_cache.borrow_mut(),
             )
             .await
+        }
+        DidCloseTextDocument::METHOD => {
+            let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
+            close_document(ctx, params.text_document.uri).await
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
