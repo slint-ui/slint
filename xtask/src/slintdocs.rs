@@ -165,7 +165,10 @@ pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc
             stringify!(string)
         };
         (Coord) => {
-            stringify!(length)
+            "length"
+        };
+        (Image) => {
+            "image"
         };
         ($pub_type:ident) => {
             stringify!($pub_type)
@@ -211,6 +214,8 @@ pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc
 
     // `StateInfo` should not be in the documentation, so remove it again
     structs.remove("StateInfo");
+    // Experimental type
+    structs.remove("MenuEntry");
 
     structs
 }

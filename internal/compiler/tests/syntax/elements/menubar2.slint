@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component MyMenu inherits MenuBar {
+//                               ^error{MenuBar can only be within a Window element}
+}
+
+export component A inherits Window {
+    MenuBar {
+        Rectangle {}
+//      ^error{MenuBar cannot have children elements}
+        x: 45px;
+//      ^error{Unknown property x in MenuBar}
+        width: 45px;
+//      ^error{Unknown property width in MenuBar}
+        entries: [];
+        init => {}
+//      ^error{'init' is not a callback in MenuBar}
+    }
+
+    Rectangle {
+        x: 45px;
+        MenuBar {
+//      ^error{MenuBar can only be within a Window element}
+        }
+    }
+}
+
+

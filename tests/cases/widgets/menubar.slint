@@ -1,0 +1,68 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    MenuBar {
+        entries: [
+            { title: "File" },
+            { title: "Edit" },
+        ];
+        sub-menu(entry) => {
+            if entry.title == "File" {
+                return [
+                    { title: "New" },
+                    { title: "Open" },
+                    { title: "Save" },
+                    { title: "Open Recent", has-sub-menu: true },
+                ];
+            } else if entry.title == "Edit" {
+                return [
+                    { title: "Copy" },
+                    { title: "Paste" },
+                    { title: "Xxx", has-sub-menu: true },
+                ];
+            } else if entry.title == "Open Recent" {
+                return [
+                    { title: "Recent 1" },
+                    { title: "Recent 2" },
+                    { title: "Recent 3" },
+                    { title: "Recent 4" },
+                ];
+            } else if entry.title == "Xxx" {
+                return [
+                    { title: "Aaa" },
+                    { title: "Xxx", has-sub-menu: true },
+                    { title: "Yyy" },
+                ];
+            } else {
+                return [];
+            }
+        }
+        activated(entry) => {
+            debug("Activated", entry);
+        }
+    }
+    vl := VerticalLayout {
+        AboutSlint {}
+        Button { text: "Hello"; }
+    }
+
+    out property <bool> check-geometry: vl.x == 0 && vl.y == 0 && vl.width == root.width && vl.height == root.height;
+
+    out property <bool> test: check-geometry;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/

@@ -390,6 +390,7 @@ mod plural_rule_parser {
                     globals: Vec::new(),
                     has_debug_info: false,
                     translations: None,
+                    popup_menu: None,
                 },
                 current_sub_component: None,
                 current_global: None,

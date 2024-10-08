@@ -30,6 +30,7 @@ mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
 mod lower_layout;
+mod lower_menus;
 mod lower_popups;
 mod lower_property_to_element;
 mod lower_shadows;
@@ -96,6 +97,7 @@ pub async fn run_passes(
         );
     });
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
+    lower_menus::lower_menus(doc, type_loader, diag).await;
     collect_subcomponents::collect_subcomponents(doc);
 
     doc.visit_all_used_components(|component| {

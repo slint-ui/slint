@@ -10,7 +10,6 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
     WindowPosition, WindowSize,
 };
-use crate::graphics::Point;
 use crate::input::{
     key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, MouseEvent,
     MouseInputState, TextCursorBlinker,
@@ -981,13 +980,12 @@ impl WindowInner {
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
-        position: Point,
+        position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
     ) -> NonZeroU32 {
-        let position = parent_item.map_to_window(
-            parent_item.geometry().origin + LogicalPoint::from_untyped(position).to_vector(),
-        );
+        let position = parent_item
+            .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let root_of = |mut item_tree: ItemTreeRc| loop {
             if ItemRc::new(item_tree.clone(), 0).downcast::<crate::items::WindowItem>().is_some() {
                 return item_tree;
@@ -1085,6 +1083,20 @@ impl WindowInner {
         });
 
         popup_id
+    }
+
+    /// Attempt to show a native popup menu
+    ///
+    /// context_menu_item is an instance of a ContextMenu
+    ///
+    /// Returns false if the native platform doesn't support it
+    pub fn show_native_popup_menu(
+        &self,
+        _context_menu_item: &ItemRc,
+        _position: LogicalPosition,
+    ) -> bool {
+        // TODO
+        false
     }
 
     // Close the popup associated with the given popup window.
@@ -1401,7 +1413,7 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
-        position: crate::graphics::Point,
+        position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
     ) -> NonZeroU32 {

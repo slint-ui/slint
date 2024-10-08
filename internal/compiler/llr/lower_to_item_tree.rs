@@ -62,6 +62,30 @@ pub fn lower_to_item_tree(
         })
         .collect();
 
+    let popup_menu = document.popup_menu_impl.as_ref().map(|c| {
+        let sc = lower_sub_component(&c, &state, None, compiler_config);
+        let item_tree = ItemTree {
+            tree: make_tree(&state, &c.root_element, &sc, &[]),
+            root: Rc::try_unwrap(sc.sub_component).unwrap(),
+            parent_context: None,
+        };
+        PopupMenu {
+            item_tree,
+            sub_menu: sc.mapping.map_property_reference(
+                &NamedReference::new(&c.root_element, SmolStr::new_static("sub-menu")),
+                &state,
+            ),
+            activated: sc.mapping.map_property_reference(
+                &NamedReference::new(&c.root_element, SmolStr::new_static("activated")),
+                &state,
+            ),
+            entries: sc.mapping.map_property_reference(
+                &NamedReference::new(&c.root_element, SmolStr::new_static("entries")),
+                &state,
+            ),
+        }
+    });
+
     let root = CompilationUnit {
         public_components,
         globals,
@@ -75,6 +99,7 @@ pub fn lower_to_item_tree(
             })
             .collect(),
         has_debug_info: compiler_config.debug_info,
+        popup_menu,
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.take().map(|x| x.into_inner().result()),
     };
@@ -691,7 +716,7 @@ fn lower_popup_component(
 
     use super::Expression::PropertyReference as PR;
     let position = super::lower_expression::make_struct(
-        "Point",
+        "LogicalPosition",
         [
             ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
             ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
