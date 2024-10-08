@@ -1202,12 +1202,6 @@ impl TextInput {
             TextCursorDirection::EndOfText => text.len(),
         };
 
-        match anchor_mode {
-            AnchorMode::KeepAnchor => {}
-            AnchorMode::MoveAnchor => {
-                self.as_ref().anchor_position_byte_offset.set(new_cursor_pos as i32);
-            }
-        }
         self.set_cursor_position(
             new_cursor_pos as i32,
             reset_preferred_x_pos,
@@ -1215,6 +1209,15 @@ impl TextInput {
             window_adapter,
             self_rc,
         );
+
+        match anchor_mode {
+            AnchorMode::KeepAnchor => {
+                Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
+            }
+            AnchorMode::MoveAnchor => {
+                self.as_ref().anchor_position_byte_offset.set(new_cursor_pos as i32);
+            }
+        }
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
