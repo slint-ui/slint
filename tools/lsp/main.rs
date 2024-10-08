@@ -19,9 +19,13 @@ use common::Result;
 use language::*;
 
 use lsp_types::notification::{
-    DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
+    DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidOpenTextDocument,
+    Notification,
 };
-use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, Url};
+use lsp_types::{
+    DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidOpenTextDocumentParams,
+    InitializeParams, Url,
+};
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
@@ -352,7 +356,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
-    let mut first_future = Box::pin(load_configuration(&ctx));
+    let mut first_future = Box::pin(startup_lsp(&ctx));
 
     // We are waiting in this loop for two kind of futures:
     //  - The compiler future should always be ready immediately because we do not set a callback to load files
@@ -448,6 +452,13 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
             .await
         }
         DidChangeConfiguration::METHOD => load_configuration(ctx).await,
+        DidChangeWatchedFiles::METHOD => {
+            let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
+            for fe in params.changes {
+                trigger_file_watcher(ctx, &fe.uri).await?;
+            }
+            Ok(())
+        }
 
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         "slint/showPreview" => {

@@ -53,6 +53,11 @@ slint_init(slint_wasm_data).then((_) => {
             await the_lsp.process_preview_to_lsp_message(params);
         },
     );
+    connection.onDidChangeWatchedFiles(async (param) => {
+        for (const event of param.changes) {
+            await the_lsp.trigger_file_watcher(event.uri);
+        }
+    });
 
     connection.onDidChangeTextDocument(async (param) => {
         await the_lsp.reload_document(
