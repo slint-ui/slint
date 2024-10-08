@@ -26,6 +26,7 @@ pub struct Config {
 fn is_cpp_keyword(word: &str) -> bool {
     static CPP_KEYWORDS: OnceLock<HashSet<&'static str>> = OnceLock::new();
     let keywords = CPP_KEYWORDS.get_or_init(|| {
+        #[rustfmt::skip]
         let keywords: HashSet<&str> = HashSet::from([
             "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit",
             "atomic_noexcept", "auto", "bitand", "bitor", "bool", "break", "case", "catch",
