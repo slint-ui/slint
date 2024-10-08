@@ -11,6 +11,7 @@ component ScrollBar inherits Rectangle {
     // this is always negative and bigger than  -maximum
     in-out property <length> value;
     in-out property <bool> enabled <=> touch-area.enabled;
+    in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
 
     states [
         disabled when !touch-area.enabled : {
@@ -24,6 +25,8 @@ component ScrollBar inherits Rectangle {
             state-layer.opacity: 0.12;
         }
     ]
+
+    visible: (self.policy == ScrollBarPolicy.always-on) || (self.policy == ScrollBarPolicy.as-needed && self.maximum > 0);
 
     state-layer := Rectangle {
         width: 100%;
@@ -95,6 +98,8 @@ export component ScrollView {
     in-out property <length> viewport-height <=> flickable.viewport-height;
     in-out property <length> viewport-x <=> flickable.viewport-x;
     in-out property <length> viewport-y <=> flickable.viewport-y;
+    in property <ScrollBarPolicy> vertical-bar-policy <=> vertical-bar.policy;
+    in property <ScrollBarPolicy> horizontal-bar-policy <=> horizontal-bar.policy;
     
     callback scrolled <=> flickable.flicked;
 
@@ -125,7 +130,6 @@ export component ScrollView {
         maximum: flickable.viewport-height - flickable.height;
         page-size: flickable.height;
         enabled: root.enabled;
-        visible: flickable.viewport-height > flickable.height;
     }
 
     horizontal-bar := ScrollBar {
@@ -137,6 +141,5 @@ export component ScrollView {
         maximum: flickable.viewport-width - flickable.width;
         page-size: flickable.width;
         enabled: root.enabled;
-        visible: flickable.viewport-width > flickable.width;
     }
 }

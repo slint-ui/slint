@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { HorizontalBox, VerticalBox, ListView, StandardListView, GroupBox } from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, ListView, StandardListView, GroupBox, ComboBox } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -10,12 +10,51 @@ export component ListViewPage inherits Page {
     show-enable-switch: false;
     description: @tr("ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\"");
 
+    GroupBox {
+        title: @tr("Scroll Bar Policy:");
+        function policy-from-index(index: int) -> ScrollBarPolicy
+        {
+            if (index == 1) {
+                return ScrollBarPolicy.always-on;
+            }
+            if (index == 2) {
+                return ScrollBarPolicy.always-off;
+            }
+            return ScrollBarPolicy.as-needed;
+        }
+
+        HorizontalBox {
+            HorizontalBox {
+                Text {
+                    text: @tr("Vertical:");
+                }
+                vertical-bar-policy := ComboBox {
+                    in-out property<ScrollBarPolicy> current-policy: policy-from-index(self.current-index);
+
+                    model: [@tr("As Needed"), @tr("Always On"), @tr("Always Off")];
+                }
+            }
+            HorizontalBox {
+                Text {
+                    text: @tr("Horizontal:");
+                }
+                horizontal-bar-policy := ComboBox {
+                    in-out property<ScrollBarPolicy> current-policy: policy-from-index(self.current-index);
+
+                    model: [@tr("As Needed"), @tr("Always On"), @tr("Always Off")];
+                }
+            }
+        }
+    }
+
     HorizontalBox {
         vertical-stretch: 1;
         GroupBox {
             title: @tr("ListView");
 
             ListView {
+                vertical-bar-policy: vertical-bar-policy.current-policy;
+                horizontal-bar-policy: horizontal-bar-policy.current-policy;
                 vertical-stretch: 0;
                 for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] : HorizontalBox {
                    Image {
@@ -34,6 +73,8 @@ export component ListViewPage inherits Page {
             vertical-stretch: 0;
 
             StandardListView {
+                vertical-bar-policy: vertical-bar-policy.current-policy;
+                horizontal-bar-policy: horizontal-bar-policy.current-policy;
                 model: [
                     {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
                     {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},

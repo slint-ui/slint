@@ -421,6 +421,16 @@ macro_rules! for_each_enums {
                 /// The ["alternate reverse" direction as defined in CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/animation-direction#alternate-reverse).
                 AlternateReverse,
             }
+
+            /// This enum describes the scrollbar visibility
+            enum ScrollBarPolicy {
+                /// Scrolbar will be visible only when needed
+                AsNeeded,
+                /// Scrollbar never shown
+                AlwaysOff,
+                /// Scrollbar always visible
+                AlwaysOn,
+            }
         ];
     };
 }

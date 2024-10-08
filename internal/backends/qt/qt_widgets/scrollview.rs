@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::input::FocusEventResult;
+use i_slint_core::items::ScrollBarPolicy;
 
 use super::*;
 
@@ -22,6 +23,8 @@ pub struct NativeScrollView {
     pub native_padding_bottom: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
+    pub vertical_bar_policy: Property<ScrollBarPolicy>,
+    pub horizontal_bar_policy: Property<ScrollBarPolicy>,
     data: Property<NativeSliderData>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
@@ -292,6 +295,9 @@ impl Item for NativeScrollView {
         };
         let enabled: bool = this.enabled();
         let has_focus: bool = this.has_focus();
+        let vertical_bar_visible = (this.vertical_bar_policy() == ScrollBarPolicy::AlwaysOn) || ((this.vertical_bar_policy() == ScrollBarPolicy::AsNeeded) && (this.vertical_max().get() > 0.0));
+        let horizontal_bar_visible = (this.horizontal_bar_policy() == ScrollBarPolicy::AlwaysOn) || ((this.horizontal_bar_policy() == ScrollBarPolicy::AsNeeded) && (this.horizontal_max().get() > 0.0));
+        let scrollbar_bar_visible = vertical_bar_visible || horizontal_bar_visible;
         let frame_around_contents = cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
@@ -300,7 +306,8 @@ impl Item for NativeScrollView {
             margins as "QMargins",
             enabled as "bool",
             has_focus as "bool",
-            initial_state as "int"
+            initial_state as "int",
+            scrollbar_bar_visible as "bool"
         ] -> bool as "bool" {
             ensure_initialized();
             QStyleOptionFrame frameOption;
@@ -327,11 +334,15 @@ impl Item for NativeScrollView {
                 frameOption.rect = QRect(QPoint(), (size / dpr) - corner_size);
                 qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter->get(), widget);
                 frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1), corner_size);
-                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter->get(), widget);
+                if (scrollbar_bar_visible) {
+                    qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter->get(), widget);
+                }
             } else {
                 qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter->get(), widget);
                 frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1) - QPoint(margins.right(), margins.bottom()), corner_size);
-                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter->get(), widget);
+                if (scrollbar_bar_visible) {
+                    qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter->get(), widget);
+                }
             }
             return foac;
         });
@@ -399,36 +410,40 @@ impl Item for NativeScrollView {
 
         let scrollbars_width = (margins.right - margins.left) as f32;
         let scrollbars_height = (margins.bottom - margins.top) as f32;
-        draw_scrollbar(
-            false,
-            qttypes::QRectF {
-                x: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { margins.right as _ }) as _,
-                y: (if frame_around_contents { 0 } else { margins.top }) as _,
-                width: scrollbars_width as _,
-                height: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { (margins.bottom + margins.top) as f32 }) as _,
-            },
-            this.vertical_value().get() as i32,
-            this.vertical_page_size().get() as i32,
-            this.vertical_max().get() as i32,
-            data.active_controls,
-            data.pressed == 2,
-            initial_state
-        );
-        draw_scrollbar(
-            true,
-            qttypes::QRectF {
-                x: (if frame_around_contents { 0 } else { margins.left }) as _,
-                y: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { margins.bottom as _ }) as _,
-                width: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { (margins.left + margins.right) as _ }) as _,
-                height: (scrollbars_height) as _,
-            },
-            this.horizontal_value().get() as i32,
-            this.horizontal_page_size().get() as i32,
-            this.horizontal_max().get() as i32,
-            data.active_controls,
-            data.pressed == 1,
-            initial_state
-        );
+        if vertical_bar_visible {
+            draw_scrollbar(
+                false,
+                qttypes::QRectF {
+                    x: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { margins.right as _ }) as _,
+                    y: (if frame_around_contents { 0 } else { margins.top }) as _,
+                    width: scrollbars_width as _,
+                    height: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { (margins.bottom + margins.top) as f32 }) as _,
+                },
+                this.vertical_value().get() as i32,
+                this.vertical_page_size().get() as i32,
+                this.vertical_max().get() as i32,
+                data.active_controls,
+                data.pressed == 2,
+                initial_state
+            );
+        }
+        if horizontal_bar_visible {
+            draw_scrollbar(
+                true,
+                qttypes::QRectF {
+                    x: (if frame_around_contents { 0 } else { margins.left }) as _,
+                    y: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { margins.bottom as _ }) as _,
+                    width: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { (margins.left + margins.right) as _ }) as _,
+                    height: (scrollbars_height) as _,
+                },
+                this.horizontal_value().get() as i32,
+                this.horizontal_page_size().get() as i32,
+                this.horizontal_max().get() as i32,
+                data.active_controls,
+                data.pressed == 1,
+                initial_state
+            );
+        }
     }
 }
 
