@@ -100,7 +100,6 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
         .and_then(|wf| wf.dynamic_registration)
         .unwrap_or(false)
     {
-        i_slint_core::debug_log!("Registering FS watchers");
         let fs_watcher = lsp_types::DidChangeWatchedFilesRegistrationOptions {
             watchers: vec![lsp_types::FileSystemWatcher {
                 glob_pattern: lsp_types::GlobPattern::String("**/*.slint".to_string()),
@@ -118,8 +117,6 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
                 },
             )?
             .await?;
-    } else {
-        i_slint_core::debug_log!("FS watchers NOT SUPPORTED!");
     }
 
     Ok(())
@@ -133,6 +130,7 @@ pub struct Context {
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub to_show: RefCell<Option<common::PreviewComponent>>,
+    pub open_urls: RefCell<std::collections::HashSet<lsp_types::Url>>,
 }
 
 /// An error from a LSP request
@@ -602,6 +600,23 @@ pub(crate) async fn reload_document_impl(
     lsp_diags
 }
 
+pub async fn open_document(
+    ctx: &Rc<Context>,
+    content: String,
+    url: lsp_types::Url,
+    version: Option<i32>,
+    document_cache: &mut DocumentCache,
+) -> common::Result<()> {
+    ctx.open_urls.borrow_mut().insert(url.clone());
+
+    reload_document(ctx, content, url, version, document_cache).await
+}
+
+pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    ctx.open_urls.borrow_mut().remove(&url);
+    Ok(())
+}
+
 pub async fn reload_document(
     ctx: &Rc<Context>,
     content: String,
@@ -609,7 +624,6 @@ pub async fn reload_document(
     version: Option<i32>,
     document_cache: &mut DocumentCache,
 ) -> common::Result<()> {
-    i_slint_core::debug_log!("RELOAD FILE: {url}");
     let lsp_diags =
         reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
@@ -624,8 +638,10 @@ pub async fn reload_document(
     Ok(())
 }
 
-pub async fn trigger_file_watcher(_context: &Context, url: &lsp_types::Url) -> common::Result<()> {
-    i_slint_core::debug_log!("FILE CHANGED: {url}");
+pub async fn trigger_file_watcher(ctx: &Context, url: &lsp_types::Url) -> common::Result<()> {
+    if !ctx.open_urls.borrow().contains(url) {
+        // do nothing for now...
+    }
     Ok(())
 }
 

@@ -39,6 +39,11 @@ slint_init(slint_wasm_data).then((_) => {
             send_request,
             load_file,
         );
+
+        setTimeout(() => {
+            the_lsp.startup_lsp();
+        }, 0);
+
         return the_lsp.server_initialize_result(params.capabilities);
     });
 
@@ -59,6 +64,14 @@ slint_init(slint_wasm_data).then((_) => {
         }
     });
 
+    connection.onDidOpenTextDocument(async (param) => {
+        await the_lsp.open_document(
+            param.textDocument.text,
+            param.textDocument.uri,
+            param.textDocument.version,
+        );
+    });
+
     connection.onDidChangeTextDocument(async (param) => {
         await the_lsp.reload_document(
             param.contentChanges[param.contentChanges.length - 1].text,
@@ -67,12 +80,8 @@ slint_init(slint_wasm_data).then((_) => {
         );
     });
 
-    connection.onDidOpenTextDocument(async (param) => {
-        await the_lsp.reload_document(
-            param.textDocument.text,
-            param.textDocument.uri,
-            param.textDocument.version,
-        );
+    connection.onDidCloseTextDocument(async (param) => {
+        await the_lsp.close_document(param.textDocument.uri);
     });
 
     connection.onDidChangeConfiguration(async (_param: unknown) => {

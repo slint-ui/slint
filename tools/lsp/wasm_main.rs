@@ -222,6 +222,7 @@ pub fn create(
             init_param,
             server_notifier,
             to_show: Default::default(),
+            open_urls: Default::default(),
         }),
         reentry_guard,
         rh: Rc::new(rh),
@@ -345,6 +346,26 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
+    pub fn open_document(&self, content: String, uri: JsValue, version: i32) -> js_sys::Promise {
+        let ctx = self.ctx.clone();
+        let guard = self.reentry_guard.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let _lock = ReentryGuard::lock(guard).await;
+            let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+            language::open_document(
+                &ctx,
+                content,
+                uri.clone(),
+                Some(version),
+                &mut ctx.document_cache.borrow_mut(),
+            )
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+            Ok(JsValue::UNDEFINED)
+        })
+    }
+
+    #[wasm_bindgen]
     pub fn reload_document(&self, content: String, uri: JsValue, version: i32) -> js_sys::Promise {
         let ctx = self.ctx.clone();
         let guard = self.reentry_guard.clone();
@@ -360,6 +381,18 @@ impl SlintServer {
             )
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
+            Ok(JsValue::UNDEFINED)
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn close_document(&self, uri: JsValue) -> js_sys::Promise {
+        let ctx = self.ctx.clone();
+        let guard = self.reentry_guard.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let _lock = ReentryGuard::lock(guard).await;
+            let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+            language::close_document(&ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;
             Ok(JsValue::UNDEFINED)
         })
     }
