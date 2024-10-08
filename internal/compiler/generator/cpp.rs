@@ -6,10 +6,11 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
+use lyon_path::geom::euclid::approxeq::ApproxEq;
+use std::collections::HashSet;
 use std::fmt::Write;
 use std::io::BufWriter;
-
-use lyon_path::geom::euclid::approxeq::ApproxEq;
+use std::sync::OnceLock;
 
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -19,7 +20,43 @@ pub struct Config {
     pub header_include: String,
 }
 
+// Check if word is one of C++ keywords
+fn is_cpp_keyword(word: &str) -> bool {
+    static CPP_KEYWORDS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    let keywords = CPP_KEYWORDS.get_or_init(|| {
+        #[rustfmt::skip]
+        let keywords: HashSet<&str> = HashSet::from([
+            "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit",
+            "atomic_noexcept", "auto", "bitand", "bitor", "bool", "break", "case", "catch",
+            "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept", "const",
+            "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await",
+            "co_return", "co_yield", "decltype", "default", "delete", "do", "double",
+            "dynamic_cast", "else", "enum", "explicit", "export", "extern", "false", "float",
+            "for", "friend", "goto", "if", "inline", "int", "long", "mutable", "namespace",
+            "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private",
+            "protected", "public", "reflexpr", "register", "reinterpret_cast", "requires",
+            "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast",
+            "struct", "switch", "synchronized", "template", "this", "thread_local", "throw",
+            "true", "try", "typedef", "typeid", "typename", "union", "unsigned", "using",
+            "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
+        ]);
+        keywords
+    });
+    keywords.contains(word)
+}
+
 fn ident(ident: &str) -> String {
+    let mut new_ident = String::from(ident);
+    if ident.contains('-') {
+        new_ident = ident.replace('-', "_");
+    }
+    if is_cpp_keyword(new_ident.as_str()) {
+        new_ident = format!("{}_", new_ident);
+    }
+    new_ident
+}
+
+fn concatenate_ident(ident: &str) -> String {
     if ident.contains('-') {
         ident.replace('-', "_")
     } else {
@@ -757,7 +794,7 @@ pub fn generate(
             Access::Public,
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
-                name: format!("global_{}", ident(&glob.name)),
+                name: format!("global_{}", concatenate_ident(&glob.name)),
                 init: Some(format!("std::make_shared<{}>(this)", ty)),
                 ..Default::default()
             }),
@@ -1098,7 +1135,7 @@ fn generate_public_component(
         let accessor_statement = format!(
             "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
             if global_accessor_function_body.is_empty() { "" } else { "else " },
-            ident(&glob.name),
+            concatenate_ident(&glob.name),
         );
         global_accessor_function_body.push(accessor_statement);
     }
@@ -2525,7 +2562,7 @@ fn generate_functions<'a>(
             format!("{ret}{};", compile_expression(&f.code, &ctx2)),
         ];
         Declaration::Function(Function {
-            name: ident(&format!("fn_{}", f.name)),
+            name: concatenate_ident(&format!("fn_{}", f.name)),
             signature: format!(
                 "({}) const -> {}",
                 f.args
@@ -2548,7 +2585,7 @@ fn generate_public_api_for_properties(
     ctx: &EvaluationContext,
 ) {
     for p in public_properties {
-        let prop_ident = ident(&p.name);
+        let prop_ident = concatenate_ident(&p.name);
 
         let access = access_member(&p.prop, ctx);
 
@@ -2583,7 +2620,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("on_{}", ident(&p.name)),
+                    name: format!("on_{}", concatenate_ident(&p.name)),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -2610,7 +2647,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format!("invoke_{}", ident(&p.name)),
+                    name: format!("invoke_{}", concatenate_ident(&p.name)),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -2669,7 +2706,7 @@ fn generate_public_api_for_properties(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = ident(name);
+        let prop_ident = concatenate_ident(name);
 
         if let Type::Function { args, .. } = &ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
@@ -2825,7 +2862,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         llr::PropertyReference::Global { global_index, property_index } => {
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
-            let global_id = format!("global_{}", ident(&global.name));
+            let global_id = format!("global_{}", concatenate_ident(&global.name));
             let property_name = ident(
                 &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
             );
@@ -2834,9 +2871,10 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         llr::PropertyReference::GlobalFunction { global_index, function_index } => {
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
-            let global_id = format!("global_{}", ident(&global.name));
-            let name =
-                ident(&ctx.compilation_unit.globals[*global_index].functions[*function_index].name);
+            let global_id = format!("global_{}", concatenate_ident(&global.name));
+            let name = concatenate_ident(
+                &ctx.compilation_unit.globals[*global_index].functions[*function_index].name,
+            );
             format!("{global_access}->{global_id}->fn_{name}")
         }
     }
