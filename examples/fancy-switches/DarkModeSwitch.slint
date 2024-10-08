@@ -1,0 +1,167 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+component SunRayThick {
+    width: 0px;
+    height: 0px;
+    in property <angle> rotation <=> i.rotation-angle;
+    in property <brush> color <=> i.colorize;
+    Rectangle {
+        property <length> sizeMultiplyer: 0.7px;
+        i := Image {
+            source: @image-url("images/line2.svg");
+            width: self.source.width * sizeMultiplyer * 0.8;
+            height: self.source.height * sizeMultiplyer;
+            colorize: red;
+        }
+    }
+}
+
+component SunRayThin {
+    width: 0px;
+    height: 0px;
+    in property <angle> rotation <=> i.rotation-angle;
+    in property <brush> color <=> i.colorize;
+    Rectangle {
+        i := Image {
+            property <length> sizeMultiplyer: 0.6px;
+            source: @image-url("images/line2.svg");
+            width: self.source.width * sizeMultiplyer * 0.6;
+            height: self.source.height * sizeMultiplyer;
+        }
+    }
+} 
+
+component SunIcon {
+    property <int> rays: 4;
+    property <length> sun-size: 28px;
+    property <length> gap: 8px;
+    in property <brush> color: black;
+    in property <float> scale: 1;
+    width: 80px;
+    height: self.width;
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        Rectangle {
+            width: sun-size * scale;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: transparent;
+            border-color: root.color;
+            border-width: 5px;
+        }
+        for i in rays: SunRayThick {
+            property <angle> angle: i * 360deg / rays;
+            color: root.color;
+            x: (sun-size / 2 + gap) * scale * angle.cos();
+            y: (sun-size / 2 + gap) * scale * angle.sin();
+            
+            rotation: angle;
+        }
+        for i in rays: SunRayThin {
+            property <angle> angle: i * (360deg / rays) + 45deg;
+            color: root.color;
+            x: (sun-size / 2 + gap) * angle.cos();
+            y: (sun-size / 2 + gap) * angle.sin();
+            rotation: angle;
+        }
+    }
+}
+
+enum Theme { light, dark }
+export component DarkModeSwitch {
+    property <Theme> theme: Theme.light;
+
+    width: 200px;
+    height: 100px;
+
+    frame :=Image {
+        x: 0;
+        y: 0;
+        source: @image-url("images/switch.png");
+    }
+
+    sun := SunIcon {
+        x: 10px;
+    }
+    
+    frameBacker := Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: transparent;
+        border-radius: self.height / 2;
+    }
+
+    moon := Image {
+        x: parent.width - self.width - 30px;
+        width: 50px;
+        height: 50px;
+        source: @image-url("images/moon.svg");
+    }
+
+    thumb := Rectangle {
+        y: (parent.height - self.height) / 2;
+        width: 90px;
+        height: self.width;
+        border-radius: self.width / 2;
+
+        drop-shadow-offset-x: 3px;
+        drop-shadow-offset-y: 3px;
+        drop-shadow-color: black.transparentize(30%);
+        drop-shadow-blur: 10px;
+    }
+
+    TouchArea {
+        clicked => {
+            if root.theme == Theme.light {
+                root.theme = Theme.dark;
+            } else {
+                root.theme = Theme.light;
+            }
+        }
+    }
+
+    states [
+        darkMode when root.theme == Theme.dark: {
+            thumb.x: thumb.y;
+            thumb.background: @radial-gradient(circle,#b0b0b0 0%, #cccccc 70%, #e9e9e9 100%);
+            frameBacker.background: #2A2A2A;
+            moon.rotation-angle: -20deg;
+            sun.color: #fc7a10;
+            sun.scale: 0.8;
+            in {
+                animate thumb.x, thumb.background, frameBacker.background, sun.color {
+                    duration: 200ms;
+                    easing: ease-out-sine;
+                }
+                animate moon.rotation-angle, sun.scale {
+                    duration: 1200ms;
+                    easing: ease-out-elastic;
+                }
+            }
+        
+        }
+        lightMode when root.theme == Theme.light: {
+            thumb.x: frame.width - thumb.width - thumb.y;
+            thumb.background:  @radial-gradient(circle,#515151 0%, #242424 80%, #191919 100%);
+            frameBacker.background: transparent;
+            moon.rotation-angle: 20deg;
+            sun.color: #2A2A2A;
+            sun.scale: 1;
+            in {
+                animate thumb.x, thumb.background, frameBacker.background, moon.rotation-angle {
+                    duration: 200ms;
+                    easing: ease-out-sine;
+                }
+                animate sun.scale {
+                    duration: 1200ms;
+                    easing: ease-out-elastic;
+                }
+                animate sun.color {
+                    duration: 1000ms;
+                }
+            }
+        }
+    ]
+}

@@ -139,6 +139,10 @@ Files: examples/orbit-animation/images/*.png examples/orbit-animation/images/*.s
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
+Files: examples/fancy-switches/images/*.png examples/fancy-switches/images/*.svg
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
 Files: examples/weather-demo/index.html
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
