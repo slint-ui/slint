@@ -9,6 +9,11 @@ TestCase := TextInput {
     property<int> test_anchor_pos: self.anchor_position_byte_offset;
     property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
     property<bool> input_focused: self.has_focus;
+    property <bool> selected_callback_invoked: false;
+    
+    selected => {
+        selected_callback_invoked = true;
+    }
 }
 
 /*
@@ -21,10 +26,12 @@ assert_eq!(instance.get_test_text(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "Test");
 assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
+assert!(!instanse.get_selected_callback_invoked());
 
 slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
 slint_testing::send_keyboard_string_sequence(&instance, "a");
 slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+assert!(instanse.get_selected_callback_invoked());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 4);
 assert_eq!(instance.get_test_anchor_pos(), 0);
