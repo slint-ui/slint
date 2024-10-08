@@ -6,12 +6,11 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
+use lyon_path::geom::euclid::approxeq::ApproxEq;
+use std::collections::HashSet;
 use std::fmt::Write;
 use std::io::BufWriter;
-use std::collections::HashSet;
 use std::sync::OnceLock;
-use lyon_path::geom::euclid::approxeq::ApproxEq;
-
 
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -20,7 +19,6 @@ pub struct Config {
     pub cpp_files: Vec<std::path::PathBuf>,
     pub header_include: String,
 }
-
 
 // Check if word is one of C++ keywords
 fn is_cpp_keyword(word: &str) -> bool {
@@ -57,7 +55,6 @@ fn ident(ident: &str) -> String {
     }
     new_ident
 }
-
 
 fn concatenate_ident(ident: &str) -> String {
     if ident.contains('-') {
@@ -2871,8 +2868,9 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let global_access = &ctx.generator_state.global_access;
             let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format!("global_{}", concatenate_ident(&global.name));
-            let name =
-            concatenate_ident(&ctx.compilation_unit.globals[*global_index].functions[*function_index].name);
+            let name = concatenate_ident(
+                &ctx.compilation_unit.globals[*global_index].functions[*function_index].name,
+            );
             format!("{global_access}->{global_id}->fn_{name}")
         }
     }
