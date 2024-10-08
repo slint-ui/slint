@@ -88,6 +88,43 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
     }
 }
 
+async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
+    use lsp_types::notification::Notification;
+
+    if ctx
+        .init_param
+        .capabilities
+        .workspace
+        .as_ref()
+        .and_then(|ws| ws.did_change_watched_files)
+        .and_then(|wf| wf.dynamic_registration)
+        .unwrap_or(false)
+    {
+        i_slint_core::debug_log!("Registering FS watchers");
+        let fs_watcher = lsp_types::DidChangeWatchedFilesRegistrationOptions {
+            watchers: vec![lsp_types::FileSystemWatcher {
+                glob_pattern: lsp_types::GlobPattern::String("**/*.slint".to_string()),
+                kind: Some(lsp_types::WatchKind::Change | lsp_types::WatchKind::Delete),
+            }],
+        };
+        ctx.server_notifier
+            .send_request::<lsp_types::request::RegisterCapability>(
+                lsp_types::RegistrationParams {
+                    registrations: vec![lsp_types::Registration {
+                        id: "slint.file_watcher.registration".to_string(),
+                        method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
+                        register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
+                    }],
+                },
+            )?
+            .await?;
+    } else {
+        i_slint_core::debug_log!("FS watchers NOT SUPPORTED!");
+    }
+
+    Ok(())
+}
+
 pub struct Context {
     pub document_cache: RefCell<DocumentCache>,
     pub preview_config: RefCell<common::PreviewConfig>,
@@ -572,6 +609,7 @@ pub async fn reload_document(
     version: Option<i32>,
     document_cache: &mut DocumentCache,
 ) -> common::Result<()> {
+    i_slint_core::debug_log!("RELOAD FILE: {url}");
     let lsp_diags =
         reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
@@ -583,6 +621,11 @@ pub async fn reload_document(
         )?;
     }
 
+    Ok(())
+}
+
+pub async fn trigger_file_watcher(_context: &Context, url: &lsp_types::Url) -> common::Result<()> {
+    i_slint_core::debug_log!("FILE CHANGED: {url}");
     Ok(())
 }
 
@@ -1087,6 +1130,11 @@ fn find_element_id_for_highlight(
         }
     }
     None
+}
+
+pub async fn startup_lsp(ctx: &Context) -> common::Result<()> {
+    register_file_watcher(ctx).await?;
+    load_configuration(ctx).await
 }
 
 pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
