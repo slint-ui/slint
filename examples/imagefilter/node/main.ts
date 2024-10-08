@@ -74,24 +74,9 @@ const filters = new Filters([
 
 mainWindow.filters = filters;
 
-// mainWindow.filter_image = function (index: number) {
-//     const filterFunction = filters.at(index).applyFunction;
-//     return filterFunction(mainWindow.original_image);
-// };
 mainWindow.filter_image = function (index: number) {
-    const start = performance.now();
-
     const filterFunction = filters.at(index).applyFunction;
-    const result = filterFunction(mainWindow.original_image);
-
-    const end = performance.now();
-    const executionTime = end - start;
-
-    console.log(
-        `Filter '${filters.at(index).name}' took ${executionTime.toFixed(2)} milliseconds to execute.`,
-    );
-
-    return result;
+    return filterFunction(mainWindow.original_image);
 };
 
 await mainWindow.run();
