@@ -214,8 +214,8 @@ window.initCodeMirror = function (editorDiv, language, content) {
         case 'slint':
             isReadOnly = false;
             extensions.push(javascript());
-            if (editorDiv.getAttribute("data-readonly")
-                || editorDiv.getAttribute("data-ignore"))
+            if (editorDiv.getAttribute("data-readonly") === 'True'
+                || editorDiv.getAttribute("data-ignore") === 'True')
                 break;
             previewContainer = document.createElement("div");
             previewContainer.classList.add('preview-container');
