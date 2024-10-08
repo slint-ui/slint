@@ -11,6 +11,8 @@ use i_slint_compiler::parser::{
     syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
 };
 use lsp_types::Url;
+use smol_str::{SmolStr, ToSmolStr};
+
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -62,7 +64,7 @@ pub struct DeclarationInformation {
 
 #[derive(Clone, Debug)]
 pub struct PropertyInformation {
-    pub name: String,
+    pub name: SmolStr,
     pub priority: u32,
     pub ty: Type,
     pub declared_at: Option<DeclarationInformation>,
@@ -70,14 +72,14 @@ pub struct PropertyInformation {
     pub defined_at: Option<DefinitionInformation>,
     /// Value of the property, which can be the default set from the base
     pub default_value: Option<Expression>,
-    pub group: String,
+    pub group: SmolStr,
     pub group_priority: u32,
 }
 
 #[derive(Clone, Debug)]
 pub struct ElementInformation {
-    pub id: String,
-    pub type_name: String,
+    pub id: SmolStr,
+    pub type_name: SmolStr,
     pub range: TextRange,
 }
 
@@ -99,13 +101,13 @@ fn get_reserved_properties<'a>(
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
     properties.filter(move |(_, t)| !matches!(t, Type::Callback { .. })).map(move |p| {
         PropertyInformation {
-            name: p.0.to_string(),
+            name: p.0.into(),
             priority: DEFAULT_PRIORITY,
             ty: p.1,
             declared_at: None,
             defined_at: None,
             default_value: None,
-            group: group.to_string(),
+            group: group.into(),
             group_priority,
         }
     })
@@ -152,7 +154,7 @@ fn add_element_properties(
             declared_at,
             defined_at: None,
             default_value: None,
-            group: group.to_string(),
+            group: group.into(),
             group_priority,
         })
     }))
@@ -543,9 +545,9 @@ fn get_element_information(element: &common::ElementRcNode) -> ElementInformatio
     let range = element.with_decorated_node(|node| util::node_range_without_trailing_ws(&node));
     let e = element.element.borrow();
     let type_name = if matches!(&e.base_type, ElementType::Builtin(b) if b.name == "Empty") {
-        String::new()
+        SmolStr::default()
     } else {
-        e.base_type.to_string()
+        e.base_type.to_smolstr()
     };
     ElementInformation { id: e.id.clone(), type_name, range }
 }

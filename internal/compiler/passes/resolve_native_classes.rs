@@ -6,6 +6,7 @@
 
 use std::collections::HashSet;
 use std::rc::Rc;
+use smol_str::SmolStr;
 
 use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{recurse_elem_including_sub_components, Component};
@@ -64,7 +65,7 @@ fn lookup_property_distance(mut class: Rc<NativeClass>, name: &str) -> (usize, R
 
 fn select_minimal_class_based_on_property_usage<'a>(
     class: &Rc<NativeClass>,
-    properties_used: impl Iterator<Item = &'a String>,
+    properties_used: impl Iterator<Item = &'a SmolStr>,
 ) -> Rc<NativeClass> {
     let mut minimal_class = class.clone();
     while let Some(class) = minimal_class.parent.clone() {

@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
+use smol_str::SmolStr;
 
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::{Element, ElementRc, PropertyAnalysis, PropertyVisibility};
@@ -129,7 +130,7 @@ impl NamedReference {
             .borrow()
             .property_analysis
             .borrow_mut()
-            .entry(self.name().to_owned())
+            .entry(self.name().into())
             .or_default()
             .is_set = true;
         mark_property_set_derived_in_base(element, self.name())
@@ -154,7 +155,7 @@ struct NamedReferenceInner {
     /// The element.
     element: Weak<RefCell<Element>>,
     /// The property name
-    name: String,
+    name: SmolStr,
 }
 
 impl NamedReferenceInner {
@@ -173,8 +174,8 @@ impl NamedReferenceInner {
         let result = if let Some(r) = named_references.get(name) {
             r.clone()
         } else {
-            let r = Rc::new(Self { element: Rc::downgrade(element), name: name.to_owned() });
-            named_references.insert(name.to_owned(), r.clone());
+            let r = Rc::new(Self { element: Rc::downgrade(element), name: name.into() });
+            named_references.insert(name.into(), r.clone());
             r
         };
         drop(named_references);
@@ -195,7 +196,7 @@ impl NamedReferenceInner {
 
 /// Must be put inside the Element and owns all the NamedReferenceInner
 #[derive(Default)]
-pub struct NamedReferenceContainer(RefCell<HashMap<String, Rc<NamedReferenceInner>>>);
+pub struct NamedReferenceContainer(RefCell<HashMap<SmolStr, Rc<NamedReferenceInner>>>);
 
 impl NamedReferenceContainer {
     /// Returns true if there is at least one NamedReference pointing to the property `name` in this element.
@@ -229,7 +230,7 @@ pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &s
             if element.borrow().property_declarations.contains_key(name) {
                 return;
             };
-            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
+            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.into()) {
                 std::collections::hash_map::Entry::Occupied(e) if e.get().is_set_externally => {
                     return;
                 }
@@ -255,7 +256,7 @@ pub(crate) fn mark_property_read_derived_in_base(mut element: ElementRc, name: &
             if element.borrow().property_declarations.contains_key(name) {
                 return;
             };
-            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
+            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.into()) {
                 std::collections::hash_map::Entry::Occupied(e) if e.get().is_read_externally => {
                     return;
                 }

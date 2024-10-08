@@ -6,6 +6,7 @@ use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::{BufWriter, Write};
+use smol_str::SmolStr;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Embedding {
@@ -118,7 +119,7 @@ fn main() -> std::io::Result<()> {
     }
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
-    compiler_config.translation_domain = args.translation_domain;
+    compiler_config.translation_domain = args.translation_domain.as_ref().map(|s| SmolStr::new(s.as_str()));
 
     // Override defaults from command line:
     if let Some(embed) = args.embed_resources {

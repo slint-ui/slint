@@ -11,6 +11,7 @@ use by_address::ByAddress;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use smol_str::SmolStr;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum InlineSelection {
@@ -456,11 +457,11 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
 /// Clone and increase the priority of a binding
 /// and duplicate its animation
 fn duplicate_binding(
-    (k, b): (&String, &RefCell<BindingExpression>),
+    (k, b): (&SmolStr, &RefCell<BindingExpression>),
     mapping: &mut Mapping,
     root_component: &Rc<Component>,
     priority_delta: i32,
-) -> (String, RefCell<BindingExpression>) {
+) -> (SmolStr, RefCell<BindingExpression>) {
     let b = b.borrow();
     let b = BindingExpression {
         expression: b.expression.clone(),

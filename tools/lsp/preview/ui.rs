@@ -10,6 +10,7 @@ use itertools::Itertools;
 use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
+use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
 use crate::preview::properties;
@@ -19,7 +20,7 @@ use crate::wasm_prelude::*;
 
 slint::include_modules!();
 
-pub type PropertyDeclarations = HashMap<String, PropertyDeclaration>;
+pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
@@ -569,7 +570,7 @@ fn map_property_definition(
 fn map_properties_to_ui(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
-) -> Option<(ElementInformation, HashMap<String, PropertyDeclaration>, PropertyGroupModel)> {
+) -> Option<(ElementInformation, HashMap<SmolStr, PropertyDeclaration>, PropertyGroupModel)> {
     use std::cmp::Ordering;
 
     let properties = &properties?;
@@ -579,13 +580,13 @@ fn map_properties_to_ui(
     let source_uri: SharedString = raw_source_uri.to_string().into();
     let source_version = properties.source_version;
 
-    let mut property_groups: HashMap<(String, u32), Vec<PropertyInformation>> = HashMap::new();
+    let mut property_groups: HashMap<(SmolStr, u32), Vec<PropertyInformation>> = HashMap::new();
 
     let mut declarations = HashMap::new();
 
     fn property_group_from(
-        groups: &mut HashMap<(String, u32), Vec<PropertyInformation>>,
-        name: String,
+        groups: &mut HashMap<(SmolStr, u32), Vec<PropertyInformation>>,
+        name: SmolStr,
         group_priority: u32,
         property: PropertyInformation,
     ) {
