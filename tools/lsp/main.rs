@@ -460,7 +460,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         DidChangeWatchedFiles::METHOD => {
             let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
             for fe in params.changes {
-                trigger_file_watcher(ctx, &fe.uri).await?;
+                trigger_file_watcher(ctx, fe.uri).await?;
             }
             Ok(())
         }

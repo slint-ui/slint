@@ -614,7 +614,7 @@ pub async fn open_document(
 
 pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     ctx.open_urls.borrow_mut().remove(&url);
-    Ok(())
+    invalidate_document(ctx, url).await
 }
 
 pub async fn reload_document(
@@ -638,9 +638,18 @@ pub async fn reload_document(
     Ok(())
 }
 
-pub async fn trigger_file_watcher(ctx: &Context, url: &lsp_types::Url) -> common::Result<()> {
-    if !ctx.open_urls.borrow().contains(url) {
-        // do nothing for now...
+pub async fn invalidate_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    // The preview cares about resources and slint files, so forward everything
+    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::InvalidateContents {
+        url: url.clone(),
+    });
+
+    ctx.document_cache.borrow_mut().drop_document(&url)
+}
+
+pub async fn trigger_file_watcher(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    if !ctx.open_urls.borrow().contains(&url) {
+        invalidate_document(ctx, url).await?;
     }
     Ok(())
 }

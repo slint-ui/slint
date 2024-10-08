@@ -847,6 +847,18 @@ impl TypeLoader {
         myself
     }
 
+    pub fn drop_document(&mut self, path: &Path) -> Result<(), std::io::Error> {
+        self.all_documents.docs.remove(path);
+        if self.all_documents.currently_loading.contains_key(path) {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("{path:?} is still loading"),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     /// Imports of files that don't have the .slint extension are returned.
     pub async fn load_dependencies_recursively<'a>(
         &'a mut self,
@@ -1016,6 +1028,17 @@ impl TypeLoader {
         }
     }
 
+    /// Read a file, taking the `CompilerConfiguration`s `open_import_fallback`
+    /// into account when necessary.
+    async fn read_file(&self, path: &Path) -> Result<String, std::io::Error> {
+        if let Some(fallback) = self.compiler_config.open_import_fallback.clone() {
+            let result = fallback(path.to_string_lossy().into()).await;
+            result.unwrap_or_else(|| std::fs::read_to_string(path))
+        } else {
+            std::fs::read_to_string(path)
+        }
+    }
+
     async fn ensure_document_loaded<'a: 'b, 'b>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         file_to_import: &'b str,
@@ -1097,14 +1120,8 @@ impl TypeLoader {
                 core::str::from_utf8(builtin)
                     .expect("internal error: embedded file is not UTF-8 source code"),
             ))
-        } else if let Some(fallback) = {
-            let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
-            fallback
-        } {
-            let result = fallback(path_canon.to_string_lossy().into()).await;
-            result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
         } else {
-            std::fs::read_to_string(&path_canon)
+            state.borrow().tl.read_file(&path_canon).await
         };
 
         let ok = match source_code_result {
