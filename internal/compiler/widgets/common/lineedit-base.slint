@@ -66,8 +66,8 @@ export component LineEditBase inherits Rectangle {
     text-input := TextInput {
         property <length> computed-x;
 
-        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
-        width: 100%;
+        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));  
+        width: max(parent.width - self.text-cursor-width, self.preferred-width);
         height: 100%;
         vertical-alignment: center;
         single-line: true;
