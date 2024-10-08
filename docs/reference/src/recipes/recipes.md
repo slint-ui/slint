@@ -447,7 +447,7 @@ export global Logic {
     // You can collect other global properties here
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalBox {
         input := LineEdit {
             text: "Text to be transformed";
