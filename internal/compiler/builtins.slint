@@ -183,6 +183,31 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+// Lowered to MenuBarImpl from the style
+component MenuBar {
+    //-is_non_item_type
+    //-disallow_global_types_as_child_elements
+    in property <[MenuEntry]> entries;
+
+    callback activated(MenuEntry);
+    callback sub-menu(MenuEntry) -> [MenuEntry];
+
+    // Currently experimental
+    //-is_internal
+}
+
+// Lowered to a call that generate a ContextMenuImpl
+export component ContextMenu {
+    function show() {}
+    //in property <[MenuEntry]> entries;
+    callback activated(MenuEntry);
+    callback sub-menu(MenuEntry) -> [MenuEntry];
+    //-default_size_binding:expands_to_parent_geometry
+
+    // Currently experimental
+    //-is_internal
+}
+
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
@@ -198,7 +223,9 @@ component WindowItem {
     in property <image> icon;
 }
 
-export component Window inherits WindowItem { }
+export component Window inherits WindowItem {
+    MenuBar {}
+}
 
 export component BoxShadow inherits Empty {
     in property <length> border_radius;
@@ -418,7 +445,7 @@ export component PopupWindow {
     in property <length> anchor_y;
     in property <length> anchor_height;
     in property <length> anchor_width;*/
-    in property <bool> close-on-click;      
+    in property <bool> close-on-click;
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
     //show() is hardcoded in typeregister.rs
 }

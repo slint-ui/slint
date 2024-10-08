@@ -62,6 +62,9 @@ pub struct Document {
 
     /// The list of used extra types used recursively.
     pub used_types: RefCell<UsedSubTypes>,
+
+    /// The popup_menu_impl
+    pub popup_menu_impl: Option<Rc<Component>>,
 }
 
 impl Document {
@@ -243,6 +246,7 @@ impl Document {
             exports,
             embedded_file_resources: Default::default(),
             used_types: Default::default(),
+            popup_menu_impl: None,
         }
     }
 
@@ -270,6 +274,9 @@ impl Document {
             v(&c);
         }
         for c in &used_types.globals {
+            v(c);
+        }
+        if let Some(c) = &self.popup_menu_impl {
             v(c);
         }
     }

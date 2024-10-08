@@ -43,6 +43,7 @@ inline void assert_main_thread()
 }
 
 using ItemTreeRc = vtable::VRc<cbindgen_private::ItemTreeVTable>;
+using slint::LogicalPosition;
 
 class WindowAdapterRc
 {
@@ -111,7 +112,7 @@ public:
                         cbindgen_private::ItemRc parent_item) const
     {
         auto popup = Component::create(parent_component);
-        cbindgen_private::Point p = pos(popup);
+        auto p = pos(popup);
         auto popup_dyn = popup.into_dyn();
         return cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
                                                            &parent_item);
@@ -122,6 +123,20 @@ public:
         if (popup_id > 0) {
             cbindgen_private::slint_windowrc_close_popup(&inner, popup_id);
         }
+    }
+
+    template<typename Component, typename SharedGlobals, typename InitFn>
+    uint32_t show_popup_menu(SharedGlobals *globals, LogicalPosition pos,
+                             cbindgen_private::ItemRc context_menu_rc, InitFn init) const
+    {
+        // if (cbindgen_private::slint_windowrc_show_native_context_menu(....)) { return }
+
+        auto popup = Component::create(globals);
+        init(&*popup);
+        auto popup_dyn = popup.into_dyn();
+        return cbindgen_private::slint_windowrc_show_popup(
+                &inner, &popup_dyn, pos, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
+                &context_menu_rc);
     }
 
     template<std::invocable<RenderingState, GraphicsAPI> F>

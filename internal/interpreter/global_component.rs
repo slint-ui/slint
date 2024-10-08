@@ -7,7 +7,9 @@ use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 use crate::api::Value;
-use crate::dynamic_item_tree::{ErasedItemTreeBox, ErasedItemTreeDescription};
+use crate::dynamic_item_tree::{
+    ErasedItemTreeBox, ErasedItemTreeDescription, PopupMenuDescription,
+};
 use crate::SetPropertyError;
 use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
@@ -317,8 +319,14 @@ fn generate(component: &Rc<Component>) -> CompiledGlobal {
         ElementType::Global => {
             generativity::make_guard!(guard);
             CompiledGlobal::Component {
-                component: crate::dynamic_item_tree::generate_item_tree(component, None, guard)
-                    .into(),
+                component: crate::dynamic_item_tree::generate_item_tree(
+                    component,
+                    None,
+                    PopupMenuDescription::Weak(Default::default()),
+                    false,
+                    guard,
+                )
+                .into(),
                 public_properties: Default::default(),
             }
         }

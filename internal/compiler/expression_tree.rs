@@ -43,6 +43,7 @@ pub enum BuiltinFunction {
     ClearFocusItem,
     ShowPopupWindow,
     ClosePopupWindow,
+    ShowPopupMenu,
     SetSelectionOffsets,
     /// A function that belongs to an item (such as TextInput's select-all function).
     ItemMemberFunction(SmolStr),
@@ -156,6 +157,7 @@ declare_builtin_function_types!(
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
     ClosePopupWindow: (Type::ElementReference) -> Type::Void,
+    ShowPopupMenu: (Type::ElementReference, Type::Model, crate::typeregister::logical_point_type()) -> Type::Void,
     ItemMemberFunction(..): (Type::ElementReference) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
     ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
@@ -264,7 +266,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::ShowPopupWindow
+            | BuiltinFunction::ClosePopupWindow
+            | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
@@ -331,7 +335,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::ShowPopupWindow
+            | BuiltinFunction::ClosePopupWindow
+            | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => true,

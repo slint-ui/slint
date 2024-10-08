@@ -399,6 +399,7 @@ impl TypeRegister {
             ($pub_type:ident, i32) => { Type::Int32 };
             ($pub_type:ident, f32) => { Type::Float32 };
             ($pub_type:ident, SharedString) => { Type::String };
+            ($pub_type:ident, Image) => { Type::Image };
             ($pub_type:ident, Coord) => { Type::LogicalLength };
             ($pub_type:ident, KeyboardModifiers) => { $pub_type.clone() };
             ($pub_type:ident, $_:ident) => {
@@ -467,6 +468,19 @@ impl TypeRegister {
 
                 popup.properties.get_mut("close-policy").unwrap().property_visibility =
                     PropertyVisibility::Constexpr;
+            }
+
+            _ => unreachable!(),
+        };
+
+        match &mut register.elements.get_mut("ContextMenu").unwrap() {
+            ElementType::Builtin(ref mut b) => {
+                let b = Rc::get_mut(b).unwrap();
+                b.properties.insert(
+                    "show".into(),
+                    BuiltinPropertyInfo::new(Type::Function(BuiltinFunction::ShowPopupMenu.ty())),
+                );
+                b.member_functions.insert("show".into(), BuiltinFunction::ShowPopupMenu);
             }
 
             _ => unreachable!(),

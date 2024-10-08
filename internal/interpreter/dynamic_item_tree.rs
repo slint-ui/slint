@@ -14,6 +14,7 @@ use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
+use i_slint_core::api::LogicalPosition;
 use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::item_tree::{
     IndexRange, ItemTree, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
@@ -43,6 +44,7 @@ use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::num::NonZeroU32;
+use std::rc::Weak;
 use std::{pin::Pin, rc::Rc};
 
 pub const SPECIAL_PROPERTY_INDEX: &str = "$index";
@@ -415,6 +417,8 @@ pub struct ItemTreeDescription<'id> {
     /// Map of element IDs to their active popup's ID
     popup_ids: std::cell::RefCell<HashMap<SmolStr, NonZeroU32>>,
 
+    pub(crate) popup_menu_description: PopupMenuDescription,
+
     /// The collection of compiled globals
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
 
@@ -428,6 +432,20 @@ pub struct ItemTreeDescription<'id> {
     #[cfg(feature = "highlight")]
     pub(crate) raw_type_loader:
         std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
+}
+
+#[derive(Clone, derive_more::From)]
+pub(crate) enum PopupMenuDescription {
+    Rc(Rc<ErasedItemTreeDescription>),
+    Weak(Weak<ErasedItemTreeDescription>),
+}
+impl PopupMenuDescription {
+    pub fn unerase<'id>(&self, guard: generativity::Guard<'id>) -> Rc<ItemTreeDescription<'id>> {
+        match self {
+            PopupMenuDescription::Rc(rc) => rc.unerase(guard).clone(),
+            PopupMenuDescription::Weak(weak) => weak.upgrade().unwrap().unerase(guard).clone(),
+        }
+    }
 }
 
 fn internal_properties_to_public<'a>(
@@ -890,10 +908,31 @@ pub async fn load(
     let compiled_globals = Rc::new(CompiledGlobalCollection::compile(doc));
     let mut components = HashMap::new();
 
+    let popup_menu_description = if let Some(popup_menu_impl) = &doc.popup_menu_impl {
+        PopupMenuDescription::Rc(Rc::new_cyclic(|weak| {
+            generativity::make_guard!(guard);
+            ErasedItemTreeDescription::from(generate_item_tree(
+                popup_menu_impl,
+                Some(compiled_globals.clone()),
+                PopupMenuDescription::Weak(weak.clone()),
+                true,
+                guard,
+            ))
+        }))
+    } else {
+        PopupMenuDescription::Weak(Default::default())
+    };
+
     for c in doc.exported_roots() {
         generativity::make_guard!(guard);
         #[allow(unused_mut)]
-        let mut it = generate_item_tree(&c, Some(compiled_globals.clone()), guard);
+        let mut it = generate_item_tree(
+            &c,
+            Some(compiled_globals.clone()),
+            popup_menu_description.clone(),
+            false,
+            guard,
+        );
         #[cfg(feature = "highlight")]
         {
             let _ = it.type_loader.set(loader.clone());
@@ -966,6 +1005,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Rotate>(),
             rtti_for::<Opacity>(),
             rtti_for::<Layer>(),
+            rtti_for::<ContextMenu>(),
         ]
         .iter()
         .cloned(),
@@ -996,6 +1036,8 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
 pub(crate) fn generate_item_tree<'id>(
     component: &Rc<object_tree::Component>,
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
+    popup_menu_description: PopupMenuDescription,
+    is_popup_menu_impl: bool,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
     //dbg!(&*component.root_element.borrow());
@@ -1014,6 +1056,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
         repeater_names: HashMap<SmolStr, usize>,
         change_callbacks: Vec<(NamedReference, Expression)>,
+        popup_menu_description: PopupMenuDescription,
     }
     impl<'id> generator::ItemTreeBuilder for TreeBuilder<'id> {
         type SubComponentState = ();
@@ -1033,7 +1076,13 @@ pub(crate) fn generate_item_tree<'id>(
             generativity::make_guard!(guard);
             self.repeater.push(
                 RepeaterWithinItemTree {
-                    item_tree_to_repeat: generate_item_tree(base_component, None, guard),
+                    item_tree_to_repeat: generate_item_tree(
+                        base_component,
+                        None,
+                        self.popup_menu_description.clone(),
+                        false,
+                        guard,
+                    ),
                     offset: self.type_builder.add_field_type::<Repeater<ErasedItemTreeBox>>(),
                     model: item.repeated.as_ref().unwrap().model.clone(),
                 }
@@ -1126,6 +1175,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater: vec![],
         repeater_names: HashMap::new(),
         change_callbacks: vec![],
+        popup_menu_description,
     };
 
     if !component.is_global() {
@@ -1272,11 +1322,12 @@ pub(crate) fn generate_item_tree<'id>(
         }
     }
 
-    let parent_item_tree_offset = if component.parent_element.upgrade().is_some() {
-        Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
-    } else {
-        None
-    };
+    let parent_item_tree_offset =
+        if component.parent_element.upgrade().is_some() || is_popup_menu_impl {
+            Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
+        } else {
+            None
+        };
 
     let root_offset = builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>();
 
@@ -1345,6 +1396,7 @@ pub(crate) fn generate_item_tree<'id>(
         change_trackers,
         timers,
         popup_ids: std::cell::RefCell::new(HashMap::new()),
+        popup_menu_description: builder.popup_menu_description,
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "highlight")]
@@ -2340,7 +2392,7 @@ pub fn show_popup(
     element: ElementRc,
     instance: InstanceRef,
     popup: &object_tree::PopupWindow,
-    pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> i_slint_core::graphics::Point,
+    pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> LogicalPosition,
     close_policy: PopupClosePolicy,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
@@ -2348,7 +2400,13 @@ pub fn show_popup(
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
-    let compiled = generate_item_tree(&popup.component, None, guard);
+    let compiled = generate_item_tree(
+        &popup.component,
+        None,
+        parent_comp.upgrade().unwrap().0.description().popup_menu_description.clone(),
+        false,
+        guard,
+    );
     let inst = instantiate(
         compiled,
         Some(parent_comp),
