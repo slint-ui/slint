@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 import resolve from '@rollup/plugin-node-resolve';
 
 export default {
