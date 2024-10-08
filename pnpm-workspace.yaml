@@ -5,3 +5,4 @@ packages:
   - "editors/vscode"
   - "tools/slintpad"
   - "examples/printerdemo/node"
+  - "examples/imagefilter/node"
