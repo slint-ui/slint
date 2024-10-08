@@ -243,8 +243,7 @@ The quickstart and DSL docs are written in markdown and built with Sphinx, using
 Use the following command line to build the documentation using `rustdoc` to the `target/slintdocs/html` folder:
 
 ```shell
-npm install --prefix docs/editor
-cd docs/editor && npx rollup codemirror.js -f iife -o ../reference/_static/cm6.bundle.js -p @rollup/plugin-node-resolve --output.name cm6
+docs/editor/build_module.sh
 cargo xtask slintdocs --show-warnings
 ```
 
