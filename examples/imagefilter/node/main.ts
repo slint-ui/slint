@@ -35,7 +35,7 @@ class Filters extends slint.Model<string> {
     }
 
     rowData(row: number): string | undefined {
-        return this.#filters[row]?.name ?? undefined;
+        return this.#filters[row]?.name;
     }
 
     setRowData(row: number, data: string): void {
