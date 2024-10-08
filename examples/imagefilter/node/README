@@ -1,8 +1,8 @@
 Run with
 
 # pushd ../../../api/node
-# npm install
-# npm run compile
+# pnpm install
+# pnpm run compile
 # popd
-# npm install
-# npm start
+# pnpm install --ignore-scripts
+# pnpm start
