@@ -773,6 +773,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`cursor-position-changed(Point)`**: The cursor was moved to the new (x, y) position
     described by the [_`Point`_](structs.md#point) argument.
 -   **`edited()`**: Invoked when the text has changed because the user modified it.
+-   **`selected()`**: Invoked when mouse key is released if at least one character selected or when text was selected by keyboard shortcuts.
 
 ### Example
 
