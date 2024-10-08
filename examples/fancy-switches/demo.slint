@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { DarkModeSwitch } from "DarkModeSwitch.slint";
+import { SunMoonSwitch } from "SunMoonSwitch.slint";
+
+export component AppWindow inherits Window {
+    preferred-width: 600px;
+    preferred-height: 450px;
+    background: #e3e3e3;
+
+    DarkModeSwitch { 
+        x: 200px;
+        y: 100px;
+    }
+
+    SunMoonSwitch {
+        x: 200px;
+        y: 250px;
+        scale: 1;
+    }
+}
