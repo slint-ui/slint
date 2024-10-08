@@ -38,7 +38,7 @@ class Filters extends slint.Model<string> {
         return this.#filters[row].name;
     }
 
-    setRowData(row: number, data: string): boolean {
+    setRowData(row: number, data: string): void {
         // not needed for this example
         throw new Error("Method not implemented.");
     }
