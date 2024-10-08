@@ -270,10 +270,11 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let row = self.row;
-        if self.row < self.model.row_count() {
-            self.row += 1;
+        if self.row >= self.model.row_count() {
+            return None;
         }
+        let row = self.row;
+        self.row += 1;
         self.model.row_data(row)
     }
 
@@ -1471,5 +1472,40 @@ mod tests {
         assert!(view.removed_rows.borrow().is_empty());
         assert_eq!(*view.reset.borrow(), 0);
         view.clear();
+    }
+
+    #[test]
+    fn modeliter_in_bounds() {
+        struct TestModel {
+            length: usize,
+            max_requested_row: Cell<usize>,
+            notify: ModelNotify,
+        }
+
+        impl Model for TestModel {
+            type Data = usize;
+
+            fn row_count(&self) -> usize {
+                self.length
+            }
+
+            fn row_data(&self, row: usize) -> Option<usize> {
+                self.max_requested_row.set(self.max_requested_row.get().max(row));
+                (row < self.length).then(|| row)
+            }
+
+            fn model_tracker(&self) -> &dyn ModelTracker {
+                &self.notify
+            }
+        }
+
+        let model = Rc::new(TestModel {
+            length: 10,
+            max_requested_row: Cell::new(0),
+            notify: Default::default(),
+        });
+
+        assert_eq!(model.iter().max().unwrap(), 9);
+        assert_eq!(model.max_requested_row.get(), 9);
     }
 }
