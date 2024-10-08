@@ -55,7 +55,7 @@ assert_eq!(instance.get_test_text(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "Test");
 assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
-assert!(!instanse.get_selected_callback_invoked());
+assert!(!instance.get_selected_callback_invoked());
 
 slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
 slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
