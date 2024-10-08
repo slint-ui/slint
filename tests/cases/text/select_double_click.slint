@@ -27,13 +27,13 @@ assert_eq!(instance.get_test_text(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "Hello World");
 assert_eq!(instance.get_test_text(), "Hello World");
 assert!(!instance.get_has_selection());
-assert!(!instanse.get_selected_callback_invoked());
+assert!(!instance.get_selected_callback_invoked());
 
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(10.0, 6.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(10.0, 6.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(10.0, 6.0), button: PointerEventButton::Left });
 assert!(instance.get_has_selection());
-assert!(instanse.get_selected_callback_invoked());
+assert!(instance.get_selected_callback_invoked());
 assert_eq!(instance.get_test_cursor_pos(), 5);
 assert_eq!(instance.get_test_anchor_pos(), 0);
 slint_testing::send_keyboard_string_sequence(&instance, "-");
