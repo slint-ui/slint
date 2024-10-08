@@ -66,3 +66,35 @@ div.cm-activeLine {
 div.cm-focused div.cm-activeLine {
     background: rgba(255, 255, 255, 0.1) !important;
 }
+
+.cm-status-panel {
+    padding: 4px;
+    border-top: 1px solid #ccc;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.cm-status-panel button {
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* CSS to limit the height and enable scrollbars */
+.codemirror-editor {
+    border: 1px solid #ccc; /* Optional: Add a border around the editor */
+}
+
+.cm-editor {
+    max-height: 400px;
+    overflow: auto;
+}
+
+.show-preview {
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-container {
+    display: flex;
+    justify-content: center;
+}
