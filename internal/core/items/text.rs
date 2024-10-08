@@ -683,7 +683,7 @@ impl Item for TextInput {
                                 self_rc,
                             );
 
-                            if event.modifiers.shift {
+                            if event.modifiers.shift && self.anchor_position_byte_offset() != self.cursor_position_byte_offset() {
                                 Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
                             }
 
