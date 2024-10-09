@@ -17,7 +17,7 @@ A button that, when clicked, opens a popup to select a value.
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { ComboBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

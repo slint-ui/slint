@@ -26,7 +26,7 @@ Layout elements express geometric relationships between elements.
 The following example places two rectangles into a window, a blue one and
 a green one. The green rectangle is a child of the blue:
 
-```slint
+```{codemirror} slint
 // Explicit positioning
 export component Example inherits Window {
     width: 200px;
@@ -96,7 +96,7 @@ The preferred size is therefore computed from the child to the parent, just like
 A special case is to set the preferred size to be the size of the parent using `100%` as value.
 For example, this component uses the size of the parent by default:
 
-```slint
+```{codemirror} slint
 export component MyComponent {
     preferred-width: 100%;
     preferred-height: 100%;
@@ -163,7 +163,7 @@ can adjust the element's alignment as needed.
 The following example places the blue and yellow rectangle in a row and evenly stretched
 across the 200 logical pixels of `width`:
 
-```slint
+```{codemirror} slint
 // Stretch by default
 export component Example inherits Window {
     width: 200px;
@@ -179,7 +179,7 @@ The example below, on the other hand, specifies that the rectangles align
 to the start of the layout (the visual left). That results in no stretching but instead
 the rectangles retain their specified minimum width:
 
-```slint
+```{codemirror} slint
 // Unless an alignment is specified
 export component Example inherits Window {
     width: 200px;
@@ -194,7 +194,7 @@ export component Example inherits Window {
 
 The example below nests two layouts for a more complex scene:
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     width: 200px;
     height: 200px;
@@ -237,7 +237,7 @@ is bigger than the minimum size only if the `alignment` property of the layout i
 
 This example show the different alignment possibilities:
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     width: 300px;
     height: 200px;
@@ -300,7 +300,7 @@ factor of 0 or reached their maximum size.
 
 Examples:
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     width: 300px;
     height: 200px;
@@ -336,7 +336,7 @@ export component Example inherits Window {
 
 The VerticalLayout and HorizontalLayout can also contain `for` or `if` expressions:
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     width: 200px;
     height: 50px;
@@ -361,7 +361,7 @@ isn't allowed in a grid layout.
 
 This example use the `Row` element
 
-```slint
+```{codemirror} slint
 export component Foo inherits Window {
     width: 200px;
     height: 200px;
@@ -381,7 +381,7 @@ export component Foo inherits Window {
 
 This example use the `col` and `row` property:
 
-```slint
+```{codemirror} slint
 export component Foo inherits Window {
     width: 200px;
     height: 150px;

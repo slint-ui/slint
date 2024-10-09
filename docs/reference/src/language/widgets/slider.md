@@ -17,7 +17,7 @@
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { Slider } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

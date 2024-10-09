@@ -15,7 +15,7 @@ instructs the Slint compiler to include the font and makes the font families glo
 
 For example:
 
-```slint,ignore
+```{codemirror} slint,ignore
 import "./NotoSans-Regular.ttf";
 
 export component Example inherits Window {

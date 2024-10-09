@@ -5,25 +5,25 @@ Callback handlers may contain complex statements:
 
 Assignment:
 
-```slint,ignore
+```{codemirror} slint,ignore
 clicked => { some-property = 42; }
 ```
 
 Self-assignment with `+=` `-=` `*=` `/=`
 
-```slint,ignore
+```{codemirror} slint,ignore
 clicked => { some-property += 42; }
 ```
 
 Calling a callback
 
-```slint,ignore
+```{codemirror} slint,ignore
 clicked => { root.some-callback(); }
 ```
 
 Conditional statements
 
-```slint,ignore
+```{codemirror} slint,ignore
 clicked => {
     if (condition) {
         foo = 42;
@@ -37,7 +37,7 @@ clicked => {
 
 Empty expression
 
-```slint,ignore
+```{codemirror} slint,ignore
 clicked => { }
 // or
 clicked => { ; }

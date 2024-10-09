@@ -16,7 +16,7 @@ Use a `CheckBox` to let the user select or deselect values, for example in a lis
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { CheckBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

@@ -16,7 +16,7 @@ The _id_ is also optional.
 
 ## Examples
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     preferred-width: 300px;
     preferred-height: 100px;
@@ -29,7 +29,7 @@ export component Example inherits Window {
 }
 ```
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;

@@ -7,7 +7,7 @@ Every element implicitly declares an `init` callback. You can assign a code bloc
 element is instantiated and after all properties are initialized with the value of their final binding. The order of
 invocation is from inside to outside. The following example will print "first", then "second", and then "third":
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 component MyButton inherits Rectangle {
     in-out property <string> text: "Initial";
     init => {
@@ -40,7 +40,7 @@ you _can_ bind these in the backend, this doesn't work for statically-created co
 the window itself, because you need an instance to set the globals binding. But it is possible
 to use this for dynamically created components (for example ones behind an `if`):
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export global SystemService  {
     // This callback can be implemented in native code using the Slint API
     callback ensure_service_running();

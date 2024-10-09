@@ -16,7 +16,7 @@ Same as [`ScrollView`](#scrollview)
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { ListView } from "std-widgets.slint";
 export component Example inherits Window {
     width: 150px;

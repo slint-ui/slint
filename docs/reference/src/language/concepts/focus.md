@@ -8,7 +8,7 @@ these events, it must have focus. This is visible through the `has-focus` (out) 
 <!-- (out)? -->
 You can manually activate the focus on an element by calling `focus()`:
 
-```slint
+```{codemirror} slint
 import { Button } from "std-widgets.slint";
 
 export component App inherits Window {
@@ -27,7 +27,7 @@ export component App inherits Window {
 
 Similarly, you can manually clear the focus on an element that's currently focused, by calling `clear-focus()`:
 
-```slint
+```{codemirror} slint
 import { Button } from "std-widgets.slint";
 
 export component App inherits Window {
@@ -51,7 +51,7 @@ pressing tab and the first focusable element is found.
 If you have wrapped the `TextInput` in a component, then you can forward such a focus activation
 using the `forward-focus` property to refer to the element that should receive it:
 
-```slint
+```{codemirror} slint
 import { Button } from "std-widgets.slint";
 
 component LabeledInput inherits GridLayout {

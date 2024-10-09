@@ -17,7 +17,7 @@ it can used one of the pre-defined `kind` and the text and icon will depend on t
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { StandardButton, VerticalBox } from "std-widgets.slint";
 export component Example inherits Window {
   VerticalBox {

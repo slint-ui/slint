@@ -17,7 +17,7 @@ Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/P
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { TimePickerPopup, Button } from "std-widgets.slint";
 export component Example inherits Window {
     width: 600px;

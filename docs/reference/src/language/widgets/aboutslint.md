@@ -3,7 +3,7 @@
 
 This element displays a "Made with Slint" badge.
 
-```slint
+```{codemirror} slint
 import { AboutSlint } from "std-widgets.slint";
 export component Example inherits Window {
     height: 175px;

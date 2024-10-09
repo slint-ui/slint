@@ -28,7 +28,7 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { StandardTableView } from "std-widgets.slint";
 export component Example inherits Window {
     width: 230px;

@@ -7,7 +7,7 @@ Components declared in a `.slint` file can be used as elements in other
 By default, every type declared in a `.slint` file is private. The `export`
 keyword changes this.
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 component ButtonHelper inherits Rectangle {
     // ...
 }
@@ -28,7 +28,7 @@ In the above example, `Button` is accessible from other `.slint` files, but
 It's also possible to change the name just for the purpose of exporting, without
 affecting its internal use:
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 component Button inherits Rectangle {
     // ...
 }
@@ -42,7 +42,7 @@ is available under the name `ColorButton` instead.
 For convenience, a third way of exporting a component is to declare it exported
 right away:
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export component Button inherits Rectangle {
     // ...
 }
@@ -50,7 +50,7 @@ export component Button inherits Rectangle {
 
 Similarly, components exported from other files may be imported:
 
-```slint,ignore
+```{codemirror} slint,ignore
 import { Button } from "./button.slint";
 
 export component App inherits Rectangle {
@@ -64,7 +64,7 @@ export component App inherits Rectangle {
 In the event that two files export a type under the same name, then you have the option
 of assigning a different name at import time:
 
-```slint,ignore
+```{codemirror} slint,ignore
 import { Button } from "./button.slint";
 import { Button as CoolButton } from "../other_theme/button.slint";
 
@@ -80,7 +80,7 @@ Elements, globals and structs can be exported and imported.
 It's also possible to export globals (see [Global Singletons](globals.md)) imported from
 other files:
 
-```slint,ignore
+```{codemirror} slint,ignore
 import { Logic as MathLogic } from "math.slint";
 export { MathLogic } // known as "MathLogic" when using native APIs to access globals
 ```
@@ -89,7 +89,7 @@ export { MathLogic } // known as "MathLogic" when using native APIs to access gl
 
 The following syntax is supported for importing types:
 
-```slint,ignore
+```{codemirror} slint,ignore
 import { export1 } from "module.slint";
 import { export1, export2 } from "module.slint";
 import { export1 as alias1 } from "module.slint";
@@ -98,7 +98,7 @@ import { export1, export2 as alias2, /* ... */ } from "module.slint";
 
 The following syntax is supported for exporting types:
 
-```slint,ignore
+```{codemirror} slint,ignore
 // Export declarations
 export component MyButton inherits Rectangle { /* ... */ }
 
@@ -122,7 +122,7 @@ well within a project's own directory structure. To share libraries of
 components between projects without hardcoding their relative paths, use
 the component library syntax:
 
-```slint,ignore
+```{codemirror} slint,ignore
 import { MySwitch } from "@mylibrary/switch.slint";
 import { MyButton } from "@otherlibrary";
 ```

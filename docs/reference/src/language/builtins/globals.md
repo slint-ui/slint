@@ -24,7 +24,7 @@ the selected style e.g. fluent, cupertino, material, or qt.
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { Palette, HorizontalBox } from "std-widgets.slint";
 
 export component MyCustomWidget {
@@ -53,7 +53,7 @@ If you're implementing your own virtual keyboard, this property is an indicator 
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { LineEdit } from "std-widgets.slint";
 
 component VKB {
