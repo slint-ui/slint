@@ -6,7 +6,7 @@ import resolve from '@rollup/plugin-node-resolve';
 export default {
     input: 'codemirror.js',  // Adjust to your entry file
     output: {
-        file: '../reference/_static/cm6.bundle.js',
+        file: '../../target/slintdocs/_static/cm6.bundle.js',
         format: 'iife',  // Use IIFE format for browser compatibility
         name: 'cm6',  // Name for the global variable
     },

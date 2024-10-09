@@ -112,7 +112,6 @@ jobs:
                 fi
                 sed -i "s/\$TYPESENSE_SERVER_PORT/443/g" "$searchbox_html"
                 sed -i "s/\$TYPESENSE_SERVER_URL/typesense.slint.dev/g" "$searchbox_html"
-                docs/editor/build_module.sh
                 cargo xtask slintdocs --show-warnings
             - name: "Node docs"
               run: |
