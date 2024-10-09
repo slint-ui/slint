@@ -648,6 +648,19 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
                 | Expression::PropertyReference(nr) => {
                     de_normalize_property_name_with_element(&nr.element(), str).into_owned()
                 }
+                Expression::ElementReference(e) => e
+                    .upgrade()
+                    .and_then(|e| e.borrow().debug.first().and_then(|d| d.node.parent()))
+                    .and_then(|n| match n.kind() {
+                        SyntaxKind::SubElement => n.child_text(SyntaxKind::Identifier),
+                        // global
+                        SyntaxKind::Component => n
+                            .child_node(SyntaxKind::DeclaredIdentifier)
+                            .and_then(|n| n.child_text(SyntaxKind::Identifier)),
+                        _ => None,
+                    })
+                    .filter(|x| i_slint_compiler::parser::normalize_identifier(x) == str)
+                    .map_or_else(|| str.to_string(), |t| t.to_string()),
                 _ => str.to_string(),
             };
 
@@ -968,11 +981,11 @@ mod tests {
     fn in_expression() {
         let with_semi = r#"
             component Bar inherits Text { nope := Rectangle {} property <string> red; }
-            global Glib { property <int> gama; }
+            global The_Glib { property <int> gama; }
             component Foo {
                 property <int> alpha;
                 pure function funi() {}
-                bobo := Bar {
+                the_bo-bo := Bar {
                     property <int> beta;
                     width: 🔺;
                 }
@@ -980,11 +993,11 @@ mod tests {
         "#;
         let without_semi = r#"
             component Bar inherits Text { nope := Rectangle {} property <string> red; }
-            global Glib { property <int> gama; }
+            global The_Glib { property <int> gama; }
             component Foo {
                 property <int> alpha;
                 pure function funi() {}
-                bobo := Bar {
+                the_bo-bo := Bar {
                     property <int> beta;
                     width: 🔺
                 }
@@ -995,11 +1008,11 @@ mod tests {
             res.iter().find(|ci| ci.label == "alpha").unwrap();
             res.iter().find(|ci| ci.label == "beta").unwrap();
             res.iter().find(|ci| ci.label == "funi").unwrap();
-            res.iter().find(|ci| ci.label == "Glib").unwrap();
+            res.iter().find(|ci| ci.label == "The_Glib").unwrap();
             res.iter().find(|ci| ci.label == "Colors").unwrap();
             res.iter().find(|ci| ci.label == "Math").unwrap();
             res.iter().find(|ci| ci.label == "animation-tick").unwrap();
-            res.iter().find(|ci| ci.label == "bobo").unwrap();
+            res.iter().find(|ci| ci.label == "the_bo-bo").unwrap();
             res.iter().find(|ci| ci.label == "true").unwrap();
             res.iter().find(|ci| ci.label == "self").unwrap();
             res.iter().find(|ci| ci.label == "root").unwrap();
