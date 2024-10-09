@@ -13,6 +13,7 @@ members = [
     'docs/reference/src/quickstart',
     'examples/7guis',
     'examples/gallery',
+    'examples/material-gallery',
     'examples/imagefilter/rust',
     'examples/maps',
     'examples/memory',
@@ -70,7 +71,7 @@ members = [
 default-members = [
     'api/rs/build',
     'api/rs/slint',
-    'examples/gallery',
+    'examples/material-gallery',
     'examples/memory',
     'examples/printerdemo_old/rust',
     'examples/printerdemo/rust',
