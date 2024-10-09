@@ -537,7 +537,7 @@ impl ItemConsts for SwipeGestureHandler {
 }
 
 impl SwipeGestureHandler {
-    pub fn copy(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
+    pub fn cancel(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
         self.cancel_impl();
     }
 
@@ -551,4 +551,17 @@ impl SwipeGestureHandler {
             Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
         }
     }
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
+    s: Pin<&SwipeGestureHandler>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    s.cancel(window_adapter, &self_rc);
 }
