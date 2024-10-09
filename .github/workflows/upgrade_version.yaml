@@ -42,6 +42,9 @@ jobs:
                   # Version in the docs (cargo add slint@<VERSION>):
                   git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | xargs sed -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
 
+                  # Version in the docs (codemirror.js and rollup.config.js):
+                  sed -i 's/[0-9]\+\.[0-9]\+\.[0-9]\+/${{ github.event.inputs.new_version }}/' docs/editor/codemirror.js docs/editor/rollup.config.js
+
                   # Version in esp-idf component
                   sed -i 's/^version: "[0-9]*\.[0-9]*\.[0-9]*.*"/version: "${{ github.event.inputs.new_version }}"/' api/cpp/esp-idf/slint/idf_component.yml
                   sed -i 's/GIT_TAG v[0-9]*\.[0-9]*\.[0-9]*/GIT_TAG v${{ github.event.inputs.new_version }}/' api/cpp/esp-idf/slint/CMakeLists.txt

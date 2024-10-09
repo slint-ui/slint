@@ -14,6 +14,6 @@ export default {
         resolve()  // Helps Rollup find external modules
     ],
     external: [
-        'https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js' // Mark as external
+        'https://releases.slint.dev/1.9.0/wasm-interpreter/slint_wasm_interpreter.js' // Mark as external
     ]
 };

@@ -19,9 +19,7 @@ import { cpp } from '@codemirror/lang-cpp';
 import { languageNameFacet } from './language-facets';
 import { previewFacet } from './preview-facets';
 
-
-//const editor_url = "https://releases.slint.dev/0.x.0/editor/";
-const editor_url = "https://snapshots.slint.dev/master/editor/";
+const editor_url = "https://releases.slint.dev/1.9.0/editor/";
 
 // Function to create the Copy button and add it to the panel
 function createCopyButton(view) {
@@ -138,7 +136,7 @@ async function initializePreviewContainers(slint, previewContainer, content) {
 async function loadSlintWasmInterpreter(editor) {
     try {
         // Dynamically import the Slint WASM module
-        const slint = await import('https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js');
+        const slint = await import('https://releases.slint.dev/1.9.0/wasm-interpreter/slint_wasm_interpreter.js');
         await slint.default(); // Wait for WASM to initialize
 
         const editorDiv_id = editor.state.facet(previewFacet);
