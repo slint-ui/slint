@@ -1,36 +1,36 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-component SunRayThick {
+export component RayThick {
+    in-out property colorize <=> i.colorize;
+    in-out property rotation <=> i.rotation-angle;
     width: 0px;
     height: 0px;
-    in property <angle> rotation <=> i.rotation-angle;
-    in property <brush> color <=> i.colorize;
-    Rectangle {
-        property <length> sizeMultiplyer: 0.7px;
-        i := Image {
-            source: @image-url("images/line2.svg");
-            width: self.source.width * sizeMultiplyer * 0.8;
-            height: self.source.height * sizeMultiplyer;
-            colorize: red;
-        }
+
+    i := Image {
+        property <length> sizeMultiplyer: 0.3px;
+        width: self.source.width * sizeMultiplyer * 0.8;
+        height: self.source.height * sizeMultiplyer * 1;
+        source: @image-url("images/line.png");
     }
+    
 }
 
-component SunRayThin {
+export component RayThin {
+    in-out property colorize <=> i.colorize;
+    in-out property rotation <=> i.rotation-angle;
     width: 0px;
     height: 0px;
-    in property <angle> rotation <=> i.rotation-angle;
-    in property <brush> color <=> i.colorize;
-    Rectangle {
-        i := Image {
-            property <length> sizeMultiplyer: 0.6px;
-            source: @image-url("images/line2.svg");
-            width: self.source.width * sizeMultiplyer * 0.6;
-            height: self.source.height * sizeMultiplyer;
-        }
+
+    i := Image {
+        property <length> sizeMultiplyer: 0.25px;
+        width: self.source.width * sizeMultiplyer * 0.6;
+        height: self.source.height * sizeMultiplyer;
+        source: @image-url("images/line.png");
     }
-} 
+    
+}
+
 
 component SunIcon {
     property <int> rays: 4;
@@ -51,17 +51,17 @@ component SunIcon {
             border-color: root.color;
             border-width: 5px;
         }
-        for i in rays: SunRayThick {
+        for i in rays: RayThick {
             property <angle> angle: i * 360deg / rays;
-            color: root.color;
+            colorize: root.color;
             x: (sun-size / 2 + gap) * scale * angle.cos();
             y: (sun-size / 2 + gap) * scale * angle.sin();
             
             rotation: angle;
         }
-        for i in rays: SunRayThin {
+        for i in rays: RayThin {
             property <angle> angle: i * (360deg / rays) + 45deg;
-            color: root.color;
+            colorize: root.color;
             x: (sun-size / 2 + gap) * angle.cos();
             y: (sun-size / 2 + gap) * angle.sin();
             rotation: angle;
