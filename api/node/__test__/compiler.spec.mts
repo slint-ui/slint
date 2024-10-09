@@ -27,10 +27,11 @@ test("get/set library paths", (t) => {
         libdir: "third_party/libbar/ui/",
     };
 
-    t.deepEqual(compiler.libraryPaths, {
-        "libfile.slint": "third_party/libfoo/ui/lib.slint",
-        libdir: "third_party/libbar/ui/",
-    });
+    t.deepEqual(
+        compiler.libraryPaths["libfile.slint"],
+        "third_party/libfoo/ui/lib.slint"
+    );
+    t.deepEqual(compiler.libraryPaths.libdir, "third_party/libbar/ui/");
 });
 
 test("get/set style", (t) => {
@@ -55,7 +56,7 @@ test("constructor error ComponentDefinition and ComponentInstance", (t) => {
     });
     t.is(
         componentDefinitionError?.message,
-        "ComponentDefinition can only be created by using ComponentCompiler.",
+        "ComponentDefinition can only be created by using ComponentCompiler."
     );
 
     const componentInstanceError = t.throws(() => {
@@ -63,7 +64,7 @@ test("constructor error ComponentDefinition and ComponentInstance", (t) => {
     });
     t.is(
         componentInstanceError?.message,
-        "ComponentInstance can only be created by using ComponentCompiler.",
+        "ComponentInstance can only be created by using ComponentCompiler."
     );
 });
 
@@ -82,7 +83,7 @@ test("properties ComponentDefinition", (t) => {
     in-out property <string> string-property;
     in-out property <Struct> struct-property;
   }`,
-        "",
+        ""
     );
     t.not(definition.App, null);
 
@@ -132,7 +133,7 @@ test("callbacks ComponentDefinition", (t) => {
     callback first-callback();
     callback second-callback();
   }`,
-        "",
+        ""
     );
     t.not(definition.App, null);
 
@@ -164,7 +165,7 @@ test("globalProperties ComponentDefinition", (t) => {
 
   export component App {
   }`,
-        "",
+        ""
     );
 
     t.not(definition.App, null);
@@ -221,7 +222,7 @@ test("globalCallbacks ComponentDefinition", (t) => {
   }
   export component App {
   }`,
-        "",
+        ""
     );
     t.not(definition.App, null);
 
@@ -244,9 +245,9 @@ test("compiler diagnostics", (t) => {
             `export component App {
     garbage
   }`,
-            "testsource.slint",
+            "testsource.slint"
         ),
-        {},
+        {}
     );
 
     const diags = compiler.diagnostics;
@@ -267,7 +268,7 @@ test("non-existent properties and callbacks", (t) => {
 
   export component App {
   }`,
-        "",
+        ""
     );
     t.not(definition.App, null);
 
@@ -286,6 +287,6 @@ test("non-existent properties and callbacks", (t) => {
     t.is(callback_err!.code, "GenericFailure");
     t.is(
         callback_err!.message,
-        "Callback non-existent-callback not found in the component",
+        "Callback non-existent-callback not found in the component"
     );
 });
