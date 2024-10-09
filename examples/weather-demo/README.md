@@ -50,7 +50,7 @@ cargo run
 ```
 
 ## Android
-To be able to compile the application for Android, you must follow an initial setup. The instruction is available in [Slint's documentation](https://snapshots.slint.dev/master/docs/rust/slint/android/#building-and-deploying).
+To be able to compile the application for Android, you must follow an initial setup. The instruction is available in [Slint's documentation](https://releases.slint.dev/latest/docs/rust/slint/android/#building-and-deploying).
    
 ***Note:*** To build `openssl` for Android, you must ensure that the proper development libraries are available in the system and provided in the `PATH` variable.
 
