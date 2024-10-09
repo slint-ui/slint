@@ -266,6 +266,10 @@ type LoadData =
           from: "source";
       };
 
+function translateName(key: string): string {
+    return key.replace(/-/g, "_");
+}
+
 function loadSlint(loadData: LoadData): Object {
     const { filePath, options } = loadData.fileData;
 
@@ -309,252 +313,271 @@ function loadSlint(loadData: LoadData): Object {
 
     const slint_module = Object.create({});
 
+    // generate structs
+    const structs = compiler.structs;
+
+    for (const key in compiler.structs) {
+        Object.defineProperty(slint_module, translateName(key), {
+            value: function (properties: any) {
+                const defaultObject = structs[key];
+                const newObject = Object.create({});
+
+                for (const propertyKey in defaultObject) {
+                    const propertyName = translateName(propertyKey);
+                    const propertyValue =
+                        properties !== undefined &&
+                        Object.hasOwn(properties, propertyName)
+                            ? properties[propertyName]
+                            : defaultObject[propertyKey];
+
+                    Object.defineProperty(newObject, propertyName, {
+                        value: propertyValue,
+                        writable: true,
+                        enumerable: true,
+                    });
+                }
+
+                return Object.seal(newObject);
+            },
+        });
+    }
+
+    // generate enums
+    const enums = compiler.enums;
+
+    for (const key in enums) {
+        Object.defineProperty(slint_module, translateName(key), {
+            value: Object.seal(enums[key]),
+            enumerable: true,
+        });
+    }
+
     Object.keys(definitions).forEach((key) => {
         const definition = definitions[key];
 
-        Object.defineProperty(
-            slint_module,
-            definition.name.replace(/-/g, "_"),
-            {
-                value: function (properties: any) {
-                    const instance = definition.create();
+        Object.defineProperty(slint_module, translateName(definition.name), {
+            value: function (properties: any) {
+                const instance = definition.create();
 
-                    if (instance == null) {
-                        throw Error(
-                            "Could not create a component handle for" +
-                                filePath,
+                if (instance == null) {
+                    throw Error(
+                        "Could not create a component handle for" + filePath,
+                    );
+                }
+
+                for (var key in properties) {
+                    const value = properties[key];
+
+                    if (value instanceof Function) {
+                        instance.setCallback(key, value);
+                    } else {
+                        instance.setProperty(key, properties[key]);
+                    }
+                }
+
+                const componentHandle = new Component(instance!);
+                instance!.definition().properties.forEach((prop) => {
+                    const propName = translateName(prop.name);
+
+                    if (componentHandle[propName] !== undefined) {
+                        console.warn("Duplicated property name " + propName);
+                    } else {
+                        Object.defineProperty(componentHandle, propName, {
+                            get() {
+                                return instance!.getProperty(prop.name);
+                            },
+                            set(value) {
+                                instance!.setProperty(prop.name, value);
+                            },
+                            enumerable: true,
+                        });
+                    }
+                });
+
+                instance!.definition().callbacks.forEach((cb) => {
+                    const callbackName = translateName(cb);
+
+                    if (componentHandle[callbackName] !== undefined) {
+                        console.warn(
+                            "Duplicated callback name " + callbackName,
+                        );
+                    } else {
+                        Object.defineProperty(
+                            componentHandle,
+                            translateName(cb),
+                            {
+                                get() {
+                                    return function () {
+                                        return instance!.invoke(
+                                            cb,
+                                            Array.from(arguments),
+                                        );
+                                    };
+                                },
+                                set(callback) {
+                                    instance!.setCallback(cb, callback);
+                                },
+                                enumerable: true,
+                            },
                         );
                     }
+                });
 
-                    for (var key in properties) {
-                        const value = properties[key];
+                instance!.definition().functions.forEach((cb) => {
+                    const functionName = translateName(cb);
 
-                        if (value instanceof Function) {
-                            instance.setCallback(key, value);
-                        } else {
-                            instance.setProperty(key, properties[key]);
-                        }
-                    }
-
-                    const componentHandle = new Component(instance!);
-                    instance!.definition().properties.forEach((prop) => {
-                        const propName = prop.name.replace(/-/g, "_");
-
-                        if (componentHandle[propName] !== undefined) {
-                            console.warn(
-                                "Duplicated property name " + propName,
-                            );
-                        } else {
-                            Object.defineProperty(componentHandle, propName, {
+                    if (componentHandle[functionName] !== undefined) {
+                        console.warn(
+                            "Duplicated function name " + functionName,
+                        );
+                    } else {
+                        Object.defineProperty(
+                            componentHandle,
+                            translateName(cb),
+                            {
                                 get() {
-                                    return instance!.getProperty(prop.name);
-                                },
-                                set(value) {
-                                    instance!.setProperty(prop.name, value);
+                                    return function () {
+                                        return instance!.invoke(
+                                            cb,
+                                            Array.from(arguments),
+                                        );
+                                    };
                                 },
                                 enumerable: true,
-                            });
-                        }
-                    });
+                            },
+                        );
+                    }
+                });
 
-                    instance!.definition().callbacks.forEach((cb) => {
-                        const callbackName = cb.replace(/-/g, "_");
+                // globals
+                instance!.definition().globals.forEach((globalName) => {
+                    if (componentHandle[globalName] !== undefined) {
+                        console.warn("Duplicated property name " + globalName);
+                    } else {
+                        const globalObject = Object.create({});
 
-                        if (componentHandle[callbackName] !== undefined) {
-                            console.warn(
-                                "Duplicated callback name " + callbackName,
-                            );
-                        } else {
-                            Object.defineProperty(
-                                componentHandle,
-                                cb.replace(/-/g, "_"),
-                                {
-                                    get() {
-                                        return function () {
-                                            return instance!.invoke(
-                                                cb,
-                                                Array.from(arguments),
-                                            );
-                                        };
-                                    },
-                                    set(callback) {
-                                        instance!.setCallback(cb, callback);
-                                    },
-                                    enumerable: true,
-                                },
-                            );
-                        }
-                    });
+                        instance!
+                            .definition()
+                            .globalProperties(globalName)
+                            .forEach((prop) => {
+                                const propName = translateName(prop.name);
 
-                    instance!.definition().functions.forEach((cb) => {
-                        const functionName = cb.replace(/-/g, "_");
-
-                        if (componentHandle[functionName] !== undefined) {
-                            console.warn(
-                                "Duplicated function name " + functionName,
-                            );
-                        } else {
-                            Object.defineProperty(
-                                componentHandle,
-                                cb.replace(/-/g, "_"),
-                                {
-                                    get() {
-                                        return function () {
-                                            return instance!.invoke(
-                                                cb,
-                                                Array.from(arguments),
-                                            );
-                                        };
-                                    },
-                                    enumerable: true,
-                                },
-                            );
-                        }
-                    });
-
-                    // globals
-                    instance!.definition().globals.forEach((globalName) => {
-                        if (componentHandle[globalName] !== undefined) {
-                            console.warn(
-                                "Duplicated property name " + globalName,
-                            );
-                        } else {
-                            const globalObject = Object.create({});
-
-                            instance!
-                                .definition()
-                                .globalProperties(globalName)
-                                .forEach((prop) => {
-                                    const propName = prop.name.replace(
-                                        /-/g,
-                                        "_",
+                                if (globalObject[propName] !== undefined) {
+                                    console.warn(
+                                        "Duplicated property name " +
+                                            propName +
+                                            " on global " +
+                                            global,
                                     );
-
-                                    if (globalObject[propName] !== undefined) {
-                                        console.warn(
-                                            "Duplicated property name " +
-                                                propName +
-                                                " on global " +
-                                                global,
-                                        );
-                                    } else {
-                                        Object.defineProperty(
-                                            globalObject,
-                                            propName,
-                                            {
-                                                get() {
-                                                    return instance!.getGlobalProperty(
-                                                        globalName,
-                                                        prop.name,
-                                                    );
-                                                },
-                                                set(value) {
-                                                    instance!.setGlobalProperty(
-                                                        globalName,
-                                                        prop.name,
-                                                        value,
-                                                    );
-                                                },
-                                                enumerable: true,
+                                } else {
+                                    Object.defineProperty(
+                                        globalObject,
+                                        propName,
+                                        {
+                                            get() {
+                                                return instance!.getGlobalProperty(
+                                                    globalName,
+                                                    prop.name,
+                                                );
                                             },
-                                        );
-                                    }
-                                });
+                                            set(value) {
+                                                instance!.setGlobalProperty(
+                                                    globalName,
+                                                    prop.name,
+                                                    value,
+                                                );
+                                            },
+                                            enumerable: true,
+                                        },
+                                    );
+                                }
+                            });
 
-                            instance!
-                                .definition()
-                                .globalCallbacks(globalName)
-                                .forEach((cb) => {
-                                    const callbackName = cb.replace(/-/g, "_");
+                        instance!
+                            .definition()
+                            .globalCallbacks(globalName)
+                            .forEach((cb) => {
+                                const callbackName = translateName(cb);
 
-                                    if (
-                                        globalObject[callbackName] !== undefined
-                                    ) {
-                                        console.warn(
-                                            "Duplicated property name " +
-                                                cb +
-                                                " on global " +
-                                                global,
-                                        );
-                                    } else {
-                                        Object.defineProperty(
-                                            globalObject,
-                                            cb.replace(/-/g, "_"),
-                                            {
-                                                get() {
-                                                    return function () {
-                                                        return instance!.invokeGlobal(
-                                                            globalName,
-                                                            cb,
-                                                            Array.from(
-                                                                arguments,
-                                                            ),
-                                                        );
-                                                    };
-                                                },
-                                                set(callback) {
-                                                    instance!.setGlobalCallback(
+                                if (globalObject[callbackName] !== undefined) {
+                                    console.warn(
+                                        "Duplicated property name " +
+                                            cb +
+                                            " on global " +
+                                            global,
+                                    );
+                                } else {
+                                    Object.defineProperty(
+                                        globalObject,
+                                        translateName(cb),
+                                        {
+                                            get() {
+                                                return function () {
+                                                    return instance!.invokeGlobal(
                                                         globalName,
                                                         cb,
-                                                        callback,
+                                                        Array.from(arguments),
                                                     );
-                                                },
-                                                enumerable: true,
+                                                };
                                             },
-                                        );
-                                    }
-                                });
-
-                            instance!
-                                .definition()
-                                .globalFunctions(globalName)
-                                .forEach((cb) => {
-                                    const functionName = cb.replace(/-/g, "_");
-
-                                    if (
-                                        globalObject[functionName] !== undefined
-                                    ) {
-                                        console.warn(
-                                            "Duplicated function name " +
-                                                cb +
-                                                " on global " +
-                                                global,
-                                        );
-                                    } else {
-                                        Object.defineProperty(
-                                            globalObject,
-                                            cb.replace(/-/g, "_"),
-                                            {
-                                                get() {
-                                                    return function () {
-                                                        return instance!.invokeGlobal(
-                                                            globalName,
-                                                            cb,
-                                                            Array.from(
-                                                                arguments,
-                                                            ),
-                                                        );
-                                                    };
-                                                },
-                                                enumerable: true,
+                                            set(callback) {
+                                                instance!.setGlobalCallback(
+                                                    globalName,
+                                                    cb,
+                                                    callback,
+                                                );
                                             },
-                                        );
-                                    }
-                                });
-
-                            Object.defineProperty(componentHandle, globalName, {
-                                get() {
-                                    return globalObject;
-                                },
-                                enumerable: true,
+                                            enumerable: true,
+                                        },
+                                    );
+                                }
                             });
-                        }
-                    });
 
-                    return Object.seal(componentHandle);
-                },
+                        instance!
+                            .definition()
+                            .globalFunctions(globalName)
+                            .forEach((cb) => {
+                                const functionName = translateName(cb);
+
+                                if (globalObject[functionName] !== undefined) {
+                                    console.warn(
+                                        "Duplicated function name " +
+                                            cb +
+                                            " on global " +
+                                            global,
+                                    );
+                                } else {
+                                    Object.defineProperty(
+                                        globalObject,
+                                        translateName(cb),
+                                        {
+                                            get() {
+                                                return function () {
+                                                    return instance!.invokeGlobal(
+                                                        globalName,
+                                                        cb,
+                                                        Array.from(arguments),
+                                                    );
+                                                };
+                                            },
+                                            enumerable: true,
+                                        },
+                                    );
+                                }
+                            });
+
+                        Object.defineProperty(componentHandle, globalName, {
+                            get() {
+                                return globalObject;
+                            },
+                            enumerable: true,
+                        });
+                    }
+                });
+
+                return Object.seal(componentHandle);
             },
-        );
+        });
     });
     return Object.seal(slint_module);
 }
