@@ -5,14 +5,14 @@
     "type": "module",
     "dependencies": {
         "slint-ui": "../../../api/node",
-        "jimp": "^0.22.8"
+        "jimp": "1.6.0"
     },
     "devDependencies": {
         "@types/node": "20.16.10",
         "typescript": "5.6.2"
     },
     "scripts": {
-        "start": "tsc && node ./main.js",
+        "start": "tsc --build && node ./main.js",
         "type-check": "tsc --noEmit"
 
     }
