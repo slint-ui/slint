@@ -8,9 +8,9 @@ export component RayThick {
     height: 0px;
 
     i := Image {
-        property <length> sizeMultiplyer: 0.3px;
-        width: self.source.width * sizeMultiplyer * 0.8;
-        height: self.source.height * sizeMultiplyer * 1;
+        property <length> sizeMultiplier: 0.3px;
+        width: self.source.width * sizeMultiplier * 0.8;
+        height: self.source.height * sizeMultiplier;
         source: @image-url("images/line.png");
     }
     
@@ -23,9 +23,9 @@ export component RayThin {
     height: 0px;
 
     i := Image {
-        property <length> sizeMultiplyer: 0.25px;
-        width: self.source.width * sizeMultiplyer * 0.6;
-        height: self.source.height * sizeMultiplyer;
+        property <length> sizeMultiplier: 0.25px;
+        width: self.source.width * sizeMultiplier * 0.6;
+        height: self.source.height * sizeMultiplier;
         source: @image-url("images/line.png");
     }
     
