@@ -733,9 +733,16 @@ fn call_builtin_function(
                         "paste" => textinput.paste(&window_adapter, &item_rc),
                         _ => panic!("internal: Unknown member function {name} called on TextInput"),
                     }
+                } else if let Some(s) =
+                    ItemRef::downcast_pin::<corelib::items::SwipeGestureHandler>(item_ref)
+                {
+                    match &*name {
+                        "cancel" => s.cancel(&window_adapter, &item_rc),
+                        _ => panic!("internal: Unknown member function {name} called on SwipeGestureHandler"),
+                    }
                 } else {
                     panic!(
-                        "internal error: member function called on element that doesn't have it: {}",
+                        "internal error: member function {name} called on element that doesn't have it: {}",
                         elem.borrow().original_name()
                     )
                 }

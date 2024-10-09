@@ -17,6 +17,9 @@ export component TestCase inherits Window {
     function distance(a: Point, b: Point) -> float {
         return sqrt((a.x / 1px - b.x / 1px).pow(2) + (a.y / 1px - b.y / 1px).pow(2));
     }
+    public function invoke_cancel() {
+        left-gesture.cancel()
+    }
 
     down-gesture := SwipeGestureHandler {
         handle-swipe-down: true;
@@ -54,6 +57,11 @@ export component TestCase inherits Window {
                 }
             }
         }
+    }
+
+    init => {
+        // Just make sure it doesn't crash the interpreter
+        left-gesture.cancel();
     }
 }
 
@@ -161,6 +169,46 @@ assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 assert_eq!(instance.get_ta_hover(), false);
+
+
+// Left again but cancel in the middle
+instance.set_r("".into());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+assert_eq!(instance.get_ta_hover(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(120);
+assert_eq!(instance.get_ta_hover(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_r(), "");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(80.0, 100.0) });
+assert_eq!(instance.get_ta_hover(), false);
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_left_swiping(), true);
+// the root gesture cause the mouse event to be repeated twice
+assert_eq!(instance.get_r(), "M2(20)M2(20)");
+instance.invoke_invoke_cancel();
+assert_eq!(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_ta_hover(), false);
+slint_testing::mock_elapsed_time(120);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 100.0) });
+slint_testing::mock_elapsed_time(120);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(120);
+assert_eq!(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq!(instance.get_down_swiping(), false);
+assert_eq!(instance.get_left_swiping(), false);
+assert_eq!(instance.get_right_swiping(), false);
+assert_eq!(instance.get_ta_hover(), false);
 ```
 
 ```rust
@@ -212,5 +260,42 @@ assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 ```
 
+```cpp
+using slint::PointerEventButton;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+
+// Left and cancel in the middle
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({100.0, 100.0}), PointerEventButton::Left);
+assert_eq(instance.get_ta_hover(), false);
+assert_eq(instance.get_down_swiping(), false);
+assert_eq(instance.get_left_swiping(), false);
+assert_eq(instance.get_right_swiping(), false);
+slint_testing::mock_elapsed_time(120);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 80.0, 100.0 }));
+assert_eq(instance.get_ta_hover(), false);
+assert_eq(instance.get_down_swiping(), false);
+assert_eq(instance.get_right_swiping(), false);
+assert_eq(instance.get_left_swiping(), true);
+// the root gesture cause the mouse event to be repeated twice
+assert_eq(instance.get_r(), "M2(20)M2(20)");
+instance.invoke_invoke_cancel();
+assert_eq(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq(instance.get_down_swiping(), false);
+assert_eq(instance.get_left_swiping(), false);
+assert_eq(instance.get_right_swiping(), false);
+assert_eq(instance.get_ta_hover(), false);
+slint_testing::mock_elapsed_time(120);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 60.0, 100.0 }));
+slint_testing::mock_elapsed_time(120);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({40.0, 100.0}), PointerEventButton::Left);
+slint_testing::mock_elapsed_time(120);
+assert_eq(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq(instance.get_down_swiping(), false);
+assert_eq(instance.get_left_swiping(), false);
+assert_eq(instance.get_right_swiping(), false);
+assert_eq(instance.get_ta_hover(), false);
+```
 
 */
