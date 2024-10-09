@@ -17,7 +17,7 @@ export component LineEditBase inherits Rectangle {
     in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
     in property <length> margin;
 
-    callback accepted( /* text */ string);
+    callback accepted(/* text */ string);
     callback edited(/* text */ string);
 
     public function set-selection-offsets(start: int, end: int) {
@@ -45,7 +45,7 @@ export component LineEditBase inherits Rectangle {
     }
 
     // min-width < 1px could cause trouble on focus
-    min-width: max(1px);
+    min-width: 1px;
     min-height: text-input.preferred-height;
     clip: true;
     forward-focus: text-input;
@@ -55,7 +55,7 @@ export component LineEditBase inherits Rectangle {
         height: 100%;
         vertical-alignment: center;
         text: (root.text == "" && text-input.preedit-text == "") ? root.placeholder-text : "";
-        font-size:  text-input.font-size;
+        font-size: text-input.font-size;
         font-italic: text-input.font-italic;
         font-weight: text-input.font-weight;
         font-family: text-input.font-family;
@@ -68,7 +68,7 @@ export component LineEditBase inherits Rectangle {
     text-input := TextInput {
         property <length> computed-x;
 
-        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));  
+        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
         width: max(parent.width - self.text-cursor-width, self.preferred-width);
         height: 100%;
         vertical-alignment: center;
@@ -83,8 +83,12 @@ export component LineEditBase inherits Rectangle {
             }
         }
 
-        accepted => { root.accepted(self.text); }
+        accepted => {
+            root.accepted(self.text);
+        }
 
-        edited => { root.edited(self.text); }
+        edited => {
+            root.edited(self.text);
+        }
     }
 }
