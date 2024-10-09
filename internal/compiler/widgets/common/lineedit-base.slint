@@ -44,7 +44,7 @@ export component LineEditBase inherits Rectangle {
         text-input.paste();
     }
 
-    // min-width < 1px could cause trouble on focus
+    // on width < 1px or if the `TextInput` is clipped it cannot be focused therefore min-width 1px
     min-width: 1px;
     min-height: text-input.preferred-height;
     clip: true;
