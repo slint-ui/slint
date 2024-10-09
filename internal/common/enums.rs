@@ -424,7 +424,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the scrollbar visibility
             enum ScrollBarPolicy {
-                /// Scrolbar will be visible only when needed
+                /// Scrollbar will be visible only when needed
                 AsNeeded,
                 /// Scrollbar never shown
                 AlwaysOff,
