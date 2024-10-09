@@ -38,7 +38,7 @@ pub mod typeregister;
 pub mod passes;
 
 use crate::generator::OutputFormat;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -199,10 +199,13 @@ impl CompilerConfiguration {
             _ => None,
         };
 
+        let mut library_paths = HashMap::new();
+        library_paths.insert("slint".to_string(), PathBuf::from(env!("SLINT_COMPONENTS_LIBRARY")));
+
         Self {
             embed_resources,
             include_paths: Default::default(),
-            library_paths: Default::default(),
+            library_paths,
             style: Default::default(),
             open_import_fallback: None,
             resource_url_mapper: None,

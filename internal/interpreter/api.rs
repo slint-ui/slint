@@ -694,7 +694,7 @@ impl Compiler {
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
-        self.config.library_paths = library_paths;
+        self.config.library_paths.extend(library_paths);
     }
 
     /// Returns the library paths the component compiler is currently configured with.

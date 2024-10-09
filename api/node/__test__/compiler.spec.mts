@@ -27,10 +27,11 @@ test("get/set library paths", (t) => {
         libdir: "third_party/libbar/ui/",
     };
 
-    t.deepEqual(compiler.libraryPaths, {
-        "libfile.slint": "third_party/libfoo/ui/lib.slint",
-        libdir: "third_party/libbar/ui/",
-    });
+    t.deepEqual(
+        compiler.libraryPaths["libfile.slint"],
+        "third_party/libfoo/ui/lib.slint",
+    );
+    t.deepEqual(compiler.libraryPaths.libdir, "third_party/libbar/ui/");
 });
 
 test("get/set style", (t) => {

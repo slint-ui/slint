@@ -42,6 +42,11 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
 
     println!("cargo:rustc-env=SLINT_WIDGETS_LIBRARY={}", output_file_path.display());
 
+    let mut slint_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    slint_dir.push("components");
+
+    println!("cargo:rustc-env=SLINT_COMPONENTS_LIBRARY={}", slint_dir.display());
+
     Ok(())
 }
 
