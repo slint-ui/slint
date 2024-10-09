@@ -1,4 +1,7 @@
 #[cfg(target_arch = "wasm32")]
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
