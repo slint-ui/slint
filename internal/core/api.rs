@@ -279,6 +279,26 @@ impl<'a> core::fmt::Debug for GraphicsAPI<'a> {
     }
 }
 
+/// This enum specifies which OpenGL API should be used.
+#[derive(Debug, Clone, PartialEq)]
+pub enum OpenGLApi {
+    /// OpenGL
+    GL,
+    /// OpenGL ES
+    GLES,
+}
+
+/// This enum specifies which OpenGL API should be used.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SlintRenderer {
+    /// The femtovg renderer
+    Femtovg,
+    /// The Skia renderer
+    Skia,
+    /// The software renderer
+    Software,
+}
+
 /// This enum describes the different rendering states, that will be provided
 /// to the parameter of the callback for `set_rendering_notifier` on the `slint::Window`.
 #[derive(Debug, Clone)]
