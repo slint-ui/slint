@@ -271,6 +271,75 @@ component.model = component.model.concat(4);
 
 Another option is to set an object that implements the {@link Model} interface.
 
+### structs
+
+An exported struct can be created either by defing of an object literal or by using the new keyword.
+
+**`my-component.slint`**
+
+```slint
+export struct Person {
+    name: string,
+    age: int
+}
+
+export component MyComponent inherits Window {
+    in-out property <Person> person;
+}
+```
+
+**`main.js`**
+
+```js
+
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile("my-component.slint");
+let component = new ui.MyComponent();
+
+// object literal
+component.person = { name: "Peter", age: 22 };
+
+// new keyword (sets property values to default e.g. '' for string)
+component.person = new ui.Person();
+
+// new keyword with parameters
+component.person = new ui.Person({ name: "Tim", age: 30 });
+```
+
+### enums
+
+A value of an exported enum can be set as string or by usign the value from the exported enum.
+
+**`my-component.slint`**
+
+```slint
+export enum Position {
+    top,
+    bottom
+}
+
+export component MyComponent inherits Window {
+    in-out property <Position> position;
+}
+```
+
+**`main.js`**
+
+```js
+
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile("my-component.slint");
+let component = new ui.MyComponent();
+
+// set enum value as string
+component.position = "top";
+
+// use the value of the enum
+component.position = ui.Position.bottom;
+```
+
 ### Globals
 
 You can declare [globally available singletons](../slint/src/language/syntax/globals) in your
@@ -302,3 +371,4 @@ component.Logic.to_upper_case = (str) => {
 
 **Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
 each instance will have their own instance of associated globals singletons.
+
