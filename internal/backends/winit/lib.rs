@@ -175,6 +175,7 @@ pub mod native_widgets {}
 /// Create the builder using [`Backend::builder()`], then configure it for example with [`Self::with_renderer_name`],
 /// and build the backend using [`Self::build`].
 pub struct BackendBuilder {
+    allow_fallback: bool,
     opengl_api: Option<OpenGLAPI>,
     window_attributes_hook:
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
@@ -183,6 +184,12 @@ pub struct BackendBuilder {
 }
 
 impl BackendBuilder {
+    /// Allows or disallows a fallback backend if no backend is matched.
+    pub fn with_allow_fallback(mut self, allow_fallback: bool) -> Self {
+        self.allow_fallback = allow_fallback;
+        self
+    }
+
     /// Configures this builder to use the specified OpenGL API when building the backend later.
     pub fn with_opengl_api(mut self, opengl_api: OpenGLAPI) -> Self {
         self.opengl_api = Some(opengl_api);
@@ -277,11 +284,15 @@ impl BackendBuilder {
             }
             (None, None) => default_renderer_factory,
             (Some(renderer_name), _) => {
-                eprintln!(
-                    "slint winit: unrecognized renderer {}, falling back to {}",
-                    renderer_name, DEFAULT_RENDERER_NAME
-                );
-                default_renderer_factory
+                if self.allow_fallback {
+                    eprintln!(
+                        "slint winit: unrecognized renderer {}, falling back to {}",
+                        renderer_name, DEFAULT_RENDERER_NAME
+                    );
+                    default_renderer_factory
+                } else {
+                    return Err(PlatformError::NoPlatform);
+                }
             }
             (None, Some(_)) => default_opengl_renderer_factory,
         };
@@ -353,6 +364,7 @@ impl Backend {
     /// setting it as the platform backend.
     pub fn builder() -> BackendBuilder {
         BackendBuilder {
+            allow_fallback: true,
             opengl_api: None,
             window_attributes_hook: None,
             renderer_name: None,
