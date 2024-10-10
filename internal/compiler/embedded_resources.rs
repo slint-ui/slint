@@ -53,13 +53,13 @@ pub struct BitmapGlyph {
     pub width: i16,
     pub height: i16,
     pub x_advance: i16,
-    pub data: Vec<u8>, // 8bit alpha map
+    pub data: Vec<u8>, // 8bit alpha map or SDF if `BitMapGlyphs`'s pixel_size is 0.
 }
 
 #[cfg(feature = "software-renderer")]
 #[derive(Debug, Clone)]
 pub struct BitmapGlyphs {
-    pub pixel_size: i16,
+    pub pixel_size: i16, // pixel size 0 means it's a scalable font (via SDF).
     pub glyph_data: Vec<BitmapGlyph>,
 }
 
