@@ -64,6 +64,7 @@ struct ContentCache {
     dependency: HashSet<Url>,
     config: PreviewConfig,
     current_previewed_component: Option<PreviewComponent>,
+    current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
     highlight: Option<(Url, TextSize)>,
     ui_is_visible: bool,
@@ -105,6 +106,7 @@ struct PreviewState {
     notify_editor_about_selection_after_update: bool,
     workspace_edit_sent: bool,
     known_components: Vec<ComponentInformation>,
+    preview_loading_delay_timer: Option<slint::Timer>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -1026,7 +1028,7 @@ fn get_path_from_cache(path: &Path) -> Option<(SourceFileVersion, String)> {
     get_url_from_cache(&url)
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LoadBehavior {
     /// We reload the preview, most likely because a file has changed
     Reload,
@@ -1049,6 +1051,101 @@ pub fn reload_preview() {
     load_preview(pc, LoadBehavior::Load);
 }
 
+async fn reload_timer_function() {
+    let (selected, notify_editor) = PREVIEW_STATE.with(|preview_state| {
+        let mut preview_state = preview_state.borrow_mut();
+        let notify_editor = preview_state.notify_editor_about_selection_after_update;
+        preview_state.notify_editor_about_selection_after_update = false;
+        (preview_state.selected.take(), notify_editor)
+    });
+
+    loop {
+        let (preview_component, config, behavior) = {
+            let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            let Some(behavior) = cache.current_load_behavior.take() else { return };
+
+            let Some(preview_component) = cache.current_component() else {
+                return;
+            };
+            cache.clear_style_of_component();
+
+            assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
+            if !cache.ui_is_visible && behavior == LoadBehavior::Reload {
+                cache.loading_state = PreviewFutureState::Pending;
+                return;
+            }
+            cache.loading_state = PreviewFutureState::Loading;
+            cache.dependency.clear();
+            (preview_component, cache.config.clone(), behavior)
+        };
+        let style = if preview_component.style.is_empty() {
+            get_current_style()
+        } else {
+            set_current_style(preview_component.style.clone());
+            preview_component.style.clone()
+        };
+
+        match reload_preview_impl(preview_component, behavior, style, config).await {
+            Ok(()) => {}
+            Err(e) => {
+                CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().loading_state =
+                    PreviewFutureState::Pending;
+                send_platform_error_notification(&e.to_string());
+                return;
+            }
+        }
+
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        match cache.loading_state {
+            PreviewFutureState::Loading => {
+                cache.loading_state = PreviewFutureState::Pending;
+                break;
+            }
+            PreviewFutureState::Pending => unreachable!(),
+            PreviewFutureState::PreLoading => unreachable!(),
+            PreviewFutureState::NeedsReload => {
+                cache.loading_state = PreviewFutureState::PreLoading;
+                continue;
+            }
+        };
+    }
+
+    if let Some(se) = selected {
+        element_selection::select_element_at_source_code_position(
+            se.path.clone(),
+            se.offset,
+            None,
+            false,
+        );
+
+        if notify_editor {
+            if let Some(component_instance) = component_instance() {
+                if let Some((element, debug_index)) = component_instance
+                    .element_node_at_source_code_position(&se.path, se.offset.into())
+                    .first()
+                {
+                    let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index)
+                    else {
+                        return;
+                    };
+                    let (path, pos) = element_node.with_element_node(|node| {
+                        let sf = &node.source_file;
+                        (
+                            sf.path().to_owned(),
+                            util::text_size_to_lsp_position(sf, se.offset.into()),
+                        )
+                    });
+                    ask_editor_to_show_document(
+                        &path.to_string_lossy(),
+                        lsp_types::Range::new(pos, pos),
+                        false,
+                    );
+                }
+            }
+        }
+    }
+}
+
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -1063,6 +1160,8 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
             }
         }
 
+        cache.current_load_behavior = Some(behavior);
+
         match cache.loading_state {
             PreviewFutureState::Pending => (),
             PreviewFutureState::PreLoading => return,
@@ -1075,102 +1174,26 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         cache.loading_state = PreviewFutureState::PreLoading;
     };
 
-    let result = run_in_ui_thread(move || async move {
-        let (selected, notify_editor) = PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-            let notify_editor = preview_state.notify_editor_about_selection_after_update;
-            preview_state.notify_editor_about_selection_after_update = false;
-            (preview_state.selected.take(), notify_editor)
+    run_in_ui_thread(move || async move {
+        PREVIEW_STATE.with(|preview_state| {
+            preview_state
+                .borrow_mut()
+                .preview_loading_delay_timer
+                .get_or_insert_with(|| {
+                    let timer = slint::Timer::default();
+                    timer.start(
+                        slint::TimerMode::SingleShot,
+                        core::time::Duration::from_millis(50),
+                        || {
+                            slint::spawn_local(reload_timer_function()).unwrap();
+                        },
+                    );
+                    timer
+                })
+                .restart();
         });
-
-        loop {
-            let (preview_component, config) = {
-                let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-                let Some(preview_component) = cache.current_component() else { return };
-                cache.clear_style_of_component();
-
-                assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
-                if !cache.ui_is_visible && behavior == LoadBehavior::Reload {
-                    cache.loading_state = PreviewFutureState::Pending;
-                    return;
-                }
-                cache.loading_state = PreviewFutureState::Loading;
-                cache.dependency.clear();
-                (preview_component, cache.config.clone())
-            };
-            let style = if preview_component.style.is_empty() {
-                get_current_style()
-            } else {
-                set_current_style(preview_component.style.clone());
-                preview_component.style.clone()
-            };
-
-            match reload_preview_impl(preview_component, behavior, style, config).await {
-                Ok(()) => {}
-                Err(e) => {
-                    CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().loading_state =
-                        PreviewFutureState::Pending;
-                    send_platform_error_notification(&e.to_string());
-                    return;
-                }
-            }
-
-            let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-            match cache.loading_state {
-                PreviewFutureState::Loading => {
-                    cache.loading_state = PreviewFutureState::Pending;
-                    break;
-                }
-                PreviewFutureState::Pending => unreachable!(),
-                PreviewFutureState::PreLoading => unreachable!(),
-                PreviewFutureState::NeedsReload => {
-                    cache.loading_state = PreviewFutureState::PreLoading;
-                    continue;
-                }
-            };
-        }
-
-        if let Some(se) = selected {
-            element_selection::select_element_at_source_code_position(
-                se.path.clone(),
-                se.offset,
-                None,
-                false,
-            );
-
-            if notify_editor {
-                if let Some(component_instance) = component_instance() {
-                    if let Some((element, debug_index)) = component_instance
-                        .element_node_at_source_code_position(&se.path, se.offset.into())
-                        .first()
-                    {
-                        let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index)
-                        else {
-                            return;
-                        };
-                        let (path, pos) = element_node.with_element_node(|node| {
-                            let sf = &node.source_file;
-                            (
-                                sf.path().to_owned(),
-                                util::text_size_to_lsp_position(sf, se.offset.into()),
-                            )
-                        });
-                        ask_editor_to_show_document(
-                            &path.to_string_lossy(),
-                            lsp_types::Range::new(pos, pos),
-                            false,
-                        );
-                    }
-                }
-            }
-        }
-    });
-
-    if let Err(e) = result {
-        CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().loading_state =
-            PreviewFutureState::Pending;
-        send_platform_error_notification(&e);
-    }
+    })
+    .unwrap();
 }
 
 async fn parse_source(
