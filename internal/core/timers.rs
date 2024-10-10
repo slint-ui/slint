@@ -383,10 +383,9 @@ impl TimerList {
     }
 
     fn register_active_timer(&mut self, new_active_timer: ActiveTimer) {
-        let insertion_index = lower_bound(&self.active_timers, |existing_timer| {
-            existing_timer.timeout < new_active_timer.timeout
-        });
-
+        let insertion_index = self
+            .active_timers
+            .partition_point(|existing_timer| existing_timer.timeout < new_active_timer.timeout);
         self.active_timers.insert(insertion_index, new_active_timer);
         self.timers[new_active_timer.id].running = true;
     }
@@ -418,23 +417,6 @@ impl TimerList {
 use crate::unsafe_single_threaded::thread_local;
 
 thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
-
-fn lower_bound<T>(vec: &[T], mut less_than: impl FnMut(&T) -> bool) -> usize {
-    let mut left = 0;
-    let mut right = vec.len();
-
-    while left != right {
-        let mid = left + (right - left) / 2;
-        let value = &vec[mid];
-        if less_than(value) {
-            left = mid + 1;
-        } else {
-            right = mid;
-        }
-    }
-
-    left
-}
 
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
