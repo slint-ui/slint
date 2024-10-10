@@ -5,7 +5,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize};
 
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
@@ -160,6 +160,7 @@ impl super::Surface for VulkanSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        _opengl_api: Option<OpenGLAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let library = VulkanLibrary::new()
             .map_err(|load_err| format!("Error loading vulkan library: {load_err}"))?;

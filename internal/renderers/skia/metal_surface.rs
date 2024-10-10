@@ -3,7 +3,7 @@
 
 use core_graphics_types::geometry::CGSize;
 use foreign_types::{ForeignType, ForeignTypeRef};
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize};
 use metal::MTLPixelFormat;
 use objc::{msg_send, sel, sel_impl};
 use objc::{
@@ -37,6 +37,7 @@ impl super::Surface for MetalSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         _display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        _opengl_api: Option<OpenGLAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let layer = match window_handle
             .window_handle()

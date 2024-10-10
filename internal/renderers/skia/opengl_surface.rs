@@ -12,8 +12,8 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
+use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, OpenGLAPI};
 
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
@@ -29,11 +29,13 @@ impl super::Surface for OpenGLSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        opengl_api: Option<OpenGLAPI>,
     ) -> Result<Self, PlatformError> {
         Self::new_with_config(
             window_handle,
             display_handle,
             size,
+            opengl_api,
             glutin::config::ConfigTemplateBuilder::new(),
             None,
         )
@@ -142,6 +144,7 @@ impl OpenGLSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        opengl_api: Option<OpenGLAPI>,
         config_builder: glutin::config::ConfigTemplateBuilder,
         config_filter: Option<&dyn Fn(&glutin::config::Config) -> bool>,
     ) -> Result<Self, PlatformError> {
@@ -164,6 +167,7 @@ impl OpenGLSurface {
             display_handle,
             width,
             height,
+            opengl_api,
             config_builder,
             config_filter,
         )?;
@@ -233,6 +237,7 @@ impl OpenGLSurface {
         _display_handle: raw_window_handle::DisplayHandle<'_>,
         width: NonZeroU32,
         height: NonZeroU32,
+        opengl_api: Option<OpenGLAPI>,
         config_template_builder: glutin::config::ConfigTemplateBuilder,
         config_filter: Option<&dyn Fn(&glutin::config::Config) -> bool>,
     ) -> Result<
@@ -278,6 +283,12 @@ impl OpenGLSurface {
         let config_template_builder =
             config_template_builder.compatible_with_native_window(_window_handle.as_raw());
 
+        let config_template_builder = if let Some(OpenGLAPI::GL) = opengl_api {
+            config_template_builder.with_api(glutin::config::Api::OPENGL)
+        } else {
+            config_template_builder
+        };
+
         let config_template = config_template_builder.build();
 
         let config = unsafe {
@@ -298,26 +309,35 @@ impl OpenGLSurface {
                 .ok_or("Unable to find suitable GL config")?
         };
 
-        let create_gl_context = |gles_major| {
-            let gles_context_attributes = ContextAttributesBuilder::new()
-                .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                    major: gles_major,
-                    minor: 0,
-                })))
-                .build(Some(_window_handle.as_raw()));
+        let create_gl_context = |gl_major| {
+            let preferred_context_attributes = match opengl_api {
+                Some(OpenGLAPI::GL) => {
+                    ContextAttributesBuilder::new().build(Some(_window_handle.as_raw()))
+                }
+                Some(OpenGLAPI::GLES) | None => ContextAttributesBuilder::new()
+                    .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                        major: gl_major,
+                        minor: 0,
+                    })))
+                    .build(Some(_window_handle.as_raw())),
+            };
 
             let fallback_context_attributes =
                 ContextAttributesBuilder::new().build(Some(_window_handle.as_raw()));
 
             unsafe {
                 gl_display
-                    .create_context(&config, &gles_context_attributes)
+                    .create_context(&config, &preferred_context_attributes)
                     .or_else(|_| gl_display.create_context(&config, &fallback_context_attributes))
                     .map_err(|e| format!("Error creating OpenGL context: {e}"))
             }
         };
 
-        let not_current_gl_context = create_gl_context(3).or_else(|_| create_gl_context(2))?;
+        let not_current_gl_context = if let Some(OpenGLAPI::GL) = opengl_api {
+            create_gl_context(4)?
+        } else {
+            create_gl_context(3).or_else(|_| create_gl_context(2))?
+        };
 
         let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
             _window_handle.as_raw(),
