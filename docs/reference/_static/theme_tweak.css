@@ -3,24 +3,27 @@ html[data-theme="light"] {
         background-color: #fff;
         background-position: top center;
         background-repeat: no-repeat;
-        background-size: cover;
         color: #151D21;
     }
 }
 
 html[data-theme="dark"] {
     body {
-        background-color: #151D21;
         background-image: url(https://slint.dev/assets/img/bg-dark.svg);
         background-position: top center;
         background-repeat: no-repeat;
-        background-size: cover;
         color: #fff;
+        background-size: cover;
     }
 
     --pst-color-background: transparent;
-    --pst-color-on-background: transparent;
+    /* --pst-color-on-background: transparent; */
 }
+
+html {
+    --pst-color-background: #151D21;
+}
+
 
 div.sidebar-primary-item:first-child {
     text-align: center;
@@ -97,4 +100,6 @@ div.cm-focused div.cm-activeLine {
 .preview-container {
     display: flex;
     justify-content: center;
+    align-items: center;
+    min-height: 200px;
 }

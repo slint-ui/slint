@@ -19,7 +19,9 @@ import { cpp } from '@codemirror/lang-cpp';
 import { languageNameFacet } from './language-facets';
 import { previewFacet } from './preview-facets';
 
-const editor_url = "https://releases.slint.dev/1.9.0/editor/";
+const editor_url = "https://snapshots.slint.dev/master/editor/";
+const wasm_url = "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js";
+let slint_wasm_module = null;
 
 // Function to create the Copy button and add it to the panel
 function createCopyButton(view) {
@@ -97,9 +99,9 @@ function debounce(func, wait) {
     };
 }
 
-async function updateWasmPreview(slint, previewContainer, content) {
+async function updateWasmPreview(previewContainer, content) {
 
-    let { component, error_string } = await slint.compile_from_string(content, "");
+    let { component, error_string } = await slint_wasm_module.compile_from_string(content, "");
     var error_div = previewContainer.parentNode.querySelector(".error-status");
     if (error_string != "") {
         var text = document.createTextNode(error_string);
@@ -120,7 +122,7 @@ async function updateWasmPreview(slint, previewContainer, content) {
 // Wrap updateWasmPreview in a debounce function (500ms delay)
 const debouncedUpdateWasmPreview = debounce(updateWasmPreview, 500);
 
-async function initializePreviewContainers(slint, previewContainer, content) {
+async function initializePreviewContainers(previewContainer, content) {
     let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
     let canvas = document.createElement("canvas");
     canvas.id = canvas_id;
@@ -129,26 +131,24 @@ async function initializePreviewContainers(slint, previewContainer, content) {
     let error_div = document.createElement("div");
     error_div.classList.add("error-status");
     previewContainer.parentNode.appendChild(error_div);
-
-    updateWasmPreview(slint, previewContainer, content);
 }
 
 async function loadSlintWasmInterpreter(editor) {
     try {
-        // Dynamically import the Slint WASM module
-        const slint = await import('https://releases.slint.dev/1.9.0/wasm-interpreter/slint_wasm_interpreter.js');
-        await slint.default(); // Wait for WASM to initialize
+        if (slint_wasm_module)
+            return;
 
-        const editorDiv_id = editor.state.facet(previewFacet);
-        editor_slint_map.set(editorDiv_id, slint);
+        // Dynamically import the Slint WASM module
+        slint_wasm_module = await import(wasm_url);
+        await slint_wasm_module.default(); // Wait for WASM to initialize
 
         try {
-            slint.run_event_loop(); // Run the event loop, which will trigger an exception
+            slint_wasm_module.run_event_loop(); // Run the event loop, which will trigger an exception
         } catch (e) {
             // Swallow the expected JavaScript exception that breaks out of Rust's event loop
         }
 
-        return slint; // Return the loaded and initialized Slint WASM module
+        return;
     } catch (error) {
         console.error("Error during Slint WASM interpreter initialization:", error);
         throw error; // Re-throw error to handle it in the calling context
@@ -218,12 +218,10 @@ window.initCodeMirror = function (editorDiv, language, content) {
             previewContainer = document.createElement("div");
             previewContainer.classList.add('preview-container');
             editorDiv.classList.add('show-preview');
-            extensions.push(EditorView.updateListener.of((update) => {
-                if (update.docChanged) {
-                    const newContent = update.state.doc.toString();
-                    const editorDiv_id = editor.state.facet(previewFacet);
-                    const slint = editor_slint_map.get(editorDiv_id);
-                    debouncedUpdateWasmPreview(slint, previewContainer, newContent);
+            extensions.push(EditorView.updateListener.of(async (editor) => {
+                if (editor.docChanged) {
+                    const newContent = editor.state.doc.toString();
+                    debouncedUpdateWasmPreview(previewContainer, newContent);
                 }
             }));
             break;
@@ -243,8 +241,9 @@ window.initCodeMirror = function (editorDiv, language, content) {
     if (previewContainer) {
         editorDiv.append(previewContainer);
         loadSlintWasmInterpreter(editor)
-            .then(async (slint) => {
-                initializePreviewContainers(slint, previewContainer, content);
+            .then(async () => {
+                initializePreviewContainers(previewContainer, content);
+                updateWasmPreview(previewContainer, content);
             })
             .catch(error => {
                 console.error("Error loading Slint WASM interpreter:", error);
@@ -252,7 +251,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
     }
 };
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
     // Find all the divs that need a CodeMirror editor
     document.querySelectorAll('.codemirror-editor').forEach(function (editorDiv) {
         const editorContent = editorDiv.querySelector('.codemirror-content');
