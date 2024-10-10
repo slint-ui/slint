@@ -90,7 +90,7 @@ impl PlatformBuilder {
     /// slint::platform::set_platform(platform).unwrap();
     /// ```
     pub fn build(self) -> Result<Box<dyn Platform + 'static>, PlatformError> {
-        let builder = i_slint_backend_winit::Backend::builder();
+        let builder = i_slint_backend_winit::Backend::builder().with_allow_fallback(false);
 
         let builder = match self.opengl_api {
             Some(OpenGLAPI::GL) => builder.with_opengl_api(OpenGLAPI::GL),
