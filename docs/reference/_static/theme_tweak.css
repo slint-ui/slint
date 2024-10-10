@@ -14,15 +14,18 @@ html[data-theme="dark"] {
         background-repeat: no-repeat;
         color: #fff;
         background-size: cover;
+        background-attachment: fixed;
+        -webkit-background-size: cover; /* Safari fix */
+        background-color: #151D21;
     }
 
     --pst-color-background: transparent;
-    /* --pst-color-on-background: transparent; */
+    --pst-color-on-background: transparent;
 }
 
-html {
+/* html {
     --pst-color-background: #151D21;
-}
+} */
 
 
 div.sidebar-primary-item:first-child {
