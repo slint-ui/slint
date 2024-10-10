@@ -20,7 +20,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::Brush;
+use i_slint_core::{Brush, OpenGLAPI};
 
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
@@ -65,8 +65,9 @@ fn create_default_surface(
     window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
     display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
     size: PhysicalWindowSize,
+    opengl_api: Option<OpenGLAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    match DefaultSurface::new(window_handle.clone(), display_handle.clone(), size) {
+    match DefaultSurface::new(window_handle.clone(), display_handle.clone(), size, opengl_api) {
         Ok(gpu_surface) => Ok(Box::new(gpu_surface) as Box<dyn Surface>),
         #[cfg(skia_backend_software)]
         Err(err) => {
@@ -74,7 +75,7 @@ fn create_default_surface(
                 "Failed to initialize Skia GPU renderer: {} . Falling back to software rendering",
                 err
             );
-            software_surface::SoftwareSurface::new(window_handle, display_handle, size)
+            software_surface::SoftwareSurface::new(window_handle, display_handle, size, None)
                 .map(|r| Box::new(r) as Box<dyn Surface>)
         }
         #[cfg(not(skia_backend_software))]
@@ -96,6 +97,7 @@ pub struct SkiaRenderer {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        opengl_api: Option<OpenGLAPI>,
     ) -> Result<Box<dyn Surface>, PlatformError>,
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
 }
@@ -128,9 +130,14 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
-            surface_factory: |window_handle, display_handle, size| {
-                software_surface::SoftwareSurface::new(window_handle, display_handle, size)
-                    .map(|r| Box::new(r) as Box<dyn Surface>)
+            surface_factory: |window_handle, display_handle, size, opengl_api| {
+                software_surface::SoftwareSurface::new(
+                    window_handle,
+                    display_handle,
+                    size,
+                    opengl_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
         }
@@ -146,8 +153,8 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
-            surface_factory: |window_handle, display_handle, size| {
-                opengl_surface::OpenGLSurface::new(window_handle, display_handle, size)
+            surface_factory: |window_handle, display_handle, size, opengl_api| {
+                opengl_surface::OpenGLSurface::new(window_handle, display_handle, size, opengl_api)
                     .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
@@ -160,7 +167,12 @@ impl SkiaRenderer {
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
-        Ok(Self::new_with_surface(create_default_surface(window_handle, display_handle, size)?))
+        Ok(Self::new_with_surface(create_default_surface(
+            window_handle,
+            display_handle,
+            size,
+            None,
+        )?))
     }
 
     /// Creates a new renderer with the given surface trait implementation.
@@ -173,7 +185,7 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             surface: RefCell::new(Some(surface)),
-            surface_factory: |_, _, _| {
+            surface_factory: |_, _, _, _| {
                 Err("Skia renderer constructed with surface does not support dynamic surface re-creation".into())
             },
             pre_present_callback: Default::default(),
@@ -228,10 +240,11 @@ impl SkiaRenderer {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        opengl_api: Option<OpenGLAPI>,
     ) -> Result<(), PlatformError> {
         // just in case
         self.suspend()?;
-        let surface = (self.surface_factory)(window_handle, display_handle, size)?;
+        let surface = (self.surface_factory)(window_handle, display_handle, size, opengl_api)?;
         self.set_surface(surface);
         Ok(())
     }
@@ -627,6 +640,7 @@ pub trait Surface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        opengl_api: Option<OpenGLAPI>,
     ) -> Result<Self, PlatformError>
     where
         Self: Sized;

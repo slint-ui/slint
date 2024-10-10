@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize};
 use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -255,6 +255,7 @@ impl super::Surface for D3DSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         _display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
+        _opengl_api: Option<OpenGLAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let factory_flags = 0;
         /*
