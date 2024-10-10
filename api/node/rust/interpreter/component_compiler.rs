@@ -1,10 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::to_js_unknown;
+
 use super::JsComponentDefinition;
 use super::JsDiagnostic;
+use i_slint_compiler::langtype::Type;
 use itertools::Itertools;
+use napi::Env;
+use napi::JsUnknown;
 use slint_interpreter::Compiler;
+use slint_interpreter::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -13,6 +19,7 @@ use std::path::PathBuf;
 #[napi(js_name = "ComponentCompiler")]
 pub struct JsComponentCompiler {
     internal: Compiler,
+    structs_and_enums: Vec<Type>,
     diagnostics: Vec<slint_interpreter::Diagnostic>,
 }
 
@@ -44,7 +51,7 @@ impl JsComponentCompiler {
 
         compiler.set_include_paths(include_paths);
         compiler.set_library_paths(library_paths);
-        Self { internal: compiler, diagnostics: vec![] }
+        Self { internal: compiler, diagnostics: vec![], structs_and_enums: vec![] }
     }
 
     #[napi(setter)]
@@ -99,12 +106,72 @@ impl JsComponentCompiler {
         self.diagnostics.iter().map(|d| JsDiagnostic::from(d.clone())).collect()
     }
 
+    #[napi(getter)]
+    pub fn structs(&self, env: Env) -> HashMap<String, JsUnknown> {
+        fn convert_type(env: &Env, ty: &Type) -> Option<(String, JsUnknown)> {
+            match ty {
+                Type::Struct { fields, name: Some(name), node: Some(_), .. } => {
+                    let struct_instance = to_js_unknown(
+                        env,
+                        &Value::Struct(slint_interpreter::Struct::from_iter(fields.iter().map(
+                            |(name, field_type)| {
+                                (
+                                    name.to_string(),
+                                    slint_interpreter::default_value_for_type(field_type),
+                                )
+                            },
+                        ))),
+                    );
+
+                    return Some((name.to_string(), struct_instance.ok()?));
+                }
+                _ => return None,
+            }
+        }
+
+        self.structs_and_enums
+            .iter()
+            .filter_map(|ty| convert_type(&env, ty))
+            .into_iter()
+            .collect::<HashMap<String, JsUnknown>>()
+    }
+
+    #[napi(getter)]
+    pub fn enums(&self, env: Env) -> HashMap<String, JsUnknown> {
+        fn convert_type(env: &Env, ty: &Type) -> Option<(String, JsUnknown)> {
+            match ty {
+                Type::Enumeration(en) => {
+                    let mut o = env.create_object().ok()?;
+
+                    for value in en.values.iter() {
+                        let value = value.replace('-', "_");
+                        o.set_property(
+                            env.create_string(&value).ok()?,
+                            env.create_string(&value).ok()?.into_unknown(),
+                        )
+                        .ok()?;
+                    }
+                    return Some((en.name.clone(), o.into_unknown()));
+                }
+                _ => return None,
+            }
+        }
+
+        self.structs_and_enums
+            .iter()
+            .filter_map(|ty| convert_type(&env, ty))
+            .into_iter()
+            .collect::<HashMap<String, JsUnknown>>()
+    }
+
     /// Compile a .slint file into a ComponentDefinition
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     #[napi]
     pub fn build_from_path(&mut self, path: String) -> HashMap<String, JsComponentDefinition> {
         let r = spin_on::spin_on(self.internal.build_from_path(PathBuf::from(path)));
+        self.structs_and_enums =
+            r.structs_and_enums(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>();
         self.diagnostics = r.diagnostics().collect();
         r.components().map(|c| (c.name().to_owned(), c.into())).collect()
     }
@@ -118,6 +185,8 @@ impl JsComponentCompiler {
     ) -> HashMap<String, JsComponentDefinition> {
         let r = spin_on::spin_on(self.internal.build_from_source(source_code, PathBuf::from(path)));
         self.diagnostics = r.diagnostics().collect();
+        self.structs_and_enums =
+            r.structs_and_enums(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>();
         r.components().map(|c| (c.name().to_owned(), c.into())).collect()
     }
 }
