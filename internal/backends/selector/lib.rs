@@ -20,6 +20,7 @@ use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::OpenGLAPI;
 use i_slint_core::SlintContext;
+use i_slint_core::SlintRenderer;
 
 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
 fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
@@ -29,12 +30,6 @@ fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
 #[cfg(all(feature = "i-slint-backend-winit", not(target_os = "android")))]
 fn create_winit_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(i_slint_backend_winit::Backend::new()?))
-}
-
-pub fn create_winit_backend_with_opengl_api(
-    opengl_api: OpenGLAPI,
-) -> Result<Box<dyn Platform + 'static>, PlatformError> {
-    Ok(Box::new(i_slint_backend_winit::Backend::builder().with_opengl_api(opengl_api).build()?))
 }
 
 #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
@@ -57,17 +52,24 @@ cfg_if::cfg_if! {
 
 pub struct PlatformBuilder {
     opengl_api: Option<OpenGLAPI>,
+    renderer: Option<SlintRenderer>,
 }
 
 impl PlatformBuilder {
     /// Creates a new PlatformBuilder for configuring aspects of the Platform.
     pub fn new() -> PlatformBuilder {
-        PlatformBuilder { opengl_api: None }
+        PlatformBuilder { opengl_api: None, renderer: None }
     }
 
     /// Configures this builder to use the specified OpenGL API when building the platform later.
     pub fn with_opengl_api(mut self, opengl_api: OpenGLAPI) -> Self {
         self.opengl_api = Some(opengl_api);
+        self
+    }
+
+    /// Configures this builder to use the specified renderer when building the platform later.
+    pub fn with_renderer(mut self, renderer: SlintRenderer) -> Self {
+        self.renderer = Some(renderer);
         self
     }
 
@@ -88,11 +90,22 @@ impl PlatformBuilder {
     /// slint::platform::set_platform(platform).unwrap();
     /// ```
     pub fn build(self) -> Result<Box<dyn Platform + 'static>, PlatformError> {
-        match self.opengl_api {
-            Some(OpenGLAPI::GL) => create_winit_backend_with_opengl_api(OpenGLAPI::GL),
-            Some(OpenGLAPI::GLES) => create_winit_backend_with_opengl_api(OpenGLAPI::GLES),
-            None => create_default_backend(),
-        }
+        let builder = i_slint_backend_winit::Backend::builder();
+
+        let builder = match self.opengl_api {
+            Some(OpenGLAPI::GL) => builder.with_opengl_api(OpenGLAPI::GL),
+            Some(OpenGLAPI::GLES) => builder.with_opengl_api(OpenGLAPI::GLES),
+            None => builder,
+        };
+
+        let builder = match self.renderer {
+            Some(SlintRenderer::Femtovg) => builder.with_renderer_name("femtovg"),
+            Some(SlintRenderer::Skia) => builder.with_renderer_name("skia"),
+            Some(SlintRenderer::Software) => builder.with_renderer_name("software"),
+            None => builder,
+        };
+
+        Ok(Box::new(builder.build()?))
     }
 }
 
