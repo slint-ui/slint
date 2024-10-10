@@ -261,6 +261,18 @@ impl TimerList {
             // The active timer list is cleared here and not-yet-fired ones are inserted below, in order to allow
             // timer callbacks to register their own timers.
             let timers_to_process = core::mem::take(&mut timers.borrow_mut().active_timers);
+
+            #[cfg(debug_assertions)]
+            {
+                let mut timer_ids = Vec::new();
+                for timer in &timers_to_process {
+                    match timer_ids.binary_search(&timer.id) {
+                        Ok(_) => assert!(false, "Duplicated active timer"),
+                        Err(idx) => timer_ids.insert(idx, timer.id),
+                    }
+                }
+            }
+
             {
                 let mut timers = timers.borrow_mut();
                 for active_timer in &timers_to_process {
