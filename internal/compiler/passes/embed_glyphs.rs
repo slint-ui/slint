@@ -12,6 +12,7 @@ use crate::CompilerConfiguration;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_common::sharedfontdb::{self, fontdb};
 
@@ -21,6 +22,8 @@ struct Font {
     #[deref]
     fontdue_font: Rc<fontdue::Font>,
     metrics: i_slint_common::sharedfontdb::DesignFontMetrics,
+    face_data: Arc<dyn AsRef<[u8]> + Send + Sync>,
+    face_index: u32,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -202,7 +205,7 @@ fn embed_glyphs_with_fontdb<'a>(
     }
 
     let mut embed_font_by_path_and_face_id = |path: &std::path::Path, face_id| {
-        let fontdue_font = match compiler_config.load_font_by_id(face_id) {
+        let (fontdue_font, face_data, face_index) = match compiler_config.load_font_by_id(face_id) {
             Ok(font) => font,
             Err(msg) => {
                 diag.push_error(
@@ -213,12 +216,11 @@ fn embed_glyphs_with_fontdb<'a>(
             }
         };
 
-        let Some(Ok(metrics)) = i_slint_common::sharedfontdb::FONT_DB.with(|fontdb| {
-            fontdb.borrow().with_face_data(face_id, |font_data, face_index| {
-                i_slint_common::sharedfontdb::ttf_parser::Face::parse(font_data, face_index)
-                    .map(|face| i_slint_common::sharedfontdb::DesignFontMetrics::new(face))
-            })
-        }) else {
+        let Ok(metrics) = i_slint_common::sharedfontdb::ttf_parser::Face::parse(
+            face_data.as_ref().as_ref(),
+            face_index,
+        )
+        .map(|face| i_slint_common::sharedfontdb::DesignFontMetrics::new(face)) else {
             diag.push_error(
                 format!("error parsing font for embedding {}", path.display()),
                 &generic_diag_location,
@@ -247,7 +249,7 @@ fn embed_glyphs_with_fontdb<'a>(
         let embedded_bitmap_font = embed_font(
             &fontdb,
             family_name,
-            Font { id: face_id, fontdue_font, metrics },
+            Font { id: face_id, fontdue_font, metrics, face_data, face_index },
             &pixel_sizes,
             characters_seen.iter().cloned(),
             &fallback_fonts,
@@ -292,7 +294,7 @@ fn embed_glyphs_with_fontdb<'a>(
 fn get_fallback_fonts(
     compiler_config: &CompilerConfiguration,
     fontdb: &sharedfontdb::FontDatabase,
-) -> Vec<Rc<fontdue::Font>> {
+) -> Vec<Font> {
     #[allow(unused)]
     let mut fallback_families: Vec<String> = Vec::new();
 
@@ -331,7 +333,20 @@ fn get_fallback_fonts(
                     families: &[fontdb::Family::Name(fallback_family)],
                     ..Default::default()
                 })
-                .and_then(|face_id| compiler_config.load_font_by_id(face_id).ok())
+                .and_then(|face_id| {
+                    compiler_config.load_font_by_id(face_id).ok().map(
+                        |(fontdue_font, face_data, face_index)| {
+                            let metrics = i_slint_common::sharedfontdb::DesignFontMetrics::new(
+                                i_slint_common::sharedfontdb::ttf_parser::Face::parse(
+                                    face_data.as_ref().as_ref(),
+                                    face_index,
+                                )
+                                .unwrap(),
+                            );
+                            Font { id: face_id, fontdue_font, metrics, face_data, face_index }
+                        },
+                    )
+                })
         })
         .collect::<Vec<_>>();
     fallback_fonts
@@ -344,7 +359,7 @@ fn embed_font(
     font: Font,
     pixel_sizes: &[i16],
     character_coverage: impl Iterator<Item = char>,
-    fallback_fonts: &[Rc<fontdue::Font>],
+    fallback_fonts: &[Font],
 ) -> BitmapFont {
     let mut character_map: Vec<CharacterMapEntry> = character_coverage
         .enumerate()
@@ -356,13 +371,113 @@ fn embed_font(
         .collect();
     character_map.sort_by_key(|entry| entry.code_point);
 
+    #[cfg(feature = "embed-glyphs-as-sdf")]
+    let glyphs = embed_sdf_glyphs(pixel_sizes, &character_map, &font, fallback_fonts);
+
+    #[cfg(not(feature = "embed-glyphs-as-sdf"))]
+    let glyphs = embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts);
+
+    let face_info = fontdb.face(font.id).unwrap();
+
+    BitmapFont {
+        family_name,
+        character_map,
+        units_per_em: font.metrics.units_per_em,
+        ascent: font.metrics.ascent,
+        descent: font.metrics.descent,
+        x_height: font.metrics.x_height,
+        cap_height: font.metrics.cap_height,
+        glyphs,
+        weight: face_info.weight.0,
+        italic: face_info.style != fontdb::Style::Normal,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn embed_alpha_map_glyphs(
+    pixel_sizes: &[i16],
+    character_map: &Vec<CharacterMapEntry>,
+    font: &Font,
+    fallback_fonts: &[Font],
+) -> Vec<BitmapGlyphs> {
     let glyphs = pixel_sizes
         .iter()
         .map(|pixel_size| {
             let mut glyph_data = Vec::new();
             glyph_data.resize(character_map.len(), Default::default());
 
-            for CharacterMapEntry { code_point, glyph_index } in &character_map {
+            for CharacterMapEntry { code_point, glyph_index } in character_map {
+                let (metrics, bitmap) = core::iter::once(font)
+                    .chain(fallback_fonts.iter())
+                    .find_map(|font| {
+                        font.chars()
+                            .contains_key(code_point)
+                            .then(|| font.rasterize(*code_point, *pixel_size as _))
+                    })
+                    .unwrap_or_else(|| font.rasterize(*code_point, *pixel_size as _));
+
+                let glyph = BitmapGlyph {
+                    x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
+                    y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
+                    width: i16::try_from(metrics.width).expect("large width"),
+                    height: i16::try_from(metrics.height).expect("large height"),
+                    x_advance: i16::try_from(metrics.advance_width as i64)
+                        .expect("large advance width"),
+                    data: bitmap,
+                };
+                glyph_data[*glyph_index as usize] = glyph;
+            }
+
+            BitmapGlyphs { pixel_size: *pixel_size, glyph_data }
+        })
+        .collect();
+    glyphs
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "embed-glyphs-as-sdf"))]
+fn embed_sdf_glyphs(
+    pixel_sizes: &[i16],
+    character_map: &Vec<CharacterMapEntry>,
+    font: &Font,
+    fallback_fonts: &[Font],
+) -> Vec<BitmapGlyphs> {
+    let Some(target_pixel_size) = pixel_sizes.iter().max().map(|max_size| max_size / 2) else {
+        return vec![];
+    };
+
+    let mut glyph_data = Vec::new();
+
+    glyph_data.resize(character_map.len(), Default::default());
+
+    for CharacterMapEntry { code_point, glyph_index } in character_map {
+        let (metrics, bitmap) = core::iter::once(font)
+            .chain(fallback_fonts.iter())
+            .find_map(|font| {
+                font.chars()
+                    .contains_key(code_point)
+                    .then(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size))
+            })
+            .unwrap_or_else(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size));
+
+        let glyph = BitmapGlyph {
+            x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
+            y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
+            width: i16::try_from(metrics.width).expect("large width"),
+            height: i16::try_from(metrics.height).expect("large height"),
+            x_advance: i16::try_from(metrics.advance_width as i64).expect("large advance width"),
+            data: bitmap,
+        };
+        glyph_data[*glyph_index as usize] = glyph;
+    }
+
+    /*
+    let glyphs = pixel_sizes
+        .iter()
+        .map(|pixel_size| {
+            let mut glyph_data = Vec::new();
+            glyph_data.resize(character_map.len(), Default::default());
+
+            for CharacterMapEntry { code_point, glyph_index } in character_map {
                 let (metrics, bitmap) = core::iter::once(&font.fontdue_font)
                     .chain(fallback_fonts.iter())
                     .find_map(|font| {
@@ -387,21 +502,69 @@ fn embed_font(
             BitmapGlyphs { pixel_size: *pixel_size, glyph_data }
         })
         .collect();
+    */
+    vec![BitmapGlyphs { pixel_size: 0 /* indicates SDF */, glyph_data }]
+}
 
-    let face_info = fontdb.face(font.id).unwrap();
+#[cfg(all(not(target_arch = "wasm32"), feature = "embed-glyphs-as-sdf"))]
+fn generate_sdf_for_glyph(
+    font: &Font,
+    code_point: char,
+    target_pixel_size: i16,
+) -> (fontdue::Metrics, Vec<u8>) {
+    use fdsm::transform::Transform;
+    use nalgebra::{Affine2, Similarity2, Vector2};
 
-    BitmapFont {
-        family_name,
-        character_map,
-        units_per_em: font.metrics.units_per_em,
-        ascent: font.metrics.ascent,
-        descent: font.metrics.descent,
-        x_height: font.metrics.x_height,
-        cap_height: font.metrics.cap_height,
-        glyphs,
-        weight: face_info.weight.0,
-        italic: face_info.style != fontdb::Style::Normal,
-    }
+    let face =
+        ttf_parser_fdsm::Face::parse(font.face_data.as_ref().as_ref(), font.face_index).unwrap();
+    let glyph_id = face.glyph_index(code_point).unwrap();
+    let mut shape = fdsm::shape::Shape::load_from_face(&face, glyph_id);
+
+    let bbox = face.glyph_bounding_box(glyph_id).unwrap();
+
+    const RANGE: f64 = 4.0;
+    const SHRINKAGE: f64 = 16.0;
+    let transformation = nalgebra::convert::<_, Affine2<f64>>(Similarity2::new(
+        Vector2::new(RANGE - bbox.x_min as f64 / SHRINKAGE, RANGE - bbox.y_min as f64 / SHRINKAGE),
+        0.0,
+        1.0 / SHRINKAGE,
+    ));
+    let width = ((bbox.x_max as f64 - bbox.x_min as f64) / SHRINKAGE + 2.0 * RANGE).ceil() as u32;
+    let height = ((bbox.y_max as f64 - bbox.y_min as f64) / SHRINKAGE + 2.0 * RANGE).ceil() as u32;
+
+    // Unlike msdfgen, the transformation is not passed into the
+    // `generate_msdf` function – the coordinates of the control points
+    // must be expressed in terms of pixels on the distance field. To get
+    // the correct units, we pre-transform the shape:
+
+    shape.transform(&transformation);
+
+    let prepared_shape = shape.prepare();
+
+    // Set up the resulting image and generate the distance field:
+
+    let mut sdf = image_fdsm::GrayImage::new(width, height);
+    fdsm::generate::generate_sdf(&prepared_shape, RANGE, &mut sdf);
+    fdsm::render::correct_sign_sdf(
+        &mut sdf,
+        &prepared_shape,
+        fdsm::bezier::scanline::FillRule::Nonzero,
+    );
+
+    let glyph_data = sdf.into_raw();
+
+    let metrics = fontdue::Metrics {
+        xmin: bbox.x_min as _,
+        ymin: bbox.y_min as _,
+        width: width as usize,
+        height: height as usize,
+        // NOTE! This is the advance in font design space, so it needs to be multiplied by the target size and divided by units per em.
+        advance_width: face.glyph_hor_advance(glyph_id).unwrap() as _,
+        advance_height: 0.,         /*unused */
+        bounds: Default::default(), /*unused */
+    };
+
+    (metrics, glyph_data)
 }
 
 fn try_extract_font_size_from_element(elem: &ElementRc, property_name: &str) -> Option<f64> {

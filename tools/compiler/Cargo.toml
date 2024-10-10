@@ -20,7 +20,9 @@ path = "main.rs"
 [features]
 software-renderer = ["i-slint-compiler/software-renderer"]
 
-default = ["software-renderer"]
+embed-glyphs-as-sdf = ["i-slint-compiler/embed-glyphs-as-sdf"]
+
+default = ["software-renderer", "embed-glyphs-as-sdf"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics", "cpp", "rust"]}
