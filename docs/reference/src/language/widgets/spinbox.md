@@ -16,7 +16,7 @@
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { SpinBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

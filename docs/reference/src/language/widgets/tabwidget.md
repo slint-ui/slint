@@ -14,7 +14,7 @@ a time.
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { TabWidget } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

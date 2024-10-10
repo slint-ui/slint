@@ -11,7 +11,7 @@ A `GroupBox` is a container that groups its children together under a common tit
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { GroupBox , VerticalBox, CheckBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

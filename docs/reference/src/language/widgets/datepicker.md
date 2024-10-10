@@ -16,7 +16,7 @@ Use a date picker to let the user select a date.
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { DatePickerPopup, Button } from "std-widgets.slint";
 export component Example inherits Window {
     width: 600px;

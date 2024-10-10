@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use std::ffi::OsString;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use xshell::{cmd, Shell};
 
 fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
     if dst.as_ref().exists() {
@@ -40,11 +41,15 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
     src: S,
     target: T,
     target_to_source: TS,
+    excluded_entries: &[&std::ffi::OsStr],
 ) -> Result<()> {
     for entry in std::fs::read_dir(src.as_ref()).context("Error reading docs source directory")? {
         let entry = entry.context("Error reading directory entry")?;
         let path = entry.path();
         let file_name = path.file_name().unwrap();
+        if excluded_entries.contains(&file_name) {
+            continue;
+        }
         let symlink_source = target_to_source.as_ref().to_path_buf().join(&file_name);
         let symlink_target = target.as_ref().to_path_buf().join(path.file_name().unwrap());
         let filetype = entry.file_type().context("Cannot determine file type")?;
@@ -75,8 +80,24 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         &docs_source_dir,
         &docs_build_dir,
         ["..", "..", "docs", "reference"].iter().collect::<PathBuf>(),
+        &[std::ffi::OsStr::new("_static")]
     )
     .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
+
+    symlink_files_in_dir(
+        &docs_source_dir.join("_static"),
+        &html_static_dir,
+        ["..", r"..", "..", "docs", "reference", "_static"].iter().collect::<PathBuf>(),
+        &[]
+    )
+    .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
+
+    {
+        let sh = Shell::new()?;
+        let _p = sh.push_dir(root.join("docs/editor"));
+        cmd!(sh, "npm install").run()?;
+        cmd!(sh, "npm run build").run()?;
+    }
 
     let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("Pipfile"))];
 

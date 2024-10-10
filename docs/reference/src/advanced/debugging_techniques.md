@@ -44,7 +44,7 @@ the number of calls tends to improve performance.
 
 For example, if you draw a series of bar charts by filling rectangles with a gradient, you'll observe that each rectangle is a draw call on its own:
 
-```slint
+```{codemirror} slint
 component BarChart inherits Rectangle {
     background: black;
     height: 150px;

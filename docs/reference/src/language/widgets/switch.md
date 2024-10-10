@@ -17,7 +17,7 @@ A `Switch` is a representation of a physical switch that allows users to turn th
 
 ### Example
 
-```slint
+```{codemirror} slint
 import { Switch } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

@@ -40,7 +40,7 @@ be hard to insert otherwise:
 
 Anything else following an unescaped `\` is an error.
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export component Example inherits Text {
     text: "hello";
 }
@@ -52,7 +52,7 @@ Note: The `\{...}` syntax is not valid within the `slint!` macro in Rust.
 
 Color literals follow the syntax of CSS:
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export component Example inherits Window {
     background: blue;
     property<color> c1: #ffaaff;
@@ -136,7 +136,7 @@ reach at the specified percentage along the axis of the gradient.
 The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
@@ -159,7 +159,7 @@ The syntax is otherwise based on the CSS `radial-gradient` function.
 
 Example:
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
@@ -181,7 +181,7 @@ Slint looks for images in the following places:
 
 Access an `image`'s dimension using its `width` and `height` properties.
 
-```slint
+```{codemirror} slint
 export component Example inherits Window {
     preferred-width: 150px;
     preferred-height: 50px;
@@ -202,7 +202,7 @@ The numbers are either `top right bottom left` or `vertical horizontal`, or one 
 
 Define named structures using the `struct` keyword:
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export struct Player  {
     name: string,
     score: int,
@@ -223,7 +223,7 @@ syntax, and initialize them using
 
 You may have a trailing `,` after the last expression or type.
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export component Example {
     in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
     in-out property<{a: int, }> foo: { a: 3 };
@@ -234,7 +234,7 @@ export component Example {
 
 Define an enumeration with the `enum` keyword:
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export enum CardSuit { clubs, diamonds, hearts, spade }
 
 export component Example {
@@ -257,7 +257,7 @@ Arrays are declared by wrapping `[` and `]` square brackets around the type of t
 
 Array literals as well as properties holding arrays act as models in `for` expressions.
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export component Example {
     in-out property<[int]> list-of-int: [1,2,3];
     in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
@@ -271,7 +271,7 @@ Arrays define the following operations:
 
 Out of bound access into an array will return default-constructed values.
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export component Example {
     in-out property<[int]> list-of-int: [1,2,3];
 
@@ -304,7 +304,7 @@ The following conversions are possible:
 -   String can be converted to float by using the `to-float` function. That function returns 0 if the string isn't
     a valid number. You can check with `is-float()` if the string contains a valid number
 
-```slint,no-preview
+```{codemirror} slint,no-preview
 export component Example {
     // OK: int converts to string
     property<{a: string, b: int}> prop1: {a: 12, b: 12 };

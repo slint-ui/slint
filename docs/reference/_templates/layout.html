@@ -1,4 +1,22 @@
-{% extends "!layout.html" %} {% block scripts_end %} {{ super() }}
-{% include "../../resources/slint-docs-preview.html" %}
-{% include "../../resources/slint-docs-highlight.html" %}
+{% extends "!layout.html" %}
+
+{% block extrahead %}
+    <!-- Custom styles and script to prevent FOUC -->
+    <style>
+        body {
+            visibility: hidden;  /* Hide body until the theme is applied */
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';  // Default to light theme
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.body.style.visibility = 'visible';  // Make visible once theme is applied
+        });
+    </script>
+{% endblock extrahead %}
+
+{% block scripts_end %}
+    {{ super() }}
 {% endblock %}

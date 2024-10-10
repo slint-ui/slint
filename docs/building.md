@@ -16,9 +16,10 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 ### Dependencies
 
--   **FFMPEG**
+- **FFMPEG**
 
--   **Skia** (only few available binaries):
+- **Skia** (only few available binaries):
+
 <center>
 
 | Platform                          | Binaries                                           |
@@ -32,7 +33,7 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 </center>
 
--   Use Skia capable toolchain `rustup default stable-x86_64-pc-windows-msvc`
+- Use Skia capable toolchain `rustup default stable-x86_64-pc-windows-msvc`
 
 ### Linux
 
@@ -49,42 +50,42 @@ For Linux a few additional packages beyond the usual build essentials are needed
 
 ### macOS
 
--   Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
--   (optional) Qt will be used when `qmake` is found in `PATH`
--   FFMPEG `brew install pkg-config ffmpeg`
+- Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
+- (optional) Qt will be used when `qmake` is found in `PATH`
+- FFMPEG `brew install pkg-config ffmpeg`
 
 ### Windows
 
--   See [System Link](#symlinks-in-the-repository-windows)
--   Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
--   (optional) make sure Qt is installed and `qmake` is in the `Path`
--   FFMPEG
+- See [System Link](#symlinks-in-the-repository-windows)
+- Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
+- (optional) make sure Qt is installed and `qmake` is in the `Path`
+- FFMPEG
 
-    -   Option 1:
+  - Option 1:
 
-        -   install [vcpkg](https://github.com/microsoft/vcpkg#quick-start-windows)
-        -   `vcpkg install ffmpeg --triplet x64-windows`
-        -   Make sure `VCPKG_ROOT` is set to where `vcpkg` is installed
-        -   Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path
+    - install [vcpkg](https://github.com/microsoft/vcpkg#quick-start-windows)
+    - `vcpkg install ffmpeg --triplet x64-windows`
+    - Make sure `VCPKG_ROOT` is set to where `vcpkg` is installed
+    - Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path
 
-    -   Option 2:
-        -   Download FFMPEG 4.4 shared and extract (https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest)
-        -   Add FFMPEG to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
+  - Option 2:
+    - Download FFMPEG 4.4 shared and extract (<https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest>)
+    - Add FFMPEG to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
 
 ### C++ API (optional)
 
 To use Slint from C++, the following extra dependencies are needed:
 
--   **[cmake](https://cmake.org/download/)** (3.21 or newer)
--   **[Ninja](https://ninja-build.org)** (Optional, or remove the `-GNinja` when invoking `cmake`)
--   A C++ compiler that supports C++20 (e.g., **MSVC 2022 17.3** on Windows, or **GCC 10**)
+- **[cmake](https://cmake.org/download/)** (3.21 or newer)
+- **[Ninja](https://ninja-build.org)** (Optional, or remove the `-GNinja` when invoking `cmake`)
+- A C++ compiler that supports C++20 (e.g., **MSVC 2022 17.3** on Windows, or **GCC 10**)
 
 ### Node.js API (optional)
 
 To use Slint from Node.js, the following extra dependencies are needed.
 
--   **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the version 16.
--   **[Python](https://www.python.org)**
+- **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the version 16.
+- **[Python](https://www.python.org)**
 
 ### Symlinks in the repository (Windows)
 
@@ -115,7 +116,8 @@ cargo test
 To build all examples install the entire workplace to executables
 (excluding [UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) - different target)
 
--   Build workspace
+- Build workspace
+
     ```sh
         cargo build --workspace --exclude uefi-demo --release
     ```
@@ -188,7 +190,7 @@ in the dependencies section of your `package.json`:
 Slint can be cross-compiled to different target architectures and environments. For the Rust build we
 have had a good experience using [`cross`](https://github.com/rust-embedded/cross). For convenience we're
 including a `Cross.toml` configuration file for `cross` in the source tree along with Docker containers that
-allow targeting a Debian ARMv7 and ARMv8 based Distribution with X11 or Wayland, out of the box. If you want to use the default Cross containers or your own, make sure the [dependencies](#Prerequisites) are in the container.
+allow targeting a Debian ARMv7 and ARMv8 based Distribution with X11 or Wayland, out of the box. If you want to use the default Cross containers or your own, make sure the [dependencies](#prerequisites) are in the container.
 
 This includes for example the Raspberry Pi OS. Using the following steps you can run the examples on a
 pi:
@@ -221,11 +223,11 @@ cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.sl
 
 The Slint documentation consists of five parts:
 
--   The quickstart guide
--   The Rust API documentation
--   The C++ API documentation
--   The Node.js API documentation
--   The DSL documentation
+- The quickstart guide
+- The Rust API documentation
+- The C++ API documentation
+- The Node.js API documentation
+- The DSL documentation
 
 The quickstart guide is part of the DSL documentation.
 
@@ -235,8 +237,8 @@ The quickstart and DSL docs are written in markdown and built with Sphinx, using
 
 **Prerequisites**:
 
--   [pipenv](https://pipenv.pypa.io/en/latest/)
--   [Python](https://www.python.org/downloads/)
+- [pipenv](https://pipenv.pypa.io/en/latest/)
+- [Python](https://www.python.org/downloads/)
 
 Use the following command line to build the documentation using `rustdoc` to the `target/slintdocs/html` folder:
 
@@ -258,7 +260,7 @@ Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used
 
 **Prerequisites**:
 
--   [Doxygen](https://www.doxygen.nl/download.html)
+- [Doxygen](https://www.doxygen.nl/download.html)
 
 Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
 
