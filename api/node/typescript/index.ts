@@ -922,9 +922,6 @@ export namespace private_api {
     }
 }
 
-import * as process from "node:process";
-import * as nodePath from "node:path";
-
 /**
  * Initialize translations.
  *
@@ -933,17 +930,18 @@ import * as nodePath from "node:path";
  * Translations are expected to be found at <path>/<locale>/LC_MESSAGES/<domain>.mo, where path is the directory passed as an argument to this function, locale is a locale name (e.g., en, en_GB, fr), and domain is the package name.
  *
  * @param domain defines the domain name e.g. name of the package.
- * @param path specifies the directory in which gettext should search for translations.
+ * @param path specifies the directory as `string` or as `URL` in which gettext should search for translations.
  *
- * For example, assuming this is in a crate called example and the default locale is configured to be French, it will load translations at runtime from ``/path/to/example/translations/fr/LC_MESSAGES/example.mo`.
+ * For example, assuming this is in a package called example and the default locale is configured to be French, it will load translations at runtime from ``/path/to/example/translations/fr/LC_MESSAGES/example.mo`.
  *
  * ```js
  * import * as slint from "slint-ui";
- * slint.initTranslations("package-name", "/translations/")
+ * slint.initTranslations("example", new URL("translations/", import.meta.url));
  * ````
  */
-export function initTranslations(domain: string, path: string) {
-    napi.initTranslations(domain, nodePath.join(process.cwd(), path));
+export function initTranslations(domain: string, path: string | URL) {
+    const pathname = path instanceof URL ? path.pathname : path;
+    napi.initTranslations(domain, pathname);
 }
 
 /**
