@@ -20,8 +20,11 @@ crate-type = ["lib", "cdylib"]
 name = "printerdemo_lib"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-06", "gettext"] }
+slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-06"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+slint = { path = "../../../api/rs/slint", features=["gettext"] }
 
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
