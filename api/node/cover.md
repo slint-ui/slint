@@ -277,7 +277,7 @@ An exported struct can be created either by defing of an object literal or by us
 
 **`my-component.slint`**
 
-```slint
+```
 export struct Person {
     name: string,
     age: int
@@ -313,7 +313,7 @@ A value of an exported enum can be set as string or by usign the value from the 
 
 **`my-component.slint`**
 
-```slint
+```
 export enum Position {
     top,
     bottom
