@@ -10,7 +10,7 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::platform::PlatformError;
+use i_slint_core::{platform::PlatformError, OpenGLAPI};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 pub struct OpenGLContext {
@@ -58,6 +58,7 @@ impl OpenGLContext {
     pub(crate) fn new_context(
         window_attributes: winit::window::WindowAttributes,
         event_loop: crate::event_loop::ActiveOrInactiveEventLoop<'_>,
+        opengl_api: Option<OpenGLAPI>,
     ) -> Result<(Rc<winit::window::Window>, Self), PlatformError> {
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
@@ -121,18 +122,23 @@ impl OpenGLContext {
             })?
             .map(|h| h.as_raw());
 
-        let gles_context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                major: 2,
-                minor: 0,
-            })))
-            .build(raw_window_handle);
+        let preferred_context_attributes = match opengl_api {
+            Some(OpenGLAPI::GL) => ContextAttributesBuilder::new()
+                .with_context_api(ContextApi::OpenGl(None))
+                .build(raw_window_handle),
+            Some(OpenGLAPI::GLES) | None => ContextAttributesBuilder::new()
+                .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                    major: 3,
+                    minor: 2,
+                })))
+                .build(raw_window_handle),
+        };
 
         let fallback_context_attributes = ContextAttributesBuilder::new().build(raw_window_handle);
 
         let not_current_gl_context = unsafe {
             gl_display
-                .create_context(&gl_config, &gles_context_attributes)
+                .create_context(&gl_config, &preferred_context_attributes)
                 .or_else(|_| gl_display.create_context(&gl_config, &fallback_context_attributes))
                 .map_err(|glutin_err| format!("Cannot create OpenGL context: {}", glutin_err))?
         };

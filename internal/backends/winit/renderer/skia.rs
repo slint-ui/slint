@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use crate::winitwindowadapter::physical_size_to_slint;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::OpenGLAPI;
 
 pub struct WinitSkiaRenderer {
     renderer: i_slint_renderer_skia::SkiaRenderer,
@@ -54,6 +55,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
     fn resume(
         &self,
         window_attributes: winit::window::WindowAttributes,
+        opengl_api: Option<OpenGLAPI>,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
         let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
             event_loop.create_window(window_attributes).map_err(|winit_os_error| {
@@ -68,6 +70,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             winit_window.clone(),
             winit_window.clone(),
             physical_size_to_slint(&size),
+            opengl_api,
         )?;
 
         self.renderer.set_pre_present_callback(Some(Box::new({

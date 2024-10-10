@@ -18,6 +18,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::OpenGLAPI;
 use i_slint_core::SlintContext;
 
 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
@@ -28,6 +29,12 @@ fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
 #[cfg(all(feature = "i-slint-backend-winit", not(target_os = "android")))]
 fn create_winit_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(i_slint_backend_winit::Backend::new()?))
+}
+
+pub fn create_winit_backend_with_opengl_api(
+    opengl_api: OpenGLAPI,
+) -> Result<Box<dyn Platform + 'static>, PlatformError> {
+    Ok(Box::new(i_slint_backend_winit::Backend::builder().with_opengl_api(opengl_api).build()?))
 }
 
 #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
@@ -45,6 +52,47 @@ cfg_if::cfg_if! {
         use i_slint_backend_linuxkms as default_backend;
     } else {
 
+    }
+}
+
+pub struct PlatformBuilder {
+    opengl_api: Option<OpenGLAPI>,
+}
+
+impl PlatformBuilder {
+    /// Creates a new PlatformBuilder for configuring aspects of the Platform.
+    pub fn new() -> PlatformBuilder {
+        PlatformBuilder { opengl_api: None }
+    }
+
+    /// Configures this builder to use the specified OpenGL API when building the platform later.
+    pub fn with_opengl_api(mut self, opengl_api: OpenGLAPI) -> Self {
+        self.opengl_api = Some(opengl_api);
+        self
+    }
+
+    /// Builds the platform with the parameters configured previously. Set the resulting platform
+    /// with `slint::platform::set_platform()`:
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use i_slint_core::OpenGLAPI;
+    /// use i_slint_core::platform;
+    /// use i_slint_backend_selector::PlatformBuilder;
+    ///
+    /// let platform = PlatformBuilder::new()
+    ///     .with_opengl_api(OpenGLAPI::GL)
+    ///     .build()
+    ///     .unwrap();
+    /// slint::platform::set_platform(platform).unwrap();
+    /// ```
+    pub fn build(self) -> Result<Box<dyn Platform + 'static>, PlatformError> {
+        match self.opengl_api {
+            Some(OpenGLAPI::GL) => create_winit_backend_with_opengl_api(OpenGLAPI::GL),
+            Some(OpenGLAPI::GLES) => create_winit_backend_with_opengl_api(OpenGLAPI::GLES),
+            None => create_default_backend(),
+        }
     }
 }
 
