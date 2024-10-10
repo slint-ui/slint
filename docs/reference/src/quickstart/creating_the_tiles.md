@@ -31,7 +31,7 @@ in a [`slint::VectorModel`](https://slint.dev/docs/cpp/api/classslint_1_1vectorm
 Change `main.js` to the following:
 
 :::{literalinclude} main_tiles_from_js.js
-:lines: 6-21
+:lines: 6-23
 :::
 
 The code takes the list of tiles, duplicates it, and shuffles it, accessing the `memory_tiles` property through the JavaScript code.

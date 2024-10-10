@@ -618,8 +618,7 @@ export function loadFile(
     filePath: string | URL,
     options?: LoadFileOptions,
 ): Object {
-    const pathname =
-        typeof filePath === "string" ? filePath : filePath.pathname;
+    const pathname = filePath instanceof URL ? filePath.pathname : filePath;
     return loadSlint({
         fileData: { filePath: pathname, options },
         from: "file",
