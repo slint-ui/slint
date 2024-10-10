@@ -61,6 +61,7 @@ type SourceCodeCache = HashMap<Url, (SourceFileVersion, String)>;
 #[derive(Default)]
 struct ContentCache {
     source_code: SourceCodeCache,
+    resources: HashSet<Url>,
     dependency: HashSet<Url>,
     config: PreviewConfig,
     current_previewed_component: Option<PreviewComponent>,
@@ -133,7 +134,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
 
         cache.source_code.remove(url);
 
-        (cache.dependency.contains(url) && cache.ui_is_visible)
+        ((cache.dependency.contains(url) || cache.resources.contains(url)) && cache.ui_is_visible)
             .then_some(cache.current_component())
             .flatten()
     };
@@ -912,6 +913,33 @@ fn start_parsing() {
     send_status("Loading Preview…", Health::Ok);
 }
 
+fn extract_resources(
+    dependencies: &HashSet<Url>,
+    component_instance: &ComponentInstance,
+) -> HashSet<Url> {
+    let tl = component_instance.definition().type_loader();
+
+    let mut result: HashSet<Url> = Default::default();
+
+    for d in dependencies {
+        let Ok(path) = d.to_file_path() else {
+            continue;
+        };
+        let Some(doc) = tl.get_document(&path) else {
+            continue;
+        };
+
+        result.extend(
+            doc.embedded_file_resources
+                .borrow()
+                .keys()
+                .filter_map(|fp| Url::from_file_path(fp).ok()),
+        );
+    }
+
+    result
+}
+
 fn finish_parsing(preview_url: &Url, ok: bool) {
     set_status_text("");
     if ok {
@@ -987,6 +1015,13 @@ fn finish_parsing(preview_url: &Url, ok: bool) {
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
             }
         });
+    }
+
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    if let Some(component_instance) = component_instance() {
+        cache.resources = extract_resources(&cache.dependency, &component_instance);
+    } else {
+        cache.resources.clear();
     }
 }
 

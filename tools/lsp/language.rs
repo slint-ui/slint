@@ -102,7 +102,7 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
     {
         let fs_watcher = lsp_types::DidChangeWatchedFilesRegistrationOptions {
             watchers: vec![lsp_types::FileSystemWatcher {
-                glob_pattern: lsp_types::GlobPattern::String("**/*.slint".to_string()),
+                glob_pattern: lsp_types::GlobPattern::String("**/*".to_string()),
                 kind: Some(lsp_types::WatchKind::Change | lsp_types::WatchKind::Delete),
             }],
         };
