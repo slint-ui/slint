@@ -14,6 +14,7 @@ use core::pin::Pin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+#[cfg(feature = "software-renderer")]
 use std::sync::Arc;
 
 pub mod builtin_macros;
