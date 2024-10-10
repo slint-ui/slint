@@ -922,12 +922,15 @@ export namespace private_api {
     }
 }
 
+import * as process from "node:process";
+import * as nodePath from "node:path";
+
 /**
  * Initialize translations.
  *
- * Call this with the path where translations are located. This macro internally calls the [bindtextdomain](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+ * Call this with the path where translations are located. This function internally calls the [bindtextdomain](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
  *
- * Translations are expected to be found at <dirname>/<locale>/LC_MESSAGES/<crate>.mo, where dirname is the directory passed as an argument to this macro, locale is a locale name (e.g., en, en_GB, fr), and crate is the package name obtained from the CARGO_PKG_NAME environment variable.
+ * Translations are expected to be found at <path>/<locale>/LC_MESSAGES/<domain>.mo, where path is the directory passed as an argument to this function, locale is a locale name (e.g., en, en_GB, fr), and domain is the package name.
  *
  * @param domain defines the domain name e.g. name of the package.
  * @param path specifies the directory in which gettext should search for translations.
@@ -940,7 +943,7 @@ export namespace private_api {
  * ````
  */
 export function initTranslations(domain: string, path: string) {
-    napi.initTranslations(domain, path);
+    napi.initTranslations(domain, nodePath.join(process.cwd(), path));
 }
 
 /**
