@@ -4,6 +4,8 @@
 
 import * as slint from "slint-ui";
 
+slint.initTranslations("printerdemo", new URL("../lang/", import.meta.url));
+
 const demo = slint.loadFile(
     new URL("../ui/printerdemo.slint", import.meta.url),
 );
