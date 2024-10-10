@@ -10,6 +10,7 @@ extern crate alloc;
 use event_loop::CustomEvent;
 use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
+use i_slint_core::OpenGLApi;
 use renderer::WinitCompatibleRenderer;
 use std::rc::Rc;
 #[cfg(not(target_arch = "wasm32"))]
@@ -44,7 +45,7 @@ pub enum WinitWindowEventResult {
 mod renderer {
     use std::rc::Rc;
 
-    use i_slint_core::platform::PlatformError;
+    use i_slint_core::{platform::PlatformError, OpenGLApi};
 
     pub trait WinitCompatibleRenderer {
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
@@ -59,6 +60,7 @@ mod renderer {
         fn resume(
             &self,
             window_attributes: winit::window::WindowAttributes,
+            opengl_api: Option<OpenGLApi>,
         ) -> Result<Rc<winit::window::Window>, PlatformError>;
 
         fn is_suspended(&self) -> bool;
@@ -116,6 +118,18 @@ fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
     }
 }
 
+fn default_opengl_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
+    cfg_if::cfg_if! {
+        if #[cfg(enable_skia_renderer)] {
+            renderer::skia::WinitSkiaRenderer::new_opengl_suspended()
+        } else if #[cfg(feature = "renderer-femtovg")] {
+            renderer::femtovg::GlutinFemtoVGRenderer::new_suspended()
+        } else {
+            compile_error!("Please select a feature to build with the winit OpenGL backend: `renderer-femtovg` or `renderer-skia-opengl`");
+        }
+    }
+}
+
 fn try_create_window_with_fallback_renderer(
     attrs: winit::window::WindowAttributes,
     _proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
@@ -137,6 +151,7 @@ fn try_create_window_with_fallback_renderer(
         WinitWindowAdapter::new(
             renderer_factory(),
             attrs.clone(),
+            None,
             #[cfg(enable_accesskit)]
             _proxy.clone(),
         )
@@ -157,6 +172,7 @@ pub mod native_widgets {}
 /// Create the builder using [`Backend::builder()`], then configure it for example with [`Self::with_renderer_name`],
 /// and build the backend using [`Self::build`].
 pub struct BackendBuilder {
+    opengl_api: Option<OpenGLApi>,
     window_attributes_hook:
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
     renderer_name: Option<String>,
@@ -164,6 +180,12 @@ pub struct BackendBuilder {
 }
 
 impl BackendBuilder {
+    /// Configures this builder to use the specified OpenGL API when building the backend later.
+    pub fn with_opengl_api(mut self, opengl_api: OpenGLApi) -> Self {
+        self.opengl_api = Some(opengl_api);
+        self
+    }
+
     /// Configures this builder to use the specified renderer name when building the backend later.
     /// Pass `renderer-software` for example to configure the backend to use the Slint software renderer.
     pub fn with_renderer_name(mut self, name: impl Into<String>) -> Self {
@@ -231,27 +253,38 @@ impl BackendBuilder {
             *loop_instance.borrow_mut() = Some(nre);
         });
 
-        let renderer_factory_fn = match self.renderer_name.as_deref() {
+        let renderer_factory_fn = match (self.renderer_name.as_deref(), self.opengl_api.as_ref()) {
             #[cfg(feature = "renderer-femtovg")]
-            Some("gl") | Some("femtovg") => renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
+            (Some("gl"), _) | (Some("femtovg"), _) => {
+                renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
+            }
             #[cfg(enable_skia_renderer)]
-            Some("skia") => renderer::skia::WinitSkiaRenderer::new_suspended,
+            (Some("skia"), None) => renderer::skia::WinitSkiaRenderer::new_suspended,
             #[cfg(enable_skia_renderer)]
-            Some("skia-opengl") => renderer::skia::WinitSkiaRenderer::new_opengl_suspended,
+            (Some("skia-opengl"), _) | (Some("skia"), Some(_)) => {
+                renderer::skia::WinitSkiaRenderer::new_opengl_suspended
+            }
             #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
-            Some("skia-software") => renderer::skia::WinitSkiaRenderer::new_software_suspended,
+            (Some("skia-software"), None) => {
+                renderer::skia::WinitSkiaRenderer::new_software_suspended
+            }
             #[cfg(feature = "renderer-software")]
-            Some("sw") | Some("software") => renderer::sw::WinitSoftwareRenderer::new_suspended,
-            None => default_renderer_factory,
-            Some(renderer_name) => {
+            (Some("sw"), None) | (Some("software"), None) => {
+                renderer::sw::WinitSoftwareRenderer::new_suspended
+            }
+            (None, None) => default_renderer_factory,
+            (Some(renderer_name), _) => {
                 eprintln!(
                     "slint winit: unrecognized renderer {}, falling back to {}",
                     renderer_name, DEFAULT_RENDERER_NAME
                 );
                 default_renderer_factory
             }
+            (None, Some(_)) => default_opengl_renderer_factory,
         };
+
         Ok(Backend {
+            opengl_api: self.opengl_api,
             renderer_factory_fn,
             event_loop_state: Default::default(),
             window_attributes_hook: self.window_attributes_hook,
@@ -270,6 +303,7 @@ impl BackendBuilder {
 /// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
 /// ```
 pub struct Backend {
+    opengl_api: Option<OpenGLApi>,
     renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
     proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
@@ -316,6 +350,7 @@ impl Backend {
     /// setting it as the platform backend.
     pub fn builder() -> BackendBuilder {
         BackendBuilder {
+            opengl_api: None,
             window_attributes_hook: None,
             renderer_name: None,
             event_loop_builder: None,
@@ -368,6 +403,7 @@ impl i_slint_core::platform::Platform for Backend {
         let adapter = WinitWindowAdapter::new(
             (self.renderer_factory_fn)(),
             attrs.clone(),
+            self.opengl_api.clone(),
             #[cfg(enable_accesskit)]
             self.proxy.clone(),
         )
