@@ -383,6 +383,7 @@ impl TimerList {
     }
 
     fn register_active_timer(&mut self, new_active_timer: ActiveTimer) {
+        debug_assert!(!self.active_timers.iter().any(|t| t.id == new_active_timer.id));
         let insertion_index = self
             .active_timers
             .partition_point(|existing_timer| existing_timer.timeout < new_active_timer.timeout);
