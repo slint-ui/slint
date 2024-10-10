@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod interpreter;
+use std::path::PathBuf;
+
 pub use interpreter::*;
 
 mod types;
@@ -84,6 +86,12 @@ pub fn set_quit_on_last_window_closed(
 pub fn init_testing() {
     #[cfg(feature = "testing")]
     i_slint_backend_testing::init_integration_test_with_mock_time();
+}
+
+#[napi]
+pub fn init_translations(domain: String, dir_name: String) -> napi::Result<()> {
+    i_slint_core::translations::gettext_bindtextdomain(domain.as_str(), PathBuf::from(dir_name))
+        .map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
 pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Arguments) {

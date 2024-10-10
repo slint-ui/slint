@@ -923,6 +923,27 @@ export namespace private_api {
 }
 
 /**
+ * Initialize translations.
+ *
+ * Call this with the path where translations are located. This macro internally calls the [bindtextdomain](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+ *
+ * Translations are expected to be found at <dirname>/<locale>/LC_MESSAGES/<crate>.mo, where dirname is the directory passed as an argument to this macro, locale is a locale name (e.g., en, en_GB, fr), and crate is the package name obtained from the CARGO_PKG_NAME environment variable.
+ *
+ * @param domain defines the domain name e.g. name of the package.
+ * @param path specifies the directory in which gettext should search for translations.
+ *
+ * For example, assuming this is in a crate called example and the default locale is configured to be French, it will load translations at runtime from ``/path/to/example/translations/fr/LC_MESSAGES/example.mo`.
+ *
+ * ```js
+ * import * as slint from "slint-ui";
+ * slint.initTranslations("package-name", "/translations/")
+ * ````
+ */
+export function initTranslations(domain: string, path: string) {
+    napi.initTranslations(domain, path);
+}
+
+/**
  * @hidden
  */
 export namespace private_api {
