@@ -107,7 +107,7 @@ jobs:
                   version=$(sed -n 's/^version = "\(.*\)"/\1/p' docs/reference/conf.py)
                   sed -i "s/\$TYPESENSE_INDEX_NAME/$version/g" "$searchbox_html"
                   sed -i 's/sitemap_url_scheme = "master\/docs\/slint\/{link}"/sitemap_url_scheme = "{version}docs\/slint\/{link}"/' docs/reference/conf.py
-                  sed -i "s/snapshots.slint.dev\/master/releases.slint.dev\/$version/" docs/editor/codemirror.js
+                  sed -i "s/snapshots.slint.dev\/master/releases.slint.dev\/$version/" docs/editor/codemirror.js docs/editor/rollup.config.js
                 else
                   sed -i "s/\$TYPESENSE_INDEX_NAME/master/g" "$searchbox_html"
                 fi

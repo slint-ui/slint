@@ -17,11 +17,12 @@ import { python } from '@codemirror/lang-python';
 import { rust } from '@codemirror/lang-rust';
 import { cpp } from '@codemirror/lang-cpp';
 import { languageNameFacet } from './language-facets';
-import { previewFacet } from './preview-facets';
 
 const editor_url = "https://snapshots.slint.dev/master/editor/";
 const wasm_url = "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js";
 let slint_wasm_module = null;
+// keep them alive
+var all_instances = new Array;
 
 // Function to create the Copy button and add it to the panel
 function createCopyButton(view) {
@@ -85,10 +86,6 @@ function statusPanel(view) {
         },
     };
 }
-
-// keep them alive
-var all_instances = new Array;
-var editor_slint_map = new Map();
 
 // Debounce function to limit how often updates are made
 function debounce(func, wait) {
@@ -187,7 +184,6 @@ window.initCodeMirror = function (editorDiv, language, content) {
         ]),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         languageNameFacet.of(language),
-        previewFacet.of(editorDiv_id),
         dracula,
         showPanel.of(statusPanel)
     ];
