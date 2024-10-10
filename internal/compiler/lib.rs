@@ -14,6 +14,8 @@ use core::pin::Pin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+#[cfg(feature = "software-renderer")]
+use std::sync::Arc;
 
 pub mod builtin_macros;
 pub mod diagnostics;
@@ -81,7 +83,7 @@ pub type FontCache = Rc<
     RefCell<
         std::collections::HashMap<
             i_slint_common::sharedfontdb::fontdb::ID,
-            fontdue::FontResult<Rc<fontdue::Font>>,
+            fontdue::FontResult<(Rc<fontdue::Font>, Arc<dyn AsRef<[u8]> + Send + Sync>, u32)>,
         >,
     >,
 >;
@@ -225,7 +227,7 @@ impl CompilerConfiguration {
     fn load_font_by_id(
         &self,
         face_id: i_slint_common::sharedfontdb::fontdb::ID,
-    ) -> fontdue::FontResult<Rc<fontdue::Font>> {
+    ) -> fontdue::FontResult<(Rc<fontdue::Font>, Arc<dyn AsRef<[u8]> + Send + Sync>, u32)> {
         self.font_cache
             .borrow_mut()
             .entry(face_id)
@@ -242,7 +244,14 @@ impl CompilerConfiguration {
                                     ..Default::default()
                                 },
                             )
-                            .map(Rc::new)
+                            .map(|fontdue_font| {
+                                (
+                                    Rc::new(fontdue_font),
+                                    Arc::new(font_data.to_vec())
+                                        as Arc<dyn AsRef<[u8]> + Send + Sync>,
+                                    face_index,
+                                )
+                            })
                         })
                         .unwrap_or_else(|| fontdue::FontResult::Err("internal error: corrupt font"))
                 })
