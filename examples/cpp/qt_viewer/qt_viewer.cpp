@@ -97,6 +97,10 @@ int main(int argc, char **argv)
                 ui.prop_value->setText(QString::number(*val->to_number()));
                 break;
 
+            case slint::interpreter::Value::Type::Bool:
+                ui.prop_value->setText(*val->to_number() ? "true" : "false");
+                break;
+
             default:
                 ui.prop_value->clear();
                 break;
@@ -121,6 +125,20 @@ int main(int argc, char **argv)
                         QApplication::translate("qt_viewer", "Invalid conversion to number"),
                         QMessageBox::StandardButton::Ok);
                 return;
+            }
+            break;
+        }
+        case slint::interpreter::Value::Type::Bool: {
+            if (ui.prop_value->text() == "true") {
+                val = true;
+            } else if (ui.prop_value->text() == "false") {
+                val = false;
+            } else {
+                QMessageBox::critical(
+                        &main, QApplication::translate("qt_viewer", "Set Property Error"),
+                        QApplication::translate("qt_viewer", "Invalid conversion to boolean, must be true or false"),
+                        QMessageBox::StandardButton::Ok);
+                return;                
             }
             break;
         }
