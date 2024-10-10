@@ -57,7 +57,7 @@ Combining these two steps leads us to the obligatory "Hello World" example:
 
 ```js
 import * as slint from "slint-ui";
-let ui = slint.loadFile(".ui/main.slint");
+let ui = slint.loadFile(new URL(".ui/main.slint", import.meta.url));
 let main = new ui.Main();
 main.run();
 ```
@@ -94,7 +94,7 @@ an object which allow to initialize the value of public properties or callbacks.
 import * as slint from "slint-ui";
 // In this example, the main.slint file exports a module which
 // has a counter property and a clicked callback
-let ui = slint.loadFile("ui/main.slint");
+let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,
     clicked: function() { console.log("hello"); }
@@ -135,7 +135,7 @@ The callbacks in Slint are exposed as properties in JavaScript and that can be c
 ```js
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("ui/my-component.slint");
+let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // connect to a callback
@@ -168,7 +168,7 @@ If the function is marked `public`, it can also be called from JavaScript.
 ```js
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("ui/my-component.slint");
+let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // call a public function
@@ -297,7 +297,7 @@ export component MyComponent inherits Window {
 
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("my-component.slint");
+let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // object literal
@@ -333,7 +333,7 @@ export component MyComponent inherits Window {
 
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("my-component.slint");
+let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // set enum value as string

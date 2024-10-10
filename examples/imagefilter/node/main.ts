@@ -11,7 +11,7 @@ class Filter {
 
     constructor(
         name: string,
-        applyFunction: (image: slint.ImageData) => slint.ImageData
+        applyFunction: (image: slint.ImageData) => slint.ImageData,
     ) {
         this.name = name;
         this.applyFunction = applyFunction;
@@ -44,10 +44,14 @@ class Filters extends slint.Model<string> {
     }
 }
 
-const demo = slint.loadFile("../ui/main.slint") as any;
+const demo = slint.loadFile(
+    new URL("../ui/main.slint", import.meta.url),
+) as any;
 const mainWindow = new demo.MainWindow();
 
-const sourceImage = await Jimp.read("../assets/cat.jpg");
+const sourceImage = await Jimp.read(
+    new URL("../assets/cat.jpg", import.meta.url).pathname,
+);
 
 mainWindow.original_image = sourceImage.bitmap;
 

@@ -83,7 +83,7 @@ a player can't click anything during this time.
 Insert this code before the `mainWindow.run()` call:
 
 :::{literalinclude} main_game_logic.js
-:lines: 23-63
+:lines: 24-57
 :::
 
 ::::
