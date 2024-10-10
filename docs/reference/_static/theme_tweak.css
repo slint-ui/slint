@@ -19,6 +19,11 @@ html[data-theme="dark"] {
         background-color: #151D21;
     }
 
+    .bd-header-article {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
     --pst-color-background: transparent;
     --pst-color-on-background: transparent;
 }
