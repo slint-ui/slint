@@ -4,47 +4,47 @@
 
 import * as slint from "slint-ui";
 
-let demo = slint.loadFile("../ui/todo.slint");
-let app = new demo.MainWindow();
+const demo = slint.loadFile(new URL("../ui/todo.slint", import.meta.url));
+const app = new demo.MainWindow();
 
-let model = new slint.ArrayModel([
+const model = new slint.ArrayModel([
     {
         title: "Implement the .slint file",
-        checked: true
+        checked: true,
     },
     {
         title: "Do the Rust part",
-        checked: false
+        checked: false,
     },
     {
         title: "Make the C++ code",
-        checked: false
+        checked: false,
     },
     {
         title: "Write some JavaScript code",
-        checked: true
+        checked: true,
     },
     {
         title: "Test the application",
-        checked: false
+        checked: false,
     },
     {
         title: "Ship to customer",
-        checked: false
+        checked: false,
     },
     {
         title: "???",
-        checked: false
+        checked: false,
     },
     {
         title: "Profit",
-        checked: false
+        checked: false,
     },
 ]);
 app.todo_model = model;
 
 app.todo_added = function (text) {
-    model.push({ title: text, checked: false })
+    model.push({ title: text, checked: false });
 };
 
 app.remove_done = function () {

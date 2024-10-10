@@ -5,8 +5,8 @@
 // main.js
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("./ui/app-window.slint");
-let mainWindow = new ui.MainWindow();
+const ui = slint.loadFile(new URL("./ui/app-window.slint", import.meta.url));
+const mainWindow = new ui.MainWindow();
 await mainWindow.run();
 
 // ANCHOR_END: main

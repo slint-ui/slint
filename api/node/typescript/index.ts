@@ -605,7 +605,7 @@ function loadSlint(loadData: LoadData): Object {
  * main.greeting = "Hello friends";
  * ```
  *
- * @param filePath The path to the file to load. Relative paths are resolved against the process' current working directory.
+ * @param filePath The path to the file to load as `string` or `URL`. Relative paths are resolved against the process' current working directory.
  * @param options An optional {@link LoadFileOptions} to configure additional Slint compilation settings,
  *                such as include search paths, library imports, or the widget style.
  * @returns Returns an object that is immutable and provides a constructor function for each exported Window component found in the `.slint` file.
@@ -614,9 +614,14 @@ function loadSlint(loadData: LoadData): Object {
  *          For further information on the available properties, refer to [Instantiating A Component](../index.html#md:instantiating-a-component).
  * @throws {@link CompileError} if errors occur during compilation.
  */
-export function loadFile(filePath: string, options?: LoadFileOptions): Object {
+export function loadFile(
+    filePath: string | URL,
+    options?: LoadFileOptions,
+): Object {
+    const pathname =
+        typeof filePath === "string" ? filePath : filePath.pathname;
     return loadSlint({
-        fileData: { filePath, options },
+        fileData: { filePath: pathname, options },
         from: "file",
     });
 }

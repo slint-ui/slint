@@ -4,43 +4,39 @@
 
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("memory.slint");
-let window = new ui.MainWindow();
+const ui = slint.loadFile(new URL("memory.slint", import.meta.url));
+const window = new ui.MainWindow();
 
-let initial_tiles = [...window.memory_tiles];
-let tiles = initial_tiles.concat(initial_tiles.map((tile) => Object.assign({}, tile)));
+const initial_tiles = [...window.memory_tiles];
+const tiles = initial_tiles.concat(
+    initial_tiles.map((tile) => Object.assign({}, tile)),
+);
 
 for (let i = tiles.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * i);
     [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
 }
 
-let model = new slint.ArrayModel(tiles);
+const model = new slint.ArrayModel(tiles);
 window.memory_tiles = model;
 
 window.check_if_pair_solved = function () {
-    let flipped_tiles = [];
+    const flipped_tiles = [];
     tiles.forEach((tile, index) => {
         if (tile.image_visible && !tile.solved) {
             flipped_tiles.push({
                 index,
-                tile
+                tile,
             });
         }
     });
 
-    if (flipped_tiles.length == 2) {
-        let {
-            tile: tile1,
-            index: tile1_index
-        } = flipped_tiles[0];
+    if (flipped_tiles.length === 2) {
+        const { tile: tile1, index: tile1_index } = flipped_tiles[0];
 
-        let {
-            tile: tile2,
-            index: tile2_index
-        } = flipped_tiles[1];
+        const { tile: tile2, index: tile2_index } = flipped_tiles[1];
 
-        let is_pair_solved = tile1.image.path === tile2.image.path;
+        const is_pair_solved = tile1.image.path === tile2.image.path;
         if (is_pair_solved) {
             tile1.solved = true;
             model.setRowData(tile1_index, tile1);
@@ -55,7 +51,6 @@ window.check_if_pair_solved = function () {
                 tile2.image_visible = false;
                 model.setRowData(tile2_index, tile2);
             }, 1000);
-
         }
     }
 };

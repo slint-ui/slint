@@ -18,9 +18,7 @@
     "organizeImports": { "enabled": false },
     "linter": {
         "enabled": true,
-        "ignore": [
-            "api/node/docs/assets/**"
-        ],
+        "ignore": ["api/node/docs/assets/**"],
         "rules": {
             "recommended": false,
             "complexity": {
@@ -34,7 +32,7 @@
                 "useImportType": "error",
                 "useNodejsImportProtocol": "error"
             },
-            "suspicious": { 
+            "suspicious": {
                 "noDoubleEquals": "error",
                 "noRedundantUseStrict": "warn",
                 "noImplicitAnyLet": "error"
