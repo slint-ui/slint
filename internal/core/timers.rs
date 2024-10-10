@@ -368,6 +368,7 @@ impl TimerList {
             if self.active_timers[i].id == id {
                 self.active_timers.remove(i);
                 self.timers[id].running = false;
+                debug_assert!(!self.active_timers.iter().any(|t| t.id == id));
                 break;
             } else {
                 i += 1;
