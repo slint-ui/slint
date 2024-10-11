@@ -455,59 +455,27 @@ fn embed_sdf_glyphs(
     glyph_data.resize(character_map.len(), Default::default());
 
     for CharacterMapEntry { code_point, glyph_index } in character_map {
-        let (metrics, bitmap) = core::iter::once(font)
+        let glyph = core::iter::once(font)
             .chain(fallback_fonts.iter())
             .find_map(|font| {
-                font.chars()
-                    .contains_key(code_point)
+                (font.lookup_glyph_index(*code_point) != 0)
                     .then(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size))
             })
-            .unwrap_or_else(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size));
+            .unwrap_or_else(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size))
+            .map(|(metrics, bitmap)| BitmapGlyph {
+                x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
+                y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
+                width: i16::try_from(metrics.width).expect("large width"),
+                height: i16::try_from(metrics.height).expect("large height"),
+                x_advance: i16::try_from(metrics.advance_width as i64)
+                    .expect("large advance width"),
+                data: bitmap,
+            })
+            .unwrap_or_default();
 
-        let glyph = BitmapGlyph {
-            x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
-            y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
-            width: i16::try_from(metrics.width).expect("large width"),
-            height: i16::try_from(metrics.height).expect("large height"),
-            x_advance: i16::try_from(metrics.advance_width as i64).expect("large advance width"),
-            data: bitmap,
-        };
         glyph_data[*glyph_index as usize] = glyph;
     }
 
-    /*
-    let glyphs = pixel_sizes
-        .iter()
-        .map(|pixel_size| {
-            let mut glyph_data = Vec::new();
-            glyph_data.resize(character_map.len(), Default::default());
-
-            for CharacterMapEntry { code_point, glyph_index } in character_map {
-                let (metrics, bitmap) = core::iter::once(&font.fontdue_font)
-                    .chain(fallback_fonts.iter())
-                    .find_map(|font| {
-                        font.chars()
-                            .contains_key(code_point)
-                            .then(|| font.rasterize(*code_point, *pixel_size as _))
-                    })
-                    .unwrap_or_else(|| font.rasterize(*code_point, *pixel_size as _));
-
-                let glyph = BitmapGlyph {
-                    x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
-                    y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
-                    width: i16::try_from(metrics.width).expect("large width"),
-                    height: i16::try_from(metrics.height).expect("large height"),
-                    x_advance: i16::try_from(metrics.advance_width as i64)
-                        .expect("large advance width"),
-                    data: bitmap,
-                };
-                glyph_data[*glyph_index as usize] = glyph;
-            }
-
-            BitmapGlyphs { pixel_size: *pixel_size, glyph_data }
-        })
-        .collect();
-    */
     vec![BitmapGlyphs { pixel_size: 0 /* indicates SDF */, glyph_data }]
 }
 
@@ -516,16 +484,17 @@ fn generate_sdf_for_glyph(
     font: &Font,
     code_point: char,
     target_pixel_size: i16,
-) -> (fontdue::Metrics, Vec<u8>) {
+) -> Option<(fontdue::Metrics, Vec<u8>)> {
     use fdsm::transform::Transform;
     use nalgebra::{Affine2, Similarity2, Vector2};
 
     let face =
         ttf_parser_fdsm::Face::parse(font.face_data.as_ref().as_ref(), font.face_index).unwrap();
-    let glyph_id = face.glyph_index(code_point).unwrap();
+    let glyph_id = face.glyph_index(code_point).unwrap_or_default();
     let mut shape = fdsm::shape::Shape::load_from_face(&face, glyph_id);
 
-    let bbox = face.glyph_bounding_box(glyph_id).unwrap();
+    // TODO: handle bitmap glyphs (emojis)
+    let bbox = face.glyph_bounding_box(glyph_id)?;
 
     const RANGE: f64 = 4.0;
     const SHRINKAGE: f64 = 16.0;
@@ -569,7 +538,7 @@ fn generate_sdf_for_glyph(
         bounds: Default::default(), /*unused */
     };
 
-    (metrics, glyph_data)
+    Some((metrics, glyph_data))
 }
 
 fn try_extract_font_size_from_element(elem: &ElementRc, property_name: &str) -> Option<f64> {
