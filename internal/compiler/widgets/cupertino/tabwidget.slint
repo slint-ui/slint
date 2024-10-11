@@ -43,7 +43,7 @@ export component TabImpl inherits Rectangle {
     private property <bool> hide-right-border: root.tab-index == root.num-tabs - 1 || tab-index + 1 == current;
     private property <bool> is-current: root.tab-index == root.current;
 
-    min-width: max(160px, i-text.min-width);
+    min-width: max(32px, i-text.min-width);
     min-height: max(20px, i-text.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
@@ -122,11 +122,13 @@ export component TabBarImpl inherits TabBarBase {
         }
     }
 
-    HorizontalLayout {
-        min-height: 22px;
-        padding: 1px;
+    Flickable {
+        HorizontalLayout {
+            min-height: 22px;
+            padding: 1px;
 
-        @children
+            @children
+        }
     }
 
     i-focus-scope := FocusScope {
