@@ -66,9 +66,9 @@ This file declares the user interface.
 
 4. Create a new file called `index.mjs` with the following contents:
 
-```
+```js
 import * as slint from "slint-ui";
-let ui = slint.loadFile("main.slint");
+let ui = slint.loadFile(new URL("main.slint", import.meta.url));
 let demo = new ui.Demo();
 
 await demo.run();
@@ -124,9 +124,9 @@ This file declares the user interface.
 
 3. Create a new file called `index.ts` with the following contents:
 
-```
+```ts
 import * as slint from "slint-ui";
-let ui = slint.loadFile("main.slint");
+let ui = slint.loadFile(new URL("main.slint", import.meta.url));
 let demo = new ui.Demo();
 
 await demo.run();
@@ -141,6 +141,54 @@ This is your main JavaScript entry point:
 * Run it by showing it on the screen and reacting to user input.
 
 1. Run the example with `deno run --allow-read --allow-ffi --allow-sys index.ts`
+
+
+## Getting Started (bun)
+
+1. In a new directory, create a new `bun` project by calling [`bun init`](https://bun.sh/docs/cli/init).
+2. Install Slint for your project using [`bun install slint-ui`](https://bun.sh/docs/cli/install).
+3. Create a new file called `main.slint` with the following contents:
+
+```
+import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
+export component Demo inherits Window {
+    in-out property <string> greeting <=> label.text;
+    VerticalBox {
+        alignment: start;
+        label := Text {
+            text: "Hello World!";
+            font-size: 24px;
+            horizontal-alignment: center;
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+        HorizontalLayout { alignment: center; Button { text: "OK!"; } }
+    }
+}
+```
+
+This file declares the user interface.
+
+4. Clear the conent of`index.ts` and add the following code:
+
+```ts
+import * as slint from "slint-ui";
+let ui = slint.loadFile(new URL("main.slint", import.meta.url)) as any;
+let demo = new ui.Demo();
+
+await demo.run();
+```
+
+This is your main TypeScript entry point:
+
+* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. 
+* Invoke `loadFile()` to compile and load the `.slint` file.
+* Instantiate the `Demo` component declared in `main.slint`.
+* Run it by showing it on the screen and reacting to user input.
+
+5. Run the example with `bun run index.ts`
+
 
 ## API Overview
 
@@ -176,7 +224,7 @@ an object which allow to initialize the value of public properties or callbacks.
 import * as slint from "slint-ui";
 // In this example, the main.slint file exports a module which
 // has a counter property and a clicked callback
-let ui = slint.loadFile("ui/main.slint");
+let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,
     clicked: function() { console.log("hello"); }
@@ -194,7 +242,7 @@ export component MainWindow {
 }
 
 ```js
-let ui = slint.loadFile("main.slint");
+let ui = slint.loadFile(new URL("main.slint", import.meta.url));
 let instance = new ui.MainWindow();
 console.log(instance.age); // Prints 42
 instance.name = "Joe";
@@ -223,7 +271,7 @@ export component MyComponent inherits Window {
 ```js
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("ui/my-component.slint");
+let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // connect to a callback
@@ -294,7 +342,7 @@ export component MyComponent inherits Window {
 
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("my-component.slint");
+let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // object literal
@@ -330,7 +378,7 @@ export component MyComponent inherits Window {
 
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("my-component.slint");
+let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // set enum value as string
@@ -361,7 +409,7 @@ previous section, you can access `Logic` like this:
 ```js
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("ui/my-component.slint");
+let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 component.Logic.to_upper_case = (str) => {
