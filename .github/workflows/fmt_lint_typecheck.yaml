@@ -15,3 +15,45 @@ jobs:
             CARGO_INCREMENTAL: false
         steps:
             - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: nightly
+                  components: rustfmt
+                  target: aarch64-linux-android
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh    
+            - name: Setup Biome CLI
+              uses: biomejs/setup-biome@v2                  
+            - name: Rust format
+              run: cargo fmt --
+            - name: C++ format
+              run: find -iname \*.h -o -iname \*.cpp | xargs clang-format -i
+            - name: Run biome for top-level json config itself
+              run: biome format biome.json
+            - name: Format, Lint on npm projects
+              run: |
+                  pnpm install --frozen-lockfile --ignore-scripts
+                  pnpm format
+                  pnpm lint
+            - name: Suggest format changes
+              uses: reviewdog/action-suggester@v1
+              with:
+                  tool_name: formatters
+                  level: error
+                  fail_on_error: true
+            - name: Build Node.js API before type-check
+              working-directory: api/node
+              run: pnpm build:debug
+            - name: Build wasm-interpreter before type check
+              working-directory: tools/slintpad
+              run: pnpm build:wasm_interpreter
+            - name: Typecheck on npm projects
+              run: |
+                  pnpm type-check
