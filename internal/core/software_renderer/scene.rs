@@ -11,9 +11,9 @@ use crate::graphics::{PixelFormat, SharedImageBuffer};
 use crate::lengths::{PointLengths as _, SizeLengths as _};
 use crate::Color;
 use alloc::rc::Rc;
-use euclid::Length;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use euclid::Length;
 
 #[derive(Default)]
 pub struct SceneVectors {
