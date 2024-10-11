@@ -292,7 +292,11 @@ impl TimerList {
 
                         // do it before invoking the callback, in case the callback wants to stop or adjust its own timer
                         if matches!(timers.timers[active_timer.id].mode, TimerMode::Repeated) {
-                            timers.activate_timer(active_timer.id);
+                            // This timer might have been restarted from within an activation callback
+                            // of an earlier timer, so don't register it twice.
+                            if !timers.active_timers.iter().any(|t| t.id == active_timer.id) {
+                                timers.activate_timer(active_timer.id);
+                            }
                         } else {
                             timers.timers[active_timer.id].running = false;
                         }
@@ -340,7 +344,11 @@ impl TimerList {
                         timers.timers.remove(active_timer.id);
                     } else {
                         t.being_activated = false;
-                        timers.register_active_timer(active_timer);
+                        // This timer might have been restarted from within an activation callback
+                        // of an earlier timer, so don't register it twice.
+                        if !timers.active_timers.iter().any(|t| t.id == active_timer.id) {
+                            timers.register_active_timer(active_timer);
+                        }
                     }
                 }
             }
@@ -999,3 +1007,83 @@ assert!(state.borrow().timer.running());
  */
 #[cfg(doctest)]
 const _BUG6141_SET_INTERVAL_FROM_CALLBACK: () = ();
+
+/**
+ * Test that a timer can't be activated twice.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::Cell, time::Duration};
+
+let later_timer_expiration_count = Rc::new(Cell::new(0));
+
+let sooner_timer = Timer::default();
+let later_timer = Rc::new(Timer::default());
+later_timer.start(TimerMode::SingleShot, Duration::from_millis(500), {
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+        later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+    }
+});
+
+sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
+    let later_timer = later_timer.clone();
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+    later_timer.start(TimerMode::SingleShot, Duration::from_millis(600), {
+        let later_timer_expiration_count = later_timer_expiration_count.clone();
+        move || {
+            later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+        }
+    });
+}});
+
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(110);
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(400);
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(800);
+assert_eq!(later_timer_expiration_count.get(), 1);
+```
+ */
+#[cfg(doctest)]
+const _DOUBLY_REGISTER_ACTIVE_TIMER: () = ();
+
+/**
+ * Test that a timer can't be activated twice.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::Cell, time::Duration};
+
+let later_timer_expiration_count = Rc::new(Cell::new(0));
+
+let sooner_timer = Timer::default();
+let later_timer = Rc::new(Timer::default());
+later_timer.start(TimerMode::Repeated, Duration::from_millis(110), {
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+        later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+    }
+});
+
+sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
+    let later_timer = later_timer.clone();
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+    later_timer.start(TimerMode::Repeated, Duration::from_millis(110), {
+        let later_timer_expiration_count = later_timer_expiration_count.clone();
+        move || {
+            later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+        }
+    });
+}});
+
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(120);
+assert_eq!(later_timer_expiration_count.get(), 1);
+```
+ */
+#[cfg(doctest)]
+const _DOUBLY_REGISTER_ACTIVE_TIMER_2: () = ();
