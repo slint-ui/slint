@@ -170,7 +170,7 @@ export component Demo inherits Window {
 
 This file declares the user interface.
 
-4. Clear the conent of`index.ts` and add the following code
+4. Clear the conent of`index.ts` and add the following code:
 
 ```ts
 import * as slint from "slint-ui";
