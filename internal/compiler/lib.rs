@@ -47,6 +47,8 @@ pub enum EmbedResourcesKind {
     Nothing,
     /// Only embed builtin resources
     OnlyBuiltinResources,
+    /// Do not embed resources, but list them in the Document as it they were embedded
+    ListAllResources,
     /// Embed all images resources (the content of their files)
     EmbedAllResources,
     #[cfg(feature = "software-renderer")]

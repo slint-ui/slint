@@ -94,7 +94,7 @@ fn embed_images_from_expression(
                 && (embed_files != EmbedResourcesKind::OnlyBuiltinResources
                     || path.starts_with("builtin:/"))
             {
-                *resource_ref = embed_image(
+                let image_ref = embed_image(
                     global_embedded_resources,
                     embed_files,
                     path,
@@ -102,6 +102,9 @@ fn embed_images_from_expression(
                     diag,
                     source_location,
                 );
+                if embed_files != EmbedResourcesKind::ListAllResources {
+                    *resource_ref = image_ref;
+                }
             }
         }
     };
@@ -161,6 +164,7 @@ fn embed_image(
             }
         }
     };
+
     match e.kind {
         #[cfg(feature = "software-renderer")]
         EmbeddedResourcesKind::TextureData { .. } => {
