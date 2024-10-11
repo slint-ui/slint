@@ -8,9 +8,9 @@ use crate::common::{
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
-use i_slint_compiler::diagnostics;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, TextSize};
+use i_slint_compiler::{diagnostics, EmbedResourcesKind};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::model::VecModel;
@@ -1231,6 +1231,7 @@ async fn parse_source(
     {
         cc.resource_url_mapper = resource_url_mapper();
     }
+    cc.embed_resources = EmbedResourcesKind::ListAllResources;
 
     if !style.is_empty() {
         cc.style = Some(style);
