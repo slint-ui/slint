@@ -21,9 +21,19 @@ struct Font {
     id: fontdb::ID,
     #[deref]
     fontdue_font: Rc<fontdue::Font>,
-    metrics: i_slint_common::sharedfontdb::DesignFontMetrics,
     face_data: Arc<dyn AsRef<[u8]> + Send + Sync>,
     face_index: u32,
+}
+
+impl Font {
+    fn metrics(&self) -> i_slint_common::sharedfontdb::DesignFontMetrics {
+        let face = i_slint_common::sharedfontdb::ttf_parser::Face::parse(
+            self.face_data.as_ref().as_ref(),
+            self.face_index,
+        )
+        .expect("unexpected corrupt ttf font that parsed previously");
+        i_slint_common::sharedfontdb::DesignFontMetrics::new(face)
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -216,19 +226,6 @@ fn embed_glyphs_with_fontdb<'a>(
             }
         };
 
-        let Ok(metrics) = i_slint_common::sharedfontdb::ttf_parser::Face::parse(
-            face_data.as_ref().as_ref(),
-            face_index,
-        )
-        .map(|face| i_slint_common::sharedfontdb::DesignFontMetrics::new(face)) else {
-            diag.push_error(
-                format!("error parsing font for embedding {}", path.display()),
-                &generic_diag_location,
-            );
-
-            return;
-        };
-
         let Some(family_name) = fontdb
             .face(face_id)
             .expect("must succeed as we are within face_data with same face_id")
@@ -249,7 +246,7 @@ fn embed_glyphs_with_fontdb<'a>(
         let embedded_bitmap_font = embed_font(
             &fontdb,
             family_name,
-            Font { id: face_id, fontdue_font, metrics, face_data, face_index },
+            Font { id: face_id, fontdue_font, face_data, face_index },
             &pixel_sizes,
             characters_seen.iter().cloned(),
             &fallback_fonts,
@@ -335,15 +332,11 @@ fn get_fallback_fonts(
                 })
                 .and_then(|face_id| {
                     compiler_config.load_font_by_id(face_id).ok().map(
-                        |(fontdue_font, face_data, face_index)| {
-                            let metrics = i_slint_common::sharedfontdb::DesignFontMetrics::new(
-                                i_slint_common::sharedfontdb::ttf_parser::Face::parse(
-                                    face_data.as_ref().as_ref(),
-                                    face_index,
-                                )
-                                .unwrap(),
-                            );
-                            Font { id: face_id, fontdue_font, metrics, face_data, face_index }
+                        |(fontdue_font, face_data, face_index)| Font {
+                            id: face_id,
+                            fontdue_font,
+                            face_data,
+                            face_index,
                         },
                     )
                 })
@@ -384,14 +377,16 @@ fn embed_font(
 
     let face_info = fontdb.face(font.id).unwrap();
 
+    let metrics = font.metrics();
+
     BitmapFont {
         family_name,
         character_map,
-        units_per_em: font.metrics.units_per_em,
-        ascent: font.metrics.ascent,
-        descent: font.metrics.descent,
-        x_height: font.metrics.x_height,
-        cap_height: font.metrics.cap_height,
+        units_per_em: metrics.units_per_em,
+        ascent: metrics.ascent,
+        descent: metrics.descent,
+        x_height: metrics.x_height,
+        cap_height: metrics.cap_height,
         glyphs,
         weight: face_info.weight.0,
         italic: face_info.style != fontdb::Style::Normal,
@@ -496,9 +491,11 @@ fn generate_sdf_for_glyph(
     // TODO: handle bitmap glyphs (emojis)
     let bbox = face.glyph_bounding_box(glyph_id)?;
 
+    let metrics = font.metrics();
+
     const RANGE: f64 = 256.0;
     let target_pixel_size = target_pixel_size as f64;
-    let scale = target_pixel_size / font.metrics.units_per_em as f64;
+    let scale = target_pixel_size / metrics.units_per_em as f64;
     let transformation = nalgebra::convert::<_, Affine2<f64>>(Similarity2::new(
         Vector2::new(
             target_pixel_size - (bbox.x_min as f64 * scale),
