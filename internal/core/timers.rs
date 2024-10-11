@@ -363,7 +363,7 @@ impl TimerList {
         duration: core::time::Duration,
         callback: CallbackVariant,
     ) -> usize {
-        let timer_data = TimerData {
+        let mut timer_data = TimerData {
             duration,
             mode,
             running: false,
@@ -373,6 +373,7 @@ impl TimerList {
         };
         let inactive_timer_id = if let Some(id) = id {
             self.deactivate_timer(id);
+            timer_data.being_activated = self.timers[id].being_activated;
             self.timers[id] = timer_data;
             id
         } else {
@@ -1087,3 +1088,30 @@ assert_eq!(later_timer_expiration_count.get(), 1);
  */
 #[cfg(doctest)]
 const _DOUBLY_REGISTER_ACTIVE_TIMER_2: () = ();
+
+/**
+ * Test that a timer that's being activated can be restarted and dropped in one go.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{cell::RefCell, rc::Rc, time::Duration};
+
+let destructive_timer = Rc::new(RefCell::new(Some(Timer::default())));
+
+destructive_timer.borrow().as_ref().unwrap().start(TimerMode::Repeated, Duration::from_millis(110), {
+    let destructive_timer = destructive_timer.clone();
+    move || {
+        // start() used to reset the `being_activated` flag...
+        destructive_timer.borrow().as_ref().unwrap().start(TimerMode::Repeated, Duration::from_millis(110), || {});
+        // ... which would make this drop remove the timer from the timer list altogether and continued processing
+        // of the timer would panic as the id isn't valid anymore.
+        drop(destructive_timer.take());
+    }
+});
+
+drop(destructive_timer);
+i_slint_core::tests::slint_mock_elapsed_time(120);
+```
+ */
+#[cfg(doctest)]
+const _RESTART_TIMER_BEING_ACTIVATED: () = ();
