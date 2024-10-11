@@ -45,7 +45,7 @@ export component TabImpl inherits Rectangle {
     private property <bool> is-current: root.tab-index == root.current;
     private property <length> inner-border-radius: 8px;
 
-    min-width: max(160px, text.min-width);
+    min-width: max(32px, text.min-width);
     min-height: max(44px, text.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 1;
@@ -140,10 +140,12 @@ export component TabBarImpl inherits TabBarBase {
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
     preferred-height: 44px;
 
-    HorizontalLayout {
-        @children
+    Flickable {
+        HorizontalLayout {
+            @children
+        }
     }
-
+    
     if focus-scope.has-focus: Rectangle {
         y: root.height - self.height;
         height: 1px;

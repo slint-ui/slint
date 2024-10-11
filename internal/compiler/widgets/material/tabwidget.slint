@@ -42,7 +42,8 @@ export component TabImpl inherits Rectangle {
     private property <bool> has-focus: root.current-focused == root.tab-index;
     private property <bool> active: root.tab-index == root.current;
 
-    height: 48px;
+    width: max(48px, i-layout.min-width);
+    height: max(48px, i-layout.min-height);
     accessible-role: tab;
     accessible-label: root.title;
 
@@ -112,12 +113,12 @@ export component TabBarImpl inherits TabBarBase {
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
 
-    HorizontalLayout {
-        alignment: start;
-
-        @children
+    Flickable {
+        HorizontalLayout {            
+            @children
+        }
     }
-
+   
     i-focus-scope := FocusScope {
         property <int> focused-tab: 0;
 
