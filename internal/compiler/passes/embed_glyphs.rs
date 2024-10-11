@@ -496,15 +496,19 @@ fn generate_sdf_for_glyph(
     // TODO: handle bitmap glyphs (emojis)
     let bbox = face.glyph_bounding_box(glyph_id)?;
 
-    const RANGE: f64 = 4.0;
-    const SHRINKAGE: f64 = 16.0;
+    const RANGE: f64 = 256.0;
+    let target_pixel_size = target_pixel_size as f64;
+    let scale = target_pixel_size / font.metrics.units_per_em as f64;
     let transformation = nalgebra::convert::<_, Affine2<f64>>(Similarity2::new(
-        Vector2::new(RANGE - bbox.x_min as f64 / SHRINKAGE, RANGE - bbox.y_min as f64 / SHRINKAGE),
+        Vector2::new(
+            target_pixel_size - (bbox.x_min as f64 * scale),
+            target_pixel_size - (bbox.y_min as f64 * scale),
+        ),
         0.0,
-        1.0 / SHRINKAGE,
+        scale,
     ));
-    let width = ((bbox.x_max as f64 - bbox.x_min as f64) / SHRINKAGE + 2.0 * RANGE).ceil() as u32;
-    let height = ((bbox.y_max as f64 - bbox.y_min as f64) / SHRINKAGE + 2.0 * RANGE).ceil() as u32;
+    let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale).ceil() as u32;
+    let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale).ceil() as u32;
 
     // Unlike msdfgen, the transformation is not passed into the
     // `generate_msdf` function – the coordinates of the control points
@@ -528,7 +532,9 @@ fn generate_sdf_for_glyph(
     let glyph_data = sdf.into_raw();
 
     let metrics = fontdue::Metrics {
+        // NOTE! This is the x pos in font design space, so it needs to be multiplied by the target size and divided by units per em.
         xmin: bbox.x_min as _,
+        // NOTE! This is the y pos in font design space, so it needs to be multiplied by the target size and divided by units per em.
         ymin: bbox.y_min as _,
         width: width as usize,
         height: height as usize,
