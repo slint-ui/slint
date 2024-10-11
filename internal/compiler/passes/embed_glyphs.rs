@@ -362,6 +362,11 @@ fn embed_font(
     fallback_fonts: &[Font],
 ) -> BitmapFont {
     let mut character_map: Vec<CharacterMapEntry> = character_coverage
+        .filter(|code_point| {
+            core::iter::once(&font)
+                .chain(fallback_fonts.iter())
+                .any(|font| font.fontdue_font.lookup_glyph_index(*code_point) != 0)
+        })
         .enumerate()
         .map(|(glyph_index, code_point)| CharacterMapEntry {
             code_point,
