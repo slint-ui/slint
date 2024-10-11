@@ -80,31 +80,6 @@ jobs:
                   name: slintpad
                   path: tools/slintpad/dist/
 
-    lint-slintpad:
-        needs: [wasm]
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v4
-            - uses: pnpm/action-setup@v4.0.0
-              with:
-                version: 9.11.0
-            - uses: actions/setup-node@v4
-              with:
-                node-version: 20
-            - name: Download wasm_lsp Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  name: wasm
-            - name: Install NPM dependencies
-              run: pnpm install --frozen-lockfile --ignore-scripts
-              working-directory: tools/slintpad
-
-            - name: Lint slintpad # This needs the WASM!
-              run: |
-                  pnpm type-check
-                  pnpm lint
-              working-directory: tools/slintpad
-
     # test-slintpad-ff:
     #   needs: [wasm, build-slintpad]
     #   runs-on: ubuntu-latest

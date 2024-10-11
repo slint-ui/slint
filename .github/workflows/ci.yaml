@@ -146,13 +146,6 @@ jobs:
             - name: Build node plugin in debug
               run: pnpm build:testing
               working-directory: api/node
-            - name: Lint node api
-              working-directory: api/node
-              run: pnpm lint
-            - name: Check code formatting
-              if: ${{ runner.os != 'Windows' }}
-              working-directory: api/node
-              run: pnpm format
             - name: Run node tests
               working-directory: api/node
               run: pnpm test
@@ -353,12 +346,6 @@ jobs:
             - name: Run pnpm install
               working-directory: editors/vscode
               run: pnpm install --frozen-lockfile --ignore-scripts
-            - name: Lint vscode project
-              working-directory: editors/vscode
-              run: pnpm lint
-            - name: Check code formatting
-              working-directory: editors/vscode
-              run: pnpm format
             - name: vscode prebuild
               working-directory: editors/vscode
               run: pnpm vscode:prepublish
@@ -605,3 +592,7 @@ jobs:
                   components: miri
             - name: Run Miri
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
+
+    format_lint_typecheck:
+      uses: ./.github/workflows/fmt_lint_typecheck.yaml
+      secrets: inherit
