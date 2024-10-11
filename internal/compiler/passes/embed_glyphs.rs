@@ -398,7 +398,7 @@ fn embed_font(
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "embed-glyphs-as-sdf")))]
 fn embed_alpha_map_glyphs(
     pixel_sizes: &[i16],
     character_map: &Vec<CharacterMapEntry>,
