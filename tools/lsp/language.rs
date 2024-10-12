@@ -12,7 +12,7 @@ mod semantic_tokens;
 pub mod test;
 pub mod token_info;
 
-use crate::common::{self, DocumentCache};
+use crate::common;
 use crate::util;
 
 #[cfg(target_arch = "wasm32")]
@@ -123,7 +123,7 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
 }
 
 pub struct Context {
-    pub document_cache: RefCell<DocumentCache>,
+    pub document_cache: RefCell<common::DocumentCache>,
     pub preview_config: RefCell<common::PreviewConfig>,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
@@ -557,7 +557,7 @@ pub(crate) async fn reload_document_impl(
     mut content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     let Some(path) = common::uri_to_file(&url) else { return Default::default() };
     // Normalize the URL
@@ -605,7 +605,7 @@ pub async fn open_document(
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
 ) -> common::Result<()> {
     ctx.open_urls.borrow_mut().insert(url.clone());
 
@@ -622,7 +622,7 @@ pub async fn reload_document(
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
 ) -> common::Result<()> {
     let lsp_diags =
         reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
@@ -656,7 +656,7 @@ pub async fn trigger_file_watcher(ctx: &Rc<Context>, url: lsp_types::Url) -> com
 
 /// return the token, and the offset within the file
 fn token_descr(
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<(SyntaxToken, TextSize)> {
@@ -700,7 +700,7 @@ fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &
 }
 
 fn get_code_actions(
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
     token: SyntaxToken,
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
@@ -939,7 +939,7 @@ fn get_code_actions(
 }
 
 fn get_document_color(
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<ColorInformation>> {
     let mut result = Vec::new();
@@ -973,7 +973,7 @@ fn get_document_color(
 
 /// Retrieve the document outline
 fn get_document_symbols(
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<DocumentSymbolResponse> {
     let doc = document_cache.get_document(&text_document.uri)?;
@@ -1066,7 +1066,7 @@ fn get_document_symbols(
 }
 
 fn get_code_lenses(
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
     if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {

@@ -7,19 +7,20 @@ use lsp_types::{Diagnostic, Url};
 
 use std::collections::HashMap;
 
-use crate::language::{reload_document_impl, DocumentCache};
+use crate::common;
+use crate::language::reload_document_impl;
 
 /// Create an empty `DocumentCache`
-pub fn empty_document_cache() -> DocumentCache {
+pub fn empty_document_cache() -> common::DocumentCache {
     let mut config = crate::common::document_cache::CompilerConfiguration::default();
     config.style = Some("fluent".to_string());
-    DocumentCache::new(config)
+    common::DocumentCache::new(config)
 }
 
 /// Create a `DocumentCache` with one document loaded into it.
 pub fn loaded_document_cache(
     content: String,
-) -> (DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
+) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
     let mut dc = empty_document_cache();
 
     // Pre-load std-widgets.slint:
@@ -34,7 +35,7 @@ pub fn loaded_document_cache(
 }
 
 /// Create a `DocumentCache` with one comparatively complex test document loaded into it.
-pub fn complex_document_cache() -> (DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
+pub fn complex_document_cache() -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
     loaded_document_cache(
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 

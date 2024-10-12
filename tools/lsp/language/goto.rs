@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::DocumentCache;
+use crate::common;
 use crate::language::token_info::{token_info, TokenInfo};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Range};
 
 pub fn goto_definition(
-    document_cache: &mut DocumentCache,
+    document_cache: &mut common::DocumentCache,
     token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
     let token_info = token_info(document_cache, token)?;
