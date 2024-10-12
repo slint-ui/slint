@@ -301,7 +301,7 @@ pub enum OpenGLAPI {
     GLES(Option<APIVersion>),
 }
 
-/// This enum specifies which OpenGL API should be used.
+/// This enum specifies which renderer should be used.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SlintRenderer {
     /// The femtovg renderer
