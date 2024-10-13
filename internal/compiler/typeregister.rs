@@ -120,6 +120,8 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
             "accessible-action-set-value",
             Type::Callback { return_type: None, args: vec![Type::String] },
         ),
+        ("accessible-selectable", Type::Bool),
+        ("accessible-selected", Type::Bool),
     ]
     .into_iter()
 }

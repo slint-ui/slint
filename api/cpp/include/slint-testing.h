@@ -316,6 +316,32 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-selected of that element, if any.
+    std::optional<bool> accessible_selected() const
+    {
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Selected)) {
+            if (*result == "true")
+                return true;
+            else if (*result == "false")
+                return false;
+        }
+        return std::nullopt;
+    }
+
+    /// Returns the accessible-selectable of that element, if any.
+    std::optional<bool> accessible_selectable() const
+    {
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Selectable)) {
+            if (*result == "true")
+                return true;
+            else if (*result == "false")
+                return false;
+        }
+        return std::nullopt;
+    }
+
     /// Sets the accessible-value of that element.
     ///
     /// Setting the value will invoke the `accessible-action-set-value` callback.

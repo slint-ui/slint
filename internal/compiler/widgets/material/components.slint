@@ -146,6 +146,8 @@ export component ListItem {
         padding-left: 12px;
         padding-right: 12px;
         accessible-role: list-item;
+        accessible-selectable: true;
+        accessible-selected: root.is-selected;
 
         label := Text {
             text: root.item.text;
