@@ -455,6 +455,16 @@ impl NodeCollection {
             builder.set_placeholder(placeholder.to_string());
         }
 
+        if item
+            .accessible_string_property(AccessibleStringProperty::Selectable)
+            .is_some_and(|x| x == "true")
+        {
+            builder.set_selected(
+                item.accessible_string_property(AccessibleStringProperty::Selected)
+                    .is_some_and(|x| x == "true"),
+            );
+        }
+
         let supported = item.supported_accessibility_actions();
         if supported.contains(SupportedAccessibilityAction::Default) {
             builder.add_action(accesskit::Action::Default);
