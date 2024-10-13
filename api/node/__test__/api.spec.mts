@@ -268,3 +268,24 @@ test("loadFile enum", (t) => {
 
     t.deepEqual(test.check, "c");
 });
+
+test("file loader", (t) => {
+    const testSource = `export component Test {
+       in-out property <string> text: "Hello World"; 
+    }`;
+    const demo = loadFile(
+        path.join(dirname, "resources/test-fileloader.slint"),
+        {
+            fileLoader: (path) => {
+                if (path.includes("lib.slint")) {
+                    return testSource;
+                }
+                return "";
+            },
+        },
+    ) as any;
+
+    const test = new demo.App();
+
+    t.deepEqual(test.test_text, "Hello World");
+});
