@@ -112,6 +112,8 @@ export component ListItem {
     layout := HorizontalLayout {
         padding-bottom: 8px;
         accessible-role: list-item;
+        accessible-selectable: true;
+        accessible-selected: root.is-selected;
 
         StateLayerBase {
             width: 100%;

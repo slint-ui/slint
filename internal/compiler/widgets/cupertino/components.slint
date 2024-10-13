@@ -74,6 +74,8 @@ export component ListItem {
         padding-left: root.padding-horizontal;
         padding-right: root.padding-horizontal;
         accessible-role: list-item;
+        accessible-selectable: true;
+        accessible-selected: root.is-selected;
 
         i-background := Rectangle {
             background: transparent;

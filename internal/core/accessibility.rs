@@ -21,6 +21,8 @@ pub enum AccessibleStringProperty {
     Description,
     Label,
     PlaceholderText,
+    Selectable,
+    Selected,
     Value,
     ValueMaximum,
     ValueMinimum,
