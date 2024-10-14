@@ -6,3 +6,4 @@ packages:
   - "tools/slintpad"
   - "examples/printerdemo/node"
   - "examples/imagefilter/node"
+  - "docs/editor"
