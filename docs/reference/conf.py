@@ -16,6 +16,7 @@
 import os
 import sys
 sys.path.append(os.path.abspath('./_ext'))
+sys.path.insert(0, os.path.abspath('.'))
 import textwrap
 
 
@@ -121,3 +122,10 @@ myst_heading_anchors = 4
 
 rst_epilog = """
 """
+
+from slint_translator import SlintHTML5Translator
+
+def setup(app):
+    # Set the custom HTML translator, overriding the default one
+    print("Custom translator setup is being called.")
+    app.set_translator("html", SlintHTML5Translator, override=True)
