@@ -15,6 +15,8 @@ cargo install mdbook
 
 # Building
 
+Refer to [building.md](./building.md#Generating-the-Documentation) for detailed instructions.
+
 To build the tutorial, enter the `rust`, `cpp`, or `node` sub-directory and run:
 
 ```sh

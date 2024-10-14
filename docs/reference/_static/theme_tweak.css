@@ -3,24 +3,35 @@ html[data-theme="light"] {
         background-color: #fff;
         background-position: top center;
         background-repeat: no-repeat;
-        background-size: cover;
         color: #151D21;
     }
 }
 
 html[data-theme="dark"] {
     body {
-        background-color: #151D21;
         background-image: url(https://slint.dev/assets/img/bg-dark.svg);
         background-position: top center;
         background-repeat: no-repeat;
-        background-size: cover;
         color: #fff;
+        background-size: cover;
+        background-attachment: fixed;
+        -webkit-background-size: cover; /* Safari fix */
+        background-color: #151D21;
+    }
+
+    .bd-header-article {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
     }
 
     --pst-color-background: transparent;
     --pst-color-on-background: transparent;
 }
+
+/* html {
+    --pst-color-background: #151D21;
+} */
+
 
 div.sidebar-primary-item:first-child {
     text-align: center;
@@ -57,4 +68,46 @@ div.DocSearch-Container {
         padding-top: 4rem;
         ;
     }
+}
+
+div.cm-activeLine {
+    background: transparent !important;
+}
+
+div.cm-focused div.cm-activeLine {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.cm-status-panel {
+    padding: 4px;
+    border-top: 1px solid #ccc;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.cm-status-panel button {
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* CSS to limit the height and enable scrollbars */
+.codemirror-editor {
+    border: 1px solid #ccc; /* Optional: Add a border around the editor */
+}
+
+.cm-editor {
+    max-height: 400px;
+    overflow: auto;
+}
+
+.show-preview {
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
 }

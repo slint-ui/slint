@@ -13,10 +13,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-import textwrap
+import os
+import sys
+sys.path.insert(0, os.path.abspath('.'))
 
 
 # -- Project information -----------------------------------------------------
@@ -93,8 +92,11 @@ html_sidebars = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_js_files = ['expand_tabs.js']
+html_js_files = [
+    'cm6.bundle.js', 
+    'expand_tabs.js']
 html_css_files = [
+    'theme_tweak.css',
     'https://cdn.jsdelivr.net/npm/typesense-docsearch-css@0.3.0'
 ]
 html_show_sourcelink = False
@@ -119,6 +121,8 @@ myst_heading_anchors = 4
 rst_epilog = """
 """
 
+from slint_translator import SlintHTML5Translator
 
 def setup(app):
-    app.add_css_file("theme_tweak.css")
+    # Set the custom HTML translator, overriding the default one
+    app.set_translator("html", SlintHTML5Translator, override=True)
