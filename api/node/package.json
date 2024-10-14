@@ -28,8 +28,8 @@
     "capture-console": "1.0.2",
     "jimp": "0.22.8",
     "ts-node": "10.9.2",
-    "typedoc": "0.25.13",
-    "typescript": "5.2.2"
+    "typedoc": "0.26.9",
+    "typescript": "5.6.3"
   },
   "engines": {
     "node": ">= 10"
@@ -64,6 +64,6 @@
     "workerThreads": false
   },
   "dependencies": {
-    "@napi-rs/cli": "2.16.5"
+    "@napi-rs/cli": "2.18.4"
   }
 }
