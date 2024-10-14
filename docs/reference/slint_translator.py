@@ -20,14 +20,15 @@ class SlintHTML5Translator(HTML5Translator):
         lang = node.get('language', 'default')
         args = [arg.strip() for arg in lang.split(',')]
         data_args = []
+        # Check if the first argument is 'slint'
         if args and args[0] == 'slint':
-            data_args.append('data-readonly=false')
+            data_args.append('data-readonly="false"') 
             if 'ignore' in args:
-                data_args.append('data-ignore=true')
-            if 'no-preview'  in args:
-                data_args.append('data-nopreview=true')
+                data_args.append('data-ignore="true"')
+            if 'no-preview' in args:
+                data_args.append('data-nopreview="true"')
         else:
-            data_args.append('data-ignore=true')
+            data_args.append('data-ignore="true"')  # Set ignore if not slint
 
         data_args_string = ' '.join(data_args)
 
@@ -38,7 +39,7 @@ class SlintHTML5Translator(HTML5Translator):
         # Insert the custom HTML for the code block
         self.body.append(
             f'<div id="{editor_id}" class="codemirror-editor" '
-            f'data-lang="{lang}" "{data_args_string}">'
+            f'data-lang="{lang}" {data_args_string}>'
             f'<div class="codemirror-content" style="display:none">{self.encode(content)}</div>'
             '</div>'
         )
