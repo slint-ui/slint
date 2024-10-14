@@ -4,7 +4,7 @@
 The `if` construct instantiates an element only if a given condition is true.
 The syntax is `if condition : id := Element { ... }`
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;

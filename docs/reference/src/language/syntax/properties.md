@@ -5,7 +5,7 @@ All elements have properties. Built-in elements come with common properties such
 as color or dimensional properties. You can assign values or entire
 [expressions](expressions.md) to them:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example inherits Window {
     // Simple expression: ends with a semi colon
     width: 42px;
@@ -20,7 +20,7 @@ For example a boolean property defaults to `false`, an `int` property to zero, e
 In addition to the existing properties, define extra properties by specifying the
 type, the name, and optionally a default value:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example {
     // declare a property of type int with the name `my-property`
     property<int> my-property;
@@ -42,7 +42,7 @@ property can be read and written:
     users of the components.
 -   **`in-out`**: The property can be read and modified by everyone.
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Button {
     // This is meant to be set by the user of the component.
     in property <string> text;
@@ -67,7 +67,7 @@ In the following example, the text of the button automatically changes when
 the user presses the button. Incrementing the `counter` property automatically
 invalidates the expression bound to `text` and triggers a re-evaluation.
 
-```{codemirror} slint
+```slint
 import { Button } from "std-widgets.slint";
 export component Example inherits Window {
     preferred-width: 50px;
@@ -98,7 +98,7 @@ The property type is optional with two-way bindings, it will be inferred if not 
 The initial value of a linked property will be the value of the right hand side of the binding.
 The two linked properties must be compatible in terms of input/output.
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example  {
     in property<brush> rect-color <=> r.background;
     // It's allowed to omit the type to have it automatically inferred
@@ -116,7 +116,7 @@ export component Example  {
 Sometimes it's convenient to express the relationships of length properties in terms of relative percentages.
 For example the following inner blue rectangle has half the size of the outer green window:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
@@ -139,7 +139,7 @@ common. For convenience, a short-hand syntax exists for this scenario:
 If these conditions are met, then it's not necessary to specify the parent property, instead you can simply
 use the percentage. The earlier example then looks like this:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
@@ -157,7 +157,7 @@ export component Example inherits Window {
 
 In Slint, it's possible to define a callback that is invoked when a property's value changes.
 
-```{codemirror} slint
+```slint
 import { LineEdit } from "std-widgets.slint";
 export component Example inherits Window  {
     VerticalLayout {
@@ -178,7 +178,7 @@ Additionally, if a property's value changes and then reverts to its original sta
 
 **Warning:** Altering properties during a change event in a way that could lead to the same property being affected is undefined behaviour.
 
-```{codemirror} slint,no_preview
+```slint,no_preview
 export component Example {
     in-out property <int> foo;
     property bar: foo + 1;
@@ -197,13 +197,13 @@ Therefore, it's crucial not to overuse changed callbacks.
 
 For instance, avoid doing this:
 
-```{codemirror} slint,ignore
+```slint,ignore
 changed bar => { foo = bar + 1; }
 ```
 
 Instead, opt for:
 
-```{codemirror} slint,ignore
+```slint,ignore
 foo: bar + 1;
 ```
 

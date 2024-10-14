@@ -22,7 +22,7 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { StandardListView } from "std-widgets.slint";
 export component Example inherits Window {
     width: 150px;

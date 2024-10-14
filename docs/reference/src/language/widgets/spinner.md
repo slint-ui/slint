@@ -12,7 +12,7 @@ The `Spinner` informs the user about the status of an on-going operation, such a
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { Spinner } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

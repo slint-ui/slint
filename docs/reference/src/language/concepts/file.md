@@ -11,7 +11,7 @@ component under its name as an element in another component.
 
 Below is an example of components and elements:
 
-```{codemirror} slint
+```slint
 
 component MyButton inherits Text {
     color: black;
@@ -48,7 +48,7 @@ of the properties they depend on change, which makes the user-interface reactive
 
 You can name elements using the `:=` syntax:
 
-```{codemirror} slint
+```slint
 component MyButton inherits Text {
     // ...
 }

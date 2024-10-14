@@ -27,7 +27,7 @@ accessible from property bindings and other pure callbacks and functions.
 The purity of private functions is automatically inferred. You may declare
 private functions explicitly "pure" to have the compiler enforce their purity.
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example {
     pure callback foo() -> int;
     public pure function bar(x: int) -> int

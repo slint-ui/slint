@@ -12,7 +12,7 @@ struct or enum. It is also not possible to nest functions within other functions
 
 Functions in Slint are declared using the `function` keyword. For example:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example {
     // ...
     function my-function(parameter: int) -> string {
@@ -39,7 +39,7 @@ More details can be found in the [Purity](../concepts/purity.md) chapter.
 A function can be called without an element name (like a function call in other languages) or with
 an element name (like a method call in other languages):
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 import { Button } from "std-widgets.slint"; 
 
 export component Example {
@@ -81,7 +81,7 @@ Multiple functions with the same name are allowed in the same component, as long
 on different elements. Therefore it is possible for a function to shadow another function from an ancestor
 element.
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example {
     property <int> secret_number: my-function();
     public pure function my-function() -> int {
@@ -121,7 +121,7 @@ However, their accessibility can be modified using the `public` or `protected` k
 To access such a function from a different component, you always need a target, which in practice
 means the calling component must declare the called component as one of its child elements.
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component HasFunction {
     public pure function double(x: int) -> int {
         return x * 2;
@@ -140,7 +140,7 @@ If a function is declared in a child element, even if marked public, it is not p
 from another component, as the child elements themselves are not public and a valid target for the
 function does not exist:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component HasFunction {
     t := Text {
         public pure function double(x: int) -> int {

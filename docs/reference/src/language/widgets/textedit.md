@@ -34,7 +34,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { TextEdit } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

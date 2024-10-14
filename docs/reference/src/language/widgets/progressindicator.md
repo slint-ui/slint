@@ -10,7 +10,7 @@ The `ProgressIndicator` informs the user about the status of an on-going operati
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { ProgressIndicator } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

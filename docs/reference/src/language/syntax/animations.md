@@ -4,7 +4,7 @@
 
 Declare animations for properties with the `animate` keyword like this:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
@@ -72,13 +72,13 @@ Fine-tune animations using the following parameters:
 
 It's also possible to animate several properties with the same animation, so:
 
-```{codemirror} slint,ignore
+```slint,ignore
 animate x, y { duration: 100ms; easing: ease-out-bounce; }
 ```
 
 is the same as:
 
-```{codemirror} slint,ignore
+```slint,ignore
 animate x { duration: 100ms; easing: ease-out-bounce; }
 animate y { duration: 100ms; easing: ease-out-bounce; }
 ```

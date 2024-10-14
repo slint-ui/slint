@@ -4,7 +4,7 @@
 To maintain compatibility with earlier version of Slint, the pre-1.0 syntax that declared
 components and named structs with `:=` remains supported:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export MyApp := Window {
     //...
 }

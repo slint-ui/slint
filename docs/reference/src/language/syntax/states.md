@@ -3,7 +3,7 @@
 
 The `states` statement allows to declare states and set properties of multiple elements in one go:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
@@ -46,7 +46,7 @@ all properties for 800ms when leaving the `disabled` state. The second
 transition uses the `in` keyword to animate the background when transitioning
 into the `down` state.
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;

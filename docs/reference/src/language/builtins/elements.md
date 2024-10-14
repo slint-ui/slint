@@ -37,7 +37,7 @@ These properties are valid on all visible items and can be used to specify const
 
 The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you can't see the red rectangle through the green one.
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 100px;
     height: 100px;
@@ -118,7 +118,7 @@ Each of these automatically-generated callbacks is an alias for the `clicked` ca
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { StandardButton, Button } from "std-widgets.slint";
 export component Example inherits Dialog {
     Text {
@@ -182,7 +182,7 @@ interacting with `TouchArea` elements:
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 270px;
     height: 100px;
@@ -231,7 +231,7 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 100px;
     height: 100px;
@@ -266,7 +266,7 @@ To implicitly sequentially assign row indices&mdash;just like with `col`&mdash;w
 
 The following example creates a 2-by-2 grid with `Row` elements, omitting one cell:
 
-```{codemirror} slint
+```slint
 import { Button } from "std-widgets.slint";
 export component Foo inherits Window {
     width: 200px;
@@ -285,7 +285,7 @@ export component Foo inherits Window {
 
 The following example creates the same grid using the `row` property. Row indices must be taken care of manually:
 
-```{codemirror} slint
+```slint
 import { Button } from "std-widgets.slint";
 export component Foo inherits Window {
     width: 200px;
@@ -313,7 +313,7 @@ export component Foo inherits Window {
 
 This example uses the `Row` element:
 
-```{codemirror} slint
+```slint
 export component Foo inherits Window {
     width: 200px;
     height: 200px;
@@ -333,7 +333,7 @@ export component Foo inherits Window {
 
 This example uses the `col` and `row` properties
 
-```{codemirror} slint
+```slint
 export component Foo inherits Window {
     width: 200px;
     height: 150px;
@@ -380,7 +380,7 @@ An `Image` can be used to represent an image loaded from a file.
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 100px;
     height: 100px;
@@ -399,7 +399,7 @@ export component Example inherits Window {
 
 Scaled while preserving the aspect ratio:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 100px;
     height: 150px;
@@ -416,7 +416,7 @@ export component Example inherits Window {
 
 Example using nine-slice:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 100px;
     height: 150px;
@@ -472,7 +472,7 @@ which in turn are written in a string. In `.slint` the path commands are provide
 property. The following example renders a shape consists of an arc and a rectangle, composed of `line-to`,
 `move-to` and `arc` commands:
 
-```{codemirror} slint
+```slint
 export component Example inherits Path {
     width: 100px;
     height: 100px;
@@ -492,7 +492,7 @@ The commands are provided in a property:
 The shape of the path can also be described using elements that resemble the SVG path commands but use the
 `.slint` markup syntax. The earlier example using SVG commands can also be written like that:
 
-```{codemirror} slint
+```slint
 export component Example inherits Path {
     width: 100px;
     height: 100px;
@@ -614,7 +614,7 @@ Note: It isn't allowed to access properties of elements within the popup from ou
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 100px;
     height: 100px;
@@ -649,7 +649,7 @@ When not part of a layout, its width and height default to 100% of the parent el
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 270px;
     height: 100px;
@@ -730,7 +730,7 @@ If the pointer moves by more than 8 logical pixels in one of the enabled swipe d
 
 This example implements swiping between pages of different colors.
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 270px;
     height: 100px;
@@ -817,7 +817,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 270px;
     height: 100px;
@@ -864,7 +864,7 @@ and the text itself.
 
 This example shows the text "Hello World" in red, using the default font:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 270px;
     height: 100px;
@@ -880,7 +880,7 @@ export component Example inherits Window {
 This example breaks a longer paragraph of text into multiple lines, by setting a `wrap`
 policy and assigning a limited `width` and enough `height` for the text to flow down:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 270px;
     height: 300px;
@@ -924,7 +924,7 @@ Timer is not an actual element visible in the tree, therefore it doesn't have th
 
 This example shows a timer that counts down from 10 to 0 every second:
 
-```{codemirror} slint
+```slint
 import { Button } from "std-widgets.slint";
 export component Example inherits Window {
     property <int> value: 10;
@@ -983,7 +983,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     width: 200px;
     height: 100px;
@@ -1023,7 +1023,7 @@ they will be computed by the layout respecting the minimum and maximum sizes and
 
 ### Example
 
-```{codemirror} slint
+```slint
 export component Foo inherits Window {
     width: 200px;
     height: 100px;

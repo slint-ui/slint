@@ -34,7 +34,7 @@ a widget able to handle several lines of text.
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { LineEdit } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;

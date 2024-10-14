@@ -7,7 +7,7 @@ to properties of other elements. When these properties change, the expression
 is automatically re-evaluated and a new value is assigned to the property the
 expression is associated with:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example {
     // declare a property of type int
     in-out property<int> my-property;
@@ -22,7 +22,7 @@ When `my-property` changes, the width changes automatically, too.
 
 Arithmetic in expression with numbers works like in most programming languages with the operators `*`, `+`, `-`, `/`:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example {
     in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
@@ -37,7 +37,7 @@ values of the same type.
 Access an element's properties by using its name, followed by a
 `.` and the property name:
 
-```{codemirror} slint,no-preview
+```slint,no-preview
 export component Example {
     foo := Rectangle {
         x: 42px;
@@ -48,7 +48,7 @@ export component Example {
 
 The ternary operator `... ? ... : ...` is also supported, like in C or JavaScript:
 
-```{codemirror} slint
+```slint
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;

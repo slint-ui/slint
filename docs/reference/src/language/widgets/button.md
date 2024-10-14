@@ -21,7 +21,7 @@ A simple button. Common types of buttons can also be created with [`StandardButt
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { Button, VerticalBox } from "std-widgets.slint";
 export component Example inherits Window {
     VerticalBox {

@@ -24,7 +24,7 @@ using for loops may be added in the future and is tracked in issue #407.
 
 ### Example
 
-```{codemirror} slint
+```slint
 import { ScrollView } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
