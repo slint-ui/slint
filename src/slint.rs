@@ -10,17 +10,15 @@ impl SlintExtension {
     fn language_server_binary_path(
         &mut self,
         language_server_id: &LanguageServerId,
-        worktree: &zed::Worktree,
+        _worktree: &zed::Worktree,
     ) -> Result<String> {
         // Use a local binary first
         // TODO: this causes a hang on linux
         // if let Some(path) = worktree.which("slint-lsp") {
-        //     dbg!(path.clone());
         //     return Ok(path);
         // }
 
         if let Some(path) = &self.cached_binary_path {
-            dbg!(path.clone());
             if fs::metadata(path).map_or(false, |stat| stat.is_file()) {
                 zed::set_language_server_installation_status(
                     language_server_id,
