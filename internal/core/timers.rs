@@ -256,80 +256,84 @@ impl TimerList {
         CURRENT_TIMERS.with(|timers| {
             assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
 
-            let mut any_activated = false;
-
-            // The active timer list is cleared here and not-yet-fired ones are inserted below, in order to allow
-            // timer callbacks to register their own timers.
-            let timers_to_process = core::mem::take(&mut timers.borrow_mut().active_timers);
-            {
+            // Re-register all timers that expired but are repeating, as well as all that haven't expired yet. This is
+            // done in one shot to ensure a consistent state by the time the callbacks are invoked.
+            let expired_timers = {
                 let mut timers = timers.borrow_mut();
-                for active_timer in &timers_to_process {
-                    let timer = &mut timers.timers[active_timer.id];
+
+                // Empty active_timers and rebuild it, to preserve insertion order across expired and not expired timers.
+                let mut active_timers = core::mem::take(&mut timers.active_timers);
+
+                let expired_vs_remaining_timers_partition_point =
+                    active_timers.partition_point(|active_timer| active_timer.timeout <= now);
+
+                let (expired_timers, timers_not_activated_this_time) =
+                    active_timers.split_at(expired_vs_remaining_timers_partition_point);
+
+                for expired_timer in expired_timers {
+                    let timer = &mut timers.timers[expired_timer.id];
                     assert!(!timer.being_activated);
                     timer.being_activated = true;
+
+                    if matches!(timers.timers[expired_timer.id].mode, TimerMode::Repeated) {
+                        timers.activate_timer(expired_timer.id);
+                    } else {
+                        timers.timers[expired_timer.id].running = false;
+                    }
                 }
-            }
-            for active_timer in timers_to_process.into_iter() {
-                if active_timer.timeout <= now {
-                    any_activated = true;
 
-                    let mut callback = {
-                        let mut timers = timers.borrow_mut();
+                for future_timer in timers_not_activated_this_time.into_iter() {
+                    timers.register_active_timer(*future_timer);
+                }
 
-                        timers.callback_active = Some(active_timer.id);
+                // turn `expired_timers` slice into a truncated vec.
+                active_timers.truncate(expired_vs_remaining_timers_partition_point);
+                active_timers
+            };
 
-                        // do it before invoking the callback, in case the callback wants to stop or adjust its own timer
-                        if matches!(timers.timers[active_timer.id].mode, TimerMode::Repeated) {
-                            timers.activate_timer(active_timer.id);
-                        } else {
-                            timers.timers[active_timer.id].running = false;
-                        }
+            let any_activated = !expired_timers.is_empty();
 
-                        // have to release the borrow on `timers` before invoking the callback,
-                        // so here we temporarily move the callback out of its permanent place
-                        core::mem::replace(
-                            &mut timers.timers[active_timer.id].callback,
-                            CallbackVariant::Empty,
-                        )
-                    };
-
-                    match callback {
-                        CallbackVariant::Empty => (),
-                        CallbackVariant::MultiFire(ref mut cb) => cb(),
-                        CallbackVariant::SingleShot(cb) => {
-                            cb();
-                            timers.borrow_mut().callback_active = None;
-                            timers.borrow_mut().timers.remove(active_timer.id);
-                            continue;
-                        }
-                    };
-
+            for active_timer in expired_timers.into_iter() {
+                let mut callback = {
                     let mut timers = timers.borrow_mut();
 
-                    let callback_register = &mut timers.timers[active_timer.id].callback;
+                    timers.callback_active = Some(active_timer.id);
 
-                    // only emplace back the callback if its permanent store is still Empty:
-                    // if not, it means the invoked callback has restarted its own timer with a new callback
-                    if matches!(callback_register, CallbackVariant::Empty) {
-                        *callback_register = callback;
-                    }
+                    // have to release the borrow on `timers` before invoking the callback,
+                    // so here we temporarily move the callback out of its permanent place
+                    core::mem::replace(
+                        &mut timers.timers[active_timer.id].callback,
+                        CallbackVariant::Empty,
+                    )
+                };
 
-                    timers.callback_active = None;
-                    let t = &mut timers.timers[active_timer.id];
-                    if t.removed {
-                        timers.timers.remove(active_timer.id);
-                    } else {
-                        t.being_activated = false;
+                match callback {
+                    CallbackVariant::Empty => (),
+                    CallbackVariant::MultiFire(ref mut cb) => cb(),
+                    CallbackVariant::SingleShot(cb) => {
+                        cb();
+                        timers.borrow_mut().callback_active = None;
+                        timers.borrow_mut().timers.remove(active_timer.id);
+                        continue;
                     }
+                };
+
+                let mut timers = timers.borrow_mut();
+
+                let callback_register = &mut timers.timers[active_timer.id].callback;
+
+                // only emplace back the callback if its permanent store is still Empty:
+                // if not, it means the invoked callback has restarted its own timer with a new callback
+                if matches!(callback_register, CallbackVariant::Empty) {
+                    *callback_register = callback;
+                }
+
+                timers.callback_active = None;
+                let t = &mut timers.timers[active_timer.id];
+                if t.removed {
+                    timers.timers.remove(active_timer.id);
                 } else {
-                    let mut timers = timers.borrow_mut();
-                    let t = &mut timers.timers[active_timer.id];
-                    if t.removed {
-                        timers.timers.remove(active_timer.id);
-                    } else {
-                        t.being_activated = false;
-                        timers.register_active_timer(active_timer);
-                    }
+                    t.being_activated = false;
                 }
             }
             any_activated
@@ -343,7 +347,7 @@ impl TimerList {
         duration: core::time::Duration,
         callback: CallbackVariant,
     ) -> usize {
-        let timer_data = TimerData {
+        let mut timer_data = TimerData {
             duration,
             mode,
             running: false,
@@ -353,6 +357,7 @@ impl TimerList {
         };
         let inactive_timer_id = if let Some(id) = id {
             self.deactivate_timer(id);
+            timer_data.being_activated = self.timers[id].being_activated;
             self.timers[id] = timer_data;
             id
         } else {
@@ -368,6 +373,7 @@ impl TimerList {
             if self.active_timers[i].id == id {
                 self.active_timers.remove(i);
                 self.timers[id].running = false;
+                debug_assert!(!self.active_timers.iter().any(|t| t.id == id));
                 break;
             } else {
                 i += 1;
@@ -383,10 +389,10 @@ impl TimerList {
     }
 
     fn register_active_timer(&mut self, new_active_timer: ActiveTimer) {
-        let insertion_index = lower_bound(&self.active_timers, |existing_timer| {
-            existing_timer.timeout < new_active_timer.timeout
-        });
-
+        debug_assert!(!self.active_timers.iter().any(|t| t.id == new_active_timer.id));
+        let insertion_index = self
+            .active_timers
+            .partition_point(|existing_timer| existing_timer.timeout < new_active_timer.timeout);
         self.active_timers.insert(insertion_index, new_active_timer);
         self.timers[new_active_timer.id].running = true;
     }
@@ -418,23 +424,6 @@ impl TimerList {
 use crate::unsafe_single_threaded::thread_local;
 
 thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
-
-fn lower_bound<T>(vec: &[T], mut less_than: impl FnMut(&T) -> bool) -> usize {
-    let mut left = 0;
-    let mut right = vec.len();
-
-    while left != right {
-        let mid = left + (right - left) / 2;
-        let value = &vec[mid];
-        if less_than(value) {
-            left = mid + 1;
-        } else {
-            right = mid;
-        }
-    }
-
-    left
-}
 
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
@@ -1003,3 +992,149 @@ assert!(state.borrow().timer.running());
  */
 #[cfg(doctest)]
 const _BUG6141_SET_INTERVAL_FROM_CALLBACK: () = ();
+
+/**
+ * Test that a timer can't be activated twice.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::Cell, time::Duration};
+
+let later_timer_expiration_count = Rc::new(Cell::new(0));
+
+let sooner_timer = Timer::default();
+let later_timer = Rc::new(Timer::default());
+later_timer.start(TimerMode::SingleShot, Duration::from_millis(500), {
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+        later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+    }
+});
+
+sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
+    let later_timer = later_timer.clone();
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+    later_timer.start(TimerMode::SingleShot, Duration::from_millis(600), {
+        let later_timer_expiration_count = later_timer_expiration_count.clone();
+        move || {
+            later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+        }
+    });
+}});
+
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(110);
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(400);
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(800);
+assert_eq!(later_timer_expiration_count.get(), 1);
+```
+ */
+#[cfg(doctest)]
+const _DOUBLY_REGISTER_ACTIVE_TIMER: () = ();
+
+/**
+ * Test that a timer can't be activated twice.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::Cell, time::Duration};
+
+let later_timer_expiration_count = Rc::new(Cell::new(0));
+
+let sooner_timer = Timer::default();
+let later_timer = Rc::new(Timer::default());
+later_timer.start(TimerMode::Repeated, Duration::from_millis(110), {
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+        later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+    }
+});
+
+sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
+    let later_timer = later_timer.clone();
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+    later_timer.start(TimerMode::Repeated, Duration::from_millis(110), {
+        let later_timer_expiration_count = later_timer_expiration_count.clone();
+        move || {
+            later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+        }
+    });
+}});
+
+assert_eq!(later_timer_expiration_count.get(), 0);
+i_slint_core::tests::slint_mock_elapsed_time(120);
+assert_eq!(later_timer_expiration_count.get(), 1);
+```
+ */
+#[cfg(doctest)]
+const _DOUBLY_REGISTER_ACTIVE_TIMER_2: () = ();
+
+/**
+ * Test that a timer that's being activated can be restarted and dropped in one go.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{cell::RefCell, rc::Rc, time::Duration};
+
+let destructive_timer = Rc::new(RefCell::new(Some(Timer::default())));
+
+destructive_timer.borrow().as_ref().unwrap().start(TimerMode::Repeated, Duration::from_millis(110), {
+    let destructive_timer = destructive_timer.clone();
+    move || {
+        // start() used to reset the `being_activated` flag...
+        destructive_timer.borrow().as_ref().unwrap().start(TimerMode::Repeated, Duration::from_millis(110), || {});
+        // ... which would make this drop remove the timer from the timer list altogether and continued processing
+        // of the timer would panic as the id isn't valid anymore.
+        drop(destructive_timer.take());
+    }
+});
+
+drop(destructive_timer);
+i_slint_core::tests::slint_mock_elapsed_time(120);
+```
+ */
+#[cfg(doctest)]
+const _RESTART_TIMER_BEING_ACTIVATED: () = ();
+
+/**
+ * Test that a future timer can be stopped from the activation callback of an earlier timer.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::Cell, time::Duration};
+
+let later_timer_expiration_count = Rc::new(Cell::new(0));
+
+let sooner_timer = Timer::default();
+let later_timer = Rc::new(Timer::default());
+later_timer.start(TimerMode::SingleShot, Duration::from_millis(500), {
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+        later_timer_expiration_count.set(later_timer_expiration_count.get() + 1);
+    }
+});
+
+sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
+    let later_timer = later_timer.clone();
+    let later_timer_expiration_count = later_timer_expiration_count.clone();
+    move || {
+        later_timer.stop();
+    }
+});
+
+assert_eq!(later_timer_expiration_count.get(), 0);
+assert!(later_timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(110);
+assert_eq!(later_timer_expiration_count.get(), 0);
+assert!(!later_timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(800);
+assert_eq!(later_timer_expiration_count.get(), 0);
+assert!(!later_timer.running());
+```
+ */
+#[cfg(doctest)]
+const _STOP_FUTURE_TIMER_DURING_ACTIVATION_OF_EARLIER: () = ();
