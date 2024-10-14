@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
 """A custom Sphinx HTML Translator for adding CodeMirror to Slint Docs
 """
 
