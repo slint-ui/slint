@@ -247,6 +247,11 @@ export interface LoadFileOptions {
      * Sets library paths used for looking up `@library` imports to the specified map of library names to paths.
      */
     libraryPaths?: Record<string, string>;
+
+    /**
+     * @hidden
+     */
+    fileLoader?: (path: string) => string;
 }
 
 type LoadData =
@@ -284,6 +289,9 @@ function loadSlint(loadData: LoadData): Object {
         }
         if (typeof options.libraryPaths !== "undefined") {
             compiler.libraryPaths = options.libraryPaths;
+        }
+        if (typeof options.fileLoader !== "undefined") {
+            compiler.fileLoader = options.fileLoader;
         }
     }
 

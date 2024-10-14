@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::to_js_unknown;
+use crate::RefCountedReference;
 
 use super::JsComponentDefinition;
 use super::JsDiagnostic;
 use i_slint_compiler::langtype::Type;
 use itertools::Itertools;
 use napi::Env;
+use napi::JsFunction;
+use napi::JsString;
 use napi::JsUnknown;
 use slint_interpreter::Compiler;
 use slint_interpreter::Value;
@@ -162,6 +165,68 @@ impl JsComponentCompiler {
             .filter_map(|ty| convert_type(&env, ty))
             .into_iter()
             .collect::<HashMap<String, JsUnknown>>()
+    }
+
+    #[napi(setter)]
+    pub fn set_file_loader(&mut self, env: Env, callback: JsFunction) -> napi::Result<()> {
+        let function_ref = RefCountedReference::new(&env, callback)?;
+
+        self.internal.set_file_loader(move |path| {
+            let Ok(callback) = function_ref.get::<JsFunction>() else {
+                return Box::pin(async {
+                    Some(Err(std::io::Error::other("Node.js: cannot access file loader callback.")))
+                });
+            };
+
+            let Ok(path) = env.create_string(path.display().to_string().as_str()) else {
+                return Box::pin(async {
+                    Some(Err(std::io::Error::other(
+                        "Node.js: wrong argunemt for callback file_loader.",
+                    )))
+                });
+            };
+
+            let result = match callback.call(None, &[path]) {
+                Ok(result) => result,
+                Err(err) => {
+                    return Box::pin(
+                        async move { Some(Err(std::io::Error::other(err.to_string()))) },
+                    );
+                }
+            };
+
+            let js_string: napi::Result<JsString> = result.try_into();
+
+            let Ok(js_string) = js_string else {
+                return Box::pin(async {
+                    Some(Err(std::io::Error::other(
+                        "Node.js: cannot read return value of file loader callback as js string.",
+                    )))
+                });
+            };
+
+            let Ok(utf8_string) = js_string.into_utf8() else {
+                return Box::pin(async {
+                    Some(Err(std::io::Error::other(
+                        "Node.js: cannot convert return value of file loader callback into utf8.",
+                    )))
+                });
+            };
+
+            if let Ok(str) = utf8_string.as_str() {
+                let string = str.to_string();
+
+                return Box::pin(async { Some(Ok(string)) });
+            };
+
+            Box::pin(async {
+                Some(Err(std::io::Error::other(
+                    "Node.js: cannot convert return value of file loader callback into string.",
+                )))
+            })
+        });
+
+        Ok(())
     }
 
     /// Compile a .slint file into a ComponentDefinition
