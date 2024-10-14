@@ -1,28 +1,59 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { EditorState } from '@codemirror/state';
-import { highlightSelectionMatches } from '@codemirror/search';
-import { indentWithTab, history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-import { foldGutter, indentOnInput, indentUnit, bracketMatching, foldKeymap, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
-import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
-import { lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, keymap, EditorView, showPanel } from '@codemirror/view';
+import { EditorState } from "@codemirror/state";
+import { highlightSelectionMatches } from "@codemirror/search";
+import {
+    indentWithTab,
+    history,
+    defaultKeymap,
+    historyKeymap,
+} from "@codemirror/commands";
+import {
+    foldGutter,
+    indentOnInput,
+    indentUnit,
+    bracketMatching,
+    foldKeymap,
+    syntaxHighlighting,
+    defaultHighlightStyle,
+} from "@codemirror/language";
+import {
+    closeBrackets,
+    autocompletion,
+    closeBracketsKeymap,
+    completionKeymap,
+} from "@codemirror/autocomplete";
+import {
+    lineNumbers,
+    highlightActiveLineGutter,
+    highlightSpecialChars,
+    drawSelection,
+    dropCursor,
+    rectangularSelection,
+    crosshairCursor,
+    highlightActiveLine,
+    keymap,
+    EditorView,
+    showPanel,
+} from "@codemirror/view";
 
 // Theme
-import { dracula } from '@uiw/codemirror-theme-dracula';
+import { dracula } from "@uiw/codemirror-theme-dracula";
 
 // Language
-import { javascript } from '@codemirror/lang-javascript';
-import { python } from '@codemirror/lang-python';
-import { rust } from '@codemirror/lang-rust';
-import { cpp } from '@codemirror/lang-cpp';
-import { languageNameFacet } from './language-facets';
+import { javascript } from "@codemirror/lang-javascript";
+import { python } from "@codemirror/lang-python";
+import { rust } from "@codemirror/lang-rust";
+import { cpp } from "@codemirror/lang-cpp";
+import { languageNameFacet } from "./language-facets";
 
 const editor_url = "https://snapshots.slint.dev/master/editor/";
-const wasm_url = "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js";
+const wasm_url =
+    "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js";
 let slint_wasm_module = null;
 // keep them alive
-var all_instances = new Array;
+var all_instances = new Array();
 
 // Function to create the Copy button and add it to the panel
 function createCopyButton(view) {
@@ -37,11 +68,14 @@ function createCopyButton(view) {
 
     button.onclick = () => {
         const content = view.state.doc.toString();
-        navigator.clipboard.writeText(content).then(() => {
-            alert("Content copied to clipboard!");
-        }, (err) => {
-            console.error('Could not copy text: ', err);
-        });
+        navigator.clipboard.writeText(content).then(
+            () => {
+                alert("Content copied to clipboard!");
+            },
+            (err) => {
+                console.error("Could not copy text: ", err);
+            },
+        );
     };
 
     return button;
@@ -58,7 +92,10 @@ function createRunButton(view) {
 
     button.onclick = () => {
         const content = view.state.doc.toString();
-        window.open(`${editor_url}?snippet=${encodeURIComponent(content)}`, "_blank");
+        window.open(
+            `${editor_url}?snippet=${encodeURIComponent(content)}`,
+            "_blank",
+        );
     };
 
     return button;
@@ -97,14 +134,17 @@ function debounce(func, wait) {
 }
 
 async function updateWasmPreview(previewContainer, content) {
-
-    const { component, error_string } = await slint_wasm_module.compile_from_string(content, "");
+    const { component, error_string } =
+        await slint_wasm_module.compile_from_string(content, "");
     var error_div = previewContainer.parentNode.querySelector(".error-status");
     if (error_string !== "") {
         var text = document.createTextNode(error_string);
-        var p = document.createElement('pre');
+        var p = document.createElement("pre");
         p.appendChild(text);
-        error_div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
+        error_div.innerHTML =
+            "<pre style='color: red; background-color:#fee; margin:0'>" +
+            p.innerHTML +
+            "</pre>";
     } else {
         error_div.innerHTML = "";
     }
@@ -120,7 +160,7 @@ async function updateWasmPreview(previewContainer, content) {
 const debouncedUpdateWasmPreview = debounce(updateWasmPreview, 500);
 
 async function initializePreviewContainers(previewContainer, content) {
-    const canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
+    const canvas_id = "canvas_" + Math.random().toString(36).substr(2, 9);
     const canvas = document.createElement("canvas");
     canvas.id = canvas_id;
     previewContainer.appendChild(canvas);
@@ -148,14 +188,16 @@ async function loadSlintWasmInterpreter(editor) {
 
         return;
     } catch (error) {
-        console.error("Error during Slint WASM interpreter initialization:", error);
+        console.error(
+            "Error during Slint WASM interpreter initialization:",
+            error,
+        );
         throw error; // Re-throw error to handle it in the calling context
     }
 }
 
 // Initialize CodeMirror based on the language passed as a data attribute
 window.initCodeMirror = function (editorDiv, language, content) {
-
     const editorDiv_id = editorDiv.getAttribute("id");
 
     const extensions = [
@@ -186,7 +228,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         languageNameFacet.of(language),
         dracula,
-        showPanel.of(statusPanel)
+        showPanel.of(statusPanel),
     ];
 
     // Get the appropriate language extension
@@ -194,34 +236,41 @@ window.initCodeMirror = function (editorDiv, language, content) {
     let previewContainer;
 
     switch (language.toLowerCase()) {
-        case 'javascript':
+        case "javascript":
             extensions.push(javascript());
             break;
-        case 'python':
+        case "python":
             extensions.push(python());
             break;
-        case 'cpp':
+        case "cpp":
             extensions.push(cpp());
             break;
-        case 'rust':
+        case "rust":
             extensions.push(rust());
             break;
-        case 'slint':
+        case "slint":
             isReadOnly = false;
             extensions.push(javascript());
-            if (editorDiv.getAttribute("data-readonly") === 'true'
-                || editorDiv.getAttribute("data-ignore") === 'true') {
+            if (
+                editorDiv.getAttribute("data-readonly") === "true" ||
+                editorDiv.getAttribute("data-ignore") === "true"
+            ) {
                 break;
             }
             previewContainer = document.createElement("div");
-            previewContainer.classList.add('preview-container');
-            editorDiv.classList.add('show-preview');
-            extensions.push(EditorView.updateListener.of(async (editor) => {
-                if (editor.docChanged) {
-                    const newContent = editor.state.doc.toString();
-                    debouncedUpdateWasmPreview(previewContainer, newContent);
-                }
-            }));
+            previewContainer.classList.add("preview-container");
+            editorDiv.classList.add("show-preview");
+            extensions.push(
+                EditorView.updateListener.of(async (editor) => {
+                    if (editor.docChanged) {
+                        const newContent = editor.state.doc.toString();
+                        debouncedUpdateWasmPreview(
+                            previewContainer,
+                            newContent,
+                        );
+                    }
+                }),
+            );
             break;
         default:
     }
@@ -233,7 +282,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
             doc: content,
             extensions: extensions,
         }),
-        parent: editorDiv
+        parent: editorDiv,
     });
 
     if (previewContainer) {
@@ -243,7 +292,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
                 initializePreviewContainers(previewContainer, content);
                 updateWasmPreview(previewContainer, content);
             })
-            .catch(error => {
+            .catch((error) => {
                 console.error("Error loading Slint WASM interpreter:", error);
             });
     }
@@ -251,10 +300,14 @@ window.initCodeMirror = function (editorDiv, language, content) {
 
 document.addEventListener("DOMContentLoaded", async function () {
     // Find all the divs that need a CodeMirror editor
-    document.querySelectorAll('.codemirror-editor').forEach(function (editorDiv) {
-        const editorContent = editorDiv.querySelector('.codemirror-content');
-        const language = editorDiv.getAttribute('data-lang');
-        const content = editorContent.textContent.trim();
-        window.initCodeMirror(editorDiv, language, content);
-    });
+    document
+        .querySelectorAll(".codemirror-editor")
+        .forEach(function (editorDiv) {
+            const editorContent = editorDiv.querySelector(
+                ".codemirror-content",
+            );
+            const language = editorDiv.getAttribute("data-lang");
+            const content = editorContent.textContent.trim();
+            window.initCodeMirror(editorDiv, language, content);
+        });
 });
