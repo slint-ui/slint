@@ -125,5 +125,4 @@ from slint_translator import SlintHTML5Translator
 
 def setup(app):
     # Set the custom HTML translator, overriding the default one
-    print("Custom translator setup is being called.")
     app.set_translator("html", SlintHTML5Translator, override=True)
