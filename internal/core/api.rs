@@ -22,6 +22,7 @@ use alloc::string::String;
 /// a display device specific scale factor.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LogicalPosition {
     /// The x coordinate.
     pub x: f32,
@@ -59,6 +60,7 @@ impl LogicalPosition {
 /// A position represented in the coordinate space of physical device pixels. That is the space after applying
 /// a display device specific scale factor to pixels from the logical coordinate space.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PhysicalPosition {
     /// The x coordinate.
     pub x: i32,
@@ -120,6 +122,7 @@ impl WindowPosition {
 /// a display device specific scale factor.
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LogicalSize {
     /// The width in logical pixels.
     pub width: f32,
@@ -161,6 +164,7 @@ impl LogicalSize {
 /// A size represented in the coordinate space of physical device pixels. That is the space after applying
 /// a display device specific scale factor to pixels from the logical coordinate space.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PhysicalSize {
     /// The width in physical pixels.
     pub width: u32,
