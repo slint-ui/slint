@@ -62,7 +62,7 @@ type SourceCodeCache = HashMap<Url, (SourceFileVersion, String)>;
 struct ContentCache {
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
-    dependency: HashSet<Url>,
+    dependencies: HashSet<Url>,
     config: PreviewConfig,
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
@@ -134,7 +134,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
 
         cache.source_code.remove(url);
 
-        ((cache.dependency.contains(url) || cache.resources.contains(url)) && cache.ui_is_visible)
+        ((cache.dependencies.contains(url) || cache.resources.contains(url)) && cache.ui_is_visible)
             .then_some(cache.current_component())
             .flatten()
     };
@@ -155,7 +155,7 @@ fn set_contents(url: &common::VersionedUrl, content: String) {
         }
     }
 
-    if cache.dependency.contains(url.url()) {
+    if cache.dependencies.contains(url.url()) {
         let ui_is_visible = cache.ui_is_visible;
         let Some(current) = cache.current_component() else {
             return;
@@ -1019,7 +1019,7 @@ fn finish_parsing(preview_url: &Url, ok: bool) {
 
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     if let Some(component_instance) = component_instance() {
-        cache.resources = extract_resources(&cache.dependency, &component_instance);
+        cache.resources = extract_resources(&cache.dependencies, &component_instance);
     } else {
         cache.resources.clear();
     }
@@ -1054,7 +1054,7 @@ fn config_changed(config: PreviewConfig) {
 fn get_url_from_cache(url: &Url) -> Option<(SourceFileVersion, String)> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let r = cache.source_code.get(url).cloned();
-    cache.dependency.insert(url.to_owned());
+    cache.dependencies.insert(url.to_owned());
     r
 }
 
@@ -1110,7 +1110,7 @@ async fn reload_timer_function() {
                 return;
             }
             cache.loading_state = PreviewFutureState::Loading;
-            cache.dependency.clear();
+            cache.dependencies.clear();
             (preview_component, cache.config.clone(), behavior)
         };
         let style = if preview_component.style.is_empty() {
@@ -1386,7 +1386,7 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
 
     let selected = selected_element();
 
-    if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependency.contains(url)) {
+    if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependencies.contains(url)) {
         let _ = run_in_ui_thread(move || async move {
             let Some(path) = url.and_then(|u| Url::to_file_path(&u).ok()) else {
                 return;
