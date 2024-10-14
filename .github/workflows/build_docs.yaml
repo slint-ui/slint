@@ -39,23 +39,12 @@ jobs:
             - uses: actions/setup-node@v4
               with:
                 node-version: 20
-            - name: Cache mdbook and mdbook-linkcheck
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cargo/bin/mdbook
-                      ~/.cargo/bin/mdbook-linkcheck
-                  key: ${{ runner.os }}-${{ github.job }}-mdbook
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
                   components: rustfmt
                   target: aarch64-linux-android
-            - name: Install mdbook
-              run: cargo install mdbook || true
-            - name: Install mdbook-linkcheck
-              run: cargo install mdbook-linkcheck || true
             - name: Install apt dependencies
               run: sudo apt-get install doxygen
             - name: Upgrade pip and install pipenv
