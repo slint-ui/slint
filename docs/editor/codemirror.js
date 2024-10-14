@@ -66,7 +66,7 @@ function createRunButton(view) {
 
 // Define the status panel with copy and run buttons
 function statusPanel(view) {
-    let dom = document.createElement("div");
+    const dom = document.createElement("div");
     dom.className = "cm-status-panel";
 
     // Add the buttons to the panel
@@ -98,9 +98,9 @@ function debounce(func, wait) {
 
 async function updateWasmPreview(previewContainer, content) {
 
-    let { component, error_string } = await slint_wasm_module.compile_from_string(content, "");
+    const { component, error_string } = await slint_wasm_module.compile_from_string(content, "");
     var error_div = previewContainer.parentNode.querySelector(".error-status");
-    if (error_string != "") {
+    if (error_string !== "") {
         var text = document.createTextNode(error_string);
         var p = document.createElement('pre');
         p.appendChild(text);
@@ -110,7 +110,7 @@ async function updateWasmPreview(previewContainer, content) {
     }
     if (component !== undefined) {
         const canvas_id = previewContainer.getAttribute("data-canvas-id");
-        let instance = await component.create(canvas_id);
+        const instance = await component.create(canvas_id);
         await instance.show();
         all_instances.push(instance);
     }
@@ -120,20 +120,21 @@ async function updateWasmPreview(previewContainer, content) {
 const debouncedUpdateWasmPreview = debounce(updateWasmPreview, 500);
 
 async function initializePreviewContainers(previewContainer, content) {
-    let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
-    let canvas = document.createElement("canvas");
+    const canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
+    const canvas = document.createElement("canvas");
     canvas.id = canvas_id;
     previewContainer.appendChild(canvas);
     previewContainer.setAttribute("data-canvas-id", `${canvas_id}`);
-    let error_div = document.createElement("div");
+    const error_div = document.createElement("div");
     error_div.classList.add("error-status");
     previewContainer.parentNode.appendChild(error_div);
 }
 
 async function loadSlintWasmInterpreter(editor) {
     try {
-        if (slint_wasm_module)
+        if (slint_wasm_module) {
             return;
+        }
 
         // Dynamically import the Slint WASM module
         slint_wasm_module = await import(wasm_url);
@@ -157,7 +158,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
 
     const editorDiv_id = editorDiv.getAttribute("id");
 
-    let extensions = [
+    const extensions = [
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightSpecialChars(),
@@ -209,8 +210,9 @@ window.initCodeMirror = function (editorDiv, language, content) {
             isReadOnly = false;
             extensions.push(javascript());
             if (editorDiv.getAttribute("data-readonly") === 'true'
-                || editorDiv.getAttribute("data-ignore") === 'true')
+                || editorDiv.getAttribute("data-ignore") === 'true') {
                 break;
+            }
             previewContainer = document.createElement("div");
             previewContainer.classList.add('preview-container');
             editorDiv.classList.add('show-preview');
