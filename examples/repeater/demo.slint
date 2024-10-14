@@ -17,7 +17,7 @@ component WaveImage {
 
     Image {
         y: sin(360deg * (root.x / wave-period) ) * wave-size;
-        source: @image-url("slint-logo-small-light.png");
+        source: @image-url("../../logo/slint-logo-small-light.png");
         width: self.source.width * scale * 1px;
         height: self.source.height * scale * 1px;
         colorize: #2479f4.mix(white, 1-(scale - 0.3 ));
