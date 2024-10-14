@@ -169,60 +169,56 @@ impl JsComponentCompiler {
 
     #[napi(setter)]
     pub fn set_file_loader(&mut self, env: Env, callback: JsFunction) -> napi::Result<()> {
-        let function_ref = RefCountedReference::new(&env, callback)?;
+        let function_ref = std::rc::Rc::new(RefCountedReference::new(&env, callback)?);
 
         self.internal.set_file_loader(move |path| {
-            let Ok(callback) = function_ref.get::<JsFunction>() else {
-                return Box::pin(async {
-                    Some(Err(std::io::Error::other("Node.js: cannot access file loader callback.")))
-                });
-            };
+            let path = PathBuf::from(path);
+            let function_ref = function_ref.clone();
+            Box::pin({
+                async move {
+                    let Ok(callback) = function_ref.get::<JsFunction>() else {
+                        return Some(Err(std::io::Error::other(
+                            "Node.js: cannot access file loader callback.",
+                        )));
+                    };
 
-            let Ok(path) = env.create_string(path.display().to_string().as_str()) else {
-                return Box::pin(async {
-                    Some(Err(std::io::Error::other(
-                        "Node.js: wrong argunemt for callback file_loader.",
-                    )))
-                });
-            };
+                    let Ok(path) = env.create_string(path.display().to_string().as_str()) else {
+                        return Some(Err(std::io::Error::other(
+                            "Node.js: wrong argunemt for callback file_loader.",
+                        )));
+                    };
 
-            let result = match callback.call(None, &[path]) {
-                Ok(result) => result,
-                Err(err) => {
-                    return Box::pin(
-                        async move { Some(Err(std::io::Error::other(err.to_string()))) },
-                    );
-                }
-            };
+                    let result = match callback.call(None, &[path]) {
+                        Ok(result) => result,
+                        Err(err) => {
+                            return Some(Err(std::io::Error::other(err.to_string())));
+                        }
+                    };
 
-            let js_string: napi::Result<JsString> = result.try_into();
+                    let js_string: napi::Result<JsString> = result.try_into();
 
-            let Ok(js_string) = js_string else {
-                return Box::pin(async {
-                    Some(Err(std::io::Error::other(
+                    let Ok(js_string) = js_string else {
+                        return Some(Err(std::io::Error::other(
                         "Node.js: cannot read return value of file loader callback as js string.",
-                    )))
-                });
-            };
+                    )));
+                    };
 
-            let Ok(utf8_string) = js_string.into_utf8() else {
-                return Box::pin(async {
-                    Some(Err(std::io::Error::other(
+                    let Ok(utf8_string) = js_string.into_utf8() else {
+                        return Some(Err(std::io::Error::other(
                         "Node.js: cannot convert return value of file loader callback into utf8.",
+                    )));
+                    };
+
+                    if let Ok(str) = utf8_string.as_str() {
+                        let string = str.to_string();
+
+                        return Some(Ok(string));
+                    };
+
+                    Some(Err(std::io::Error::other(
+                        "Node.js: cannot convert return value of file loader callback into string.",
                     )))
-                });
-            };
-
-            if let Ok(str) = utf8_string.as_str() {
-                let string = str.to_string();
-
-                return Box::pin(async { Some(Ok(string)) });
-            };
-
-            Box::pin(async {
-                Some(Err(std::io::Error::other(
-                    "Node.js: cannot convert return value of file loader callback into string.",
-                )))
+                }
             })
         });
 
