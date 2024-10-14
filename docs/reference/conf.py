@@ -15,9 +15,7 @@
 #
 import os
 import sys
-sys.path.append(os.path.abspath('./_ext'))
 sys.path.insert(0, os.path.abspath('.'))
-import textwrap
 
 
 # -- Project information -----------------------------------------------------
@@ -37,7 +35,7 @@ github_url = "https://github.com/slint-ui/slint"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_copybutton", "sphinx_sitemap", "codemirror"]
+extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_copybutton", "sphinx_sitemap"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
