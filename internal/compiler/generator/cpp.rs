@@ -3125,7 +3125,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
 
             let lhs_ty = lhs.ty(ctx);
 
-            if (lhs_ty == Type::Float32 || lhs_ty.as_unit_product().is_some()) && (*op == '=' || *op == '!') {
+            if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let op = if *op == '=' { "<" } else { ">=" };
                 format!("(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())")
             }  else {
