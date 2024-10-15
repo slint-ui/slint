@@ -399,10 +399,11 @@ fn parse_tr(p: &mut impl Parser) {
     if p.peek().kind() == SyntaxKind::Pipe {
         let mut p = p.start_node(SyntaxKind::TrPlural);
         p.consume();
-        if !consume_literal(&mut *p) || !p.expect(SyntaxKind::Percent) || !parse_expression(&mut *p)
-        {
+        if !consume_literal(&mut *p) || !p.expect(SyntaxKind::Percent) {
+            let _ = p.start_node(SyntaxKind::Expression);
             return;
         }
+        parse_expression(&mut *p);
     }
 
     while p.test(SyntaxKind::Comma) {

@@ -121,9 +121,9 @@ macro_rules! node_accessors {
         #[track_caller]
         pub fn $kind(&self) -> ($kind, $kind) {
             let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
-            let a = it.next().expect(stringify!("Missing first ", $kind));
-            let b = it.next().expect(stringify!("Missing second ", $kind));
-            debug_assert!(it.next().is_none(), stringify!("More ", $kind, " than expected"));
+            let a = it.next().expect(stringify!(Missing first $kind));
+            let b = it.next().expect(stringify!(Missing second $kind));
+            debug_assert!(it.next().is_none(), stringify!(More $kind than expected));
             (a.into(), b.into())
         }
     };
@@ -132,10 +132,10 @@ macro_rules! node_accessors {
         #[track_caller]
         pub fn $kind(&self) -> ($kind, $kind, $kind) {
             let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind);
-            let a = it.next().expect(stringify!("Missing first ", $kind));
-            let b = it.next().expect(stringify!("Missing second ", $kind));
-            let c = it.next().expect(stringify!("Missing third ", $kind));
-            debug_assert!(it.next().is_none(), stringify!("More ", $kind, " than expected"));
+            let a = it.next().expect(stringify!(Missing first $kind));
+            let b = it.next().expect(stringify!(Missing second $kind));
+            let c = it.next().expect(stringify!(Missing third $kind));
+            debug_assert!(it.next().is_none(), stringify!(More $kind than expected));
             (a.into(), b.into(), c.into())
         }
     };
@@ -143,7 +143,7 @@ macro_rules! node_accessors {
         #[allow(non_snake_case)]
         #[track_caller]
         pub fn $kind(&self) -> $kind {
-            self.0.child_node(SyntaxKind::$kind).expect(stringify!("Missing ", $kind)).into()
+            self.0.child_node(SyntaxKind::$kind).expect(stringify!(Missing $kind)).into()
         }
     };
 
