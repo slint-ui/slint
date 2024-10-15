@@ -75,8 +75,8 @@ Use the following `accessible-` properties to make your items interact well with
 -   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 -   **`accessible-value`** (_in_ _string_): The current value of the item.
 -   **`accessible-placeholder-text`** (_in_ _string_): A placeholder text to use when the item's value is empty. Applies to text elements.
--   **`accessible-selectable`** (_in_ _bool_): Whether the element can be checked or not.
--   **`accessible-selected`** (_in_ _bool_): Whether the element is checked or not. This maps to the "is-selected" state of listview items.
+-   **`accessible-selectable`** (_in_ _bool_): Whether the element can be selected or not.
+-   **`accessible-selected`** (_in_ _bool_): Whether the element is selected or not. This maps to the "is-selected" state of listview items.
 
 You can also use the following callbacks that are going to be called by the accessibility framework:
 
