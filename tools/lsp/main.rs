@@ -116,9 +116,7 @@ impl ServerNotifier {
     pub fn set_use_external_preview(&self, is_external: bool) {
         self.use_external_preview.store(is_external, atomic::Ordering::Release);
     }
-}
 
-impl ServerNotifier {
     pub fn send_notification<N: Notification>(&self, params: N::Params) -> Result<()> {
         self.sender.send(Message::Notification(lsp_server::Notification::new(
             N::METHOD.to_string(),
