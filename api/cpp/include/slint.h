@@ -132,8 +132,8 @@ inline void debug(const SharedString &str)
 constexpr inline int cast_float_to_int(float f)
 {
     // Casting > int_max, etc. is UB, so clamp.
-    return static_cast<int>(std::min(std::max(f, float(std::numeric_limits<int>::min())),
-                                     float(std::numeric_limits<int>::max())));
+    return static_cast<int>(std::clamp(f, float(std::numeric_limits<int>::min()),
+                                       float(std::numeric_limits<int>::max())));
 }
 
 } // namespace private_api
