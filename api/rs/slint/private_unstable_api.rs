@@ -180,6 +180,7 @@ pub mod re_exports {
     pub use core::result::{Result, Result::*};
     pub use i_slint_core::format;
     // This one is empty when Qt is not available, which triggers a warning
+    pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
     pub use i_slint_backend_selector::native_widgets::*;
     pub use i_slint_core::accessibility::{

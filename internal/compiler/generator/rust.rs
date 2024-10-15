@@ -2276,46 +2276,53 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!((#base_e).set_row_data(#index_e as usize, #value_e as _))
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
-                OperatorClass::ArithmeticOp => match lhs.ty(ctx) {
-                    Type::String => (None, Some(quote!(.as_str()))),
-                    Type::Struct { .. } => (None, None),
-                    _ => (Some(quote!(as f64)), Some(quote!(as f64))),
-                },
-                OperatorClass::ComparisonOp
-                    if matches!(
-                        lhs.ty(ctx),
-                        Type::Int32
-                            | Type::Float32
-                            | Type::Duration
-                            | Type::PhysicalLength
-                            | Type::LogicalLength
-                            | Type::Angle
-                            | Type::Percent
-                            | Type::Rem
-                    ) =>
-                {
-                    (Some(quote!(as f32)), Some(quote!(as f32)))
-                }
-                _ => (None, None),
-            };
+            let lhs_ty = lhs.ty(ctx);
             let lhs = compile_expression(lhs, ctx);
             let rhs = compile_expression(rhs, ctx);
 
-            let op = match op {
-                '=' => quote!(==),
-                '!' => quote!(!=),
-                '≤' => quote!(<=),
-                '≥' => quote!(>=),
-                '&' => quote!(&&),
-                '|' => quote!(||),
-                _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
-                    *op,
-                    proc_macro2::Spacing::Alone,
-                ))
-                .into(),
-            };
-            quote!( ((#lhs #conv1 ) #op (#rhs #conv2)) )
+            if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
+                let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
+                quote!(#maybe_negate sp::ApproxEq::<f32>::approx_eq(&(#lhs as f32), &(#rhs as f32)))
+            } else {
+                let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
+                    OperatorClass::ArithmeticOp => match lhs_ty {
+                        Type::String => (None, Some(quote!(.as_str()))),
+                        Type::Struct { .. } => (None, None),
+                        _ => (Some(quote!(as f64)), Some(quote!(as f64))),
+                    },
+                    OperatorClass::ComparisonOp
+                        if matches!(
+                            lhs_ty,
+                            Type::Int32
+                                | Type::Float32
+                                | Type::Duration
+                                | Type::PhysicalLength
+                                | Type::LogicalLength
+                                | Type::Angle
+                                | Type::Percent
+                                | Type::Rem
+                        ) =>
+                    {
+                        (Some(quote!(as f32)), Some(quote!(as f32)))
+                    }
+                    _ => (None, None),
+                };
+
+                let op = match op {
+                    '=' => quote!(==),
+                    '!' => quote!(!=),
+                    '≤' => quote!(<=),
+                    '≥' => quote!(>=),
+                    '&' => quote!(&&),
+                    '|' => quote!(||),
+                    _ => proc_macro2::TokenTree::Punct(proc_macro2::Punct::new(
+                        *op,
+                        proc_macro2::Spacing::Alone,
+                    ))
+                    .into(),
+                };
+                quote!( ((#lhs #conv1 ) #op (#rhs #conv2)) )
+            }
         }
         Expression::UnaryOp { sub, op } => {
             let sub = compile_expression(sub, ctx);
