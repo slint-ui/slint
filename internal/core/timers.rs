@@ -152,11 +152,9 @@ impl Timer {
             .unwrap_or(false)
     }
 
-    /// Change the duration of timer. If the timer was previously started by calling [`Self::start()`]
-    /// with a duration and callback, then the time when the callback will be next invoked
-    /// is re-calculated to be in the specified duration relative to when this function is called.
-    ///
-    /// Does nothing if the timer was never started.
+    /// Change the duration of timer. If the timer was is running (see [`Self::running()`]),
+    /// then the time when the callback will be next invoked is re-calculated to be in the
+    /// specified duration relative to when this function is called.
     ///
     /// Arguments:
     /// * `interval`: The duration from now until when the timer should fire. And the period of that timer
