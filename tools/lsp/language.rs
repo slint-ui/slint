@@ -1245,7 +1245,7 @@ pub mod tests {
 
     use lsp_types::WorkspaceEdit;
 
-    use test::{complex_document_cache, loaded_document_cache};
+    use crate::language::test::{complex_document_cache, loaded_document_cache};
 
     #[test]
     fn test_reload_document_invalid_contents() {
