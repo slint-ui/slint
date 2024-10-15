@@ -42,7 +42,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 
-const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
+pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 
 fn command_list() -> Vec<String> {
     vec![

@@ -466,7 +466,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         }
 
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-        "slint/showPreview" => {
+        language::SHOW_PREVIEW_COMMAND => {
             match language::show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
                 ctx,
