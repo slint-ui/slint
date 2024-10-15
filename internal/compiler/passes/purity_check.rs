@@ -70,28 +70,31 @@ fn ensure_pure(
                 }
                 None => {
                     if recursion_test.insert(nr.clone()) {
-                        if !ensure_pure(
-                            &nr.element()
-                                .borrow()
-                                .bindings
-                                .get(nr.name())
-                                .expect("private function must be local and defined")
-                                .borrow()
-                                .expression,
-                            None,
-                            level,
-                            recursion_test,
-                        ) {
-                            if let Some(diag) = diag.as_deref_mut() {
-                                diag.push_diagnostic(
-                                    format!("Call of impure function '{}'", nr.name()),
-                                    node,
-                                    level,
+                        match nr.element().borrow().bindings.get(nr.name()) {
+                            None => {
+                                debug_assert!(
+                                    diag.as_ref().map_or(true, |d| d.has_errors()),
+                                    "private functions must be local and defined"
                                 );
                             }
-                            r = false;
+                            Some(binding) => {
+                                if !ensure_pure(
+                                    &binding.borrow().expression,
+                                    None,
+                                    level,
+                                    recursion_test,
+                                ) {
+                                    if let Some(diag) = diag.as_deref_mut() {
+                                        diag.push_diagnostic(
+                                            format!("Call of impure function '{}'", nr.name()),
+                                            node,
+                                            level,
+                                        );
+                                    }
+                                    r = false;
+                                }
+                            }
                         }
-                        recursion_test.remove(nr);
                     }
                 }
             }
