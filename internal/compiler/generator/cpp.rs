@@ -3120,22 +3120,30 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let mut buffer = [0; 3];
-            format!(
-                "({lhs} {op} {rhs})",
-                lhs = compile_expression(lhs, ctx),
-                rhs = compile_expression(rhs, ctx),
-                op = match op {
-                    '=' => "==",
-                    '!' => "!=",
-                    '≤' => "<=",
-                    '≥' => ">=",
-                    '&' => "&&",
-                    '|' => "||",
-                    '/' => "/(float)",
-                    _ => op.encode_utf8(&mut buffer),
-                },
-            )
+            let lhs_str = compile_expression(lhs, ctx);
+            let rhs_str = compile_expression(rhs, ctx);
+
+            let lhs_ty = lhs.ty(ctx);
+
+            if (lhs_ty == Type::Float32 || lhs_ty.as_unit_product().is_some()) && (*op == '=' || *op == '!') {
+                let op = if *op == '=' { "<" } else { ">=" };
+                format!("(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())")
+            }  else {
+                let mut buffer = [0; 3];
+                format!(
+                    "({lhs_str} {op} {rhs_str})",
+                    op = match op {
+                        '=' => "==",
+                        '!' => "!=",
+                        '≤' => "<=",
+                        '≥' => ">=",
+                        '&' => "&&",
+                        '|' => "||",
+                        '/' => "/(float)",
+                        _ => op.encode_utf8(&mut buffer),
+                    },
+                )
+            }
         }
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
