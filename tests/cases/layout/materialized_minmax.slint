@@ -32,15 +32,15 @@ TestCase := Rectangle {
         }
     }
 
-    property<int> materialized_max_width: layout.max-width / 1phx;
-    property<int> materialized_max_height: layout.max-height / 1phx;
-    property<int> materialized_min_width: layout.min-width / 1phx;
-    property<int> materialized_min_height: layout.min-height / 1phx;
+    property<float> materialized_max_width: layout.max-width / 1phx;
+    property<float> materialized_max_height: layout.max-height / 1phx;
+    property<float> materialized_min_width: layout.min-width / 1phx;
+    property<float> materialized_min_height: layout.min-height / 1phx;
 
-    property<int> materialized_rect_max_width: rect.max-width / 1phx;
-    property<int> materialized_rect_max_height: rect.max-height / 1phx;
-    property<int> materialized_rect_min_width: rect.min-width / 1phx;
-    property<int> materialized_rect_min_height: rect.min-height / 1phx;
+    property<float> materialized_rect_max_width: rect.max-width / 1phx;
+    property<float> materialized_rect_max_height: rect.max-height / 1phx;
+    property<float> materialized_rect_min_width: rect.min-width / 1phx;
+    property<float> materialized_rect_min_height: rect.min-height / 1phx;
 
     property <bool> test:
         materialized_max_height == 300 && materialized_min_width == 50 && materialized_min_height == 25 && materialized_max_width > 100000 &&
@@ -56,44 +56,44 @@ slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_materialized_max_height(), 300);
 assert_eq(instance.get_materialized_min_width(), 50);
 assert_eq(instance.get_materialized_min_height(), 25);
-// FIXME! float max is overflowing on int
-assert_eq(uint32_t(instance.get_materialized_max_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
+assert_eq(instance.get_materialized_max_width(), std::numeric_limits<float>::max());
 
 assert_eq(instance.get_materialized_rect_max_height(), 300);
 assert_eq(instance.get_materialized_rect_min_width(), 50);
 assert_eq(instance.get_materialized_rect_min_height(), 25);
-// FIXME! float max is overflowing on int
-assert_eq(uint32_t(instance.get_materialized_rect_max_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
+assert_eq(instance.get_materialized_rect_max_width(), std::numeric_limits<float>::max());
 ```
 
 
 ```rust
 let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert_eq!(instance.get_materialized_max_height(), 300);
-assert_eq!(instance.get_materialized_min_width(), 50);
-assert_eq!(instance.get_materialized_min_height(), 25);
-assert_eq!(instance.get_materialized_max_width(), i32::MAX);
+assert_eq!(instance.get_materialized_max_height(), 300.);
+assert_eq!(instance.get_materialized_min_width(), 50.);
+assert_eq!(instance.get_materialized_min_height(), 25.);
+assert_eq!(instance.get_materialized_max_width(), f32::MAX);
 
-assert_eq!(instance.get_materialized_rect_max_height(), 300);
-assert_eq!(instance.get_materialized_rect_min_width(), 50);
-assert_eq!(instance.get_materialized_rect_min_height(), 25);
-assert_eq!(instance.get_materialized_rect_max_width(), i32::MAX);
+assert_eq!(instance.get_materialized_rect_max_height(), 300.);
+assert_eq!(instance.get_materialized_rect_min_width(), 50.);
+assert_eq!(instance.get_materialized_rect_min_height(), 25.);
+assert_eq!(instance.get_materialized_rect_max_width(), f32::MAX);
 
 ```
 
 ```js
+const FLT_MAX = 3.4028234663852886e+38;
+
 var instance = new slint.TestCase();
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.materialized_max_height, 300);
 assert.equal(instance.materialized_min_width, 50);
 assert.equal(instance.materialized_min_height, 25);
-assert.equal(instance.materialized_max_width, Math.pow(2, 31) - 1);
+assert.equal(instance.materialized_max_width, FLT_MAX);
 
 assert.equal(instance.materialized_rect_max_height, 300);
 assert.equal(instance.materialized_rect_min_width, 50);
 assert.equal(instance.materialized_rect_min_height, 25);
-assert.equal(instance.materialized_rect_max_width, Math.pow(2, 31) - 1);
+assert.equal(instance.materialized_rect_max_width, FLT_MAX);
 ```
 
 */
