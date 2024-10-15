@@ -56,14 +56,12 @@ slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_materialized_max_height(), 300);
 assert_eq(instance.get_materialized_min_width(), 50);
 assert_eq(instance.get_materialized_min_height(), 25);
-// FIXME! float max is overflowing on int
-assert_eq(uint32_t(instance.get_materialized_max_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
+assert_eq(instance.get_materialized_max_width(), std::numeric_limits<int>::max());
 
 assert_eq(instance.get_materialized_rect_max_height(), 300);
 assert_eq(instance.get_materialized_rect_min_width(), 50);
 assert_eq(instance.get_materialized_rect_min_height(), 25);
-// FIXME! float max is overflowing on int
-assert_eq(uint32_t(instance.get_materialized_rect_max_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
+assert_eq(instance.get_materialized_rect_max_width(), std::numeric_limits<int>::max());
 ```
 
 

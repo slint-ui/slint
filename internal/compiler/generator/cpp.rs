@@ -2973,7 +2973,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (Type::Float32, Type::Int32) => {
-                    format!("static_cast<int>({f})")
+                    format!("slint::private_api::cast_float_to_int({f})")
                 }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("slint::SharedString::from_number({})", f)
@@ -3463,7 +3463,7 @@ fn compile_builtin_function_call(
             format!("{}.with_alpha({})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::ImageSize => {
-            format!("{}.size()", a.next().unwrap())
+            format!("slint::private_api::signed_image_size({})", a.next().unwrap())
         }
         BuiltinFunction::ArrayLength => {
             format!("slint::private_api::model_length({})", a.next().unwrap())

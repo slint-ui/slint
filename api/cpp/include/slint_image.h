@@ -298,6 +298,15 @@ inline Image image_from_embedded_textures(const cbindgen_private::types::StaticT
     cbindgen_private::types::slint_image_from_embedded_textures(textures, &img);
     return Image(img);
 }
+
+inline Size<int32_t> signed_image_size(const Image &image)
+{
+    Size<uint32_t> unsigned_size = image.size();
+    // The compiler is told that the size is signed, so we need to cast it to int to
+    // avoid warnings about comparing signed vs.
+    return { static_cast<int>(unsigned_size.width), static_cast<int>(unsigned_size.height) };
+}
+
 }
 
 }
