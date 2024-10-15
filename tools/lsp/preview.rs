@@ -1297,7 +1297,13 @@ async fn reload_preview_impl(
     start_parsing();
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let (version, source) = get_url_from_cache(&component.url).unwrap_or_default();
+    let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|| {
+        if cfg!(not(target_arch = "wasm32")) {
+            (None, std::fs::read_to_string(&path).unwrap_or_default())
+        } else {
+            (None, String::new())
+        }
+    });
 
     let (diagnostics, compiled, open_import_fallback, source_file_versions) = parse_source(
         config.include_paths,
