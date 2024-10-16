@@ -638,7 +638,7 @@ impl WindowInner {
         self.mouse_input_state.set(mouse_input_state);
 
         if close_popup_on_click
-            && ((mouse_inside_popup && released_event && self.had_popup_on_press.get())
+            && ((!mouse_inside_popup && released_event && self.had_popup_on_press.get())
                 || (!mouse_inside_popup && pressed_event))
         {
             self.close_popup();

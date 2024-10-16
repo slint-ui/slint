@@ -27,4 +27,9 @@ export component App inherits Window {
         if(side-bar.current-item == 4) : EasingsPage {}
         if(side-bar.current-item == 5) : AboutPage {}
     }
+
+    PopupWindow {
+        close-on-click: false;
+        // close-policy: PopupClosePolicy.on-click;
+    }
 }

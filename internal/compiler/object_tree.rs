@@ -274,6 +274,7 @@ pub struct PopupWindow {
     pub x: NamedReference,
     pub y: NamedReference,
     pub close_on_click: bool,
+    pub close_policy: NamedReference,
     pub parent_element: ElementRc,
 }
 
