@@ -2971,6 +2971,9 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
         .map(|(path, er)| {
             let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", er.id);
             match &er.kind {
+                &crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {
+                    quote!()
+                },
                 crate::embedded_resources::EmbeddedResourcesKind::RawData => {
                     let data = embedded_file_tokens(path);
                     quote!(static #symbol: &'static [u8] = #data;)

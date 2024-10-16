@@ -852,6 +852,7 @@ fn embed_resource(
     declarations: &mut Vec<Declaration>,
 ) {
     match &resource.kind {
+        crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {}
         crate::embedded_resources::EmbeddedResourcesKind::RawData => {
             let resource_file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
             let data = resource_file.read();
