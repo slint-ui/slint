@@ -61,7 +61,7 @@ bytemuck = { workspace = true, optional = true, features = ["derive"] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features=["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer"] }
+web-sys = { workspace = true, features=["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer"] }
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

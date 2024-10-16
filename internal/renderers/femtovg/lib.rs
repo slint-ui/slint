@@ -645,7 +645,7 @@ impl FemtoVGRendererExt for FemtoVGRenderer {
                     .unwrap();
                 context_2d.set_font("20px serif");
                 // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
-                context_2d.set_fill_style(&wasm_bindgen::JsValue::from_str("red"));
+                context_2d.set_fill_style_str("red");
                 context_2d
                     .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
                     .unwrap();
