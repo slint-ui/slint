@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Button{
+    property<bool>checked
+   }
+// ^error{Syntax error: expected ';'}
+export component C{
+    in property<b in
+//                ^error{Syntax error: expected '>'}
+    Button {
+//  ^error{Syntax error: expected ';'}
+        checked<=>in obal
+//                   ^error{Syntax error: expected ';'}
+//                       ^^error{Parse error}
+
+    }
+}
+
