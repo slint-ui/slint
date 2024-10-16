@@ -109,21 +109,17 @@ cargo build
 cargo test
 ```
 
-### Building workspace
+**Important:** Note that `cargo test` does not work without first calling `cargo build` because the
+the required dynamic library won't be found.
 
-<center> **  <strong> Not recommended</strong>  **    </center>
+### Building workspace
 
 To build all examples install the entire workplace to executables
 (excluding [UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) - different target)
 
-- Build workspace
-
-    ```sh
-        cargo build --workspace --exclude uefi-demo --release
-    ```
-
-**Important:** Note that `cargo test` does not work without first calling `cargo build` because the
-the required dynamic library won't be found.
+```sh
+cargo build --workspace --exclude uefi-demo --release
+```
 
 ### C++ Tests
 
