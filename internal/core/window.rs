@@ -17,6 +17,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
+use crate::items::ClosePolicy;
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
@@ -389,6 +390,8 @@ struct PopupWindow {
     /// If true, Slint will close the popup after any mouse click within the popup.
     /// Set to false and call close() on the PopupWindow to close it manually.
     close_on_click: bool,
+    //// Defines the close behaviour of the popup.
+    close_policy: ClosePolicy,
 }
 
 #[pin_project::pin_project]
@@ -969,6 +972,7 @@ impl WindowInner {
         popup_componentrc: &ItemTreeRc,
         position: Point,
         close_on_click: bool,
+        close_policy: ClosePolicy,
         parent_item: &ItemRc,
     ) {
         let position = parent_item.map_to_window(
@@ -1037,6 +1041,7 @@ impl WindowInner {
             location,
             component: popup_componentrc.clone(),
             close_on_click,
+            close_policy,
         }));
     }
 

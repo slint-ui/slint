@@ -679,7 +679,10 @@ fn lower_popup_component(
         ],
     );
 
-    PopupWindow { item_tree, position: position.into() }
+    PopupWindow { item_tree, position: position.into(), 
+      
+        .into()
+    }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionContext) -> Timer {

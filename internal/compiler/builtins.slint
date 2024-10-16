@@ -419,7 +419,7 @@ export component PopupWindow {
     in property <length> anchor_width;*/
     //  ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
     in property <bool> close-on-click: true;  // constexpr hardcoded in typeregister.rs
-    in property <PopupClosePolicy> close-policy;
+    in property <ClosePolicy> close-policy;
     //show() is hardcoded in typeregister.rs
 }
 

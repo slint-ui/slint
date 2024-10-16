@@ -433,7 +433,7 @@ macro_rules! for_each_enums {
             }
 
             // This enum describes the close behaviour of `PopupWindow`
-            enum PopupClosePolicy {
+            enum ClosePolicy {
                 /// Closes the `PopupWindow` when user clicks.
                 OnClick,
 

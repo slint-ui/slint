@@ -35,6 +35,7 @@ impl ExpressionContext<'_> {
             let mut map = self;
             let mut level = 0;
             while !Rc::ptr_eq(enclosing, map.component) {
+                println!("nr: {:?}", from);
                 map = map.parent.unwrap();
                 level += 1;
             }
@@ -382,6 +383,7 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
             arguments: vec![
                 llr_Expression::NumberLiteral(popup_index as _),
                 llr_Expression::BoolLiteral(popup.close_on_click),
+                // llr_Expression::Enum(),
                 item_ref,
             ],
         }

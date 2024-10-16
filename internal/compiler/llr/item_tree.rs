@@ -270,6 +270,7 @@ pub struct SubComponent {
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
+    pub close_policy: MutExpression
 }
 
 #[derive(Debug)]
