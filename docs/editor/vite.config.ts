@@ -7,7 +7,7 @@ export default defineConfig({
         emptyOutDir: false,
         rollupOptions: {
             input: "codemirror.js",
-            
+
             output: {
                 format: "iife",
                 entryFileNames: "cm6.bundle.js",
