@@ -58,7 +58,7 @@ jobs:
                 python-version: '3.10'
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   setup-python: false
@@ -73,7 +73,7 @@ jobs:
               if: runner.os == 'Windows'
               run: choco upgrade llvm
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v1
+              uses: pyvista/setup-headless-display-action@v2
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: ${{ matrix.rust_version }}
@@ -120,7 +120,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   setup-python: false
@@ -129,7 +129,7 @@ jobs:
               if: runner.os == 'Windows'
               run: choco upgrade llvm
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v1
+              uses: pyvista/setup-headless-display-action@v2
             - uses: actions/setup-node@v4
               with:
                 node-version: 20
@@ -173,13 +173,13 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   setup-python: false
                   cache: true
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v1
+              uses: pyvista/setup-headless-display-action@v2
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
@@ -211,7 +211,7 @@ jobs:
                   force-gcc-10: true
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   cache: true
@@ -251,7 +251,7 @@ jobs:
               with:
                   force-gcc-10: true
             - name: Install Qt
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 6.5.1
                   cache: true
@@ -299,7 +299,7 @@ jobs:
               with:
                   force-gcc-10: true
             - name: Install Qt (Ubuntu)
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 6.5.1
                   cache: true
