@@ -1,16 +1,12 @@
-// Import Vite libraries
 import { defineConfig } from "vite";
 
-// Import resolve from Rollup (you may not need this since Vite has built-in module resolution)
-import resolve from "@rollup/plugin-node-resolve";
-
-// Export Vite configuration
 export default defineConfig({
     build: {
+        emptyOutDir: false,
         rollupOptions: {
             input: "codemirror.js",
+            
             output: {
-                // dir: "../../target/slintdocs/_static/cm6.bundle.js",
                 format: "iife",
                 entryFileNames: "cm6.bundle.js",
             },
