@@ -30,7 +30,7 @@ fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
         let old_id = if !elem_mut.id.is_empty() {
             elem_mut.id.clone()
         } else {
-            elem_mut.base_type.to_string().to_ascii_lowercase().into()
+            elem_mut.base_type.to_smolstr().to_ascii_lowercase().into()
         };
         elem_mut.id = format_smolstr!("{}-{}", old_id, count);
 
