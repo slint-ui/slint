@@ -270,7 +270,8 @@ pub fn send_message_to_lsp(message: PreviewToLspMessage) {
 // as the life-cycle of this process is determined by the editor. The returned menuitem must
 // be kept alive for the duration of the event loop, as otherwise muda crashes.
 #[cfg(target_vendor = "apple")]
-fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformError> {
+fn init_apple_platform(
+) -> Result<(muda::MenuItem, muda::MenuItem), i_slint_core::api::PlatformError> {
     use i_slint_backend_winit::winit;
     use muda::{accelerator, Menu, MenuItem, PredefinedMenuItem, Submenu};
     use winit::platform::macos::EventLoopBuilderExtMacOS;
@@ -293,6 +294,14 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
             accelerator::Code::KeyW,
         )),
     );
+    let reload_menu_item = MenuItem::new(
+        format!("Reload"),
+        true,
+        Some(accelerator::Accelerator::new(
+            Some(accelerator::Modifiers::META),
+            accelerator::Code::KeyR,
+        )),
+    );
 
     let menu_bar = Menu::new();
     menu_bar.init_for_nsapp();
@@ -306,6 +315,7 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
                 &PredefinedMenuItem::hide(None),
                 &PredefinedMenuItem::hide_others(None),
                 &PredefinedMenuItem::show_all(None),
+                &reload_menu_item,
                 &close_app_menu_item,
             ])
         })
@@ -314,12 +324,15 @@ fn init_apple_platform() -> Result<muda::MenuItem, i_slint_core::api::PlatformEr
         })?;
 
     let close_id = close_app_menu_item.id().clone();
+    let reload_id = reload_menu_item.id().clone();
 
     muda::MenuEvent::set_event_handler(Some(move |menu_event: muda::MenuEvent| {
         if menu_event.id == close_id {
             close_ui();
+        } else if menu_event.id == reload_id {
+            super::reload_preview();
         }
     }));
 
-    Ok(close_app_menu_item)
+    Ok((close_app_menu_item, reload_menu_item))
 }
