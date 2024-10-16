@@ -95,8 +95,14 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     {
         let sh = Shell::new()?;
         let _p = sh.push_dir(root.join("docs/editor"));
-        cmd!(sh, "npm install").run()?;
-        cmd!(sh, "npm run build").run()?;
+        let pnpm_check_output = cmd!(sh, "which pnpm").ignore_stdout().ignore_stderr().run();
+
+        if pnpm_check_output.is_err() {
+            eprintln!("Warning: 'pnpm' is not installed. Please install 'npm install -g pnpm' to proceed.");
+            return Err(anyhow::anyhow!("'pnpm' is not installed.").into());
+        }
+        cmd!(sh, "pnpm install --frozen-lockfile --ignore-scripts").run()?;
+        cmd!(sh, "pnpm build").run()?;
     }
 
     let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("Pipfile"))];
