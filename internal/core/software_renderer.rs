@@ -722,7 +722,7 @@ impl RendererSealed for SoftwareRenderer {
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
                 )
             }
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
 
@@ -777,7 +777,7 @@ impl RendererSealed for SoftwareRenderer {
 
                 (paragraph.cursor_pos_for_byte_offset(byte_offset), pf.height())
             }
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
 
@@ -831,7 +831,7 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
-    #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+    #[cfg(feature = "software-renderer-systemfonts")]
     fn register_font_from_memory(
         &self,
         data: &'static [u8],
@@ -1968,7 +1968,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
             }
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
                 let (horizontal_alignment, vertical_alignment) = text.alignment();
@@ -2047,7 +2047,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
                 })
             }
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let paragraph = TextParagraphLayout {
                     string: &text_visual_representation.text,
@@ -2229,7 +2229,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
             }
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
 

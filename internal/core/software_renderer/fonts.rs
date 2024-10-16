@@ -48,16 +48,16 @@ pub trait GlyphRenderer {
 pub(super) const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12 as Coord);
 
 mod pixelfont;
-#[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+#[cfg(feature = "software-renderer-systemfonts")]
 pub mod vectorfont;
 
-#[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+#[cfg(feature = "software-renderer-systemfonts")]
 pub mod systemfonts;
 
 #[derive(derive_more::From)]
 pub enum Font {
     PixelFont(pixelfont::PixelFont),
-    #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+    #[cfg(feature = "software-renderer-systemfonts")]
     VectorFont(vectorfont::VectorFont),
 }
 
@@ -65,7 +65,7 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for Font {
     fn ascent(&self) -> PhysicalLength {
         match self {
             Font::PixelFont(pixel_font) => pixel_font.ascent(),
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             Font::VectorFont(vector_font) => vector_font.ascent(),
         }
     }
@@ -73,7 +73,7 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for Font {
     fn height(&self) -> PhysicalLength {
         match self {
             Font::PixelFont(pixel_font) => pixel_font.height(),
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             Font::VectorFont(vector_font) => vector_font.height(),
         }
     }
@@ -81,7 +81,7 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for Font {
     fn descent(&self) -> PhysicalLength {
         match self {
             Font::PixelFont(pixel_font) => pixel_font.descent(),
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             Font::VectorFont(vector_font) => vector_font.descent(),
         }
     }
@@ -89,7 +89,7 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for Font {
     fn x_height(&self) -> PhysicalLength {
         match self {
             Font::PixelFont(pixel_font) => pixel_font.x_height(),
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             Font::VectorFont(vector_font) => vector_font.x_height(),
         }
     }
@@ -97,7 +97,7 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for Font {
     fn cap_height(&self) -> PhysicalLength {
         match self {
             Font::PixelFont(pixel_font) => pixel_font.cap_height(),
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             Font::VectorFont(vector_font) => vector_font.cap_height(),
         }
     }
@@ -128,7 +128,7 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
     let font = match bitmap_font {
         Some(bitmap_font) => bitmap_font,
         None => {
-            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            #[cfg(feature = "software-renderer-systemfonts")]
             if let Some(vectorfont) = systemfonts::match_font(request, scale_factor) {
                 return vectorfont.into();
             }
@@ -143,12 +143,9 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
             }) {
                 fallback_bitmap_font
             } else {
-                #[cfg(all(
-                    feature = "software-renderer-systemfonts",
-                    not(target_arch = "wasm32")
-                ))]
+                #[cfg(feature = "software-renderer-systemfonts")]
                 return systemfonts::fallbackfont(request, scale_factor).into();
-                #[cfg(any(not(feature = "software-renderer-systemfonts"), target_arch = "wasm32"))]
+                #[cfg(not(feature = "software-renderer-systemfonts"))]
                 panic!("No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")
             }
         }
@@ -202,7 +199,7 @@ pub fn text_size(
                 text_wrap,
             )
         }
-        #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+        #[cfg(feature = "software-renderer-systemfonts")]
         Font::VectorFont(vf) => {
             let layout = text_layout_for_font(&vf, &font_request, scale_factor);
             layout.text_size(

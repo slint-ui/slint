@@ -91,6 +91,9 @@ bitflags = { version = "2.4.2"}
 
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 
+rustybuzz = { workspace = true, optional = true }
+fontdue = { workspace = true, optional = true }
+
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
 
@@ -101,8 +104,6 @@ web-sys = { workspace = true, features = [ "HtmlImageElement" ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fontdb = { workspace = true, optional = true, default-features = true }
-rustybuzz = { workspace = true, optional = true }
-fontdue = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
