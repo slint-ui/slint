@@ -1029,17 +1029,6 @@ impl TypeLoader {
         }
     }
 
-    /// Read a file, taking the `CompilerConfiguration`s `open_import_fallback`
-    /// into account when necessary.
-    async fn read_file(&self, path: &Path) -> Result<String, std::io::Error> {
-        if let Some(fallback) = self.compiler_config.open_import_fallback.clone() {
-            let result = fallback(path.to_string_lossy().into()).await;
-            result.unwrap_or_else(|| std::fs::read_to_string(path))
-        } else {
-            std::fs::read_to_string(path)
-        }
-    }
-
     async fn ensure_document_loaded<'a: 'b, 'b>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         file_to_import: &'b str,
@@ -1140,7 +1129,13 @@ impl TypeLoader {
                     .expect("internal error: embedded file is not UTF-8 source code"),
             ))
         } else {
-            state.borrow().tl.read_file(&path_canon).await
+            let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
+            if let Some(fallback) = fallback {
+                let result = fallback(path_canon.to_string_lossy().into()).await;
+                result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
+            } else {
+                std::fs::read_to_string(&path_canon)
+            }
         };
 
         let ok = match source_code_result {
