@@ -1,3 +1,5 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
 import { defineConfig } from "vite";
 
 export default defineConfig({
