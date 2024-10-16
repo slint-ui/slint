@@ -156,6 +156,8 @@ spin_on = { version = "0.1" }
 strum = { version = "0.26.1", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.22.7" }
 ttf-parser = { version = "0.21" }
+# web-sys needs to be >= 0.3.72 for set_fill_style_str
+web-sys = { version = "0.3.72", default-features = false }
 
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 
