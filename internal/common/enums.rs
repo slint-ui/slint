@@ -431,6 +431,18 @@ macro_rules! for_each_enums {
                 /// Scrollbar always visible
                 AlwaysOn,
             }
+
+            // This enum describes the close behaviour of `PopupWindow`
+            enum ClosePolicy {
+                /// Closes the `PopupWindow` when user clicks.
+                OnClick,
+
+                /// Closed the `PopupWindow` when user clicks outside of the popup.
+                OnClickOutside,
+
+                /// Does not close the `PopupWindow` automatically when user clicks
+                Off,
+            }
         ];
     };
 }

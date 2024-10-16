@@ -106,13 +106,13 @@ public:
     }
 
     template<typename Component, typename Parent, typename PosGetter>
-    void show_popup(const Parent *parent_component, PosGetter pos, bool close_on_click,
+    void show_popup(const Parent *parent_component, PosGetter pos, cbindgen_private::ClosePolicy close_policy,
                     cbindgen_private::ItemRc parent_item) const
     {
         auto popup = Component::create(parent_component);
         cbindgen_private::Point p = pos(popup);
         auto popup_dyn = popup.into_dyn();
-        cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_on_click,
+        cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
                                                     &parent_item);
     }
 

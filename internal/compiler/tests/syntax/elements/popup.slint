@@ -3,17 +3,17 @@
 
 
 export component Bar {
-    in property <bool> external;
+    in property <ClosePolicy> external;
     xx := PopupWindow {
-        close-on-click: true;
+        close-policy: off;
         init => {
-            xx.close-on-click = true;
+            xx.close-policy = off;
     //      ^error{The property must be known at compile time and cannot be changed at runtime}
         }
     }
     PopupWindow {
-        close-on-click: root.external;
-//                      ^error{The close-on-click property only supports constants at the moment}
+        close-policy: root.external;
+//                      ^error{The close-policy property only supports constants at the moment}
     }
 
 

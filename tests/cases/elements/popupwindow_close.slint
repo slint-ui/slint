@@ -38,7 +38,7 @@ export component TestCase {
     }
 
     self-closing-popup := PopupWindow {
-        close-on-click: false;
+        close-policy: off;
         x: 10px;
         y: 10px;
         width: parent.width - 20px;
@@ -57,7 +57,7 @@ export component TestCase {
     }
 
     close-from-outside := PopupWindow {
-        close-on-click: false;
+        close-policy: off;
         x: 10px;
         y: 10px;
         width: parent.width - 20px;
@@ -73,19 +73,43 @@ export component TestCase {
         init => {
             root.popup-created = true;
         }
+    }  
+    
+    close-click-outside := PopupWindow {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        close-policy: on-click-outside;
+        Text {
+            text: "I close on outside click";
+        }
+        init => {
+            root.popup-created = true;
+        }
+
+        TouchArea {
+            width: 7px; x: 0px;
+            clicked => {
+                popup-clicked += 1;
+            }
+        }
     }
 
     ta := TouchArea {
         clicked => {
             root.click-count = root.click-count + 1;
             if (root.popup-selector == 0) {
-                root.popup-selector = 3;
+                root.popup-selector = 4;
                 default-popup.show();
             } else if (root.popup-selector == 1) {
-                root.popup-selector = 3;
+                root.popup-selector = 4;
                 self-closing-popup.show();
             } else if (root.popup-selector == 2) {
-                root.popup-selector = 3;
+                root.popup-selector = 4;
+                close-from-outside.show();
+            } else if (root.popup-selector == 3) {
+                root.popup-selector = 4;
                 close-from-outside.show();
             }
         }
@@ -153,7 +177,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 2);
 assert_eq!(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-on-click: false
+// --------- Popup with close-policy: off
 instance.set_popup_selector(1);
 instance.set_popup_created(false);
 instance.set_click_count(0);
@@ -180,7 +204,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 2);
 assert_eq!(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-on-click: false closed externally
+// --------- Popup with close-policy: off closed externally
 instance.set_popup_selector(2);
 instance.set_popup_created(false);
 instance.set_click_count(0);
@@ -211,6 +235,29 @@ instance.invoke_do_close();
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 3);
 assert_eq!(instance.get_popup_clicked(), 2001);
+
+
+// --------- Close outside click  popup
+instance.set_popup_selector(3);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 0);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+
+// Click outside to close
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 2);
+assert_eq!(instance.get_popup_clicked(), 1);
 
 
 ```
@@ -274,7 +321,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_click_count(), 2);
 assert_eq(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-on-click: false
+// --------- Popup with close-policy: off
 instance.set_popup_selector(1);
 instance.set_popup_created(false);
 instance.set_click_count(0);
@@ -301,7 +348,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_click_count(), 2);
 assert_eq(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-on-click: false closed externally
+// --------- Popup with close-policy: off closed externally
 instance.set_popup_selector(2);
 instance.set_popup_created(false);
 instance.set_click_count(0);

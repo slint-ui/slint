@@ -9,6 +9,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
+use crate::langtype::EnumerationValue;
 use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, Enumeration, NativeClass, Type};
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -272,6 +273,7 @@ pub struct PopupWindow {
     pub x: NamedReference,
     pub y: NamedReference,
     pub close_on_click: bool,
+    pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
 }
 

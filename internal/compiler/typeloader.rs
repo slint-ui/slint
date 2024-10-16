@@ -589,6 +589,7 @@ impl Snapshotter {
             x: popup_window.x.snapshot(self),
             y: popup_window.y.snapshot(self),
             close_on_click: popup_window.close_on_click,
+            close_policy: popup_window.close_policy.clone(),
             parent_element: self.use_element(&popup_window.parent_element),
         }
     }

@@ -379,11 +379,12 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
             &tree_Expression::ElementReference(Rc::downgrade(&popup.parent_element)),
             ctx,
         );
+
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ShowPopupWindow,
             arguments: vec![
                 llr_Expression::NumberLiteral(popup_index as _),
-                llr_Expression::BoolLiteral(popup.close_on_click),
+                llr_Expression::EnumerationValue(popup.close_policy.clone()),
                 item_ref,
             ],
         }

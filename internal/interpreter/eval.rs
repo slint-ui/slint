@@ -16,6 +16,7 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
+use i_slint_core::items::ClosePolicy;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -606,6 +607,12 @@ fn call_builtin_function(
                     parent_item_info.item_index(),
                 );
 
+                let close_policy = match popup.close_policy.value {
+                    0 => ClosePolicy::OnClick,
+                    1 => ClosePolicy::OnClickOutside,
+                    _ => ClosePolicy::Off,
+                };
+
                 crate::dynamic_item_tree::show_popup(
                     popup,
                     |instance_ref| {
@@ -619,7 +626,7 @@ fn call_builtin_function(
                             y.try_into().unwrap(),
                         )
                     },
-                    popup.close_on_click,
+                    close_policy,
                     enclosing_component.self_weak().get().unwrap().clone(),
                     component.window_adapter(),
                     &parent_item,

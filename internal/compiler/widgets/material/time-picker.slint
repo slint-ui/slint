@@ -17,7 +17,7 @@ export component TimePickerPopup inherits PopupWindow {
     callback canceled();
     callback accepted(/* current-time */ Time);
 
-    close-on-click: false;
+    close-policy: ClosePolicy.off;
 
     background-layer := Rectangle {
         width: dialog.width;
