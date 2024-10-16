@@ -87,6 +87,8 @@ pub struct BitmapFont {
 
 #[derive(Debug, Clone)]
 pub enum EmbeddedResourcesKind {
+    /// Only List the resource, co not actually embed it
+    ListOnly,
     /// Just put the file content as a resource
     RawData,
     /// The data has been processed in a texture

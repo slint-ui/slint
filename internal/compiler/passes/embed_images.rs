@@ -123,7 +123,7 @@ fn embed_images_from_expression(
 
 fn embed_image(
     global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
-    _embed_files: EmbedResourcesKind,
+    embed_files: EmbedResourcesKind,
     path: &str,
     _scale_factor: f64,
     diag: &mut BuildDiagnostics,
@@ -135,11 +135,15 @@ fn embed_image(
         std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
         std::collections::hash_map::Entry::Vacant(e) => {
             // Check that the file exists, so that later we can unwrap safely in the generators, etc.
-            if let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
+            if embed_files == EmbedResourcesKind::ListAllResources {
+                // Really do nothing with the image!
+                e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::ListOnly });
+                return ImageReference::None;
+            } else if let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
                 #[allow(unused_mut)]
                 let mut kind = EmbeddedResourcesKind::RawData;
                 #[cfg(feature = "software-renderer")]
-                if _embed_files == EmbedResourcesKind::EmbedTextures {
+                if embed_files == EmbedResourcesKind::EmbedTextures {
                     match load_image(_file, _scale_factor) {
                         Ok((img, source_format, original_size)) => {
                             kind = EmbeddedResourcesKind::TextureData(generate_texture(
