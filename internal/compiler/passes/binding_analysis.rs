@@ -17,6 +17,8 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{find_parent_element, Document, ElementRc, PropertyAnimation};
 use derive_more as dm;
 
+use smol_str::ToSmolStr;
+
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
 /// So if binding for property A has B in its BindingExpression::two_way_binding, then
 /// ReverseAliases maps B to A.
@@ -478,7 +480,7 @@ fn visit_implicit_layout_info_dependencies(
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    let base_type = item.borrow().base_type.to_string();
+    let base_type = item.borrow().base_type.to_smolstr();
     const N: ReadType = ReadType::NativeRead;
     match base_type.as_str() {
         "Image" => {

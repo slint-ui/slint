@@ -896,7 +896,7 @@ impl Element {
     ) -> ElementRc {
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
-            let base_string = base.to_string();
+            let base_string = base.to_smolstr();
             match parent_type.lookup_type_for_child_element(&base_string, tr) {
                 Ok(ElementType::Component(c)) if c.is_global() => {
                     diag.push_error(
@@ -1509,7 +1509,7 @@ impl Element {
             }
         }
 
-        if r.borrow().base_type.to_string() == "ListView" {
+        if r.borrow().base_type.to_smolstr() == "ListView" {
             let mut seen_for = false;
             for se in node.children() {
                 if se.kind() == SyntaxKind::RepeatedElement && !seen_for {
@@ -1662,7 +1662,7 @@ impl Element {
                 match lookup_result.property_type {
                         Type::Invalid => {
                             if self.base_type != ElementType::Error {
-                                diag.push_error(if self.base_type.to_string() == "Empty" {
+                                diag.push_error(if self.base_type.to_smolstr() == "Empty" {
                                     format!( "Unknown property {unresolved_name}")
                                 } else {
                                     format!( "Unknown property {unresolved_name} in {}", self.base_type)
@@ -1871,7 +1871,7 @@ pub fn type_from_node(
 
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
-        if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_string()).is_err() {
+        if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
             diag.push_error(format!("Unknown type '{}'", qualified_type), &qualified_type_node);
         } else if !prop_type.is_property_type() {
             diag.push_error(

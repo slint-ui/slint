@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use smol_str::SmolStr;
+use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -59,10 +59,10 @@ impl ImportedName {
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
         let external_name =
-            parser::normalize_identifier(importident.ExternalName().text().to_string().trim());
+            parser::normalize_identifier(importident.ExternalName().text().to_smolstr().trim());
 
         let internal_name = match importident.InternalName() {
-            Some(name_ident) => parser::normalize_identifier(name_ident.text().to_string().trim()),
+            Some(name_ident) => parser::normalize_identifier(name_ident.text().to_smolstr().trim()),
             None => external_name.clone(),
         };
 
