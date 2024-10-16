@@ -5,7 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use std::rc::{Rc, Weak};
@@ -125,8 +125,45 @@ fn lower_popup_window(
     let coord_y = NamedReference::new(&popup_comp.root_element, "y");
 
     // Take a reference to the close policy
-    let close_policy = NamedReference::new(&popup_comp.root_element, "close-policy");
-    
+    const CLOSE_POLICY: &str = "close-policy";
+    let close_policy = popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY);
+    let close_policy = close_policy
+        .map(|b| {
+            let b = b.into_inner();
+            (b.expression, b.span)
+        })
+        .or_else(|| {
+            let mut base = popup_window_element.borrow().base_type.clone();
+            while let ElementType::Component(b) = base {
+                base = b.root_element.borrow().base_type.clone();
+                if let Some(binding) = b.root_element.borrow().bindings.get(CLOSE_POLICY) {
+                    let b = binding.borrow();
+                    return Some((b.expression.clone(), b.span.clone()));
+                }
+            }
+            None
+        });
+
+    let close_policy = match close_policy {
+        Some((expr, location)) => match expr {
+            Expression::EnumerationValue(value) => value,
+            _ => {
+                diag.push_error(
+                    "The close-policy property only supports constants at the moment".into(),
+                    &location,
+                );
+                return;
+            }
+        },
+        None => {
+            let enum_ty = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ClosePolicy.clone());
+            EnumerationValue {
+                value: enum_ty.values.iter().position(|v| v == "off").unwrap(),
+                enumeration: enum_ty,
+            }
+        }
+    };
+
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
     {

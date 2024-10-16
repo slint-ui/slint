@@ -383,7 +383,6 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
             arguments: vec![
                 llr_Expression::NumberLiteral(popup_index as _),
                 llr_Expression::BoolLiteral(popup.close_on_click),
-                // llr_Expression::Enum(),
                 item_ref,
             ],
         }

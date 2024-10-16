@@ -972,7 +972,6 @@ impl WindowInner {
         popup_componentrc: &ItemTreeRc,
         position: Point,
         close_on_click: bool,
-        close_policy: ClosePolicy,
         parent_item: &ItemRc,
     ) {
         let position = parent_item.map_to_window(
@@ -1041,7 +1040,7 @@ impl WindowInner {
             location,
             component: popup_componentrc.clone(),
             close_on_click,
-            close_policy,
+            close_policy: ClosePolicy::Off,
         }));
     }
 

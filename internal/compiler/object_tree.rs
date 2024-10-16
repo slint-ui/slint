@@ -25,6 +25,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::rc::{Rc, Weak};
+use crate::langtype::EnumerationValue;
 
 macro_rules! unwrap_or_continue {
     ($e:expr ; $diag:expr) => {
@@ -274,7 +275,7 @@ pub struct PopupWindow {
     pub x: NamedReference,
     pub y: NamedReference,
     pub close_on_click: bool,
-    pub close_policy: NamedReference,
+    pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
 }
 

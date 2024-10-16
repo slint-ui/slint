@@ -681,7 +681,7 @@ fn lower_popup_component(
 
     PopupWindow { item_tree, position: position.into(), 
       
-        .into()
+       
     }
 }
 
