@@ -1562,6 +1562,11 @@ fn resolve_two_way_bindings(
 
                             // Check the compatibility.
                             let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
+                            if rhs_lookup.property_type == Type::Invalid {
+                                // An attempt to resolve this already failed when trying to resolve the property type
+                                assert!(diag.has_errors());
+                                continue;
+                            }
                             rhs_lookup.is_local_to_component &=
                                 lookup_ctx.is_local_element(&nr.element());
 
