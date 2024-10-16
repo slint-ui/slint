@@ -124,6 +124,8 @@ fn lower_popup_window(
     let coord_x = NamedReference::new(&popup_comp.root_element, "x");
     let coord_y = NamedReference::new(&popup_comp.root_element, "y");
 
+    // Take a reference to the close policy
+    let close_policy = NamedReference::new(&popup_comp.root_element, "close-policy");
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
     {
@@ -166,6 +168,7 @@ fn lower_popup_window(
         x: coord_x,
         y: coord_y,
         close_on_click,
+        close_policy,
         parent_element: parent_element.clone(),
     });
 }
