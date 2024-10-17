@@ -25,6 +25,18 @@ impl<
         self.0 >> SHIFT
     }
 
+    /// Return the fractional part of the fixed point value
+    pub fn fract(self) -> u8
+    where
+        T: num_traits::AsPrimitive<u8>,
+    {
+        if SHIFT < 8 {
+            (self.0 >> (SHIFT - 8)).as_()
+        } else {
+            (self.0 << (8 - SHIFT)).as_()
+        }
+    }
+
     pub fn from_fixed<
         T2: core::ops::Shl<usize, Output = T2> + core::ops::Shr<usize, Output = T2> + Into<T>,
         const SHIFT2: usize,
@@ -111,5 +123,12 @@ impl<T: core::ops::Rem<Output = T>, const SHIFT: usize> core::ops::Rem for Fixed
     type Output = Self;
     fn rem(self, rhs: Self) -> Self::Output {
         Self(self.0 % rhs.0)
+    }
+}
+
+impl<T: core::ops::Div<Output = T>, const SHIFT: usize> core::ops::Div<T> for Fixed<T, SHIFT> {
+    type Output = Self;
+    fn div(self, rhs: T) -> Self::Output {
+        Self(self.0 / rhs)
     }
 }

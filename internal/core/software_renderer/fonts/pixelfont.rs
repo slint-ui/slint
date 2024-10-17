@@ -4,35 +4,15 @@
 use crate::{
     graphics::{BitmapFont, BitmapGlyphs},
     software_renderer::PhysicalLength,
-    textlayout::{Glyph, TextShaper},
+    textlayout::{FontMetrics, Glyph, TextShaper},
 };
 
 use super::{GlyphRenderer, RenderableGlyph};
 
 impl BitmapGlyphs {
-    fn ascent(&self, font: &BitmapFont) -> PhysicalLength {
-        (PhysicalLength::new(self.pixel_size).cast() * font.ascent / font.units_per_em).cast()
-    }
-    fn descent(&self, font: &BitmapFont) -> PhysicalLength {
-        (PhysicalLength::new(self.pixel_size).cast() * font.descent / font.units_per_em).cast()
-    }
-    fn height(&self, font: &BitmapFont) -> PhysicalLength {
-        // The descent is negative (relative to the baseline)
-        (PhysicalLength::new(self.pixel_size).cast() * (font.ascent - font.descent)
-            / font.units_per_em)
-            .cast()
-    }
     /// Returns the size of the pre-rendered font in pixels.
     pub fn pixel_size(&self) -> PhysicalLength {
         PhysicalLength::new(self.pixel_size)
-    }
-    /// Returns the x-height of the font scaled to the font's pixel size.
-    pub fn x_height(&self, font: &BitmapFont) -> PhysicalLength {
-        (PhysicalLength::new(self.pixel_size).cast() * font.x_height / font.units_per_em).cast()
-    }
-    /// Returns the cap-height of the font scaled to the font's pixel size.
-    pub fn cap_height(&self, font: &BitmapFont) -> PhysicalLength {
-        (PhysicalLength::new(self.pixel_size).cast() * font.cap_height / font.units_per_em).cast()
     }
 }
 
@@ -40,17 +20,20 @@ impl BitmapGlyphs {
 pub struct PixelFont {
     pub bitmap_font: &'static BitmapFont,
     pub glyphs: &'static BitmapGlyphs,
+    pub pixel_size: PhysicalLength,
 }
 
 impl PixelFont {
-    pub fn pixel_size(&self) -> PhysicalLength {
-        self.glyphs.pixel_size()
-    }
     pub fn glyph_index_to_glyph_id(index: usize) -> core::num::NonZeroU16 {
         core::num::NonZeroU16::new(index as u16 + 1).unwrap()
     }
     pub fn glyph_id_to_glyph_index(id: core::num::NonZeroU16) -> usize {
         id.get() as usize - 1
+    }
+
+    /// Convert from the glyph coordinate to the target coordinate
+    pub fn scale_glyph_length(&self, v: i16) -> PhysicalLength {
+        self.pixel_size * v / self.glyphs.pixel_size
     }
 }
 
@@ -59,11 +42,13 @@ impl GlyphRenderer for PixelFont {
         let glyph_index = Self::glyph_id_to_glyph_index(glyph_id);
         let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
         RenderableGlyph {
-            x: PhysicalLength::new(bitmap_glyph.x),
-            y: PhysicalLength::new(bitmap_glyph.y),
-            width: PhysicalLength::new(bitmap_glyph.width),
-            height: PhysicalLength::new(bitmap_glyph.height),
+            x: self.scale_glyph_length(bitmap_glyph.x),
+            y: self.scale_glyph_length(bitmap_glyph.y),
+            width: self.scale_glyph_length(bitmap_glyph.width),
+            height: self.scale_glyph_length(bitmap_glyph.height),
             alpha_map: bitmap_glyph.data.as_slice().into(),
+            pixel_stride: bitmap_glyph.width as u16,
+            sdf: self.bitmap_font.sdf,
         }
     }
 }
@@ -86,8 +71,11 @@ impl TextShaper for PixelFont {
                     self.bitmap_font.character_map[char_map_index].glyph_index as usize
                 });
             let x_advance = glyph_index.map_or_else(
-                || self.pixel_size(),
-                |glyph_index| PhysicalLength::new(self.glyphs.glyph_data[glyph_index].x_advance),
+                || self.pixel_size,
+                |glyph_index| {
+                    self.pixel_size * self.glyphs.glyph_data[glyph_index].x_advance
+                        / self.glyphs.pixel_size
+                },
             );
             Glyph {
                 glyph_id: glyph_index.map(Self::glyph_index_to_glyph_id),
@@ -119,28 +107,32 @@ impl TextShaper for PixelFont {
     }
 
     fn max_lines(&self, max_height: PhysicalLength) -> usize {
-        (max_height / self.glyphs.height(self.bitmap_font)).get() as _
+        (max_height / self.height()).get() as _
     }
 }
 
-impl crate::textlayout::FontMetrics<PhysicalLength> for PixelFont {
+impl FontMetrics<PhysicalLength> for PixelFont {
     fn ascent(&self) -> PhysicalLength {
-        self.glyphs.ascent(self.bitmap_font)
+        (self.pixel_size.cast() * self.bitmap_font.ascent / self.bitmap_font.units_per_em).cast()
     }
 
     fn descent(&self) -> PhysicalLength {
-        self.glyphs.descent(self.bitmap_font)
+        (self.pixel_size.cast() * self.bitmap_font.descent / self.bitmap_font.units_per_em).cast()
     }
 
     fn height(&self) -> PhysicalLength {
-        self.glyphs.height(self.bitmap_font)
+        // The descent is negative (relative to the baseline)
+        (self.pixel_size.cast() * (self.bitmap_font.ascent - self.bitmap_font.descent)
+            / self.bitmap_font.units_per_em)
+            .cast()
     }
 
     fn x_height(&self) -> PhysicalLength {
-        self.glyphs.x_height(&self.bitmap_font)
+        (self.pixel_size.cast() * self.bitmap_font.x_height / self.bitmap_font.units_per_em).cast()
     }
 
     fn cap_height(&self) -> PhysicalLength {
-        self.glyphs.cap_height(&self.bitmap_font)
+        (self.pixel_size.cast() * self.bitmap_font.cap_height / self.bitmap_font.units_per_em)
+            .cast()
     }
 }
