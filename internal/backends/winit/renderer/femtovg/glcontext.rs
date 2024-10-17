@@ -10,7 +10,7 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::{platform::PlatformError, OpenGLAPI};
+use i_slint_core::{api::APIVersion, platform::PlatformError, OpenGLAPI};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 pub struct OpenGLContext {
@@ -122,16 +122,28 @@ impl OpenGLContext {
             })?
             .map(|h| h.as_raw());
 
+        let opengl_api =
+            opengl_api.unwrap_or(OpenGLAPI::GLES(Some(APIVersion { major: 2, minor: 0 })));
         let preferred_context_attributes = match opengl_api {
-            Some(OpenGLAPI::GL) => ContextAttributesBuilder::new()
-                .with_context_api(ContextApi::OpenGl(None))
-                .build(raw_window_handle),
-            Some(OpenGLAPI::GLES) | None => ContextAttributesBuilder::new()
-                .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                    major: 3,
-                    minor: 2,
-                })))
-                .build(raw_window_handle),
+            OpenGLAPI::GL(version) => {
+                let version = version.map(|version| glutin::context::Version {
+                    major: version.major,
+                    minor: version.minor,
+                });
+                ContextAttributesBuilder::new()
+                    .with_context_api(ContextApi::OpenGl(version))
+                    .build(raw_window_handle)
+            }
+            OpenGLAPI::GLES(version) => {
+                let version = version.map(|version| glutin::context::Version {
+                    major: version.major,
+                    minor: version.minor,
+                });
+
+                ContextAttributesBuilder::new()
+                    .with_context_api(ContextApi::Gles(version))
+                    .build(raw_window_handle)
+            }
         };
 
         let fallback_context_attributes = ContextAttributesBuilder::new().build(raw_window_handle);

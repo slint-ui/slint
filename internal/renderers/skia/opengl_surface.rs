@@ -12,8 +12,11 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, OpenGLAPI};
+use i_slint_core::{
+    api::{APIVersion, GraphicsAPI},
+    platform::PlatformError,
+};
 
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
@@ -283,12 +286,6 @@ impl OpenGLSurface {
         let config_template_builder =
             config_template_builder.compatible_with_native_window(_window_handle.as_raw());
 
-        let config_template_builder = if let Some(OpenGLAPI::GL) = opengl_api {
-            config_template_builder.with_api(glutin::config::Api::OPENGL)
-        } else {
-            config_template_builder
-        };
-
         let config_template = config_template_builder.build();
 
         let config = unsafe {
@@ -309,35 +306,47 @@ impl OpenGLSurface {
                 .ok_or("Unable to find suitable GL config")?
         };
 
-        let create_gl_context = |gl_major| {
-            let preferred_context_attributes = match opengl_api {
-                Some(OpenGLAPI::GL) => {
-                    ContextAttributesBuilder::new().build(Some(_window_handle.as_raw()))
-                }
-                Some(OpenGLAPI::GLES) | None => ContextAttributesBuilder::new()
-                    .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                        major: gl_major,
-                        minor: 0,
-                    })))
-                    .build(Some(_window_handle.as_raw())),
-            };
+        let opengl_api =
+            opengl_api.unwrap_or(OpenGLAPI::GLES(Some(APIVersion { major: 3, minor: 0 })));
+        let preferred_context_attributes = match opengl_api {
+            OpenGLAPI::GL(version) => {
+                let version = version.map(|version| glutin::context::Version {
+                    major: version.major,
+                    minor: version.minor,
+                });
+                ContextAttributesBuilder::new()
+                    .with_context_api(ContextApi::OpenGl(version))
+                    .build(Some(_window_handle.as_raw()))
+            }
+            OpenGLAPI::GLES(version) => {
+                let version = version.map(|version| glutin::context::Version {
+                    major: version.major,
+                    minor: version.minor,
+                });
 
-            let fallback_context_attributes =
-                ContextAttributesBuilder::new().build(Some(_window_handle.as_raw()));
-
-            unsafe {
-                gl_display
-                    .create_context(&config, &preferred_context_attributes)
-                    .or_else(|_| gl_display.create_context(&config, &fallback_context_attributes))
-                    .map_err(|e| format!("Error creating OpenGL context: {e}"))
+                ContextAttributesBuilder::new()
+                    .with_context_api(ContextApi::Gles(version))
+                    .build(Some(_window_handle.as_raw()))
             }
         };
 
-        let not_current_gl_context = if let Some(OpenGLAPI::GL) = opengl_api {
-            create_gl_context(4)?
-        } else {
-            create_gl_context(3).or_else(|_| create_gl_context(2))?
-        };
+        let gles2_fallback_context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                major: 2,
+                minor: 0,
+            })))
+            .build(Some(_window_handle.as_raw()));
+
+        let fallback_context_attributes =
+            ContextAttributesBuilder::new().build(Some(_window_handle.as_raw()));
+
+        let not_current_gl_context = unsafe {
+            gl_display
+                .create_context(&config, &preferred_context_attributes)
+                .or_else(|_| gl_display.create_context(&config, &gles2_fallback_context_attributes))
+                .or_else(|_| gl_display.create_context(&config, &fallback_context_attributes))
+                .map_err(|e| format!("Error creating OpenGL context: {e}"))
+        }?;
 
         let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
             _window_handle.as_raw(),

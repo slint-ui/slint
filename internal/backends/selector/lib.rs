@@ -89,8 +89,7 @@ impl PlatformBuilder {
         let builder = i_slint_backend_winit::Backend::builder().with_allow_fallback(false);
 
         let builder = match self.opengl_api {
-            Some(OpenGLAPI::GL) => builder.with_opengl_api(OpenGLAPI::GL),
-            Some(OpenGLAPI::GLES) => builder.with_opengl_api(OpenGLAPI::GLES),
+            Some(api) => builder.with_opengl_api(api),
             None => builder,
         };
 

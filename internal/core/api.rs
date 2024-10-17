@@ -283,13 +283,22 @@ impl<'a> core::fmt::Debug for GraphicsAPI<'a> {
     }
 }
 
+/// API Version
+#[derive(Debug, Clone, PartialEq)]
+pub struct APIVersion {
+    /// Major API version
+    pub major: u8,
+    /// Minor API version
+    pub minor: u8,
+}
+
 /// This enum specifies which OpenGL API should be used.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OpenGLAPI {
     /// OpenGL
-    GL,
+    GL(Option<APIVersion>),
     /// OpenGL ES
-    GLES,
+    GLES(Option<APIVersion>),
 }
 
 /// This enum specifies which OpenGL API should be used.
