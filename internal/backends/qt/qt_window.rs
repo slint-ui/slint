@@ -1873,7 +1873,11 @@ impl WindowAdapter for QtWindow {
     fn request_redraw(&self) {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
-            if (auto w = widget_ptr->window()->windowHandle()) {
+            // If embedded as a QWidget, just use regular QWidget::update(), but if we're a top-level,
+            // then use requestUpdate() to achieve frame-throttling.
+            if (widget_ptr->parentWidget()) {
+                widget_ptr->update();
+            } else if (auto w = widget_ptr->window()->windowHandle()) {
                 w->requestUpdate();
             }
         }}
