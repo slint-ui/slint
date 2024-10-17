@@ -138,6 +138,7 @@ smol_str = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }
+web-sys = { workspace = true, features=[ "Navigator" ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
