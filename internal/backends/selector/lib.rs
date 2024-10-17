@@ -84,17 +84,16 @@ impl PlatformBuilder {
     /// use i_slint_backend_selector::PlatformBuilder;
     ///
     /// let platform = PlatformBuilder::new()
-    ///     .with_opengl_api(OpenGLAPI::GL)
+    ///     .with_opengl_api(OpenGLAPI::GL(None))
     ///     .build()
     ///     .unwrap();
-    /// slint::platform::set_platform(platform).unwrap();
+    /// platform::set_platform(platform).unwrap();
     /// ```
     pub fn build(self) -> Result<Box<dyn Platform + 'static>, PlatformError> {
         let builder = i_slint_backend_winit::Backend::builder().with_allow_fallback(false);
 
         let builder = match self.opengl_api {
-            Some(OpenGLAPI::GL) => builder.with_opengl_api(OpenGLAPI::GL),
-            Some(OpenGLAPI::GLES) => builder.with_opengl_api(OpenGLAPI::GLES),
+            Some(api) => builder.with_opengl_api(api),
             None => builder,
         };
 
