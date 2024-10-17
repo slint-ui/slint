@@ -32,7 +32,8 @@ software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fon
 
 embed-glyphs-as-sdf = ["dep:fdsm", "dep:ttf-parser-fdsm", "dep:nalgebra", "dep:image-fdsm"]
 
-default = []
+default = ["embed-glyphs-as-sdf"]
+#default = []
 
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }

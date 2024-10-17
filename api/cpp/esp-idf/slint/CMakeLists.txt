@@ -32,7 +32,7 @@ set(Rust_CARGO_TARGET ${rust_target})
 
 if (SLINT_ESP_LOCAL_EXAMPLE)
     add_subdirectory(../.. slint_build)
-else()
+else ()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
     find_package(Slint)
 
@@ -45,7 +45,7 @@ else()
         FetchContent_Declare(
             Slint
             GIT_REPOSITORY https://github.com/slint-ui/slint
-            GIT_TAG v1.9.0
+            GIT_TAG feature/sdf
             SOURCE_SUBDIR api/cpp
         )
         FetchContent_MakeAvailable(Slint)
