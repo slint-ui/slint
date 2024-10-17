@@ -497,10 +497,10 @@ fn generate_sdf_for_glyph(
     const RANGE: f64 = 2.;
     let target_pixel_size = target_pixel_size as f64;
     let scale = target_pixel_size / metrics.units_per_em as f64;
-    let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale + 2. * RANGE).ceil() as u32;
-    let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale + 2. * RANGE).ceil() as u32;
+    let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale + 2.).ceil() as u32;
+    let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale + 2.).ceil() as u32;
     let transformation = nalgebra::convert::<_, Affine2<f64>>(Similarity2::new(
-        Vector2::new(RANGE - bbox.x_min as f64 * scale, RANGE - bbox.y_min as f64 * scale),
+        Vector2::new(1. - bbox.x_min as f64 * scale, 1. - bbox.y_min as f64 * scale),
         0.,
         scale,
     ));
@@ -542,8 +542,8 @@ fn generate_sdf_for_glyph(
     glyph_data.push(0);
 
     let metrics = fontdue::Metrics {
-        xmin: -(RANGE - bbox.x_min as f64 * scale).floor() as i32,
-        ymin: -(RANGE - bbox.y_min as f64 * scale).floor() as i32,
+        xmin: -(1. - bbox.x_min as f64 * scale).floor() as i32,
+        ymin: -(1. - bbox.y_min as f64 * scale).floor() as i32,
         width: width as usize,
         height: height as usize,
         advance_width: (face.glyph_hor_advance(glyph_id).unwrap() as f64 * scale) as f32,

@@ -6,7 +6,7 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use super::{PhysicalLength, PhysicalRect, Fixed};
+use super::{Fixed, PhysicalLength, PhysicalRect};
 use crate::graphics::{PixelFormat, Rgb8Pixel};
 use crate::lengths::{PointLengths, SizeLengths};
 use crate::Color;
@@ -79,6 +79,7 @@ pub(super) fn draw_texture_line(
         }
         end = end.min(len);
         let mut begin = 0;
+        let row_fract = row.fract();
         while begin < len {
             fetch_blend_pixel(
                 &mut line_buffer[begin..end],
@@ -86,10 +87,10 @@ pub(super) fn draw_texture_line(
                 data,
                 alpha,
                 colorize,
-                (pixel_stride as usize, row.fract(), dy),
+                (pixel_stride as usize, dy),
                 #[inline(always)]
                 |bpp| {
-                    let p = (pos.truncate() as usize * bpp, pos.fract());
+                    let p = (pos.truncate() as usize * bpp, pos.fract(), row_fract);
                     pos += delta;
                     p
                 },
@@ -152,10 +153,10 @@ pub(super) fn draw_texture_line(
                 data,
                 alpha,
                 colorize,
-                (stride, col_fract, dx),
+                (stride, dy),
                 #[inline(always)]
                 |_| {
-                    let pos = (row.truncate() as usize * stride + col, row.fract());
+                    let pos = (row.truncate() as usize * stride + col, col_fract, row.fract());
                     row += row_delta;
                     pos
                 },
@@ -186,8 +187,8 @@ pub(super) fn draw_texture_line(
         data: &[u8],
         alpha: u8,
         color: Color,
-        (stride, row_f, delta): (usize, u8, Fixed<i32, 8>),
-        mut pos: impl FnMut(usize) -> (usize, u8),
+        (stride, delta): (usize, Fixed<i32, 8>),
+        mut pos: impl FnMut(usize) -> (usize, u8, u8),
     ) {
         match format {
             PixelFormat::Rgb => {
@@ -282,14 +283,14 @@ pub(super) fn draw_texture_line(
                 const RANGE: i32 = 2;
                 let factor = (256 * 256 / delta.0) * RANGE;
                 for pix in line_buffer {
-                    let (pos, f) = pos(1);
-                    let (f, row_f) = (f as i32, row_f as i32);
-                    let mut dist = ((data[pos] as i8 as i32) * (256 - f)
-                        + (data[pos + 1] as i8 as i32) * f)
+                    let (pos, col_f, row_f) = pos(1);
+                    let (col_f, row_f) = (col_f as i32, row_f as i32);
+                    let mut dist = ((data[pos] as i8 as i32) * (256 - col_f)
+                        + (data[pos + 1] as i8 as i32) * col_f)
                         * (256 - row_f);
                     if pos + stride + 1 < data.len() {
-                        dist += ((data[pos + stride] as i8 as i32) * (256 - f)
-                            + (data[pos + stride + 1] as i8 as i32) * f)
+                        dist += ((data[pos + stride] as i8 as i32) * (256 - col_f)
+                            + (data[pos + stride + 1] as i8 as i32) * col_f)
                             * row_f
                     } else {
                         debug_assert_eq!(row_f, 0);
