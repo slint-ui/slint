@@ -234,6 +234,11 @@ pub enum PixelFormat {
     RgbaPremultiplied,
     /// Alpha map. 8bits. Each pixel is an alpha value. The color is specified separately.
     AlphaMap,
+    /// Distance field. 8bit interpreted as i8.
+    /// The range is such that i8::MIN corresponds to 3 pixels outside of the shape,
+    /// and i8::MAX corresponds to 3 pixels inside the shape.
+    /// The array must be width * height +1 bytes long. (the extra bit is read but never used)
+    SignedDistanceField,
 }
 
 impl PixelFormat {
@@ -244,6 +249,7 @@ impl PixelFormat {
             PixelFormat::Rgba => 4,
             PixelFormat::RgbaPremultiplied => 4,
             PixelFormat::AlphaMap => 1,
+            PixelFormat::SignedDistanceField => 1,
         }
     }
 }
@@ -472,6 +478,9 @@ impl ImageInner {
                                     }
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
+                            }
+                            PixelFormat::SignedDistanceField => {
+                                todo!("converting from a signed distance field to an image")
                             }
                         };
                     }

@@ -53,13 +53,14 @@ pub struct BitmapGlyph {
     pub width: i16,
     pub height: i16,
     pub x_advance: i16,
-    pub data: Vec<u8>, // 8bit alpha map or SDF if `BitMapGlyphs`'s pixel_size is 0.
+    /// 8bit alpha map or SDF if `BitMapGlyphs`'s `sdf` is `true`.
+    pub data: Vec<u8>,
 }
 
 #[cfg(feature = "software-renderer")]
 #[derive(Debug, Clone)]
 pub struct BitmapGlyphs {
-    pub pixel_size: i16, // pixel size 0 means it's a scalable font (via SDF).
+    pub pixel_size: i16,
     pub glyph_data: Vec<BitmapGlyph>,
 }
 
@@ -74,7 +75,8 @@ pub struct CharacterMapEntry {
 #[derive(Debug, Clone)]
 pub struct BitmapFont {
     pub family_name: String,
-    pub character_map: Vec<CharacterMapEntry>, // map of available glyphs, sorted by char
+    /// map of available glyphs, sorted by char
+    pub character_map: Vec<CharacterMapEntry>,
     pub units_per_em: f32,
     pub ascent: f32,
     pub descent: f32,
@@ -83,6 +85,8 @@ pub struct BitmapFont {
     pub glyphs: Vec<BitmapGlyphs>,
     pub weight: u16,
     pub italic: bool,
+    /// true when the font is represented as a signed distance field
+    pub sdf: bool,
 }
 
 #[derive(Debug, Clone)]

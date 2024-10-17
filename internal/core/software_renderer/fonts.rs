@@ -33,6 +33,8 @@ pub struct RenderableGlyph {
     pub width: PhysicalLength,
     pub height: PhysicalLength,
     pub alpha_map: GlyphAlphaMap,
+    pub pixel_stride: u16,
+    pub sdf: bool,
 }
 
 impl RenderableGlyph {
@@ -158,10 +160,11 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
         .glyphs
         .partition_point(|glyphs| glyphs.pixel_size() <= requested_pixel_size)
         .saturating_sub(1);
-
     let matching_glyphs = &font.glyphs[nearest_pixel_size];
 
-    pixelfont::PixelFont { bitmap_font: font, glyphs: matching_glyphs }.into()
+    let pixel_size = if font.sdf { requested_pixel_size } else { matching_glyphs.pixel_size() };
+
+    pixelfont::PixelFont { bitmap_font: font, glyphs: matching_glyphs, pixel_size }.into()
 }
 
 pub fn text_layout_for_font<'a, Font>(

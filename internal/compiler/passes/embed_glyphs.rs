@@ -390,6 +390,7 @@ fn embed_font(
         glyphs,
         weight: face_info.weight.0,
         italic: face_info.style != fontdb::Style::Normal,
+        sdf: cfg!(feature = "embed-glyphs-as-sdf"),
     }
 }
 
@@ -441,9 +442,13 @@ fn embed_sdf_glyphs(
     font: &Font,
     fallback_fonts: &[Font],
 ) -> Vec<BitmapGlyphs> {
-    let Some(target_pixel_size) = pixel_sizes.iter().max().map(|max_size| max_size / 2) else {
+    const RANGE: f64 = 6.;
+
+    let Some(max_size) = pixel_sizes.iter().max() else {
         return vec![];
     };
+    let min_size = pixel_sizes.iter().min().expect("we have a 'max' so the vector is not empty");
+    let target_pixel_size = (max_size * 2 / 3).max(12).min(RANGE as i16 * min_size);
 
     let mut glyph_data = Vec::new();
 
@@ -454,9 +459,9 @@ fn embed_sdf_glyphs(
             .chain(fallback_fonts.iter())
             .find_map(|font| {
                 (font.lookup_glyph_index(*code_point) != 0)
-                    .then(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size))
+                    .then(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE))
             })
-            .unwrap_or_else(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size))
+            .unwrap_or_else(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE))
             .map(|(metrics, bitmap)| BitmapGlyph {
                 x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
                 y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
@@ -471,7 +476,7 @@ fn embed_sdf_glyphs(
         glyph_data[*glyph_index as usize] = glyph;
     }
 
-    vec![BitmapGlyphs { pixel_size: 0 /* indicates SDF */, glyph_data }]
+    vec![BitmapGlyphs { pixel_size: target_pixel_size, glyph_data }]
 }
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "embed-glyphs-as-sdf"))]
@@ -479,6 +484,7 @@ fn generate_sdf_for_glyph(
     font: &Font,
     code_point: char,
     target_pixel_size: i16,
+    range: f64,
 ) -> Option<(fontdue::Metrics, Vec<u8>)> {
     use fdsm::transform::Transform;
     use nalgebra::{Affine2, Similarity2, Vector2};
@@ -493,19 +499,15 @@ fn generate_sdf_for_glyph(
 
     let metrics = font.metrics();
 
-    const RANGE: f64 = 256.0;
     let target_pixel_size = target_pixel_size as f64;
     let scale = target_pixel_size / metrics.units_per_em as f64;
+    let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale + 2.).ceil() as u32;
+    let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale + 2.).ceil() as u32;
     let transformation = nalgebra::convert::<_, Affine2<f64>>(Similarity2::new(
-        Vector2::new(
-            target_pixel_size - (bbox.x_min as f64 * scale),
-            target_pixel_size - (bbox.y_min as f64 * scale),
-        ),
-        0.0,
+        Vector2::new(1. - bbox.x_min as f64 * scale, 1. - bbox.y_min as f64 * scale),
+        0.,
         scale,
     ));
-    let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale).ceil() as u32;
-    let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale).ceil() as u32;
 
     // Unlike msdfgen, the transformation is not passed into the
     // `generate_msdf` function – the coordinates of the control points
@@ -519,24 +521,36 @@ fn generate_sdf_for_glyph(
     // Set up the resulting image and generate the distance field:
 
     let mut sdf = image_fdsm::GrayImage::new(width, height);
-    fdsm::generate::generate_sdf(&prepared_shape, RANGE, &mut sdf);
+    fdsm::generate::generate_sdf(&prepared_shape, range, &mut sdf);
     fdsm::render::correct_sign_sdf(
         &mut sdf,
         &prepared_shape,
         fdsm::bezier::scanline::FillRule::Nonzero,
     );
 
-    let glyph_data = sdf.into_raw();
+    let mut glyph_data = sdf.into_raw();
+
+    // normalize around 0
+    for x in &mut glyph_data {
+        *x = x.wrapping_sub(128);
+    }
+
+    // invert the y coordinate (as the fsdm crate has the y axis inverted)
+    let (w, h) = (width as usize, height as usize);
+    for idx in 0..glyph_data.len() / 2 {
+        glyph_data.swap(idx, (h - idx / w - 1) * w + idx % w);
+    }
+
+    // Add a "0" so that we can always access pos+1 without going out of bound
+    // (so that the last row will look like `data[len-1]*1 + data[len]*0`)
+    glyph_data.push(0);
 
     let metrics = fontdue::Metrics {
-        // NOTE! This is the x pos in font design space, so it needs to be multiplied by the target size and divided by units per em.
-        xmin: bbox.x_min as _,
-        // NOTE! This is the y pos in font design space, so it needs to be multiplied by the target size and divided by units per em.
-        ymin: bbox.y_min as _,
+        xmin: -(1. - bbox.x_min as f64 * scale).floor() as i32,
+        ymin: -(1. - bbox.y_min as f64 * scale).floor() as i32,
         width: width as usize,
         height: height as usize,
-        // NOTE! This is the advance in font design space, so it needs to be multiplied by the target size and divided by units per em.
-        advance_width: face.glyph_hor_advance(glyph_id).unwrap() as _,
+        advance_width: (face.glyph_hor_advance(glyph_id).unwrap() as f64 * scale) as f32,
         advance_height: 0.,         /*unused */
         bounds: Default::default(), /*unused */
     };

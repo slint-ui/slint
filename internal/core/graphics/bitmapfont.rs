@@ -18,6 +18,7 @@ pub struct BitmapGlyph {
     /// The horizontal distance to the next glyph
     pub x_advance: i16,
     /// The 8-bit alpha map that's to be blended with the current text color
+    /// or 8-bit signed distance field depending on `BitmapFont::sdf`
     pub data: Slice<'static, u8>,
 }
 
@@ -67,4 +68,6 @@ pub struct BitmapFont {
     pub weight: u16,
     /// Whether the type-face is rendered italic.
     pub italic: bool,
+    /// Whether the format of the font is a signed distance field
+    pub sdf: bool,
 }

@@ -211,6 +211,8 @@ impl super::GlyphRenderer for VectorFont {
                     width: PhysicalLength::new(metrics.width.try_into().unwrap()),
                     height: PhysicalLength::new(metrics.height.try_into().unwrap()),
                     alpha_map: alpha_map.into(),
+                    sdf: false,
+                    pixel_stride: metrics.width.try_into().unwrap(),
                 };
 
                 cache.put_with_weight(cache_key, glyph.clone()).ok();

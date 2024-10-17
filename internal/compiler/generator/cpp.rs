@@ -949,6 +949,7 @@ fn embed_resource(
                 glyphs,
                 weight,
                 italic,
+                sdf,
             },
         ) => {
             let family_name_var =
@@ -1054,6 +1055,7 @@ fn embed_resource(
                         .glyphs = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyphs>{{ {glyphsets_var}, {glyphsets_size} }},
                         .weight = {weight},
                         .italic = {italic},
+                        .sdf = {sdf},
                 }}"
             );
 
