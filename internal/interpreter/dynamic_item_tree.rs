@@ -820,8 +820,31 @@ pub async fn load(
         None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
     };
     if is_native {
+        // On wasm, look at the browser user agent
+        #[cfg(target_arch = "wasm32")]
+        let target = web_sys::window()
+            .and_then(|window| window.navigator().platform().ok())
+            .map_or("wasm", |platform| {
+                let platform = platform.to_ascii_lowercase();
+                if platform.contains("mac")
+                    || platform.contains("iphone")
+                    || platform.contains("ipad")
+                {
+                    "apple"
+                } else if platform.contains("android") {
+                    "android"
+                } else if platform.contains("win") {
+                    "windows"
+                } else if platform.contains("linux") {
+                    "linux"
+                } else {
+                    "wasm"
+                }
+            });
+        #[cfg(not(target_arch = "wasm32"))]
+        let target = "";
         compiler_config.style = Some(
-            i_slint_common::get_native_style(i_slint_backend_selector::HAS_NATIVE_STYLE, "")
+            i_slint_common::get_native_style(i_slint_backend_selector::HAS_NATIVE_STYLE, target)
                 .to_string(),
         );
     }
