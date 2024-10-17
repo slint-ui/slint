@@ -3042,7 +3042,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     )
                 },
                 #[cfg(feature = "software-renderer")]
-                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic }) => {
+                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic, sdf }) => {
 
                     let character_map_size = character_map.len();
 
@@ -3103,6 +3103,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                             }),
                             weight: #weight,
                             italic: #italic,
+                            sdf: #sdf,
                         };
                     )
                 },

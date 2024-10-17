@@ -294,7 +294,12 @@ pub struct SceneTexture<'a> {
 
 impl<'a> SceneTexture<'a> {
     pub fn source_size(&self) -> PhysicalSize {
-        let len = self.data.len() / self.format.bpp();
+        let mut len = self.data.len();
+        if self.format == PixelFormat::SignedDistanceField {
+            len -= 1;
+        } else {
+            len /= self.format.bpp();
+        }
         let stride = self.pixel_stride as usize;
         let h = len / stride;
         let w = len % stride;

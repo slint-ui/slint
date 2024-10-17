@@ -1499,7 +1499,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     for positioned_glyph in glyphs {
                         let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
 
-                        let src_rect = PhysicalRect::new(
+                        let target_rect = PhysicalRect::new(
                             PhysicalPoint::from_lengths(
                                 line_x + positioned_glyph.x + glyph.x,
                                 baseline_y - glyph.y - glyph.height,
@@ -1515,71 +1515,97 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             _ => color,
                         };
 
-                        if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
-                            let geometry = clipped_src.translate(offset).round();
-                            let origin = (geometry.origin - offset.round()).round().cast::<i16>();
-                            let actual_x = (origin.x - src_rect.origin.x as i16) as usize;
-                            let actual_y = (origin.y - src_rect.origin.y as i16) as usize;
-                            let pixel_stride = glyph.width.get() as u16;
-                            let mut geometry = geometry.cast();
-                            if geometry.size.width > glyph.width.get() - (actual_x as i16) {
-                                geometry.size.width = glyph.width.get() - (actual_x as i16)
-                            }
-                            if geometry.size.height > glyph.height.get() - (actual_y as i16) {
-                                geometry.size.height = glyph.height.get() - (actual_y as i16)
-                            }
-                            let source_size = geometry.size;
-                            if source_size.is_empty() {
-                                continue;
-                            }
-                            match &glyph.alpha_map {
-                                fonts::GlyphAlphaMap::Static(data) => {
-                                    self.processor.process_texture(
-                                        geometry.transformed(self.rotation),
-                                        SceneTexture {
-                                            data: &data
-                                                [actual_x + actual_y * pixel_stride as usize..],
-                                            pixel_stride,
-                                            format: PixelFormat::AlphaMap,
-                                            extra: SceneTextureExtra {
-                                                colorize: color,
-                                                // color already is mixed with global alpha
-                                                alpha: color.alpha(),
-                                                rotation: self.rotation.orientation,
-                                                dx: Fixed::from_integer(1),
-                                                dy: Fixed::from_integer(1),
-                                                off_x: Fixed::from_integer(0),
-                                                off_y: Fixed::from_integer(0),
-                                            },
+                        let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                            continue;
+                        };
+                        let geometry = clipped_target.translate(offset).round();
+                        let origin = (geometry.origin - offset.round()).round().cast::<i16>();
+                        let actual_x = (origin.x - target_rect.origin.x as i16) as usize;
+                        let actual_y = (origin.y - target_rect.origin.y as i16) as usize;
+                        let pixel_stride = glyph.pixel_stride;
+                        let mut geometry = geometry.cast();
+                        if geometry.size.width > glyph.width.get() - (actual_x as i16) {
+                            geometry.size.width = glyph.width.get() - (actual_x as i16)
+                        }
+                        if geometry.size.height > glyph.height.get() - (actual_y as i16) {
+                            geometry.size.height = glyph.height.get() - (actual_y as i16)
+                        }
+                        let source_size = geometry.size;
+                        if source_size.is_empty() {
+                            continue;
+                        }
+                        match &glyph.alpha_map {
+                            fonts::GlyphAlphaMap::Static(data) => {
+                                let texture = if !glyph.sdf {
+                                    SceneTexture {
+                                        data: &data[actual_x + actual_y * pixel_stride as usize..],
+                                        pixel_stride,
+                                        format: PixelFormat::AlphaMap,
+                                        extra: SceneTextureExtra {
+                                            colorize: color,
+                                            // color already is mixed with global alpha
+                                            alpha: color.alpha(),
+                                            rotation: self.rotation.orientation,
+                                            dx: Fixed::from_integer(1),
+                                            dy: Fixed::from_integer(1),
+                                            off_x: Fixed::from_integer(0),
+                                            off_y: Fixed::from_integer(0),
                                         },
-                                    );
-                                }
-                                fonts::GlyphAlphaMap::Shared(data) => {
-                                    self.processor.process_shared_image_buffer(
-                                        geometry.transformed(self.rotation),
-                                        SharedBufferCommand {
-                                            buffer: SharedBufferData::AlphaMap {
-                                                data: data.clone(),
-                                                width: pixel_stride,
-                                            },
-                                            source_rect: PhysicalRect::new(
-                                                PhysicalPoint::new(actual_x as _, actual_y as _),
-                                                source_size,
-                                            ),
-                                            extra: SceneTextureExtra {
-                                                colorize: color,
-                                                // color already is mixed with global alpha
-                                                alpha: color.alpha(),
-                                                rotation: self.rotation.orientation,
-                                                dx: Fixed::from_integer(1),
-                                                dy: Fixed::from_integer(1),
-                                                off_x: Fixed::from_integer(0),
-                                                off_y: Fixed::from_integer(0),
-                                            },
+                                    }
+                                } else {
+                                    let dx = Fixed::from_integer(pixel_stride - 1)
+                                        / glyph.width.get() as u16;
+                                    let dy = Fixed::from_integer(
+                                        (data.len() as u16 - 1) / pixel_stride - 1,
+                                    ) / glyph.height.get() as u16;
+                                    let off_x = Fixed::<i32, 8>::from_fixed(dx)
+                                        * (clipped_target.origin.x - target_rect.origin.x) as i32;
+                                    let off_y = Fixed::<i32, 8>::from_fixed(dy)
+                                        * (clipped_target.origin.y - target_rect.origin.y) as i32;
+                                    SceneTexture {
+                                        data: data,
+                                        pixel_stride,
+                                        format: PixelFormat::SignedDistanceField,
+                                        extra: SceneTextureExtra {
+                                            colorize: color,
+                                            // color already is mixed with global alpha
+                                            alpha: color.alpha(),
+                                            rotation: self.rotation.orientation,
+                                            dx,
+                                            dy,
+                                            off_x: Fixed::try_from_fixed(off_x).unwrap(),
+                                            off_y: Fixed::try_from_fixed(off_y).unwrap(),
                                         },
-                                    );
-                                }
-                            };
+                                    }
+                                };
+                                self.processor
+                                    .process_texture(geometry.transformed(self.rotation), texture);
+                            }
+                            fonts::GlyphAlphaMap::Shared(data) => {
+                                self.processor.process_shared_image_buffer(
+                                    geometry.transformed(self.rotation),
+                                    SharedBufferCommand {
+                                        buffer: SharedBufferData::AlphaMap {
+                                            data: data.clone(),
+                                            width: pixel_stride,
+                                        },
+                                        source_rect: PhysicalRect::new(
+                                            PhysicalPoint::new(actual_x as _, actual_y as _),
+                                            source_size,
+                                        ),
+                                        extra: SceneTextureExtra {
+                                            colorize: color,
+                                            // color already is mixed with global alpha
+                                            alpha: color.alpha(),
+                                            rotation: self.rotation.orientation,
+                                            dx: Fixed::from_integer(1),
+                                            dy: Fixed::from_integer(1),
+                                            off_x: Fixed::from_integer(0),
+                                            off_y: Fixed::from_integer(0),
+                                        },
+                                    },
+                                );
+                            }
                         }
                     }
                     core::ops::ControlFlow::Continue(())

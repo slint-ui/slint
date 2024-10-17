@@ -6,10 +6,9 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use super::{PhysicalLength, PhysicalRect};
+use super::{Fixed, PhysicalLength, PhysicalRect};
 use crate::graphics::{PixelFormat, Rgb8Pixel};
 use crate::lengths::{PointLengths, SizeLengths};
-use crate::software_renderer::fixed::Fixed;
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
 use integer_sqrt::IntegerSquareRoot;
@@ -43,9 +42,10 @@ pub(super) fn draw_texture_line(
 
     if !rotation.is_transpose() {
         let mut delta = dx;
+        let row = off_y + dy * y;
         // The position where to start in the image array for a this row
-        let mut init = Fixed::from_integer((off_y + dy * y).truncate() % source_size.height)
-            * pixel_stride as i32;
+        let mut init =
+            Fixed::from_integer(row.truncate() % source_size.height) * pixel_stride as i32;
 
         // the size of the tile in physical pixels in the target
         let tile_len = (Fixed::from_integer(source_size.width) / delta) as usize;
@@ -79,6 +79,7 @@ pub(super) fn draw_texture_line(
         }
         end = end.min(len);
         let mut begin = 0;
+        let row_fract = row.fract();
         while begin < len {
             fetch_blend_pixel(
                 &mut line_buffer[begin..end],
@@ -86,9 +87,10 @@ pub(super) fn draw_texture_line(
                 data,
                 alpha,
                 colorize,
+                (pixel_stride as usize, dy),
                 #[inline(always)]
                 |bpp| {
-                    let p = pos.truncate() as usize * bpp;
+                    let p = (pos.truncate() as usize * bpp, pos.fract(), row_fract);
                     pos += delta;
                     p
                 },
@@ -114,6 +116,7 @@ pub(super) fn draw_texture_line(
     } else {
         let bpp = format.bpp();
         let col = off_x + dx * y;
+        let col_fract = col.fract();
         let col = (col.truncate() % source_size.width) as usize * bpp;
         let stride = pixel_stride as usize * bpp;
         let mut row_delta = dy;
@@ -150,9 +153,10 @@ pub(super) fn draw_texture_line(
                 data,
                 alpha,
                 colorize,
+                (stride, dy),
                 #[inline(always)]
                 |_| {
-                    let pos = row.truncate() as usize * stride + col;
+                    let pos = (row.truncate() as usize * stride + col, col_fract, row.fract());
                     row += row_delta;
                     pos
                 },
@@ -183,12 +187,13 @@ pub(super) fn draw_texture_line(
         data: &[u8],
         alpha: u8,
         color: Color,
-        mut pos: impl FnMut(usize) -> usize,
+        (stride, delta): (usize, Fixed<i32, 8>),
+        mut pos: impl FnMut(usize) -> (usize, u8, u8),
     ) {
         match format {
             PixelFormat::Rgb => {
                 for pix in line_buffer {
-                    let pos = pos(3);
+                    let pos = pos(3).0;
                     let p = &data[pos..pos + 3];
                     if alpha == 0xff {
                         *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
@@ -202,7 +207,7 @@ pub(super) fn draw_texture_line(
             PixelFormat::Rgba => {
                 if color.alpha() == 0 {
                     for pix in line_buffer {
-                        let pos = pos(4);
+                        let pos = pos(4).0;
                         let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
                         let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
                             alpha,
@@ -214,7 +219,7 @@ pub(super) fn draw_texture_line(
                     }
                 } else {
                     for pix in line_buffer {
-                        let pos = pos(4);
+                        let pos = pos(4).0;
                         let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
                         let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
                             alpha,
@@ -229,7 +234,7 @@ pub(super) fn draw_texture_line(
             PixelFormat::RgbaPremultiplied => {
                 if color.alpha() > 0 {
                     for pix in line_buffer {
-                        let pos = pos(4);
+                        let pos = pos(4).0;
                         let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
                             ((data[pos + 3] as u16 * alpha as u16) / 255) as u8,
                             color.red(),
@@ -240,7 +245,7 @@ pub(super) fn draw_texture_line(
                     }
                 } else if alpha == 0xff {
                     for pix in line_buffer {
-                        let pos = pos(4);
+                        let pos = pos(4).0;
                         let c = PremultipliedRgbaColor {
                             alpha: data[pos + 3],
                             red: data[pos + 0],
@@ -251,7 +256,7 @@ pub(super) fn draw_texture_line(
                     }
                 } else {
                     for pix in line_buffer {
-                        let pos = pos(4);
+                        let pos = pos(4).0;
                         let c = PremultipliedRgbaColor {
                             alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
                             red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
@@ -264,9 +269,35 @@ pub(super) fn draw_texture_line(
             }
             PixelFormat::AlphaMap => {
                 for pix in line_buffer {
-                    let pos = pos(1);
+                    let pos = pos(1).0;
                     let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
                         ((data[pos] as u16 * alpha as u16) / 255) as u8,
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                    ));
+                    pix.blend(c);
+                }
+            }
+            PixelFormat::SignedDistanceField => {
+                const RANGE: i32 = 6;
+                let factor = (256 * 256 / delta.0) * RANGE;
+                for pix in line_buffer {
+                    let (pos, col_f, row_f) = pos(1);
+                    let (col_f, row_f) = (col_f as i32, row_f as i32);
+                    let mut dist = ((data[pos] as i8 as i32) * (256 - col_f)
+                        + (data[pos + 1] as i8 as i32) * col_f)
+                        * (256 - row_f);
+                    if pos + stride + 1 < data.len() {
+                        dist += ((data[pos + stride] as i8 as i32) * (256 - col_f)
+                            + (data[pos + stride + 1] as i8 as i32) * col_f)
+                            * row_f
+                    } else {
+                        debug_assert_eq!(row_f, 0);
+                    }
+                    let a = ((((dist >> 8) * factor) >> 16) + 128).clamp(0, 255) * alpha as i32;
+                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                        (a / 255) as u8,
                         color.red(),
                         color.green(),
                         color.blue(),
