@@ -1,52 +1,8 @@
-.. Copyright © SixtyFPS GmbH <info@slint.dev>
-.. SPDX-License-Identifier: MIT
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-.. Slint C++ documentation master file
+# Slint C++ Integration
 
-Slint C++ documentation
-========================================
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: Getting Started On Desktop
-
-   cmake.md
-
-   First Steps <getting_started.md>
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: Getting Started on MCU
-
-   mcu/intro.md
-   mcu/esp_idf.md
-   mcu/stm32.md
-   mcu/generic.md
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: C++ / .slint Integration
-
-   Overview <overview.md>
-
-   Type Mapping to C++ <types.md>
-
-   Example Generated Code <generated_code.md>
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: Reference
-
-   api/library_root
-
-   cmake_reference.md
-
-   genindex
-
+```rst
 .. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
    :target: https://github.com/slint-ui/slint/actions
    :alt: GitHub CI Build Status
@@ -54,12 +10,12 @@ Slint C++ documentation
 .. image:: https://img.shields.io/github/discussions/slint-ui/slint
    :target: https://github.com/slint-ui/slint/discussions
    :alt: GitHub Discussions
+````
 
 `Slint <https://slint.dev/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
 Slint C++ is the C++ API to interact with a Slint UI from C++.
 
-The .slint Markup Language
-=======================
+## The .slint Markup Language
 
 Slint comes with a markup language that is specifically designed for user interfaces. This language provides a
 powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy
@@ -81,8 +37,7 @@ of elements and property bindings. Here's the obligatory "Hello World":
 
 Check out the `Slint Language Documentation <../slint>`_ for more details.
 
-Architecture
-============
+## Architecture
 
 An application is composed of the business logic written in C++ and the `.slint` user interface design markup, which
 is compiled to native code.
@@ -90,8 +45,7 @@ is compiled to native code.
 .. image:: https://slint.dev/resources/architecture.drawio.svg
   :alt: Architecture Overview
 
-Developing
-==========
+## Developing
 
 You can create and edit `.slint` files using our `Slint Visual Studio Code Extension <https://marketplace.visualstudio.com/items?itemName=Slint.slint>`_,
 which features syntax highlighting and live design preview.
@@ -100,3 +54,11 @@ For a quick edit and preview cycle, you can also use the :code:`slint-viewer` co
 if you have `Cargo <https://marketplace.visualstudio.com/items?itemName=Slint.slint>`_ installed.
 
 In the next section you will learn how to install the Slint C++ library and the CMake build system integration.
+
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+intro/cmake.md
+First Steps <intro/getting_started.md>
+```

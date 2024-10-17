@@ -16,6 +16,6 @@ export default defineConfig({
                 "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
             ],
         },
-        outDir: "../../target/slintdocs/_static",
+        outDir: "../../target/docs/_static",
     },
 });

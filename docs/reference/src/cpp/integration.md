@@ -1,5 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Overview
+# C++ / .slint Integration
 
 The following sections explain how to integrate your `.slint` designs into your
 C++ application. The entry point is the `.slint` file containing the primary
@@ -70,3 +70,11 @@ callbacks:
 1. {cpp:func}`slint::interpreter::ComponentInstance::get_global_property()`
 1. {cpp:func}`slint::interpreter::ComponentInstance::set_global_callback()`
 1. {cpp:func}`slint::interpreter::ComponentInstance::invoke_global_callback()`
+
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+integration/types.md
+integration/generated_code.md
+```

@@ -53,3 +53,21 @@
    src/advanced/debugging_techniques.md
    src/advanced/style.md
    src/advanced/backends_and_renderers.md
+
+.. toctree::
+   :hidden:
+   :maxdepth: 3
+   :caption: C++
+
+   src/cpp/intro.md
+   src/cpp/mcu.md
+   src/cpp/integration.md
+   src/cpp/api/library_root.rst
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Index
+
+   genindex
+

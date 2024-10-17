@@ -1,13 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cspell:ignore slintdocs pipenv pipfile
+// cspell:ignore pipenv pipfile
 
 use anyhow::{Context, Result};
 use std::ffi::OsString;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use xshell::{cmd, Shell};
+
+#[path = "../../api/cpp/cbindgen.rs"]
+mod cbindgen;
 
 fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
     if dst.as_ref().exists() {
@@ -50,7 +53,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
         if excluded_entries.contains(&file_name) {
             continue;
         }
-        let symlink_source = target_to_source.as_ref().to_path_buf().join(&file_name);
+        let symlink_source = target_to_source.as_ref().to_path_buf().join(file_name);
         let symlink_target = target.as_ref().to_path_buf().join(path.file_name().unwrap());
         let filetype = entry.file_type().context("Cannot determine file type")?;
         if filetype.is_file() {
@@ -62,35 +65,64 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
     Ok(())
 }
 
-pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn generate_cpp_headers(root: &Path, build_dir: &Path, experimental: bool) -> anyhow::Result<()> {
+    let generated_headers_dir = build_dir.join("generated_include");
+    let enabled_features = cbindgen::EnabledFeatures {
+        interpreter: true,
+        testing: true,
+        backend_qt: true,
+        backend_winit: true,
+        backend_winit_x11: false,
+        backend_winit_wayland: false,
+        backend_linuxkms: true,
+        backend_linuxkms_noseat: false,
+        renderer_femtovg: true,
+        renderer_skia: true,
+        renderer_skia_opengl: false,
+        renderer_skia_vulkan: false,
+        renderer_software: true,
+        gettext: true,
+        accessibility: true,
+        system_testing: true,
+        freestanding: true,
+        experimental,
+    };
+    cbindgen::gen_all(root, &generated_headers_dir, enabled_features)
+        .context("Failed to generate headers")?;
+    Ok(())
+}
+
+pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
     generate_enum_docs()?;
     generate_builtin_struct_docs()?;
 
     let root = super::root_dir();
 
-    let docs_source_dir = root.join("docs/reference");
-    let docs_build_dir = root.join("target/slintdocs");
-    let html_static_dir = docs_build_dir.join("_static");
+    let reference_docs_source_dir = root.join("docs/reference");
+    let docs_build_dir = root.join("target/docs");
+    let html_static_build_dir = docs_build_dir.join("_static");
 
     std::fs::create_dir_all(docs_build_dir.as_path()).context("Error creating docs build dir")?;
-    std::fs::create_dir_all(html_static_dir.as_path())
+    std::fs::create_dir_all(html_static_build_dir.as_path())
         .context("Error creating _static path for docs build")?;
 
     symlink_files_in_dir(
-        &docs_source_dir,
+        &reference_docs_source_dir,
         &docs_build_dir,
         ["..", "..", "docs", "reference"].iter().collect::<PathBuf>(),
         &[std::ffi::OsStr::new("_static")]
     )
-    .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
+    .context(format!("Error creating symlinks from docs source {reference_docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
 
     symlink_files_in_dir(
-        &docs_source_dir.join("_static"),
-        &html_static_dir,
+        reference_docs_source_dir.join("_static"),
+        &html_static_build_dir,
         ["..", r"..", "..", "docs", "reference", "_static"].iter().collect::<PathBuf>(),
         &[]
     )
-    .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
+    .context(format!("Error creating symlinks from docs source {reference_docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
+
+    generate_cpp_headers(&root, &docs_build_dir, experimental)?;
 
     {
         let sh = Shell::new()?;
@@ -105,7 +137,8 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         cmd!(sh, "pnpm build").run()?;
     }
 
-    let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("Pipfile"))];
+    let pip_env =
+        vec![(OsString::from("PIPENV_PIPFILE"), reference_docs_source_dir.join("Pipfile"))];
 
     println!("Running pipenv install");
 
@@ -174,7 +207,7 @@ pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     file.write_all(
-        br#"<!-- Generated with `cargo xtask slintdocs` from internal/commons/enums.rs -->
+        br#"<!-- Generated with `cargo xtask docs` from internal/commons/enums.rs -->
 # Builtin Enumerations
 
 "#,
@@ -259,7 +292,7 @@ This structure represents a point with x and y coordinate\n
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     file.write_all(
-        br#"<!-- Generated with `cargo xtask slintdocs` from internal/common/builtin_structs.rs -->
+        br#"<!-- Generated with `cargo xtask docs` from internal/common/builtin_structs.rs -->
 # Builtin Structures
 
 "#,

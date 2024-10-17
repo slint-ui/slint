@@ -29,7 +29,7 @@ if [ -z "$config" ]; then
   config="$script_dir/scraper-config.json"
 fi
 if [ -z "$docs" ]; then
-  docs="$script_dir/../../target/slintdocs/html"
+  docs="$script_dir/../../target/docs/html"
 fi
 if [ -z "$index" ]; then
   index=local
@@ -81,7 +81,7 @@ if $build_docs; then
   $sed -i "s/\$TYPESENSE_INDEX_NAME/$index/g" $searchbox_html
   $sed -i "s/\$TYPESENSE_SERVER_PORT/$port/g" $searchbox_html
   $sed -i "s/\$TYPESENSE_SERVER_URL/$host/g" $searchbox_html
-  cargo xtask slintdocs --show-warnings
+  cargo xtask docs --show-warnings
 fi
 
 # Start http server

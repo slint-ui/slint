@@ -347,7 +347,7 @@ jobs:
             - name: Extract Version
               id: version
               run: |
-                version=$(grep -oP '(?<=<p class="title logo__title">Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
+                version=$(grep -oP '(?<=<p class="title logo__title">Slint )[0-9]+\.[0-9]+\.[0-9]+' target/docs/html/index.html)
                 if [[ -z "$version" ]]; then
                   echo "Version not found"
                   exit 1
@@ -424,8 +424,6 @@ jobs:
                 rm -rf $output_path/docs
                 mkdir -p $output_path/docs
                 cp -a ../docs/site/* $output_path/docs
-                mkdir -p $output_path/docs/cpp
-                cp -a ../target/cppdocs/html/* $output_path/docs/cpp/
                 mkdir -p $output_path/docs/rust
                 cp -a ../target/doc/* $output_path/docs/rust/
 
@@ -435,7 +433,7 @@ jobs:
                 mkdir -p $output_path/docs/node
                 cp -a ../api/node/docs/* $output_path/docs/node/
                 mkdir -p $output_path/docs/slint
-                cp -a ../target/slintdocs/html/* $output_path/docs/slint/
+                cp -a ../target/docs/html/* $output_path/docs/slint/
 
             - name: Adjust redirections
               if: github.event.inputs.release == 'true'

@@ -15,6 +15,7 @@
 #
 import os
 import sys
+import textwrap
 sys.path.insert(0, os.path.abspath('.'))
 
 
@@ -30,12 +31,62 @@ copyright = "SixtyFPS GmbH"
 author = "Slint Developers <info@slint.dev>"
 github_url = "https://github.com/slint-ui/slint"
 
+cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
+
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design", "sphinx_copybutton", "sphinx_sitemap"]
+extensions = [
+    "breathe",
+    "exhale",
+    "myst_parser",
+    "sphinx.ext.autosectionlabel",
+    "sphinx_copybutton",
+    "sphinx_design",
+    "sphinx_markdown_tables",
+    "sphinx_sitemap",
+    "sphinx_tabs.tabs",
+    "sphinxcontrib.jquery",
+]
+
+breathe_projects = {"Slint": "./cpp_api/xml"}
+breathe_default_project = "Slint"
+
+exhale_args = {
+    "containmentFolder": "./src/cpp/api",
+    "rootFileName": "library_root.rst",
+    "rootFileTitle": "C++ API Reference",
+    "afterTitleDescription": textwrap.dedent(
+        """
+            The following sections present the C++ API Reference. All types are
+            within the :ref:`slint<namespace_slint>` namespace and are accessible by including
+            the :code:`slint.h` header file.
+
+            If you choose to load :code:`.slint` files dynamically at run-time, then
+            you can use the classes in :ref:`slint::interpreter<namespace_slint__interpreter>`, starting at
+            :cpp:class:`slint::interpreter::ComponentCompiler`. You need to include
+            the :code:`slint-interpreter.h` header file.
+        """
+    ),
+    "doxygenStripFromPath": "../../api/cpp",
+    "createTreeView": True,
+    "kindsWithContentsDirectives": [],
+    "exhaleExecutesDoxygen": True,
+    "exhaleDoxygenStdin": textwrap.dedent(
+        """
+            INPUT = ../../api/cpp/include generated_include
+            EXCLUDE_SYMBOLS = slint::cbindgen_private* slint::private_api* vtable* SLINT_DECL_ITEM
+            EXCLUDE = ../../api/cpp/include/vtable.h ../../api/cpp/include/slint_tests_helper.h ../../api/cpp/include/slint-stm32.h
+            ENABLE_PREPROCESSING = YES
+            PREDEFINED += DOXYGEN
+            INCLUDE_PATH = generated_include
+            WARN_AS_ERROR = YES
+        """
+    ),
+}
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

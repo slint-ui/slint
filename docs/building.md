@@ -227,20 +227,24 @@ The Slint documentation consists of five parts:
 
 The quickstart guide is part of the DSL documentation.
 
-### Quickstart and DSL docs
+### Quickstart and Docs
 
-The quickstart and DSL docs are written in markdown and built with Sphinx, using the myst parser extension.
+The quickstart and docs are written in markdown and built with Sphinx, using the myst parser extension.
 
 **Prerequisites**:
 
 - [pipenv](https://pipenv.pypa.io/en/latest/)
-- [Python](https://www.python.org/downloads/)
+- [Python](https://www.python.org/downloads/)A
+- [Sphinx](https://www.sphinx-doc.org/)
+- [Doxygen](https://www.doxygen.nl/download.html)
 
-Use the following command line to build the documentation using `rustdoc` to the `target/slintdocs/html` folder:
+Use the following command line to build the documentation using `sphinx` to the `target/docs/html` folder:
 
 ```shell
-cargo xtask slintdocs --show-warnings
+cargo xtask docs --show-warnings
 ```
+
+This also includes any C++ specific doocumentation.
 
 ### Rust API docs
 
@@ -254,15 +258,7 @@ Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used
 
 ### C++ API docs
 
-**Prerequisites**:
-
-- [Doxygen](https://www.doxygen.nl/download.html)
-
-Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
-
-```sh
-cargo xtask cppdocs
-```
+See [Quickstart and Docs].
 
 ### Node.js API docs
 
@@ -324,7 +320,7 @@ The script accepts the following arguments
 
 -c : Location of config file (default: `docs/search/scraper-config.json`)
 
--d : Location of index.html of docs (default: `target/slintdocs/html`)
+-d : Location of index.html of docs (default: `target/docs/html`)
 
 -i : Name of the search index (default: `local`)
 
@@ -351,7 +347,7 @@ docs/search/docsearch-scraper.sh -a API_KEY -b -r TYPESENSE_CLOUD_HOST_NAME
 Run http server
 
 ```sh
-python3 -m http.server -d target/slintdocs/html
+python3 -m http.server -d target/docs/html
 ```
 
 Open browser (<http://localhost:8000>) and use the search bar to search for content
