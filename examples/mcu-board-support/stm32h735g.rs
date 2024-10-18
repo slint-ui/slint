@@ -205,9 +205,7 @@ impl Default for StmBackend {
         led_green.set_low();
         */
 
-        // SAFETY the init function is only called once (as enforced by Peripherals::take)
-        let (fb1, fb2) = unsafe { (core::ptr::addr_of!(FB1), core::ptr::addr_of!(FB2)) };
-
+        let (fb1, fb2) = (core::ptr::addr_of!(FB1), core::ptr::addr_of!(FB2));
         assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
             .contains(&(fb1 as usize)));
         assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
