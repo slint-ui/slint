@@ -637,12 +637,23 @@ impl WindowInner {
 
         self.mouse_input_state.set(mouse_input_state);
 
-        if close_policy == ClosePolicy::OnClick
-            && ((!mouse_inside_popup && released_event && self.had_popup_on_press.get())
-                || (!mouse_inside_popup && pressed_event))
-        {
-            self.close_popup();
-        }
+        match close_policy {
+            ClosePolicy::OnClick => {
+                if (!mouse_inside_popup && released_event && self.had_popup_on_press.get())
+                    || (!mouse_inside_popup && pressed_event)
+                {
+                    self.close_popup();
+                }
+            }
+            ClosePolicy::OnClickOutside => {
+                if !mouse_inside_popup
+                    && (released_event && self.had_popup_on_press.get() || pressed_event)
+                {
+                    self.close_popup();
+                }
+            }
+            ClosePolicy::Off => {}
+        };
 
         crate::properties::ChangeTracker::run_change_handlers();
     }
@@ -1068,10 +1079,7 @@ impl WindowInner {
 
     /// Returns true if the currently active popup is configured to close on click. None if there is no active popup.
     pub fn close_policy(&self) -> ClosePolicy {
-        self.active_popup
-            .borrow()
-            .as_ref()
-            .map_or(ClosePolicy::Off, |popup| popup.close_policy)
+        self.active_popup.borrow().as_ref().map_or(ClosePolicy::Off, |popup| popup.close_policy)
     }
 
     /// Returns the scale factor set on the window, as provided by the windowing system.
