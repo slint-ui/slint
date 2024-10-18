@@ -673,6 +673,7 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
                 for i in sub_component_path {
                     sub_component = &sub_component.sub_components[*i].ty;
                 }
+                println!("error on name {}", prop_name);
                 sub_component.items[*item_index as usize].ty.lookup_property(prop_name).unwrap()
             }
             PropertyReference::InParent { level, parent_reference } => {

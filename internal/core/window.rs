@@ -639,16 +639,14 @@ impl WindowInner {
 
         match close_policy {
             ClosePolicy::OnClick => {
-                if (!mouse_inside_popup && released_event && self.had_popup_on_press.get())
+                if (mouse_inside_popup && released_event && self.had_popup_on_press.get())
                     || (!mouse_inside_popup && pressed_event)
                 {
                     self.close_popup();
                 }
             }
             ClosePolicy::OnClickOutside => {
-                if !mouse_inside_popup
-                    && (released_event && self.had_popup_on_press.get() || pressed_event)
-                {
+                if !mouse_inside_popup && pressed_event {
                     self.close_popup();
                 }
             }

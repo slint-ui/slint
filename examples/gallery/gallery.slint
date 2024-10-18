@@ -14,38 +14,34 @@ export component App inherits Window {
     title: @tr("Slint Widgets Gallery");
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
-    // HorizontalLayout {
-    //     side-bar := SideBar {
-    //         title: @tr("Slint Widgets Gallery");
-    //         model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "Easings"), @tr("Menu" => "About")];
-    //     }
+    HorizontalLayout {
+        side-bar := SideBar {
+            title: @tr("Slint Widgets Gallery");
+            model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "Easings"), @tr("Menu" => "About")];
+        }
 
-    //     if(side-bar.current-item == 0) : ControlsPage {}
-    //     if(side-bar.current-item == 1) : ListViewPage {}
-    //     if(side-bar.current-item == 2) : TableViewPage {}
-    //     if(side-bar.current-item == 3) : TextEditPage {}
-    //     if(side-bar.current-item == 4) : EasingsPage {}
-    //     if(side-bar.current-item == 5) : AboutPage {}
+        if(side-bar.current-item == 0) : ControlsPage {}
+        if(side-bar.current-item == 1) : ListViewPage {}
+        if(side-bar.current-item == 2) : TableViewPage {}
+        if(side-bar.current-item == 3) : TextEditPage {}
+        if(side-bar.current-item == 4) : EasingsPage {}
+        if(side-bar.current-item == 5) : AboutPage {}
+    }
+
+    // Button {
+    //     text: "open popup";
+
+    //     clicked => {
+    //         popup.show();
+    //     }
     // }
 
-    HorizontalLayout {
-        padding: 8px;
+    // popup := PopupWindow {
+    //     width: 400px;
+    //     height: 400px;
 
-        Button {
-            text: "open popup";
-
-            clicked => {
-                popup.show();
-            }
-        }
-    }
-
-    popup := PopupWindow {
-       close-policy: ClosePolicy.on-click;
-       width: 200px;
-       height: 200px;
-       Rectangle {
-           background: green;
-       }
-    }
+    //     Rectangle {
+    //         background: blue;
+    //     }
+    // }
 }
