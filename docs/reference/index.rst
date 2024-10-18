@@ -11,21 +11,20 @@
 
    src/overview/philosophy.md
    src/overview/components.md
-   src/overview/types.md
-   src/overview/layouts.md
-   src/overview/states.md
-   src/overview/animation.md
    src/overview/reactive.md
-   src/overview/functions.md
 
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Introduction (old)
+   :caption: Elements
 
-   src/introduction/index.rst
-   src/introduction/supported_platforms.md
-   src/quickstart/index.rst
+   src/elements/common.md
+   src/elements/flickable.md
+   src/elements/focusscope.md
+   src/elements/gridlayout.md
+   src/elements/image.md
+   src/elements/toucharea.md
+
 
 .. toctree::
    :hidden:
@@ -70,4 +69,16 @@
    :caption: Index
 
    genindex
+
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Introduction (old)
+
+   src/introduction/index.rst
+   src/introduction/supported_platforms.md
+   src/quickstart/index.rst
+
+   
 
