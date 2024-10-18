@@ -35,7 +35,7 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
-use i_slint_core as corelib;
+use i_slint_core::{self as corelib, OpenGLAPI};
 use once_cell::unsync::OnceCell;
 #[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
@@ -244,6 +244,7 @@ pub struct WinitWindowAdapter {
     fullscreen: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
+    opengl_api: Option<OpenGLAPI>,
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
     /// And we wan see the newer value before the Resized event was received, leading to inconsistencies
     size: Cell<PhysicalSize>,
@@ -282,9 +283,10 @@ impl WinitWindowAdapter {
     pub(crate) fn new(
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
+        opengl_api: Option<OpenGLAPI>,
         #[cfg(enable_accesskit)] proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Result<Rc<Self>, PlatformError> {
-        let winit_window = renderer.resume(window_attributes)?;
+        let winit_window = renderer.resume(window_attributes, opengl_api.clone())?;
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             self_weak: self_weak.clone(),
@@ -302,6 +304,7 @@ impl WinitWindowAdapter {
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
             renderer,
+            opengl_api,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
             #[cfg(enable_accesskit)]
@@ -340,7 +343,7 @@ impl WinitWindowAdapter {
         };
         let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
 
-        let winit_window = self.renderer.resume(window_attributes)?;
+        let winit_window = self.renderer.resume(window_attributes, self.opengl_api.clone())?;
 
         *winit_window_or_none = WinitWindowOrNone::HasWindow(winit_window.clone());
 

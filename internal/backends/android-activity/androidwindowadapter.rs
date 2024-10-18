@@ -221,6 +221,7 @@ impl AndroidWindowAdapter {
                         Rc::new(w),
                         Rc::new(raw_window_handle::DisplayHandle::android()),
                         size,
+                        None,
                     )?;
                     self.resize();
                 }

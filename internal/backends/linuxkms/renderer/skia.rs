@@ -61,6 +61,7 @@ impl SkiaRendererAdapter {
                 display.clone(),
                 display.clone(),
                 size,
+                None,
                 display.config_template_builder(),
                 Some(&|config| display.filter_gl_config(config)),
             )?;

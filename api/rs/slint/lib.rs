@@ -399,6 +399,8 @@ macro_rules! init_translations {
 pub mod platform {
     pub use i_slint_core::platform::*;
 
+    pub use i_slint_backend_selector::PlatformBuilder;
+
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
