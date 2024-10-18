@@ -492,6 +492,7 @@ pub struct TextInput {
     pub accepted: Callback<VoidArg>,
     pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
+    pub selected: Callback<VoidArg>,
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
@@ -613,9 +614,15 @@ impl Item for TextInput {
                 #[cfg(not(target_os = "android"))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
-            MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
+                let released_offset = self.byte_offset_for_position(position, window_adapter) as i32;
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
+                
+                if self.anchor_position_byte_offset() != released_offset {
+                    Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
+                }
+                
                 #[cfg(target_os = "android")]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
@@ -695,6 +702,11 @@ impl Item for TextInput {
                                 window_adapter,
                                 self_rc,
                             );
+
+                            if event.modifiers.shift && self.anchor_position_byte_offset() != self.cursor_position_byte_offset() {
+                                Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
+                            }
+
                             return KeyEventResult::EventAccepted;
                         }
                         TextShortcut::DeleteForward => {
@@ -762,6 +774,7 @@ impl Item for TextInput {
                     match shortcut {
                         StandardShortcut::SelectAll => {
                             self.select_all(window_adapter, self_rc);
+                            Self::FIELD_OFFSETS.selected.apply_pin(self).call(&());
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy => {
@@ -1221,6 +1234,7 @@ impl TextInput {
                 self.as_ref().anchor_position_byte_offset.set(new_cursor_pos as i32);
             }
         }
+
         self.set_cursor_position(
             new_cursor_pos as i32,
             reset_preferred_x_pos,
