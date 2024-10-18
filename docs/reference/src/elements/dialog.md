@@ -1,0 +1,38 @@
+## `Dialog`
+
+Dialog is like a window, but it has buttons that are automatically laid out.
+
+A Dialog should have one main element as child, that isn't a button.
+The dialog can have any number of `StandardButton` widgets or other buttons
+with the `dialog-button-role` property.
+The buttons will be placed in an order that depends on the target platform at run-time.
+
+The `kind` property of the `StandardButton`s and the `dialog-button-role` properties need to be set to a constant value, it can't be an arbitrary variable expression.
+There can't be several `StandardButton`s of the same kind.
+
+A callback `<kind>_clicked` is automatically added for each `StandardButton` which doesn't have an explicit
+callback handler, so it can be handled from the native code: For example if there is a button of kind `cancel`,
+a `cancel_clicked` callback will be added.
+Each of these automatically-generated callbacks is an alias for the `clicked` callback of the associated `StandardButton`.
+
+### Properties
+
+-   **`icon`** (_in_ _image_): The window icon shown in the title bar or the task bar on window managers supporting it.
+-   **`title`** (_in_ _string_): The window title that is shown in the title bar.
+
+### Example
+
+```slint
+import { StandardButton, Button } from "std-widgets.slint";
+export component Example inherits Dialog {
+    Text {
+      text: "This is a dialog box";
+    }
+    StandardButton { kind: ok; }
+    StandardButton { kind: cancel; }
+    Button {
+      text: "More Info";
+      dialog-button-role: action;
+    }
+}
+```

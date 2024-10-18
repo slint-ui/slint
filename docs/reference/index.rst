@@ -19,11 +19,19 @@
    :caption: Elements
 
    src/elements/common.md
+   src/elements/dialog.md
    src/elements/flickable.md
    src/elements/focusscope.md
    src/elements/gridlayout.md
    src/elements/image.md
+   src/elements/path.md
+   src/elements/rectangle.md
+   src/elements/swipegesturehandler.md
+   src/elements/text.md
+   src/elements/textinput.md
    src/elements/toucharea.md
+   src/elements/vertical-and-horizontallayout.md
+   src/elements/window.md
 
 
 .. toctree::
