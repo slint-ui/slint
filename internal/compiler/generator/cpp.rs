@@ -3549,9 +3549,9 @@ fn compile_builtin_function_call(
                     Some(ParentCtx::new(&ctx, None)),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
-                let close_on_click = compile_expression(close_on_click, ctx);
+                let close_policy = compile_expression(close_policy, ctx);
                 format!(
-                    "{window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {position}; }}, {close_on_click}, {{ {parent_component} }})"
+                    "{window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)

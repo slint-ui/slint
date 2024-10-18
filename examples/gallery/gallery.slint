@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { CheckBox, StandardListView } from "std-widgets.slint";
+import { CheckBox, StandardListView, Button } from "std-widgets.slint";
 import { AboutPage, ControlsPage, EasingsPage, ListViewPage, TableViewPage, TableViewPageAdapter, TextEditPage } from "ui/pages/pages.slint";
 import { GallerySettings } from "ui/gallery_settings.slint";
 import { SideBar } from "ui/side_bar.slint";
@@ -14,22 +14,38 @@ export component App inherits Window {
     title: @tr("Slint Widgets Gallery");
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
-    HorizontalLayout {
-        side-bar := SideBar {
-            title: @tr("Slint Widgets Gallery");
-            model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "Easings"), @tr("Menu" => "About")];
-        }
+    // HorizontalLayout {
+    //     side-bar := SideBar {
+    //         title: @tr("Slint Widgets Gallery");
+    //         model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "Easings"), @tr("Menu" => "About")];
+    //     }
 
-        if(side-bar.current-item == 0) : ControlsPage {}
-        if(side-bar.current-item == 1) : ListViewPage {}
-        if(side-bar.current-item == 2) : TableViewPage {}
-        if(side-bar.current-item == 3) : TextEditPage {}
-        if(side-bar.current-item == 4) : EasingsPage {}
-        if(side-bar.current-item == 5) : AboutPage {}
+    //     if(side-bar.current-item == 0) : ControlsPage {}
+    //     if(side-bar.current-item == 1) : ListViewPage {}
+    //     if(side-bar.current-item == 2) : TableViewPage {}
+    //     if(side-bar.current-item == 3) : TextEditPage {}
+    //     if(side-bar.current-item == 4) : EasingsPage {}
+    //     if(side-bar.current-item == 5) : AboutPage {}
+    // }
+
+    HorizontalLayout {
+        padding: 8px;
+
+        Button {
+            text: "open popup";
+
+            clicked => {
+                popup.show();
+            }
+        }
     }
 
-    PopupWindow {
-    //close-on-click: false;
-       close-policy: ClosePolicy.on-click-outside;
+    popup := PopupWindow {
+       close-policy: ClosePolicy.on-click;
+       width: 200px;
+       height: 200px;
+       Rectangle {
+           background: green;
+       }
     }
 }

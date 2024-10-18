@@ -94,9 +94,12 @@ fn lower_popup_window(
             None
         });
 
-    let close_on_click = match close_on_click {
+    let mut close_on_click = match close_on_click {
         Some((expr, location)) => match expr {
-            Expression::BoolLiteral(value) => value,
+            Expression::BoolLiteral(value) => {
+                diag.push_warning("The property 'close-on-click' has been deprecated. Please use 'close-policy' instead".into(), &location);
+                Some(value)
+            }
             _ => {
                 diag.push_error(
                     "The close-on-click property only supports constants at the moment".into(),
@@ -105,7 +108,7 @@ fn lower_popup_window(
                 return;
             }
         },
-        None => true,
+        None => None,
     };
 
     let popup_comp = Rc::new(Component {
@@ -146,7 +149,10 @@ fn lower_popup_window(
 
     let close_policy = match close_policy {
         Some((expr, location)) => match expr {
-            Expression::EnumerationValue(value) => value,
+            Expression::EnumerationValue(value) => {
+                close_on_click = Some(value.value == 0);
+                value
+            }
             _ => {
                 diag.push_error(
                     "The close-policy property only supports constants at the moment".into(),
@@ -157,8 +163,16 @@ fn lower_popup_window(
         },
         None => {
             let enum_ty = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ClosePolicy.clone());
+
+            let mut value = String::from("off");
+
+            if let Some(close_on_click) = close_on_click {
+                if close_on_click {
+                    value = "on-click".into()
+                }
+            }
             EnumerationValue {
-                value: enum_ty.values.iter().position(|v| v == "off").unwrap(),
+                value: enum_ty.values.iter().position(|v| v == value.as_str()).unwrap(),
                 enumeration: enum_ty,
             }
         }
@@ -205,7 +219,7 @@ fn lower_popup_window(
         component: popup_comp,
         x: coord_x,
         y: coord_y,
-        close_on_click,
+        close_on_click: close_on_click == Some(true),
         close_policy,
         parent_element: parent_element.clone(),
     });
