@@ -90,21 +90,27 @@ impl PlatformBuilder {
     /// platform::set_platform(platform).unwrap();
     /// ```
     pub fn build(self) -> Result<Box<dyn Platform + 'static>, PlatformError> {
-        let builder = i_slint_backend_winit::Backend::builder().with_allow_fallback(false);
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "i-slint-backend-winit")] {
+                let builder = i_slint_backend_winit::Backend::builder().with_allow_fallback(false);
 
-        let builder = match self.opengl_api {
-            Some(api) => builder.with_opengl_api(api),
-            None => builder,
-        };
+                let builder = match self.opengl_api {
+                    Some(api) => builder.with_opengl_api(api),
+                    None => builder,
+                };
 
-        let builder = match self.renderer {
-            Some(SlintRenderer::Femtovg) => builder.with_renderer_name("femtovg"),
-            Some(SlintRenderer::Skia) => builder.with_renderer_name("skia"),
-            Some(SlintRenderer::Software) => builder.with_renderer_name("software"),
-            None => builder,
-        };
+                let builder = match self.renderer {
+                    Some(SlintRenderer::Femtovg) => builder.with_renderer_name("femtovg"),
+                    Some(SlintRenderer::Skia) => builder.with_renderer_name("skia"),
+                    Some(SlintRenderer::Software) => builder.with_renderer_name("software"),
+                    None => builder,
+                };
 
-        Ok(Box::new(builder.build()?))
+                Ok(Box::new(builder.build()?))
+            } else {
+                Err(PlatformError::NoPlatform)
+            }
+        }
     }
 }
 
