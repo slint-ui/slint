@@ -618,7 +618,7 @@ fn call_builtin_function(
                             y.try_into().unwrap(),
                         )
                     },
-                    popup.close_on_click,
+                    popup.close_policy,
                     enclosing_component.self_weak().get().unwrap().clone(),
                     component.window_adapter(),
                     &parent_item,
