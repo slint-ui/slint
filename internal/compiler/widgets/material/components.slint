@@ -104,6 +104,10 @@ export component ListItem {
     min-height: max(MaterialSizeSettings.item-height, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
+    accessible-role: list-item;
+    accessible-label: root.item.text;
+    accessible-selectable: true;
+    accessible-selected: root.is-selected;
 
     states [
         pressed when root.pressed: {
@@ -145,9 +149,6 @@ export component ListItem {
     i-layout := HorizontalLayout {
         padding-left: 12px;
         padding-right: 12px;
-        accessible-role: list-item;
-        accessible-selectable: true;
-        accessible-selected: root.is-selected;
 
         label := Text {
             text: root.item.text;
@@ -157,6 +158,7 @@ export component ListItem {
             //font-family: MaterialFontSettings.label-large.font;
             font-size: MaterialFontSettings.label-large.font-size;
             font-weight: MaterialFontSettings.label-large.font-weight;
+            accessible-role: none;
         }
     }
 
