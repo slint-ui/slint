@@ -14,6 +14,7 @@ export component ComboBox {
     callback selected <=> base.selected;
 
     accessible-role: combobox;
+    accessible-enabled: root.enabled;
     accessible-value <=> root.current-value;
     forward-focus: base;
 

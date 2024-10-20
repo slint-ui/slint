@@ -48,6 +48,7 @@ export component TabImpl inherits Rectangle {
     horizontal-stretch: 1;
     vertical-stretch: 0;
     accessible-role: tab;
+    accessible-enabled: root.enabled;
     accessible-label: root.title;
 
     if (root.is-current || i-touch-area.pressed): Rectangle {

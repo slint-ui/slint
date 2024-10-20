@@ -400,6 +400,13 @@ impl NodeCollection {
             builder.set_name(label);
         }
 
+        if item
+            .accessible_string_property(AccessibleStringProperty::Enabled)
+            .is_some_and(|x| x != "true")
+        {
+            builder.set_disabled();
+        }
+
         let geometry = item.geometry();
         let absolute_origin = item.map_to_window(geometry.origin);
         let physical_origin = (absolute_origin * scale_factor).cast::<f64>();

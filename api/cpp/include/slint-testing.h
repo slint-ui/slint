@@ -231,6 +231,19 @@ public:
         return get_accessible_string_property(cbindgen_private::AccessibleStringProperty::Label);
     }
 
+    /// Returns the accessible-enabled of that element, if any.
+    std::optional<bool> accessible_enabled() const
+    {
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Enabled)) {
+            if (*result == "true")
+                return true;
+            else if (*result == "false")
+                return false;
+        }
+        return std::nullopt;
+    }
+
     /// Returns the accessible-value of that element, if any.
     std::optional<SharedString> accessible_value() const
     {
