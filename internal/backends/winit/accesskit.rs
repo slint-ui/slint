@@ -414,6 +414,7 @@ impl NodeCollection {
             Role::Button
                 | Role::CheckBox
                 | Role::ComboBox
+                | Role::ListBoxOption
                 | Role::Slider
                 | Role::SpinButton
                 | Role::Tab
