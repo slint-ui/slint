@@ -18,6 +18,7 @@ export component LineEdit {
     callback accepted <=> base.accepted;
     callback edited <=> base.edited;
     accessible-role: text-input;
+    accessible-enabled: root.enabled;
     accessible-value <=> text;
     accessible-placeholder-text: text == "" ? placeholder-text : "";
     accessible-action-set-value(v) => { text = v; edited(v); }

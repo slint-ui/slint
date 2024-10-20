@@ -16,6 +16,7 @@ export component CheckBox {
 
     min-height: max(18px, layout.min-height);
     accessible-checkable: true;
+    accessible-enabled: root.enabled;
     accessible-label: root.text;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;

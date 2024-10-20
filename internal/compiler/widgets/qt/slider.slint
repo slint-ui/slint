@@ -4,6 +4,7 @@
 export component Slider inherits NativeSlider {
     value: root.minimum;
     accessible-role: slider;
+    accessible-enabled: root.enabled;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;

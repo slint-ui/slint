@@ -19,6 +19,7 @@ pub enum AccessibleStringProperty {
     Checked,
     DelegateFocus,
     Description,
+    Enabled,
     Label,
     PlaceholderText,
     Selectable,

@@ -69,6 +69,7 @@ Use the following `accessible-` properties to make your items interact well with
 -   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
 -   **`accessible-checked`** (_in_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
 -   **`accessible-description`** (_in_ _string_): The description for the current element.
+-   **`accessible-enabled`** (_in_ _bool_): Whether the element is enabled or not. This maps to the "enabled" state of most widgets.
 -   **`accessible-label`** (_in_ _string_): The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
 -   **`accessible-value-maximum`** (_in_ _float_): The maximum value of the item. This is used for example by spin boxes.
 -   **`accessible-value-minimum`** (_in_ _float_): The minimum value of the item.

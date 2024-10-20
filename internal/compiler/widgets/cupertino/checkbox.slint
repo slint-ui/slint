@@ -16,6 +16,7 @@ export component CheckBox {
     private property <brush> icon-color: CupertinoPalette.accent-foreground;
 
     min-height: max(14px, i-layout.min-height);
+    accessible-enabled: root.enabled;
     accessible-checkable: true;
     accessible-label: root.text;
     accessible-checked <=> root.checked;
