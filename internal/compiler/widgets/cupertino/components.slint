@@ -58,6 +58,10 @@ export component ListItem {
     min-height: max(CupertinoSizeSettings.item-height, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
+    accessible-role: list-item;
+    accessible-label: root.item.text;
+    accessible-selectable: true;
+    accessible-selected: root.is-selected;
 
     states [
         has-focus when root.has-focus : {
@@ -73,9 +77,6 @@ export component ListItem {
     i-layout := VerticalLayout {
         padding-left: root.padding-horizontal;
         padding-right: root.padding-horizontal;
-        accessible-role: list-item;
-        accessible-selectable: true;
-        accessible-selected: root.is-selected;
 
         i-background := Rectangle {
             background: transparent;
@@ -102,6 +103,7 @@ export component ListItem {
                     vertical-alignment: center;
                     horizontal-alignment: left;
                     overflow: elide;
+                    accessible-role: none;
                 }
             }
         }

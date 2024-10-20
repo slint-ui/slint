@@ -46,6 +46,10 @@ export component ListItem {
     min-height: max(FluentSizeSettings.item-height, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
+    accessible-role: list-item;
+    accessible-label: root.item.text;
+    accessible-selectable: true;
+    accessible-selected: root.is-selected;
 
     states [
         pressed when root.pressed : {
@@ -78,9 +82,6 @@ export component ListItem {
             padding-left: 16px;
             padding-right: 16px;
             spacing: 4px;
-            accessible-role: list-item;
-            accessible-selectable: true;
-            accessible-selected: root.is-selected;
 
             i-text := Text {
                 text: root.item.text;
@@ -90,6 +91,7 @@ export component ListItem {
                 vertical-alignment: center;
                 horizontal-alignment: left;
                 overflow: elide;
+                accessible-role: none;
 
                 animate color { duration: 200ms; }
             }
