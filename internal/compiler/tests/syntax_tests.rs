@@ -124,10 +124,14 @@ fn process_diagnostics(
         let offset = loop {
             line_counter += 1;
             if line_counter >= lines_to_source {
-                break line_offset;
+                break line_offset + column;
             }
-            line_offset = source[..line_offset].rfind('\n').unwrap_or(0);
-        } + column;
+            if let Some(o) = source[..line_offset].rfind('\n') {
+                line_offset = o;
+            } else {
+                break 1;
+            };
+        };
 
         let expected_diag_level = match warning_or_error {
             "warning" => i_slint_compiler::diagnostics::DiagnosticLevel::Warning,

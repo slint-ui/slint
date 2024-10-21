@@ -332,13 +332,12 @@ fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
                 p.consume();
                 return true;
             }
-            SyntaxKind::Eof => return false,
             SyntaxKind::Comma => {
                 p.consume();
             }
             _ => {
-                p.consume();
-                p.error("Expected comma")
+                p.error("Expected comma or brace");
+                return false;
             }
         }
     }
