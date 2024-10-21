@@ -1562,6 +1562,14 @@ fn resolve_two_way_bindings(
                                 .or_default()
                                 .is_linked = true;
 
+                            if lhs_lookup.property_visibility == PropertyVisibility::Private
+                                && !lhs_lookup.is_local_to_component
+                            {
+                                // Assignment to private property should have been reported earlier
+                                assert!(diag.has_errors());
+                                continue;
+                            }
+
                             // Check the compatibility.
                             let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
                             if rhs_lookup.property_type == Type::Invalid {
