@@ -19,7 +19,9 @@ html[data-theme="dark"] {
         background-color: #151D21;
     }
 
-    .bd-header-article {
+    .bd-header-article,
+    .bd-sidebar-primary,
+    .bd-sidebar-secondary {
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
     }
