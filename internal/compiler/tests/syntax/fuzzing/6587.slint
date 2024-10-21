@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component Button {
+ property<bool>enabled:te
+  }
+//^error{Syntax error: expected ';'}
+component C1{
+  in property <bool in
+//                  ^error{Syntax error: expected '>'}
+  Button{ enabled <=>in;
+//^error{Syntax error: expected ';'}
+}
+}
+
