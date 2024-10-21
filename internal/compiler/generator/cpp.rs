@@ -2534,6 +2534,22 @@ fn generate_global(
         }
     }
 
+    for (i, _) in global.change_callbacks.iter() {
+        global_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "slint::private_api::ChangeTracker".into(),
+                name: format_smolstr!("change_tracker{}", i),
+                ..Default::default()
+            }),
+        ));
+    }
+    init.extend(global.change_callbacks.iter().map(|(p, e)| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        let prop = access_member(&llr::PropertyReference::Local { sub_component_path: vec![], property_index: *p }, &ctx);
+        format!("this->change_tracker{p}.init(this, [this]([[maybe_unused]] auto self) {{ return {prop}.get(); }}, [this]([[maybe_unused]] auto self, auto) {{ {code}; }});")
+    }));
+
     global_struct.members.push((
         Access::Public,
         Declaration::Function(Function {

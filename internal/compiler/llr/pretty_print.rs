@@ -154,6 +154,15 @@ impl<'a> PrettyPrinter<'a> {
                 if *is_const { "  const" } else { "" }
             )?;
         }
+        for (p, e) in &global.change_callbacks {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "changed {} => {};",
+                global.properties[*p].name,
+                DisplayExpression(&e.borrow(), &ctx),
+            )?
+        }
         for f in &global.functions {
             self.indent()?;
             writeln!(

@@ -56,6 +56,8 @@ pub struct GlobalComponent {
     pub functions: Vec<Function>,
     /// One entry per property
     pub init_values: Vec<Option<BindingExpression>>,
+    // maps property to its changed callback
+    pub change_callbacks: BTreeMap<usize, MutExpression>,
     pub const_properties: Vec<bool>,
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
@@ -433,6 +435,9 @@ impl CompilationUnit {
             let ctx = EvaluationContext::new_global(self, g, ());
             for e in g.init_values.iter().filter_map(|x| x.as_ref()) {
                 visitor(&e.expression, &ctx)
+            }
+            for e in g.change_callbacks.values() {
+                visitor(e, &ctx)
             }
         }
     }
