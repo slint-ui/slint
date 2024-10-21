@@ -73,7 +73,7 @@ Use `{n}` in the format string to access the expression after the `%`.
 export component Example inherits Text {
     in property <int> score;
     in property <int> name;
-    text: @tr("Hello {0}, you have one point" | "Hello {0}, you have {n} point" % score, name);
+    text: @tr("Hello {0}, you have one point" | "Hello {0}, you have {n} points" % score, name);
 }
 ```
 
