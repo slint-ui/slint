@@ -168,13 +168,15 @@ pub fn instantiate(
         CompiledGlobal::Component { component, .. } => {
             generativity::make_guard!(guard);
             let description = component.unerase(guard);
-            Rc::pin(GlobalComponentInstance(crate::dynamic_item_tree::instantiate(
+            let inst = crate::dynamic_item_tree::instantiate(
                 description.clone(),
                 None,
                 Some(root),
                 None,
                 globals.clone(),
-            )))
+            );
+            inst.run_setup_code();
+            Rc::pin(GlobalComponentInstance(inst))
         }
     };
     globals.extend(

@@ -795,6 +795,20 @@ fn lower_global(
         });
     }
 
+    let mut change_callbacks = BTreeMap::new();
+    for (prop, expr) in &global.root_element.borrow().change_callbacks {
+        let nr = NamedReference::new(&global.root_element, prop);
+        let property_index = match mapping.property_mapping[&nr] {
+            PropertyReference::Local { property_index, .. } => property_index,
+            _ => unreachable!(),
+        };
+        let expression = super::lower_expression::lower_expression(
+            &tree_Expression::CodeBlock(expr.borrow().clone()),
+            &ctx,
+        );
+        change_callbacks.insert(property_index, expression.into());
+    }
+
     let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
         // We just generate the property so we know how to address them
         for (p, x) in &builtin.properties {
@@ -828,6 +842,7 @@ fn lower_global(
         properties,
         functions,
         init_values,
+        change_callbacks,
         const_properties,
         public_properties,
         private_properties: global.private_properties.borrow().clone(),

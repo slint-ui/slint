@@ -1113,6 +1113,13 @@ pub(crate) fn generate_item_tree<'id>(
 
     if !component.is_global() {
         generator::build_item_tree(component, &(), &mut builder);
+    } else {
+        for (prop, expr) in component.root_element.borrow().change_callbacks.iter() {
+            builder.change_callbacks.push((
+                NamedReference::new(&component.root_element, prop),
+                Expression::CodeBlock(expr.borrow().clone()),
+            ));
+        }
     }
 
     let mut custom_properties = HashMap::new();

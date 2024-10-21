@@ -1357,6 +1357,37 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
         }
     }
 
+    let public_component_id = ident(&global.name);
+    let global_id = format_ident!("global_{}", public_component_id);
+
+    let change_tracker_names =
+        global.change_callbacks.iter().map(|(idx, _)| format_ident!("change_tracker{idx}"));
+    init.extend(global.change_callbacks.iter().map(|(p, e)| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        let prop = access_member(
+            &llr::PropertyReference::Local { sub_component_path: vec![], property_index: *p },
+            &ctx,
+        )
+        .unwrap();
+        let change_tracker = format_ident!("change_tracker{p}");
+        quote! {
+            #[allow(dead_code, unused)]
+            _self.#change_tracker.init(
+                self_rc.globals.get().unwrap().clone(),
+                move |global_weak| {
+                    let self_rc = global_weak.upgrade().unwrap().#global_id.clone();
+                    let _self = self_rc.as_ref();
+                    #prop.get()
+                },
+                move |global_weak, _| {
+                    let self_rc = global_weak.upgrade().unwrap().#global_id.clone();
+                    let _self = self_rc.as_ref();
+                    #code;
+                }
+            );
+        }
+    }));
+
     let public_interface = global.exported.then(|| {
         let property_and_callback_accessors = public_api(
             &global.public_properties,
@@ -1364,8 +1395,6 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             quote!(self.0.as_ref()),
             &ctx,
         );
-        let public_component_id = ident(&global.name);
-        let global_id = format_ident!("global_{}", public_component_id);
         let aliases = global.aliases.iter().map(|name| ident(name));
         let getters = root.public_components.iter().map(|c| {
             let root_component_id = ident(&c.name);
@@ -1398,6 +1427,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
         struct #inner_component_id {
             #(#declared_property_vars: sp::Property<#declared_property_types>,)*
             #(#declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(#change_tracker_names : sp::ChangeTracker,)*
             globals : sp::OnceCell<sp::Weak<SharedGlobals>>,
         }
 
