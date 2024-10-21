@@ -1,0 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+   component A inherits Window {
+// ^warning{Component is implicitly marked for export. This is deprecated and it should be explicitly exported}
+    preferred-height: x;
+//                    ^error{Unknown unqualified identifier 'x'. Did you mean 'self.x'?}
+    Image { }
+}

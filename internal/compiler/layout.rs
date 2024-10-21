@@ -406,7 +406,9 @@ fn find_binding<R>(
     let mut depth = 0;
     loop {
         if let Some(b) = element.borrow().bindings.get(name) {
-            return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
+            if b.borrow().has_binding() {
+                return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
+            }
         }
         let e = match &element.borrow().base_type {
             ElementType::Component(base) => base.root_element.clone(),
