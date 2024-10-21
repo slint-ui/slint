@@ -221,6 +221,18 @@ struct NodeCollection {
 }
 
 impl NodeCollection {
+    fn accessible_parent_for_item_rc(&self, mut item: ItemRc) -> ItemRc {
+        while !item.is_accessible() {
+            if let Some(parent) = item.parent_item() {
+                item = parent;
+            } else {
+                break;
+            }
+        }
+
+        item
+    }
+
     fn focus_node(&self, window_adapter_weak: &Weak<WinitWindowAdapter>) -> NodeId {
         window_adapter_weak
             .upgrade()
@@ -233,6 +245,16 @@ impl NodeCollection {
                     .focus_item
                     .borrow()
                     .upgrade()
+                    .map(|focus_item| {
+                        let parent = self.accessible_parent_for_item_rc(focus_item);
+                        parent
+                            .accessible_string_property(AccessibleStringProperty::DelegateFocus)
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .and_then(|i| {
+                                i_slint_core::accessibility::accessible_descendents(&parent).nth(i)
+                            })
+                            .unwrap_or(parent)
+                    })
                     .or_else(|| {
                         window_inner
                             .try_component()
@@ -251,13 +273,7 @@ impl NodeCollection {
     }
 
     fn find_node_id_by_item_rc(&self, mut item: ItemRc) -> Option<NodeId> {
-        while !item.is_accessible() {
-            if let Some(parent) = item.parent_item() {
-                item = parent;
-            } else {
-                break;
-            }
-        }
+        item = self.accessible_parent_for_item_rc(item);
 
         self.encode_item_node_id(&item)
     }

@@ -33,6 +33,8 @@ component StandardListViewBase inherits ListView {
     private property <length> current-item-y: root.item-y(root.focus-item);
     private property <int> focus-item: 0;
 
+    accessible-delegate-focus: root.focus-item;
+
     pure function first-visible-item() -> int {
         return min(root.model.length - 1, max(0, round(-root.viewport-y / root.item-height)));
     }
