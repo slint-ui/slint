@@ -83,7 +83,7 @@ pub type FontCache = Rc<
     RefCell<
         std::collections::HashMap<
             i_slint_common::sharedfontdb::fontdb::ID,
-            fontdue::FontResult<(Rc<fontdue::Font>, Arc<dyn AsRef<[u8]> + Send + Sync>, u32)>,
+            fontdue::FontResult<(Arc<fontdue::Font>, Arc<dyn AsRef<[u8]> + Send + Sync>, u32)>,
         >,
     >,
 >;
@@ -227,7 +227,7 @@ impl CompilerConfiguration {
     fn load_font_by_id(
         &self,
         face_id: i_slint_common::sharedfontdb::fontdb::ID,
-    ) -> fontdue::FontResult<(Rc<fontdue::Font>, Arc<dyn AsRef<[u8]> + Send + Sync>, u32)> {
+    ) -> fontdue::FontResult<(Arc<fontdue::Font>, Arc<dyn AsRef<[u8]> + Send + Sync>, u32)> {
         self.font_cache
             .borrow_mut()
             .entry(face_id)
@@ -246,7 +246,7 @@ impl CompilerConfiguration {
                             )
                             .map(|fontdue_font| {
                                 (
-                                    Rc::new(fontdue_font),
+                                    Arc::new(fontdue_font),
                                     Arc::new(font_data.to_vec())
                                         as Arc<dyn AsRef<[u8]> + Send + Sync>,
                                     face_index,

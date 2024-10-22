@@ -20,7 +20,7 @@ use i_slint_common::sharedfontdb::{self, fontdb};
 struct Font {
     id: fontdb::ID,
     #[deref]
-    fontdue_font: Rc<fontdue::Font>,
+    fontdue_font: Arc<fontdue::Font>,
     face_data: Arc<dyn AsRef<[u8]> + Send + Sync>,
     face_index: u32,
 }
@@ -442,6 +442,8 @@ fn embed_sdf_glyphs(
     font: &Font,
     fallback_fonts: &[Font],
 ) -> Vec<BitmapGlyphs> {
+    use rayon::prelude::*;
+
     const RANGE: f64 = 6.;
 
     let Some(max_size) = pixel_sizes.iter().max() else {
@@ -450,31 +452,31 @@ fn embed_sdf_glyphs(
     let min_size = pixel_sizes.iter().min().expect("we have a 'max' so the vector is not empty");
     let target_pixel_size = (max_size * 2 / 3).max(12).min(RANGE as i16 * min_size);
 
-    let mut glyph_data = Vec::new();
-
-    glyph_data.resize(character_map.len(), Default::default());
-
-    for CharacterMapEntry { code_point, glyph_index } in character_map {
-        let glyph = core::iter::once(font)
-            .chain(fallback_fonts.iter())
-            .find_map(|font| {
-                (font.lookup_glyph_index(*code_point) != 0)
-                    .then(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE))
-            })
-            .unwrap_or_else(|| generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE))
-            .map(|(metrics, bitmap)| BitmapGlyph {
-                x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
-                y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
-                width: i16::try_from(metrics.width).expect("large width"),
-                height: i16::try_from(metrics.height).expect("large height"),
-                x_advance: i16::try_from(metrics.advance_width as i64)
-                    .expect("large advance width"),
-                data: bitmap,
-            })
-            .unwrap_or_default();
-
-        glyph_data[*glyph_index as usize] = glyph;
-    }
+    let glyph_data = character_map
+        .par_iter()
+        .map(|CharacterMapEntry { code_point, .. }| {
+            core::iter::once(font)
+                .chain(fallback_fonts.iter())
+                .find_map(|font| {
+                    (font.lookup_glyph_index(*code_point) != 0).then(|| {
+                        generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE)
+                    })
+                })
+                .unwrap_or_else(|| {
+                    generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE)
+                })
+                .map(|(metrics, bitmap)| BitmapGlyph {
+                    x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
+                    y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
+                    width: i16::try_from(metrics.width).expect("large width"),
+                    height: i16::try_from(metrics.height).expect("large height"),
+                    x_advance: i16::try_from(metrics.advance_width as i64)
+                        .expect("large advance width"),
+                    data: bitmap,
+                })
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>();
 
     vec![BitmapGlyphs { pixel_size: target_pixel_size, glyph_data }]
 }
