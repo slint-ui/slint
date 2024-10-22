@@ -159,7 +159,7 @@ ttf-parser = { version = "0.21" }
 # web-sys needs to be >= 0.3.72 for set_fill_style_str
 web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
-
+rayon = { version = "1.10.0", default-features = false }
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 
 [profile.release]
