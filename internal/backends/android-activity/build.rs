@@ -107,6 +107,8 @@ fn main() {
         .args(&classes)
         .arg("--output")
         .arg(out_dir.as_os_str())
+        .arg("--min-api")
+        .arg("20")
         .output()
         .unwrap_or_else(|err| panic!("Error running {d8_path:?}: {err}"));
 

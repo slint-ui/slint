@@ -7,7 +7,7 @@ use i_slint_core::graphics::{euclid, Color};
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::platform::WindowAdapter;
 use i_slint_core::SharedString;
-use jni::objects::{JClass, JObject, JString, JValue};
+use jni::objects::{JClass, JObject, JString, JValue, JValueGen};
 use jni::sys::{jboolean, jint};
 use jni::JNIEnv;
 use std::time::Duration;
@@ -35,11 +35,81 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
     let dex_buffer =
         unsafe { env.new_direct_byte_buffer(dex_data.as_ptr() as *mut _, dex_data.len()).unwrap() };
 
-    let dex_loader = env.new_object(
-        "dalvik/system/InMemoryDexClassLoader",
-        "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V",
-        &[JValue::Object(&dex_buffer), JValue::Object(&JObject::null())],
-    )?;
+    let parent_dex_loader = env
+        .call_method(&native_activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?
+        .l()?;
+
+    let os_build_class = env.find_class("android/os/Build$VERSION")?;
+    let sdk_ver = env.get_static_field(os_build_class, "SDK_INT", "I")?.i()?;
+
+    let dex_loader = if sdk_ver >= 26 {
+        env.new_object(
+            "dalvik/system/InMemoryDexClassLoader",
+            "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V",
+            &[JValue::Object(&dex_buffer), JValue::Object(&parent_dex_loader)],
+        )?
+    } else {
+        // writes the dex data into the application internal storage
+        let dex_data_len = dex_data.len() as i32;
+        let dex_byte_array = env.byte_array_from_slice(dex_data).unwrap();
+
+        let dex_dir = env.new_string("dex")?;
+        let dex_dir_path = env
+            .call_method(
+                &native_activity,
+                "getDir",
+                "(Ljava/lang/String;I)Ljava/io/File;",
+                &[JValue::Object(&dex_dir), JValueGen::Int(0)],
+            )?
+            .l()?;
+        let dex_name = env.new_string(env!("CARGO_CRATE_NAME").to_string() + ".dex")?;
+        let file_class = env.find_class("java/io/File")?;
+        let dex_path = env.new_object(
+            file_class,
+            "(Ljava/io/File;Ljava/lang/String;)V",
+            &[JValue::Object(&dex_dir_path), JValue::Object(&dex_name)],
+        )?;
+        let dex_path =
+            env.call_method(dex_path, "getAbsolutePath", "()Ljava/lang/String;", &[])?.l()?;
+
+        // prepares the folder for optimized dex generated while creating `DexClassLoader`
+        let out_dex_dir = env.new_string("outdex")?;
+        let out_dex_dir_path = env
+            .call_method(
+                &native_activity,
+                "getDir",
+                "(Ljava/lang/String;I)Ljava/io/File;",
+                &[JValue::Object(&out_dex_dir), JValueGen::Int(0)],
+            )?
+            .l()?;
+        let out_dex_dir_path = env
+            .call_method(&out_dex_dir_path, "getAbsolutePath", "()Ljava/lang/String;", &[])?
+            .l()?;
+
+        // writes the dex data
+        let output_stream_class = env.find_class("java/io/FileOutputStream")?;
+        let write_stream =
+            env.new_object(output_stream_class, "(Ljava/lang/String;)V", &[(&dex_path).into()])?;
+        env.call_method(
+            &write_stream,
+            "write",
+            "([BII)V",
+            &[JValue::Object(&dex_byte_array), JValueGen::Int(0), JValueGen::Int(dex_data_len)],
+        )?;
+        env.call_method(&write_stream, "close", "()V", &[])?;
+
+        // loads the dex file
+        env.new_object(
+            "dalvik/system/DexClassLoader",
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)V",
+            &[
+                JValue::Object(&dex_path),
+                JValue::Object(&out_dex_dir_path),
+                JValue::Object(&JObject::null()),
+                JValue::Object(&parent_dex_loader),
+            ],
+        )?
+    };
 
     let class_name = env.new_string("SlintAndroidJavaHelper")?;
     let helper_class = env
