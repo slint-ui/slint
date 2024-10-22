@@ -106,7 +106,8 @@ public:
     }
 
     template<typename Component, typename Parent, typename PosGetter>
-    void show_popup(const Parent *parent_component, PosGetter pos, cbindgen_private::ClosePolicy close_policy,
+    void show_popup(const Parent *parent_component, PosGetter pos,
+                    cbindgen_private::ClosePolicy close_policy,
                     cbindgen_private::ItemRc parent_item) const
     {
         auto popup = Component::create(parent_component);
