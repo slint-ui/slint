@@ -1,4 +1,4 @@
-﻿// Copyright © SixtyFPS GmbH <info@slint.dev>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
@@ -38,18 +38,15 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
     let parent_dex_loader = env
         .call_method(&native_activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?
         .l()?;
-    
+
     let os_build_class = env.find_class("android/os/Build$VERSION")?;
     let sdk_ver = env.get_static_field(os_build_class, "SDK_INT", "I")?.i()?;
-    
+
     let dex_loader = if sdk_ver >= 26 {
         env.new_object(
             "dalvik/system/InMemoryDexClassLoader",
             "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V",
-            &[
-                JValue::Object(&dex_buffer),
-                JValue::Object(&parent_dex_loader)
-            ],
+            &[JValue::Object(&dex_buffer), JValue::Object(&parent_dex_loader)],
         )?
     } else {
         // writes the dex data into the application internal storage
@@ -72,9 +69,8 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             "(Ljava/io/File;Ljava/lang/String;)V",
             &[JValue::Object(&dex_dir_path), JValue::Object(&dex_name)],
         )?;
-        let dex_path = env
-            .call_method(dex_path, "getAbsolutePath", "()Ljava/lang/String;", &[])?
-            .l()?;
+        let dex_path =
+            env.call_method(dex_path, "getAbsolutePath", "()Ljava/lang/String;", &[])?.l()?;
 
         // prepares the folder for optimized dex generated while creating `DexClassLoader`
         let out_dex_dir = env.new_string("outdex")?;
@@ -87,30 +83,18 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             )?
             .l()?;
         let out_dex_dir_path = env
-            .call_method(
-                &out_dex_dir_path,
-                "getAbsolutePath",
-                "()Ljava/lang/String;",
-                &[],
-            )?
+            .call_method(&out_dex_dir_path, "getAbsolutePath", "()Ljava/lang/String;", &[])?
             .l()?;
 
         // writes the dex data
         let output_stream_class = env.find_class("java/io/FileOutputStream")?;
-        let write_stream = env.new_object(
-            output_stream_class,
-            "(Ljava/lang/String;)V",
-            &[(&dex_path).into()],
-        )?;
+        let write_stream =
+            env.new_object(output_stream_class, "(Ljava/lang/String;)V", &[(&dex_path).into()])?;
         env.call_method(
             &write_stream,
             "write",
             "([BII)V",
-            &[
-                JValue::Object(&dex_byte_array),
-                JValueGen::Int(0),
-                JValueGen::Int(dex_data_len),
-            ],
+            &[JValue::Object(&dex_byte_array), JValueGen::Int(0), JValueGen::Int(dex_data_len)],
         )?;
         env.call_method(&write_stream, "close", "()V", &[])?;
 
