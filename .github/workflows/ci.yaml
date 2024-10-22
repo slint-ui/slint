@@ -20,7 +20,7 @@ env:
 jobs:
     build_and_test:
         env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
@@ -58,9 +58,9 @@ jobs:
                 python-version: '3.10'
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
-                  version: "5.15.2"
+                  version: "6.2.2"
                   setup-python: false
                   cache: true
             - name: Install ffmpeg and alsa (Linux)
@@ -77,7 +77,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: ${{ matrix.rust_version }}
-                  key: x-v2
+                  key: x-v3
             # - name: Pin dependencies to make it build with our MSRV
             #   if: matrix.rust_version == '1.77'
             #   shell: bash
@@ -86,12 +86,12 @@ jobs:
             #         cargo update -p xxx --precise x.y.z
             #       fi
             - name: Run tests (not qt)
-              run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
               shell: bash
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
@@ -120,7 +120,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   setup-python: false
@@ -173,7 +173,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   setup-python: false
@@ -211,7 +211,7 @@ jobs:
                   force-gcc-10: true
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   cache: true
@@ -251,7 +251,7 @@ jobs:
               with:
                   force-gcc-10: true
             - name: Install Qt
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 6.5.1
                   cache: true
@@ -299,7 +299,7 @@ jobs:
               with:
                   force-gcc-10: true
             - name: Install Qt (Ubuntu)
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 6.5.1
                   cache: true
