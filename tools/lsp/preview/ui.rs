@@ -35,7 +35,12 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     let style = if known_styles.contains(&style.as_str()) {
         style
     } else {
-        known_styles.first().map(|s| s.to_string()).unwrap_or_default()
+        known_styles
+            .iter()
+            .find(|x| **x == "native")
+            .or_else(|| known_styles.first())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
     };
 
     let style_model = Rc::new({
