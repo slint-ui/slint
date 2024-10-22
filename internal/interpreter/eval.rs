@@ -610,7 +610,7 @@ fn call_builtin_function(
                 let close_policy = match popup.close_policy.value {
                     0 => ClosePolicy::OnClick,
                     1 => ClosePolicy::OnClickOutside,
-                    _ => ClosePolicy::Off,
+                    _ => ClosePolicy::NoAutoClose,
                 };
 
                 crate::dynamic_item_tree::show_popup(

@@ -5,7 +5,7 @@
 export component Bar {
     in property <ClosePolicy> external;
     xx := PopupWindow {
-        close-policy: off;
+        close-policy: no-auto-close;
         init => {
             xx.close-policy = off;
     //      ^error{The property must be known at compile time and cannot be changed at runtime}

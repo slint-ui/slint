@@ -76,20 +76,10 @@ fn lower_popup_window(
         popup_window_element.borrow_mut().base_type = window_type.clone();
     }
 
-    const CLOSE_POLICY: &str = "close-policy";
-    let close_policy = popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY);
-
     const CLOSE_ON_CLICK: &str = "close-on-click";
     let close_on_click = popup_window_element.borrow_mut().bindings.remove(CLOSE_ON_CLICK);
 
-    if close_policy.is_some() && close_on_click.is_some() {
-        diag.push_error(
-            "close-policy and close-on-click cannot be set at the same time".into(),
-            &close_on_click.unwrap().into_inner().span,
-        );
-        return;
-    }
-
+    // Take a reference to the close on click
     let close_on_click = close_on_click
         .map(|b| {
             let b = b.into_inner();
@@ -108,35 +98,8 @@ fn lower_popup_window(
             None
         });
 
-    let close_on_click = match close_on_click {
-        Some((expr, location)) => match expr {
-            Expression::BoolLiteral(value) => Some(value),
-            _ => {
-                diag.push_error(
-                    "The close-on-click property only supports constants at the moment".into(),
-                    &location,
-                );
-                return;
-            }
-        },
-        None => None,
-    };
-
-    let popup_comp = Rc::new(Component {
-        root_element: popup_window_element.clone(),
-        parent_element: Rc::downgrade(parent_element),
-        ..Component::default()
-    });
-
-    let weak = Rc::downgrade(&popup_comp);
-    recurse_elem(&popup_comp.root_element, &(), &mut |e, _| {
-        e.borrow_mut().enclosing_component = weak.clone()
-    });
-
-    // Take a reference to the x/y coordinates, to be read when calling show_popup(), and
-    // converted to absolute coordinates in the run-time library.
-    let coord_x = NamedReference::new(&popup_comp.root_element, "x");
-    let coord_y = NamedReference::new(&popup_comp.root_element, "y");
+    const CLOSE_POLICY: &str = "close-policy";
+    let close_policy = popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY);
 
     // Take a reference to the close policy
     let close_policy = close_policy
@@ -156,6 +119,28 @@ fn lower_popup_window(
             None
         });
 
+    if close_policy.is_some() && close_on_click.is_some() {
+        diag.push_error(
+            "close-policy and close-on-click cannot be set at the same time".into(),
+            &close_on_click.unwrap().1,
+        );
+        return;
+    }
+
+    let close_on_click = match close_on_click {
+        Some((expr, location)) => match expr {
+            Expression::BoolLiteral(value) => Some(value),
+            _ => {
+                diag.push_error(
+                    "The close-on-click property only supports constants at the moment".into(),
+                    &location,
+                );
+                return;
+            }
+        },
+        None => None,
+    };
+
     let close_policy = match close_policy {
         Some((expr, location)) => match expr {
             Expression::EnumerationValue(value) => value,
@@ -174,7 +159,7 @@ fn lower_popup_window(
 
             if let Some(close_on_click) = close_on_click {
                 if !close_on_click {
-                    value = "off".into()
+                    value = "no-auto-close".into()
                 }
             }
             EnumerationValue {
@@ -183,6 +168,22 @@ fn lower_popup_window(
             }
         }
     };
+
+    let popup_comp = Rc::new(Component {
+        root_element: popup_window_element.clone(),
+        parent_element: Rc::downgrade(parent_element),
+        ..Component::default()
+    });
+
+    let weak = Rc::downgrade(&popup_comp);
+    recurse_elem(&popup_comp.root_element, &(), &mut |e, _| {
+        e.borrow_mut().enclosing_component = weak.clone()
+    });
+
+    // Take a reference to the x/y coordinates, to be read when calling show_popup(), and
+    // converted to absolute coordinates in the run-time library.
+    let coord_x = NamedReference::new(&popup_comp.root_element, "x");
+    let coord_y = NamedReference::new(&popup_comp.root_element, "y");
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.

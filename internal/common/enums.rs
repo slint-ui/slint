@@ -432,7 +432,7 @@ macro_rules! for_each_enums {
                 AlwaysOn,
             }
 
-            // This enum describes the close behaviour of `PopupWindow`
+            // This enum describes the close behaviour of [`PopupWindow`](elements.md#popupwindow)
             enum ClosePolicy {
                 /// Closes the `PopupWindow` when user clicks.
                 OnClick,
@@ -441,7 +441,7 @@ macro_rules! for_each_enums {
                 OnClickOutside,
 
                 /// Does not close the `PopupWindow` automatically when user clicks
-                Off,
+                NoAutoClose,
             }
         ];
     };

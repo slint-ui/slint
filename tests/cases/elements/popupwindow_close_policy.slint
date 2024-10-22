@@ -38,7 +38,7 @@ export component TestCase {
     }
 
     self-closing-popup := PopupWindow {
-        close-policy: off;
+        close-policy: no-auto-close;
         x: 10px;
         y: 10px;
         width: parent.width - 20px;
@@ -57,7 +57,7 @@ export component TestCase {
     }
 
     close-from-outside := PopupWindow {
-        close-policy: off;
+        close-policy: no-auto-close;
         x: 10px;
         y: 10px;
         width: parent.width - 20px;
@@ -177,7 +177,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 2);
 assert_eq!(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-policy: off
+// --------- Popup with close-policy: no-auto-close
 instance.set_popup_selector(1);
 instance.set_popup_created(false);
 instance.set_click_count(0);
@@ -204,7 +204,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 2);
 assert_eq!(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-policy: off closed externally
+// --------- Popup with close-policy: no-auto-close closed externally
 instance.set_popup_selector(2);
 instance.set_popup_created(false);
 instance.set_click_count(0);
@@ -320,7 +320,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_click_count(), 2);
 assert_eq(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-policy: off
+// --------- Popup with close-policy: no-auto-close
 instance.set_popup_selector(1);
 instance.set_popup_created(false);
 instance.set_click_count(0);
@@ -347,7 +347,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_click_count(), 2);
 assert_eq(instance.get_popup_clicked(), 1);
 
-// --------- Popup with close-policy: off closed externally
+// --------- Popup with close-policy: no-auto-close closed externally
 instance.set_popup_selector(2);
 instance.set_popup_created(false);
 instance.set_click_count(0);
