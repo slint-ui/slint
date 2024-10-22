@@ -36,7 +36,7 @@ use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
 use itertools::Either;
-use once_cell::unsync::OnceCell;
+use once_cell::unsync::{Lazy, OnceCell};
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -935,61 +935,68 @@ pub async fn load(
     }
 }
 
+fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
+    let mut rtti = HashMap::new();
+    use i_slint_core::items::*;
+    rtti.extend(
+        [
+            rtti_for::<ComponentContainer>(),
+            rtti_for::<Empty>(),
+            rtti_for::<ImageItem>(),
+            rtti_for::<ClippedImage>(),
+            rtti_for::<ComplexText>(),
+            rtti_for::<SimpleText>(),
+            rtti_for::<Rectangle>(),
+            rtti_for::<BasicBorderRectangle>(),
+            rtti_for::<BorderRectangle>(),
+            rtti_for::<TouchArea>(),
+            rtti_for::<FocusScope>(),
+            rtti_for::<SwipeGestureHandler>(),
+            rtti_for::<Path>(),
+            rtti_for::<Flickable>(),
+            rtti_for::<WindowItem>(),
+            rtti_for::<TextInput>(),
+            rtti_for::<Clip>(),
+            rtti_for::<BoxShadow>(),
+            rtti_for::<Rotate>(),
+            rtti_for::<Opacity>(),
+            rtti_for::<Layer>(),
+        ]
+        .iter()
+        .cloned(),
+    );
+
+    trait NativeHelper {
+        fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>);
+    }
+    impl NativeHelper for () {
+        fn push(_rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {}
+    }
+    impl<
+            T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
+            Next: NativeHelper,
+        > NativeHelper for (T, Next)
+    {
+        fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {
+            let info = rtti_for::<T>();
+            rtti.insert(info.0, info.1);
+            Next::push(rtti);
+        }
+    }
+    i_slint_backend_selector::NativeWidgets::push(&mut rtti);
+
+    rtti
+}
+
 pub(crate) fn generate_item_tree<'id>(
     component: &Rc<object_tree::Component>,
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
     //dbg!(&*component.root_element.borrow());
-    let mut rtti = HashMap::new();
-    {
-        use i_slint_core::items::*;
-        rtti.extend(
-            [
-                rtti_for::<ComponentContainer>(),
-                rtti_for::<Empty>(),
-                rtti_for::<ImageItem>(),
-                rtti_for::<ClippedImage>(),
-                rtti_for::<ComplexText>(),
-                rtti_for::<SimpleText>(),
-                rtti_for::<Rectangle>(),
-                rtti_for::<BasicBorderRectangle>(),
-                rtti_for::<BorderRectangle>(),
-                rtti_for::<TouchArea>(),
-                rtti_for::<FocusScope>(),
-                rtti_for::<SwipeGestureHandler>(),
-                rtti_for::<Path>(),
-                rtti_for::<Flickable>(),
-                rtti_for::<WindowItem>(),
-                rtti_for::<TextInput>(),
-                rtti_for::<Clip>(),
-                rtti_for::<BoxShadow>(),
-                rtti_for::<Rotate>(),
-                rtti_for::<Opacity>(),
-                rtti_for::<Layer>(),
-            ]
-            .iter()
-            .cloned(),
-        );
 
-        trait NativeHelper {
-            fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>);
-        }
-        impl NativeHelper for () {
-            fn push(_rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {}
-        }
-        impl<
-                T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>,
-                Next: NativeHelper,
-            > NativeHelper for (T, Next)
-        {
-            fn push(rtti: &mut HashMap<&str, Rc<ItemRTTI>>) {
-                let info = rtti_for::<T>();
-                rtti.insert(info.0, info.1);
-                Next::push(rtti);
-            }
-        }
-        i_slint_backend_selector::NativeWidgets::push(&mut rtti);
+    thread_local! {
+        static RTTI: Lazy<HashMap<&'static str, Rc<ItemRTTI>>> = Lazy::new(|| generate_rtti());
     }
 
     struct TreeBuilder<'id> {
@@ -1001,7 +1008,6 @@ pub(crate) fn generate_item_tree<'id>(
         type_builder: dynamic_type::TypeBuilder<'id>,
         repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
         repeater_names: HashMap<SmolStr, usize>,
-        rtti: Rc<HashMap<&'static str, Rc<ItemRTTI>>>,
         change_callbacks: Vec<(NamedReference, Expression)>,
     }
     impl<'id> generator::ItemTreeBuilder for TreeBuilder<'id> {
@@ -1050,8 +1056,15 @@ pub(crate) fn generate_item_tree<'id>(
             _component_state: &Self::SubComponentState,
         ) {
             let item = rc_item.borrow();
-            let rt = self.rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
-                panic!("Native type not registered: {}", item.base_type.as_native().class_name)
+            let rt = RTTI.with(|rtti| {
+                rtti.get(&*item.base_type.as_native().class_name)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Native type not registered: {}",
+                            item.base_type.as_native().class_name
+                        )
+                    })
+                    .clone()
             });
 
             let offset = self.type_builder.add_field(rt.type_info);
@@ -1068,7 +1081,7 @@ pub(crate) fn generate_item_tree<'id>(
             debug_assert_eq!(self.original_elements.len(), self.tree_array.len());
             self.items_types.insert(
                 item.id.clone(),
-                ItemWithinItemTree { offset, rtti: rt.clone(), elem: rc_item.clone() },
+                ItemWithinItemTree { offset, rtti: rt, elem: rc_item.clone() },
             );
             for (prop, expr) in &item.change_callbacks {
                 self.change_callbacks.push((
@@ -1107,7 +1120,6 @@ pub(crate) fn generate_item_tree<'id>(
         type_builder: dynamic_type::TypeBuilder::new(guard),
         repeater: vec![],
         repeater_names: HashMap::new(),
-        rtti: Rc::new(rtti),
         change_callbacks: vec![],
     };
 
