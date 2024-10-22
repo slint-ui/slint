@@ -17,8 +17,8 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
-    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
-    PointerEventButton, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
+    self, ClosePolicy, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor,
+    Opacity, PointerEventButton, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -160,10 +160,12 @@ cpp! {{
             void *parent_of_popup_to_close = nullptr;
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
                 void *parent_window = p->rust_window;
-                bool close_popup = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*"] -> bool as "bool" {
-                    parent_window.close_popup()
+                bool close_on_click = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*"] -> bool as "bool" {
+                    let close_policy = parent_window.close_policy();
+
+                    close_policy == ClosePolicy::OnClick || close_policy == ClosePolicy::OnClickOutside
                 });
-                if (close_popup) {
+                if (close_on_click) {
                     parent_of_popup_to_close = parent_window;
                 }
             }
@@ -1745,8 +1747,8 @@ impl QtWindow {
         WindowInner::from_pub(&self.window).close_popup();
     }
 
-    fn close_popup_on_click(&self) -> bool {
-        WindowInner::from_pub(&self.window).close_popup()
+    fn close_policy(&self) -> ClosePolicy {
+        WindowInner::from_pub(&self.window).close_policy()
     }
 
     fn window_state_event(&self) {

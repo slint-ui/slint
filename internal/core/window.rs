@@ -1075,7 +1075,7 @@ impl WindowInner {
         }
     }
 
-    /// Returns true if the currently active popup is configured to close on click. None if there is no active popup.
+    /// Returns the close policy of the active popup. ClosePolicy::Off if there is no active popup.
     pub fn close_policy(&self) -> ClosePolicy {
         self.active_popup.borrow().as_ref().map_or(ClosePolicy::Off, |popup| popup.close_policy)
     }
