@@ -3,43 +3,29 @@
 
 #![no_main]
 #![no_std]
+#![cfg(target_os = "uefi")]
 
 extern crate alloc;
 
-use alloc::{
-    boxed::Box,
-    format,
-    rc::Rc,
-    string::{String, ToString},
-    vec,
-};
-use core::{
-    slice,
-    sync::atomic::{AtomicPtr, Ordering},
-    time::Duration,
-};
-
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::rc::Rc;
+use alloc::string::{String, ToString};
+use alloc::vec;
+use core::slice;
+use core::sync::atomic::{AtomicPtr, Ordering};
+use core::time::Duration;
 use log::info;
-use uefi::{
-    prelude::*,
-    proto::console::{gop::BltPixel, pointer::Pointer},
-    table::boot::ScopedProtocol,
-    Char16,
-};
-use uefi_services::system_table;
-
+use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{platform::software_renderer, SharedString};
+use uefi::boot::ScopedProtocol;
+use uefi::prelude::*;
+use uefi::proto::console::{gop::BltPixel, pointer::Pointer};
+use uefi::Char16;
 
 slint::include_modules!();
 
-static MOUSE_POINTER: AtomicPtr<ScopedProtocol<'static, Pointer>> =
-    AtomicPtr::new(core::ptr::null_mut());
-
-fn st() -> &'static mut SystemTable<Boot> {
-    // SAFETY: uefi_services::init() is always called first in main()
-    // and we never operate outside boot services
-    unsafe { system_table().as_mut() }
-}
+static MOUSE_POINTER: AtomicPtr<ScopedProtocol<Pointer>> = AtomicPtr::new(core::ptr::null_mut());
 
 fn timer_tick() -> u64 {
     #[cfg(target_arch = "x86")]
@@ -64,7 +50,7 @@ fn timer_freq() -> u64 {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         let start = timer_tick();
-        st().boot_services().stall(1000);
+        uefi::boot::stall(1000);
         let end = timer_tick();
         (end - start) * 1000
     }
@@ -79,12 +65,9 @@ fn timer_freq() -> u64 {
 
 fn pointer_init() {
     // mouse pointer
-    let bs = st().boot_services();
-    let handle = bs.get_handle_for_protocol::<Pointer>().expect("miss Pointer protocol");
-
-    let mut pointer =
-        bs.open_protocol_exclusive::<Pointer>(handle).expect("can't open Pointer protocol.");
-
+    let handle = uefi::boot::get_handle_for_protocol::<Pointer>().expect("miss Pointer protocol");
+    let mut pointer = uefi::boot::open_protocol_exclusive::<Pointer>(handle)
+        .expect("can't open Pointer protocol.");
     pointer.reset(false).expect("Failed to reset pointer device.");
     info!("pointer inited, mode = {:?}.", pointer.mode());
     let raw_ptr = Box::into_raw(Box::new(pointer));
@@ -98,7 +81,7 @@ fn get_key_press() -> Option<char> {
 
     let nl = Char16::try_from('\r').unwrap();
 
-    match st().stdin().read_key() {
+    match uefi::system::with_stdin(|stdin| stdin.read_key()) {
         Err(_) | Ok(None) => None,
         Ok(Some(UefiKey::Printable(key))) if key == nl => Some('\n'),
         Ok(Some(UefiKey::Printable(key))) => Some(char::from(key)),
@@ -152,31 +135,34 @@ fn wait_for_input(max_timeout: Option<Duration>) {
     let watchdog_timeout = Duration::from_secs(120);
     let timeout = watchdog_timeout.min(max_timeout.unwrap_or(watchdog_timeout));
 
-    let bs = st().boot_services();
-
     // SAFETY: The event is closed before returning from this function.
-    let timer = unsafe { bs.create_event(EventType::TIMER, Tpl::APPLICATION, None, None).unwrap() };
-    bs.set_timer(&timer, TimerTrigger::Periodic((timeout.as_nanos() / 100) as u64)).unwrap();
+    let timer = unsafe {
+        uefi::boot::create_event(EventType::TIMER, Tpl::APPLICATION, None, None).unwrap()
+    };
+    uefi::boot::set_timer(&timer, TimerTrigger::Periodic((timeout.as_nanos() / 100) as u64))
+        .unwrap();
 
-    bs.set_watchdog_timer(2 * watchdog_timeout.as_micros() as usize, 0x10000, None).unwrap();
+    uefi::boot::set_watchdog_timer(2 * watchdog_timeout.as_micros() as usize, 0x10000, None)
+        .unwrap();
 
-    {
+    uefi::system::with_stdin(|stdin| {
         // SAFETY: The cloned handles are only used to wait for further input events and
         // are then immediately dropped.
         let ptr = MOUSE_POINTER.load(Ordering::Relaxed);
         let pointer_ref = unsafe { &*ptr };
         let mut events = unsafe {
             [
-                st().stdin().wait_for_key_event().unsafe_clone(),
-                pointer_ref.wait_for_input_event().unsafe_clone(),
+                stdin.wait_for_key_event().unwrap(),
+                pointer_ref.wait_for_input_event().unwrap(),
                 timer.unsafe_clone(),
             ]
         };
-        bs.wait_for_event(&mut events).unwrap();
-    }
+        uefi::boot::wait_for_event(&mut events).unwrap();
+    });
 
-    bs.set_watchdog_timer(2 * watchdog_timeout.as_micros() as usize, 0x10000, None).unwrap();
-    bs.close_event(timer).unwrap();
+    uefi::boot::set_watchdog_timer(2 * watchdog_timeout.as_micros() as usize, 0x10000, None)
+        .unwrap();
+    uefi::boot::close_event(timer).unwrap();
 }
 
 #[repr(transparent)]
@@ -260,18 +246,16 @@ impl slint::platform::Platform for Platform {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         use uefi::{proto::console::gop::*, table::boot::*};
 
-        let bs = st().boot_services();
-
-        let gop_handle = bs.get_handle_for_protocol::<GraphicsOutput>().unwrap();
+        let gop_handle = uefi::boot::get_handle_for_protocol::<GraphicsOutput>().unwrap();
 
         // SAFETY: uefi-rs wants us to use open_protocol_exclusive(), which will not work
         // on real hardware. We can only hope that any other users of this
         // handle/protocol behave and don't interfere with our uses of it.
         let mut gop = unsafe {
-            bs.open_protocol::<GraphicsOutput>(
+            uefi::boot::open_protocol::<GraphicsOutput>(
                 OpenProtocolParams {
                     handle: gop_handle,
-                    agent: bs.image_handle(),
+                    agent: uefi::boot::image_handle(),
                     controller: None,
                 },
                 OpenProtocolAttributes::GetProtocol,
@@ -324,49 +308,43 @@ impl slint::platform::Platform for Platform {
             while let Some(key) = get_key_press() {
                 // EFI does not distinguish between pressed and released events.
                 let text = SharedString::from(key);
-                self.window.dispatch_event(slint::platform::WindowEvent::KeyPressed {
-                    text: text.clone(),
-                });
-                self.window.dispatch_event(slint::platform::WindowEvent::KeyReleased { text });
+                self.window.dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+                self.window.dispatch_event(WindowEvent::KeyReleased { text });
             }
             // mouse handle until no input
             while let Some(mut mouse) =
                 mpointer.read_state().expect("Failed to read state from Pointer.")
             {
-                position.x += (mouse.relative_movement.0 as f32) / (mouse_mode.resolution.0 as f32);
-                position.y += (mouse.relative_movement.1 as f32) / (mouse_mode.resolution.1 as f32);
+                position.x +=
+                    (mouse.relative_movement[0] as f32) / (mouse_mode.resolution[0] as f32);
+                position.y +=
+                    (mouse.relative_movement[1] as f32) / (mouse_mode.resolution[1] as f32);
 
-                let button: slint::platform::PointerEventButton = match mouse.button {
-                    (true, true) => slint::platform::PointerEventButton::Left,
-                    (true, false) => slint::platform::PointerEventButton::Left,
-                    (false, true) => slint::platform::PointerEventButton::Right,
-                    (false, false) => slint::platform::PointerEventButton::Other,
+                let button: PointerEventButton = match mouse.button {
+                    [true, true] => PointerEventButton::Left,
+                    [true, false] => PointerEventButton::Left,
+                    [false, true] => PointerEventButton::Right,
+                    [false, false] => PointerEventButton::Other,
                 };
 
                 if position.x < 0.0 {
                     position.x = 0.0;
                 } else if position.x > (info.resolution().0 - pointer_x) as f32 {
                     position.x = (info.resolution().0 - pointer_x) as f32;
-                    mouse.relative_movement.0 = (info.resolution().0) as i32;
+                    mouse.relative_movement[0] = (info.resolution().0) as i32;
                 }
 
                 if position.y < 0.0 {
                     position.y = 0.0;
                 } else if position.y > (info.resolution().1 - pointer_y) as f32 {
                     position.y = (info.resolution().1 - pointer_y) as f32;
-                    mouse.relative_movement.1 = (info.resolution().1) as i32;
+                    mouse.relative_movement[1] = (info.resolution().1) as i32;
                 }
 
-                self.window.dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
-                self.window.dispatch_event(slint::platform::WindowEvent::PointerExited {});
-                self.window.dispatch_event(slint::platform::WindowEvent::PointerPressed {
-                    position,
-                    button,
-                });
-                self.window.dispatch_event(slint::platform::WindowEvent::PointerReleased {
-                    position,
-                    button,
-                });
+                self.window.dispatch_event(WindowEvent::PointerMoved { position });
+                self.window.dispatch_event(WindowEvent::PointerExited {});
+                self.window.dispatch_event(WindowEvent::PointerPressed { position, button });
+                self.window.dispatch_event(WindowEvent::PointerReleased { position, button });
                 is_mouse_move = true;
             }
 
@@ -431,22 +409,27 @@ impl slint::platform::Platform for Platform {
 }
 
 #[entry]
-fn main(_image_handle: Handle, mut st: SystemTable<Boot>) -> Status {
-    uefi_services::init(&mut st).unwrap();
-
+fn main() -> Status {
     slint::platform::set_platform(Box::<Platform>::default()).unwrap();
 
     let ui = Demo::new().unwrap();
 
-    ui.set_firmware_vendor(String::from_utf16_lossy(st.firmware_vendor().to_u16_slice()).into());
-    ui.set_firmware_version(
-        format!("{}.{:02}", st.firmware_revision() >> 16, st.firmware_revision() & 0xffff).into(),
+    ui.set_firmware_vendor(
+        String::from_utf16_lossy(uefi::system::firmware_vendor().to_u16_slice()).into(),
     );
-    ui.set_uefi_version(st.uefi_revision().to_string().into());
+    ui.set_firmware_version(
+        format!(
+            "{}.{:02}",
+            uefi::system::firmware_revision() >> 16,
+            uefi::system::firmware_revision() & 0xffff
+        )
+        .into(),
+    );
+    ui.set_uefi_version(uefi::system::uefi_revision().to_string().into());
 
     let mut buf = [0u8; 1];
     let guid = uefi::table::runtime::VariableVendor::GLOBAL_VARIABLE;
-    let sb = st.runtime_services().get_variable(cstr16!("SecureBoot"), &guid, &mut buf);
+    let sb = uefi::runtime::get_variable(cstr16!("SecureBoot"), &guid, &mut buf);
     ui.set_secure_boot(if sb.is_ok() { buf[0] == 1 } else { false });
 
     ui.run().unwrap();
