@@ -56,8 +56,8 @@ jobs:
               with:
                 apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                 accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-                projectName: gg-app
-                directory: native/dist
+                projectName: docs-tng
+                directory: docs/dist
                 gitHubToken: ${{ secrets.GITHUB_TOKEN }}
             
 
