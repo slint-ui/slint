@@ -250,6 +250,9 @@ impl AndroidWindowAdapter {
                     });
                 }
             }
+            PollEvent::Main(MainEvent::Destroy) => {
+                return Ok(ControlFlow::Break(()));
+            }
             _ => (),
         }
         Ok(ControlFlow::Continue(()))

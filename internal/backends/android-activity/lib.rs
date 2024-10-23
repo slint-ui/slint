@@ -114,14 +114,14 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
                     event_listener(&e)
                 }
             });
-            if matches!(r.map_err(|e| PlatformError::from(e.to_string()))?, ControlFlow::Break(()))
-            {
-                return Ok(());
+            if r?.is_break() {
+                break;
             }
             if self.window.pending_redraw.take() {
                 self.window.do_render()?;
             }
         }
+        Ok(())
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
