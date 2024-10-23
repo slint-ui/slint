@@ -100,7 +100,7 @@ impl PlatformBuilder {
                 };
 
                 let builder = match self.renderer {
-                    Some(SlintRenderer::Femtovg) => builder.with_renderer_name("femtovg"),
+                    Some(SlintRenderer::FemtoVG) => builder.with_renderer_name("femtovg"),
                     Some(SlintRenderer::Skia) => builder.with_renderer_name("skia"),
                     Some(SlintRenderer::Software) => builder.with_renderer_name("software"),
                     None => builder,

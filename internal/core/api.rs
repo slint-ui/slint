@@ -304,8 +304,8 @@ pub enum OpenGLAPI {
 /// This enum specifies which renderer should be used.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SlintRenderer {
-    /// The femtovg renderer
-    Femtovg,
+    /// The FemtoVG renderer
+    FemtoVG,
     /// The Skia renderer
     Skia,
     /// The software renderer
