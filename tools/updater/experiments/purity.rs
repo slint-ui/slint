@@ -33,8 +33,8 @@ pub(crate) fn fold_node(
                     let lk = nr.element().borrow().lookup_property(nr.name());
                     if lk.declared_pure == Some(true) {
                         write!(file, "pure ")?;
-                    } else if let Type::Callback { return_type, .. } = lk.property_type {
-                        if return_type.is_some() {
+                    } else if let Type::Callback(callback) = lk.property_type {
+                        if callback.return_type.is_some() {
                             write!(file, "pure ")?;
                         }
                     }

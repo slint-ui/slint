@@ -27,14 +27,8 @@ pub enum Type {
     /// The type of a callback alias whose type was not yet inferred
     InferredCallback,
 
-    Callback {
-        return_type: Option<Box<Type>>,
-        args: Vec<Type>,
-    },
-    Function {
-        return_type: Box<Type>,
-        args: Vec<Type>,
-    },
+    Callback(Rc<Callback>),
+    Function(Rc<Function>),
 
     ComponentFactory,
 
@@ -88,11 +82,11 @@ impl core::cmp::PartialEq for Type {
             Type::Void => matches!(other, Type::Void),
             Type::InferredProperty => matches!(other, Type::InferredProperty),
             Type::InferredCallback => matches!(other, Type::InferredCallback),
-            Type::Callback { args: a, return_type: ra } => {
-                matches!(other, Type::Callback { args: b, return_type: rb } if a == b && ra == rb)
+            Type::Callback(lhs) => {
+                matches!(other, Type::Callback(rhs) if lhs == rhs)
             }
-            Type::Function { return_type: lhs_rt, args: lhs_args } => {
-                matches!(other, Type::Function { return_type: rhs_rt, args: rhs_args } if lhs_rt == rhs_rt && lhs_args == rhs_args)
+            Type::Function(lhs) => {
+                matches!(other, Type::Function(rhs) if lhs == rhs)
             }
             Type::ComponentFactory => matches!(other, Type::ComponentFactory),
             Type::Float32 => matches!(other, Type::Float32),
@@ -130,11 +124,11 @@ impl Display for Type {
             Type::Void => write!(f, "void"),
             Type::InferredProperty => write!(f, "?"),
             Type::InferredCallback => write!(f, "callback"),
-            Type::Callback { args, return_type } => {
+            Type::Callback(callback) => {
                 write!(f, "callback")?;
-                if !args.is_empty() {
+                if !callback.args.is_empty() {
                     write!(f, "(")?;
-                    for (i, arg) in args.iter().enumerate() {
+                    for (i, arg) in callback.args.iter().enumerate() {
                         if i > 0 {
                             write!(f, ",")?;
                         }
@@ -142,21 +136,21 @@ impl Display for Type {
                     }
                     write!(f, ")")?
                 }
-                if let Some(rt) = return_type {
+                if let Some(rt) = &callback.return_type {
                     write!(f, "-> {}", rt)?;
                 }
                 Ok(())
             }
             Type::ComponentFactory => write!(f, "component-factory"),
-            Type::Function { return_type, args } => {
+            Type::Function(function) => {
                 write!(f, "function(")?;
-                for (i, arg) in args.iter().enumerate() {
+                for (i, arg) in function.args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ",")?;
                     }
                     write!(f, "{}", arg)?;
                 }
-                write!(f, ") -> {}", return_type)
+                write!(f, ") -> {}", function.return_type)
             }
             Type::Float32 => write!(f, "float"),
             Type::Int32 => write!(f, "int"),
@@ -795,6 +789,18 @@ impl<'a> PropertyLookupResult<'a> {
                 | (PropertyVisibility::Output, false)
         )
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Callback {
+    pub return_type: Option<Type>,
+    pub args: Vec<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub return_type: Type,
+    pub args: Vec<Type>,
 }
 
 #[derive(Debug, Clone)]

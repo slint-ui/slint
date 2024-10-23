@@ -4,7 +4,7 @@
 //! Test that all styles have the same API.
 
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{Function, Type};
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
@@ -98,7 +98,10 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                     result.properties.insert(
                         "focus".into(),
                         PropertyInfo {
-                            ty: Type::Function { return_type: Type::Void.into(), args: vec![] },
+                            ty: Type::Function(Rc::new(Function {
+                                return_type: Type::Void.into(),
+                                args: vec![],
+                            })),
                             vis: PropertyVisibility::Public,
                             pure: false,
                         },
@@ -106,7 +109,10 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                     result.properties.insert(
                         "clear-focus".into(),
                         PropertyInfo {
-                            ty: Type::Function { return_type: Type::Void.into(), args: vec![] },
+                            ty: Type::Function(Rc::new(Function {
+                                return_type: Type::Void.into(),
+                                args: vec![],
+                            })),
                             vis: PropertyVisibility::Public,
                             pure: false,
                         },

@@ -607,11 +607,11 @@ fn handle_property_init(
 ) {
     let prop_access = access_member(prop, ctx);
     let prop_type = ctx.property_ty(prop);
-    if let Type::Callback { args, return_type, .. } = &prop_type {
+    if let Type::Callback(callback) = &prop_type {
         let mut ctx2 = ctx.clone();
-        ctx2.argument_types = args;
+        ctx2.argument_types = &callback.args;
 
-        let mut params = args.iter().enumerate().map(|(i, ty)| {
+        let mut params = callback.args.iter().enumerate().map(|(i, ty)| {
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
         });
 
@@ -626,7 +626,7 @@ fn handle_property_init(
             code = return_compile_expression(
                 &binding_expression.expression.borrow(),
                 &ctx2,
-                return_type.as_ref().map(|x| &**x)
+                callback.return_type.as_ref()
             )
         ));
     } else {
@@ -1853,10 +1853,13 @@ fn generate_sub_component(
     for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
-        let ty = if let Type::Callback { args, return_type } = &property.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+        let ty = if let Type::Callback(callback) = &property.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type = callback
+                .return_type
+                .as_ref()
+                .map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
                 return_type,
@@ -2492,10 +2495,13 @@ fn generate_global(
     for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
-        let ty = if let Type::Callback { args, return_type } = &property.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+        let ty = if let Type::Callback(callback) = &property.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type = callback
+                .return_type
+                .as_ref()
+                .map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
                 return_type,
@@ -2626,15 +2632,17 @@ fn generate_public_api_for_properties(
 
         let access = access_member(&p.prop, ctx);
 
-        if let Type::Callback { args, return_type } = &p.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
+        if let Type::Callback(callback) = &p.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type =
+                callback.return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
             let callback_emitter = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "return {}.call({});",
                     access,
-                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                    (0..callback.args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
             declarations.push((
@@ -2670,15 +2678,16 @@ fn generate_public_api_for_properties(
                     ..Default::default()
                 }),
             ));
-        } else if let Type::Function { return_type, args } = &p.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let ret = return_type.cpp_type().unwrap();
+        } else if let Type::Function(function) = &p.ty {
+            let param_types =
+                function.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let ret = function.return_type.cpp_type().unwrap();
             let call_code = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "{}{access}({});",
-                    if **return_type == Type::Void { "" } else { "return " },
-                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                    if function.return_type == Type::Void { "" } else { "return " },
+                    (0..function.args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
             declarations.push((
@@ -2745,8 +2754,8 @@ fn generate_public_api_for_properties(
     for (name, ty) in private_properties {
         let prop_ident = concatenate_ident(name);
 
-        if let Type::Function { args, .. } = &ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
+        if let Type::Function(function) = &ty {
+            let param_types = function.args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {

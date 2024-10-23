@@ -53,17 +53,17 @@ pub fn get_tooltip(document_cache: &mut DocumentCache, token: SyntaxToken) -> Op
 
 fn from_prop_result(prop_info: PropertyLookupResult) -> Option<MarkupContent> {
     let pure = if prop_info.declared_pure.is_some_and(|x| x) { "pure " } else { "" };
-    if let Type::Callback { return_type, args } = &prop_info.property_type {
-        let ret = return_type.as_ref().map(|x| format!(" -> {}", x)).unwrap_or_default();
-        let args = args.iter().map(|x| x.to_string()).join(", ");
+    if let Type::Callback(callback) = &prop_info.property_type {
+        let ret = callback.return_type.as_ref().map(|x| format!(" -> {}", x)).unwrap_or_default();
+        let args = callback.args.iter().map(|x| x.to_string()).join(", ");
         Some(from_slint_code(&format!("{pure}callback {}({args}){ret}", prop_info.resolved_name)))
-    } else if let Type::Function { return_type, args } = &prop_info.property_type {
-        let ret = if matches!(**return_type, Type::Void) {
+    } else if let Type::Function(function) = &prop_info.property_type {
+        let ret = if matches!(function.return_type, Type::Void) {
             String::new()
         } else {
-            format!(" -> {return_type}")
+            format!(" -> {}", function.return_type)
         };
-        let args = args.iter().map(|x| x.to_string()).join(", ");
+        let args = function.args.iter().map(|x| x.to_string()).join(", ");
         Some(from_slint_code(&format!("{pure}function {}({args}){ret}", prop_info.resolved_name)))
     } else if prop_info.property_type.is_property_type() {
         Some(from_slint_code(&format!(

@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{BuiltinFunction, Expression};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, Function, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use by_address::ByAddress;
@@ -51,10 +51,10 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
                     component.root_element.borrow_mut().property_declarations.insert(
                         function.name().into(),
                         PropertyDeclaration {
-                            property_type: Type::Function {
+                            property_type: Type::Function(Rc::new(Function {
                                 return_type: Type::Void.into(),
                                 args: vec![],
-                            },
+                            })),
                             visibility: PropertyVisibility::Public,
                             ..Default::default()
                         },

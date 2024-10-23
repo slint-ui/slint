@@ -133,10 +133,10 @@ impl JsComponentInstance {
                 ))
             })?;
 
-        if let Type::Callback { return_type, .. } = ty {
+        if let Type::Callback(callback) = ty {
             self.inner
                 .set_callback(callback_name.as_str(), {
-                    let return_type = return_type.clone();
+                    let return_type = callback.return_type.clone();
                     let callback_name = callback_name.clone();
 
                     move |args| {
@@ -206,10 +206,10 @@ impl JsComponentInstance {
                 ))
             })?;
 
-        if let Type::Callback { return_type, .. } = ty {
+        if let Type::Callback(callback) = ty {
             self.inner
                 .set_global_callback(global_name.as_str(), callback_name.as_str(), {
-                    let return_type = return_type.clone();
+                    let return_type = callback.return_type.clone();
                     let global_name = global_name.clone();
                     let callback_name = callback_name.clone();
 
@@ -260,6 +260,32 @@ impl JsComponentInstance {
         Err(napi::Error::from_reason(format!("{} is not a callback", callback_name).as_str()))
     }
 
+    fn invoke_args(
+        env: Env,
+        callback_name: &String,
+        arguments: Vec<JsUnknown>,
+        args: &Vec<Type>,
+    ) -> Result<Vec<Value>> {
+        let count = args.len();
+        let args = arguments
+            .into_iter()
+            .zip(args.into_iter())
+            .map(|(a, ty)| super::value::to_value(&env, a, &ty))
+            .collect::<Result<Vec<_>, _>>()?;
+        if args.len() != count {
+            return Err(napi::Error::from_reason(
+                format!(
+                    "{} expect {} arguments, but {} where provided",
+                    callback_name,
+                    count,
+                    args.len()
+                )
+                .as_str(),
+            ));
+        }
+        Ok(args)
+    }
+
     #[napi]
     pub fn invoke(
         &self,
@@ -280,25 +306,11 @@ impl JsComponentInstance {
             })?;
 
         let args = match ty {
-            Type::Callback { args, .. } | Type::Function { args, .. } => {
-                let count = args.len();
-                let args = arguments
-                    .into_iter()
-                    .zip(args.into_iter())
-                    .map(|(a, ty)| super::value::to_value(&env, a, &ty))
-                    .collect::<Result<Vec<_>, _>>()?;
-                if args.len() != count {
-                    return Err(napi::Error::from_reason(
-                        format!(
-                            "{} expect {} arguments, but {} where provided",
-                            callback_name,
-                            count,
-                            args.len()
-                        )
-                        .as_str(),
-                    ));
-                }
-                args
+            Type::Callback(callback) => {
+                Self::invoke_args(env, &callback_name, arguments, &callback.args)?
+            }
+            Type::Function(function) => {
+                Self::invoke_args(env, &callback_name, arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
@@ -340,25 +352,11 @@ impl JsComponentInstance {
             })?;
 
         let args = match ty {
-            Type::Callback { args, .. } | Type::Function { args, .. } => {
-                let count = args.len();
-                let args = arguments
-                    .into_iter()
-                    .zip(args.into_iter())
-                    .map(|(a, ty)| super::value::to_value(&env, a, &ty))
-                    .collect::<Result<Vec<_>, _>>()?;
-                if args.len() != count {
-                    return Err(napi::Error::from_reason(
-                        format!(
-                            "{} expect {} arguments, but {} where provided",
-                            callback_name,
-                            count,
-                            args.len()
-                        )
-                        .as_str(),
-                    ));
-                }
-                args
+            Type::Callback(callback) => {
+                Self::invoke_args(env, &callback_name, arguments, &callback.args)?
+            }
+            Type::Function(function) => {
+                Self::invoke_args(env, &callback_name, arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
