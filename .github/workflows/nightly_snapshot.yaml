@@ -141,12 +141,16 @@ jobs:
     build_vscode_lsp_macos_aarch64:
         env:
             SLINT_NO_QT: 1
-        runs-on: macos-latest
+        runs-on: macos-14
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
+            # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.   
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
             - name: Build AArch64 LSP
               run: cargo build --target aarch64-apple-darwin --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
             - name: Create artifact directory
