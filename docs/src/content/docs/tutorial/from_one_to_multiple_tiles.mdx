@@ -4,6 +4,9 @@ title: From One To Multiple Tiles
 description: From One To Multiple Tiles
 ---
 
+import { Code } from '@astrojs/starlight/components';
+import { extractLines } from '../../../utils/utils.ts';
+
 After modeling a single tile, this step creates a grid of them. For the grid to be a game board, you need two features:
 
 1. **A data model**: An array created as a model in code, where each element describes the tile data structure, such as:
@@ -23,17 +26,14 @@ index with spacing between the tiles.
 
 First, add the tile data structure definition at the top of the `ui/app-window.slint` file:
 
-:::{literalinclude} main_multiple_tiles.rs
-:language: slint,no-preview
-:lines: 11-15
-:::
+import multipleTiles from '../../code/main_multiple_tiles.rs?raw'
 
-Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `ui/app-window.slint` file with the following:
+<Code code={extractLines(multipleTiles, 11, 15)} lang="rust" />
 
-:::{literalinclude} main_multiple_tiles.rs
-:language: slint,no-preview
-:lines: 63-90
-:::
+
+Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window \{ ... \} section at the bottom of the `ui/app-window.slint` file with the following:
+
+<Code code={extractLines(multipleTiles, 63, 90)} lang="slint" />
 
 The <code><span class="hljs-keyword">for</span> tile\[i\] <span class="hljs-keyword">in</span> memory_tiles:</code> syntax declares a variable `tile` which contains the data of one element from the `memory_tiles` array,
 and a variable `i` which is the index of the tile. The code uses the `i` index to calculate the position of a tile, based on its row and column,

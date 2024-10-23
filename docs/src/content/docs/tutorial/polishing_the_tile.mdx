@@ -4,6 +4,9 @@ title: Polishing the Tile
 description: Polishing the Tile
 ---
 
+import { Code } from '@astrojs/starlight/components';
+import { extractLines } from '../../../utils/utils.ts';
+
 In this step, you add a curtain-like cover that opens when clicked. You do this by declaring two rectangles
 below the <span class="hljs-built_in">Image</span>, so that Slint draws them after the Image and thus on top of the image.
 
@@ -28,10 +31,9 @@ _solved_ property used to animate the color to a shade of green when a player fi
 
 Replace the code inside the `ui/app-window.slint` file with the following:
 
-:::{literalinclude} main_polishing_the_tile.rs
-:language: slint,no-preview
-:lines: 10-61
-:::
+import polishingTheTile from '../../code/main_polishing_the_tile.rs?raw'
+
+<Code code={extractLines(polishingTheTile, 10, 61)} lang="slint" />
 
 The code uses `root` and `self`. `root` refers to the outermost
 element in the component, the <span class="hljs-title">MemoryTile</span> in this case. `self` refers

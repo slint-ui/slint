@@ -48,7 +48,7 @@ This is because wasm-pack requires Rust to generate a `"cdylib"`.
 You also need to change `main.rs` by adding the `wasm_bindgen(start)`
 attribute to the `main` function and export it with the `pub` keyword:
 
-```rust,noplayground
+```rust
 #[cfg_attr(target_arch = "wasm32",
            wasm_bindgen::prelude::wasm_bindgen(start))]
 pub fn main() {

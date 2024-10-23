@@ -4,6 +4,8 @@ title: Creating the tiles
 description: Creating the tiles
 ---
 
+import { Code } from '@astrojs/starlight/components';
+import { extractLines } from '../../../utils/utils.ts';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 This step places the game tiles randomly.
@@ -12,9 +14,10 @@ This step places the game tiles randomly.
   <TabItem label="C++" icon="seti:cpp">
   Change the `main` function and includes in `src/main.cpp` to the following:
 
-{/* :::{literalinclude} main_tiles_from_cpp.cpp
-:lines: 10-28
-::: */}
+import mainTilesFromCpp from '../../code/main_tiles_from_cpp.cpp?raw'
+
+<Code code={extractLines(mainTilesFromCpp, 10, 28)} lang="cpp"/>
+
 
 The code takes the list of tiles, duplicates it, and shuffles it, accessing the `memory_tiles` property through the C++ code.
 
@@ -29,9 +32,9 @@ in a [`slint::VectorModel`](https://slint.dev/docs/cpp/api/classslint_1_1vectorm
   
 Change `main.js` to the following:
 
-{/* :::{literalinclude} main_tiles_from_js.js
-:lines: 6-23
-::: */}
+import mainTilesFromJs from '../../code/main_tiles_from_js.js?raw'
+
+<Code code={extractLines(mainTilesFromJs, 6, 23)} lang="js"/>
 
 The code takes the list of tiles, duplicates it, and shuffles it, accessing the `memory_tiles` property through the JavaScript code.
 
@@ -41,7 +44,7 @@ in a [`slint.ArrayModel`](https://slint.dev/docs/node/classes/arraymodel.html) w
 `ArrayModel` allows you to make changes and you can use it to replace the static generated model.
   </TabItem>
   <TabItem label="Rust" icon="seti:rust">
-  {/* The code uses the `rand` dependency for the randomization. Add it to the `Cargo.toml` file using the `cargo` command.
+  The code uses the `rand` dependency for the randomization. Add it to the `Cargo.toml` file using the `cargo` command.
 
     ```sh
     cargo add rand@0.8
@@ -49,9 +52,10 @@ in a [`slint.ArrayModel`](https://slint.dev/docs/node/classes/arraymodel.html) w
 
 Change the main function to the following:
 
-:::{literalinclude} main_tiles_from_rust.rs
-:lines: 6-26
-::: */}
+import mainTilesFromRust from '../../code/main_tiles_from_rust.rs?raw'
+
+<Code code={extractLines(mainTilesFromRust, 6, 26)} lang="rust"/>
+
   </TabItem>
 </Tabs>
 {/* 

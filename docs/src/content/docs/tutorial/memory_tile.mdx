@@ -4,6 +4,10 @@ title: Memory Tile
 description: Memory Tile
 ---
 
+import { Code } from '@astrojs/starlight/components';
+import { extractLines } from '../../../utils/utils.ts';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 With the skeleton code in place, this step looks at the first element of the game, the memory tile. It's the
 visual building block that consists of an underlying filled rectangle background, the icon image. Later steps add a covering rectangle that acts as a curtain.
 
@@ -16,10 +20,9 @@ mix values with different units attached to them.
 
 Copy the following code into `ui/app-window.slint` file, replacing the current content:
 
-:::{literalinclude} memory_tile.slint
-:language: slint,no-preview
-:lines: 5-19
-:::
+import memoryTile from '../../code/memory_tile.slint?raw'
+
+<Code code={extractLines(memoryTile, 5, 19)} lang="slint" title="memory-tile.slint" />
 
 This exports the <span class="hljs-title">MainWindow</span> component so that the game logic code can access it later.
 
@@ -31,47 +34,57 @@ You need to install this icon and others you use later first. You can download a
 
 If you are on Linux or macOS, download and extract it with the following commands:
 
-```sh
+<Tabs syncKey="dev-platform">
+<TabItem label="Linux" icon="linux">
+
+```sh title="Bash"
 cd ui
 curl -O https://slint.dev/blog/memory-game-tutorial/icons.zip
 unzip icons.zip
 cd ..
 ```
+This unpacks an `icons` directory containing several icons.
+</TabItem>
+<TabItem label="macOS" icon="apple">
+```sh title="Terminal"
+cd ui
+curl -O https://slint.dev/blog/memory-game-tutorial/icons.zip
+unzip icons.zip
+cd ..
+```
+This unpacks an `icons` directory containing several icons.
+</TabItem>
+<TabItem label="Windows" icon="seti:windows">
 
 If you are on Windows, use the following commands:
 
-```sh
+```powershell title="PowerShell"
 cd ui
 powershell curl -Uri https://slint.dev/blog/memory-game-tutorial/icons.zip -Outfile icons.zip
 powershell Expand-Archive -Path icons.zip -DestinationPath .
 cd ..
 ```
-
 This unpacks an `icons` directory containing several icons.
+</TabItem>
+</Tabs>
 
-::::{tab-set}
-:::{tab-item} C++
-:sync: cpp
+
+<Tabs syncKey="dev-language">
+<TabItem label="C++" icon="seti:cpp">
 
 Compiling the program with `cmake --build build` and running with the `./build/my_application` opens a window that shows the icon of a bus on a blue background.
 
-:::
-
-:::{tab-item} NodeJS
-:sync: nodejs
+</TabItem>
+<TabItem label="NodeJS" icon="seti:javascript">
 
 Running the program with `npm start` opens a window that shows the icon of a bus on a blue background.
 
-:::
-
-:::{tab-item} Rust
-:sync: rust
-:selected: true
+</TabItem>
+<TabItem label="Rust" icon="seti:rust">
 
 Running the program with `cargo run` opens a window that shows the icon of a bus on a blue background.
 
-:::
-
-::::
+</TabItem>
+</Tabs>
 
 ![Screenshot of the first tile](https://slint.dev/blog/memory-game-tutorial/memory-tile.png "Memory Tile Screenshot")
