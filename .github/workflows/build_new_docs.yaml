@@ -51,13 +51,51 @@ jobs:
               run: cd docs && pnpm i --frozen-lockfile --ignore-scripts
             - name: Build docs
               run: cd docs && pnpm build
-            - name: deploy website
-              uses: cloudflare/pages-action@v1.5.0
-              with:
-                apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-                accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-                projectName: docs-tng
-                directory: docs/dist
-                gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-            
 
+            # Commit to www-releases/snapshots/tng
+
+            - name: Generate a token
+              id: app-token
+              uses: actions/create-github-app-token@v1
+              with:
+                app-id: ${{ vars.READ_WRITE_APP_ID }}
+                private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                repositories: www-releases
+                
+            - name: Clone www-releases/snapshots directory
+              uses: actions/checkout@v4
+              with:
+                repository: slint-ui/www-releases
+                path: www-releases
+                token: ${{ steps.app-token.outputs.token }}
+                sparse-checkout: |
+                  snapshots/tng
+            
+            - name: copy docs to www-releases
+              run: |
+                rm -rf www-releases/snapshots/tng
+                mkdir -p www-releases/snapshots/tng
+                cp -a docs/dist www-releases/snapshots/tng
+
+            - name: Get GitHub App User ID
+              id: get-user-id
+              run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+              env:
+                GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+            - name: check for diff
+              id: www-releases
+              working-directory: ./www-releases
+              run: |
+                git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
+
+            - name: commit and push
+              if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
+              working-directory: ./www-releases
+              run: |
+                git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+                git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
+                git add .
+                git add -u .
+                git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Update tng docs from commit $GITHUB_SHA ($GITHUB_REF)"
+                git push
