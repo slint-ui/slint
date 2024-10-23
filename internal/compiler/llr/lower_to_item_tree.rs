@@ -5,7 +5,7 @@ use by_address::ByAddress;
 
 use super::lower_expression::ExpressionContext;
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, Struct, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
@@ -395,7 +395,7 @@ fn lower_sub_component(
 
             let is_state_info = matches!(
                 e.borrow().lookup_property(p).property_type,
-                Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo")
+                Type::Struct(s) if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo"))
             );
 
             sub_component.property_init.push((
@@ -554,7 +554,7 @@ fn lower_geometry(
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
     super::Expression::Struct {
-        ty: Type::Struct { fields, name: None, node: None, rust_attributes: None },
+        ty: Type::Struct(Rc::new(Struct { fields, name: None, node: None, rust_attributes: None })),
         values,
     }
 }

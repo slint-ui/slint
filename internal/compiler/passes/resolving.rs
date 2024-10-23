@@ -10,7 +10,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, Struct, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
@@ -1205,12 +1205,12 @@ impl Expression {
                 )
             })
             .collect();
-        let ty = Type::Struct {
+        let ty = Type::Struct(Rc::new(Struct {
             fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             name: None,
             node: None,
             rust_attributes: None,
-        };
+        }));
         Expression::Struct { ty, values }
     }
 
@@ -1268,41 +1268,34 @@ impl Expression {
                 expr_ty
             } else {
                 match (target_type, expr_ty) {
-                    (
-                        Type::Struct {
-                            fields: mut result_fields,
-                            name: result_name,
-                            node: result_node,
-                            rust_attributes,
-                        },
-                        Type::Struct {
-                            fields: elem_fields,
-                            name: elem_name,
-                            node: elem_node,
-                            rust_attributes: derived,
-                        },
-                    ) => {
-                        for (elem_name, elem_ty) in elem_fields.into_iter() {
-                            match result_fields.entry(elem_name) {
+                    (Type::Struct(ref result), Type::Struct(ref elem)) => {
+                        let mut fields = result.fields.clone();
+                        for (elem_name, elem_ty) in elem.fields.iter() {
+                            match fields.entry(elem_name.clone()) {
                                 std::collections::btree_map::Entry::Vacant(free_entry) => {
-                                    free_entry.insert(elem_ty);
+                                    free_entry.insert(elem_ty.clone());
                                 }
                                 std::collections::btree_map::Entry::Occupied(
                                     mut existing_field,
                                 ) => {
                                     *existing_field.get_mut() =
                                         Self::common_target_type_for_type_list(
-                                            [existing_field.get().clone(), elem_ty].into_iter(),
+                                            [existing_field.get().clone(), elem_ty.clone()]
+                                                .into_iter(),
                                         );
                                 }
                             }
                         }
-                        Type::Struct {
-                            name: result_name.or(elem_name),
-                            fields: result_fields,
-                            node: result_node.or(elem_node),
-                            rust_attributes: rust_attributes.or(derived),
-                        }
+                        Type::Struct(Rc::new(Struct {
+                            name: result.name.as_ref().or(elem.name.as_ref()).cloned(),
+                            fields,
+                            node: result.node.as_ref().or(elem.node.as_ref()).cloned(),
+                            rust_attributes: result
+                                .rust_attributes
+                                .as_ref()
+                                .or(elem.rust_attributes.as_ref())
+                                .cloned(),
+                        }))
                     }
                     (Type::Array(lhs), Type::Array(rhs)) => Type::Array(if *lhs == Type::Void {
                         rhs

@@ -2007,6 +2007,7 @@ fn component_definition_model_properties() {
 
 #[test]
 fn lang_type_to_value_type() {
+    use i_slint_compiler::langtype::Struct as LangStruct;
     use std::collections::BTreeMap;
 
     assert_eq!(ValueType::from(LangType::Void), ValueType::Void);
@@ -2024,12 +2025,12 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::Array(Box::new(LangType::Void))), ValueType::Model);
     assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
     assert_eq!(
-        ValueType::from(LangType::Struct {
+        ValueType::from(LangType::Struct(Rc::new(LangStruct {
             fields: BTreeMap::default(),
             name: None,
             node: None,
             rust_attributes: None
-        }),
+        }))),
         ValueType::Struct
     );
     assert_eq!(ValueType::from(LangType::Image), ValueType::Image);

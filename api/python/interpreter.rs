@@ -153,9 +153,9 @@ impl CompilationResult {
 
         fn convert_type(py: Python<'_>, ty: &Type) -> Option<(String, PyObject)> {
             match ty {
-                Type::Struct { fields, name: Some(name), node: Some(_), .. } => {
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
                     let struct_instance = PyStruct::from(slint_interpreter::Struct::from_iter(
-                        fields.iter().map(|(name, field_type)| {
+                        s.fields.iter().map(|(name, field_type)| {
                             (
                                 name.to_string(),
                                 slint_interpreter::default_value_for_type(field_type),
@@ -163,7 +163,10 @@ impl CompilationResult {
                         }),
                     ));
 
-                    return Some((name.to_string(), struct_instance.into_py(py)));
+                    return Some((
+                        s.name.as_ref().unwrap().to_string(),
+                        struct_instance.into_py(py),
+                    ));
                 }
                 Type::Enumeration(_en) => {
                     // TODO
