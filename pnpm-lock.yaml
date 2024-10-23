@@ -77,6 +77,9 @@ importers:
       sharp:
         specifier: 0.33.5
         version: 0.33.5
+      starlight-links-validator:
+        specifier: 0.12.3
+        version: 0.12.3(@astrojs/starlight@0.28.3(astro@4.16.7(@types/node@22.7.9)(rollup@4.24.0)(terser@5.34.1)(typescript@5.6.3)))(astro@4.16.7(@types/node@22.7.9)(rollup@4.24.0)(terser@5.34.1)(typescript@5.6.3))
       typescript:
         specifier: 5.6.3
         version: 5.6.3
@@ -1676,6 +1679,9 @@ packages:
   '@types/node@22.8.2':
     resolution: {integrity: sha512-NzaRNFV+FZkvK/KLCsNdTvID0SThyrs5SHB6tsD/lajr22FGC73N2QeDPM2wHtVde8mgcXuSsHQkH5cX1pbPLw==}
 
+  '@types/picomatch@2.3.3':
+    resolution: {integrity: sha512-Yll76ZHikRFCyz/pffKGjrCwe/le2CDwOP5F210KQo27kpRE46U2rDnzikNlVn6/ezH3Mhn46bJMTfeVTtcYMg==}
+
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
 
@@ -2441,6 +2447,9 @@ packages:
   hast-util-format@1.1.0:
     resolution: {integrity: sha512-yY1UDz6bC9rDvCWHpx12aIBGRG7krurX0p0Fm6pT547LwDIZZiNr8a+IHDogorAdreULSEzP82Nlv5SZkHZcjA==}
 
+  hast-util-from-html@2.0.1:
+    resolution: {integrity: sha512-RXQBLMl9kjKVNkJTIO6bZyb2n+cUH8LFaSSzo82jiLT6Tfc+Pt7VQCS+/h3YwG4jaNE2TA2sdJisGWR+aJrp0g==}
+
   hast-util-from-html@2.0.3:
     resolution: {integrity: sha512-CUSRHXyKjzHov8yKsQjGOElXy/3EKpyX56ELnkHH34vDVw1N1XSQ1ZcAvTyAPtGqLTuKP/uxM+aLkSPqF/EtMw==}
 
@@ -2567,6 +2576,10 @@ packages:
   irregular-plurals@3.5.0:
     resolution: {integrity: sha512-1ANGLZ+Nkv1ptFb2pa8oG8Lem4krflKuX/gINiHJHjJUKaJHk/SXk5x6K3J+39/p0h1RQ2saROclJJ+QLvETCQ==}
     engines: {node: '>=8'}
+
+  is-absolute-url@4.0.1:
+    resolution: {integrity: sha512-/51/TKE88Lmm7Gc4/8btclNXWS+g50wXhYJq8HWIBAGUBnoAdRu1aXeh364t/O7wXDAcTJDP8PNuNKWUDWie+A==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   is-alphabetical@2.0.1:
     resolution: {integrity: sha512-FWyyY60MeTNyeSRpkM2Iry0G9hpr7/9kD40mD/cGQEuilcZYS4okz8SN2Q6rLCJ8gbCt6fN+rC+6tMGS99LaxQ==}
@@ -3632,6 +3645,13 @@ packages:
   stack-utils@2.0.6:
     resolution: {integrity: sha512-XlkWvfIm6RmsWtNJx+uqtKLS8eqFbxUg0ZzLXqY0caEy9l7hruX8IpiDnjsLavoBgqCCR71TqWO8MaXYheJ3RQ==}
     engines: {node: '>=10'}
+
+  starlight-links-validator@0.12.3:
+    resolution: {integrity: sha512-xOyriH9BQ7kQbHlVARp3quIKqUsBjx4sgv6/F2eKP1a6pWRLvFsX+89rRaCkRKAEnmFiI8VygjH1D/RGUXoxbQ==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      '@astrojs/starlight': '>=0.15.0'
+      astro: '>=4.0.0'
 
   stdin-discarder@0.2.2:
     resolution: {integrity: sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ==}
@@ -5857,6 +5877,8 @@ snapshots:
     dependencies:
       undici-types: 6.19.8
 
+  '@types/picomatch@2.3.3': {}
+
   '@types/resolve@1.20.2': {}
 
   '@types/sax@1.2.7':
@@ -6767,6 +6789,15 @@ snapshots:
       html-whitespace-sensitive-tag-names: 3.0.1
       unist-util-visit-parents: 6.0.1
 
+  hast-util-from-html@2.0.1:
+    dependencies:
+      '@types/hast': 3.0.4
+      devlop: 1.1.0
+      hast-util-from-parse5: 8.0.1
+      parse5: 7.2.0
+      vfile: 6.0.3
+      vfile-message: 4.0.2
+
   hast-util-from-html@2.0.3:
     dependencies:
       '@types/hast': 3.0.4
@@ -7003,6 +7034,8 @@ snapshots:
   interpret@1.4.0: {}
 
   irregular-plurals@3.5.0: {}
+
+  is-absolute-url@4.0.1: {}
 
   is-alphabetical@2.0.1: {}
 
@@ -8468,6 +8501,20 @@ snapshots:
   stack-utils@2.0.6:
     dependencies:
       escape-string-regexp: 2.0.0
+
+  starlight-links-validator@0.12.3(@astrojs/starlight@0.28.3(astro@4.16.7(@types/node@22.7.9)(rollup@4.24.0)(terser@5.34.1)(typescript@5.6.3)))(astro@4.16.7(@types/node@22.7.9)(rollup@4.24.0)(terser@5.34.1)(typescript@5.6.3)):
+    dependencies:
+      '@astrojs/starlight': 0.28.3(astro@4.16.7(@types/node@22.7.9)(rollup@4.24.0)(terser@5.34.1)(typescript@5.6.3))
+      '@types/picomatch': 2.3.3
+      astro: 4.16.7(@types/node@22.7.9)(rollup@4.24.0)(terser@5.34.1)(typescript@5.6.3)
+      github-slugger: 2.0.0
+      hast-util-from-html: 2.0.1
+      hast-util-has-property: 3.0.0
+      is-absolute-url: 4.0.1
+      kleur: 4.1.5
+      mdast-util-to-string: 4.0.0
+      picomatch: 4.0.2
+      unist-util-visit: 5.0.0
 
   stdin-discarder@0.2.2: {}
 
