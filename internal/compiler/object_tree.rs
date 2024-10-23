@@ -10,7 +10,9 @@
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::EnumerationValue;
-use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, Enumeration, NativeClass, Type};
+use crate::langtype::{
+    BuiltinElement, BuiltinPropertyDefault, Callback, Enumeration, Function, NativeClass, Type,
+};
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
@@ -1153,13 +1155,12 @@ impl Element {
                     }
                     type_from_node(p.Type(), diag, tr)})
                 .collect();
-            let return_type = sig_decl
-                .ReturnType()
-                .map(|ret_ty| Box::new(type_from_node(ret_ty.Type(), diag, tr)));
+            let return_type =
+                sig_decl.ReturnType().map(|ret_ty| type_from_node(ret_ty.Type(), diag, tr));
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Callback { return_type, args },
+                    property_type: Type::Callback(Rc::new(Callback { return_type, args })),
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
                     pure,
@@ -1207,10 +1208,9 @@ impl Element {
                 }
                 arg_names.push(name);
             }
-            let return_type = Box::new(
-                func.ReturnType()
-                    .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr)),
-            );
+            let return_type = func
+                .ReturnType()
+                .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr));
             if r.bindings
                 .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
                 .is_some()
@@ -1241,7 +1241,7 @@ impl Element {
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Function { return_type, args },
+                    property_type: Type::Function(Rc::new(Function { return_type, args })),
                     node: Some(func.into()),
                     visibility,
                     pure,
@@ -1254,14 +1254,14 @@ impl Element {
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
             let PropertyLookupResult { resolved_name, property_type, .. } =
                 r.lookup_property(&unresolved_name);
-            if let Type::Callback { args, .. } = &property_type {
+            if let Type::Callback(callback) = &property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
-                if num_arg > args.len() {
+                if num_arg > callback.args.len() {
                     diag.push_error(
                         format!(
                             "'{}' only has {} arguments, but {} were provided",
                             unresolved_name,
-                            args.len(),
+                            callback.args.len(),
                             num_arg
                         ),
                         &con_node.child_token(SyntaxKind::Identifier).unwrap(),

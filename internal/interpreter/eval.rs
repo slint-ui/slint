@@ -1474,7 +1474,7 @@ pub(crate) fn invoke_callback(
                     let res = callback.call(args);
                     return Some(if res != Value::Void {
                         res
-                    } else if let Some(Type::Callback { return_type: Some(rt), .. }) = description
+                    } else if let Some(Type::Callback(callback)) = description
                         .original
                         .root_element
                         .borrow()
@@ -1485,7 +1485,7 @@ pub(crate) fn invoke_callback(
                         // If the callback was not set, the return value will be Value::Void, but we need
                         // to make sure that the value is actually of the right type as returned by the
                         // callback, otherwise we will get panics later
-                        default_value_for_type(rt)
+                        default_value_for_type(callback.return_type.as_ref().unwrap_or(&Type::Void))
                     } else {
                         res
                     });

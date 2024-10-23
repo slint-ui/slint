@@ -255,16 +255,18 @@ fn lower_sub_component(
             if x.is_alias.is_some() {
                 continue;
             }
-            if let Type::Function { return_type, args } = &x.property_type {
+            if let Type::Function(function) = &x.property_type {
                 let function_index = sub_component.functions.len();
                 mapping.property_mapping.insert(
                     NamedReference::new(element, p),
                     PropertyReference::Function { sub_component_path: vec![], function_index },
                 );
+                // TODO: Function could wrap the Rc<langtype::Function>
+                //       instead of cloning the return type and args?
                 sub_component.functions.push(Function {
                     name: p.clone(),
-                    ret_ty: (**return_type).clone(),
-                    args: args.clone(),
+                    ret_ty: function.return_type.clone(),
+                    args: function.args.clone(),
                     // will be replaced later
                     code: super::Expression::CodeBlock(vec![]),
                 });
@@ -500,9 +502,9 @@ fn lower_sub_component(
                 Type::Enumeration(e) if e.name == "AccessibleRole" => {
                     super::Expression::PropertyReference(prop)
                 }
-                Type::Callback { return_type: None, args } => super::Expression::CallBackCall {
+                Type::Callback(callback) => super::Expression::CallBackCall {
                     callback: prop,
-                    arguments: (0..args.len())
+                    arguments: (0..callback.args.len())
                         .map(|index| super::Expression::FunctionParameterReference { index })
                         .collect(),
                 },
@@ -716,7 +718,7 @@ fn lower_global(
         let property_index = properties.len();
         let nr = NamedReference::new(&global.root_element, p);
 
-        if let Type::Function { return_type, args } = &x.property_type {
+        if let Type::Function(function) = &x.property_type {
             let function_index = functions.len();
             mapping.property_mapping.insert(
                 nr.clone(),
@@ -726,10 +728,11 @@ fn lower_global(
                 nr.clone(),
                 PropertyReference::GlobalFunction { global_index, function_index },
             );
+            // TODO: wrap the Rc<langtype::Function> instead of cloning
             functions.push(Function {
                 name: p.clone(),
-                ret_ty: (**return_type).clone(),
-                args: args.clone(),
+                ret_ty: function.return_type.clone(),
+                args: function.args.clone(),
                 // will be replaced later
                 code: super::Expression::CodeBlock(vec![]),
             });

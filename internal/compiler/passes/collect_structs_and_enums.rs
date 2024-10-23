@@ -89,17 +89,17 @@ fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
             }
         }
         Type::Array(x) => visit_declared_type(x, visitor),
-        Type::Callback { return_type, args } => {
-            if let Some(rt) = return_type {
+        Type::Callback(callback) => {
+            if let Some(rt) = &callback.return_type {
                 visit_declared_type(rt, visitor);
             }
-            for a in args {
+            for a in &callback.args {
                 visit_declared_type(a, visitor);
             }
         }
-        Type::Function { return_type, args } => {
-            visit_declared_type(return_type, visitor);
-            for a in args {
+        Type::Function(function) => {
+            visit_declared_type(&function.return_type, visitor);
+            for a in &function.args {
                 visit_declared_type(a, visitor);
             }
         }

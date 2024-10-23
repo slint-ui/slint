@@ -267,12 +267,12 @@ impl Expression {
             Self::Cast { to, .. } => to.clone(),
             Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty(ctx)),
             Self::BuiltinFunctionCall { function, .. } => match function.ty() {
-                Type::Function { return_type, .. } => *return_type,
+                Type::Function(function) => function.return_type.clone(),
                 _ => unreachable!(),
             },
             Self::CallBackCall { callback, .. } => {
-                if let Type::Callback { return_type, .. } = ctx.property_ty(callback) {
-                    return_type.as_ref().map_or(Type::Void, |x| (**x).clone())
+                if let Type::Callback(callback) = ctx.property_ty(callback) {
+                    callback.return_type.as_ref().unwrap_or(&Type::Void).clone()
                 } else {
                     Type::Invalid
                 }

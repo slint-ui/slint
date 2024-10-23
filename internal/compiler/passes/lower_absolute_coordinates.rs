@@ -26,7 +26,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
     });
 
     let point_type = match BuiltinFunction::ItemAbsolutePosition.ty() {
-        crate::langtype::Type::Function { return_type, .. } => return_type.as_ref().clone(),
+        crate::langtype::Type::Function(sig) => sig.return_type.clone(),
         _ => unreachable!(),
     };
 

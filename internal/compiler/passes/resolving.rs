@@ -926,26 +926,30 @@ impl Expression {
         };
         arguments.extend(sub_expr);
 
-        let arguments = match function.ty() {
-            Type::Function { args, .. } | Type::Callback { args, .. } => {
-                if arguments.len() != args.len() {
-                    ctx.diag.push_error(
-                        format!(
-                            "The callback or function expects {} arguments, but {} are provided",
-                            args.len() - adjust_arg_count,
-                            arguments.len() - adjust_arg_count,
-                        ),
-                        &node,
-                    );
-                    arguments.into_iter().map(|x| x.0).collect()
-                } else {
-                    arguments
-                        .into_iter()
-                        .zip(args.iter())
-                        .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, ctx.diag))
-                        .collect()
-                }
+        let mut handle_args = |arguments: Vec<(Expression, Option<NodeOrToken>)>,
+                               args: &Vec<Type>| {
+            if arguments.len() != args.len() {
+                ctx.diag.push_error(
+                    format!(
+                        "The callback or function expects {} arguments, but {} are provided",
+                        args.len() - adjust_arg_count,
+                        arguments.len() - adjust_arg_count,
+                    ),
+                    &node,
+                );
+                arguments.into_iter().map(|x| x.0).collect()
+            } else {
+                arguments
+                    .into_iter()
+                    .zip(args.iter())
+                    .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, ctx.diag))
+                    .collect()
             }
+        };
+
+        let arguments = match function.ty() {
+            Type::Function(function) => handle_args(arguments, &function.args),
+            Type::Callback(callback) => handle_args(arguments, &callback.args),
             Type::Invalid => {
                 debug_assert!(ctx.diag.has_errors());
                 arguments.into_iter().map(|x| x.0).collect()
@@ -1533,7 +1537,7 @@ fn resolve_two_way_bindings(
                 if let Expression::Uncompiled(node) = binding.expression.clone() {
                     if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
                         let lhs_lookup = elem.borrow().lookup_property(prop_name);
-                        if lhs_lookup.property_type == Type::Invalid {
+                        if !lhs_lookup.is_valid() {
                             // An attempt to resolve this already failed when trying to resolve the property type
                             assert!(diag.has_errors());
                             continue;

@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Enumeration,
-    PropertyLookupResult, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, Callback, ElementType,
+    Enumeration, PropertyLookupResult, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -101,6 +101,22 @@ pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-origin-y", Type::LogicalLength),
 ];
 
+fn noarg_callback_type() -> Type {
+    thread_local! {
+        static TYPE: Type = Type::Callback(Rc::new(Callback { return_type: None, args: vec![] }));
+    }
+
+    TYPE.with(|t| t.clone())
+}
+
+fn strarg_callback_type() -> Type {
+    thread_local! {
+        static TYPE: Type = Type::Callback(Rc::new(Callback { return_type: None, args: vec![Type::String] }));
+    }
+
+    TYPE.with(|t| t.clone())
+}
+
 pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str, Type)> {
     [
         //("accessible-role", ...)
@@ -115,13 +131,10 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-value-minimum", Type::Float32),
         ("accessible-value-step", Type::Float32),
         ("accessible-placeholder-text", Type::String),
-        ("accessible-action-default", Type::Callback { return_type: None, args: vec![] }),
-        ("accessible-action-increment", Type::Callback { return_type: None, args: vec![] }),
-        ("accessible-action-decrement", Type::Callback { return_type: None, args: vec![] }),
-        (
-            "accessible-action-set-value",
-            Type::Callback { return_type: None, args: vec![Type::String] },
-        ),
+        ("accessible-action-default", noarg_callback_type()),
+        ("accessible-action-increment", noarg_callback_type()),
+        ("accessible-action-decrement", noarg_callback_type()),
+        ("accessible-action-set-value", strarg_callback_type()),
         ("accessible-selectable", Type::Bool),
         ("accessible-selected", Type::Bool),
     ]
@@ -159,11 +172,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 PropertyVisibility::Constexpr,
             ),
         ]))
-        .chain(std::iter::once((
-            "init",
-            Type::Callback { return_type: None, args: vec![] },
-            PropertyVisibility::Private,
-        )))
+        .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
 }
 
 /// lookup reserved property injected in every item
