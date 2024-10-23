@@ -367,13 +367,14 @@ fn embed_font(
                 .expect("more than 65535 glyphs are not supported"),
         })
         .collect();
-    character_map.sort_by_key(|entry| entry.code_point);
 
     #[cfg(feature = "embed-glyphs-as-sdf")]
     let glyphs = embed_sdf_glyphs(pixel_sizes, &character_map, &font, fallback_fonts);
 
     #[cfg(not(feature = "embed-glyphs-as-sdf"))]
     let glyphs = embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts);
+
+    character_map.sort_by_key(|entry| entry.code_point);
 
     let face_info = fontdb.face(font.id).unwrap();
 
@@ -401,33 +402,34 @@ fn embed_alpha_map_glyphs(
     font: &Font,
     fallback_fonts: &[Font],
 ) -> Vec<BitmapGlyphs> {
+    use rayon::prelude::*;
+
     let glyphs = pixel_sizes
         .iter()
         .map(|pixel_size| {
-            let mut glyph_data = Vec::new();
-            glyph_data.resize(character_map.len(), Default::default());
+            let glyph_data = character_map
+                .par_iter()
+                .map(|CharacterMapEntry { code_point, .. }| {
+                    let (metrics, bitmap) = core::iter::once(font)
+                        .chain(fallback_fonts.iter())
+                        .find_map(|font| {
+                            font.chars()
+                                .contains_key(code_point)
+                                .then(|| font.rasterize(*code_point, *pixel_size as _))
+                        })
+                        .unwrap_or_else(|| font.rasterize(*code_point, *pixel_size as _));
 
-            for CharacterMapEntry { code_point, glyph_index } in character_map {
-                let (metrics, bitmap) = core::iter::once(font)
-                    .chain(fallback_fonts.iter())
-                    .find_map(|font| {
-                        font.chars()
-                            .contains_key(code_point)
-                            .then(|| font.rasterize(*code_point, *pixel_size as _))
-                    })
-                    .unwrap_or_else(|| font.rasterize(*code_point, *pixel_size as _));
-
-                let glyph = BitmapGlyph {
-                    x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
-                    y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
-                    width: i16::try_from(metrics.width).expect("large width"),
-                    height: i16::try_from(metrics.height).expect("large height"),
-                    x_advance: i16::try_from(metrics.advance_width as i64)
-                        .expect("large advance width"),
-                    data: bitmap,
-                };
-                glyph_data[*glyph_index as usize] = glyph;
-            }
+                    BitmapGlyph {
+                        x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
+                        y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
+                        width: i16::try_from(metrics.width).expect("large width"),
+                        height: i16::try_from(metrics.height).expect("large height"),
+                        x_advance: i16::try_from(metrics.advance_width as i64)
+                            .expect("large advance width"),
+                        data: bitmap,
+                    }
+                })
+                .collect();
 
             BitmapGlyphs { pixel_size: *pixel_size, glyph_data }
         })
