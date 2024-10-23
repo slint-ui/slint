@@ -11,3 +11,4 @@ packages:
   - "examples/todo/node"
   - "examples/memory"
   - "docs/editor"
+  - "docs"

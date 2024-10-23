@@ -1,0 +1,81 @@
+---
+import "@astrojs/starlight/style/markdown.css";
+
+type KnownType = "angle" | "enum" | "image" | "string" | "length" | "int" | "bool" | "brush" | "color" | "struct";
+
+interface Props {
+    propName: string,
+	typeName: KnownType;
+	defaultValue?: string;
+    enumName?: string;
+}
+const { propName, typeName, defaultValue = "<???>", enumName } = Astro.props;
+
+
+async function getEnumContent(enumName: string | undefined) {
+  if (enumName) {
+    try {
+
+      const module = await import(`../content/collections/enums/${enumName}.md`);
+      return module.compiledContent();
+    } catch (error) {
+      console.error(`Failed to load enum file for ${enumName}:`, error);
+      return "";
+    }
+  }
+  return "";
+}
+
+const enumContent = await getEnumContent(enumName);
+
+if (propName === "") {
+    console.error("No propName!!");
+}
+if (defaultValue === "<???>") {
+    console.error("No defaultValue for:", propName);
+}
+
+function getHref(typeName: KnownType): string {
+	switch (typeName) {
+		case "angle":
+			return "/guide/types/";
+		case "image":
+			return "/guide/types/#images";
+		case "string":
+			return "/guide/types/#string";
+		case "length":
+			return "/guide/types/";
+		case "int":
+			return "/guide/types/";
+		case "bool":
+			return "/guide/types/";
+		case "brush":
+			return "/guide/types/#colors-and-brushes";
+		case "color":
+			return "/guide/types/#colors-and-brushes";
+        case "struct":
+            return "/guide/types/#structs";
+        default: {
+            console.error("Unknown type: ", typeName);
+            return "";
+        }
+	}
+}
+
+---
+
+<div class="sl-markdown-content">
+  <p>
+    <strong>type:</strong> 
+    <a href={getHref(typeName)} dir="auto">
+      <code>{typeName}</code>
+    </a>
+    <br>
+    <strong>default:</strong> <code dir="auto">{defaultValue}</code><br>
+    {enumName && <Fragment set:html={enumContent}/>}
+  </p>
+  <slot/>
+</div>
+
+
+

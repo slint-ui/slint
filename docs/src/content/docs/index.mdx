@@ -1,0 +1,51 @@
+---
+title: Welcome
+description: Get started building your product with Slint.
+template: splash
+hero:
+  tagline: Get started building your product with Slint.
+  image:
+    alt: Slint logo
+    dark: ../../assets/slint-logo-square-dark.webp
+    light: ../../assets/slint-logo-square-light.webp
+
+  actions:
+    - text: Language Docs
+      link: /getting-started/intro/
+      icon: right-arrow
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## API Reference
+
+<CardGrid >
+	<Card title="Rust" icon="pencil">
+		Edit `src/content/docs/index.mdx` to see this page change.
+	</Card>
+	<Card title="C++" icon="add-document">
+		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	</Card>
+	<Card title="TypeScript" icon="setting">
+		Edit your `sidebar` and other config in `astro.config.mjs`.
+	</Card>
+	<Card title="Python" icon="open-book">
+		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	</Card>
+</CardGrid>
+
+## Extras
+<CardGrid >
+	<Card title="Update content" icon="pencil">
+		Edit `src/content/docs/index.mdx` to see this page change.
+	</Card>
+	<Card title="Add new content" icon="add-document">
+		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	</Card>
+	<Card title="Configure your site" icon="setting">
+		Edit your `sidebar` and other config in `astro.config.mjs`.
+	</Card>
+	<Card title="Read the docs" icon="open-book">
+		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	</Card>
+</CardGrid>
