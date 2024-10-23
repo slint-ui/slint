@@ -11,7 +11,8 @@ use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::EnumerationValue;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, Callback, Enumeration, Function, NativeClass, Type,
+    BuiltinElement, BuiltinPropertyDefault, Callback, Enumeration, Function, NativeClass, Struct,
+    Type,
 };
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -90,14 +91,14 @@ impl Document {
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
             let rust_attributes = n.AtRustAttr().map(|child| vec![child.text().to_smolstr()]);
-            let mut ty =
-                type_struct_from_node(n.ObjectType(), diag, local_registry, rust_attributes);
-            if let Type::Struct { name, .. } = &mut ty {
-                *name = parser::identifier_text(&n.DeclaredIdentifier());
-            } else {
-                assert!(diag.has_errors());
-                return;
-            }
+            let ty = type_struct_from_node(
+                n.ObjectType(),
+                diag,
+                local_registry,
+                rust_attributes,
+                parser::identifier_text(&n.DeclaredIdentifier()),
+            );
+            assert!(matches!(ty, Type::Struct(_)));
             local_registry.insert_type(ty.clone());
             inner_types.push(ty);
         };
@@ -1882,7 +1883,7 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
-        type_struct_from_node(object_node, diag, tr, None)
+        type_struct_from_node(object_node, diag, tr, None, None)
     } else if let Some(array_node) = node.ArrayType() {
         Type::Array(Box::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
@@ -1897,6 +1898,7 @@ pub fn type_struct_from_node(
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
     rust_attributes: Option<Vec<SmolStr>>,
+    name: Option<SmolStr>,
 ) -> Type {
     let fields = object_node
         .ObjectTypeMember()
@@ -1907,7 +1909,7 @@ pub fn type_struct_from_node(
             )
         })
         .collect();
-    Type::Struct { fields, name: None, node: Some(object_node), rust_attributes }
+    Type::Struct(Rc::new(Struct { fields, name, node: Some(object_node), rust_attributes }))
 }
 
 fn animation_element_from_node(

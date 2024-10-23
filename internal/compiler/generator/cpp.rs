@@ -511,20 +511,20 @@ impl CppType for Type {
             Type::Rem => Some("float".into()),
             Type::Percent => Some("float".into()),
             Type::Bool => Some("bool".into()),
-            Type::Struct { name: Some(name), node: Some(_), .. } => Some(ident(name)),
-            Type::Struct { name: Some(name), node: None, .. } => {
-                Some(if name.starts_with("slint::") {
+            Type::Struct(s) => match (&s.name, &s.node) {
+                (Some(name), Some(_)) => Some(ident(name)),
+                (Some(name), None) => Some(if name.starts_with("slint::") {
                     name.clone()
                 } else {
                     format_smolstr!("slint::cbindgen_private::{}", ident(name))
-                })
-            }
-            Type::Struct { fields, .. } => {
-                let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
+                }),
+                _ => {
+                    let elem =
+                        s.fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
 
-                Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
-            }
-
+                    Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
+                }
+            },
             Type::Array(i) => {
                 Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?))
             }
@@ -693,8 +693,13 @@ pub fn generate(
 
     for ty in doc.used_types.borrow().structs_and_enums.iter() {
         match ty {
-            Type::Struct { fields, name: Some(name), node: Some(node), .. } => {
-                generate_struct(&mut file, name, fields, node);
+            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                generate_struct(
+                    &mut file,
+                    s.name.as_ref().unwrap(),
+                    &s.fields,
+                    s.node.as_ref().unwrap(),
+                );
             }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
@@ -2997,15 +3002,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
-            Type::Struct { fields, name : None, .. } => {
-                let index = fields
-                    .keys()
-                    .position(|k| k == name)
-                    .expect("Expression::ObjectAccess: Cannot find a key in an object");
-                format!("std::get<{}>({})", index, compile_expression(base, ctx))
-            }
-            Type::Struct{..} => {
-                format!("{}.{}", compile_expression(base, ctx), ident(name))
+            Type::Struct(s)=> {
+                if s.name.is_none() {
+                    let index = s.fields
+                        .keys()
+                        .position(|k| k == name)
+                        .expect("Expression::ObjectAccess: Cannot find a key in an object");
+                    format!("std::get<{}>({})", index, compile_expression(base, ctx))
+                } else {
+                    format!("{}.{}", compile_expression(base, ctx), ident(name))
+                }
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
@@ -3037,11 +3043,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 (Type::Brush, Type::Color) => {
                     format!("{}.color()", f)
                 }
-                (Type::Struct { .. }, Type::Struct{ fields, name: Some(_), ..}) => {
+                (Type::Struct (_), Type::Struct(s)) if s.name.is_some() => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
                         struct_name = to.cpp_type().unwrap(),
-                        fields = fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
+                        fields = s.fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
                         obj = f,
                     )
                 }
@@ -3056,7 +3062,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             .iter()
                             .map(|path_elem_expr| {
                                 let (field_count, qualified_elem_type_name) = match path_elem_expr.ty(ctx) {
-                                    Type::Struct{ fields, name: Some(name), .. } => (fields.len(), name),
+                                    Type::Struct(s) if s.name.is_some() => (s.fields.len(), s.name.as_ref().unwrap().clone()),
                                     _ => unreachable!()
                                 };
                                 // Turn slint::private_api::PathLineTo into `LineTo`
@@ -3247,28 +3253,32 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct{fields, name: None, ..} = ty {
-                let mut elem = fields.iter().map(|(k, t)| {
-                    values
-                        .get(k)
-                        .map(|e| compile_expression(e, ctx))
-                        .map(|e| {
-                            // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
-                            if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
-                        })
-                        .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
-                });
-                format!("std::make_tuple({})", elem.join(", "))
-            } else if let Type::Struct{ name: Some(_), .. } = ty {
-                format!(
-                    "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
-                    args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
-                    ty = ty.cpp_type().unwrap(),
-                    fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
-                    vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
-                )
-            } else {
+            match ty {
+                Type::Struct(s) if s.name.is_none() => {
+                    let mut elem = s.fields.iter().map(|(k, t)| {
+                        values
+                            .get(k)
+                            .map(|e| compile_expression(e, ctx))
+                            .map(|e| {
+                                // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
+                                if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
+                            })
+                            .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
+                    });
+                    format!("std::make_tuple({})", elem.join(", "))
+                },
+                Type::Struct(_) => {
+                    format!(
+                        "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
+                        args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
+                        ty = ty.cpp_type().unwrap(),
+                        fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
+                        vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
+                    )
+                },
+                _ => {
                 panic!("Expression::Object is not a Type::Object")
+                }
             }
         }
         Expression::EasingCurve(EasingCurve::Linear) => "slint::cbindgen_private::EasingCurve()".into(),
@@ -3809,8 +3819,8 @@ fn generate_type_aliases(file: &mut File, doc: &Document) {
                 Some((&export.0.name, &component.id))
             }
             Either::Right(ty) => match &ty {
-                Type::Struct { name: Some(name), node: Some(_), .. } => {
-                    Some((&export.0.name, name))
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                    Some((&export.0.name, s.name.as_ref().unwrap()))
                 }
                 Type::Enumeration(en) => Some((&export.0.name, &en.name)),
                 _ => None,

@@ -228,9 +228,10 @@ impl Expression {
                 values: vec![],
                 as_model: true,
             },
-            Type::Struct { fields, .. } => Expression::Struct {
+            Type::Struct(s) => Expression::Struct {
                 ty: ty.clone(),
-                values: fields
+                values: s
+                    .fields
                     .iter()
                     .map(|(k, v)| Some((k.clone(), Expression::default_value_for_type(v)?)))
                     .collect::<Option<_>>()?,
@@ -257,7 +258,7 @@ impl Expression {
             Self::StoreLocalVariable { .. } => Type::Void,
             Self::ReadLocalVariable { ty, .. } => ty.clone(),
             Self::StructFieldAccess { base, name } => match base.ty(ctx) {
-                Type::Struct { fields, .. } => fields[name].clone(),
+                Type::Struct(s) => s.fields[name].clone(),
                 _ => unreachable!(),
             },
             Self::ArrayIndex { array, .. } => match array.ty(ctx) {

@@ -5,7 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, PropertyLookupResult, Type};
+use crate::langtype::{ElementType, PropertyLookupResult, Struct, Type};
 use crate::object_tree::{Component, ElementRc};
 
 use smol_str::{format_smolstr, SmolStr};
@@ -487,7 +487,7 @@ impl BoxLayout {
 
 /// The [`Type`] for a runtime LayoutInfo structure
 pub fn layout_info_type() -> Type {
-    Type::Struct {
+    Type::Struct(Rc::new(Struct {
         fields: ["min", "max", "preferred"]
             .iter()
             .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
@@ -500,7 +500,7 @@ pub fn layout_info_type() -> Type {
         name: Some("slint::private_api::LayoutInfo".into()),
         node: None,
         rust_attributes: None,
-    }
+    }))
 }
 
 /// Get the implicit layout info of a particular element

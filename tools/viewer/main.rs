@@ -405,11 +405,11 @@ fn load_data(
                     _ => slint_interpreter::Value::Void,
                 },
                 serde_json::Value::Object(obj) => match t {
-                    i_slint_compiler::langtype::Type::Struct { fields, .. } => obj
+                    i_slint_compiler::langtype::Type::Struct(s) => obj
                         .iter()
                         .filter_map(|(k, v)| {
                             let k = k.to_smolstr();
-                            match fields.get(&k) {
+                            match s.fields.get(&k) {
                                 Some(t) => Some((k.to_string(), from_json(t, v))),
                                 None => {
                                     eprintln!("Warning: ignoring unknown property: {}", k);

@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, Callback, ElementType,
-    Enumeration, PropertyLookupResult, Type,
+    Enumeration, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -340,14 +340,14 @@ impl TypeRegister {
                     }
                 }
             )*) => { $(
-                let $Name = Type::Struct {
+                let $Name = Type::Struct(Rc::new(Struct{
                     fields: BTreeMap::from([
                         $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
                     ]),
                     name: Some(format_smolstr!("{}", $inner_name)),
                     node: None,
                     rust_attributes: None,
-                };
+                }));
                 register.insert_type_with_name(maybe_clone!($Name, $Name), SmolStr::new(stringify!($Name)));
             )* };
         }
@@ -585,29 +585,35 @@ impl TypeRegister {
 }
 
 pub fn logical_point_type() -> Type {
-    Type::Struct {
-        fields: IntoIterator::into_iter([
-            (SmolStr::new_static("x"), Type::LogicalLength),
-            (SmolStr::new_static("y"), Type::LogicalLength),
-        ])
-        .collect(),
-        name: Some("slint::LogicalPosition".into()),
-        node: None,
-        rust_attributes: None,
+    thread_local! {
+        static TYPE: Type = Type::Struct(Rc::new(Struct {
+            fields: IntoIterator::into_iter([
+                (SmolStr::new_static("x"), Type::LogicalLength),
+                (SmolStr::new_static("y"), Type::LogicalLength),
+            ])
+            .collect(),
+            name: Some("slint::LogicalPosition".into()),
+            node: None,
+            rust_attributes: None,
+        }));
     }
+    TYPE.with(|t| t.clone())
 }
 
 pub fn font_metrics_type() -> Type {
-    Type::Struct {
-        fields: IntoIterator::into_iter([
-            (SmolStr::new_static("ascent"), Type::LogicalLength),
-            (SmolStr::new_static("descent"), Type::LogicalLength),
-            (SmolStr::new_static("x-height"), Type::LogicalLength),
-            (SmolStr::new_static("cap-height"), Type::LogicalLength),
-        ])
-        .collect(),
-        name: Some("slint::private_api::FontMetrics".into()),
-        node: None,
-        rust_attributes: None,
+    thread_local! {
+        static TYPE: Type = Type::Struct(Rc::new(Struct {
+            fields: IntoIterator::into_iter([
+                (SmolStr::new_static("ascent"), Type::LogicalLength),
+                (SmolStr::new_static("descent"), Type::LogicalLength),
+                (SmolStr::new_static("x-height"), Type::LogicalLength),
+                (SmolStr::new_static("cap-height"), Type::LogicalLength),
+            ])
+            .collect(),
+            name: Some("slint::private_api::FontMetrics".into()),
+            node: None,
+            rust_attributes: None,
+        }));
     }
+    TYPE.with(|t| t.clone())
 }

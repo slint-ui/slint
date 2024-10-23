@@ -12,7 +12,7 @@ use smol_str::{format_smolstr, SmolStr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
 use super::{Animation, PropertyReference};
-use crate::langtype::{EnumerationValue, Type};
+use crate::langtype::{EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
@@ -260,8 +260,8 @@ fn lower_assignment(
                 tree_Expression::ReadLocalVariable { name: unique_name, ty: ty.clone() };
             let mut values = HashMap::new();
             match &ty {
-                Type::Struct { fields, .. } => {
-                    for field in fields.keys() {
+                Type::Struct(s) => {
+                    for field in s.fields.keys() {
                         let e = if field != name {
                             tree_Expression::StructFieldAccess {
                                 base: lower_base.clone().into(),
@@ -423,12 +423,12 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
     }
 
     fn animation_ty() -> Type {
-        Type::Struct {
+        Type::Struct(Rc::new(Struct {
             fields: animation_fields().collect(),
             name: Some("slint::private_api::PropertyAnimation".into()),
             node: None,
             rust_attributes: None,
-        }
+        }))
     }
 
     match a {
@@ -456,7 +456,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
             }
             let result = llr_Expression::Struct {
                 // This is going to be a tuple
-                ty: Type::Struct {
+                ty: Type::Struct(Rc::new(Struct {
                     fields: IntoIterator::into_iter([
                         (SmolStr::new_static("0"), animation_ty),
                         // The type is an instant, which does not exist in our type system
@@ -466,7 +466,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
                     name: None,
                     node: None,
                     rust_attributes: None,
-                },
+                })),
                 values: IntoIterator::into_iter([
                     (SmolStr::new_static("0"), get_anim),
                     (
@@ -684,13 +684,13 @@ fn box_layout_data(
     let repeater_count =
         layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
-    let element_ty = Type::Struct {
+    let element_ty = Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([("constraint".into(), crate::layout::layout_info_type())])
             .collect(),
         name: Some("BoxLayoutCellData".into()),
         node: None,
         rust_attributes: None,
-    };
+    }));
 
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
@@ -767,7 +767,7 @@ fn grid_layout_cell_data(
 }
 
 pub(super) fn grid_layout_cell_data_ty() -> Type {
-    Type::Struct {
+    Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("col_or_row"), Type::Int32),
             (SmolStr::new_static("span"), Type::Int32),
@@ -777,7 +777,7 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
         name: Some("GridLayoutCellData".into()),
         node: None,
         rust_attributes: None,
-    }
+    }))
 }
 
 fn generate_layout_padding_and_spacing(
@@ -833,7 +833,7 @@ pub fn get_layout_info(
         };
         let ty = crate::layout::layout_info_type();
         let fields = match &ty {
-            Type::Struct { fields, .. } => fields,
+            Type::Struct(s) => &s.fields,
             _ => panic!(),
         };
         let mut values = fields
@@ -869,12 +869,12 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
     fn llr_path_elements(elements: Vec<llr_Expression>) -> llr_Expression {
         llr_Expression::Cast {
             from: llr_Expression::Array {
-                element_ty: Type::Struct {
+                element_ty: Type::Struct(Rc::new(Struct {
                     fields: Default::default(),
                     name: Some("PathElement".into()),
                     node: None,
                     rust_attributes: None,
-                },
+                })),
                 values: elements,
                 as_model: false,
             }
@@ -888,7 +888,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
             let converted_elements = elements
                 .iter()
                 .map(|element| {
-                    let element_type = Type::Struct {
+                    let element_type = Type::Struct(Rc::new(Struct {
                         fields: element
                             .element_type
                             .properties
@@ -898,7 +898,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                         name: element.element_type.native_class.cpp_type.clone(),
                         node: None,
                         rust_attributes: None,
-                    };
+                    }));
 
                     llr_Expression::Struct {
                         ty: element_type,
@@ -941,7 +941,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
 
             llr_Expression::Cast {
                 from: llr_Expression::Struct {
-                    ty: Type::Struct {
+                    ty: Type::Struct(Rc::new(Struct {
                         fields: IntoIterator::into_iter([
                             (SmolStr::new_static("events"), Type::Array(event_type.clone().into())),
                             (SmolStr::new_static("points"), Type::Array(point_type.clone().into())),
@@ -950,7 +950,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                         name: None,
                         node: None,
                         rust_attributes: None,
-                    },
+                    })),
                     values: IntoIterator::into_iter([
                         (
                             SmolStr::new_static("events"),
@@ -994,12 +994,12 @@ pub fn make_struct(
     }
 
     llr_Expression::Struct {
-        ty: Type::Struct {
+        ty: Type::Struct(Rc::new(Struct {
             fields,
             name: Some(format_smolstr!("slint::private_api::{name}")),
             node: None,
             rust_attributes: None,
-        },
+        })),
         values,
     }
 }

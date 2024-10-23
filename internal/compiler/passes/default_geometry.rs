@@ -264,8 +264,9 @@ fn merge_explicit_constraints(
             name: unique_name.clone(),
             value: Box::new(std::mem::take(expr)),
         };
-        let Type::Struct { fields, .. } = &ty else { unreachable!() };
-        let mut values = fields
+        let Type::Struct(s) = &ty else { unreachable!() };
+        let mut values = s
+            .fields
             .keys()
             .map(|p| {
                 (

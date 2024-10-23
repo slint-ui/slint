@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{BuiltinElement, EnumerationValue, Function, Type};
+use crate::langtype::{BuiltinElement, EnumerationValue, Function, Struct, Type};
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
@@ -175,7 +175,7 @@ impl BuiltinFunction {
                 args: vec![Type::ElementReference],
             },
             BuiltinFunction::ColorRgbaStruct => Function {
-                return_type: Type::Struct {
+                return_type: Type::Struct(Rc::new(Struct {
                     fields: IntoIterator::into_iter([
                         (SmolStr::new_static("red"), Type::Int32),
                         (SmolStr::new_static("green"), Type::Int32),
@@ -186,11 +186,11 @@ impl BuiltinFunction {
                     name: Some("Color".into()),
                     node: None,
                     rust_attributes: None,
-                },
+                })),
                 args: vec![Type::Color],
             },
             BuiltinFunction::ColorHsvaStruct => Function {
-                return_type: Type::Struct {
+                return_type: Type::Struct(Rc::new(Struct {
                     fields: IntoIterator::into_iter([
                         (SmolStr::new_static("hue"), Type::Float32),
                         (SmolStr::new_static("saturation"), Type::Float32),
@@ -201,7 +201,7 @@ impl BuiltinFunction {
                     name: Some("Color".into()),
                     node: None,
                     rust_attributes: None,
-                },
+                })),
                 args: vec![Type::Color],
             },
             BuiltinFunction::ColorBrighter => {
@@ -221,7 +221,7 @@ impl BuiltinFunction {
                 Function { return_type: Type::Brush, args: vec![Type::Brush, Type::Float32] }
             }
             BuiltinFunction::ImageSize => Function {
-                return_type: Type::Struct {
+                return_type: Type::Struct(Rc::new(Struct {
                     fields: IntoIterator::into_iter([
                         (SmolStr::new_static("width"), Type::Int32),
                         (SmolStr::new_static("height"), Type::Int32),
@@ -230,7 +230,7 @@ impl BuiltinFunction {
                     name: Some("Size".into()),
                     node: None,
                     rust_attributes: None,
-                },
+                })),
                 args: vec![Type::Image],
             },
             BuiltinFunction::ArrayLength => {
@@ -767,9 +767,7 @@ impl Expression {
                 .map_or(Type::Invalid, |e| model_inner_type(&e.model)),
             Expression::FunctionParameterReference { ty, .. } => ty.clone(),
             Expression::StructFieldAccess { base, name } => match base.ty() {
-                Type::Struct { fields, .. } => {
-                    fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
-                }
+                Type::Struct(s) => s.fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone(),
                 _ => Type::Invalid,
             },
             Expression::ArrayIndex { array, .. } => match array.ty() {
@@ -1181,13 +1179,12 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
-                (
-                    ref from_ty @ Type::Struct { fields: ref left, .. },
-                    Type::Struct { fields: right, .. },
-                ) if left != right => {
+                (ref from_ty @ Type::Struct(ref left), Type::Struct(ref right))
+                    if left.fields != right.fields =>
+                {
                     if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = HashMap::new();
-                        for (key, ty) in right {
+                        for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
                                 || (key.clone(), Expression::default_value_for_type(ty)),
                                 |(k, e)| (k, e.maybe_convert_to(ty.clone(), node, diag)),
@@ -1198,8 +1195,8 @@ impl Expression {
                     }
                     let var_name = "tmpobj";
                     let mut new_values = HashMap::new();
-                    for (key, ty) in right {
-                        let expression = if left.contains_key(key) {
+                    for (key, ty) in &right.fields {
+                        let expression = if left.fields.contains_key(key) {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.into(),
@@ -1290,11 +1287,11 @@ impl Expression {
                 },
                 _ => unreachable!(),
             }
-        } else if let (Type::Struct { fields, .. }, Expression::Struct { values, .. }) =
+        } else if let (Type::Struct(struct_type), Expression::Struct { values, .. }) =
             (&target_type, &self)
         {
             // Also special case struct literal in case they contain array literal
-            let mut fields = fields.clone();
+            let mut fields = struct_type.fields.clone();
             let mut new_values = HashMap::new();
             for (f, v) in values {
                 if let Some(t) = fields.remove(f) {
@@ -1371,9 +1368,10 @@ impl Expression {
             Type::Array(element_ty) => {
                 Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
             }
-            Type::Struct { fields, .. } => Expression::Struct {
+            Type::Struct(s) => Expression::Struct {
                 ty: ty.clone(),
-                values: fields
+                values: s
+                    .fields
                     .iter()
                     .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
                     .collect(),

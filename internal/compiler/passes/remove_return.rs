@@ -3,9 +3,10 @@
 
 use smol_str::{format_smolstr, SmolStr};
 use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
 
 use crate::expression_tree::Expression;
-use crate::langtype::Type;
+use crate::langtype::{Struct, Type};
 
 pub fn remove_return(doc: &crate::object_tree::Document) {
     doc.visit_all_used_components(|component| {
@@ -431,7 +432,12 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
     codeblock_with_expr(
         voids,
         Expression::Struct {
-            ty: Type::Struct { fields, name: None, node: None, rust_attributes: None },
+            ty: Type::Struct(Rc::new(Struct {
+                fields,
+                name: None,
+                node: None,
+                rust_attributes: None,
+            })),
             values,
         },
     )
@@ -440,13 +446,13 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
 /// Given an expression `from` of type Struct, convert to another type struct with more fields
 /// Add missing members in `from`
 fn convert_struct(from: Expression, to: Type) -> Expression {
-    let Type::Struct { fields, .. } = &to else {
+    let Type::Struct(s) = &to else {
         assert_eq!(to, Type::Invalid);
         return Expression::Invalid;
     };
     if let Expression::Struct { mut values, .. } = from {
         let mut new_values = HashMap::new();
-        for (key, ty) in fields {
+        for (key, ty) in &s.fields {
             let (key, expression) = values
                 .remove_entry(key)
                 .unwrap_or_else(|| (key.clone(), Expression::default_value_for_type(ty)));
@@ -457,12 +463,12 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
     let var_name = "tmpobj";
     let from_ty = from.ty();
     let mut new_values = HashMap::new();
-    let Type::Struct { fields: form_fields, .. } = &from_ty else {
+    let Type::Struct(from_s) = &from_ty else {
         assert_eq!(from_ty, Type::Invalid);
         return Expression::Invalid;
     };
-    for (key, ty) in fields {
-        let expression = if form_fields.contains_key(key) {
+    for (key, ty) in &s.fields {
+        let expression = if from_s.fields.contains_key(key) {
             Expression::StructFieldAccess {
                 base: Box::new(Expression::ReadLocalVariable {
                     name: var_name.into(),

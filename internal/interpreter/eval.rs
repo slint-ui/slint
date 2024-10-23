@@ -1445,8 +1445,8 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::Array(inner) => {
             matches!(value, Value::Model(m) if m.iter().all(|v| check_value_type(&v, inner)))
         }
-        Type::Struct { fields, .. } => {
-            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
+        Type::Struct(s) => {
+            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| s.fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
         }
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
@@ -1688,8 +1688,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Image => Value::Image(Default::default()),
         Type::Bool => Value::Bool(false),
         Type::Callback { .. } => Value::Void,
-        Type::Struct { fields, .. } => Value::Struct(
-            fields
+        Type::Struct(s) => Value::Struct(
+            s.fields
                 .iter()
                 .map(|(n, t)| (n.to_string(), default_value_for_type(t)))
                 .collect::<Struct>(),

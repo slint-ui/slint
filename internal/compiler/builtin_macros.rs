@@ -380,13 +380,13 @@ fn to_debug_string(
             true_expr: Box::new(Expression::StringLiteral("true".into())),
             false_expr: Box::new(Expression::StringLiteral("false".into())),
         },
-        Type::Struct { fields, .. } => {
+        Type::Struct(s) => {
             let local_object = format_smolstr!(
                 "debug_struct{}",
                 COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             );
             let mut string = None;
-            for k in fields.keys() {
+            for k in s.fields.keys() {
                 let field_name = if string.is_some() {
                     format_smolstr!(", {}: ", k)
                 } else {

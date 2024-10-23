@@ -954,8 +954,8 @@ impl LookupObject for Expression {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().for_each_entry(ctx, f),
             _ => match self.ty() {
-                Type::Struct { fields, .. } => {
-                    for name in fields.keys() {
+                Type::Struct(s) => {
+                    for name in s.fields.keys() {
                         if let Some(r) = f(
                             name,
                             Expression::StructFieldAccess {
@@ -988,7 +988,7 @@ impl LookupObject for Expression {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().lookup(ctx, name),
             _ => match self.ty() {
-                Type::Struct { fields, .. } => fields.contains_key(name).then(|| {
+                Type::Struct(s) => s.fields.contains_key(name).then(|| {
                     LookupResult::from(Expression::StructFieldAccess {
                         base: Box::new(self.clone()),
                         name: name.into(),
