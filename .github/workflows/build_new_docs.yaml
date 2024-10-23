@@ -84,14 +84,13 @@ jobs:
               env:
                 GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
-            # - name: check for diff
-            #   id: www-releases
-            #   working-directory: ./www-releases
-            #   run: |
-            #     git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
+            - name: check for diff
+              id: www-releases
+              working-directory: ./www-releases
+              run: |
+                git diff-index --quiet HEAD || echo "has-diff=yes" >> "$GITHUB_OUTPUT"
 
             - name: commit and push
-              if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
               working-directory: ./www-releases
               run: |
                 git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
