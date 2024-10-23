@@ -75,7 +75,8 @@ jobs:
               run: |
                 rm -rf www-releases/snapshots/tng
                 mkdir -p www-releases/snapshots/tng
-                cp -a docs/dist www-releases/snapshots/tng
+                cp -a docs/dist/* www-releases/snapshots/tng
+                ls -l www-releases/snapshots/tng/
 
             - name: Get GitHub App User ID
               id: get-user-id
