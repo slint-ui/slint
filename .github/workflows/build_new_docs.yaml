@@ -34,6 +34,10 @@ jobs:
             - uses: pnpm/action-setup@v4.0.0
               with:
                 version: 9.11.0
+            - uses: ./.github/actions/setup-rust
+              with:
+                toolchain: nightly
+
             # - name: Check license headers
             #   run: cargo xtask check_license_headers --fix-it
             # - name: Suggest license header changes
@@ -47,10 +51,8 @@ jobs:
             #   run: cargo xtask check_reuse_compliance
 
             # Build Docs
-            - name: Install starlight dependencies
-              run: cd docs && pnpm i --frozen-lockfile --ignore-scripts
-            - name: Build docs
-              run: cd docs && pnpm build
+            - name: Run slintdocs xtask
+              run: cargo xtask slintdocs
 
             # Commit to www-releases/snapshots/tng
 

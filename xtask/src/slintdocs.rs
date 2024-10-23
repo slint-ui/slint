@@ -4,154 +4,105 @@
 // cspell:ignore slintdocs pipenv pipfile
 
 use anyhow::{Context, Result};
-use std::ffi::OsString;
+use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use xshell::{cmd, Shell};
 
-fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
-    if dst.as_ref().exists() {
-        std::fs::remove_file(dst.as_ref()).context("Error removing old symlink")?;
-    }
-    #[cfg(target_os = "windows")]
-    return std::os::windows::fs::symlink_file(&src, &dst).context("Error creating symlink");
-    #[cfg(not(target_os = "windows"))]
-    return std::os::unix::fs::symlink(&src, &dst).context(format!(
-        "Error creating symlink from {} to {}",
-        src.as_ref().display(),
-        dst.as_ref().display()
-    ));
-}
-
-fn symlink_dir<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
-    if dst.as_ref().exists() {
-        std::fs::remove_dir_all(dst.as_ref()).context("Error removing old symlink")?;
-    }
-    #[cfg(target_os = "windows")]
-    return std::os::windows::fs::symlink_dir(&src, &dst).context("Error creating symlink");
-    #[cfg(not(target_os = "windows"))]
-    return std::os::unix::fs::symlink(&src, &dst).context(format!(
-        "Error creating symlink from {} to {}",
-        src.as_ref().display(),
-        dst.as_ref().display()
-    ));
-}
-
-fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
-    src: S,
-    target: T,
-    target_to_source: TS,
-    excluded_entries: &[&std::ffi::OsStr],
-) -> Result<()> {
-    for entry in std::fs::read_dir(src.as_ref()).context("Error reading docs source directory")? {
-        let entry = entry.context("Error reading directory entry")?;
-        let path = entry.path();
-        let file_name = path.file_name().unwrap();
-        if excluded_entries.contains(&file_name) {
-            continue;
-        }
-        let symlink_source = target_to_source.as_ref().to_path_buf().join(&file_name);
-        let symlink_target = target.as_ref().to_path_buf().join(path.file_name().unwrap());
-        let filetype = entry.file_type().context("Cannot determine file type")?;
-        if filetype.is_file() {
-            symlink_file(symlink_source, symlink_target).context("Could not symlink file")?;
-        } else if filetype.is_dir() {
-            symlink_dir(symlink_source, symlink_target).context("Could not symlink directory")?;
-        }
-    }
-    Ok(())
-}
-
-pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     generate_enum_docs()?;
     generate_builtin_struct_docs()?;
 
     let root = super::root_dir();
 
-    let docs_source_dir = root.join("docs/reference");
-    let docs_build_dir = root.join("target/slintdocs");
-    let html_static_dir = docs_build_dir.join("_static");
-
-    std::fs::create_dir_all(docs_build_dir.as_path()).context("Error creating docs build dir")?;
-    std::fs::create_dir_all(html_static_dir.as_path())
-        .context("Error creating _static path for docs build")?;
-
-    symlink_files_in_dir(
-        &docs_source_dir,
-        &docs_build_dir,
-        ["..", "..", "docs", "reference"].iter().collect::<PathBuf>(),
-        &[std::ffi::OsStr::new("_static")]
-    )
-    .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
-
-    symlink_files_in_dir(
-        &docs_source_dir.join("_static"),
-        &html_static_dir,
-        ["..", r"..", "..", "docs", "reference", "_static"].iter().collect::<PathBuf>(),
-        &[]
-    )
-    .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
+    let docs_source_dir = root.join("docs");
 
     {
         let sh = Shell::new()?;
-        let _p = sh.push_dir(root.join("docs/editor"));
-        cmd!(sh, "npm install").run()?;
-        cmd!(sh, "npm run build").run()?;
-    }
-
-    let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("Pipfile"))];
-
-    println!("Running pipenv install");
-
-    super::run_command("pipenv", &["install"], pip_env.clone())
-        .context("Error running pipenv install")?;
-
-    println!("Running sphinx-build");
-
-    let output = super::run_command(
-        "pipenv",
-        &[
-            "run",
-            "sphinx-build",
-            docs_build_dir.to_str().unwrap(),
-            docs_build_dir.join("html").to_str().unwrap(),
-        ],
-        pip_env,
-    )
-    .context("Error running pipenv install")?;
-
-    println!("{}", String::from_utf8_lossy(&output.stdout));
-
-    if show_warnings {
-        println!("{}", String::from_utf8_lossy(&output.stderr));
+        let _p = sh.push_dir(&docs_source_dir);
+        cmd!(sh, "pnpm install --frozen-lockfile --ignore-scripts").run()?;
+        cmd!(sh, "pnpm run build").run()?;
     }
 
     Ok(())
 }
 
-pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
-    let mut enums: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+fn write_individual_enum_files(
+    root_dir: &Path,
+    enums: &std::collections::BTreeMap<String, EnumDoc>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let enums_dir = root_dir.join("docs/src/content/collections/enums");
+    create_dir_all(&enums_dir).context(format!(
+        "Failed to create folder holding individual enum doc files {enums_dir:?}"
+    ))?;
+
+    for (k, e) in enums {
+        let path = enums_dir.join(format!("{k}.md"));
+        let mut file = BufWriter::new(
+            std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
+        );
+
+        file.write_all(
+            br#"<!-- Generated with `cargo xtask slintdocs` from internal/commons/enums.rs -->
+"#,
+        )?;
+
+        write!(
+            file,
+            r#"---
+title: {0}
+description: {0} content
+---
+
+`{0}`
+
+{1}
+"#,
+            k, e.description
+        )?;
+        for v in &e.values {
+            write!(
+                file,
+                r#"* **`{}`**: {}
+"#,
+                v.key, v.description
+            )?;
+        }
+    }
+    Ok(())
+}
+
+pub struct EnumValueDoc {
+    key: String,
+    description: String,
+}
+
+pub struct EnumDoc {
+    pub description: String,
+    pub values: Vec<EnumValueDoc>,
+}
+
+pub fn extract_enum_docs() -> std::collections::BTreeMap<String, EnumDoc> {
+    let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
 
     macro_rules! gen_enums {
         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $(
-                let mut entry = format!("## `{}`\n\n", stringify!($Name));
-                $(entry += &format!("{}\n", $enum_doc);)*
-                entry += "\n";
+                let name = stringify!($Name).to_string();
+                let mut description = String::new();
+                $( description += &format!("{}\n", $enum_doc); )*
+
+                let mut values = Vec::new();
+
                 $(
-                    let mut has_val = false;
-                    entry += &format!("* **`{}`**:", to_kebab_case(stringify!($Value)));
+                    let mut value_docs = String::new();
                     $(
-                        if has_val {
-                            entry += "\n   ";
-                        }
-                        entry += &format!("{}", $value_doc);
-                        has_val = true;
+                        value_docs += $value_doc;
                     )*
-                    entry += "\n";
+                    values.push(EnumValueDoc { key: to_kebab_case(stringify!($Value)), description: value_docs });
                 )*
-                entry += "\n";
-                enums.insert(stringify!($Name).to_string(), entry);
+
+                enums.insert(name, EnumDoc { description, values});
             )*
         }
     }
@@ -161,40 +112,50 @@ pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
         i_slint_common::for_each_enums!(gen_enums);
     }
 
-    let root = super::root_dir();
+    return enums;
+}
 
-    let path = root.join("docs/reference/src/language/builtins/enums.md");
-    let mut file =
-        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
+    let enums = extract_enum_docs();
 
-    file.write_all(
-        br#"<!-- Generated with `cargo xtask slintdocs` from internal/commons/enums.rs -->
-# Builtin Enumerations
-
-"#,
-    )?;
-
-    for (_, v) in enums {
-        // BTreeMap<i64, String>
-        write!(file, "{v}")?;
-    }
+    write_individual_enum_files(&super::root_dir(), &enums)?;
 
     Ok(())
 }
 
-pub fn generate_builtin_struct_docs() -> Result<(), Box<dyn std::error::Error>> {
+pub struct StructFieldDoc {
+    key: String,
+    description: String,
+    type_name: String,
+}
+
+pub struct StructDoc {
+    pub description: String,
+    pub fields: Vec<StructFieldDoc>,
+}
+
+pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc> {
     // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
     // so we manually create its entry first.
-    let mut structs: std::collections::BTreeMap<String, String> =
-        std::collections::BTreeMap::from([(
-            "Point".to_string(),
-            "## `Point`\n
-This structure represents a point with x and y coordinate\n
-### Fields\n
-- **`x`** (_length_)
-- **`y`** (_length_)\n\n"
-                .to_string(),
-        )]);
+    let mut structs = std::collections::BTreeMap::from([(
+        "Point".to_string(),
+        StructDoc {
+            description: "This structure represents a point with x and y coordinate".to_string(),
+            fields: vec![
+                StructFieldDoc {
+                    key: "x".to_string(),
+                    description: String::new(),
+                    type_name: "length".to_string(),
+                },
+                StructFieldDoc {
+                    key: "y".to_string(),
+                    description: String::new(),
+                    type_name: "length".to_string(),
+                },
+            ],
+        },
+    )]);
+
     macro_rules! map_type {
         (i32) => {
             stringify!(int)
@@ -212,6 +173,7 @@ This structure represents a point with x and y coordinate\n
             stringify!($pub_type)
         };
     }
+
     macro_rules! gen_structs {
         ($(
             $(#[doc = $struct_doc:literal])*
@@ -228,44 +190,83 @@ This structure represents a point with x and y coordinate\n
             }
         )*) => {
             $(
-                let mut entry = format!("## `{}`\n\n", stringify!($Name));
-                $(entry += &format!("{}\n", $struct_doc);)*
-                entry += "\n### Fields\n\n";
+                let name = stringify!($Name).to_string();
+                let mut description = String::new();
+                $(description += &format!("{}\n", $struct_doc);)*
+
+                let mut fields = Vec::new();
                 $(
-                    entry += &format!("- **`{}`** (_{}_):", to_kebab_case(stringify!($pub_field)), map_type!($pub_type));
+                    let key = stringify!($pub_field).to_string();
+                    let type_name = map_type!($pub_type).to_string();
+                    let mut f_description = String::new();
                     $(
-                        entry += &format!("{}", $pub_doc);
+                        f_description += &format!("{}", $pub_doc);
                     )*
-                    entry += "\n";
+                    fields.push(StructFieldDoc { key, description: f_description, type_name });
                 )*
-                entry += "\n";
-                structs.insert(stringify!($Name).to_string(), entry);
+                structs.insert(name, StructDoc { description, fields });
             )*
         }
     }
 
     i_slint_common::for_each_builtin_structs!(gen_structs);
 
-    let root = super::root_dir();
+    // `StateInfo` should not be in the documentation, so remove it again
+    structs.remove("StateInfo");
 
-    let path = root.join("docs/reference/src/language/builtins/structs.md");
-    let mut file =
-        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+    structs
+}
 
-    file.write_all(
+fn write_individual_struct_files(
+    root_dir: &Path,
+    structs: std::collections::BTreeMap<String, StructDoc>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let structs_dir = root_dir.join("docs/src/content/collections/structs");
+    create_dir_all(&structs_dir).context(format!(
+        "Failed to create folder holding individual structs doc files {structs_dir:?}"
+    ))?;
+
+    for (s, v) in &structs {
+        let path = structs_dir.join(format!("{s}.md"));
+        let mut file = BufWriter::new(
+            std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
+        );
+
+        file.write_all(
         br#"<!-- Generated with `cargo xtask slintdocs` from internal/common/builtin_structs.rs -->
-# Builtin Structures
-
 "#,
     )?;
 
-    // `StateInfo` should not be in the documentation, so remove it before writing file
-    structs.remove("StateInfo");
-    for (_, v) in structs {
-        write!(file, "{v}")?;
+        write!(
+            file,
+            r#"---
+title: {0}
+description: {0} content
+---
+
+`{0}`
+
+{1}
+"#,
+            s, v.description
+        )?;
+
+        for f in &v.fields {
+            write!(
+                file,
+                r#"- **`{}`** (_{}_): {}
+"#,
+                f.key, f.type_name, f.description
+            )?;
+        }
     }
 
     Ok(())
+}
+
+pub fn generate_builtin_struct_docs() -> Result<(), Box<dyn std::error::Error>> {
+    let structs = extract_builtin_structs();
+    write_individual_struct_files(&super::root_dir(), structs)
 }
 
 /// Convert a ascii pascal case string to kebab case

@@ -2,15 +2,15 @@ Cargo.lock
 tsconfig.tsbuildinfo
 /target
 node_modules
-tools/figma_import/target
-tools/figma_import/figma_output
+/tools/figma_import/target
+/tools/figma_import/figma_output
 *.code-workspace
 /build
 /_deps
 .DS_Store
 Pipfile.lock
-docs/reference/src/language/builtins/enums.md
-docs/reference/src/language/builtins/structs.md
+/docs/src/content/collections/enums/
+/docs/src/content/collections/structs/
 
 # Ignore all package-lock.json files
 **/package-lock.json
