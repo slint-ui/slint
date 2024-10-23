@@ -1290,7 +1290,12 @@ pub(crate) fn generate_item_tree<'id>(
         .map(|_| builder.type_builder.add_field_type::<Timer>())
         .collect();
 
-    let public_properties = component.root_element.borrow().property_declarations.clone();
+    // only the public exported component needs the public property list
+    let public_properties = if !component.parent_element.upgrade().is_some() {
+        component.root_element.borrow().property_declarations.clone()
+    } else {
+        Default::default()
+    };
 
     let t = ItemTreeVTable {
         visit_children_item,
