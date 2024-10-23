@@ -398,51 +398,53 @@ impl DemoRenderer {
 }
 
 fn main() {
+    let platform = slint::platform::PlatformBuilder::new()
+        .with_opengl_api(slint::OpenGLAPI::GLES(None))
+        .build()
+        .expect("Unable to create Slint backend with OpenGL ES renderer");
+    slint::platform::set_platform(platform).unwrap();
+
     let app = App::new().unwrap();
 
     let mut underlay = None;
 
     let app_weak = app.as_weak();
 
-    if let Err(error) = app.window().set_rendering_notifier(move |state, graphics_api| {
-        // eprintln!("rendering state {:#?}", state);
+    app.window()
+        .set_rendering_notifier(move |state, graphics_api| {
+            // eprintln!("rendering state {:#?}", state);
 
-        match state {
-            slint::RenderingState::RenderingSetup => {
-                let context = match graphics_api {
-                    slint::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
-                        glow::Context::from_loader_function_cstr(|s| get_proc_address(s))
-                    },
-                    _ => return,
-                };
-                underlay = Some(DemoRenderer::new(context))
-            }
-            slint::RenderingState::BeforeRendering => {
-                if let (Some(underlay), Some(app)) = (underlay.as_mut(), app_weak.upgrade()) {
-                    let texture = underlay.render(
-                        app.get_selected_red(),
-                        app.get_selected_green(),
-                        app.get_selected_blue(),
-                        app.get_requested_texture_width() as u32,
-                        app.get_requested_texture_height() as u32,
-                    );
-                    app.set_texture(slint::Image::from(texture));
-                    app.window().request_redraw();
+            match state {
+                slint::RenderingState::RenderingSetup => {
+                    let context = match graphics_api {
+                        slint::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
+                            glow::Context::from_loader_function_cstr(|s| get_proc_address(s))
+                        },
+                        _ => return,
+                    };
+                    underlay = Some(DemoRenderer::new(context))
                 }
+                slint::RenderingState::BeforeRendering => {
+                    if let (Some(underlay), Some(app)) = (underlay.as_mut(), app_weak.upgrade()) {
+                        let texture = underlay.render(
+                            app.get_selected_red(),
+                            app.get_selected_green(),
+                            app.get_selected_blue(),
+                            app.get_requested_texture_width() as u32,
+                            app.get_requested_texture_height() as u32,
+                        );
+                        app.set_texture(slint::Image::from(texture));
+                        app.window().request_redraw();
+                    }
+                }
+                slint::RenderingState::AfterRendering => {}
+                slint::RenderingState::RenderingTeardown => {
+                    drop(underlay.take());
+                }
+                _ => {}
             }
-            slint::RenderingState::AfterRendering => {}
-            slint::RenderingState::RenderingTeardown => {
-                drop(underlay.take());
-            }
-            _ => {}
-        }
-    }) {
-        match error {
-            slint::SetRenderingNotifierError::Unsupported => eprintln!("This example requires the use of the GL backend. Please run with the environment variable SLINT_BACKEND=GL set."),
-            _ => unreachable!()
-        }
-        std::process::exit(1);
-    }
+        })
+        .expect("Unable to set rendering notifier");
 
     app.run().unwrap();
 }

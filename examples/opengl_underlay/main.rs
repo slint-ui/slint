@@ -176,67 +176,69 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
+    let platform = slint::platform::PlatformBuilder::new()
+        .with_opengl_api(slint::OpenGLAPI::GLES(None))
+        .build()
+        .expect("Unable to create Slint backend with OpenGL ES renderer");
+    slint::platform::set_platform(platform).unwrap();
+
     let app = App::new().unwrap();
 
     let mut underlay = None;
 
     let app_weak = app.as_weak();
 
-    if let Err(error) = app.window().set_rendering_notifier(move |state, graphics_api| {
-        // eprintln!("rendering state {:#?}", state);
+    app.window()
+        .set_rendering_notifier(move |state, graphics_api| {
+            // eprintln!("rendering state {:#?}", state);
 
-        match state {
-            slint::RenderingState::RenderingSetup => {
-                let context = match graphics_api {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    slint::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
-                        glow::Context::from_loader_function_cstr(|s| get_proc_address(s))
-                    },
-                    #[cfg(target_arch = "wasm32")]
-                    slint::GraphicsAPI::WebGL { canvas_element_id, context_type } => {
-                        use wasm_bindgen::JsCast;
+            match state {
+                slint::RenderingState::RenderingSetup => {
+                    let context = match graphics_api {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        slint::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
+                            glow::Context::from_loader_function_cstr(|s| get_proc_address(s))
+                        },
+                        #[cfg(target_arch = "wasm32")]
+                        slint::GraphicsAPI::WebGL { canvas_element_id, context_type } => {
+                            use wasm_bindgen::JsCast;
 
-                        let canvas = web_sys::window()
-                            .unwrap()
-                            .document()
-                            .unwrap()
-                            .get_element_by_id(canvas_element_id)
-                            .unwrap()
-                            .dyn_into::<web_sys::HtmlCanvasElement>()
-                            .unwrap();
+                            let canvas = web_sys::window()
+                                .unwrap()
+                                .document()
+                                .unwrap()
+                                .get_element_by_id(canvas_element_id)
+                                .unwrap()
+                                .dyn_into::<web_sys::HtmlCanvasElement>()
+                                .unwrap();
 
-                        let webgl1_context = canvas
-                            .get_context(context_type)
-                            .unwrap()
-                            .unwrap()
-                            .dyn_into::<web_sys::WebGl2RenderingContext>()
-                            .unwrap();
+                            let webgl1_context = canvas
+                                .get_context(context_type)
+                                .unwrap()
+                                .unwrap()
+                                .dyn_into::<web_sys::WebGl2RenderingContext>()
+                                .unwrap();
 
-                        glow::Context::from_webgl2_context(webgl1_context)
-                    }
-                    _ => return,
-                };
-                underlay = Some(EGLUnderlay::new(context))
-            }
-            slint::RenderingState::BeforeRendering => {
-                if let (Some(underlay), Some(app)) = (underlay.as_mut(), app_weak.upgrade()) {
-                    underlay.render(app.get_rotation_enabled());
-                    app.window().request_redraw();
+                            glow::Context::from_webgl2_context(webgl1_context)
+                        }
+                        _ => return,
+                    };
+                    underlay = Some(EGLUnderlay::new(context))
                 }
+                slint::RenderingState::BeforeRendering => {
+                    if let (Some(underlay), Some(app)) = (underlay.as_mut(), app_weak.upgrade()) {
+                        underlay.render(app.get_rotation_enabled());
+                        app.window().request_redraw();
+                    }
+                }
+                slint::RenderingState::AfterRendering => {}
+                slint::RenderingState::RenderingTeardown => {
+                    drop(underlay.take());
+                }
+                _ => {}
             }
-            slint::RenderingState::AfterRendering => {}
-            slint::RenderingState::RenderingTeardown => {
-                drop(underlay.take());
-            }
-            _ => {}
-        }
-    }) {
-        match error {
-            slint::SetRenderingNotifierError::Unsupported => eprintln!("This example requires the use of the GL backend. Please run with the environment variable SLINT_BACKEND=GL set."),
-            _ => unreachable!()
-        }
-        std::process::exit(1);
-    }
+        })
+        .expect("Unable to set rendering notifier");
 
     app.run().unwrap();
 }
