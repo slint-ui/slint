@@ -121,6 +121,7 @@ fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
     }
 }
 
+#[cfg(supports_opengl)]
 fn default_opengl_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
     cfg_if::cfg_if! {
         if #[cfg(enable_skia_renderer)] {
@@ -294,7 +295,15 @@ impl BackendBuilder {
                     return Err(PlatformError::NoPlatform);
                 }
             }
-            (None, Some(_)) => default_opengl_renderer_factory,
+            (None, Some(_)) => {
+                cfg_if::cfg_if! {
+                    if #[cfg(supports_opengl)] {
+                        default_opengl_renderer_factory
+                    } else {
+                        return Err(PlatformError::NoPlatform);
+                    }
+                }
+            }
         };
 
         Ok(Backend {
