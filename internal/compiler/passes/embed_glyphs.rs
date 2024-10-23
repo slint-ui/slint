@@ -405,7 +405,7 @@ fn embed_alpha_map_glyphs(
     use rayon::prelude::*;
 
     let glyphs = pixel_sizes
-        .iter()
+        .par_iter()
         .map(|pixel_size| {
             let glyph_data = character_map
                 .par_iter()
