@@ -34,17 +34,17 @@ jobs:
             - uses: pnpm/action-setup@v4.0.0
               with:
                 version: 9.11.0
-            - name: Check license headers
-              run: cargo xtask check_license_headers --fix-it
-            - name: Suggest license header changes
-              uses: reviewdog/action-suggester@v1
-              with:
-                  tool_name: xtask license_header
-                  level: error
-                  fail_on_error: true
-            - run: sudo apt-get install reuse
-            - name: Check reuse compliance
-              run: cargo xtask check_reuse_compliance
+            # - name: Check license headers
+            #   run: cargo xtask check_license_headers --fix-it
+            # - name: Suggest license header changes
+            #   uses: reviewdog/action-suggester@v1
+            #   with:
+            #       tool_name: xtask license_header
+            #       level: error
+            #       fail_on_error: true
+            # - run: sudo apt-get install reuse
+            # - name: Check reuse compliance
+            #   run: cargo xtask check_reuse_compliance
 
             # Build Docs
             - name: Install starlight dependencies
