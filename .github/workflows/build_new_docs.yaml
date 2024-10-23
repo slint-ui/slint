@@ -1,0 +1,63 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Build New Docs
+
+on:
+    push:
+        branches: ["docs-tng"]
+    pull_request:
+        branches: [master, "feature/*"]
+    workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
+
+jobs:
+    docs:
+        runs-on: ubuntu-24.04
+        env:
+            # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
+            # for which the stable alternative is not yet available.
+            RUSTFLAGS: -D warnings -W deprecated
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            RELEASE_INPUT: ${{ inputs.release }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
+            - uses: pnpm/action-setup@v4.0.0
+              with:
+                version: 9.11.0
+            - name: Check license headers
+              run: cargo xtask check_license_headers --fix-it
+            - name: Suggest license header changes
+              uses: reviewdog/action-suggester@v1
+              with:
+                  tool_name: xtask license_header
+                  level: error
+                  fail_on_error: true
+            - run: sudo apt-get install reuse
+            - name: Check reuse compliance
+              run: cargo xtask check_reuse_compliance
+
+            # Build Docs
+            - name: Install starlight dependencies
+              run: cd docs && pnpm i --frozen-lockfile --ignore-scripts
+            - name: Build docs
+              run: cd docs && pnpm build
+            - name: deploy website
+              uses: cloudflare/pages-action@v1.5.0
+              with:
+                apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+                accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+                projectName: gg-app
+                directory: native/dist
+                gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+            
+
