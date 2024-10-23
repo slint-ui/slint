@@ -188,6 +188,12 @@ impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(id) = self.id() {
             let _ = CURRENT_TIMERS.try_with(|timers| {
+                #[cfg(target_os = "android")]
+                if timers.borrow().timers.is_empty() {
+                    // There seems to be a bug in android thread_local where try_with recreates the already thread local.
+                    // But we are called from the drop of another thread local, just ignore the drop then
+                    return;
+                }
                 let callback = timers.borrow_mut().remove_timer(id);
                 // drop the callback without having CURRENT_TIMERS borrowed
                 drop(callback);

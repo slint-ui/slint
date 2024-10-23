@@ -21,7 +21,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 use once_cell::sync::OnceCell;
 #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use std::time;
@@ -176,10 +176,19 @@ impl std::convert::From<crate::animations::Instant> for time::Instant {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::new();
 
-pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
-    EVENTLOOP_PROXY.get().map(core::ops::Deref::deref)
+// On android, we allow the platform to be reset and the global eventloop proxy to be replaced.
+#[cfg(target_os = "android")]
+static EVENTLOOP_PROXY: std::sync::Mutex<Option<Box<dyn EventLoopProxy + 'static>>> =
+    std::sync::Mutex::new(None);
+
+pub(crate) fn with_event_loop_proxy<R>(f: impl FnOnce(Option<&dyn EventLoopProxy>) -> R) -> R {
+    #[cfg(not(target_os = "android"))]
+    return f(EVENTLOOP_PROXY.get().map(core::ops::Deref::deref));
+    #[cfg(target_os = "android")]
+    return f(EVENTLOOP_PROXY.lock().unwrap().as_ref().map(core::ops::Deref::deref));
 }
 
 /// This enum describes the different error scenarios that may occur when [`set_platform`]
@@ -214,7 +223,14 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             return Err(SetPlatformError::AlreadySet);
         }
         if let Some(proxy) = platform.new_event_loop_proxy() {
-            EVENTLOOP_PROXY.set(proxy).map_err(|_| SetPlatformError::AlreadySet)?
+            #[cfg(not(target_os = "android"))]
+            {
+                EVENTLOOP_PROXY.set(proxy).map_err(|_| SetPlatformError::AlreadySet)?;
+            }
+            #[cfg(target_os = "android")]
+            {
+                *EVENTLOOP_PROXY.lock().unwrap() = Some(proxy);
+            }
         }
         instance
             .set(crate::SlintContext::new(platform))

@@ -966,9 +966,11 @@ pub use weak_handle::*;
 /// handle.run().unwrap();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<(), EventLoopError> {
-    crate::platform::event_loop_proxy()
-        .ok_or(EventLoopError::NoEventLoopProvider)?
-        .invoke_from_event_loop(alloc::boxed::Box::new(func))
+    crate::platform::with_event_loop_proxy(|proxy| {
+        proxy
+            .ok_or(EventLoopError::NoEventLoopProvider)?
+            .invoke_from_event_loop(alloc::boxed::Box::new(func))
+    })
 }
 
 /// Schedules the main event loop for termination. This function is meant
@@ -978,9 +980,9 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<()
 ///
 /// This function can be called from any thread
 pub fn quit_event_loop() -> Result<(), EventLoopError> {
-    crate::platform::event_loop_proxy()
-        .ok_or(EventLoopError::NoEventLoopProvider)?
-        .quit_event_loop()
+    crate::platform::with_event_loop_proxy(|proxy| {
+        proxy.ok_or(EventLoopError::NoEventLoopProvider)?.quit_event_loop()
+    })
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
