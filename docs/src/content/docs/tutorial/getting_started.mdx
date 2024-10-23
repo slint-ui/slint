@@ -2,10 +2,13 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: Getting started
 description: Getting started
----
 
+
+---
+import { extractLines } from "../../../utils/utils.ts"
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import { Code } from '@astrojs/starlight/components'
+
 
 This tutorial shows you how to use the languages that Slint supports as the host programming language.
 
@@ -36,7 +39,7 @@ Replace the content of `src/main.cpp` with the following:
 
 import initialCpp from '../../code/main_initial.cpp?raw'
 
-<Code code={initialCpp} lang="cpp" title="main_initial.cpp" />
+<Code code={extractLines(initialCpp, 7, 13)} lang="cpp" title="main_initial.cpp" />
 
 Also in `CMakeLists.txt` the line
 `slint_target_sources(my_application ui/app-window.slint)` is a Slint function used to
@@ -46,10 +49,7 @@ Replace the contents of `ui/app-window.slint` with the following:
 
 import appWindow from '../../code/app-window.slint?raw'
 
-<Code code={appWindow} lang="slint" title="app-window.slint" />
-
-lines: 6-11
-
+<Code code={extractLines(appWindow, 6, 11)} lang="slint" title="app-window.slint" />
 
 Configure with CMake:
 
@@ -115,10 +115,7 @@ Replace the contents of `src/main.js` with the following:
 
 import mainInitialJs from '../../code/main_initial.js?raw'
 
-<Code code={mainInitialJs} lang="js" title="main_initial.js" />
-
-lines: 6-10
-
+<Code code={extractLines(mainInitialJs, 6, 10)} lang="js" title="main_initial.js" />
 
 The `slint.loadFile` method resolves files from the process's current working directory, so from the `package.json` file's location.
 
@@ -126,9 +123,7 @@ Replace the contents of `ui/app-window.slint` with the following:
 
 import memorySlint from '../../code/memory.slint?raw'
 
-<Code code={memorySlint} lang="slint" title="memory.slint" />
-
-lines: 6-11
+<Code code={extractLines(memorySlint, 6, 11)} lang="slint" title="memory.slint" />
 
 
 ### Run the application
@@ -164,9 +159,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
 Replace the contents of `ui/app-window.slint` with the following:
 
-<Code code={memorySlint} lang="slint" title="memory.slint" />
-
-lines: 6-11
+<Code code={extractLines(memorySlint, 6 ,11)} lang="slint" title="memory.slint" />
 
 
 ### Run the application
