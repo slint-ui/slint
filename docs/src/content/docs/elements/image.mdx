@@ -36,52 +36,16 @@ When set, the image is used as an alpha mask and is drawn in the given color (or
 </SlintProperty>
 
 ### `horizontal-alignment`
-<SlintProperty propName="horizontal-alignment" typeName="enum">
-`ImageHorizontalAlignment`
-
-This enum specifies the horizontal alignment of the source image.
-
-* `center`: Aligns the source image at the center of the element.
-* `left`: Aligns the source image at the left of the element.
-* `right`: Aligns the source image at the right of the element.
-</SlintProperty>
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="ImageHorizontalAlignment"/>
 
 ### `horizontal-tiling` 
-<SlintProperty propName="horizontal-tiling" typeName="enum" defaultValue='none'>
-`ImageTiling`
-
- This enum specifies how the source image will be tiled.
-
-* `none`: The source image will not be tiled.
-* `repeat`: The source image will be repeated to fill the element.
-* `round`: The source image will be repeated and scaled to fill the element, ensuring an integer number of repetitions.
-</SlintProperty>
+<SlintProperty propName="horizontal-tiling" typeName="enum" enumName="ImageTiling"/>
 
 ### `image-fit`
-<SlintProperty propName="image-fit" typeName="enum" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise">
-
-`ImageFit`
-
- This enum defines how the source image shall fit into the element.
-
-* `fill`: Scales and stretches the source image to fit the width and height of the element.
-* `contain`: The source image is scaled to fit into the element's dimension while preserving the aspect ratio.
-* `cover`: The source image is scaled to cover into the element's dimension while preserving the aspect ratio.
-    If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
-* `preserve`: Preserves the size of the source image in logical pixels.
-    The source image will still be scaled by the scale factor that applies to all elements in the window.
-    Any extra space will be left blank.
-</SlintProperty>
+<SlintProperty propName="image-fit" typeName="enum" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise" enumName="ImageFit"/>
 
 ### `image-rendering`
-<SlintProperty propName="image-rendering" typeName="enum" defaultValue='smooth'>  
-`ImageRendering`
-
-This enum specifies how the source image will be scaled.
-
-* `smooth`: The image is scaled with a linear interpolation algorithm.
-* `pixelated`: The image is scaled with the nearest neighbor algorithm.
-</SlintProperty>
+<SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering"/>  
 
 ## Rotation
 
@@ -100,16 +64,14 @@ Image {
 ```
 
 ### `rotation-angle`
-<SlintProperty propName="rotation-angle" typeName="angle" defaultValue='0deg' />
+<SlintProperty propName="rotation-angle" typeName="angle" defaultValue='0deg'/>
 ### `rotation-origin-x`
-<SlintProperty propName="rotation-origin-x" typeName="length" />
+<SlintProperty propName="rotation-origin-x" typeName="length"/>
 ### `rotation-origin-y`
-<SlintProperty propName="rotation-origin-y" typeName="length" />
+<SlintProperty propName="rotation-origin-y" typeName="length"/>
 
 ## `source`
-
-
-<SlintProperty propName="source" typeName="image" defaultValue='' >
+<SlintProperty propName="source" typeName="image">
 
 The `image` type is a reference to an image. It's defined using the `@image-url("...")` construct.
 The address within the `@image-url` function must be known at compile time.
@@ -134,31 +96,23 @@ export component Example inherits Window {
 }
 ```
 
- (_in_ _image_): The image to load. Use the [`@image-url("...")` macro](../language/syntax/types.md#images) to specify the location of the image.
+Use the [`@image-url("...")` macro](../language/syntax/types.md#images) to specify the location of the image.
+</SlintProperty>
 
 
-### `source-clip-x`  
+### `source-clip-x`
+<SlintProperty propName="source-clip-x" typeName="int"/>
 ### `source-clip-y`  
+<SlintProperty propName="source-clip-y" typeName="int"/>
 ### `source-clip-width`  
+<SlintProperty propName="source-clip-width" typeName="int" defaultValue="source.width - source.clip-x"/>
 ### `source-clip-height`  ** (_in_ _int_): Properties in source
-    image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
-    | Property | Default Binding |
-    |----------|---------------|
-    | `source-clip-x` | `0` |
-    | `source-clip-y` | `0` |
-    | `source-clip-width` | `source.width - source-clip-x` |
-    | `source-clip-height` | `source.height - source-clip-y` |
-
+<SlintProperty propName="source-clip-height" typeName="int" defaultValue="source.height - source.clip-y"/>
 
 ### `vertical-alignment`** (_in_ _enum [`ImageVerticalAlignment`](../language/builtins/enums.
+<SlintProperty propName="vertical-alignment" typeName="enum" enumName="ImageVerticalAlignment"/>
 
-md#imageverticalalignment)_): The vertical alignment of the image within the element.
--   **`vertical-tiling`** (_in_ _enum [`ImageTiling`](../language/builtins/enums.md#imagetiling)_): Whether the image should be tiled on the vertical axis.
--   **`width`**, **`height`** (_in_ _length_): The width and height of the image as it appears on the screen.The default values are
-    the sizes provided by the **`source`** image. If the `Image` is **not** in a layout and only **one** of the two sizes are
-    specified, then the other defaults to the specified value scaled according to the aspect ratio of the **`source`** image.
-
-Example using nine-slice:
+## Example using nine-slice:
 
 ```slint
 export component Example inherits Window {
@@ -171,4 +125,3 @@ export component Example inherits Window {
     }
 }
 ```
-</SlintProperty>
