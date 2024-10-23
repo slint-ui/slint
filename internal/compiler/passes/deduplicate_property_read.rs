@@ -21,9 +21,14 @@ pub fn deduplicate_property_read(component: &Component) {
     });
 }
 
+struct ReadCount {
+    count: usize,
+    has_been_mapped: bool,
+}
+
 #[derive(Default)]
 struct PropertyReadCounts {
-    counts: HashMap<NamedReference, usize>,
+    counts: HashMap<NamedReference, ReadCount>,
     /// If at least one element of the map has duplicates
     has_duplicate: bool,
     /// if there is an assignment of a property we currently disable this optimization
@@ -48,12 +53,12 @@ impl<'a> DedupPropState<'a> {
             .counts
             .entry(nr.clone())
             .and_modify(|c| {
-                if *c == 1 {
+                if c.count == 1 {
                     *has_duplicate = true;
                 }
-                *c += 1
+                c.count += 1;
             })
-            .or_insert(1);
+            .or_insert(ReadCount { count: 1, has_been_mapped: false });
     }
 
     fn add_from_children(&self, nr: &NamedReference) -> bool {
@@ -63,10 +68,10 @@ impl<'a> DedupPropState<'a> {
         let mut use_counts = self.counts.borrow_mut();
         let use_counts = &mut *use_counts;
         if let Some(c) = use_counts.counts.get_mut(nr) {
-            if *c == 1 {
+            if c.count == 1 {
                 use_counts.has_duplicate = true;
             }
-            *c += 1;
+            c.count += 1;
             true
         } else {
             false
@@ -75,13 +80,16 @@ impl<'a> DedupPropState<'a> {
 
     fn get_mapping(&self, nr: &NamedReference) -> Option<SmolStr> {
         self.parent_state.and_then(|pr| pr.get_mapping(nr)).or_else(|| {
-            if self.counts.borrow().counts.get(nr).map_or(false, |c| *c > 1) {
-                Some(format_smolstr!("tmp_{}_{}", nr.element().borrow().id, nr.name()))
-            } else {
-                None
-            }
+            self.counts.borrow_mut().counts.get_mut(nr).filter(|c| c.count > 1).map(|c| {
+                c.has_been_mapped = true;
+                map_nr(nr)
+            })
         })
     }
+}
+
+fn map_nr(nr: &NamedReference) -> SmolStr {
+    format_smolstr!("tmp_{}_{}", nr.element().borrow().id, nr.name())
 }
 
 fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
@@ -93,16 +101,16 @@ fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
     process_conditional_expressions(expr, &new_state);
     if new_state.counts.borrow().has_set {
         old_state.counts.borrow_mut().has_set = true;
-        return;
+    } else {
+        do_replacements(expr, &new_state);
     }
-    do_replacements(expr, &new_state);
+
     if new_state.counts.borrow().has_duplicate {
         let mut stores = vec![];
-        for (nr, count) in &new_state.counts.borrow().counts {
-            if *count > 1 {
-                let new_name = new_state.get_mapping(nr).unwrap();
+        for (nr, c) in &new_state.counts.borrow().counts {
+            if c.has_been_mapped {
                 stores.push(Expression::StoreLocalVariable {
-                    name: new_name,
+                    name: map_nr(nr),
                     value: Box::new(Expression::PropertyReference(nr.clone())),
                 });
             }
@@ -114,6 +122,9 @@ fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
 
 // Collect all use of variable and their count, only in non conditional expression
 fn collect_unconditional_read_count(expr: &Expression, result: &DedupPropState) {
+    if result.counts.borrow().has_set {
+        return;
+    }
     match expr {
         Expression::PropertyReference(nr) => {
             result.add(nr);
