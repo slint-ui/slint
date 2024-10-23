@@ -1,40 +1,42 @@
 ---
 import "@astrojs/starlight/style/markdown.css";
-import { type KnownType, PropertyVisibility, getEnumContent, getTypeInfo } from "../utils/utils.ts";
+import {
+    type KnownType,
+    type PropertyVisibility,
+    getEnumContent,
+    getTypeInfo,
+} from "../utils/utils.ts";
 
 interface Props {
-  propName: string,
-	typeName: KnownType;
-	defaultValue?: string;
-  enumName?: string;
-	visibility?: PropertyVisibility;
+    propName: string;
+    typeName: KnownType;
+    defaultValue?: string;
+    enumName?: string;
+    visibility?: PropertyVisibility;
 }
 const { propName, typeName, defaultValue, enumName, visibility } = Astro.props;
 
 const visibility_ = visibility ?? "in";
- 
+
 if (propName === "") {
     console.error("No propName!!");
-}
-if (typeName === "") {
-    console.error("No typeName!!");
 }
 
 let fullTypeName = typeName;
 
 if (typeName === "enum") {
-	if (enumName == undefined || enumName === "") {
-	  console.error("enum type without an enumName:", propName);
-	} else {
-		fullTypeName = typeName.toString() + " " + enumName.toString();
-	} 
+    if (enumName !== undefined || enumName === "") {
+        console.error("enum type without an enumName:", propName);
+    } else {
+        fullTypeName = typeName.toString() + " " + enumName!.toString();
+    }
 } else {
-	if (enumName != undefined && enumName !== "") {
-		console.error("Non-enum type with an enumName set:", propName);
-	}
+    if (enumName && enumName !== "") {
+        console.error("Non-enum type with an enumName set:", propName);
+    }
 }
 
-const typeInfo = await getTypeInfo(typeName);
+const typeInfo = getTypeInfo(typeName);
 const enumContent = await getEnumContent(enumName);
 
 const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
@@ -42,7 +44,6 @@ const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
 if (!defaultValue_) {
     console.error("No defaultValue for:", propName);
 }
-
 ---
 
 <div class="sl-markdown-content">
