@@ -452,7 +452,7 @@ fn embed_sdf_glyphs(
         return vec![];
     };
     let min_size = pixel_sizes.iter().min().expect("we have a 'max' so the vector is not empty");
-    let target_pixel_size = (max_size * 2 / 3).max(12).min(RANGE as i16 * min_size);
+    let target_pixel_size = (max_size * 2 / 3).max(16).min(RANGE as i16 * min_size);
 
     let glyph_data = character_map
         .par_iter()
@@ -498,13 +498,20 @@ fn generate_sdf_for_glyph(
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
     let mut shape = fdsm::shape::Shape::load_from_face(&face, glyph_id);
 
-    // TODO: handle bitmap glyphs (emojis)
-    let bbox = face.glyph_bounding_box(glyph_id)?;
-
     let metrics = font.metrics();
-
     let target_pixel_size = target_pixel_size as f64;
     let scale = target_pixel_size / metrics.units_per_em as f64;
+
+    // TODO: handle bitmap glyphs (emojis)
+    let Some(bbox) = face.glyph_bounding_box(glyph_id) else {
+        // For example, for space
+        let metrics = fontdue::Metrics {
+            advance_width: (face.glyph_hor_advance(glyph_id).unwrap_or(0) as f64 * scale) as f32,
+            ..Default::default()
+        };
+        return Some((metrics, vec![]));
+    };
+
     let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale + 2.).ceil() as u32;
     let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale + 2.).ceil() as u32;
     let transformation = nalgebra::convert::<_, Affine2<f64>>(Similarity2::new(

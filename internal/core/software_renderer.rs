@@ -1554,10 +1554,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     }
                                 } else {
                                     let dx = Fixed::from_integer(pixel_stride - 1)
-                                        / glyph.width.get() as u16;
+                                        / (glyph.width.get() as u16 - 1);
                                     let dy = Fixed::from_integer(
                                         (data.len() as u16 - 1) / pixel_stride - 1,
-                                    ) / glyph.height.get() as u16;
+                                    ) / (glyph.height.get() as u16 - 1);
                                     let off_x = Fixed::<i32, 8>::from_fixed(dx)
                                         * (clipped_target.origin.x - target_rect.origin.x) as i32;
                                     let off_y = Fixed::<i32, 8>::from_fixed(dy)
