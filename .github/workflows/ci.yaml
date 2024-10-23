@@ -20,7 +20,7 @@ env:
 jobs:
     build_and_test:
         env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
@@ -58,9 +58,9 @@ jobs:
                 python-version: '3.10'
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
-                  version: "5.15.2"
+                  version: "6.2.2"
                   setup-python: false
                   cache: true
             - name: Install ffmpeg and alsa (Linux)
@@ -120,7 +120,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   setup-python: false
@@ -173,7 +173,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   setup-python: false
@@ -211,7 +211,7 @@ jobs:
                   force-gcc-10: true
             - name: Install Qt
               if: runner.os != 'Windows'
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"
                   cache: true
@@ -251,7 +251,7 @@ jobs:
               with:
                   force-gcc-10: true
             - name: Install Qt
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 6.5.1
                   cache: true
@@ -299,7 +299,7 @@ jobs:
               with:
                   force-gcc-10: true
             - name: Install Qt (Ubuntu)
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 6.5.1
                   cache: true

@@ -61,11 +61,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-pc-windows-msvc
-            - name: Install Qt
-              uses: jurplel/install-qt-action@v3
-              with:
-                  version: 6.5.1
-                  cache: true
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
@@ -101,9 +96,9 @@ jobs:
               with:
                   target: x86_64-unknown-linux-gnu
             - name: Install Qt
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
-                  version: 5.15.2
+                  version: 6.2.2
                   cache: true
             - uses: baptiste0928/cargo-install@v3
               with:
@@ -143,7 +138,7 @@ jobs:
             with:
                 crate: cargo-about
           - name: Build
-            run: cross build --target=${{ matrix.target }} --no-default-features --features backend-qt,${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+            run: cross build --target=${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
           - name: Create artifact directory
             run: |
                 mkdir -p slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}

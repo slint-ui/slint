@@ -23,7 +23,7 @@ env:
 jobs:
     cmake_package_desktop:
         env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             CARGO_INCREMENTAL: false
         strategy:
@@ -46,10 +46,10 @@ jobs:
               with:
                   old-ubuntu: true
             - name: Install Qt (Ubuntu)
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               if: matrix.os == 'ubuntu-20.04'
               with:
-                  version: 5.15.2
+                  version: 6.2.2
                   cache: true
             - uses: ./.github/actions/setup-rust
             - uses: baptiste0928/cargo-install@v3
