@@ -40,6 +40,12 @@ component SelectionFrame {
             } else {
                 return EditorPalette.layout-element-selection-secondary;
             }
+        } else if selection.is-interactive {
+            if selection.is-primary {
+                return EditorPalette.interactive-element-selection-primary;
+            } else {
+                return EditorPalette.interactive-element-selection-secondary;
+            }
         } else {
             if selection.is-primary {
                 return EditorPalette.general-element-selection-primary;

@@ -50,6 +50,7 @@ struct SelectionRectangle {
 export struct Selection {
     geometry: SelectionRectangle,
     layout-data: LayoutKind,
+    is-interactive: bool,
     is-primary: bool,
     is-moveable: bool,
     is-resizable: bool,

@@ -1469,6 +1469,7 @@ fn set_selections(
     ui: Option<&ui::PreviewUi>,
     main_index: usize,
     layout_kind: ui::LayoutKind,
+    is_interactive: bool,
     is_moveable: bool,
     is_resizable: bool,
     positions: &[i_slint_core::lengths::LogicalRect],
@@ -1489,6 +1490,7 @@ fn set_selections(
             },
             layout_data: layout_kind,
             is_primary: i == main_index,
+            is_interactive,
             is_moveable,
             is_resizable,
         })
@@ -1525,11 +1527,23 @@ fn set_selected_element(
     positions: &[i_slint_core::lengths::LogicalRect],
     notify_editor_about_selection_after_update: bool,
 ) {
-    let (layout_kind, parent_layout_kind) = selection
-        .as_ref()
-        .and_then(|s| s.as_element_node())
-        .map(|en| (en.layout_kind(), element_selection::parent_layout_kind(&en)))
-        .unwrap_or((ui::LayoutKind::None, ui::LayoutKind::None));
+    let (layout_kind, parent_layout_kind, type_name) = {
+        let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
+        let (layout_kind, parent_layout_kind) = selection_node
+            .as_ref()
+            .map(|en| (en.layout_kind(), element_selection::parent_layout_kind(&en)))
+            .unwrap_or((ui::LayoutKind::None, ui::LayoutKind::None));
+        let type_name = selection_node
+            .and_then(|n| {
+                // This is an approximation, I hope it is good enough. The ElementRc was lowered, so there is nothing to see there anymore
+                n.with_element_node(|n| {
+                    n.QualifiedName().map(|qn| qn.text().to_string().trim().to_string())
+                })
+            })
+            .unwrap_or_default();
+
+        (layout_kind, parent_layout_kind, type_name)
+    };
 
     set_drop_mark(&None);
 
@@ -1538,10 +1552,23 @@ fn set_selected_element(
 
         let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
         let is_layout = layout_kind != ui::LayoutKind::None;
+        let is_interactive = {
+            let index = preview_state
+                .known_components
+                .iter()
+                .position(|ci| ci.name.as_str() == type_name.as_str());
+
+            index
+                .and_then(|idx| preview_state.known_components.get(idx))
+                .map(|kc| kc.is_interactive)
+                .unwrap_or_default()
+        };
+
         set_selections(
             preview_state.ui.as_ref(),
             selection.as_ref().map(|s| s.instance_index).unwrap_or_default(),
             layout_kind,
+            is_interactive,
             true,
             !is_in_layout && !is_layout,
             positions,
