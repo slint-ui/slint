@@ -41,7 +41,7 @@ cargo apk run -p energy-monitor --target aarch64-linux-android --lib
 
 ```sh
 cargo install wasm-pack
-cd examples/energy-monitor/
+cd demos/energy-monitor/
 wasm-pack build --release --target web --no-default-features --features slint/default,chrono
 python3 -m http.server
 ```

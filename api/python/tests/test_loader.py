@@ -19,7 +19,7 @@ def test_magic_import_path():
     try:
         sys.path.append(os.path.join(os.path.dirname(__file__),
                         "..", "..", ".."))
-        instance = loader.examples.printerdemo.ui.printerdemo.MainWindow()
+        instance = loader.demos.printerdemo.ui.printerdemo.MainWindow()
         del instance
     finally:
         sys.path = oldsyspath

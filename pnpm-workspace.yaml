@@ -4,6 +4,6 @@ packages:
   - "api/node"
   - "editors/vscode"
   - "tools/slintpad"
-  - "examples/printerdemo/node"
+  - "demos/printerdemo/node"
   - "examples/imagefilter/node"
   - "docs/editor"

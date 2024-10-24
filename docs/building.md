@@ -212,7 +212,7 @@ Slint also includes a viewer tool that can load `.slint` files dynamically at ru
 cargo-integrated binary and can be run directly on the `.slint` files, for example:
 
 ```sh
-cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.slint
+cargo run --release --bin slint-viewer -- demos/printerdemo/ui/printerdemo.slint
 ```
 
 ## Generating the Documentation

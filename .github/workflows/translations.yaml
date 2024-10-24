@@ -36,9 +36,9 @@ jobs:
 
             - name: "printerdemo: Run slint-tr-extractor"
               run: find -name \*.slint | xargs cargo run -p slint-tr-extractor -- -d printerdemo -o printerdemo.pot
-              working-directory: examples/printerdemo
+              working-directory: demos/printerdemo
             - name: "printerdemo: msgmerge and msgfmt"
-              working-directory: examples/printerdemo
+              working-directory: demos/printerdemo
               run: |
                   for po in lang/*/LC_MESSAGES
                   do msgmerge $po/printerdemo.po printerdemo.pot -o $po/printerdemo.po

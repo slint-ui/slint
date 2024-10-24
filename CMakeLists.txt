@@ -33,10 +33,11 @@ endif()
 add_subdirectory(api/cpp/)
 
 option(SLINT_BUILD_EXAMPLES "Build Slint Examples" OFF)
-add_feature_info(SLINT_BUILD_EXAMPLES SLINT_BUILD_EXAMPLES "configure whether to build the examples")
+add_feature_info(SLINT_BUILD_EXAMPLES SLINT_BUILD_EXAMPLES "configure whether to build the examples and demos")
 
 if(SLINT_BUILD_EXAMPLES)
     add_subdirectory(examples)
+    add_subdirectory(demos)
 endif()
 if(SLINT_BUILD_TESTING AND (SLINT_FEATURE_COMPILER OR SLINT_COMPILER))
     add_subdirectory(docs/reference/src/quickstart/)
