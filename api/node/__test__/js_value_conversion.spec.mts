@@ -1006,3 +1006,29 @@ test("throw exception in callback", (t) => {
     );
     t.assert(output.includes("I'm an error"), `Output was ${output}`);
 });
+
+test("throw exception set color", (t) => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+  export component App {
+    in-out property <color> test;
+  }
+  `,
+        "",
+    );
+    t.not(definition.App, null);
+
+    const instance = definition.App!.create();
+    t.not(instance, null);
+
+    t.throws(
+        () => {
+            instance!.setProperty("test", { garbage: true });
+        },
+        {
+            code: "GenericFailure",
+            message: "Property red is missing",
+        },
+    );
+});
