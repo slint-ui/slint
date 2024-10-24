@@ -118,7 +118,7 @@ fn should_materialize(
             return Some(Type::Enumeration(Rc::new(Enumeration {
                 name: "PopupClosePolicy".into(),
                 values: vec![
-                    "close-on-close".into(),
+                    "close-on-click".into(),
                     "close-on-click-outside".into(),
                     "no-auto-close".into(),
                 ],
