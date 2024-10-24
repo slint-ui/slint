@@ -7,7 +7,7 @@
 
 use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, Expression, Unit};
-use crate::langtype::{ElementType, Enumeration, Type};
+use crate::langtype::{ElementType, Type};
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -115,16 +115,9 @@ fn should_materialize(
             return Some(Type::Bool);
         } else if prop == "close-policy" {
             // PopupWindow::close-policy
-            return Some(Type::Enumeration(Rc::new(Enumeration {
-                name: "PopupClosePolicy".into(),
-                values: vec![
-                    "close-on-click".into(),
-                    "close-on-click-outside".into(),
-                    "no-auto-close".into(),
-                ],
-                default_value: 0,
-                node: None,
-            })));
+            return Some(Type::Enumeration(
+                crate::typeregister::BUILTIN_ENUMS.with(|e| e.PopupClosePolicy.clone()),
+            ));
         }
     }
     None
