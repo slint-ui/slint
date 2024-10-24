@@ -1,0 +1,101 @@
+---
+title: Rectangle
+description: Rectangle element api.
+---
+import SlintProperty  from '../../../components/SlintProperty.astro';
+
+```slint
+export component Example inherits Window {
+    width: 270px;
+    height: 100px;
+
+    Rectangle {
+        x: 10px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
+        background: blue;
+    }
+
+    // Rectangle with a border
+    Rectangle {
+        x: 70px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
+        background: green;
+        border-width: 2px;
+        border-color: red;
+    }
+
+    // Transparent Rectangle with a border and a radius
+    Rectangle {
+        x: 140px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
+        border-width: 4px;
+        border-color: black;
+        border-radius: 10px;
+    }
+
+    // A radius of width/2 makes it a circle
+    Rectangle {
+        x: 210px;
+        y: 10px;
+        width: 50px;
+        height: 50px;
+        background: yellow;
+        border-width: 2px;
+        border-color: blue;
+        border-radius: self.width/2;
+    }
+}
+```
+
+By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
+it's then possible to draw a rectangle on the screen.
+
+When not part of a layout, its width and height default to 100% of the parent element.
+
+### `background`
+<SlintProperty propName="background" typeName="brush" defaultValue="transparent">
+The background brush of this `Rectangle`, typically a color.
+</SlintProperty>
+
+### `border-color`
+<SlintProperty propName="border-color" typeName="brush" defaultValue="transparent">
+The color of the border.
+</SlintProperty>
+
+### `border-width`
+<SlintProperty propName="border-width" typeName="length" defaultValue="0">
+The width of the border.
+</SlintProperty>
+
+### `clip`
+<SlintProperty propName="clip" typeName="bool" defaultValue="false">
+By default, when an element is bigger or outside another element, it's still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle.
+</SlintProperty>
+
+
+## Border Radius properties
+
+### `border-radius`
+<SlintProperty propName="border-radius" typeName="length" defaultValue="0">
+The size of the radius. This single value is applied to all four corners.
+</SlintProperty>
+
+To target specific corners with different values use the following properties:
+
+### `border-top-left-radius`
+<SlintProperty propName="border-top-left-radius" typeName="length"/>
+
+### `border-top-right-radius`
+<SlintProperty propName="border-top-right-radius" typeName="length"/>
+
+### `border-bottom-left-radius`
+<SlintProperty propName="border-bottom-left-radius" typeName="length"/>
+
+### `border-bottom-right-radius`
+
