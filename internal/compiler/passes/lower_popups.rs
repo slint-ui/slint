@@ -157,9 +157,9 @@ fn lower_popup_window(
             }
         },
         None => {
-            let enum_ty = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ClosePolicy.clone());
+            let enum_ty = crate::typeregister::BUILTIN_ENUMS.with(|e| e.PopupClosePolicy.clone());
 
-            let mut value = String::from("on-click");
+            let mut value = String::from("close-on-click");
 
             if let Some(close_on_click) = close_on_click {
                 if !close_on_click {

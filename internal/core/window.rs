@@ -17,7 +17,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
-use crate::items::ClosePolicy;
+use crate::items::PopupClosePolicy;
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
@@ -388,7 +388,7 @@ struct PopupWindow {
     /// The component that is responsible for providing the popup content.
     component: ItemTreeRc,
     //// Defines the close behaviour of the popup.
-    close_policy: ClosePolicy,
+    close_policy: PopupClosePolicy,
 }
 
 #[pin_project::pin_project]
@@ -638,19 +638,19 @@ impl WindowInner {
         self.mouse_input_state.set(mouse_input_state);
 
         match close_policy {
-            ClosePolicy::OnClick => {
+            PopupClosePolicy::CloseOnClick => {
                 if (mouse_inside_popup && released_event && self.had_popup_on_press.get())
                     || (!mouse_inside_popup && pressed_event)
                 {
                     self.close_popup();
                 }
             }
-            ClosePolicy::OnClickOutside => {
+            PopupClosePolicy::CloseOnClickOutside => {
                 if !mouse_inside_popup && pressed_event {
                     self.close_popup();
                 }
             }
-            ClosePolicy::NoAutoClose => {}
+            PopupClosePolicy::NoAutoClose => {}
         };
 
         crate::properties::ChangeTracker::run_change_handlers();
@@ -977,7 +977,7 @@ impl WindowInner {
         &self,
         popup_componentrc: &ItemTreeRc,
         position: Point,
-        close_policy: ClosePolicy,
+        close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
     ) {
         let position = parent_item.map_to_window(
@@ -1075,12 +1075,12 @@ impl WindowInner {
         }
     }
 
-    /// Returns the close policy of the active popup. ClosePolicy::NoAutoClose if there is no active popup.
-    pub fn close_policy(&self) -> ClosePolicy {
+    /// Returns the close policy of the active popup. PopupClosePolicy::NoAutoClose if there is no active popup.
+    pub fn close_policy(&self) -> PopupClosePolicy {
         self.active_popup
             .borrow()
             .as_ref()
-            .map_or(ClosePolicy::NoAutoClose, |popup| popup.close_policy)
+            .map_or(PopupClosePolicy::NoAutoClose, |popup| popup.close_policy)
     }
 
     /// Returns the scale factor set on the window, as provided by the windowing system.
@@ -1341,7 +1341,7 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
         position: crate::graphics::Point,
-        close_policy: ClosePolicy,
+        close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);

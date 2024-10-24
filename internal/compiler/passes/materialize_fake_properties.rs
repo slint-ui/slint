@@ -116,8 +116,8 @@ fn should_materialize(
         } else if prop == "close-policy" {
             // PopupWindow::close-policy
             return Some(Type::Enumeration(Rc::new(Enumeration {
-                name: "ClosePolicy".into(),
-                values: vec!["on-close".into(), "on-close-outside".into(), "of".into()],
+                name: "PopupClosePolicy".into(),
+                values: vec!["close-on-close".into(), "close-on-click-outside".into(), "no-auto-close".into()],
                 default_value: 0,
                 node: None,
             })));

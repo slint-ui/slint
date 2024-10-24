@@ -606,13 +606,13 @@ Note: It isn't allowed to access properties of elements within the popup from ou
 
 ### Properties
 
--   **`close-policy`** (_in_ _enum [`ClosePolicy`](../builtins/enums.md#closepolicy)_): By default, a PopupWindow closes when the user clicks (`on-click`). Set this
-    to `off` to prevent that behavior and close it manually using the `close()` function. Set to `on-click-outside` to close the PopupWindow when the user clicks outside of the popup.
+-   **`close-policy`** (_in_ _enum [`PopupClosePolicy`](../builtins/enums.md#closepolicy)_): By default, a PopupWindow closes when the user clicks (`close-on-click`). Set this
+    to `off` to prevent that behavior and close it manually using the `close()` function. Set to `close-on-click-outside` to close the PopupWindow when the user clicks outside of the popup.
 
 ### Functions
 
 -   **`show()`** Show the popup on the screen.
--   **`close()`** Closes the popup. Use this if you set the `close-on-click` property to false.
+-   **`close()`** Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
 
 ### Example
 

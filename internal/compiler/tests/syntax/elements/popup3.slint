@@ -3,11 +3,11 @@
 
 
 export component Bar {
-    in property <ClosePolicy> external;
+    in property <PopupClosePolicy> external;
     xx := PopupWindow {
-        close-policy: ClosePolicy.on-click;
+        close-policy: PopupClosePolicy.close-on-click;
         init => {
-            xx.close-policy = ClosePolicy.on-click;
+            xx.close-policy = PopupClosePolicy.close-on-click;
     //      ^error{The property must be known at compile time and cannot be changed at runtime}
         }
     }

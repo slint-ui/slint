@@ -16,7 +16,6 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
-use i_slint_core::items::ClosePolicy;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;

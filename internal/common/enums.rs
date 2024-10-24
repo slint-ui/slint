@@ -433,12 +433,12 @@ macro_rules! for_each_enums {
             }
 
             // This enum describes the close behaviour of [`PopupWindow`](elements.md#popupwindow)
-            enum ClosePolicy {
+            enum PopupClosePolicy {
                 /// Closes the `PopupWindow` when user clicks.
-                OnClick,
+                CloseOnClick,
 
                 /// Closed the `PopupWindow` when user clicks outside of the popup.
-                OnClickOutside,
+                CloseOnClickOutside,
 
                 /// Does not close the `PopupWindow` automatically when user clicks
                 NoAutoClose,
