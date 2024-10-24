@@ -17,8 +17,8 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
-    self, PopupClosePolicy, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor,
-    Opacity, PointerEventButton, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
+    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
+    PointerEventButton, PopupClosePolicy, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
