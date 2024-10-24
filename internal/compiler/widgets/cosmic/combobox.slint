@@ -25,6 +25,7 @@ export component ComboBox {
     vertical-stretch: 0;
     forward-focus: base;
     accessible-role: combobox;
+    accessible-enabled: root.enabled;
 
     states [
         disabled when !root.enabled : {
@@ -111,4 +112,4 @@ export component ComboBox {
            }
         }
     }
- }
+}

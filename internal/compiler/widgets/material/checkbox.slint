@@ -14,6 +14,7 @@ export component CheckBox {
 
     min-height: max(18px, i-layout.min-height);
     vertical-stretch: 0;
+    accessible-enabled: root.enabled;
     accessible-label <=> i-text.text;
     accessible-checkable: true;
     accessible-checked <=> root.checked;

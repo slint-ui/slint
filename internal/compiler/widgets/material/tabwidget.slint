@@ -45,6 +45,7 @@ export component TabImpl inherits Rectangle {
     width: max(48px, i-layout.min-width);
     height: max(48px, i-layout.min-height);
     accessible-role: tab;
+    accessible-enabled: root.enabled;
     accessible-label: root.title;
 
     i-container := Rectangle {
