@@ -489,6 +489,13 @@ impl NodeCollection {
             );
         }
 
+        if let Some(position_in_set) = item
+            .accessible_string_property(AccessibleStringProperty::PositionInSet)
+            .and_then(|s| s.parse::<usize>().ok())
+        {
+            builder.set_position_in_set(position_in_set);
+        }
+
         let supported = item.supported_accessibility_actions();
         if supported.contains(SupportedAccessibilityAction::Default) {
             builder.add_action(accesskit::Action::Default);

@@ -62,6 +62,7 @@ export component ListItem {
     accessible-label: root.item.text;
     accessible-selectable: true;
     accessible-selected: root.is-selected;
+    accessible-position-in-set: root.index + 1;
 
     states [
         has-focus when root.has-focus : {
