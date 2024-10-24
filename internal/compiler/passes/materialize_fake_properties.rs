@@ -117,7 +117,11 @@ fn should_materialize(
             // PopupWindow::close-policy
             return Some(Type::Enumeration(Rc::new(Enumeration {
                 name: "PopupClosePolicy".into(),
-                values: vec!["close-on-close".into(), "close-on-click-outside".into(), "no-auto-close".into()],
+                values: vec![
+                    "close-on-close".into(),
+                    "close-on-click-outside".into(),
+                    "no-auto-close".into(),
+                ],
                 default_value: 0,
                 node: None,
             })));
