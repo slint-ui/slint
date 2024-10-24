@@ -532,9 +532,9 @@ export class EditorWidget extends Widget {
         return [
             ["", "Hello World!"],
             ["examples/gallery/gallery.slint", "Gallery"],
-            ["examples/printerdemo/ui/printerdemo.slint", "Printer Demo"],
+            ["demos/printerdemo/ui/printerdemo.slint", "Printer Demo"],
             [
-                "examples/energy-monitor/ui/desktop_window.slint",
+                "demos/energy-monitor/ui/desktop_window.slint",
                 "Energy Monitor",
             ],
             ["examples/todo/ui/todo.slint", "Todo Demo"],

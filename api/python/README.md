@@ -37,10 +37,10 @@ The installation will use binaries provided vi macOS, Windows, and Linux for var
 
 ## Try it out
 
-If you want to just play with this, you can try running our Python port of the [printer demo](../../examples/printerdemo/python/README.md):
+If you want to just play with this, you can try running our Python port of the [printer demo](../../demos/printerdemo/python/README.md):
 
 ```bash
-cd examples/printerdemo/python
+cd demos/printerdemo/python
 pipenv update
 pipenv run python main.py
 ```

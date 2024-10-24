@@ -6,7 +6,7 @@ These examples demonstrate the main features of Slint and how to use them in dif
 
 
 
-| Thumbnail  | Description | Demo | 
+| Thumbnail  | Description | Example | 
 | --- | --- | --- | 
 | [Printer UI ![Printer Demo image](https://github.com/user-attachments/assets/7e7400ad-283a-4404-b04a-8620ba4df452)](./printerdemo) |  A fictional user interface for the touch screen of a printer. <br/> [Project...](./printerdemo) | [Wasm Demo](https://slint.dev/snapshots/master/demos/printerdemo/) |
 | [Widget Gallery ![Gallery demo image](https://github.com/user-attachments/assets/e37ad016-475a-4c01-8d1b-1326ee7aa733 "Gallery demo image")](./gallery/) |  A simple application showing the different widgets. <br/> [Project...](./gallery) | [Wasm Demo](https://slint.dev/snapshots/master/demos/gallery/) |
@@ -39,23 +39,23 @@ These examples demonstrate the main features of Slint and how to use them in dif
 Simply load the .slint file with the viewer application
 
 ```sh
-cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.slint
+cargo run --release --bin slint-viewer -- examples/gallery/gallery.slint
 ```
 
 ---
 ### Running the Rust Examples
 
-You can run the examples either by going into the rust sub-folder and use `cargo run`, for example:
+You can run the examples either by going into folder or into the rust sub-folder and use `cargo run`, for example:
 
 ```sh
-cd examples/printerdemo/rust
+cd examples/gallery
 cargo run --release
 ```
 
 or you can run them from anywhere in the Cargo workspace by name:
 
 ```sh
-cargo run --release --bin printerdemo
+cargo run --release --bin gallery
 ```
 
 ---
@@ -69,7 +69,7 @@ Since wasm files cannot be served from `file://` URL, you need to open a wab ser
 the content
 
 ```sh
-cd examples/printerdemo/rust
+cd examples/imagefilter/rust
 sed -i "s/^#wasm# //" Cargo.toml
 wasm-pack build --release --target web
 python3 -m http.server
@@ -98,7 +98,7 @@ pushd api/node
 npm install
 npm run compile
 popd
-cd examples/printerdemo/node
+cd examples/todo/node
 npm install
 npm start
 ```

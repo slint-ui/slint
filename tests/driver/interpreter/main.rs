@@ -10,7 +10,7 @@ macro_rules! test_example {
     ($id:ident, $path:literal) => {
         #[test]
         fn $id() {
-            let relative_path = std::path::PathBuf::from(concat!("../../../examples/", $path));
+            let relative_path = std::path::PathBuf::from(concat!("../../../", $path));
             let mut absolute_path =
                 std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(&relative_path);
             if !absolute_path.exists() {
@@ -30,16 +30,15 @@ macro_rules! test_example {
     };
 }
 
-test_example!(example_printerdemo, "printerdemo/ui/printerdemo.slint");
-test_example!(example_printerdemo_old, "printerdemo_old/ui/printerdemo.slint");
-test_example!(example_memory, "memory/memory.slint");
-test_example!(example_slide_puzzle, "slide_puzzle/slide_puzzle.slint");
-test_example!(example_todo, "todo/ui/todo.slint");
-test_example!(example_gallery, "gallery/gallery.slint");
-test_example!(example_fancy_demo, "fancy_demo/main.slint");
-test_example!(example_bash_sysinfo, "bash/sysinfo.slint");
-test_example!(example_carousel, "carousel/ui/carousel_demo.slint");
-test_example!(example_iot_dashboard, "iot-dashboard/main.slint");
+test_example!(example_printerdemo, "demos/printerdemo/ui/printerdemo.slint");
+test_example!(example_memory, "examples/memory/memory.slint");
+test_example!(example_slide_puzzle, "examples/slide_puzzle/slide_puzzle.slint");
+test_example!(example_todo, "examples/todo/ui/todo.slint");
+test_example!(example_gallery, "examples/gallery/gallery.slint");
+test_example!(example_fancy_demo, "examples/fancy_demo/main.slint");
+test_example!(example_bash_sysinfo, "examples/bash/sysinfo.slint");
+test_example!(example_carousel, "examples/carousel/ui/carousel_demo.slint");
+test_example!(example_iot_dashboard, "examples/iot-dashboard/main.slint");
 
 fn main() {
     println!("Nothing to see here, please run me through cargo test :)");

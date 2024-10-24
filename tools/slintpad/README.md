@@ -38,8 +38,8 @@ The `preview.html` page contains only the preview and the code must be given via
 
     Example: this loads the printerdemo.slint file from the github URL
 
-    -   https://slint.dev/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint
-    -   https://slint.dev/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint
+    -   https://slint.dev/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/printerdemo/ui/printerdemo.slint
+    -   https://slint.dev/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/printerdemo/ui/printerdemo.slint
 
 -   `?snippet=` query argument, followed by the URL-encoded slint code, will simply load this code
     this is what is used tor the permalink feature
