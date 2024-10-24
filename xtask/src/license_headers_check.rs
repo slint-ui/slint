@@ -505,6 +505,7 @@ lazy_static! {
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
         ("^examples/", MIT_LICENSE),
+        ("^demos/", MIT_LICENSE),
         ("^docs/", MIT_LICENSE),
         ("^api/cpp/docs/", MIT_LICENSE),
         ("(^|/)(README|CONTRIBUTING|CHANGELOG|LICENSE)\\.md", TRIPLE_LICENSE),
