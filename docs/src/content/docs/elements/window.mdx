@@ -1,0 +1,60 @@
+---
+title: Window
+description: Window element api.
+---
+import SlintProperty  from '../../../components/SlintProperty.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+`Window` is the root of the tree of elements that are visible on the screen.
+
+The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
+and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
+or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+
+### `always-on-top`
+<SlintProperty propName="always-on-top" typeName="bool" defaultValue="false">
+Whether the window should be placed above all other windows on window managers supporting it.
+</SlintProperty>
+
+### `background`
+<SlintProperty propName="background" typeName="brush" defaultValue="depends on the style">
+The background brush of the `Window`.
+</SlintProperty>
+
+### `default-font-family`
+<SlintProperty propName="default-font-family" typeName="string">
+The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
+</SlintProperty>
+
+### `default-font-size`
+<SlintProperty propName="default-font-size" typeName="length" defaultValue="0" propertyVisibility="in-out">
+The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
+</SlintProperty>
+
+### `default-font-weight`
+<SlintProperty propName="default-font-weight" typeName="int"  >
+The font weight to use as default in text elements inside this window, that don't have their `font-weight` property set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+</SlintProperty>
+
+### `icon`
+<SlintProperty propName="icon" typeName="image">
+The window icon shown in the title bar or the task bar on window managers supporting it.
+</SlintProperty>
+
+### `no-frame`
+<SlintProperty propName="no-frame" typeName="bool" defaultValue="false">
+Whether the window should be borderless/frameless or not.
+</SlintProperty>
+
+### `resize-border-width`
+<SlintProperty propName="resize-border-width" typeName="length" defaultValue="0">
+    <Aside type="caution" title="Caution">
+    This property is `winit` only for now.
+    </Aside>
+    Size of the resize border in borderless/frameless windows.
+</SlintProperty>
+
+### `title`
+<SlintProperty propName="title" typeName="string" defaultValue="empty">
+The window title that is shown in the title bar.
+</SlintProperty>

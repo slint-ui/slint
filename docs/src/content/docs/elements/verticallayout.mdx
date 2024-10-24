@@ -1,0 +1,53 @@
+---
+title: VerticalLayout
+description: VerticalLayout element api.
+---
+import SlintProperty  from '../../../components/SlintProperty.astro';
+
+```slint
+export component Foo inherits Window {
+    width: 200px;
+    height: 100px;
+    VerticalLayout {
+        spacing: 5px;
+        Rectangle { background: red; width: 10px; }
+        Rectangle { background: blue; min-width: 10px; }
+        Rectangle { background: yellow; vertical-stretch: 1; }
+        Rectangle { background: green; vertical-stretch: 2; }
+    }
+}
+```
+
+Places its children next to each other vertically.
+The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
+they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
+
+### `spacing`
+<SlintProperty propName="spacing" typeName="length">
+The distance between the elements in the layout.
+</SlintProperty>
+
+## Padding Properties
+### `padding`
+<SlintProperty propName="padding" typeName="length">
+The padding within the layout as a whole. This single value is applied to all sides.
+</SlintProperty>
+
+To target specific sides with different values use the following properties:
+### `padding-left`
+<SlintProperty propName="padding-left" typeName="length"/>
+
+### `padding-right`
+<SlintProperty propName="padding-right" typeName="length"/>
+
+### `padding-top`
+<SlintProperty propName="padding-top" typeName="length"/>
+
+### `padding-bottom`
+<SlintProperty propName="padding-bottom" typeName="length"/>
+
+## Alignment Properties
+### `alignment`
+<SlintProperty propName="alignment" typeName="enum" enumName="LayoutAlignment">
+Set the alignment. Matches the CSS flex box.
+</SlintProperty>
