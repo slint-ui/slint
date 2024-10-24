@@ -19,7 +19,7 @@ Files: api/cpp/tests/redpixel.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig*
+Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig* demos/*/LC_MESSAGES/*.mo demos/*/sdkconfig*
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
@@ -35,7 +35,7 @@ Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Files:  examples/*.json examples/*/README examples/*/README.txt examples/cpp/qt_viewer/interface.ui
+Files:  examples/*.json examples/*/README examples/*/README.txt examples/cpp/qt_viewer/interface.ui demos/*.json demos/*/README
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
@@ -83,7 +83,7 @@ Files: examples/carousel/fonts/*.ttf
 Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
 License: Apache-2.0
 
-Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv
+Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv demos/*/esp-idf/partitions.csv
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
