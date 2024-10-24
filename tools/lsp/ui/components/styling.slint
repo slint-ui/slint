@@ -68,6 +68,11 @@ export global EditorPalette {
     out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
     
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+
+    out property <brush> general-element-selection-primary: #2379f4ff;
+    out property <brush> general-element-selection-secondary: #2379f480;
+    out property <brush> layout-element-selection-primary: #ff0000ff;
+    out property <brush> layout-element-selection-secondary: #ff000080;
 }
 
 export global EditorAnimationSettings {

@@ -9,6 +9,7 @@ import { DiagnosticsOverlay } from "../components/diagnostics-overlay.slint";
 import { Resizer } from "../components/resizer.slint";
 import { Group, GroupHeader } from "../components/group.slint";
 import { StatusLineApi } from "../components/status-line.slint";
+import { EditorPalette } from "../components/styling.slint";
 
 global PreviewState {
     out property <length> minimum-preview-size: 16px;
@@ -32,23 +33,23 @@ component SelectionFrame {
     in property <Selection> selection;
     in property <bool> interactive: true;
 
-    function pick-selection-color(layout-kind: LayoutKind, is-primary: bool) -> color {
-        if layout-kind == LayoutKind.None {
-            if is-primary {
-                return #2379f4ff;
+    function pick-selection-color(selection: Selection) -> color {
+        if selection.layout-data != LayoutKind.None {
+            if selection.is-primary {
+                return EditorPalette.layout-element-selection-primary;
             } else {
-                return #2379f480;
+                return EditorPalette.layout-element-selection-secondary;
             }
         } else {
-            if is-primary {
-                return #ff0000ff;
+            if selection.is-primary {
+                return EditorPalette.general-element-selection-primary;
             } else {
-                return #ff000080;
+                return EditorPalette.general-element-selection-secondary;
             }
         }
     }
 
-    private property <color> selection-color: pick-selection-color(root.selection.layout-data, root.selection.is-primary);
+    private property <color> selection-color: pick-selection-color(root.selection);
 
     x: root.selection.geometry.x;
     y: root.selection.geometry.y;
