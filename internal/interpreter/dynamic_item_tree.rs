@@ -22,7 +22,9 @@ use i_slint_core::item_tree::{
     ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
     VisitChildrenResult,
 };
-use i_slint_core::items::{AccessibleRole, PopupClosePolicy, ItemRef, ItemVTable, PropertyAnimation};
+use i_slint_core::items::{
+    AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
+};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
 use i_slint_core::model::RepeatedItemTree;
