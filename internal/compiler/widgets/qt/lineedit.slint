@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditBase} from "../common/lineedit-base.slint";
+import { LineEditBase } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <length> font-size <=> inner.font-size;
@@ -14,6 +14,7 @@ export component LineEdit {
     in-out property <string> text <=> inner.text;
 
     callback accepted <=> inner.accepted;
+    callback rejected <=> base.rejected;
     callback edited <=> inner.edited;
     accessible-role: text-input;
     accessible-value <=> text;
