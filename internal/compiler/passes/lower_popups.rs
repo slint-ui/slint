@@ -82,8 +82,12 @@ fn lower_popup_window(
     // Take a reference to the close on click
     let close_on_click = close_on_click
         .map(|b| {
+            diag.push_property_deprecation_warning(
+                "close-on-click",
+                "close-policy",
+                &b.borrow().span,
+            );
             let b = b.into_inner();
-                diag.push_warning("The property 'close-on-click' has been deprecated. Please use 'close-policy' instead".into(), &b.span);
             (b.expression, b.span)
         })
         .or_else(|| {
