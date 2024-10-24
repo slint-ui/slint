@@ -15,7 +15,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
-mcu-board-support = { path = "../mcu-board-support", optional = true }
+mcu-board-support = { path = "../../examples/mcu-board-support", optional = true }
 chrono = { version = "0.4.34", optional = true, default-features = false, features = ["clock", "std", "wasmbind"] }
 weer_api = { version = "0.1", optional = true }
 tokio = { version = "1.25", optional = true, features = ["full"] }

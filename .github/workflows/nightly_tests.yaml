@@ -28,7 +28,7 @@ jobs:
             - uses: Swatinem/rust-cache@v2
             - name: Build and Test Printer demo
               shell: bash
-              working-directory: examples/printerdemo_mcu/esp-idf
+              working-directory: demos/printerdemo_mcu/esp-idf
               run: |
                   . ${IDF_PATH}/export.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
@@ -123,13 +123,13 @@ jobs:
             uses: zephyrproject-rtos/action-zephyr-setup@v1.0.2
             with:
                 app-path: slint
-                manifest-file-name: examples/printerdemo/zephyr/west.yaml
+                manifest-file-name: demos/printerdemo/zephyr/west.yaml
                 sdk-version: 0.16.8
           - name: Export the Zephyr CMake package
             run: west zephyr-export
           - name: Build for ${{matrix.board}}
             run: |
-                west build -b ${{matrix.board}} -p always slint/examples/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
+                west build -b ${{matrix.board}} -p always slint/demos/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
 
     uefi-demo:
         env:

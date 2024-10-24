@@ -20,7 +20,7 @@ default = ["simulator"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
-mcu-board-support = { path = "../mcu-board-support" }
+mcu-board-support = { path = "../../examples/mcu-board-support" }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

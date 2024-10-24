@@ -19,7 +19,7 @@ Files: api/cpp/tests/redpixel.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig*
+Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig* demos/*/LC_MESSAGES/*.mo demos/*/sdkconfig*
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
@@ -35,7 +35,7 @@ Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Files:  examples/*.json examples/*/README examples/*/README.txt examples/cpp/qt_viewer/interface.ui
+Files:  examples/*.json examples/*/README examples/*/README.txt examples/cpp/qt_viewer/interface.ui demos/*.json demos/*/README
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
@@ -43,7 +43,7 @@ Files: examples/memory/icons/*.svg examples/memory/icons/*.png
 Copyright: Fontawesome project <https://fontawesome.com/license/free>
 License: CC-BY-4.0
 
-Files: examples/printerdemo/ui/images/*.svg examples/printerdemo_old/ui/images/*.svg
+Files: demos/printerdemo/ui/images/*.svg
 Copyright: CoreyGinnivan <https://github.com/CoreyGinnivan/system-uicons>
 License: Unlicense
 
@@ -83,7 +83,7 @@ Files: examples/carousel/fonts/*.ttf
 Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
 License: Apache-2.0
 
-Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv
+Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv demos/*/esp-idf/partitions.csv
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
@@ -115,15 +115,15 @@ Files: internal/backends/linuxkms/mouse-pointer.svg examples/virtual_keyboard/ui
 Copyright: Copyright © 2018 Dave Gandy & Fork Awesome
 License: MIT
 
-Files: examples/energy-monitor/ui/assets/sunny.svg examples/energy-monitor/ui/assets/settings.svg examples/energy-monitor/ui/assets/information.svg examples/energy-monitor/ui/assets/cloudy.svg examples/energy-monitor/ui/assets/cloud.svg examples/energy-monitor/ui/assets/check.svg examples/energy-monitor/ui/assets/arrow-right.svg examples/energy-monitor/ui/assets/arrow-left.svg examples/energy-monitor/ui/assets/dashboard.svg
+Files: demos/energy-monitor/ui/assets/sunny.svg demos/energy-monitor/ui/assets/settings.svg demos/energy-monitor/ui/assets/information.svg demos/energy-monitor/ui/assets/cloudy.svg demos/energy-monitor/ui/assets/cloud.svg demos/energy-monitor/ui/assets/check.svg demos/energy-monitor/ui/assets/arrow-right.svg demos/energy-monitor/ui/assets/arrow-left.svg demos/energy-monitor/ui/assets/dashboard.svg
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/energy-monitor/ui/assets/spyrosoft-logo.svg
+Files: demos/energy-monitor/ui/assets/spyrosoft-logo.svg
 Copyright: Copyright © Spyrosoft Solutions GmbH <office@spyro-soft.com>
 License: CC-BY-4.0
 
-Files: examples/printerdemo/zephyr/VERSION
+Files: demos/printerdemo/zephyr/VERSION
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 

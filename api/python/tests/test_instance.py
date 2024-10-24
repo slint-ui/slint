@@ -39,7 +39,7 @@ def test_property_access():
                 finished: true,
                 dash-prop: true,
             };
-            in property <image> imageprop: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
+            in property <image> imageprop: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
 
             callback test-callback();
         }
@@ -177,7 +177,7 @@ def test_callbacks():
 if __name__ == "__main__":
     import slint
     module = slint.load_file(
-        "../../examples/printerdemo/ui/printerdemo.slint")
+        "../../demos/printerdemo/ui/printerdemo.slint")
     instance = module.MainWindow()
     instance.PrinterQueue.start_job = lambda title: print(
         f"new print job {title}")
