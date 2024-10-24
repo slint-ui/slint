@@ -2605,7 +2605,7 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [Expression::NumberLiteral(popup_index), close_on_click, Expression::PropertyReference(parent_ref)] =
+            if let [Expression::NumberLiteral(popup_index), close_policy, Expression::PropertyReference(parent_ref)] =
                 arguments
             {
                 let mut parent_ctx = ctx;
@@ -2630,7 +2630,7 @@ fn compile_builtin_function_call(
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
 
-                let close_on_click = compile_expression(close_on_click, ctx);
+                let close_policy = compile_expression(close_policy, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!({
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
@@ -2640,7 +2640,7 @@ fn compile_builtin_function_call(
                     sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                         &sp::VRc::into_dyn(popup_instance.into()),
                         position,
-                        #close_on_click,
+                        #close_policy,
                         #parent_component
                     )
                 })

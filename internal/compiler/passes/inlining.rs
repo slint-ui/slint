@@ -445,7 +445,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
     PopupWindow {
         x: p.x.clone(),
         y: p.y.clone(),
-        close_on_click: p.close_on_click,
+        close_policy: p.close_policy.clone(),
         component: duplicate_sub_component(&p.component, &parent, mapping, priority_delta),
         parent_element: mapping
             .get(&element_key(p.parent_element.clone()))

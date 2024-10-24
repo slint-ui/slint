@@ -17,6 +17,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
+use crate::items::PopupClosePolicy;
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
@@ -386,9 +387,8 @@ struct PopupWindow {
     location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     component: ItemTreeRc,
-    /// If true, Slint will close the popup after any mouse click within the popup.
-    /// Set to false and call close() on the PopupWindow to close it manually.
-    close_on_click: bool,
+    //// Defines the close behaviour of the popup.
+    close_policy: PopupClosePolicy,
 }
 
 #[pin_project::pin_project]
@@ -578,7 +578,7 @@ impl WindowInner {
             self.had_popup_on_press.set(self.active_popup.borrow().is_some());
         }
 
-        let close_popup_on_click = self.close_popup_on_click();
+        let close_policy = self.close_policy();
         let mut mouse_inside_popup = false;
 
         mouse_input_state = if let Some(mut event) =
@@ -637,12 +637,21 @@ impl WindowInner {
 
         self.mouse_input_state.set(mouse_input_state);
 
-        if close_popup_on_click
-            && ((mouse_inside_popup && released_event && self.had_popup_on_press.get())
-                || (!mouse_inside_popup && pressed_event))
-        {
-            self.close_popup();
-        }
+        match close_policy {
+            PopupClosePolicy::CloseOnClick => {
+                if (mouse_inside_popup && released_event && self.had_popup_on_press.get())
+                    || (!mouse_inside_popup && pressed_event)
+                {
+                    self.close_popup();
+                }
+            }
+            PopupClosePolicy::CloseOnClickOutside => {
+                if !mouse_inside_popup && pressed_event {
+                    self.close_popup();
+                }
+            }
+            PopupClosePolicy::NoAutoClose => {}
+        };
 
         crate::properties::ChangeTracker::run_change_handlers();
     }
@@ -968,7 +977,7 @@ impl WindowInner {
         &self,
         popup_componentrc: &ItemTreeRc,
         position: Point,
-        close_on_click: bool,
+        close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
     ) {
         let position = parent_item.map_to_window(
@@ -1036,7 +1045,7 @@ impl WindowInner {
         self.active_popup.replace(Some(PopupWindow {
             location,
             component: popup_componentrc.clone(),
-            close_on_click,
+            close_policy,
         }));
     }
 
@@ -1066,9 +1075,12 @@ impl WindowInner {
         }
     }
 
-    /// Returns true if the currently active popup is configured to close on click. None if there is no active popup.
-    pub fn close_popup_on_click(&self) -> bool {
-        self.active_popup.borrow().as_ref().map_or(false, |popup| popup.close_on_click)
+    /// Returns the close policy of the active popup. PopupClosePolicy::NoAutoClose if there is no active popup.
+    pub fn close_policy(&self) -> PopupClosePolicy {
+        self.active_popup
+            .borrow()
+            .as_ref()
+            .map_or(PopupClosePolicy::NoAutoClose, |popup| popup.close_policy)
     }
 
     /// Returns the scale factor set on the window, as provided by the windowing system.
@@ -1329,14 +1341,14 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
         position: crate::graphics::Point,
-        close_on_click: bool,
+        close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         WindowInner::from_pub(window_adapter.window()).show_popup(
             popup,
             position,
-            close_on_click,
+            close_policy,
             parent_item,
         );
     }

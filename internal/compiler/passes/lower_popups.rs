@@ -5,7 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use smol_str::format_smolstr;
@@ -78,8 +78,15 @@ fn lower_popup_window(
 
     const CLOSE_ON_CLICK: &str = "close-on-click";
     let close_on_click = popup_window_element.borrow_mut().bindings.remove(CLOSE_ON_CLICK);
+
+    // Take a reference to the close on click
     let close_on_click = close_on_click
         .map(|b| {
+            diag.push_property_deprecation_warning(
+                "close-on-click",
+                "close-policy",
+                &b.borrow().span,
+            );
             let b = b.into_inner();
             (b.expression, b.span)
         })
@@ -95,9 +102,38 @@ fn lower_popup_window(
             None
         });
 
+    const CLOSE_POLICY: &str = "close-policy";
+    let close_policy = popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY);
+
+    // Take a reference to the close policy
+    let close_policy = close_policy
+        .map(|b| {
+            let b = b.into_inner();
+            (b.expression, b.span)
+        })
+        .or_else(|| {
+            let mut base = popup_window_element.borrow().base_type.clone();
+            while let ElementType::Component(b) = base {
+                base = b.root_element.borrow().base_type.clone();
+                if let Some(binding) = b.root_element.borrow().bindings.get(CLOSE_POLICY) {
+                    let b = binding.borrow();
+                    return Some((b.expression.clone(), b.span.clone()));
+                }
+            }
+            None
+        });
+
+    if close_policy.is_some() && close_on_click.is_some() {
+        diag.push_error(
+            "close-policy and close-on-click cannot be set at the same time".into(),
+            &close_on_click.unwrap().1,
+        );
+        return;
+    }
+
     let close_on_click = match close_on_click {
         Some((expr, location)) => match expr {
-            Expression::BoolLiteral(value) => value,
+            Expression::BoolLiteral(value) => Some(value),
             _ => {
                 diag.push_error(
                     "The close-on-click property only supports constants at the moment".into(),
@@ -106,7 +142,35 @@ fn lower_popup_window(
                 return;
             }
         },
-        None => true,
+        None => None,
+    };
+
+    let close_policy = match close_policy {
+        Some((expr, location)) => match expr {
+            Expression::EnumerationValue(value) => value,
+            _ => {
+                diag.push_error(
+                    "The close-policy property only supports constants at the moment".into(),
+                    &location,
+                );
+                return;
+            }
+        },
+        None => {
+            let enum_ty = crate::typeregister::BUILTIN_ENUMS.with(|e| e.PopupClosePolicy.clone());
+
+            let mut value = String::from("close-on-click");
+
+            if let Some(close_on_click) = close_on_click {
+                if !close_on_click {
+                    value = "no-auto-close".into()
+                }
+            }
+            EnumerationValue {
+                value: enum_ty.values.iter().position(|v| v == value.as_str()).unwrap(),
+                enumeration: enum_ty,
+            }
+        }
     };
 
     let popup_comp = Rc::new(Component {
@@ -166,7 +230,7 @@ fn lower_popup_window(
         component: popup_comp,
         x: coord_x,
         y: coord_y,
-        close_on_click,
+        close_policy,
         parent_element: parent_element.clone(),
     });
 }

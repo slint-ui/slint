@@ -33,7 +33,7 @@ export component Example inherits Window {
     date-picker := DatePickerPopup {
         width: 360px;
         height: 524px;
-        close-on-click: false;
+        close-policy: PopupClosePolicy.no-auto-close;
 
         accepted(date) => {
             date-picker.close();

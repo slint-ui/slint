@@ -606,6 +606,13 @@ fn call_builtin_function(
                     parent_item_info.item_index(),
                 );
 
+                let close_policy = Value::EnumerationValue(
+                    popup.close_policy.enumeration.name.to_string(),
+                    popup.close_policy.to_string(),
+                )
+                .try_into()
+                .expect("Invalid internal enumeration representation for close policy");
+
                 crate::dynamic_item_tree::show_popup(
                     popup,
                     |instance_ref| {
@@ -619,7 +626,7 @@ fn call_builtin_function(
                             y.try_into().unwrap(),
                         )
                     },
-                    popup.close_on_click,
+                    close_policy,
                     enclosing_component.self_weak().get().unwrap().clone(),
                     component.window_adapter(),
                     &parent_item,

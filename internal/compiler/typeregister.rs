@@ -369,6 +369,9 @@ impl TypeRegister {
 
                 popup.properties.get_mut("close-on-click").unwrap().property_visibility =
                     PropertyVisibility::Constexpr;
+
+                popup.properties.get_mut("close-policy").unwrap().property_visibility =
+                    PropertyVisibility::Constexpr;
             }
 
             _ => unreachable!(),

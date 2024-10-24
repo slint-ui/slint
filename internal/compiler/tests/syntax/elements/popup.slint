@@ -6,6 +6,7 @@ export component Bar {
     in property <bool> external;
     xx := PopupWindow {
         close-on-click: true;
+//                      ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
         init => {
             xx.close-on-click = true;
     //      ^error{The property must be known at compile time and cannot be changed at runtime}
@@ -13,7 +14,8 @@ export component Bar {
     }
     PopupWindow {
         close-on-click: root.external;
-//                      ^error{The close-on-click property only supports constants at the moment}
+//                      ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead} 
+//                      ^^error{The close-on-click property only supports constants at the moment}
     }
 
 

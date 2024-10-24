@@ -22,7 +22,9 @@ use i_slint_core::item_tree::{
     ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
     VisitChildrenResult,
 };
-use i_slint_core::items::{AccessibleRole, ItemRef, ItemVTable, PropertyAnimation};
+use i_slint_core::items::{
+    AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
+};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
 use i_slint_core::model::RepeatedItemTree;
@@ -2328,7 +2330,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> i_slint_core::graphics::Point,
-    close_on_click: bool,
+    close_policy: PopupClosePolicy,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
     parent_item: &ItemRc,
@@ -2354,7 +2356,7 @@ pub fn show_popup(
     WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst),
         pos,
-        close_on_click,
+        close_policy,
         parent_item,
     );
 }
