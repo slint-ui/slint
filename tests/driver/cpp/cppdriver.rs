@@ -30,6 +30,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.library_paths = library_paths;
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
+    if source.contains("//bundle-translations") {
+        compiler_config.translation_path_bundle =
+            Some(testcase.absolute_path.parent().unwrap().to_path_buf());
+        compiler_config.translation_domain =
+            Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
+    }
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
