@@ -62,7 +62,7 @@ jobs:
               with:
                   target: x86_64-pc-windows-msvc
             - name: Install Qt
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 6.5.1
                   cache: true
@@ -101,7 +101,7 @@ jobs:
               with:
                   target: x86_64-unknown-linux-gnu
             - name: Install Qt
-              uses: jurplel/install-qt-action@v3
+              uses: jurplel/install-qt-action@v4
               with:
                   version: 5.15.2
                   cache: true
