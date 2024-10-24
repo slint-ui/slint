@@ -1,8 +1,21 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { ExpressiveCodeTheme } from "@astrojs/starlight/expressive-code";
 import fs from "node:fs";
 import starlightLinksValidator from "starlight-links-validator";
+
+const lightJsoncString = fs.readFileSync(
+    new URL(`src/misc/light-theme.jsonc`, import.meta.url),
+    "utf-8",
+);
+const lightTheme = ExpressiveCodeTheme.fromJSONString(lightJsoncString);
+
+const darkJsoncString = fs.readFileSync(
+    new URL(`src/misc/dark-theme.jsonc`, import.meta.url),
+    "utf-8",
+);
+const darkTheme = ExpressiveCodeTheme.fromJSONString(darkJsoncString);
 
 // https://astro.build/config
 export default defineConfig({
@@ -19,7 +32,7 @@ export default defineConfig({
             ],
             expressiveCode: {
                 styleOverrides: { borderRadius: "0.2rem" },
-                themes: ["dracula", "catppuccin-latte"],
+                themes: [darkTheme, lightTheme],
                 shiki: {
                     langs: [
                         JSON.parse(
