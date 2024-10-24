@@ -192,10 +192,7 @@ pub fn translate(
 
 #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
 fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str) -> String {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else { return };
-        ctx.0.translations_dirty.as_ref().get();
-    });
+    global_translation_property();
     fn mangle_context(ctx: &str, s: &str) -> String {
         format!("{}\u{4}{}", ctx, s)
     }
@@ -222,6 +219,14 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str
     } else {
         gettextrs::dngettext(domain, string, plural, n as u32)
     }
+}
+
+/// Returns the language index and make sure to register a dependency
+fn global_translation_property() -> usize {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return 0 };
+        ctx.0.translations_dirty.as_ref().get()
+    })
 }
 
 pub fn mark_all_translations_dirty() {
@@ -258,6 +263,61 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
         mark_all_translations_dirty();
     }
     Ok(())
+}
+
+pub fn translate_bundle(
+    strs: &[Option<&str>],
+    arguments: &(impl FormatArgs + ?Sized),
+) -> SharedString {
+    let idx = global_translation_property();
+    let mut output = SharedString::default();
+    let Some(translated) = strs.get(idx).and_then(|x| *x).or_else(|| strs.first().and_then(|x| *x))
+    else {
+        return output;
+    };
+    use core::fmt::Write;
+    write!(output, "{}", formatter::format(translated, arguments)).unwrap();
+    output
+}
+
+pub fn translate_bundle_with_plural(
+    strs: &[Option<&[&str]>],
+    plural_rules: &[Option<fn(i32) -> usize>],
+    arguments: &(impl FormatArgs + ?Sized),
+    n: i32,
+) -> SharedString {
+    let idx = global_translation_property();
+    let mut output = SharedString::default();
+    let Some(translations) =
+        strs.get(idx).and_then(|x| *x).or_else(|| strs.first().and_then(|x| *x))
+    else {
+        return output;
+    };
+    let rule = plural_rules
+        .get(idx)
+        .and_then(|x| *x)
+        .or_else(|| plural_rules.first().and_then(|x| *x))
+        .unwrap_or(|_| 0);
+    let Some(translated) = translations.get(rule(n)).or_else(|| translations.first()).cloned()
+    else {
+        return output;
+    };
+    use core::fmt::Write;
+    write!(output, "{}", formatter::format(translated, &WithPlural(arguments, n))).unwrap();
+    output
+}
+
+pub fn set_language_internal(language: &str, languages: &[&str]) -> bool {
+    let idx = languages.iter().position(|x| *x == language);
+    if let Some(idx) = idx {
+        crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            let Some(ctx) = ctx.get() else { return false };
+            ctx.0.translations_dirty.as_ref().set(idx);
+            true
+        })
+    } else {
+        false
+    }
 }
 
 #[cfg(feature = "ffi")]

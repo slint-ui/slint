@@ -213,6 +213,9 @@ pub mod re_exports {
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::timers::{Timer, TimerMode};
+    pub use i_slint_core::translations::{
+        set_language_internal, translate_bundle, translate_bundle_with_plural,
+    };
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
     };

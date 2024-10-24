@@ -135,6 +135,12 @@ pub fn lower_expression(
                     if let llr_Expression::Array { as_model, .. } = &mut arguments[3] {
                         *as_model = false;
                     }
+                    #[cfg(feature = "bundle-translations")]
+                    if let Some(mut translation_builder) =
+                        ctx.state.translation_builder.as_ref().map(|x| x.borrow_mut())
+                    {
+                        return translation_builder.lower_translate_call(arguments);
+                    }
                 }
                 llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
             }

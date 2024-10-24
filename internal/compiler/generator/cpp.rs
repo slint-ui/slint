@@ -3359,6 +3359,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::EmptyComponentFactory => panic!("component-factory not yet supported in C++"),
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            let args = compile_expression(format_args, ctx);
+            match plural {
+                Some(plural) => {
+                    let plural = compile_expression(plural, ctx);
+                    format!("slint::translate_bundle_with_plural(slint_translated_strings_plurals[{string_index}], slint_translated_plural_rules, {args}, {plural})")
+                }
+                None => format!("slint::translate_bundle(slint_translated_strings[{string_index}], {args})"),
+            }
+        },
     }
 }
 

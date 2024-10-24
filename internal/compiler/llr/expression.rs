@@ -190,6 +190,15 @@ pub enum Expression {
     },
 
     EmptyComponentFactory,
+
+    /// A reference to bundled translated string
+    TranslationReference {
+        /// An expression of type array of strings
+        format_args: Box<Expression>,
+        string_index: usize,
+        /// The `n` value to use for the plural form if it is a plural form
+        plural: Option<Box<Expression>>,
+    },
 }
 
 impl Expression {
@@ -305,6 +314,7 @@ impl Expression {
             }
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
+            Self::TranslationReference { .. } => Type::String,
         }
     }
 }
@@ -387,6 +397,12 @@ macro_rules! visit_impl {
                 $visitor(rhs);
             }
             Expression::EmptyComponentFactory => {}
+            Expression::TranslationReference { format_args, plural, string_index: _ } => {
+                $visitor(format_args);
+                if let Some(plural) = plural {
+                    $visitor(plural);
+                }
+            }
         }
     };
 }

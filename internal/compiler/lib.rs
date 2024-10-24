@@ -132,6 +132,9 @@ pub struct CompilerConfiguration {
 
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
+    /// When Some, this is the path where the translations are looked at to bundle the translations
+    #[cfg(feature = "bundle-translations")]
+    pub translation_path_bundle: Option<std::path::PathBuf>,
 
     /// C++ namespace
     pub cpp_namespace: Option<String>,
@@ -220,6 +223,10 @@ impl CompilerConfiguration {
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(feature = "software-renderer")]
             font_cache: Default::default(),
+            #[cfg(feature = "bundle-translations")]
+            translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
+                .ok()
+                .map(|x| x.into()),
         }
     }
 
