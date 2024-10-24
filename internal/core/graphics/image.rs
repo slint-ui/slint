@@ -851,7 +851,7 @@ impl Image {
     /// # use std::path::Path;
     /// # use i_slint_core::graphics::*;
     /// let path_buf = Path::new(env!("CARGO_MANIFEST_DIR"))
-    ///     .join("../../examples/printerdemo/ui/images/cat.jpg");
+    ///     .join("../../demos/printerdemo/ui/images/cat.jpg");
     /// let image = Image::load_from_path(&path_buf).unwrap();
     /// assert_eq!(image.path(), Some(path_buf.as_path()));
     /// ```

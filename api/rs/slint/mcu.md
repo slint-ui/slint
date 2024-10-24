@@ -422,4 +422,4 @@ in your `Cargo.toml`.
 
 For an entire template, check out our [Slint Bare Metal Microcontroller Rust Template](https://github.com/slint-ui/slint-mcu-rust-template).
 
-We also have a version of our printer demo that we've adapted to small screens, the [MCU Printer Demo](https://github.com/slint-ui/slint/tree/master/examples/printerdemo_mcu).
+We also have a version of our printer demo that we've adapted to small screens, the [MCU Printer Demo](https://github.com/slint-ui/slint/tree/master/demos/printerdemo_mcu).

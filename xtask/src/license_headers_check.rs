@@ -411,7 +411,7 @@ lazy_static! {
         ("^editors/tree-sitter-slint/binding\\.gyp$", LicenseLocation::NoLicense), // liberal license
         ("^editors/tree-sitter-slint/test-to-corpus\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^Cargo\\.lock$", LicenseLocation::NoLicense),
-        ("^examples/printerdemo/zephyr/VERSION$", LicenseLocation::NoLicense),
+        ("^demos/printerdemo/zephyr/VERSION$", LicenseLocation::NoLicense),
 
         // filename based matches:
         ("(^|/)CMakeLists\\.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
@@ -505,6 +505,7 @@ lazy_static! {
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
         ("^examples/", MIT_LICENSE),
+        ("^demos/", MIT_LICENSE),
         ("^docs/", MIT_LICENSE),
         ("^api/cpp/docs/", MIT_LICENSE),
         ("(^|/)(README|CONTRIBUTING|CHANGELOG|LICENSE)\\.md", TRIPLE_LICENSE),

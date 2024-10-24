@@ -42,7 +42,7 @@ pub fn collect_test_cases() -> std::io::Result<Vec<test_driver_lib::TestCase>> {
 
 fn main() -> std::io::Result<()> {
     let default_font_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "..", "..", "examples", "printerdemo", "ui", "fonts"]
+        [env!("CARGO_MANIFEST_DIR"), "..", "..", "demos", "printerdemo", "ui", "fonts"]
             .iter()
             .collect();
 
