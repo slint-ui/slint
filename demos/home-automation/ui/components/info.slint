@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette,Measurements,Colors } from "../common.slint";
+import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+import { InnerShadowRectangle } from "general/innerShadowRectangle.slint";
+
+export component Info {
+    in property <string> name;
+    in property <string> id;
+    in property <bool> full-screen: false;
+    tile := InnerShadowRectangle {
+        inner-color: Palette.info-alternate-background;
+        inner-shadow-blur: 40px;
+        // clip: true;
+        background: Palette.info-background;
+        border-radius: Measurements.tile-radius;
+        @children
+    }
+}

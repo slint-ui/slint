@@ -1,0 +1,217 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { AppState, WidgetType, ComponentData } from "../../appState.slint";
+import { Lamp } from "../lamp.slint";
+import { Appliance } from "../appliance.slint";
+import { Overhead } from "../overhead.slint";
+import { Info } from "../info.slint";
+import { Graph } from "../graph.slint";
+import { Control } from "../control.slint";
+import { MusicPlayer } from "../musicPlayer.slint";
+import { Camera } from "../camera.slint";
+import { HVAC } from "../hvac.slint";
+import { Dishwasher } from "../dishwasher.slint";
+import { Microwave } from "../microwave.slint";
+import { WeatherInfo } from "../weatherInfo.slint";
+import { TimeInfo } from "../timeInfo.slint";
+import { PowerInfo } from "../powerInfo.slint";
+import { Alarm } from "../alarm.slint";
+import { Measurements, Animation } from "../../common.slint";
+
+
+export component WidgetLoader {
+    in property <int> index;
+    in property <ComponentData> data;
+    property <bool> show: data.visible;
+    property <bool> moveMode: false;
+    in property <WidgetType> type;
+    property <length> targetX;
+    property <length> targetY;
+    property <length> targetWidth;
+    property <length> targetHeight;
+    property <length> animTargetX;
+    property <length> animTargetY;
+    property <length> animTargetWidth;
+    property <length> animTargetHeight;
+
+    animate animTargetX, animTargetY, animTargetWidth, animTargetHeight {
+        duration: Animation.transitionDuration;
+        easing: ease-in-out-sine;
+    }
+
+    changed data => {
+        if root.show != self.data.visible {
+            // hiding then set the position so it fades in on the correct place 
+            if !root.show {
+                targetX = self.data.x * 1px;
+                targetY = self.data.y * 1px;
+                targetWidth = self.data.width * 1px;
+                targetHeight = self.data.height * 1px;
+                animTargetX = self.data.x * 1px;
+                animTargetY = self.data.y * 1px;
+                animTargetWidth = self.data.width * 1px;
+                animTargetHeight = self.data.height * 1px;
+            } // but if visible don't change the pos so it just fades away.
+
+            root.show = self.data.visible == true;
+        } else {
+            targetX = self.data.x * 1px;
+            targetY = self.data.y * 1px;
+            targetWidth = self.data.width * 1px;
+            targetHeight = self.data.height * 1px;
+            animTargetX = self.data.x * 1px;
+            animTargetY = self.data.y * 1px;
+            animTargetWidth = self.data.width * 1px;
+            animTargetHeight = self.data.height * 1px;
+        }
+    }
+
+    init => {
+        targetX = root.data.x * 1px;
+        targetY = root.data.y * 1px;
+        targetWidth = root.data.width * 1px;
+        targetHeight = root.data.height * 1px;
+        animTargetX = root.data.x * 1px;
+        animTargetY = root.data.y * 1px;
+        animTargetWidth = root.data.width * 1px;
+        animTargetHeight = root.data.height * 1px;
+        root.show = root.data.visible;
+    }
+
+    opacity: 0;
+    x: AppState.first-run ? targetX : (root.opacity < 1 ? targetX : animTargetX) * AppState.x-scale;
+    y: AppState.first-run ? targetY : (root.opacity < 1 ? targetY : animTargetY) * AppState.y-scale;
+    width: AppState.first-run ? targetWidth : (root.opacity < 1 ? targetWidth : animTargetWidth) * AppState.x-scale;
+    height: AppState.first-run ? targetHeight : (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.y-scale;
+    visible: AppState.last-selected-index != self.index && root.opacity > 0;
+
+    states [
+        instantVisible when root.show && AppState.first-run: {
+            root.opacity: 1;
+        }
+        isVisible when root.show && !AppState.first-run: {
+            root.opacity: 1;
+            in {
+                animate root.opacity {
+                    delay: Animation.transitionDuration / 2;
+                    duration: Animation.transitionDuration;
+                    easing: ease-in-out-sine;
+                }
+            }
+            out {
+                animate root.opacity {
+                    duration: Animation.transitionDuration / 2;
+                    easing: ease-in-out-sine;
+                }
+            }
+        }
+    ]
+
+    // Use the correct component based on type
+    if root.type == WidgetType.lamp: Lamp {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.appliance: Appliance {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.overhead: Overhead {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.info: Info {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.graph: Graph {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.control: Control {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.music: MusicPlayer {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.camera: Camera {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.hvac: HVAC {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.microwave: Microwave {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.dishwasher: Dishwasher {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.weatherInfo: WeatherInfo {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.timeInfo: TimeInfo {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.powerInfo: PowerInfo {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.alarm: Alarm {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+}

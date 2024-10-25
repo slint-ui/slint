@@ -490,6 +490,7 @@ pub struct TextInput {
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub accepted: Callback<VoidArg>,
+    pub rejected: Callback<VoidArg>,
     pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
     pub single_line: Property<bool>,
@@ -744,6 +745,9 @@ impl Item for TextInput {
                 if let Some(keycode) = event.text.chars().next() {
                     if keycode == key_codes::Return && !self.read_only() && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
+                        return KeyEventResult::EventAccepted;
+                    } else if keycode == key_codes::Escape && !self.read_only() {
+                        Self::FIELD_OFFSETS.rejected.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
                 }

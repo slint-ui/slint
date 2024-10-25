@@ -815,6 +815,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Callbacks
 
 -   **`accepted()`**: Invoked when enter key is pressed.
+-   **`rejected()`**: Invoked when escape key is pressed.
 -   **`cursor-position-changed(Point)`**: The cursor was moved to the new (x, y) position
     described by the [_`Point`_](structs.md#point) argument.
 -   **`edited()`**: Invoked when the text has changed because the user modified it.
