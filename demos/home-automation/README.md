@@ -6,6 +6,6 @@ A fictional user interface for the touch screen of a printer
 
 | `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- | --- |
-| [`ui.slint`](./ui/printerdemo.slint) | [`main.rs`](./rust/main.rs) | [`main.cpp`](./cpp/main.cpp) | [`main.js`](./node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/printerdemo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/printerdemo/ui/printerdemo.slint) |
+| [`ui.slint`](./ui/demo.slint) | [`main.rs`](./rust/main.rs) |  | [`main.js`](./node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/home-automation/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/home-automation/ui/demo.slint) |
 
-![Screenshot of the Printer Demo](https://slint.dev/resources/printerdemo_screenshot.png "Printer Demo")
+![Screenshot of the Home Automation Demo](https://github.com/user-attachments/assets/3856b9cf-e7c7-478e-8efe-0f7e8aa43e85 "Home Automation Demo")
