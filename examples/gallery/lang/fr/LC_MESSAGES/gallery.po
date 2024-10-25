@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-09 03:08+0000\n"
+"POT-Creation-Date: 2024-10-25 03:10+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -138,7 +138,7 @@ msgid ""
 "repository and the website https://slint.dev and try it yourself."
 msgstr ""
 
-#: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:53
+#: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:55
 msgctxt "ListViewPage"
 msgid "ListView"
 msgstr "ListView"
@@ -154,91 +154,91 @@ msgstr ""
 "StandardListBx est comme une ListView par dafaut mes basé sur une définition "
 "des items visuels"
 
-#: ui/pages/list_view_page.slint:14
+#: ui/pages/list_view_page.slint:15
 msgctxt "ListViewPage"
 msgid "Scroll Bar Policy:"
 msgstr ""
 
-#: ui/pages/list_view_page.slint:29
+#: ui/pages/list_view_page.slint:31
 msgctxt "ListViewPage"
 msgid "Vertical:"
 msgstr ""
 
-#: ui/pages/list_view_page.slint:34 ui/pages/list_view_page.slint:44
+#: ui/pages/list_view_page.slint:36 ui/pages/list_view_page.slint:46
 msgctxt "ListViewPage"
 msgid "As Needed"
 msgstr ""
 
-#: ui/pages/list_view_page.slint:34 ui/pages/list_view_page.slint:44
+#: ui/pages/list_view_page.slint:36 ui/pages/list_view_page.slint:46
 msgctxt "ListViewPage"
 msgid "Always On"
 msgstr ""
 
-#: ui/pages/list_view_page.slint:34 ui/pages/list_view_page.slint:44
+#: ui/pages/list_view_page.slint:36 ui/pages/list_view_page.slint:46
 msgctxt "ListViewPage"
 msgid "Always Off"
 msgstr ""
 
-#: ui/pages/list_view_page.slint:39
+#: ui/pages/list_view_page.slint:41
 msgctxt "ListViewPage"
 msgid "Horizontal:"
 msgstr ""
 
-#: ui/pages/list_view_page.slint:65
+#: ui/pages/list_view_page.slint:67
 msgctxt "ListViewPage"
 msgid "Item {}"
 msgstr "Élement {}"
 
-#: ui/pages/list_view_page.slint:72
+#: ui/pages/list_view_page.slint:74
 #, fuzzy
 msgctxt "ListViewPage"
 msgid "StandardListView"
 msgstr "StandardTableView"
 
-#: ui/pages/list_view_page.slint:79 ui/pages/list_view_page.slint:80
 #: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
 #: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
-#: ui/pages/list_view_page.slint:85
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
 msgctxt "ListViewPage"
 msgid "Lorem"
 msgstr "Lorem"
 
-#: ui/pages/list_view_page.slint:79 ui/pages/list_view_page.slint:80
 #: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
 #: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
-#: ui/pages/list_view_page.slint:85
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
 msgctxt "ListViewPage"
 msgid "ipsum"
 msgstr "ipsum"
 
-#: ui/pages/list_view_page.slint:79 ui/pages/list_view_page.slint:80
 #: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
 #: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
-#: ui/pages/list_view_page.slint:85
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
 msgctxt "ListViewPage"
 msgid "dolor"
 msgstr "dolor"
 
-#: ui/pages/list_view_page.slint:79 ui/pages/list_view_page.slint:80
 #: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
 #: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
-#: ui/pages/list_view_page.slint:85
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
 msgctxt "ListViewPage"
 msgid "sit"
 msgstr "sit"
 
-#: ui/pages/list_view_page.slint:79 ui/pages/list_view_page.slint:80
 #: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
 #: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
-#: ui/pages/list_view_page.slint:85
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
 msgctxt "ListViewPage"
 msgid "amet"
 msgstr "amet"
 
-#: ui/pages/list_view_page.slint:79 ui/pages/list_view_page.slint:80
 #: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
 #: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
-#: ui/pages/list_view_page.slint:85
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
 msgctxt "ListViewPage"
 msgid "consetetur"
 msgstr "consetetur"
