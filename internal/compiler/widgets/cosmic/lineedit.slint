@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
-import { LineEditBase} from "../common/lineedit-base.slint";
+import { LineEditBase } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
@@ -15,6 +15,7 @@ export component LineEdit {
     in-out property <string> text <=> base.text;
 
     callback accepted <=> base.accepted;
+    callback rejected <=> base.rejected;
     callback edited <=> base.edited;
     accessible-role: text-input;
     accessible-enabled: root.enabled;

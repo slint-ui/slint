@@ -3,7 +3,7 @@
 
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
-import { LineEditBase} from "../common/lineedit-base.slint";
+import { LineEditBase } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
@@ -16,6 +16,7 @@ export component LineEdit {
     in-out property <string> text <=> base.text;
 
     callback accepted <=> base.accepted;
+    callback rejected <=> base.rejected;
     callback edited <=> base.edited;
     accessible-role: text-input;
     accessible-enabled: root.enabled;
