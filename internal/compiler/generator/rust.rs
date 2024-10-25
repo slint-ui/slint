@@ -2832,7 +2832,12 @@ fn compile_builtin_function_call(
                 x.row_count() as i32
             }})
         }
-
+        BuiltinFunction::ArrayIndexOf => {
+            // quote!(match &#(#a)* { x => {
+            //     x.model_tracker().track_row_count_changes();
+            //     x.row_count() as i32
+            // }})
+        }
         BuiltinFunction::Rgb => {
             let (r, g, b, a) =
                 (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());

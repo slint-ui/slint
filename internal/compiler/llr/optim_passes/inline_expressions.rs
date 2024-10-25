@@ -111,6 +111,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorWithAlpha => 50,
         BuiltinFunction::ImageSize => 50,
         BuiltinFunction::ArrayLength => 50,
+        BuiltinFunction::ArrayIndexOf => 50,
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,

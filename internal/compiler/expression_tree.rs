@@ -60,6 +60,7 @@ pub enum BuiltinFunction {
     ColorWithAlpha,
     ImageSize,
     ArrayLength,
+    ArrayIndexOf,
     Rgb,
     Hsv,
     ColorScheme,
@@ -128,6 +129,7 @@ macro_rules! declare_builtin_function_types {
                     $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
                 }
             }
+
         }
     };
 }
@@ -202,6 +204,7 @@ declare_builtin_function_types!(
         rust_attributes: None,
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
+    ArrayIndexOf: (Type::Model, Type::ElementReference) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     ColorScheme: () -> Type::Enumeration(
@@ -285,6 +288,7 @@ impl BuiltinFunction {
             #[cfg(target_arch = "wasm32")]
             BuiltinFunction::ImageSize => false,
             BuiltinFunction::ArrayLength => true,
+            BuiltinFunction::ArrayIndexOf => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
             BuiltinFunction::SetTextInputFocused => false,
@@ -345,6 +349,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorWithAlpha => true,
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,
+            BuiltinFunction::ArrayIndexOf => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => true,
