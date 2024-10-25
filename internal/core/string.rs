@@ -96,6 +96,175 @@ impl SharedString {
             self.inner.make_mut_slice()[prev_len] = first;
         }
     }
+
+    /// Replaces the first occurrence of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace("World", "Universe"), "Hello, Universe!");
+    /// ```
+    pub fn replace(&self, find: &str, replace: &str) -> SharedString {
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().splitn(2, find);
+        if let Some(first) = iter.next() {
+            result.push_str(first);
+            if let Some(second) = iter.next() {
+                result.push_str(replace);
+                result.push_str(second);
+            }
+        }
+        result
+    }
+
+    /// Replaces all occurrences of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace_all("o", "0"), "Hell0, W0rld!");
+    /// ```
+    pub fn replace_all(&self, find: &str, replace: &str) -> SharedString {
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().split(find);
+        if let Some(first) = iter.next() {
+            result.push_str(first);
+            for part in iter {
+                result.push_str(replace);
+                result.push_str(part);
+            }
+        }
+        result
+    }
+
+    /// Whether the string contains the given substring
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.includes("World"), true);
+    /// assert_eq!(hello.includes("Universe"), false);
+    /// ```
+    pub fn includes(&self, x: &str) -> bool {
+        self.as_str().contains(x)
+    }
+
+    /// Whether the string starts with the given substring
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.starts_with_str("Hello"), true);
+    /// assert_eq!(hello.starts_with_str("World"), false);
+    /// ```
+    pub fn starts_with_str(&self, x: &str) -> bool {
+        self.as_str().starts_with(x)
+    }
+
+    /// Whether the string ends with the given substring
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.ends_with_str("World!"), true);
+    /// assert_eq!(hello.ends_with_str("Hello"), false);
+    /// ```
+    pub fn ends_with_str(&self, x: &str) -> bool {
+        self.as_str().ends_with(x)
+    }
+
+    /// Returns a substring of the string where the `start` is the index of the first character and `length` is the number of characters.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.substring(7, 5), "World");
+    /// assert_eq!(hello.substring(0, 5), "Hello");
+    /// assert_eq!(hello.substring(0, 0), "");
+    /// assert_eq!(hello.substring(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.substring(1000, 1000), "");
+    /// assert_eq!(hello.substring(1, 3), "ell");
+    /// assert_eq!(hello.substring(7, 1000), "World!");
+    /// ```
+    pub fn substr(&self, start: usize, length: usize) -> SharedString {
+        let mut result = SharedString::default();
+        if start < self.len() {
+            let end = core::cmp::min(start + length, self.len());
+            result.push_str(&self.as_str()[start..end]);
+        } else if start == self.len() && length == 0 {
+            result.push_str("");
+        } else {
+            result.push_str("");
+        }
+        result
+    }
+
+    /// Returns a substring of the string where the `start` is the index of the first character and `end` is the index of the last character.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.substring(7, 12), "World");
+    /// assert_eq!(hello.substring(0, 5), "Hello");
+    /// assert_eq!(hello.substring(0, 0), "");
+    /// assert_eq!(hello.substring(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.substring(1000, 1000), "");
+    /// assert_eq!(hello.substring(1, 3), "el");
+    /// assert_eq!(hello.substring(7, 1000), "World!");
+    /// ```
+    pub fn substring(&self, start: usize, end: usize) -> SharedString {
+        if start > end {
+            return SharedString::default();
+        }
+        self.substr(start, end - start)
+    }
+
+    /// Removes leading and trailing whitespaces including new lines
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("  Hello, World!  ");
+    /// assert_eq!(hello.trim(), "Hello, World!");
+    /// // New lines are also removed
+    /// let hello = SharedString::from("\nHello, World!\n\n");
+    /// assert_eq!(hello.trim(), "Hello, World!");
+    /// ```
+    pub fn trim(&self) -> SharedString {
+        let mut result = SharedString::default();
+        result.push_str(self.as_str().trim());
+        result
+    }
+
+    /// Removes leading whitespaces including new lines
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("  Hello, World!  ");
+    /// assert_eq!(hello.trim_start(), "Hello, World!  ");
+    /// // New lines are also removed
+    /// let hello = SharedString::from("\nHello, World!\n\n");
+    /// assert_eq!(hello.trim_start(), "Hello, World!\n\n");
+    /// ```
+    pub fn trim_start(&self) -> SharedString {
+        let mut result = SharedString::default();
+        result.push_str(self.as_str().trim_start());
+        result
+    }
+
+    /// Removes trailing whitespaces including new lines
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("  Hello, World!  ");
+    /// assert_eq!(hello.trim_end(), "  Hello, World!");
+    /// // New lines are also removed
+    /// let hello = SharedString::from("\nHello, World!\n\n");
+    /// assert_eq!(hello.trim_end(), "\nHello, World!");
+    /// ```
+    pub fn trim_end(&self) -> SharedString {
+        let mut result = SharedString::default();
+        result.push_str(self.as_str().trim_end());
+        result
+    }
 }
 
 impl Deref for SharedString {

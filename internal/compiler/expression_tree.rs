@@ -39,6 +39,16 @@ pub enum BuiltinFunction {
     ATan2,
     Log,
     Pow,
+    Replace,
+    ReplaceAll,
+    Includes,
+    StartsWith,
+    EndsWith,
+    Substring,
+    Substr,
+    Trim,
+    TrimStart,
+    TrimEnd,
     SetFocusItem,
     ClearFocusItem,
     ShowPopupWindow,
@@ -147,6 +157,23 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Float32),
                 args: vec![Type::Float32, Type::Float32],
             },
+            BuiltinFunction::Replace | BuiltinFunction::ReplaceAll => Type::Function {
+                return_type: Box::new(Type::String),
+                args: vec![Type::String, Type::String, Type::String],
+            },
+            BuiltinFunction::Includes | BuiltinFunction::StartsWith | BuiltinFunction::EndsWith => {
+                Type::Function {
+                    return_type: Box::new(Type::Bool),
+                    args: vec![Type::String, Type::String],
+                }
+            }
+            BuiltinFunction::Substring | BuiltinFunction::Substr => Type::Function {
+                return_type: Box::new(Type::String),
+                args: vec![Type::String, Type::Int32, Type::Int32],
+            },
+            BuiltinFunction::Trim | BuiltinFunction::TrimStart | BuiltinFunction::TrimEnd => {
+                Type::Function { return_type: Box::new(Type::String), args: vec![Type::String] }
+            }
             BuiltinFunction::SetFocusItem => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
@@ -355,6 +382,16 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
+            BuiltinFunction::Replace
+            | BuiltinFunction::ReplaceAll
+            | BuiltinFunction::Includes
+            | BuiltinFunction::StartsWith
+            | BuiltinFunction::EndsWith
+            | BuiltinFunction::Substring
+            | BuiltinFunction::Substr
+            | BuiltinFunction::Trim
+            | BuiltinFunction::TrimStart
+            | BuiltinFunction::TrimEnd => false,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
@@ -422,6 +459,16 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
+            BuiltinFunction::Replace
+            | BuiltinFunction::ReplaceAll
+            | BuiltinFunction::Includes
+            | BuiltinFunction::StartsWith
+            | BuiltinFunction::EndsWith
+            | BuiltinFunction::Substring
+            | BuiltinFunction::Substr
+            | BuiltinFunction::Trim
+            | BuiltinFunction::TrimStart
+            | BuiltinFunction::TrimEnd => false,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
