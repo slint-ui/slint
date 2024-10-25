@@ -162,19 +162,11 @@ impl BuiltinFunction {
                     args: vec![Type::Float32, Type::Float32]
                 })
             }
-            BuiltinFunction::SetFocusItem => {
-                interned_type!(Function {
-                    return_type: Type::Void,
-                    args: vec![Type::ElementReference]
-                })
-            }
-            BuiltinFunction::ClearFocusItem => {
-                interned_type!(Function {
-                    return_type: Type::Void,
-                    args: vec![Type::ElementReference]
-                })
-            }
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => {
+            BuiltinFunction::SetFocusItem
+            | BuiltinFunction::ClearFocusItem
+            | BuiltinFunction::ShowPopupWindow
+            | BuiltinFunction::ClosePopupWindow
+            | BuiltinFunction::ItemMemberFunction(..) => {
                 interned_type!(Function {
                     return_type: Type::Void,
                     args: vec![Type::ElementReference]
@@ -184,12 +176,6 @@ impl BuiltinFunction {
                 return_type: Type::Void,
                 args: vec![Type::ElementReference, Type::Int32, Type::Int32],
             }),
-            BuiltinFunction::ItemMemberFunction(..) => {
-                interned_type!(Function {
-                    return_type: Type::Void,
-                    args: vec![Type::ElementReference]
-                })
-            }
             BuiltinFunction::ItemFontMetrics => interned_type!(Function {
                 return_type: crate::typeregister::font_metrics_type(),
                 args: vec![Type::ElementReference],
@@ -234,19 +220,10 @@ impl BuiltinFunction {
                 })),
                 args: vec![Type::Color],
             }),
-            BuiltinFunction::ColorBrighter => {
-                interned_type!(Function {
-                    return_type: Type::Brush,
-                    args: vec![Type::Brush, Type::Float32]
-                })
-            }
-            BuiltinFunction::ColorDarker => {
-                interned_type!(Function {
-                    return_type: Type::Brush,
-                    args: vec![Type::Brush, Type::Float32]
-                })
-            }
-            BuiltinFunction::ColorTransparentize => {
+            BuiltinFunction::ColorBrighter
+            | BuiltinFunction::ColorDarker
+            | BuiltinFunction::ColorTransparentize
+            | BuiltinFunction::ColorWithAlpha => {
                 interned_type!(Function {
                     return_type: Type::Brush,
                     args: vec![Type::Brush, Type::Float32]
@@ -256,12 +233,6 @@ impl BuiltinFunction {
                 return_type: Type::Color,
                 args: vec![Type::Color, Type::Color, Type::Float32],
             }),
-            BuiltinFunction::ColorWithAlpha => {
-                interned_type!(Function {
-                    return_type: Type::Brush,
-                    args: vec![Type::Brush, Type::Float32]
-                })
-            }
             BuiltinFunction::ImageSize => interned_type!(Function {
                 return_type: Type::Struct(Rc::new(Struct {
                     fields: IntoIterator::into_iter([
@@ -292,13 +263,7 @@ impl BuiltinFunction {
                 ),
                 args: vec![],
             }),
-            BuiltinFunction::MonthDayCount => {
-                interned_type!(Function {
-                    return_type: Type::Int32,
-                    args: vec![Type::Int32, Type::Int32]
-                })
-            }
-            BuiltinFunction::MonthOffset => {
+            BuiltinFunction::MonthDayCount | BuiltinFunction::MonthOffset => {
                 interned_type!(Function {
                     return_type: Type::Int32,
                     args: vec![Type::Int32, Type::Int32]
@@ -337,10 +302,7 @@ impl BuiltinFunction {
             BuiltinFunction::RegisterCustomFontByPath => {
                 interned_type!(Function { return_type: Type::Void, args: vec![Type::String] })
             }
-            BuiltinFunction::RegisterCustomFontByMemory => {
-                interned_type!(Function { return_type: Type::Void, args: vec![Type::Int32] })
-            }
-            BuiltinFunction::RegisterBitmapFont => {
+            BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
                 interned_type!(Function { return_type: Type::Void, args: vec![Type::Int32] })
             }
             BuiltinFunction::Translate => interned_type!(Function {
