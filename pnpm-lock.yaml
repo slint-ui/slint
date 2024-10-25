@@ -47,6 +47,9 @@ importers:
 
   demos/home-automation/node:
     dependencies:
+      '@biomejs/biome':
+        specifier: 1.9.3
+        version: 1.9.3
       slint-ui:
         specifier: ../../../api/node
         version: link:../../../api/node

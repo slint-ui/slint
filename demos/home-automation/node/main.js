@@ -4,7 +4,7 @@
 
 import * as slint from "slint-ui";
 
-let ui = slint.loadFile("../ui/demo.slint");
-let window = new ui.AppWindow();
+const ui = slint.loadFile("../ui/demo.slint");
+const window = new ui.AppWindow();
 
 await window.run();

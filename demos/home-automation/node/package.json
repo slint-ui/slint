@@ -4,9 +4,15 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
+        "@biomejs/biome": "1.9.3",
         "slint-ui": "../../../api/node"
     },
     "scripts": {
-        "start": "node ."
+        "start": "node .",
+        "check": "biome check",
+        "format": "biome format",
+        "format:fix": "biome format --write",
+        "lint": "biome lint",
+        "lint:fix": "biome lint --fix"
     }
 }
