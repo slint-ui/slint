@@ -56,7 +56,6 @@ export component FancySlider inherits Rectangle {
                 anim-duration = 300ms;
                 animated-value = (self.mouse-x / self.width) * (maxValue - minValue) + minValue;
             }
-            
         }
         moved => {
             if !first-touch {
@@ -65,13 +64,11 @@ export component FancySlider inherits Rectangle {
                 initial-value = (self.mouse-x / self.width) * (maxValue - minValue) + minValue;
                 previous-value = value;
                 anim-duration = 0ms;
-                
             } else {
                 change-value = ((self.mouse-x / self.width) * (maxValue - minValue) + minValue) - initial-value;
                 value = Math.clamp(previous-value + change-value, minValue, maxValue);
                 animated-value = value;
             }
-            
         }
 
         changed pressed => {
@@ -91,12 +88,11 @@ export component FancySlider inherits Rectangle {
             background: Palette.slider-foreground;
             width: parent.width * (value - minValue) / (maxValue - minValue);
             height: 100%;
-            
         }
-        
+
         VerticalLayout {
             alignment: center;
-            x: - parent.width/2 + 20px;
+            x: - parent.width / 2 + 20px;
             Image {
                 colorize: root.colorize-icon;
                 height: 60%;
@@ -110,5 +106,4 @@ export component FancySlider inherits Rectangle {
         border-width: 1px;
         border-color: Palette.lamp-foreground;
     }
-    
 }

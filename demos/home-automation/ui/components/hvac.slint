@@ -23,6 +23,7 @@ component TempAdjustButton inherits Rectangle {
             height: 4px;
             background: Palette.hvac-foreground;
         }
+
         if mode == Mode.increment: Rectangle {
             border-radius: self.width / 2;
             width: 4px;
@@ -30,8 +31,8 @@ component TempAdjustButton inherits Rectangle {
             background: Palette.hvac-foreground;
         }
     }
-    ta := TouchArea {}
-    
+
+    ta := TouchArea { }
 }
 
 export component ZoneButton inherits Rectangle {
@@ -73,6 +74,7 @@ export component ZoneButton inherits Rectangle {
                 text: root.zone-set-point + "°C";
                 color: Palette.hvac-foreground;
             }
+
             TempAdjustButton {
                 mode: Mode.increment;
                 clicked => {
@@ -81,7 +83,6 @@ export component ZoneButton inherits Rectangle {
                     }
                 }
             }
-
         }
     }
 }
@@ -95,7 +96,7 @@ export component HVAC inherits Control {
     tile := Rectangle {
         shadow := Image {
             source: @image-url("../images/shadow-circle-soft.png");
-            width:dial.width * 1.25;
+            width: dial.width * 1.25;
             // height: dial.height * 1.25;
             colorize: Palette.glow-color;
             x: (Math.min(parent.width, parent.height) - self.height) / 2;
@@ -105,14 +106,13 @@ export component HVAC inherits Control {
                 easing: ease-in-out-sine;
             }
         }
+
         TouchArea {
             enabled: !AppState.showing-full-screen;
             clicked => {
                 AppState.showFullScreen(root.index);
-                debug("id: " + root.id);
             }
         }
-
 
         dial := Rectangle {
             background: Palette.hvac-knob-background;
@@ -129,7 +129,7 @@ export component HVAC inherits Control {
                 height: 40px;
                 width: 40px;
                 y: dial.height / 4;
-                x: dial.width  * 3 / 4;
+                x: dial.width * 3 / 4;
                 source: @image-url("../images/cold.svg");
                 colorize: Palette.hvac-foreground;
             }
@@ -233,7 +233,7 @@ export component HVAC inherits Control {
         }
 
         closeButton := Image {
-            opacity: root.full-screen? 1 : 0;
+            opacity: root.full-screen ? 1 : 0;
             animate opacity {
                 duration: Animation.full-screen-duration;
                 easing: ease-in-out-sine;

@@ -1,8 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 slint::slint! {
-    export { AppWindow } from "./ui/demo.slint";
+    export { AppWindow } from "../ui/demo.slint";
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]

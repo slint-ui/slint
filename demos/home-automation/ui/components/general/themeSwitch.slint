@@ -12,7 +12,6 @@ global Utils {
 component SunMoonThumb {
     in property <float> scale: 1;
     in property <length> thumb-position: 50px;
-   
     Rectangle {
         width: 200px * scale;
         height: 100px * scale;
@@ -23,21 +22,20 @@ component SunMoonThumb {
             height: 0px;
             x: root.thumb-position;
             Rectangle {
-                width: 260px  * scale;
-                height: self.width;
-                background: white;
-                border-radius: self.width / 2;
-                opacity: 0.05;
-            }
-            Rectangle {
-                width: 200px  * scale;
+                width: 260px * scale;
                 height: self.width;
                 background: white;
                 border-radius: self.width / 2;
                 opacity: 0.05;
             }
 
-            
+            Rectangle {
+                width: 200px * scale;
+                height: self.width;
+                background: white;
+                border-radius: self.width / 2;
+                opacity: 0.05;
+            }
 
             Rectangle {
                 x: 0;
@@ -48,8 +46,8 @@ component SunMoonThumb {
                 opacity: 0.05;
             }
 
-            clipper :=Rectangle {
-                width: 85px  * scale;
+            clipper := Rectangle {
+                width: 85px * scale;
                 height: self.width;
                 border-radius: self.width / 2;
                 clip: true;
@@ -57,7 +55,7 @@ component SunMoonThumb {
                 sun := Rectangle {
                     width: 85px * scale;
                     height: self.width;
-                    background: @radial-gradient(circle,#ffce08 0%, #fdd224 80%, #fce37f 100%);
+                    background: @radial-gradient(circle, #ffce08 0%, #fdd224 80%, #fce37f 100%);
                     border-radius: self.width / 2;
                 }
 
@@ -65,7 +63,7 @@ component SunMoonThumb {
                     x: Utils.MapRange(root.thumb-position, 50px * scale, 100px * scale, 85px * scale, 0px);
                     width: 85px * scale;
                     height: self.width;
-                    background: @radial-gradient(circle,#bcbcbc 0%, #e7e7e7 80%, #ffffff 100%);
+                    background: @radial-gradient(circle, #bcbcbc 0%, #e7e7e7 80%, #ffffff 100%);
                     border-radius: self.width / 2;
                 }
             }
@@ -76,8 +74,8 @@ component SunMoonThumb {
 enum Theme { day, night }
 export component ThemeSwitch {
     in property <float> scale: 1;
-    width: 200px  * scale;
-    height: 100px  * scale;
+    width: 200px * scale;
+    height: 100px * scale;
 
     property <Theme> theme: Theme.night;
     frameBacker := Rectangle {
@@ -87,19 +85,19 @@ export component ThemeSwitch {
         border-radius: self.height / 2;
     }
 
-    
     Rectangle {
         width: parent.width;
         height: parent.height;
         clip: true;
         border-radius: self.height / 2;
 
-        clouds-background :=Image {
+        clouds-background := Image {
             x: 14px * scale;
             y: -6px * scale;
             width: 202px * scale;
             source: @image-url("../../images/clouds-background.png");
         }
+
         clouds-foreground := Image {
             x: 30px * scale;
             y: 5px * scale;
@@ -114,14 +112,14 @@ export component ThemeSwitch {
             source: @image-url("../../images/stars.png");
         }
     }
+
     Rectangle {
         border-radius: self.height / 2;
         border-color: #474747;
         border-width: 1phx;
     }
 
-
-    thumb := SunMoonThumb { 
+    thumb := SunMoonThumb {
         scale: root.scale;
     }
 
@@ -161,11 +159,10 @@ export component ThemeSwitch {
             }
         }
         dayMode when root.theme == Theme.day: {
-            thumb.thumb-position:  50px * scale;
+            thumb.thumb-position: 50px * scale;
             frameBacker.background: #3d85ba;
             stars.y: - 60px;
             stars.opacity: 0.4;
-
             in {
                 animate frameBacker.background, stars.y, stars.opacity {
                     easing: ease-out-sine;
@@ -185,5 +182,5 @@ export component ThemeSwitch {
                 }
             }
         }
-    ] 
+    ]
 }

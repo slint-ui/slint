@@ -24,7 +24,7 @@ export component FullScreenWidgetLoader {
     property <length> animTargetX: data.x * 1px;
     property <length> animTargetY: data.y * 1px;
     property <length> animTargetWidth: data.width * 1px;
-    property <length> animTargetHeight: data.height * 1px; 
+    property <length> animTargetHeight: data.height * 1px;
 
     animate animTargetX, animTargetY, animTargetWidth, animTargetHeight {
         duration: Animation.full-screen-duration;
@@ -53,7 +53,7 @@ export component FullScreenWidgetLoader {
         full-screen: true;
     }
 
-    if root.type == WidgetType.appliance: Appliance {   
+    if root.type == WidgetType.appliance: Appliance {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
@@ -107,7 +107,6 @@ export component FullScreenWidgetLoader {
         height: root.height;
         full-screen: true;
     }
-    
     if root.type == WidgetType.camera: Camera {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
@@ -122,6 +121,4 @@ export component FullScreenWidgetLoader {
         height: root.height;
         full-screen: true;
     }
-
-
 }

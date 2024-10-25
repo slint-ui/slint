@@ -28,7 +28,7 @@ export component Doors {
     Timer {
         interval: 1ms;
         triggered => {
-            if initial-door-state == DoorState.open  && demo-locked {
+            if initial-door-state == DoorState.open && demo-locked {
                 target-door-state = DoorState.closed;
                 initial-door-state = DoorState.closed;
             }
@@ -37,11 +37,8 @@ export component Doors {
     }
 
     touch-catcher := Rectangle {
-        TouchArea{
-            
-        }
+        TouchArea { }
     }
-
 
     leftDoor := Rectangle {
         x: -60px;
@@ -93,7 +90,7 @@ export component Doors {
                 animate rightDoor.x, leftDoor.x {
                     duration: 800ms;
                     easing: ease-in-expo;
-                } 
+                }
             }
         }
     ]
@@ -118,7 +115,7 @@ export component Doors {
                 opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
             }
         }
-       
+
         Rectangle {
             border-width: notch-border;
             border-color: notch-border-color;
@@ -127,7 +124,8 @@ export component Doors {
 
         Rectangle {
             x: -(notch-width / 2) + notch-border;
-            width: (notch-width / 2);// - notch-indent ;
+            width: (notch-width / 2);
+            // - notch-indent ;
             height: notch-width;
             clip: true;
             Rectangle {
@@ -165,8 +163,6 @@ export component Doors {
                     root.unlockDemo()
                 }
             }
-
         }
-        
     }
 }

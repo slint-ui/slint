@@ -8,8 +8,8 @@ export component Graph {
     in property <string> name;
     in property <string> id;
     in property <bool> full-screen: false;
-    property <[int]> grid: [0,1,2,3,4,5,6,7,8,9];
-    property <[int]> values: [0,1,2,3,4,5,6,];
+    property <[int]> grid: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    property <[int]> values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     tile := Rectangle {
         clip: true;
         background: Palette.graph-background;
@@ -21,12 +21,6 @@ export component Graph {
             VerticalLayout {
                 alignment: start;
                 spacing: 10px;
-                // HaText {
-                //     text: "Visualization";
-                //     font-size: 16pt;
-                //     font-weight: 400;
-                //     color: Palette.graph-alternate-foreground;
-                // }
 
                 HaText {
                     text: root.name;
@@ -39,38 +33,37 @@ export component Graph {
                     height: 20px;
                 }
             }
-
         }
+
         Rectangle {
-            width:2px;
+            width: 2px;
             height: parent.height * 0.6;
             background: Palette.graph-foreground.transparentize(0.8);
             x: tile.width * 0.1;
             y: tile.height * 0.3;
         }
+
         for i in grid: Rectangle {
-                width:2px;
-                height: parent.width * 0.6;
-                background: Palette.graph-foreground.transparentize(0.9);
-                x: tile.width * 0.1 * i;
-                y: tile.height * 0.3;
-            }
+            width: 2px;
+            height: parent.width * 0.6;
+            background: Palette.graph-foreground.transparentize(0.9);
+            x: tile.width * 0.1 * i;
+            y: tile.height * 0.3;
+        }
         for i in values: HaText {
             horizontal-alignment: right;
-            y: tile.height * 0.9 - ( tile.height * i / 10 );
+            y: tile.height * 0.9 - (tile.height * i / 10);
             x: tile.width * 0.05;
-            text: i*20;
+            text: i * 20;
             color: Palette.graph-foreground.transparentize(0.8);
         }
- 
         Rectangle {
-            height:2px;
+            height: 2px;
             width: parent.width * 0.8;
             background: Palette.graph-foreground.transparentize(0.8);
             x: tile.width * 0.1;
             y: tile.height * 0.9;
         }
-
 
         Path {
             width: tile.width * 0.8;
@@ -78,25 +71,90 @@ export component Graph {
             height: 100px;
             stroke: Palette.graph-alternate-foreground;
             stroke-width: 4px;
-            MoveTo { x: 0; y: 0; }
-            LineTo { x: 50; y: 100; }
-            LineTo { x: 100; y: 90; }
-            LineTo { x: 150; y: 95; }
-            LineTo { x: 200; y: 85; }
-            LineTo { x: 250; y: 70; }
-            LineTo { x: 300; y: 65; }
-            LineTo { x: 350; y: 25; }
-            LineTo { x: 400; y: 85; }
-            LineTo { x: 450; y: 95; }
-            LineTo { x: 500; y: 100; }
-            LineTo { x: 550; y: 90; }
-            LineTo { x: 600; y: 100; }
-            LineTo { x: 650; y: 90; }
-            LineTo { x: 700; y: 100; }
-            LineTo { x: 750; y: 90; }
-            LineTo { x: 800; y: 100  ; }
+            MoveTo {
+                x: 0;
+                y: 0;
+            }
 
+            LineTo {
+                x: 50;
+                y: 100;
+            }
+
+            LineTo {
+                x: 100;
+                y: 90;
+            }
+
+            LineTo {
+                x: 150;
+                y: 95;
+            }
+
+            LineTo {
+                x: 200;
+                y: 85;
+            }
+
+            LineTo {
+                x: 250;
+                y: 70;
+            }
+
+            LineTo {
+                x: 300;
+                y: 65;
+            }
+
+            LineTo {
+                x: 350;
+                y: 25;
+            }
+
+            LineTo {
+                x: 400;
+                y: 85;
+            }
+
+            LineTo {
+                x: 450;
+                y: 95;
+            }
+
+            LineTo {
+                x: 500;
+                y: 100;
+            }
+
+            LineTo {
+                x: 550;
+                y: 90;
+            }
+
+            LineTo {
+                x: 600;
+                y: 100;
+            }
+
+            LineTo {
+                x: 650;
+                y: 90;
+            }
+
+            LineTo {
+                x: 700;
+                y: 100;
+            }
+
+            LineTo {
+                x: 750;
+                y: 90;
+            }
+
+            LineTo {
+                x: 800;
+                y: 100;
+            }
         }
-
     }
 }

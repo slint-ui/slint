@@ -33,7 +33,6 @@ export component WidgetLoader {
     property <length> animTargetY;
     property <length> animTargetWidth;
     property <length> animTargetHeight;
-    
 
     animate animTargetX, animTargetY, animTargetWidth, animTargetHeight {
         duration: Animation.transitionDuration;
@@ -83,7 +82,7 @@ export component WidgetLoader {
     x: AppState.first-run ? targetX : (root.opacity < 1 ? targetX : animTargetX) * AppState.x-scale;
     y: AppState.first-run ? targetY : (root.opacity < 1 ? targetY : animTargetY) * AppState.y-scale;
     width: AppState.first-run ? targetWidth : (root.opacity < 1 ? targetWidth : animTargetWidth) * AppState.x-scale;
-    height: AppState.first-run ? targetHeight: (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.y-scale;
+    height: AppState.first-run ? targetHeight : (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.y-scale;
     visible: AppState.last-selected-index != self.index && root.opacity > 0;
 
     states [
@@ -94,14 +93,14 @@ export component WidgetLoader {
             root.opacity: 1;
             in {
                 animate root.opacity {
-                    delay: Animation.transitionDuration/2;
+                    delay: Animation.transitionDuration / 2;
                     duration: Animation.transitionDuration;
                     easing: ease-in-out-sine;
                 }
             }
             out {
                 animate root.opacity {
-                    duration: Animation.transitionDuration/2;
+                    duration: Animation.transitionDuration / 2;
                     easing: ease-in-out-sine;
                 }
             }
@@ -117,7 +116,7 @@ export component WidgetLoader {
         height: root.height;
     }
 
-    if root.type == WidgetType.appliance: Appliance {   
+    if root.type == WidgetType.appliance: Appliance {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
@@ -159,7 +158,6 @@ export component WidgetLoader {
         width: root.width;
         height: root.height;
     }
-    
     if root.type == WidgetType.camera: Camera {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
@@ -216,5 +214,4 @@ export component WidgetLoader {
         width: root.width;
         height: root.height;
     }
-
 }

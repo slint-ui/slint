@@ -66,7 +66,6 @@ export component DropShadowToggle inherits Rectangle {
                         }
                     }
                 ]
-               
                 background: inner-shadow-color;
             
                 // CONTROL BUTTON
@@ -89,7 +88,6 @@ export component DropShadowToggle inherits Rectangle {
                     height: parent.height * 0.78;
                     width: parent.height * 0.78;
                     background: control-color;
-                    
                     states [
                         active when root.active: {
                             x: parent.width - self.width - thumb-margin;
@@ -111,6 +109,7 @@ export component DropShadowToggle inherits Rectangle {
                         }
                     ]
                 }
+
                 border-color: Palette.foreground;
             }
         }

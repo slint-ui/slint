@@ -42,8 +42,6 @@ export component MainScreen inherits Rectangle {
         }
     }
 
-    
-
     enableTouch := Timer {
         interval: 1400ms;
         triggered => {
@@ -100,7 +98,7 @@ export component MainScreen inherits Rectangle {
             width: root.width;
             height: root.height;
 
-            navigation :=Rectangle {
+            navigation := Rectangle {
                 filterShadow := Rectangle {
                     x: 0;
                     y: 0;
@@ -118,7 +116,7 @@ export component MainScreen inherits Rectangle {
 
                 navBar := Rectangle {
                     x: 36px;
-                    y: self.height/5;
+                    y: self.height / 5;
                     width: AppState.current-page > (AppState.pageData.length - 7) ? 1848px : 1380px;
                     animate width {
                         duration: Animation.transitionDuration;
@@ -152,43 +150,47 @@ export component MainScreen inherits Rectangle {
                 filterBar := Rectangle {
 
                     Rectangle {
-                        y:root.height - self.height;
+                        y: root.height - self.height;
                         height: 120px;
-                    HorizontalLayout {
-                        spacing: 10px;
-                        ViewButton {
-                            font-size: 2rem;
-                            target-page: 4;
-                            text: "Controls";
-                        }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            ViewButton {
+                                font-size: 2rem;
+                                target-page: 4;
+                                text: "Controls";
+                            }
 
-                        ViewButton {
-                            font-size: 2rem;
-                            target-page: 5;
-                            text: "Lamps";
-                        }
-                        ViewButton {
-                            font-size: 2rem;
-                            target-page: 6;
-                            text: "Overhead Lights";
-                        }
-                        ViewButton {
-                            font-size: 2rem;
-                            target-page: 7;
-                            text: "Appliances";
-                        }
-                        ViewButton {
-                            font-size: 2rem;
-                            target-page: 8;
-                            text: "Info";
-                        }
-                        ViewButton {
-                            font-size: 2rem;
-                            target-page: 9;
-                            text: "Graphs";
-                        }
+                            ViewButton {
+                                font-size: 2rem;
+                                target-page: 5;
+                                text: "Lamps";
+                            }
 
-                    }}
+                            ViewButton {
+                                font-size: 2rem;
+                                target-page: 6;
+                                text: "Overhead Lights";
+                            }
+
+                            ViewButton {
+                                font-size: 2rem;
+                                target-page: 7;
+                                text: "Appliances";
+                            }
+
+                            ViewButton {
+                                font-size: 2rem;
+                                target-page: 8;
+                                text: "Info";
+                            }
+
+                            ViewButton {
+                                font-size: 2rem;
+                                target-page: 9;
+                                text: "Graphs";
+                            }
+                        }
+                    }
                 }
 
                 // This whole holder could be animated off screen, faded, whatever when the camera fills the screen.
@@ -207,7 +209,6 @@ export component MainScreen inherits Rectangle {
                 Rectangle {
                     opacity: 0.5 * (sidebar-holder.x / sidebar.width);
                     background: black;
-                    
                     ta-blocker := TouchArea {
                         enabled: blocker-enabled && parent.opacity > 0.1;
 
@@ -278,7 +279,6 @@ export component MainScreen inherits Rectangle {
                         lockDemo => {
                             showing-sidebar = false;
                             door-component-loaded = true;
-                            
                             if showing-sidebar {
                                 alt-side-bar-x = sidebar.width;
                             } else {
@@ -287,7 +287,6 @@ export component MainScreen inherits Rectangle {
                             blocker-enabled = true;
                             swipe.swiping = false;
                             first-touch = false;
-                            
                         }
                     }
                 }
@@ -303,5 +302,4 @@ export component MainScreen inherits Rectangle {
         demo-locked: demo-locked;
         initial-door-state: initial-door-state;
     }
-
 }

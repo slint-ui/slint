@@ -33,8 +33,6 @@ export component Alarm inherits Control {
     property <string> indirect-passcode: passcode == "-1" ? "" : passcode;
     show-label: false;
 
-    
-
     hidden-text := HaText {
         font-size: Style.H1-font-size;
         text: root.indirect-passcode;
@@ -45,7 +43,6 @@ export component Alarm inherits Control {
         TouchArea {
             clicked => {
                 AppState.showFullScreen(root.index);
-                debug("id: " + root.id);
             }
         }
 
@@ -120,17 +117,16 @@ export component Alarm inherits Control {
                     height: (95px * 5) + (4 * 10px);
                     visible: root.full-screen;
 
-                    container:=Rectangle {
+                    container := Rectangle {
                         y: 0;
                         border-radius: 10px;
                         width: 100%;
                         height: 95px;
                         background: Palette.alternate-background;
-                        le:=LineEdit {
+                        le := LineEdit {
                             font-size: Style.H1-font-size;
                             text: root.indirect-passcode;
                             input-type: password;
-                            
                             width: Math.max(290px, hidden-text.width);
                             changed width => {
                                 if self.width > 300px {
@@ -138,33 +134,37 @@ export component Alarm inherits Control {
                                 }
                             }
                         }
-                       mask:= Rectangle {
-                            width: le.width+(17px*2);
+
+                        mask := Rectangle {
+                            width: le.width + (17px * 2);
                             height: container.height - 1px;
                             x: le.x - 17px;
-                            y: container.y+1px;
+                            y: container.y + 1px;
                             border-width: 18px;
-                            border-color:Palette.lineedit-background;
+                            border-color: Palette.lineedit-background;
                         }
+
                         Rectangle {
-                            width: (container.width - mask.width)/2;
+                            width: (container.width - mask.width) / 2;
                             height: container.height;
                             x: container.x;
                             y: container.y;
                             border-radius: 10px;
                             background: Palette.lineedit-background;
                         }
+
                         Rectangle {
-                            width: (container.width - mask.width)/2;
+                            width: (container.width - mask.width) / 2;
                             height: container.height;
                             x: mask.x + mask.width;
                             y: container.y;
                             border-radius: 10px;
                             background: Palette.lineedit-background;
                         }
-
                     }
-                    TouchArea {}
+
+                    TouchArea { }
+
                     for row-model[r] in [
                         [1, 2, 3],
                         [4, 5, 6],

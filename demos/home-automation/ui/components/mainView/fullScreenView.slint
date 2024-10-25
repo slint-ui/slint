@@ -12,7 +12,7 @@ export component FullScreenView inherits Rectangle {
         height: 100%;
         opacity: 0;
         background: black;
-        touchCatcher := TouchArea {}
+        touchCatcher := TouchArea { }
 
         states [
             isVisible when AppState.full-screen-index != -1 && full-screen: {
@@ -27,11 +27,12 @@ export component FullScreenView inherits Rectangle {
                     animate opacity {
                         duration: 300ms;
                         easing: ease-in-out-sine;
-                    } 
+                    }
                 }
             }
         ]
     }
+
     fsw := FullScreenWidgetLoader {
         in-out property <ComponentData> normal-layout-data;
         data: full-screen ? full-screen-data : normal-layout-data;
@@ -46,22 +47,21 @@ export component FullScreenView inherits Rectangle {
             fsw.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
         }
     }
-    
 
     closeTimer := Timer {
-            running: false;
-            interval: 300ms;
-            triggered => {
-                AppState.showing-full-screen = false;
-                AppState.last-selected-index = -1;
-            }
+        running: false;
+        interval: 300ms;
+        triggered => {
+            AppState.showing-full-screen = false;
+            AppState.last-selected-index = -1;
         }
+    }
 
     Timer {
         interval: 1ms;
         triggered => {
             self.running = false;
             full-screen = true;
-        }  
+        }
     }
 }

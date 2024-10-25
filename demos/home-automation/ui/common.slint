@@ -1,23 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 export global Measurements {
-   out property <length> zone-button-spacing: 30px;
-   out property <length> tile-radius: 20px;
-   out property <length> page-height: 1080px;
-   out property <length> page-width: 1920px;
-   out property <length> padding: 12px;
-   out property <length> small-width-tile: 278px;
-   out property <length> small-height-tile: 153px;
-   out property <length> medium-height-tile: 278px;
-   out property <length> medium-width-tile: 435px;
-   out property <length> large-height-tile: 906px;
-   out property <length> large-width-tile: 435px;
-   out property <length> sidebar-width: 400px;
-   out property <length> tile-shadow-blur: 20px;
-   out property <length> sidebar-padding: 36px;
-   out property <length> sidebar-spacing: 36px;
-   out property <length> application-width: 1920px;
-   out property <length> application-height: 1080px;
+    out property <length> zone-button-spacing: 30px;
+    out property <length> tile-radius: 20px;
+    out property <length> page-height: 1080px;
+    out property <length> page-width: 1920px;
+    out property <length> padding: 12px;
+    out property <length> small-width-tile: 278px;
+    out property <length> small-height-tile: 153px;
+    out property <length> medium-height-tile: 278px;
+    out property <length> medium-width-tile: 435px;
+    out property <length> large-height-tile: 906px;
+    out property <length> large-width-tile: 435px;
+    out property <length> sidebar-width: 400px;
+    out property <length> tile-shadow-blur: 20px;
+    out property <length> sidebar-padding: 36px;
+    out property <length> sidebar-spacing: 36px;
+    out property <length> application-width: 1920px;
+    out property <length> application-height: 1080px;
 }
 
 export global Style {
@@ -32,7 +32,7 @@ export global Style {
 export global Animation {
     out property <duration> theme-change-duration: 300ms;
     out property <duration> full-screen-duration: 300ms;
-    out property <duration> transitionDuration: 500ms;   
+    out property <duration> transitionDuration: 500ms;
 }
 
 export global Colors {
@@ -95,13 +95,14 @@ export global Colors {
     out property <color> green30: #00331a;
     out property <color> fadedyellow: #F2EED5;
     out property <brush> dark-ramp: @linear-gradient(50deg, Colors.purple40, Colors.purple30);
-    out property <brush> light-ramp: @linear-gradient(0deg, Colors.foggybeige,Colors.foggylight);
-    out property <brush> music-gradient: @linear-gradient(0deg, Colors.white,Colors.foggylight);
+    out property <brush> light-ramp: @linear-gradient(0deg, Colors.foggybeige, Colors.foggylight);
+    out property <brush> music-gradient: @linear-gradient(0deg, Colors.white, Colors.foggylight);
 }
+
 export global Palette {
     in-out property <bool> dark-color-scheme:true;
     out property <brush> background: dark-color-scheme ? Colors.gray10 : Colors.white;
-    out property <brush> date-background: dark-color-scheme ? Colors.dustypurpledirt: Colors.foggylight;
+    out property <brush> date-background: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggylight;
     out property <brush> foreground: dark-color-scheme ? Colors.gray70 : Colors.gray50;
     out property <brush> alternate-background: dark-color-scheme ? Colors.gray20 : Colors.gray98;
     out property <brush> lineedit-background: dark-color-scheme ? Colors.gray20 : Colors.gray98_lineedit;
@@ -122,11 +123,11 @@ export global Palette {
     out property <brush> slider-background: dark-color-scheme ? Colors.purple40 : Colors.gray80;
     out property <brush> slider-foreground: dark-color-scheme ? Colors.white : Colors.orange100;
     out property <brush> control-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
-    out property <brush> control-background: dark-color-scheme ? Colors.dustypurpledirt: Colors.foggypeat;
+    out property <brush> control-background: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggypeat;
     out property <brush> control-alternate-background: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggydirt;
     out property <brush> control-alternate-foreground: dark-color-scheme ? Colors.purple100 : Colors.foggysky;
-    out property <brush> music-alternate-foreground: dark-color-scheme ? Colors.dustypurpledirt: Colors.foggypeat;
-    out property <brush> music-gradient: dark-color-scheme ?  Colors.music-gradient.brighter(0.3) : Colors.music-gradient;
+    out property <brush> music-alternate-foreground: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggypeat;
+    out property <brush> music-gradient: dark-color-scheme ? Colors.music-gradient.brighter(0.3) : Colors.music-gradient;
     out property <brush> info-foreground: dark-color-scheme ? Colors.white : Colors.white;
     out property <brush> info-alternate-foreground: dark-color-scheme ? Colors.white : Colors.foggysky;
     out property <brush> lamp-foreground: dark-color-scheme ? Colors.purple30 : Colors.foggylight;
@@ -136,9 +137,9 @@ export global Palette {
     out property <brush> appliance-background: dark-color-scheme ? Colors.dustyblue : Colors.foggyblue;
     out property <brush> appliance-alternate-background: dark-color-scheme ? Colors.paleblue : Colors.foggyblue;
     out property <brush> appliance-alternate-foreground: dark-color-scheme ? Colors.white : Colors.foggybeige;
-    out property <brush> overhead-shadow: dark-color-scheme ? Colors.fadedyellow : Colors.foggylight; 
-    out property <brush> overhead-background: dark-color-scheme ? Colors.fadedyellow.brighter(0.5) : Colors.foggyyellow.brighter(0.5); 
-    out property <brush> overhead-foreground: dark-color-scheme ? Colors.blue10 : Colors.blue10; 
+    out property <brush> overhead-shadow: dark-color-scheme ? Colors.fadedyellow : Colors.foggylight;
+    out property <brush> overhead-background: dark-color-scheme ? Colors.fadedyellow.brighter(0.5) : Colors.foggyyellow.brighter(0.5);
+    out property <brush> overhead-foreground: dark-color-scheme ? Colors.blue10 : Colors.blue10;
     out property <brush> overhead-alternate-foreground: dark-color-scheme ? Colors.purple90 : Colors.foggydirt;
     out property <brush> graph-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
     out property <brush> graph-alternate-foreground: dark-color-scheme ? Colors.dustygold : Colors.foggysky;

@@ -28,9 +28,9 @@ export component Dial {
                 y: 18px;
                 source: Palette.dark-color-scheme ? @image-url("../../images/dial-frame.png") : @image-url("../../images/dial-frame-lite.png");
                 width: self.source.width * 1px;
-                height: self.source.height  * 1px;
+                height: self.source.height * 1px;
             }
-            
+
             Image {
                 source: @image-url("../../images/lines.png");
                 colorize: Palette.dark-color-scheme ? #fff : #000;
@@ -39,7 +39,7 @@ export component Dial {
                 height: self.source.height * 1.1 * 1px;
                 opacity: 0.03;
             }
-            
+
             ta := TouchArea {
                 property <length> centerX: self.width / 2;
                 property <length> centerY: self.height / 2;
@@ -88,8 +88,6 @@ export component Dial {
                 width: self.source.width * 0.8 * 1px;
                 height: self.source.height * 0.8 * 1px;
             }
-            
         }
     }
-    
 }

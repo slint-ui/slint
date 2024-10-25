@@ -6,7 +6,7 @@ import { Palette } from "../../common.slint";
 export component Light {
 
     function pulseAnimation(duration: duration) -> float {
-        return 1 * (1 -abs(sin(360deg * animation-tick() / duration)));
+        return 1 * (1 - abs(sin(360deg * animation-tick() / duration)));
     }
 
     in property <int> index;
@@ -50,6 +50,7 @@ export component Light {
             background: Palette.door-light-off;
             opacity: 0.1;
         }
+
         dialLed := Image {
             source: Palette.dark-color-scheme ? @image-url("../../images/led-dark.png") : @image-url("../../images/led.png");
         }
@@ -66,7 +67,6 @@ export component DialLights {
         height: 1px;
         x: 212px;
         y: 210px;
-        
         lightHolder := Rectangle {
             x: 0px;
             y: 2px;
@@ -76,5 +76,4 @@ export component DialLights {
             }
         }
     }
-    
 }

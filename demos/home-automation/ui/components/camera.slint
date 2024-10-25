@@ -14,7 +14,7 @@ export component Camera inherits Control {
         x: 0cm;
         Rectangle {
             border-radius: Measurements.tile-radius;
-        clip: true;
+            clip: true;
             Image {
                 source: root.cam;
                 width: tile.width;
@@ -51,11 +51,11 @@ export component Camera inherits Control {
                 }
             }
         }
+
         TouchArea {
             enabled: !AppState.showing-full-screen;
             clicked => {
                 AppState.showFullScreen(root.index);
-                debug("id: " + root.id);
             }
         }
 
@@ -84,8 +84,8 @@ export component Camera inherits Control {
             y: 30px;
             width: 60px;
             height: 60px;
-
         }
+
         TouchArea {
             enabled: closeButton.opacity > 0.1;
             clicked => {
@@ -93,6 +93,5 @@ export component Camera inherits Control {
                 AppState.showFullScreen(-1);
             }
         }
-
     }
 }

@@ -3,19 +3,21 @@
 
 [package]
 name = "home-automation"
-version = "0.1.0"
+version = "1.9.0"
 edition = "2021"
 
 [[bin]]
-path = "src/main.rs"
+path = "main.rs"
 name = "home-automation"
+
+[workspace]
 
 [dependencies]
 slint = { git = "https://github.com/slint-ui/slint", version = "1.8.0" }
 
 [lib]
 crate-type = ["cdylib"]
-path = "src/main.rs"
+path = "main.rs"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 slint = { git = "https://github.com/slint-ui/slint", version = "1.8.0", features = ["backend-linuxkms-noseat", "renderer-skia"] }
