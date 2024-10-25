@@ -178,24 +178,24 @@ impl SharedString {
     /// ```
     /// # use i_slint_core::SharedString;
     /// let hello = SharedString::from("Hello, World!");
-    /// assert_eq!(hello.substring(7, 5), "World");
-    /// assert_eq!(hello.substring(0, 5), "Hello");
-    /// assert_eq!(hello.substring(0, 0), "");
-    /// assert_eq!(hello.substring(0, 1000), "Hello, World!");
-    /// assert_eq!(hello.substring(1000, 1000), "");
-    /// assert_eq!(hello.substring(1, 3), "ell");
-    /// assert_eq!(hello.substring(7, 1000), "World!");
+    /// assert_eq!(hello.substr(7, 5), "World");
+    /// assert_eq!(hello.substr(0, 5), "Hello");
+    /// assert_eq!(hello.substr(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.substr(0, 0), "");
+    /// assert_eq!(hello.substr(1000, 1000), "");
+    /// assert_eq!(hello.substr(1, 3), "ell");
+    /// assert_eq!(hello.substr(7, 1000), "World!");
     /// ```
     pub fn substr(&self, start: usize, length: usize) -> SharedString {
-        let mut result = SharedString::default();
-        if start < self.len() {
-            let end = core::cmp::min(start + length, self.len());
-            result.push_str(&self.as_str()[start..end]);
-        } else if start == self.len() && length == 0 {
-            result.push_str("");
-        } else {
-            result.push_str("");
+        // if start is greater than the length of the string, return an empty string
+        // if length is 0, return an empty string
+        if start >= self.len() || length == 0 {
+            return SharedString::default();
         }
+        let end = start + length;
+        let end = core::cmp::min(end, self.len());
+        let mut result = SharedString::default();
+        result.push_str(&self.as_str()[start..end]);
         result
     }
 
@@ -206,8 +206,8 @@ impl SharedString {
     /// let hello = SharedString::from("Hello, World!");
     /// assert_eq!(hello.substring(7, 12), "World");
     /// assert_eq!(hello.substring(0, 5), "Hello");
-    /// assert_eq!(hello.substring(0, 0), "");
     /// assert_eq!(hello.substring(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.substring(0, 0), "");
     /// assert_eq!(hello.substring(1000, 1000), "");
     /// assert_eq!(hello.substring(1, 3), "el");
     /// assert_eq!(hello.substring(7, 1000), "World!");
