@@ -45,6 +45,12 @@ importers:
         specifier: 5.2.2
         version: 5.2.2
 
+  demos/home-automation/node:
+    dependencies:
+      slint-ui:
+        specifier: ../../../api/node
+        version: link:../../../api/node
+
   demos/printerdemo/node:
     dependencies:
       slint-ui:
