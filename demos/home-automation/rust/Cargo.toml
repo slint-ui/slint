@@ -10,17 +10,13 @@ edition = "2021"
 path = "main.rs"
 name = "home-automation"
 
-[workspace]
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "lib.rs"
+name = "home_automation_lib"
 
 [dependencies]
-slint = { git = "https://github.com/slint-ui/slint", version = "1.8.0" }
-
-[lib]
-crate-type = ["cdylib"]
-path = "main.rs"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-slint = { git = "https://github.com/slint-ui/slint", version = "1.8.0", features = ["backend-linuxkms-noseat", "renderer-skia"] }
+slint = { path = "../../../api/rs/slint" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
