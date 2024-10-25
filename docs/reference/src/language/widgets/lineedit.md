@@ -30,8 +30,8 @@ a widget able to handle several lines of text.
 ### Callbacks
 
 -   **`accepted(string)`**: Enter was pressed
--   **`edited(string)`**: Emitted when the text has changed because the user modified it
 -   **`rejected(string)`**: Escape was pressed
+-   **`edited(string)`**: Emitted when the text has changed because the user modified it
 
 ### Example
 
