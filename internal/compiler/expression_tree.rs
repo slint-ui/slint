@@ -278,7 +278,7 @@ impl BuiltinFunction {
             }
             BuiltinFunction::DateNow => {
                 interned_type!(Function {
-                    return_type: Type::Array(Box::new(Type::Int32)),
+                    return_type: Type::Array(Rc::new(Type::Int32)),
                     args: vec![]
                 })
             }
@@ -289,7 +289,7 @@ impl BuiltinFunction {
                 })
             }
             BuiltinFunction::ParseDate => interned_type!(Function {
-                return_type: Type::Array(Box::new(Type::Int32)),
+                return_type: Type::Array(Rc::new(Type::Int32)),
                 args: vec![Type::String, Type::String],
             }),
             BuiltinFunction::SetTextInputFocused => {
@@ -871,7 +871,7 @@ impl Expression {
                 }
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
-            Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
+            Expression::Array { element_ty, .. } => Type::Array(Rc::new(element_ty.clone())),
             Expression::Struct { ty, .. } => ty.clone(),
             Expression::PathData { .. } => Type::PathData,
             Expression::StoreLocalVariable { .. } => Type::Void,
@@ -1303,7 +1303,7 @@ impl Expression {
                         .map(|e| e.maybe_convert_to((*target_type).clone(), node, diag))
                         .take_while(|e| !matches!(e, Expression::Invalid))
                         .collect(),
-                    element_ty: *target_type,
+                    element_ty: (*target_type).clone(),
                 },
                 _ => unreachable!(),
             }
@@ -1481,7 +1481,7 @@ fn model_inner_type(model: &Expression) -> Type {
         Expression::CodeBlock(cb) => cb.last().map_or(Type::Invalid, model_inner_type),
         _ => match model.ty() {
             Type::Float32 | Type::Int32 => Type::Int32,
-            Type::Array(elem) => *elem,
+            Type::Array(elem) => (*elem).clone(),
             _ => Type::Invalid,
         },
     }

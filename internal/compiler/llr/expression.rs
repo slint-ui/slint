@@ -262,7 +262,7 @@ impl Expression {
                 _ => unreachable!(),
             },
             Self::ArrayIndex { array, .. } => match array.ty(ctx) {
-                Type::Array(ty) => *ty,
+                Type::Array(ty) => (*ty).clone(),
                 _ => unreachable!(),
             },
             Self::Cast { to, .. } => to.clone(),

@@ -2022,7 +2022,7 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::String), ValueType::String);
     assert_eq!(ValueType::from(LangType::Color), ValueType::Brush);
     assert_eq!(ValueType::from(LangType::Brush), ValueType::Brush);
-    assert_eq!(ValueType::from(LangType::Array(Box::new(LangType::Void))), ValueType::Model);
+    assert_eq!(ValueType::from(LangType::Array(Rc::new(LangType::Void))), ValueType::Model);
     assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
     assert_eq!(
         ValueType::from(LangType::Struct(Rc::new(LangStruct {

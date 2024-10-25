@@ -1302,7 +1302,10 @@ impl Expression {
                     } else if *rhs == Type::Void {
                         lhs
                     } else {
-                        Self::common_target_type_for_type_list([*lhs, *rhs].into_iter()).into()
+                        Self::common_target_type_for_type_list(
+                            [(*lhs).clone(), (*rhs).clone()].into_iter(),
+                        )
+                        .into()
                     }),
                     (Type::Color, Type::Brush) | (Type::Brush, Type::Color) => Type::Brush,
                     (target_type, expr_ty) => {
