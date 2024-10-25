@@ -1,0 +1,155 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+export global Measurements {
+   out property <length> zone-button-spacing: 30px;
+   out property <length> tile-radius: 20px;
+   out property <length> page-height: 1080px;
+   out property <length> page-width: 1920px;
+   out property <length> padding: 12px;
+   out property <length> small-width-tile: 278px;
+   out property <length> small-height-tile: 153px;
+   out property <length> medium-height-tile: 278px;
+   out property <length> medium-width-tile: 435px;
+   out property <length> large-height-tile: 906px;
+   out property <length> large-width-tile: 435px;
+   out property <length> sidebar-width: 400px;
+   out property <length> tile-shadow-blur: 20px;
+   out property <length> sidebar-padding: 36px;
+   out property <length> sidebar-spacing: 36px;
+   out property <length> application-width: 1920px;
+   out property <length> application-height: 1080px;
+}
+
+export global Style {
+    out property <length> icon-title-font-size: 20px;
+    out property <length> normal-font-size: 24px;
+    out property <length> H1-font-size: 64px;
+    out property <length> H2-font-size: 42px;
+    out property <length> H3-font-size: 36px;
+    out property <length> tile-title-font-size: 20pt;
+}
+
+export global Animation {
+    out property <duration> theme-change-duration: 300ms;
+    out property <duration> full-screen-duration: 300ms;
+    out property <duration> transitionDuration: 500ms;   
+}
+
+export global Colors {
+    out property <color> white: #ffffff;
+    out property <color> black: #000000;
+    out property <color> gray10: #1a1a1a;
+    out property <color> gray20: #2C2C2C;
+    out property <color> gray30: #4d4d4d;
+    out property <color> gray40: #666666;
+    out property <color> gray50: #808080;
+    out property <color> gray60: #999999;
+    out property <color> gray70: #b3b3b3;
+    out property <color> gray80: #cccccc;
+    out property <color> gray98: #fdfdfd;
+    out property <color> gray98_lineedit:#f8f8f8;
+    out property <color> gray100: self.white;
+    out property <color> orange100: #f1d789;
+    out property <color> orange90: #dd5f00;
+    out property <color> orange80: #aa4f00;
+    out property <color> orange70: #993f00;
+    out property <color> orange60: #7a1a00;
+    out property <color> purple100: #D9D5F2;
+    out property <color> purple90: #7E5EF2;
+    out property <color> purple80: #643DF2;
+    out property <color> purple70: #6a00ff;
+    out property <color> purple60: #5a00ff;
+    out property <color> purple50: #4a00ff;
+    out property <color> purple40: #3A3056;
+    out property <color> purple30: #1D182A;
+    out property <color> blue100: #007bff;
+    out property <color> paleblue: #9eaeb8;
+    out property <color> foggypeat: #25261E;
+    out property <color> foggydirt: #595845;
+    out property <color> foggyblue: #828C81;
+    out property <color> foggylight: #F2EBD5;
+    out property <color> foggyyellow: #D9C49C;
+    out property <color> foggybeige: #D9CAAD;
+    out property <color> foggysky: #D8DBD2;
+    out property <color> dustypurpledirt:#564569;
+    out property <color> dustypurplelight:#7F496D;
+    out property <color> dustyshadow:#132240;
+    out property <color> dustyblue:#587AA6;
+    out property <color> dustygold:#dc9f2f;
+    out property <color> blue90: #0062cc;
+    out property <color> blue80: #005cbf;
+    out property <color> blue70: #004fdf;
+    out property <color> blue60: #0044cc;
+    out property <color> blue50: #003bc2;
+    out property <color> blue40: #0033b2;
+    out property <color> blue30: #0029a3;
+    out property <color> blue20: #001f91;
+    out property <color> blue10: #1B1A40;
+    out property <color> green100: #00ff99;
+    out property <color> green90: #00cc66;
+    out property <color> green80: #00b352;
+    out property <color> green70: #00993d;
+    out property <color> green60: #008033;
+    out property <color> green50: #00662c;
+    out property <color> green40: #004d23;
+    out property <color> green30: #00331a;
+    out property <color> fadedyellow: #F2EED5;
+    out property <brush> dark-ramp: @linear-gradient(50deg, Colors.purple40, Colors.purple30);
+    out property <brush> light-ramp: @linear-gradient(0deg, Colors.foggybeige,Colors.foggylight);
+    out property <brush> music-gradient: @linear-gradient(0deg, Colors.white,Colors.foggylight);
+}
+export global Palette {
+    in-out property <bool> dark-color-scheme:true;
+    out property <brush> background: dark-color-scheme ? Colors.gray10 : Colors.white;
+    out property <brush> date-background: dark-color-scheme ? Colors.dustypurpledirt: Colors.foggylight;
+    out property <brush> foreground: dark-color-scheme ? Colors.gray70 : Colors.gray50;
+    out property <brush> alternate-background: dark-color-scheme ? Colors.gray20 : Colors.gray98;
+    out property <brush> lineedit-background: dark-color-scheme ? Colors.gray20 : Colors.gray98_lineedit;
+    out property <brush> alternate-foreground: dark-color-scheme ? Colors.white : Colors.black;
+    out property <brush> accent-background: dark-color-scheme ? Colors.orange100 : Colors.green70;
+    out property <brush> accent-foreground: dark-color-scheme ? Colors.white : Colors.black;
+    out property <brush> selection-background: dark-color-scheme ? Colors.orange100 : Colors.blue100;
+    out property <brush> selection-foreground: dark-color-scheme ? Colors.white : Colors.black;
+    out property <brush> border: dark-color-scheme ? Colors.gray60 : Colors.gray30;
+    out property <brush> dimmer: dark-color-scheme ? Colors.gray98 : Colors.gray10;
+    out property <brush> shadow-color: dark-color-scheme ? Colors.black.transparentize(0.4) : Colors.foggypeat.transparentize(0.5);
+    out property <brush> glow-color: dark-color-scheme ? Colors.white.transparentize(0.8) : Colors.foggylight.transparentize(0.8);
+    out property <brush> background-gradient: dark-color-scheme ? Colors.dark-ramp : Colors.light-ramp;
+    out property <brush> alternate-background-gradient: dark-color-scheme ? Colors.dark-ramp.brighter(0.3) : Colors.light-ramp.darker(0.3);
+    out property <brush> info-background: dark-color-scheme ? Colors.dustyshadow : Colors.foggydirt;
+    out property <brush> info-alternate-background: dark-color-scheme ? Colors.dustyblue.transparentize(0.7) : Colors.foggyblue;
+    out property <brush> lamp-background: dark-color-scheme ? Colors.orange100 : Colors.foggyblue;
+    out property <brush> slider-background: dark-color-scheme ? Colors.purple40 : Colors.gray80;
+    out property <brush> slider-foreground: dark-color-scheme ? Colors.white : Colors.orange100;
+    out property <brush> control-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
+    out property <brush> control-background: dark-color-scheme ? Colors.dustypurpledirt: Colors.foggypeat;
+    out property <brush> control-alternate-background: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggydirt;
+    out property <brush> control-alternate-foreground: dark-color-scheme ? Colors.purple100 : Colors.foggysky;
+    out property <brush> music-alternate-foreground: dark-color-scheme ? Colors.dustypurpledirt: Colors.foggypeat;
+    out property <brush> music-gradient: dark-color-scheme ?  Colors.music-gradient.brighter(0.3) : Colors.music-gradient;
+    out property <brush> info-foreground: dark-color-scheme ? Colors.white : Colors.white;
+    out property <brush> info-alternate-foreground: dark-color-scheme ? Colors.white : Colors.foggysky;
+    out property <brush> lamp-foreground: dark-color-scheme ? Colors.purple30 : Colors.foggylight;
+    out property <brush> lamp-alternate-foreground: dark-color-scheme ? Colors.purple90 : Colors.gray80;
+    out property <brush> lamp-shadow: dark-color-scheme ? Colors.dustygold : Colors.foggydirt;
+    out property <brush> appliance-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
+    out property <brush> appliance-background: dark-color-scheme ? Colors.dustyblue : Colors.foggyblue;
+    out property <brush> appliance-alternate-background: dark-color-scheme ? Colors.paleblue : Colors.foggyblue;
+    out property <brush> appliance-alternate-foreground: dark-color-scheme ? Colors.white : Colors.foggybeige;
+    out property <brush> overhead-shadow: dark-color-scheme ? Colors.fadedyellow : Colors.foggylight; 
+    out property <brush> overhead-background: dark-color-scheme ? Colors.fadedyellow.brighter(0.5) : Colors.foggyyellow.brighter(0.5); 
+    out property <brush> overhead-foreground: dark-color-scheme ? Colors.blue10 : Colors.blue10; 
+    out property <brush> overhead-alternate-foreground: dark-color-scheme ? Colors.purple90 : Colors.foggydirt;
+    out property <brush> graph-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
+    out property <brush> graph-alternate-foreground: dark-color-scheme ? Colors.dustygold : Colors.foggysky;
+    out property <brush> graph-background: dark-color-scheme ? Colors.purple30 : Colors.foggydirt;
+    out property <brush> doors-background: dark-color-scheme ? @linear-gradient(180deg, #34373F, #1D2026) : @linear-gradient(180deg, #e1e1d7, #ffffff);
+    out property <brush> doors-notch-background: dark-color-scheme ? @linear-gradient(180deg, #2e3037, #25272c) : @linear-gradient(180deg, #ebebe4, #f5f5f1);
+    out property <brush> door-light-on: dark-color-scheme ? Colors.orange100 : Colors.orange100;
+    out property <brush> door-light-off: dark-color-scheme ? Colors.black : Colors.green30;
+    out property <brush> hvac-knob-background: dark-color-scheme ? @radial-gradient(circle, Colors.dustypurpledirt.darker(0.2) 0%, Colors.dustypurpledirt.darker(0.5) 100%) : @radial-gradient(circle, Colors.foggydirt 0%, Colors.foggypeat 100%);
+    out property <brush> hvac-knob-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
+    out property <brush> hvac-foreground: dark-color-scheme ? Colors.purple100 : Colors.foggylight;
+    out property <brush> tab: dark-color-scheme ? Colors.blue10 : Colors.foggybeige;
+    out property <brush> tab-highlight: dark-color-scheme ? Colors.dustygold.transparentize(0.8) : Colors.black.transparentize(0.5);
+}

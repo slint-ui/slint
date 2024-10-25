@@ -1,0 +1,26 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "home-automation"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+path = "src/main.rs"
+name = "home-automation"
+
+[dependencies]
+slint = { git = "https://github.com/slint-ui/slint", version = "1.8.0" }
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/main.rs"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+slint = { git = "https://github.com/slint-ui/slint", version = "1.8.0", features = ["backend-linuxkms-noseat", "renderer-skia"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features=["console"] }
+console_error_panic_hook = "0.1.5"

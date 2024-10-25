@@ -1,0 +1,172 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT 
+import { Dial, DialState } from "../dial/dial.slint";
+import { DialLights } from "../dial/dialLights.slint";
+import { Palette } from "../../common.slint";
+
+export enum DoorState { closed, open }
+
+export component Doors {
+    property <brush> notch-border-color: #0000005d;
+    in-out property <bool> demo-locked: true;
+    in-out property <DoorState> initial-door-state: closed;
+    property <DoorState> target-door-state: initial-door-state;
+
+    callback unlockDemo();
+    callback doorsOpened();
+    callback doorsOpening();
+    callback doorsClosed();
+    width: 100%;
+    height: 100%;
+
+    unlockDemo => {
+        demo-locked = false;
+        target-door-state = DoorState.open;
+        doorsOpening();
+    }
+
+    Timer {
+        interval: 1ms;
+        triggered => {
+            if initial-door-state == DoorState.open  && demo-locked {
+                target-door-state = DoorState.closed;
+                initial-door-state = DoorState.closed;
+            }
+            self.running = false;
+        }
+    }
+
+    touch-catcher := Rectangle {
+        TouchArea{
+            
+        }
+    }
+
+
+    leftDoor := Rectangle {
+        x: -60px;
+        width: parent.width / 2 + 140px;
+        height: 100%;
+        background: Palette.doors-background;
+        border-width: 10px;
+        border-color: notch-border-color;
+        border-radius: 60px;
+        clip: true;
+        changed x => {
+            if root.initial-door-state == DoorState.closed && self.x <= -leftDoor.width {
+                root.doorsOpened();
+            }
+            if self.x == -60px {
+                root.doorsClosed();
+            }
+        }
+
+        Image {
+            x: 0;
+            y: 0;
+            source: @image-url("../../images/logo-fragment.png");
+            opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
+        }
+
+        DialLights {
+            x: parent.width - 250px;
+            volume: dial.volume;
+        }
+    }
+
+    states [
+        doorsOpen when target-door-state == DoorState.open: {
+            leftDoor.x: -leftDoor.width;
+            rightDoor.x: root.width + 170px;
+            dial.dialAngle: DialState.startAngle;
+            in {
+                animate rightDoor.x, leftDoor.x {
+                    duration: 800ms;
+                    easing: ease-in-expo;
+                }
+            }
+        }
+        doorsClosed when target-door-state == DoorState.closed: {
+            leftDoor.x: -60px;
+            rightDoor.x: root.width / 2;
+            in {
+                animate rightDoor.x, leftDoor.x {
+                    duration: 800ms;
+                    easing: ease-in-expo;
+                } 
+            }
+        }
+    ]
+
+    rightDoor := Rectangle {
+        property <length> notch-width: 440px;
+        property <length> notch-border: 8px;
+        property <length> notch-indent: 40px;
+
+        x: parent.width / 2;
+        width: parent.width / 2 + 60px;
+        height: 100%;
+        Rectangle {
+            background: Palette.doors-background;
+            clip: true;
+            border-radius: 60px;
+            Image {
+                x: parent.width - self.width;
+                y: parent.height - self.height;
+                source: @image-url("../../images/logo-fragment.png");
+                rotation-angle: 180deg;
+                opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
+            }
+        }
+       
+        Rectangle {
+            border-width: notch-border;
+            border-color: notch-border-color;
+            border-radius: 60px;
+        }
+
+        Rectangle {
+            x: -(notch-width / 2) + notch-border;
+            width: (notch-width / 2);// - notch-indent ;
+            height: notch-width;
+            clip: true;
+            Rectangle {
+                x: notch-indent;
+                y: 0;
+                width: notch-width;
+                height: self.width;
+                Rectangle {
+                    width: notch-width;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: Palette.doors-notch-background;
+                    border-width: notch-border;
+                    border-color: notch-border-color;
+                }
+            }
+        }
+
+        Image {
+            x: 20px;
+            y: (parent.height / 2) - 250px;
+            source: @image-url("../../images/open-lock.svg");
+            colorize: Palette.dark-color-scheme ? #000 : #6f6f6f;
+            width: self.source.width * 1.4 * 1px;
+            height: self.source.height * 1.4 * 1px;
+            opacity: 0.4;
+        }
+
+        dial := Dial {
+            x: -164px;
+            y: (parent.height - self.height) / 2 - 2px;
+            interactive: root.demo-locked;
+            changed volume => {
+                if self.volume >= 60 {
+                    root.unlockDemo()
+                }
+            }
+
+        }
+        
+    }
+}

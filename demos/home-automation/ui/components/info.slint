@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette,Measurements,Colors } from "../common.slint";
+import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+import { InnerShadowRectangle } from "general/innerShadowRectangle.slint";
+
+export component Info {
+    in property <string> name;
+    in property <string> id;
+    in property <bool> full-screen: false;
+    tile := InnerShadowRectangle {
+        inner-color: Palette.info-alternate-background;
+        inner-shadow-blur: 40px;
+        // clip: true;
+        background: Palette.info-background;
+        border-radius: Measurements.tile-radius;
+        @children
+        // VerticalLayout {
+        //     alignment: space-between;
+        //     padding: (tile.height > Measurements.small-height-tile) ? 36px : 18px;
+        //     width: 100%;
+        //     height: 100%;
+        //     VerticalLayout {
+        //         alignment: start;
+        //         HaText {
+        //             text: "Information";
+        //             font-size: 16pt;
+        //             font-weight: 400;
+        //             color: Palette.info-alternate-foreground;
+        //         }
+
+        //         HaText {
+        //             text: root.name;
+        //             font-size: 20pt;
+        //             font-weight: 400;
+        //             color: Palette.info-foreground;
+        //         }
+        //         Rectangle {height:20px;}
+        //     }
+        // }
+    }
+}

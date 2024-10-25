@@ -1,0 +1,307 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { DoorState, Doors } from "../general/doors.slint";
+import { ViewButton } from "../mainView/viewButton.slint";
+import { Sidebar } from "sidebar.slint";
+import { WidgetLoader } from "widgetLoader.slint";
+import { Switch, Palette as StdPalette } from "std-widgets.slint";
+import { InnerShadowRectangle } from "../general/innerShadowRectangle.slint";
+import { Measurements, Palette, Animation } from "../../common.slint";
+import { AppState, ComponentData } from "../../appState.slint";
+import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
+import { FullScreenView } from "fullScreenView.slint";
+
+export component MainScreen inherits Rectangle {
+    property <int> internal-target-page: AppState.target-page;
+    property <bool> transitioning: false;
+    in-out property <bool> door-component-loaded: true;
+    in-out property <DoorState> initial-door-state: closed;
+    property <bool> demo-locked: true;
+    width: 100%;
+    height: 100%;
+    changed width => {
+        AppState.window-width = self.width;
+    }
+    changed height => {
+        AppState.window-height = self.height;
+    }
+    init => {
+        AppState.window-width = self.width;
+        AppState.window-height = self.height;
+        StdPalette.color-scheme = ColorScheme.dark;
+    }
+
+    changed internal-target-page => {
+        if AppState.target-page != AppState.current-page {
+            if !transitioning {
+                AppState.current-page = AppState.target-page;
+            }
+            transitioning = true;
+            enableTouch.running = false;
+            enableTouch.running = true;
+        }
+    }
+
+    
+
+    enableTouch := Timer {
+        interval: 1400ms;
+        triggered => {
+            self.running = false;
+            transitioning = false;
+            AppState.current-page = AppState.target-page;
+        }
+    }
+
+    background: Palette.background-gradient;
+    animate background {
+        duration: Animation.theme-change-duration;
+        easing: ease-in-out-sine;
+    }
+
+    swipe := TouchArea {
+        x: 0;
+        y: 0;
+        width: 500px;
+        in-out property <bool> showing-sidebar: false;
+        property <bool> first-touch: false;
+        property <length> initial-position;
+        property <length> alt-side-bar-x: 0;
+        out property <bool> swiping: false;
+        in-out property <bool> blocker-enabled: true;
+
+        changed pressed => {
+            if !self.pressed {
+                if alt-side-bar-x >= (sidebar.width * 0.4) {
+                    showing-sidebar = true;
+                }
+                if showing-sidebar {
+                    alt-side-bar-x = sidebar.width;
+                } else {
+                    alt-side-bar-x = 0;
+                }
+                swipe.swiping = false;
+                first-touch = false;
+            }
+        }
+
+        moved => {
+            if !first-touch {
+                first-touch = true;
+                swiping = true;
+                initial-position = self.mouse-x;
+            } else {
+                alt-side-bar-x = clamp(self.mouse-x - initial-position, 0, sidebar.width);
+            }
+        }
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: root.width;
+            height: root.height;
+
+            navigation :=Rectangle {
+                filterShadow := Rectangle {
+                    x: 0;
+                    y: 0;
+                    width: 100%;
+                    height: root.height - 100px;
+                    border-radius: 0px;
+                    drop-shadow-blur: (AppState.current-page > 3) ? 15px : 1px;
+                    drop-shadow-color: Palette.shadow-color;
+                    background: Palette.background-gradient;
+                    animate background {
+                        duration: Animation.theme-change-duration;
+                        easing: ease-in-out-sine;
+                    }
+                }
+
+                navBar := Rectangle {
+                    x: 36px;
+                    y: self.height/5;
+                    width: AppState.current-page > (AppState.pageData.length - 7) ? 1848px : 1380px;
+                    animate width {
+                        duration: Animation.transitionDuration;
+                        easing: ease-in-out-sine;
+                    }
+                    height: 121px;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        ViewButton {
+                            target-page: 0;
+                            text: "House";
+                        }
+
+                        ViewButton {
+                            target-page: 1;
+                            text: "Kitchen";
+                        }
+
+                        ViewButton {
+                            target-page: 2;
+                            text: "Master Bedroom";
+                        }
+
+                        ViewButton {
+                            target-page: 3;
+                            text: "Office";
+                        }
+                    }
+                }
+
+                filterBar := Rectangle {
+
+                    Rectangle {
+                        y:root.height - self.height;
+                        height: 120px;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        ViewButton {
+                            font-size: 2rem;
+                            target-page: 4;
+                            text: "Controls";
+                        }
+
+                        ViewButton {
+                            font-size: 2rem;
+                            target-page: 5;
+                            text: "Lamps";
+                        }
+                        ViewButton {
+                            font-size: 2rem;
+                            target-page: 6;
+                            text: "Overhead Lights";
+                        }
+                        ViewButton {
+                            font-size: 2rem;
+                            target-page: 7;
+                            text: "Appliances";
+                        }
+                        ViewButton {
+                            font-size: 2rem;
+                            target-page: 8;
+                            text: "Info";
+                        }
+                        ViewButton {
+                            font-size: 2rem;
+                            target-page: 9;
+                            text: "Graphs";
+                        }
+
+                    }}
+                }
+
+                // This whole holder could be animated off screen, faded, whatever when the camera fills the screen.
+                widgetHolder := Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    for i[index] in AppState.component-details: WidgetLoader {
+                        index: index;
+                        type: AppState.component-details[index].type;
+                        data: AppState.current-layout-data.components[index];
+                    }
+                }
+
+                if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView { }
+
+                Rectangle {
+                    opacity: 0.5 * (sidebar-holder.x / sidebar.width);
+                    background: black;
+                    
+                    ta-blocker := TouchArea {
+                        enabled: blocker-enabled && parent.opacity > 0.1;
+
+                        changed pressed => {
+                            if !self.pressed {
+                                if alt-side-bar-x <= (sidebar.width * 0.6) {
+                                    showing-sidebar = false;
+                                }
+                                if showing-sidebar {
+                                    alt-side-bar-x = sidebar.width;
+                                } else {
+                                    alt-side-bar-x = 0;
+                                }
+                                blocker-enabled = true;
+                                swipe.swiping = false;
+                                first-touch = false;
+                            }
+                        }
+
+                        clicked => {
+                            if self.mouse-x > sidebar.width {
+                                showing-sidebar = false;
+                            }
+                        }
+
+                        moved => {
+                            if !first-touch {
+                                first-touch = true;
+                                swiping = true;
+                                initial-position = self.mouse-x;
+                            } else {
+                                alt-side-bar-x = clamp(sidebar.width + self.mouse-x - initial-position, 0, sidebar.width);
+                            }
+                        }
+                    }
+                }
+
+                sidebar-holder := Rectangle {
+
+                    states [
+                        showing-sidebar when showing-sidebar && !swipe.swiping: {
+                            x: sidebar.width;
+                            in {
+                                animate x {
+                                    duration: 150ms;
+                                    easing: ease-in;
+                                }
+                            }
+                        }
+                        swiping when swipe.swiping: {
+                            x: alt-side-bar-x;
+                        }
+                        not-showing-sidebar when !showing-sidebar && !swipe.swiping: {
+                            x: 0;
+                            in {
+                                animate x {
+                                    duration: 150ms;
+                                    easing: ease-in;
+                                }
+                            }
+                        }
+                    ]
+
+                    sidebar := Sidebar {
+                        drop-shadow-blur: sidebar-holder.x == 0 ? 0 : 30px;
+                        drop-shadow-color: black.transparentize(0.5);
+                        x: -self.width;
+                        lockDemo => {
+                            showing-sidebar = false;
+                            door-component-loaded = true;
+                            
+                            if showing-sidebar {
+                                alt-side-bar-x = sidebar.width;
+                            } else {
+                                alt-side-bar-x = 0;
+                            }
+                            blocker-enabled = true;
+                            swipe.swiping = false;
+                            first-touch = false;
+                            
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if door-component-loaded: doors := Doors {
+        doorsOpened => {
+            door-component-loaded = false;
+            initial-door-state = DoorState.open;
+        }
+        demo-locked: demo-locked;
+        initial-door-state: initial-door-state;
+    }
+
+}
