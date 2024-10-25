@@ -731,7 +731,7 @@ fn box_layout_data(
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Box::new(crate::layout::layout_info_type())),
+            ty: Type::Array(Rc::new(crate::layout::layout_info_type())),
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
     }

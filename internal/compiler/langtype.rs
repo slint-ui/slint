@@ -51,7 +51,7 @@ pub enum Type {
     Easing,
     Brush,
     /// This is usually a model
-    Array(Box<Type>),
+    Array(Rc<Type>),
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
 
