@@ -23,6 +23,12 @@ export struct DataGroup {
     components: [ComponentData]
 }
 
+import "../fonts/Poppins-Bold.ttf";
+import "../fonts/Poppins-Light.ttf";
+import "../fonts/Poppins-Medium.ttf";
+import "../fonts/Poppins-Regular.ttf";
+import "../fonts/Poppins-Thin.ttf";
+
 export global AppState {
     in-out property <bool> first-run: true;
     in-out property <int> current-page: 0; // Don't use this directly. Use target-page instead.
@@ -45,7 +51,7 @@ export global AppState {
             showing-full-screen = true;
        }
     }
-    out property <string> default-font-family;
+    out property <string> default-font-family: "Poppins";
 
 
     out property <[{id: string, name: string, type: WidgetType }]> component-details: [
