@@ -2586,10 +2586,15 @@ impl Exports {
                 .any(|e| e.1.as_ref().left().is_some_and(|c| !c.is_global()))
             {
                 diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node);
-                sorted_deduped_exports.push((
-                    ExportedName { name, name_ident: doc.clone().into() },
-                    Either::Left(last_compo.clone()),
-                ))
+                let insert_pos = sorted_deduped_exports
+                    .partition_point(|(existing_export, _)| existing_export.name <= name);
+                sorted_deduped_exports.insert(
+                    insert_pos,
+                    (
+                        ExportedName { name, name_ident: doc.clone().into() },
+                        Either::Left(last_compo.clone()),
+                    ),
+                )
             }
         }
         Self { components_or_types: sorted_deduped_exports }
