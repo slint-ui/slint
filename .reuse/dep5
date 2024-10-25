@@ -139,7 +139,7 @@ Files: examples/orbit-animation/images/*.png examples/orbit-animation/images/*.s
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: demos/home-automation/ui/images/*.png demos/home-automation/ui/images/*.svg
+Files: demos/home-automation/ui/images/*.png demos/home-automation/ui/images/*.svg demos/home-automation/ui/images/*.jpg
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
