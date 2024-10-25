@@ -32,7 +32,7 @@ members = [
     'demos/home-automation/rust',
     'examples/mcu-board-support',
     'examples/uefi-demo',
-    'examples/weather-demo',
+    'demos/weather-demo',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
