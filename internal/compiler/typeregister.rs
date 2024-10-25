@@ -177,17 +177,21 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
 
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: &str) -> PropertyLookupResult {
-    for (p, t, property_visibility) in reserved_properties() {
-        if p == name {
-            return PropertyLookupResult {
-                property_type: t,
-                resolved_name: name.into(),
-                is_local_to_component: false,
-                is_in_direct_base: false,
-                property_visibility,
-                declared_pure: None,
-            };
-        }
+    thread_local! {
+        static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility)>
+            = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility))).collect();
+    }
+    if let Some(result) = RESERVED_PROPERTIES.with(|reserved| {
+        reserved.get(name).map(|(ty, visibility)| PropertyLookupResult {
+            property_type: ty.clone(),
+            resolved_name: name.into(),
+            is_local_to_component: false,
+            is_in_direct_base: false,
+            property_visibility: *visibility,
+            declared_pure: None,
+        })
+    }) {
+        return result;
     }
 
     // Report deprecated known reserved properties (maximum_width, minimum_height, ...)
