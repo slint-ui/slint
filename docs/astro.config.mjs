@@ -53,6 +53,7 @@ export default defineConfig({
                     label: "Getting started",
                     items: [
                         { label: "Welcome", slug: "getting-started/intro" },
+                        { label: "Which language?", slug: "getting-started/which_language" },
                     ],
                 },
                 {

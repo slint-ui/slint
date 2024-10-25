@@ -6,15 +6,62 @@ description: Get going with Slint.
 import { Image } from 'astro:assets';
 import myImageLight from '../../../assets/mattermost-logo-dark.svg';
 import myImageDark from '../../../assets/mattermost-logo-light.svg';
+import { Steps, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+
+<Image class="light:sl-hidden" src={myImageDark} width={50} alt="A description of my image." />
+<Image class="dark:sl-hidden" src={myImageLight} width={50} alt="A description of my image." />
+As a first step we invite you to join our community on [Mattermost](https://chat.slint.dev/). This is a great place to ask questions and get help from other Slint users.
+
 
 
 This guide will help you get started with Slint. It will cover the basics of the language and how to get started with the Slint extension for Visual Studio Code.
 
-<Image class="light:sl-hidden" src={myImageDark} width={100} alt="A description of my image." />
-<Image class="dark:sl-hidden" src={myImageLight} width={100} alt="A description of my image." />
-As a first step we invite you to join our community on [Mattermost](https://chat.slint.dev/). This is a great place to ask questions and get help from other Slint users.
 
-The fastest way to get started with Slint is with VScode and the Slint extension.  
-[Visual Studio Code](https://code.visualstudio.com)  
-[The Slint for Visual Studio Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
+
+
+
+
+
+## Setting up VSCode
+
+<Tabs syncKey="dev-platform">
+<TabItem label="Windows" icon="seti:windows">
+<Steps>
+1. Install VSCode.  
+Download it [here](https://code.visualstudio.com).
+2. Install the Slint extension.
+Find it [here](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
+3. Create a new project based on a Slint template.
+This is done via the command palette (Ctrl+Shift+P).
+4. Choose your language.
+</Steps>
+</TabItem>
+<TabItem label="macOS" icon="apple">
+<Steps>
+1. Install VSCode.  
+Download it [here](https://code.visualstudio.com).
+2. Install the Slint extension.
+Find it [here](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
+3. Create a new project based on a Slint template.
+This is done via the command palette (CMD+Shift+P).
+4. Choose your language.
+![Command palette](../../../assets/getting-started/macos-vscode-template-1.png)
+5. Choose a folder to save the project in.
+![Project folder](../../../assets/getting-started/macos-vscode-template-2.png)
+</Steps>
+</TabItem>
+<TabItem label="Linux" icon="linux">
+<Steps>
+1. Install VSCode.  
+Download it [here](https://code.visualstudio.com).
+2. Install the Slint extension.
+Find it [here](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
+3. Create a new project based on a Slint template.
+This is done via the command palette (Ctrl+Shift+P).
+4. Choose your language.
+</Steps>
+</TabItem>
+
+</Tabs>
 

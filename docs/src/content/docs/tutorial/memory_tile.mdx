@@ -35,12 +35,14 @@ You need to install this icon and others you use later first. You can download a
 If you are on Linux or macOS, download and extract it with the following commands:
 
 <Tabs syncKey="dev-platform">
-<TabItem label="Linux" icon="linux">
+<TabItem label="Windows" icon="seti:windows">
 
-```sh title="Bash"
+If you are on Windows, use the following commands:
+
+```powershell title="PowerShell"
 cd ui
-curl -O https://slint.dev/blog/memory-game-tutorial/icons.zip
-unzip icons.zip
+powershell curl -Uri https://slint.dev/blog/memory-game-tutorial/icons.zip -Outfile icons.zip
+powershell Expand-Archive -Path icons.zip -DestinationPath .
 cd ..
 ```
 This unpacks an `icons` directory containing several icons.
@@ -54,14 +56,12 @@ cd ..
 ```
 This unpacks an `icons` directory containing several icons.
 </TabItem>
-<TabItem label="Windows" icon="seti:windows">
+<TabItem label="Linux" icon="linux">
 
-If you are on Windows, use the following commands:
-
-```powershell title="PowerShell"
+```sh title="Bash"
 cd ui
-powershell curl -Uri https://slint.dev/blog/memory-game-tutorial/icons.zip -Outfile icons.zip
-powershell Expand-Archive -Path icons.zip -DestinationPath .
+curl -O https://slint.dev/blog/memory-game-tutorial/icons.zip
+unzip icons.zip
 cd ..
 ```
 This unpacks an `icons` directory containing several icons.
