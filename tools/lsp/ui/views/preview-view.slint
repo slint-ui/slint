@@ -3,11 +3,12 @@
 
 // cSpell: ignore resizer
 
-import { Button, ComboBox, HorizontalBox, LineEdit, ListView, ScrollView, Palette, VerticalBox } from "std-widgets.slint";
+import { Button, ComboBox, HorizontalBox, LineEdit, ListView, Palette, ScrollView, VerticalBox } from "std-widgets.slint";
 import { Api, ComponentItem, Diagnostics, DropMark, LayoutKind, Selection } from "../api.slint";
 import { DiagnosticsOverlay } from "../components/diagnostics-overlay.slint";
 import { Resizer } from "../components/resizer.slint";
 import { Group, GroupHeader } from "../components/group.slint";
+import { SelectionPopup } from "../components/selection-popup.slint";
 import { StatusLineApi } from "../components/status-line.slint";
 import { EditorPalette } from "../components/styling.slint";
 
@@ -66,7 +67,8 @@ component SelectionFrame {
     callback resize(x: length, y: length, width: length, height: length);
     callback can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
     callback move-to(x: length, y: length, mouse-x: length, mouse-y: length);
-    callback select-behind(x: length, y: length, enter-component: bool, same-file: bool);
+    callback select-through(x: length, y: length, enter-component: bool, reverse: bool);
+    callback selection-stack-at(x: length, y: length);
     callback selected-element-delete();
 
     if !root.interactive || !selection.is-primary: Rectangle {
@@ -82,7 +84,7 @@ component SelectionFrame {
         }
 
         double-clicked(x, y, modifiers) => {
-            root.select-behind(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
+            root.select-through(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
         }
 
         changed has-hover => {
@@ -90,6 +92,12 @@ component SelectionFrame {
                 StatusLineApi.help-text = @tr("<double-click> select behind element, <shift double-click> select before element, <{}> ignores component boundaries", Api.control-key-name);
             } else {
                 StatusLineApi.help-text = "";
+            }
+        }
+
+        pointer-event(x, y, event) => {
+            if event.button == PointerEventButton.right && event.kind == PointerEventKind.down {
+                root.selection-stack-at(root.selection.geometry.x + x, root.selection.geometry.y + y);
             }
         }
 
@@ -198,7 +206,6 @@ export component PreviewView {
 
     preferred-height: max(max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border, 10 * scroll-view.border);
     preferred-width: max(max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border, 10 * scroll-view.border);
-
 
     scroll-view := ScrollView {
         out property <length> border: 30px;
@@ -337,15 +344,24 @@ export component PreviewView {
 
                     pointer-event(event) => {
                         // This needs to fire AFTER clicked and double-clicked to work :-/
-                        if (event.kind == PointerEventKind.up) {
+                        if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
                             if (self.selection-kind == SelectionKind.select_up_or_down) {
                                 Api.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
                             } else if (self.selection-kind == SelectionKind.select-at) {
                                 Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
                             }
+                        } else if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                            self.selection-x = self.mouse-x;
+                            self.selection-y = self.mouse-y;
+                            self.selection-kind = SelectionKind.select-at;
+
+                            selection-popup.show-selection-stack(self.selection-x, self.selection-y);
+                        } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.right) {
+                            self.selection-kind = SelectionKind.none;
                         }
                         self.selection-kind = SelectionKind.none;
                     }
+
                     mouse-cursor: crosshair;
                     enabled: root.mode == DrawAreaMode.selecting;
 
@@ -378,8 +394,12 @@ export component PreviewView {
                             Api.selected-element-delete();
                         }
 
-                        select-behind(x, y, c, f) => {
+                        select-through(x, y, c, f) => {
                             Api.select-behind(x, y, c, f);
+                        }
+
+                        selection-stack-at(x, y) => {
+                            selection-popup.show-selection-stack(x, y);
                         }
                     }
                 }
@@ -395,6 +415,11 @@ export component PreviewView {
                 }
             }
         }
+    }
+
+    selection-popup := SelectionPopup {
+        preview-width: root.preview-area-width;
+        preview-height: root.preview-area-height;
     }
 
     // Diagnostics overlay:
