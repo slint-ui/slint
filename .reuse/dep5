@@ -147,26 +147,26 @@ Files: examples/fancy-switches/images/*.png examples/fancy-switches/images/*.svg
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/weather-demo/index.html
+Files: demos/weather-demo/index.html
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Files: examples/weather-demo/docs/*.png
+Files: demos/weather-demo/docs/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/weather-demo/ui/assets/icons/*.svg
+Files: demos/weather-demo/ui/assets/icons/*.svg
 Copyright: Fontawesome project <https://fontawesome.com/license/free>
 License: CC-BY-4.0
 
-Files: examples/weather-demo/ui/assets/weathericons-font.ttf
+Files: demos/weather-demo/ui/assets/weathericons-font.ttf
 Copyright: Weather Icons <http://erikflowers.github.io/weather-icons/>
 License: OFL-1.1
 
-Files: examples/weather-demo/android-res/*/ic_launcher.png
+Files: demos/weather-demo/android-res/*/ic_launcher.png
 Copyright: Copyright © Felgo GmbH <contact@felgo.com>
 License: CC-BY-ND-4.0
 
-Files: examples/weather-demo/ui/assets/felgo-logo.svg
+Files: demos/weather-demo/ui/assets/felgo-logo.svg
 Copyright: Copyright © Felgo GmbH <contact@felgo.com>
 License: CC-BY-ND-4.0
