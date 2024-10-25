@@ -24,6 +24,7 @@ use std::path::PathBuf;
 pub struct JsComponentCompiler {
     internal: Compiler,
     structs_and_enums: Vec<Type>,
+    resources: Option<HashMap<String, String>>,
     diagnostics: Vec<slint_interpreter::Diagnostic>,
 }
 
@@ -55,7 +56,7 @@ impl JsComponentCompiler {
 
         compiler.set_include_paths(include_paths);
         compiler.set_library_paths(library_paths);
-        Self { internal: compiler, diagnostics: vec![], structs_and_enums: vec![] }
+        Self { internal: compiler, diagnostics: vec![], structs_and_enums: vec![], resources: None }
     }
 
     #[napi(setter)]
@@ -96,6 +97,11 @@ impl JsComponentCompiler {
     #[napi(setter)]
     pub fn set_style(&mut self, style: String) {
         self.internal.set_style(style);
+    }
+
+    #[napi(setter)]
+    pub fn resources(&mut self, resources: HashMap<String, String>) {
+        self.resources = Some(resources);
     }
 
     #[napi(getter)]

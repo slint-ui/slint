@@ -252,6 +252,11 @@ export interface LoadFileOptions {
      * @hidden
      */
     fileLoader?: (path: string) => string;
+
+    /**
+     * @hidden
+     */
+    resources?: Record<string, string>;
 }
 
 type LoadData =
@@ -292,6 +297,9 @@ function loadSlint(loadData: LoadData): Object {
         }
         if (typeof options.fileLoader !== "undefined") {
             compiler.fileLoader = options.fileLoader;
+        }
+        if (typeof options.resources !== "undefined") {
+            compiler.resources = options.resources;
         }
     }
 
