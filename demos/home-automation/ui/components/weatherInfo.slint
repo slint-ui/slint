@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette,Measurements,Colors, Style } from "../common.slint";
+import { Info } from "info.slint";
+import { HaText } from "./general/haText.slint";
+
+export component Day inherits Rectangle {
+    in property <string> condition: "sunny";
+    in property <float> temp: 20.0;
+    in property <string> day: "Monday";
+    in property <bool> hilite: false;
+
+    if hilite: Rectangle {
+        border-bottom-left-radius: Measurements.tile-radius;
+        border-top-left-radius: Measurements.tile-radius;
+        background: Palette.info-alternate-background;
+    }
+    VerticalLayout {
+        alignment: center;
+        HaText {
+            text: day;
+            horizontal-alignment: center;
+            color: Palette.info-foreground;
+            font-size: Style.icon-title-font-size;
+        }
+
+        if condition == "sunny": Image {
+            height: 50px;
+            source: @image-url("../images/sunny.png");
+        }
+        if condition == "cloudy": Image {
+            height: 50px;
+            source: @image-url("../images/cloudy.png");
+        }
+        if condition == "rainy": Image {
+            height: 50px;
+            source: @image-url("../images/rainy.png");
+        }
+
+        HaText {
+            text: temp + "°C";
+            horizontal-alignment: center;
+            color: Palette.info-alternate-foreground;
+            font-size: Style.icon-title-font-size;
+        }
+    }
+}
+
+export component WeatherInfo inherits Info {
+    in property <int> index;
+    HorizontalLayout {
+        Day {
+            hilite: true;
+            condition: "sunny";
+            day: "Today";
+            temp: 21.0;
+        }
+
+        Day {
+            condition: "rainy";
+            day: "Tue";
+            temp: 16.0;
+        }
+
+        Day {
+            condition: "rainy";
+            day: "Wed";
+            temp: 18.0;
+        }
+
+        Day {
+            condition: "cloudy";
+            day: "Thu";
+            temp: 20.0;
+        }
+
+        Day {
+            condition: "sunny";
+            day: "Fri";
+            temp: 22.0;
+        }
+    }
+}

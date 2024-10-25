@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { AppState, ComponentData } from "../../appState.slint";
+import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
+
+export component FullScreenView inherits Rectangle {
+    property <ComponentData> full-screen-data: { id: "", x: 60, y: 60, width: 1800, height: 900, background: #00bf1d, visible: true };
+    property <bool> full-screen: false;
+
+    backdrop := Rectangle {
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        background: black;
+        touchCatcher := TouchArea { }
+
+        states [
+            isVisible when AppState.full-screen-index != -1 && full-screen: {
+                opacity: 0.7;
+                in {
+                    animate opacity {
+                        duration: 300ms;
+                        easing: ease-in-out-sine;
+                    }
+                }
+                out {
+                    animate opacity {
+                        duration: 300ms;
+                        easing: ease-in-out-sine;
+                    }
+                }
+            }
+        ]
+    }
+
+    fsw := FullScreenWidgetLoader {
+        in-out property <ComponentData> normal-layout-data;
+        data: full-screen ? full-screen-data : normal-layout-data;
+        property <string> full-screen-index: AppState.full-screen-index;
+        changed full-screen-index => {
+            full-screen = false;
+            closeTimer.running = true;
+        }
+        init => {
+            fsw.index = AppState.full-screen-index;
+            fsw.type = AppState.component-details[AppState.full-screen-index].type;
+            fsw.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
+        }
+    }
+
+    closeTimer := Timer {
+        running: false;
+        interval: 300ms;
+        triggered => {
+            AppState.showing-full-screen = false;
+            AppState.last-selected-index = -1;
+        }
+    }
+
+    Timer {
+        interval: 1ms;
+        triggered => {
+            self.running = false;
+            full-screen = true;
+        }
+    }
+}

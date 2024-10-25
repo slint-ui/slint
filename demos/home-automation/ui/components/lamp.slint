@@ -1,0 +1,123 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette, Measurements, Colors, Style } from "../common.slint";
+import { FancySlider } from "general/fancySlider.slint";
+import { InnerShadowRectangle } from "general/innerShadowRectangle.slint";
+import { Control } from "control.slint";
+import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+import { DropShadowToggle} from "general/toggle.slint";
+
+
+export component Lamp inherits Control {
+    in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 36px : 18px;
+    show-label: false;
+    tile-shadow-blur: 0px;
+
+    tile := InnerShadowRectangle {
+        width: 100%;
+        height: 100%;
+        clip: true;
+        inner-color: Palette.lamp-background.mix(Palette.lamp-shadow,(slider.value / 24));
+        inner-shadow-color: Palette.lamp-shadow;
+        inner-shadow-blur: tile.height / 5;
+
+        TouchArea {
+            clicked => {
+                slider.toggle();
+            }
+        }
+        Rectangle {
+            x: tile.width - self.width + 40px;
+            y: (root.width > Measurements.small-width-tile) ? -120px : -80px;
+            animate y {
+                duration: 300ms;
+                easing: ease-in-out-sine;
+            }
+            clip: true;
+            width: 70%;
+            height: 100%;
+
+            sh := Image {
+                property <[image]> frames: [
+                    @image-url("../images/lamp/0000.png"),
+                    @image-url("../images/lamp/0001.png"),
+                    @image-url("../images/lamp/0002.png"),
+                    @image-url("../images/lamp/0003.png"),
+                    @image-url("../images/lamp/0004.png"),
+                    @image-url("../images/lamp/0005.png"),
+                    @image-url("../images/lamp/0006.png"),
+                    @image-url("../images/lamp/0007.png"),
+                    @image-url("../images/lamp/0008.png"),
+                    @image-url("../images/lamp/0009.png"),
+                    @image-url("../images/lamp/0010.png"),
+                    @image-url("../images/lamp/0011.png"),
+                    @image-url("../images/lamp/0012.png"),
+                    @image-url("../images/lamp/0013.png"),
+                    @image-url("../images/lamp/0014.png"),
+                    @image-url("../images/lamp/0015.png"),
+                    @image-url("../images/lamp/0016.png"),
+                    @image-url("../images/lamp/0017.png"),
+                    @image-url("../images/lamp/0018.png"),
+                    @image-url("../images/lamp/0019.png"),
+                    @image-url("../images/lamp/0020.png"),
+                    @image-url("../images/lamp/0021.png"),
+                    @image-url("../images/lamp/0022.png"),
+                    @image-url("../images/lamp/0023.png"),
+                    @image-url("../images/lamp/0024.png"),
+                ];
+
+                property <int> frame: 0;
+                source: frames[slider.value];
+                animate frame {
+                    duration: 300ms;
+                    easing: ease-in-out-sine;
+                }
+            }
+        }
+
+        v := VerticalLayout {
+            padding: tilePadding;
+            width: 100%;
+            height: 100%;
+            alignment: space-between;
+            Rectangle {
+                width: 100%;
+
+                VerticalLayout {
+                    alignment: start;
+                    HaText {
+                        text: root.name;
+                        font-size: Style.tile-title-font-size;
+                        font-weight: 400;
+                        color: Palette.lamp-foreground;
+                    }
+                }
+            }
+        
+            slider := FancySlider {
+                maxValue: 24;
+                value: self.maxValue;
+                width: root.width * 0.8;
+
+                icon: @image-url("../images/brightness.svg");
+                colorize-icon: Colors.black;
+            }
+        }
+
+        switch := DropShadowToggle {
+            y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
+            x: root.height < Measurements.medium-height-tile ? root.width - self.width : root.x + tilePadding/2;
+            labelOff: "";
+            labelOn: "";
+            scale: 33%;
+            toggleOpacity: 0.4;
+            active: slider.value > 0;
+            touchEnabled: false;
+            control-color: self.active ? Palette.lamp-background : Palette.lamp-shadow ;
+            inner-shadow-color: self.active ? Palette.shadow-color : Palette.slider-background.darker(0.1);
+            inner-color-inactive: Palette.slider-background;
+            inner-color-active: Palette.slider-foreground;
+            }
+    }
+}

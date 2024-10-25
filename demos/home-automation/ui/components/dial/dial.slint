@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Palette } from "../../common.slint";
+
+export global DialState {
+    out property <int> totalLights: 60;
+    out property <angle> degreesFilledWithLights: 360deg - (startAngle - endAngle);
+    out property <angle> startAngle: 104deg;
+    out property <angle> endAngle: -startAngle;
+    in-out property <length> elementRadius: 240px;
+}
+
+export component Dial {
+    pure public function normalizeAngle(angle: angle) -> angle {
+        return (angle + 360deg).mod(360deg);
+    }
+
+    in property <bool> interactive: true;
+    property <bool> moving: ta.firstTouch;
+    in-out property <angle> dialAngle: DialState.startAngle;
+    out property <int> volume: ((dialAngle - DialState.startAngle) / DialState.degreesFilledWithLights) * DialState.totalLights;
+
+    width: 425px;
+    height: 427px;
+    knob := Rectangle {
+        base := Rectangle {
+            Image {
+                y: 18px;
+                source: Palette.dark-color-scheme ? @image-url("../../images/dial-frame.png") : @image-url("../../images/dial-frame-lite.png");
+                width: self.source.width * 1px;
+                height: self.source.height * 1px;
+            }
+
+            Image {
+                source: @image-url("../../images/lines.png");
+                colorize: Palette.dark-color-scheme ? #fff : #000;
+                rotation-angle: root.dialAngle;
+                width: self.source.width * 1.1 * 1px;
+                height: self.source.height * 1.1 * 1px;
+                opacity: 0.03;
+            }
+
+            ta := TouchArea {
+                property <length> centerX: self.width / 2;
+                property <length> centerY: self.height / 2;
+                property <length> relativeX;
+                property <length> relativeY;
+                property <angle> newAngle;
+                property <angle> deltaDegrees;
+                property <bool> firstTouch: false;
+                width: parent.width;
+                height: parent.height;
+                enabled: root.interactive;
+
+                changed pressed => {
+                    if !self.pressed {
+                        firstTouch = false;
+                    }
+                }
+
+                moved => {
+                    relativeX = ta.mouse-x - centerX;
+                    relativeY = ta.mouse-y - centerY;
+                    newAngle = normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
+                    if !firstTouch {
+                        firstTouch = true;
+                        deltaDegrees = normalizeAngle(root.dialAngle - newAngle);
+                    } else {
+                        root.dialAngle = normalizeAngle(deltaDegrees + newAngle).clamp(DialState.startAngle, 260deg);
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        width: 1px;
+        height: 1px;
+        x: 212px;
+        y: 210px;
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            x: 110px * root.dialAngle.cos();
+            y: 110px * root.dialAngle.sin();
+            Image {
+                source: Palette.dark-color-scheme ? @image-url("../../images/notch.png") : @image-url("../../images/notch-lite.png");
+                width: self.source.width * 0.8 * 1px;
+                height: self.source.height * 0.8 * 1px;
+            }
+        }
+    }
+}

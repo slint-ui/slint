@@ -1,0 +1,124 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { AppState, WidgetType, ComponentData } from "../../appState.slint";
+import { Lamp } from "../lamp.slint";
+import { Appliance } from "../appliance.slint";
+import { Overhead } from "../overhead.slint";
+import { Info } from "../info.slint";
+import { Graph } from "../graph.slint";
+import { Control } from "../control.slint";
+import { MusicPlayer } from "../musicPlayer.slint";
+import { Camera } from "../camera.slint";
+import { HVAC } from "../hvac.slint";
+import { Alarm } from "../alarm.slint";
+import { Measurements, Animation } from "../../common.slint";
+
+
+export component FullScreenWidgetLoader {
+    in property <int> index;
+    in property <ComponentData> data;
+    property <bool> show: false;
+    property <bool> moveMode: false;
+    in property <bool> skip-initial-fade: false;
+    in property <WidgetType> type;
+    property <length> animTargetX: data.x * 1px;
+    property <length> animTargetY: data.y * 1px;
+    property <length> animTargetWidth: data.width * 1px;
+    property <length> animTargetHeight: data.height * 1px;
+
+    animate animTargetX, animTargetY, animTargetWidth, animTargetHeight {
+        duration: Animation.full-screen-duration;
+        easing: ease-in-out-sine;
+    }
+
+    changed data => {
+        animTargetX = self.data.x * 1px;
+        animTargetY = self.data.y * 1px;
+        animTargetWidth = self.data.width * 1px;
+        animTargetHeight = self.data.height * 1px;
+    }
+
+    opacity: 1;
+    x: animTargetX * AppState.x-scale;
+    y: animTargetY * AppState.y-scale;
+    width: animTargetWidth * AppState.x-scale;
+    height: animTargetHeight * AppState.y-scale;
+
+    // Use the correct component based on type
+    if root.type == WidgetType.lamp: Lamp {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.appliance: Appliance {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.overhead: Overhead {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.info: Info {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.graph: Graph {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.control: Control {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.music: MusicPlayer {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.hvac: HVAC {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.camera: Camera {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.alarm: Alarm {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+}

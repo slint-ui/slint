@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Animation, Palette, Measurements, Colors } from "../common.slint";
+import { FancySlider } from "general/fancySlider.slint";
+import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
+
+export component Control inherits Rectangle {
+    in property <string> name;
+    in property <string> id;
+    in property <bool> type-label: true;
+    in property <bool> name-label: true;
+    in property <bool> full-screen: false;
+    in property <bool> control-label: true;
+    in property <length> control-label-position: 5px;
+    in property <int> index;
+    in property <length> tile-shadow-blur: Measurements.tile-shadow-blur;
+    in property <brush> tile-background: Palette.control-background;
+    in property <brush> tile-shadow-color: Palette.shadow-color;
+    in property <bool> show-label: true;
+    Image {
+        x: -23px;
+        y: -23px;
+        width: parent.width + 46px;
+        height: parent.height + 46px;
+        source: @image-url("../images/shadow-rounded.png", nine-slice(50));
+        colorize: tile-shadow-color;
+        animate colorize {
+            duration: AppState.first-run ? 0 : Animation.theme-change-duration;
+            easing: ease-in-out-sine;
+        }
+    }
+
+    tile := Rectangle {
+        clip: true;
+        background: tile-background;
+        border-radius: Measurements.tile-radius;
+        @children
+        if show-label: Rectangle {
+            x: control-label-position;
+            y: 5px;
+            border-radius: Measurements.tile-radius;
+            background: Colors.black.transparentize(0.7);
+            width: self.preferred-width;
+            height: self.preferred-height;
+
+            VerticalLayout {
+                alignment: space-between;
+                padding: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
+                width: 100%;
+                height: 100%;
+                VerticalLayout {
+                    alignment: start;
+                    spacing: 10px;
+
+                    Text {
+                        text: root.name;
+                        font-size: 20pt;
+                        font-weight: 400;
+                        color: Palette.control-foreground;
+                    }
+                }
+            }
+        }
+    }
+}
