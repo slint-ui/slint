@@ -14,7 +14,7 @@ export component LineEdit {
     in-out property <string> text <=> inner.text;
 
     callback accepted <=> inner.accepted;
-    callback rejected <=> base.rejected;
+    callback rejected <=> inner.rejected;
     callback edited <=> inner.edited;
     accessible-role: text-input;
     accessible-value <=> text;
