@@ -21,9 +21,9 @@ export struct TextStyle {
 }
 
 export global EditorFontSettings {
-    out property <int> light-font-weight: 300;
+    out property <int> light-font-weight: 100;
     out property <int> regular-font-weight: 400;
-    out property <int> semibold-font-weight: 600;
+    out property <int> semibold-font-weight: 700;
     out property <int> bold-font-weight: 900;
     
     out property <TextStyle> header: {
@@ -35,6 +35,15 @@ export global EditorFontSettings {
         font-size: 14 * 0.0769rem,
         font-weight: root.regular-font-weight
     };
+    out property <TextStyle> label: {
+        font-size: 14 * 0.0769rem,
+        font-weight: root.regular-font-weight
+    };
+    out property <TextStyle> label-sub: {
+        font-size: 14 * 0.0769rem,
+        font-weight: root.light-font-weight
+    };
+
     
     out property <TextStyle> body-strong: {
         font-size: 16 * 0.0769rem,
@@ -51,6 +60,7 @@ export global EditorSpaceSettings {
 }
 
 export global EditorSizeSettings {
+    in property <length> radius: 5px;
     in property <length> header-height: 32px;
     in property <length> item-height: 24px;
     in property <length> side-bar-width: 280px;
@@ -69,13 +79,14 @@ export global EditorPalette {
     
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 
-    out property <brush> general-element-selection-primary: #2379f4ff;
-    out property <brush> general-element-selection-secondary: #2379f480;
-    out property <brush> layout-element-selection-primary: #ff0000ff;
-    out property <brush> layout-element-selection-secondary: #ff000080;
-    out property <brush> interactive-element-selection-primary: #ff00ffff;
-    out property <brush> interactive-element-selection-secondary: #ff00ff80;
-    
+    out property <brush> general-element-selection-primary: #3884ed;
+    out property <brush> general-element-selection-selected: Palette.accent-foreground;
+    out property <brush> general-element-selection-secondary: #86b5fc;
+    out property <brush> layout-element-selection-primary: #FFC5FC;
+    out property <brush> layout-element-selection-secondary: #ff8af9;
+    out property <brush> interactive-element-selection-primary: #8fff79;
+    out property <brush> interactive-element-selection-secondary: #48dc2a;
+
     out property <brush> drop-mark-foreground: #00ff00ff;
     out property <brush> drop-mark-background: #00ff0080;
 }
