@@ -495,6 +495,86 @@ fn call_builtin_function(
             let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             Value::Number(x.powf(y))
         }
+        BuiltinFunction::ReplaceFirst => {
+            // Replace a string with another string replace("hello world", "hello", "goodbye")
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let from: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let to: SharedString =
+                eval_expression(&arguments[2], local_context).try_into().unwrap();
+            Value::String(s.replace_first(from.as_str(), to.as_str()))
+        }
+        BuiltinFunction::ReplaceLast => {
+            // Replace the last occurrence of a string with another string replace("hello world", "hello", "goodbye")
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let from: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let to: SharedString =
+                eval_expression(&arguments[2], local_context).try_into().unwrap();
+            Value::String(s.replace_last(from.as_str(), to.as_str()))
+        }
+        BuiltinFunction::ReplaceNth => {
+            // Replace the nth occurrence of a string with another string replace("hello world", "hello", "goodbye", 2)
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let from: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let to: SharedString =
+                eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let n: usize = eval_expression(&arguments[3], local_context).try_into().unwrap();
+            Value::String(s.replace_nth(from.as_str(), to.as_str(), n))
+        }
+        BuiltinFunction::ReplaceAll => {
+            // Replace all occurrences of a string with another string replace("hello world", "hello", "goodbye")
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let from: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let to: SharedString =
+                eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let result = s.replace_all(from.as_str(), to.as_str());
+            Value::String(result)
+        }
+        BuiltinFunction::Contains => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let search: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::Bool(s.contains(search.as_str()))
+        }
+        BuiltinFunction::StartsWith => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let search: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::Bool(s.starts_with_str(search.as_str()))
+        }
+        BuiltinFunction::EndsWith => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let search: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::Bool(s.starts_with_str(search.as_str()))
+        }
+        BuiltinFunction::Slice => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let start: usize = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let end: usize = eval_expression(&arguments[2], local_context).try_into().unwrap();
+            Value::String(s.slice(start, end))
+        }
+        BuiltinFunction::SliceByLen => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let start: usize = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let len: usize = eval_expression(&arguments[2], local_context).try_into().unwrap();
+            Value::String(s.slice_by_len(start, len))
+        }
+        BuiltinFunction::Trim => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(s.trim().into())
+        }
+        BuiltinFunction::TrimStart => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(s.trim_start().into())
+        }
+        BuiltinFunction::TrimEnd => {
+            let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(s.trim_end().into())
+        }
         BuiltinFunction::SetFocusItem => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to SetFocusItem")

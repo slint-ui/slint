@@ -102,6 +102,7 @@ pub enum LookupResult {
 pub enum BuiltinNamespace {
     Colors,
     Math,
+    String,
     Key,
     SlintInternal,
 }
@@ -165,6 +166,9 @@ impl LookupObject for LookupResult {
                 (ColorSpecific, ColorFunctions).for_each_entry(ctx, f)
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
+            LookupResult::Namespace(BuiltinNamespace::String) => {
+                StringFunctions.for_each_entry(ctx, f)
+            }
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.for_each_entry(ctx, f)
@@ -180,6 +184,7 @@ impl LookupObject for LookupResult {
                 (ColorSpecific, ColorFunctions).lookup(ctx, name)
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::String) => StringFunctions.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.lookup(ctx, name)
@@ -810,6 +815,36 @@ impl LookupObject for MathFunctions {
     }
 }
 
+struct StringFunctions;
+impl LookupObject for StringFunctions {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        use Expression::BuiltinFunctionReference;
+        let t = &ctx.current_token;
+        let sl = || t.as_ref().map(|t| t.to_source_location());
+        let mut f = |n, e: Expression| f(n, e.into());
+        None.or_else(|| {
+            f("replace-first", BuiltinFunctionReference(BuiltinFunction::ReplaceFirst, sl()))
+        })
+        .or_else(|| f("replace-last", BuiltinFunctionReference(BuiltinFunction::ReplaceLast, sl())))
+        .or_else(|| f("replace-nth", BuiltinFunctionReference(BuiltinFunction::ReplaceNth, sl())))
+        .or_else(|| f("replace-all", BuiltinFunctionReference(BuiltinFunction::ReplaceAll, sl())))
+        .or_else(|| f("contains", BuiltinFunctionReference(BuiltinFunction::Contains, sl())))
+        .or_else(|| f("slice", BuiltinFunctionReference(BuiltinFunction::Slice, sl())))
+        .or_else(|| {
+            f("slice-by-length", BuiltinFunctionReference(BuiltinFunction::SliceByLen, sl()))
+        })
+        .or_else(|| f("starts-with", BuiltinFunctionReference(BuiltinFunction::StartsWith, sl())))
+        .or_else(|| f("ends-with", BuiltinFunctionReference(BuiltinFunction::EndsWith, sl())))
+        .or_else(|| f("trim", BuiltinFunctionReference(BuiltinFunction::Trim, sl())))
+        .or_else(|| f("trim-start", BuiltinFunctionReference(BuiltinFunction::TrimStart, sl())))
+        .or_else(|| f("trim-end", BuiltinFunctionReference(BuiltinFunction::TrimEnd, sl())))
+    }
+}
+
 struct SlintInternal;
 impl LookupObject for SlintInternal {
     fn for_each_entry<R>(
@@ -882,7 +917,7 @@ impl LookupObject for BuiltinFunctionLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        (MathFunctions, ColorFunctions)
+        ((MathFunctions, ColorFunctions), StringFunctions)
             .for_each_entry(ctx, f)
             .or_else(|| {
                 f(

@@ -135,3 +135,53 @@ Square root
 ### `pow(float, float) -> float`
 
 Return the value of the first value raised to the second
+
+## `String`
+
+### `contains(string, string) -> bool`
+
+Return true if the first string contains the second string.
+
+### `starts-with(string, string) -> bool`
+
+Return true if the first string starts with the second string.
+
+### `ends-with(string, string) -> bool`
+
+Return true if the first string ends with the second string.
+
+### `slice(string, int, int) -> string`
+
+Return a substring of the first string, starting at the first index and ending at the second index.
+
+### `slice-by-length(string, int, int) -> string`
+
+Return a substring of the first string, starting at the first index and includes the number of characters specified by the second index.
+
+### `replace-first(string, string, string) -> string`
+
+Return a new string with the first string replaced by the second string.
+
+### `replace-last(string, string, string) -> string`
+
+Return a new string with the last occurrence of the second string replaced by the third string.
+
+### `replace-nth(string, string, string, int) -> string`
+
+Return a new string with the nth occurrence of the second string replaced by the third string.
+
+### `replace-all(string, string, string) -> string`
+
+Return a new string with all occurrences of the second string replaced by the third string.
+
+### `trim(string) -> string`
+
+Removes whitespace from both ends of the string including newlines, tabs, and spaces.
+
+### `trim-start(string) -> string`
+
+Removes whitespace from the start of the string including newlines, tabs, and spaces.
+
+### `trim-end(string) -> string`
+
+Removes whitespace from the end of the string including newlines, tabs, and spaces.

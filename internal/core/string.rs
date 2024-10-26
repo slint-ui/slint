@@ -96,6 +96,213 @@ impl SharedString {
             self.inner.make_mut_slice()[prev_len] = first;
         }
     }
+
+    /// Replaces the first occurrence of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace_first("World", "Universe"), "Hello, Universe!");
+    /// assert_eq!(hello.replace_first("o", "0"), "Hell0, World!");
+    /// assert_eq!(hello.replace_first("l", "L"), "HeLlo, World!");
+    /// ```
+    pub fn replace_first(&self, find: &str, replace: &str) -> SharedString {
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().splitn(2, find);
+        if let Some(first) = iter.next() {
+            result.push_str(first);
+            if let Some(second) = iter.next() {
+                result.push_str(replace);
+                result.push_str(second);
+            }
+        }
+        result
+    }
+
+    /// Replaces the last occurrence of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace_last("o", "0"), "Hello, W0rld!");
+    /// assert_eq!(hello.replace_last("World", "Universe"), "Hello, Universe!");
+    /// ```
+    pub fn replace_last(&self, find: &str, replace: &str) -> SharedString {
+        // Find the last occurrence of `find` in the string and replace it with `replace`
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().rsplitn(2, find);
+        if let Some(after) = iter.next() {
+            if let Some(before) = iter.next() {
+                result.push_str(before);
+                result.push_str(replace);
+            }
+            result.push_str(after);
+        }
+        result
+    }
+
+    /// Replaces the nth occurrence of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace_nth("l", "L", 2), "HelLo, World!");
+    /// assert_eq!(hello.replace_nth("o", "0", 1), "Hell0, World!");
+    /// assert_eq!(hello.replace_nth("o", "ooo...", 1), "Hellooo..., World!");
+    /// ```
+    pub fn replace_nth(&self, find: &str, replace: &str, nth: usize) -> SharedString {
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().splitn(nth + 1, find);
+        if let Some(first) = iter.next() {
+            result.push_str(first);
+            for (i, part) in iter.enumerate() {
+                if i == nth - 1 {
+                    result.push_str(replace);
+                } else {
+                    result.push_str(find);
+                }
+                result.push_str(part);
+            }
+        }
+        result
+    }
+
+    /// Replaces all occurrences of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace_all("o", "0"), "Hell0, W0rld!");
+    /// ```
+    pub fn replace_all(&self, find: &str, replace: &str) -> SharedString {
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().split(find);
+        if let Some(first) = iter.next() {
+            result.push_str(first);
+            for part in iter {
+                result.push_str(replace);
+                result.push_str(part);
+            }
+        }
+        result
+    }
+
+    /// Whether the string starts with the given substring
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.starts_with_str("Hello"), true);
+    /// assert_eq!(hello.starts_with_str("World"), false);
+    /// ```
+    pub fn starts_with_str(&self, x: &str) -> bool {
+        self.as_str().starts_with(x)
+    }
+
+    /// Whether the string ends with the given substring
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.ends_with_str("World!"), true);
+    /// assert_eq!(hello.ends_with_str("Hello"), false);
+    /// ```
+    pub fn ends_with_str(&self, x: &str) -> bool {
+        self.as_str().ends_with(x)
+    }
+
+    /// Returns a substring of the string where the `start` is the index of the first character and `length` is the number of characters.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.slice_by_len(7, 5), "World");
+    /// assert_eq!(hello.slice_by_len(0, 5), "Hello");
+    /// assert_eq!(hello.slice_by_len(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.slice_by_len(0, 0), "");
+    /// assert_eq!(hello.slice_by_len(1000, 1000), "");
+    /// assert_eq!(hello.slice_by_len(1, 3), "ell");
+    /// assert_eq!(hello.slice_by_len(7, 1000), "World!");
+    /// ```
+    pub fn slice_by_len(&self, start: usize, length: usize) -> SharedString {
+        // if start is greater than the length of the string, return an empty string
+        // if length is 0, return an empty string
+        if start >= self.len() || length == 0 {
+            return SharedString::default();
+        }
+        let end = start + length;
+        let end = core::cmp::min(end, self.len());
+        let mut result = SharedString::default();
+        result.push_str(&self.as_str()[start..end]);
+        result
+    }
+
+    /// Returns a substring of the string where the `start` is the index of the first character and `end` is the index of the last character.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.slice(7, 12), "World");
+    /// assert_eq!(hello.slice(0, 5), "Hello");
+    /// assert_eq!(hello.slice(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.slice(0, 0), "");
+    /// assert_eq!(hello.slice(1000, 1000), "");
+    /// assert_eq!(hello.slice(1, 3), "el");
+    /// assert_eq!(hello.slice(7, 1000), "World!");
+    /// ```
+    pub fn slice(&self, start: usize, end: usize) -> SharedString {
+        if start > end {
+            return SharedString::default();
+        }
+        self.slice_by_len(start, end - start)
+    }
+
+    /// Removes leading and trailing whitespaces including new lines
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("  Hello, World!  ");
+    /// assert_eq!(hello.trim(), "Hello, World!");
+    /// // New lines are also removed
+    /// let hello = SharedString::from("\nHello, World!\n\n");
+    /// assert_eq!(hello.trim(), "Hello, World!");
+    /// ```
+    pub fn trim(&self) -> SharedString {
+        let mut result = SharedString::default();
+        result.push_str(self.as_str().trim());
+        result
+    }
+
+    /// Removes leading whitespaces including new lines
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("  Hello, World!  ");
+    /// assert_eq!(hello.trim_start(), "Hello, World!  ");
+    /// // New lines are also removed
+    /// let hello = SharedString::from("\nHello, World!\n\n");
+    /// assert_eq!(hello.trim_start(), "Hello, World!\n\n");
+    /// ```
+    pub fn trim_start(&self) -> SharedString {
+        let mut result = SharedString::default();
+        result.push_str(self.as_str().trim_start());
+        result
+    }
+
+    /// Removes trailing whitespaces including new lines
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("  Hello, World!  ");
+    /// assert_eq!(hello.trim_end(), "  Hello, World!");
+    /// // New lines are also removed
+    /// let hello = SharedString::from("\nHello, World!\n\n");
+    /// assert_eq!(hello.trim_end(), "\nHello, World!");
+    /// ```
+    pub fn trim_end(&self) -> SharedString {
+        let mut result = SharedString::default();
+        result.push_str(self.as_str().trim_end());
+        result
+    }
 }
 
 impl Deref for SharedString {

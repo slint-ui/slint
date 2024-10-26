@@ -485,6 +485,7 @@ struct ConditionalIncludes {
     iostream: Cell<bool>,
     cstdlib: Cell<bool>,
     cmath: Cell<bool>,
+    string: Cell<bool>,
 }
 
 #[derive(Clone)]
@@ -3441,6 +3442,54 @@ fn compile_builtin_function_call(
         BuiltinFunction::ATan2 => {
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::atan2({}, {}) / {}", a.next().unwrap(), a.next().unwrap(), pi_180)
+        }
+        BuiltinFunction::ReplaceFirst => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::replace_first({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::ReplaceLast => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::replace_last({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::ReplaceNth => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::replace_nth({}, {}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::ReplaceAll => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::replace_all({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::Contains => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::contains({}, {})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::StartsWith => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::starts_with({}, {})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::EndsWith => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::ends_with({}, {})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::Trim => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::trim({})", a.next().unwrap())
+        }
+        BuiltinFunction::TrimStart => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::trim_start({})", a.next().unwrap())
+        }
+        BuiltinFunction::TrimEnd => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::trim_end({})", a.next().unwrap())
+        }
+        BuiltinFunction::SliceByLen => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::substr({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::Slice => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::substring({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::SetFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {

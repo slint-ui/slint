@@ -2781,6 +2781,46 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToFloat => {
             quote!(#(#a)*.as_str().parse::<f64>().unwrap_or_default())
         }
+        BuiltinFunction::ReplaceFirst => {
+            let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!(#s.replace_first(#from.as_str(), #to.as_str()))
+        }
+        BuiltinFunction::ReplaceLast => {
+            let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!(#s.replace_last(#from.as_str(), #to.as_str()))
+        }
+        BuiltinFunction::ReplaceNth => {
+            let (s, from, to, n) =
+                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!(#s.replace_nth(#from.as_str(), #to.as_str(), #n as usize))
+        }
+        BuiltinFunction::ReplaceAll => {
+            let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!(#s.replace_all(#from.as_str(), #to.as_str()))
+        }
+        BuiltinFunction::Contains => {
+            let (s, sub) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.as_str().contains(#sub.as_str()))
+        }
+        BuiltinFunction::StartsWith => {
+            let (s, sub) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.starts_with_str(#sub.as_str()))
+        }
+        BuiltinFunction::EndsWith => {
+            let (s, sub) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.ends_with_str(#sub.as_str()))
+        }
+        BuiltinFunction::Slice => {
+            let (s, start, end) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!(#s.slice(#start as usize, #end as usize))
+        }
+        BuiltinFunction::SliceByLen => {
+            let (s, start, len) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!(#s.slice_by_len(#start as usize, #len as usize))
+        }
+        BuiltinFunction::Trim => quote!(#(#a)*.trim()),
+        BuiltinFunction::TrimStart => quote!(#(#a)*.trim_start()),
+        BuiltinFunction::TrimEnd => quote!(#(#a)*.trim_end()),
         BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),

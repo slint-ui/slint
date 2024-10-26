@@ -95,6 +95,18 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ATan2 => 10,
         BuiltinFunction::Log => 10,
         BuiltinFunction::Pow => 10,
+        BuiltinFunction::ReplaceFirst
+        | BuiltinFunction::ReplaceLast
+        | BuiltinFunction::ReplaceNth
+        | BuiltinFunction::ReplaceAll
+        | BuiltinFunction::Contains
+        | BuiltinFunction::StartsWith
+        | BuiltinFunction::EndsWith
+        | BuiltinFunction::Slice
+        | BuiltinFunction::SliceByLen
+        | BuiltinFunction::Trim
+        | BuiltinFunction::TrimStart
+        | BuiltinFunction::TrimEnd => 10,
         BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
