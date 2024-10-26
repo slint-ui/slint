@@ -21,32 +21,34 @@ export component TextEdit {
     in-out property <length> viewport-height <=> base.viewport-height;
 
     callback edited <=> base.edited;
+    callback rejected <=> base.rejected;
+
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
     accessible-value <=> text;
     accessible-placeholder-text: text == "" ? placeholder-text : "";
 
-    public function set-selection-offsets(start: int,end: int){
+    public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);
     }
 
-    public function select-all(){
+    public function select-all() {
         base.select-all();
     }
 
-    public function clear-selection(){
+    public function clear-selection() {
         base.clear-selection();
     }
 
-    public function cut(){
+    public function cut() {
         base.cut();
     }
 
-    public function copy(){
+    public function copy() {
         base.copy();
     }
 
-    public function paste(){
+    public function paste() {
         base.paste();
     }
 
