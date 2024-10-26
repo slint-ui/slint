@@ -154,7 +154,7 @@ Return true if the first string ends with the second string.
 
 Return a substring of the first string, starting at the first index and ending at the second index.
 
-### `slice-by-len(string, int, int) -> string`
+### `slice-by-length(string, int, int) -> string`
 
 Return a substring of the first string, starting at the first index and includes the number of characters specified by the second index.
 

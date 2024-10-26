@@ -834,7 +834,9 @@ impl LookupObject for StringFunctions {
         .or_else(|| f("replace-all", BuiltinFunctionReference(BuiltinFunction::ReplaceAll, sl())))
         .or_else(|| f("contains", BuiltinFunctionReference(BuiltinFunction::Contains, sl())))
         .or_else(|| f("slice", BuiltinFunctionReference(BuiltinFunction::Slice, sl())))
-        .or_else(|| f("slice-by-len", BuiltinFunctionReference(BuiltinFunction::SliceByLen, sl())))
+        .or_else(|| {
+            f("slice-by-length", BuiltinFunctionReference(BuiltinFunction::SliceByLen, sl()))
+        })
         .or_else(|| f("starts-with", BuiltinFunctionReference(BuiltinFunction::StartsWith, sl())))
         .or_else(|| f("ends-with", BuiltinFunctionReference(BuiltinFunction::EndsWith, sl())))
         .or_else(|| f("trim", BuiltinFunctionReference(BuiltinFunction::Trim, sl())))
