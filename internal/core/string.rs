@@ -102,7 +102,9 @@ impl SharedString {
     /// ```
     /// # use i_slint_core::SharedString;
     /// let hello = SharedString::from("Hello, World!");
-    /// assert_eq!(hello.replace("World", "Universe"), "Hello, Universe!");
+    /// assert_eq!(hello.replace_first("World", "Universe"), "Hello, Universe!");
+    /// assert_eq!(hello.replace_first("o", "0"), "Hell0, World!");
+    /// assert_eq!(hello.replace_first("l", "L"), "HeLlo, World!");
     /// ```
     pub fn replace_first(&self, find: &str, replace: &str) -> SharedString {
         let mut result = SharedString::default();
@@ -214,13 +216,13 @@ impl SharedString {
     /// ```
     /// # use i_slint_core::SharedString;
     /// let hello = SharedString::from("Hello, World!");
-    /// assert_eq!(hello.substr(7, 5), "World");
-    /// assert_eq!(hello.substr(0, 5), "Hello");
-    /// assert_eq!(hello.substr(0, 1000), "Hello, World!");
-    /// assert_eq!(hello.substr(0, 0), "");
-    /// assert_eq!(hello.substr(1000, 1000), "");
-    /// assert_eq!(hello.substr(1, 3), "ell");
-    /// assert_eq!(hello.substr(7, 1000), "World!");
+    /// assert_eq!(hello.slice_by_len(7, 5), "World");
+    /// assert_eq!(hello.slice_by_len(0, 5), "Hello");
+    /// assert_eq!(hello.slice_by_len(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.slice_by_len(0, 0), "");
+    /// assert_eq!(hello.slice_by_len(1000, 1000), "");
+    /// assert_eq!(hello.slice_by_len(1, 3), "ell");
+    /// assert_eq!(hello.slice_by_len(7, 1000), "World!");
     /// ```
     pub fn slice_by_len(&self, start: usize, length: usize) -> SharedString {
         // if start is greater than the length of the string, return an empty string
@@ -240,13 +242,13 @@ impl SharedString {
     /// ```
     /// # use i_slint_core::SharedString;
     /// let hello = SharedString::from("Hello, World!");
-    /// assert_eq!(hello.substring(7, 12), "World");
-    /// assert_eq!(hello.substring(0, 5), "Hello");
-    /// assert_eq!(hello.substring(0, 1000), "Hello, World!");
-    /// assert_eq!(hello.substring(0, 0), "");
-    /// assert_eq!(hello.substring(1000, 1000), "");
-    /// assert_eq!(hello.substring(1, 3), "el");
-    /// assert_eq!(hello.substring(7, 1000), "World!");
+    /// assert_eq!(hello.slice(7, 12), "World");
+    /// assert_eq!(hello.slice(0, 5), "Hello");
+    /// assert_eq!(hello.slice(0, 1000), "Hello, World!");
+    /// assert_eq!(hello.slice(0, 0), "");
+    /// assert_eq!(hello.slice(1000, 1000), "");
+    /// assert_eq!(hello.slice(1, 3), "el");
+    /// assert_eq!(hello.slice(7, 1000), "World!");
     /// ```
     pub fn slice(&self, start: usize, end: usize) -> SharedString {
         if start > end {
