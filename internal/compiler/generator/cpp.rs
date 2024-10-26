@@ -3445,11 +3445,11 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ReplaceFirst => {
             ctx.generator_state.conditional_includes.string.set(true);
-            format!("slint::private_api::replace({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+            format!("slint::private_api::replace_first({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::ReplaceLast => {
             ctx.generator_state.conditional_includes.string.set(true);
-            format!("slint::private_api::replace_first({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+            format!("slint::private_api::replace_last({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::ReplaceNth => {
             ctx.generator_state.conditional_includes.string.set(true);
@@ -3461,7 +3461,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::Contains => {
             ctx.generator_state.conditional_includes.string.set(true);
-            format!("slint::private_api::includes({}, {})", a.next().unwrap(), a.next().unwrap())
+            format!("slint::private_api::contains({}, {})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::StartsWith => {
             ctx.generator_state.conditional_includes.string.set(true);

@@ -537,7 +537,7 @@ fn call_builtin_function(
             let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let search: SharedString =
                 eval_expression(&arguments[1], local_context).try_into().unwrap();
-            Value::Bool(s.includes(search.as_str()))
+            Value::Bool(s.contains(search.as_str()))
         }
         BuiltinFunction::StartsWith => {
             let s: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
