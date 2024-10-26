@@ -24,7 +24,6 @@ These examples demonstrate the main features of Slint and how to use them in dif
 | [Maps![Maps demo image](https://github.com/slint-ui/slint/assets/959326/f5e8cca6-dee1-4681-83da-88fec27f9a45 "OpenGL Underlay demo image")](./maps/) | A rust example that load image tiles asynchronously from OpenStreetMap server and allow panning and zooming. <br/> [Project...](./maps/) |  |
 | [Virtual Keyboard![Virtual Keyboard demo image](https://user-images.githubusercontent.com/6715107/231668373-23faedf8-b42a-401d-b3a2-845d5e61252b.png "Virtual Keyboard demo image")](./virtual_keyboard/) | A Rust and C++ example that shows how to implement a custom virtual keyboard in Slint. <br/> [Project...](./virtual_keyboard/) |  |
 | [7GUIs![7 GUI's demo image](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7 GUI's demo image")](./7guis/) | Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks. <br/> [Project...](./7guis/) |  |
-| [Weather![Weather demo image](./weather-demo/docs/img/desktop-preview.png "7 GUI's demo image")](./weather-demo/) | A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [OpenWeather](https://openweathermap.org/) API. <br/> [Project...](./weather-demo/) | [Wasm Demo](https://slint.dev/snapshots/master/demos/weather-demo/) |
 
 #### External examples
 | Thumbnail  | Description |

@@ -257,6 +257,6 @@ You can of course also contact us privately via email to [info@slint.dev](mailto
 [#25]: https://www.npmjs.com/package/slint-ui
 [#26]: https://slint.dev/latest/docs/node
 [#28]: https://github.com/slint-ui/slint-nodejs-template
-[#29]: ./examples/weather-demo/docs/img/desktop-preview.png "Weather Demo"
+[#29]: ./demos/weather-demo/docs/img/desktop-preview.png "Weather Demo"
 [#30]: https://slint.dev/demos/weather-demo/
 
