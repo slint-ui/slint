@@ -826,20 +826,20 @@ impl LookupObject for StringFunctions {
         let t = &ctx.current_token;
         let sl = || t.as_ref().map(|t| t.to_source_location());
         let mut f = |n, e: Expression| f(n, e.into());
-        None.or_else(|| f("replace", BuiltinFunctionReference(BuiltinFunction::Replace, sl())))
-            .or_else(|| {
-                f("replace-all", BuiltinFunctionReference(BuiltinFunction::ReplaceAll, sl()))
-            })
-            .or_else(|| f("includes", BuiltinFunctionReference(BuiltinFunction::Includes, sl())))
-            .or_else(|| f("substring", BuiltinFunctionReference(BuiltinFunction::Substring, sl())))
-            .or_else(|| f("substr", BuiltinFunctionReference(BuiltinFunction::Substr, sl())))
-            .or_else(|| {
-                f("starts-with", BuiltinFunctionReference(BuiltinFunction::StartsWith, sl()))
-            })
-            .or_else(|| f("ends-with", BuiltinFunctionReference(BuiltinFunction::EndsWith, sl())))
-            .or_else(|| f("trim", BuiltinFunctionReference(BuiltinFunction::Trim, sl())))
-            .or_else(|| f("trim-start", BuiltinFunctionReference(BuiltinFunction::TrimStart, sl())))
-            .or_else(|| f("trim-end", BuiltinFunctionReference(BuiltinFunction::TrimEnd, sl())))
+        None.or_else(|| {
+            f("replace-first", BuiltinFunctionReference(BuiltinFunction::ReplaceFirst, sl()))
+        })
+        .or_else(|| f("replace-last", BuiltinFunctionReference(BuiltinFunction::ReplaceLast, sl())))
+        .or_else(|| f("replace-nth", BuiltinFunctionReference(BuiltinFunction::ReplaceNth, sl())))
+        .or_else(|| f("replace-all", BuiltinFunctionReference(BuiltinFunction::ReplaceAll, sl())))
+        .or_else(|| f("contains", BuiltinFunctionReference(BuiltinFunction::Contains, sl())))
+        .or_else(|| f("slice", BuiltinFunctionReference(BuiltinFunction::Slice, sl())))
+        .or_else(|| f("slice-by-len", BuiltinFunctionReference(BuiltinFunction::SliceByLen, sl())))
+        .or_else(|| f("starts-with", BuiltinFunctionReference(BuiltinFunction::StartsWith, sl())))
+        .or_else(|| f("ends-with", BuiltinFunctionReference(BuiltinFunction::EndsWith, sl())))
+        .or_else(|| f("trim", BuiltinFunctionReference(BuiltinFunction::Trim, sl())))
+        .or_else(|| f("trim-start", BuiltinFunctionReference(BuiltinFunction::TrimStart, sl())))
+        .or_else(|| f("trim-end", BuiltinFunctionReference(BuiltinFunction::TrimEnd, sl())))
     }
 }
 

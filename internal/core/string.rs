@@ -104,7 +104,7 @@ impl SharedString {
     /// let hello = SharedString::from("Hello, World!");
     /// assert_eq!(hello.replace("World", "Universe"), "Hello, Universe!");
     /// ```
-    pub fn replace(&self, find: &str, replace: &str) -> SharedString {
+    pub fn replace_first(&self, find: &str, replace: &str) -> SharedString {
         let mut result = SharedString::default();
         let mut iter = self.as_str().splitn(2, find);
         if let Some(first) = iter.next() {
@@ -112,6 +112,54 @@ impl SharedString {
             if let Some(second) = iter.next() {
                 result.push_str(replace);
                 result.push_str(second);
+            }
+        }
+        result
+    }
+
+    /// Replaces the last occurrence of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace_last("o", "0"), "Hello, W0rld!");
+    /// assert_eq!(hello.replace_last("World", "Universe"), "Hello, Universe!");
+    /// ```
+    pub fn replace_last(&self, find: &str, replace: &str) -> SharedString {
+        // Find the last occurrence of `find` in the string and replace it with `replace`
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().rsplitn(2, find);
+        if let Some(after) = iter.next() {
+            if let Some(before) = iter.next() {
+                result.push_str(before);
+                result.push_str(replace);
+            }
+            result.push_str(after);
+        }
+        result
+    }
+
+    /// Replaces the nth occurrence of `find` with `replace`.
+    ///
+    /// ```
+    /// # use i_slint_core::SharedString;
+    /// let hello = SharedString::from("Hello, World!");
+    /// assert_eq!(hello.replace_nth("l", "L", 2), "HelLo, World!");
+    /// assert_eq!(hello.replace_nth("o", "0", 1), "Hell0, World!");
+    /// assert_eq!(hello.replace_nth("o", "ooo...", 1), "Hellooo..., World!");
+    /// ```
+    pub fn replace_nth(&self, find: &str, replace: &str, nth: usize) -> SharedString {
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().splitn(nth + 1, find);
+        if let Some(first) = iter.next() {
+            result.push_str(first);
+            for (i, part) in iter.enumerate() {
+                if i == nth - 1 {
+                    result.push_str(replace);
+                } else {
+                    result.push_str(find);
+                }
+                result.push_str(part);
             }
         }
         result
@@ -135,18 +183,6 @@ impl SharedString {
             }
         }
         result
-    }
-
-    /// Whether the string contains the given substring
-    ///
-    /// ```
-    /// # use i_slint_core::SharedString;
-    /// let hello = SharedString::from("Hello, World!");
-    /// assert_eq!(hello.includes("World"), true);
-    /// assert_eq!(hello.includes("Universe"), false);
-    /// ```
-    pub fn includes(&self, x: &str) -> bool {
-        self.as_str().contains(x)
     }
 
     /// Whether the string starts with the given substring
@@ -186,7 +222,7 @@ impl SharedString {
     /// assert_eq!(hello.substr(1, 3), "ell");
     /// assert_eq!(hello.substr(7, 1000), "World!");
     /// ```
-    pub fn substr(&self, start: usize, length: usize) -> SharedString {
+    pub fn slice_by_len(&self, start: usize, length: usize) -> SharedString {
         // if start is greater than the length of the string, return an empty string
         // if length is 0, return an empty string
         if start >= self.len() || length == 0 {
@@ -212,11 +248,11 @@ impl SharedString {
     /// assert_eq!(hello.substring(1, 3), "el");
     /// assert_eq!(hello.substring(7, 1000), "World!");
     /// ```
-    pub fn substring(&self, start: usize, end: usize) -> SharedString {
+    pub fn slice(&self, start: usize, end: usize) -> SharedString {
         if start > end {
             return SharedString::default();
         }
-        self.substr(start, end - start)
+        self.slice_by_len(start, end - start)
     }
 
     /// Removes leading and trailing whitespaces including new lines

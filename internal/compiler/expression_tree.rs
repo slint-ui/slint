@@ -39,13 +39,15 @@ pub enum BuiltinFunction {
     ATan2,
     Log,
     Pow,
-    Replace,
+    ReplaceFirst,
+    ReplaceNth,
+    ReplaceLast,
     ReplaceAll,
-    Includes,
+    Contains,
     StartsWith,
     EndsWith,
-    Substring,
-    Substr,
+    Slice,
+    SliceByLen,
     Trim,
     TrimStart,
     TrimEnd,
@@ -157,17 +159,23 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Float32),
                 args: vec![Type::Float32, Type::Float32],
             },
-            BuiltinFunction::Replace | BuiltinFunction::ReplaceAll => Type::Function {
+            BuiltinFunction::ReplaceFirst
+            | BuiltinFunction::ReplaceLast
+            | BuiltinFunction::ReplaceAll => Type::Function {
                 return_type: Box::new(Type::String),
                 args: vec![Type::String, Type::String, Type::String],
             },
-            BuiltinFunction::Includes | BuiltinFunction::StartsWith | BuiltinFunction::EndsWith => {
+            BuiltinFunction::ReplaceNth => Type::Function {
+                return_type: Box::new(Type::String),
+                args: vec![Type::String, Type::String, Type::String, Type::Int32],
+            },
+            BuiltinFunction::Contains | BuiltinFunction::StartsWith | BuiltinFunction::EndsWith => {
                 Type::Function {
                     return_type: Box::new(Type::Bool),
                     args: vec![Type::String, Type::String],
                 }
             }
-            BuiltinFunction::Substring | BuiltinFunction::Substr => Type::Function {
+            BuiltinFunction::Slice | BuiltinFunction::SliceByLen => Type::Function {
                 return_type: Box::new(Type::String),
                 args: vec![Type::String, Type::Int32, Type::Int32],
             },
@@ -382,13 +390,15 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
-            BuiltinFunction::Replace
+            BuiltinFunction::ReplaceFirst
+            | BuiltinFunction::ReplaceLast
+            | BuiltinFunction::ReplaceNth
             | BuiltinFunction::ReplaceAll
-            | BuiltinFunction::Includes
+            | BuiltinFunction::Contains
             | BuiltinFunction::StartsWith
             | BuiltinFunction::EndsWith
-            | BuiltinFunction::Substring
-            | BuiltinFunction::Substr
+            | BuiltinFunction::Slice
+            | BuiltinFunction::SliceByLen
             | BuiltinFunction::Trim
             | BuiltinFunction::TrimStart
             | BuiltinFunction::TrimEnd => false,
@@ -459,13 +469,15 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
-            BuiltinFunction::Replace
+            BuiltinFunction::ReplaceFirst
+            | BuiltinFunction::ReplaceLast
+            | BuiltinFunction::ReplaceNth
             | BuiltinFunction::ReplaceAll
-            | BuiltinFunction::Includes
+            | BuiltinFunction::Contains
             | BuiltinFunction::StartsWith
             | BuiltinFunction::EndsWith
-            | BuiltinFunction::Substring
-            | BuiltinFunction::Substr
+            | BuiltinFunction::Slice
+            | BuiltinFunction::SliceByLen
             | BuiltinFunction::Trim
             | BuiltinFunction::TrimStart
             | BuiltinFunction::TrimEnd => false,

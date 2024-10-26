@@ -3443,15 +3443,23 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::atan2({}, {}) / {}", a.next().unwrap(), a.next().unwrap(), pi_180)
         }
-        BuiltinFunction::Replace => {
+        BuiltinFunction::ReplaceFirst => {
             ctx.generator_state.conditional_includes.string.set(true);
             format!("slint::private_api::replace({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::ReplaceLast => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::replace_first({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::ReplaceNth => {
+            ctx.generator_state.conditional_includes.string.set(true);
+            format!("slint::private_api::replace_nth({}, {}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::ReplaceAll => {
             ctx.generator_state.conditional_includes.string.set(true);
             format!("slint::private_api::replace_all({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }
-        BuiltinFunction::Includes => {
+        BuiltinFunction::Contains => {
             ctx.generator_state.conditional_includes.string.set(true);
             format!("slint::private_api::includes({}, {})", a.next().unwrap(), a.next().unwrap())
         }
@@ -3475,11 +3483,11 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.string.set(true);
             format!("slint::private_api::trim_end({})", a.next().unwrap())
         }
-        BuiltinFunction::Substr => {
+        BuiltinFunction::SliceByLen => {
             ctx.generator_state.conditional_includes.string.set(true);
             format!("slint::private_api::substr({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }
-        BuiltinFunction::Substring => {
+        BuiltinFunction::Slice => {
             ctx.generator_state.conditional_includes.string.set(true);
             format!("slint::private_api::substring({}, {}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }

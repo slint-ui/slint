@@ -95,13 +95,15 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ATan2 => 10,
         BuiltinFunction::Log => 10,
         BuiltinFunction::Pow => 10,
-        BuiltinFunction::Replace
+        BuiltinFunction::ReplaceFirst
+        | BuiltinFunction::ReplaceLast
+        | BuiltinFunction::ReplaceNth
         | BuiltinFunction::ReplaceAll
-        | BuiltinFunction::Includes
+        | BuiltinFunction::Contains
         | BuiltinFunction::StartsWith
         | BuiltinFunction::EndsWith
-        | BuiltinFunction::Substring
-        | BuiltinFunction::Substr
+        | BuiltinFunction::Slice
+        | BuiltinFunction::SliceByLen
         | BuiltinFunction::Trim
         | BuiltinFunction::TrimStart
         | BuiltinFunction::TrimEnd => 10,
