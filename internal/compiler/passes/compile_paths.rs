@@ -151,7 +151,7 @@ fn compile_path_from_string_literal(
     )?;
     let path = builder.build();
 
-    let event_enum = crate::typeregister::BUILTIN_ENUMS.with(|e| e.PathEvent.clone());
+    let event_enum = crate::typeregister::BUILTIN.with(|e| e.enums.PathEvent.clone());
     let point_type = Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("x"), Type::Float32),
