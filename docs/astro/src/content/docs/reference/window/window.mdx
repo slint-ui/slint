@@ -18,6 +18,11 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 Whether the window should be placed above all other windows on window managers supporting it.
 </SlintProperty>
 
+### full-screen
+<SlintProperty propName="full-screen" typeName="bool" defaultValue="true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false ">
+Whether to display the Window in full-screen mode. In full-screen mode the Window will occupy the entire screen, it will not be resizable, and it will not display the title bar.
+</SlintProperty>
+
 ### background
 <SlintProperty propName="background" typeName="brush" defaultValue="depends on the style">
 The background brush of the `Window`.
