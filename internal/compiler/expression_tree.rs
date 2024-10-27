@@ -107,221 +107,130 @@ pub enum BuiltinMacroFunction {
     Debug,
 }
 
+macro_rules! declare_builtin_function_types {
+    ($( $Name:ident $(($Pattern:tt))? : ($( $Arg:expr ),*) -> $ReturnType:expr $(,)? )*) => {
+        #[allow(non_snake_case)]
+        pub struct BuiltinFunctionTypes {
+            $(pub $Name : Type),*
+        }
+        impl BuiltinFunctionTypes {
+            pub fn new() -> Self {
+                Self {
+                    $($Name : Type::Function(Rc::new(Function{
+                        args: vec![$($Arg),*],
+                        return_type: $ReturnType,
+                    }))),*
+                }
+            }
+
+            pub fn ty(&self, function: &BuiltinFunction) -> Type {
+                match function {
+                    $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
+                }
+            }
+        }
+    };
+}
+
+declare_builtin_function_types!(
+    GetWindowScaleFactor: () -> Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)]),
+    GetWindowDefaultFontSize: () -> Type::LogicalLength,
+    AnimationTick: () -> Type::Duration,
+    Debug: (Type::String) -> Type::Void,
+    Mod: (Type::Int32, Type::Int32) -> Type::Int32,
+    Round: (Type::Float32) -> Type::Int32,
+    Ceil: (Type::Float32) -> Type::Int32,
+    Floor: (Type::Float32) -> Type::Int32,
+    Sqrt: (Type::Float32) -> Type::Float32,
+    Abs: (Type::Float32) -> Type::Float32,
+    Cos: (Type::Angle) -> Type::Float32,
+    Sin: (Type::Angle) -> Type::Float32,
+    Tan: (Type::Angle) -> Type::Float32,
+    ACos: (Type::Float32) -> Type::Angle,
+    ASin: (Type::Float32) -> Type::Angle,
+    ATan: (Type::Float32) -> Type::Angle,
+    ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
+    Log: (Type::Float32, Type::Float32) -> Type::Float32,
+    Pow: (Type::Float32, Type::Float32) -> Type::Float32,
+    SetFocusItem: (Type::ElementReference) -> Type::Void,
+    ClearFocusItem: (Type::ElementReference) -> Type::Void,
+    ShowPopupWindow: (Type::ElementReference) -> Type::Void,
+    ClosePopupWindow: (Type::ElementReference) -> Type::Void,
+    ItemMemberFunction(..): (Type::ElementReference) -> Type::Void,
+    SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
+    ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
+    StringToFloat: (Type::String) -> Type::Float32,
+    StringIsFloat: (Type::String) -> Type::Bool,
+    ImplicitLayoutInfo(..): (Type::ElementReference) -> crate::layout::layout_info_type(),
+    ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
+        fields: IntoIterator::into_iter([
+            (SmolStr::new_static("red"), Type::Int32),
+            (SmolStr::new_static("green"), Type::Int32),
+            (SmolStr::new_static("blue"), Type::Int32),
+            (SmolStr::new_static("alpha"), Type::Int32),
+        ])
+        .collect(),
+        name: Some("Color".into()),
+        node: None,
+        rust_attributes: None,
+    })),
+    ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
+        fields: IntoIterator::into_iter([
+            (SmolStr::new_static("hue"), Type::Float32),
+            (SmolStr::new_static("saturation"), Type::Float32),
+            (SmolStr::new_static("value"), Type::Float32),
+            (SmolStr::new_static("alpha"), Type::Float32),
+        ])
+        .collect(),
+        name: Some("Color".into()),
+        node: None,
+        rust_attributes: None,
+    })),
+    ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
+    ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct {
+        fields: IntoIterator::into_iter([
+            (SmolStr::new_static("width"), Type::Int32),
+            (SmolStr::new_static("height"), Type::Int32),
+        ])
+        .collect(),
+        name: Some("Size".into()),
+        node: None,
+        rust_attributes: None,
+    })),
+    ArrayLength: (Type::Model) -> Type::Int32,
+    Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
+    Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
+    ColorScheme: () -> Type::Enumeration(
+        crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
+    ),
+    MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
+    MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
+    FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
+    TextInputFocused: () -> Type::Bool,
+    DateNow: () -> Type::Array(Rc::new(Type::Int32)),
+    ValidDate: (Type::String, Type::String) -> Type::Bool,
+    ParseDate: (Type::String, Type::String) -> Type::Array(Rc::new(Type::Int32)),
+    SetTextInputFocused: (Type::Bool) -> Type::Void,
+    ItemAbsolutePosition: (Type::ElementReference) -> crate::typeregister::logical_point_type(),
+    RegisterCustomFontByPath: (Type::String) -> Type::Void,
+    RegisterCustomFontByMemory: (Type::Int32) -> Type::Void,
+    RegisterBitmapFont: (Type::Int32) -> Type::Void,
+    // original, context, domain, args
+    Translate: (Type::String, Type::String, Type::String, Type::Array(Type::String.into())) -> Type::String,
+    Use24HourFormat: () -> Type::Bool,
+    UpdateTimers: () -> Type::Void,
+);
+
 impl BuiltinFunction {
     pub fn ty(&self) -> Type {
-        macro_rules! interned_type {
-            ( $x:expr ) => {{
-                thread_local! {
-                    static TYPE: Type = Type::Function(Rc::new($x));
-                }
-                TYPE.with(|t| t.clone())
-            }};
+        thread_local! {
+            static TYPES: BuiltinFunctionTypes = BuiltinFunctionTypes::new();
         }
-
-        match self {
-            BuiltinFunction::GetWindowScaleFactor => interned_type!(Function {
-                return_type: Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)]),
-                args: vec![],
-            }),
-            BuiltinFunction::GetWindowDefaultFontSize => {
-                interned_type!(Function { return_type: Type::LogicalLength, args: vec![] })
-            }
-            BuiltinFunction::AnimationTick => {
-                interned_type!(Function { return_type: Type::Duration.into(), args: vec![] })
-            }
-            BuiltinFunction::Debug => {
-                interned_type!(Function { return_type: Type::Void, args: vec![Type::String] })
-            }
-            BuiltinFunction::Mod => {
-                interned_type!(Function {
-                    return_type: Type::Int32,
-                    args: vec![Type::Int32, Type::Int32]
-                })
-            }
-            BuiltinFunction::Round | BuiltinFunction::Ceil | BuiltinFunction::Floor => {
-                interned_type!(Function { return_type: Type::Int32, args: vec![Type::Float32] })
-            }
-            BuiltinFunction::Sqrt | BuiltinFunction::Abs => {
-                interned_type!(Function { return_type: Type::Float32, args: vec![Type::Float32] })
-            }
-            BuiltinFunction::Cos | BuiltinFunction::Sin | BuiltinFunction::Tan => {
-                interned_type!(Function { return_type: Type::Float32, args: vec![Type::Angle] })
-            }
-            BuiltinFunction::ACos | BuiltinFunction::ASin | BuiltinFunction::ATan => {
-                interned_type!(Function { return_type: Type::Angle, args: vec![Type::Float32] })
-            }
-            BuiltinFunction::ATan2 => {
-                interned_type!(Function {
-                    return_type: Type::Angle,
-                    args: vec![Type::Float32, Type::Float32]
-                })
-            }
-            BuiltinFunction::Log | BuiltinFunction::Pow => {
-                interned_type!(Function {
-                    return_type: Type::Float32,
-                    args: vec![Type::Float32, Type::Float32]
-                })
-            }
-            BuiltinFunction::SetFocusItem
-            | BuiltinFunction::ClearFocusItem
-            | BuiltinFunction::ShowPopupWindow
-            | BuiltinFunction::ClosePopupWindow
-            | BuiltinFunction::ItemMemberFunction(..) => {
-                interned_type!(Function {
-                    return_type: Type::Void,
-                    args: vec![Type::ElementReference]
-                })
-            }
-            BuiltinFunction::SetSelectionOffsets => interned_type!(Function {
-                return_type: Type::Void,
-                args: vec![Type::ElementReference, Type::Int32, Type::Int32],
-            }),
-            BuiltinFunction::ItemFontMetrics => interned_type!(Function {
-                return_type: crate::typeregister::font_metrics_type(),
-                args: vec![Type::ElementReference],
-            }),
-            BuiltinFunction::StringToFloat => {
-                interned_type!(Function { return_type: Type::Float32, args: vec![Type::String] })
-            }
-            BuiltinFunction::StringIsFloat => {
-                interned_type!(Function { return_type: Type::Bool, args: vec![Type::String] })
-            }
-            BuiltinFunction::ImplicitLayoutInfo(_) => interned_type!(Function {
-                return_type: crate::layout::layout_info_type(),
-                args: vec![Type::ElementReference],
-            }),
-            BuiltinFunction::ColorRgbaStruct => interned_type!(Function {
-                return_type: Type::Struct(Rc::new(Struct {
-                    fields: IntoIterator::into_iter([
-                        (SmolStr::new_static("red"), Type::Int32),
-                        (SmolStr::new_static("green"), Type::Int32),
-                        (SmolStr::new_static("blue"), Type::Int32),
-                        (SmolStr::new_static("alpha"), Type::Int32),
-                    ])
-                    .collect(),
-                    name: Some("Color".into()),
-                    node: None,
-                    rust_attributes: None,
-                })),
-                args: vec![Type::Color],
-            }),
-            BuiltinFunction::ColorHsvaStruct => interned_type!(Function {
-                return_type: Type::Struct(Rc::new(Struct {
-                    fields: IntoIterator::into_iter([
-                        (SmolStr::new_static("hue"), Type::Float32),
-                        (SmolStr::new_static("saturation"), Type::Float32),
-                        (SmolStr::new_static("value"), Type::Float32),
-                        (SmolStr::new_static("alpha"), Type::Float32),
-                    ])
-                    .collect(),
-                    name: Some("Color".into()),
-                    node: None,
-                    rust_attributes: None,
-                })),
-                args: vec![Type::Color],
-            }),
-            BuiltinFunction::ColorBrighter
-            | BuiltinFunction::ColorDarker
-            | BuiltinFunction::ColorTransparentize
-            | BuiltinFunction::ColorWithAlpha => {
-                interned_type!(Function {
-                    return_type: Type::Brush,
-                    args: vec![Type::Brush, Type::Float32]
-                })
-            }
-            BuiltinFunction::ColorMix => interned_type!(Function {
-                return_type: Type::Color,
-                args: vec![Type::Color, Type::Color, Type::Float32],
-            }),
-            BuiltinFunction::ImageSize => interned_type!(Function {
-                return_type: Type::Struct(Rc::new(Struct {
-                    fields: IntoIterator::into_iter([
-                        (SmolStr::new_static("width"), Type::Int32),
-                        (SmolStr::new_static("height"), Type::Int32),
-                    ])
-                    .collect(),
-                    name: Some("Size".into()),
-                    node: None,
-                    rust_attributes: None,
-                })),
-                args: vec![Type::Image],
-            }),
-            BuiltinFunction::ArrayLength => {
-                interned_type!(Function { return_type: Type::Int32, args: vec![Type::Model] })
-            }
-            BuiltinFunction::Rgb => interned_type!(Function {
-                return_type: Type::Color,
-                args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
-            }),
-            BuiltinFunction::Hsv => interned_type!(Function {
-                return_type: Type::Color,
-                args: vec![Type::Float32, Type::Float32, Type::Float32, Type::Float32],
-            }),
-            BuiltinFunction::ColorScheme => interned_type!(Function {
-                return_type: Type::Enumeration(
-                    crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
-                ),
-                args: vec![],
-            }),
-            BuiltinFunction::MonthDayCount | BuiltinFunction::MonthOffset => {
-                interned_type!(Function {
-                    return_type: Type::Int32,
-                    args: vec![Type::Int32, Type::Int32]
-                })
-            }
-            BuiltinFunction::FormatDate => interned_type!(Function {
-                return_type: Type::String,
-                args: vec![Type::String, Type::Int32, Type::Int32, Type::Int32],
-            }),
-            BuiltinFunction::TextInputFocused => {
-                interned_type!(Function { return_type: Type::Bool, args: vec![] })
-            }
-            BuiltinFunction::DateNow => {
-                interned_type!(Function {
-                    return_type: Type::Array(Rc::new(Type::Int32)),
-                    args: vec![]
-                })
-            }
-            BuiltinFunction::ValidDate => {
-                interned_type!(Function {
-                    return_type: Type::Bool,
-                    args: vec![Type::String, Type::String]
-                })
-            }
-            BuiltinFunction::ParseDate => interned_type!(Function {
-                return_type: Type::Array(Rc::new(Type::Int32)),
-                args: vec![Type::String, Type::String],
-            }),
-            BuiltinFunction::SetTextInputFocused => {
-                interned_type!(Function { return_type: Type::Void, args: vec![Type::Bool] })
-            }
-            BuiltinFunction::ItemAbsolutePosition => interned_type!(Function {
-                return_type: crate::typeregister::logical_point_type(),
-                args: vec![Type::ElementReference],
-            }),
-            BuiltinFunction::RegisterCustomFontByPath => {
-                interned_type!(Function { return_type: Type::Void, args: vec![Type::String] })
-            }
-            BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
-                interned_type!(Function { return_type: Type::Void, args: vec![Type::Int32] })
-            }
-            BuiltinFunction::Translate => interned_type!(Function {
-                return_type: Type::String,
-                // original, context, domain, args
-                args: vec![
-                    Type::String,
-                    Type::String,
-                    Type::String,
-                    Type::Array(Type::String.into()),
-                ],
-            }),
-            BuiltinFunction::Use24HourFormat => {
-                interned_type!(Function { return_type: Type::Bool, args: vec![] })
-            }
-            BuiltinFunction::UpdateTimers => {
-                interned_type!(Function { return_type: Type::Void, args: vec![] })
-            }
-        }
+        TYPES.with(|types| types.ty(&self))
     }
 
     /// It is const if the return value only depends on its argument and has no side effect
