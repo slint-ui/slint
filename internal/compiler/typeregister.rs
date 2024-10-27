@@ -79,11 +79,47 @@ i_slint_common::for_each_enums!(declare_enums);
 
 pub struct BuiltinTypes {
     pub enums: BuiltinEnums,
+    pub noarg_callback_type: Type,
+    pub strarg_callback_type: Type,
+    pub logical_point_type: Type,
+    pub font_metrics_type: Type,
 }
 
 impl BuiltinTypes {
     fn new() -> Self {
-        Self { enums: BuiltinEnums::new() }
+        Self {
+            enums: BuiltinEnums::new(),
+            logical_point_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    (SmolStr::new_static("x"), Type::LogicalLength),
+                    (SmolStr::new_static("y"), Type::LogicalLength),
+                ])
+                .collect(),
+                name: Some("slint::LogicalPosition".into()),
+                node: None,
+                rust_attributes: None,
+            })),
+            font_metrics_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    (SmolStr::new_static("ascent"), Type::LogicalLength),
+                    (SmolStr::new_static("descent"), Type::LogicalLength),
+                    (SmolStr::new_static("x-height"), Type::LogicalLength),
+                    (SmolStr::new_static("cap-height"), Type::LogicalLength),
+                ])
+                .collect(),
+                name: Some("slint::private_api::FontMetrics".into()),
+                node: None,
+                rust_attributes: None,
+            })),
+            noarg_callback_type: Type::Callback(Rc::new(Callback {
+                return_type: None,
+                args: vec![],
+            })),
+            strarg_callback_type: Type::Callback(Rc::new(Callback {
+                return_type: None,
+                args: vec![Type::String],
+            })),
+        }
     }
 }
 
@@ -112,19 +148,11 @@ pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 fn noarg_callback_type() -> Type {
-    thread_local! {
-        static TYPE: Type = Type::Callback(Rc::new(Callback { return_type: None, args: vec![] }));
-    }
-
-    TYPE.with(|t| t.clone())
+    BUILTIN.with(|types| types.noarg_callback_type.clone())
 }
 
 fn strarg_callback_type() -> Type {
-    thread_local! {
-        static TYPE: Type = Type::Callback(Rc::new(Callback { return_type: None, args: vec![Type::String] }));
-    }
-
-    TYPE.with(|t| t.clone())
+    BUILTIN.with(|types| types.strarg_callback_type.clone())
 }
 
 pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str, Type)> {
@@ -599,35 +627,9 @@ impl TypeRegister {
 }
 
 pub fn logical_point_type() -> Type {
-    thread_local! {
-        static TYPE: Type = Type::Struct(Rc::new(Struct {
-            fields: IntoIterator::into_iter([
-                (SmolStr::new_static("x"), Type::LogicalLength),
-                (SmolStr::new_static("y"), Type::LogicalLength),
-            ])
-            .collect(),
-            name: Some("slint::LogicalPosition".into()),
-            node: None,
-            rust_attributes: None,
-        }));
-    }
-    TYPE.with(|t| t.clone())
+    BUILTIN.with(|types| types.logical_point_type.clone())
 }
 
 pub fn font_metrics_type() -> Type {
-    thread_local! {
-        static TYPE: Type = Type::Struct(Rc::new(Struct {
-            fields: IntoIterator::into_iter([
-                (SmolStr::new_static("ascent"), Type::LogicalLength),
-                (SmolStr::new_static("descent"), Type::LogicalLength),
-                (SmolStr::new_static("x-height"), Type::LogicalLength),
-                (SmolStr::new_static("cap-height"), Type::LogicalLength),
-            ])
-            .collect(),
-            name: Some("slint::private_api::FontMetrics".into()),
-            node: None,
-            rust_attributes: None,
-        }));
-    }
-    TYPE.with(|t| t.clone())
+    BUILTIN.with(|types| types.font_metrics_type.clone())
 }
