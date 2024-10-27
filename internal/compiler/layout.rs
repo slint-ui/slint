@@ -5,7 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, PropertyLookupResult, Struct, Type};
+use crate::langtype::{ElementType, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
 
 use smol_str::{format_smolstr, SmolStr};
@@ -485,24 +485,6 @@ impl BoxLayout {
     }
 }
 
-/// The [`Type`] for a runtime LayoutInfo structure
-pub fn layout_info_type() -> Type {
-    Type::Struct(Rc::new(Struct {
-        fields: ["min", "max", "preferred"]
-            .iter()
-            .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
-            .chain(
-                ["min_percent", "max_percent", "stretch"]
-                    .iter()
-                    .map(|s| (SmolStr::new_static(s), Type::Float32)),
-            )
-            .collect(),
-        name: Some("slint::private_api::LayoutInfo".into()),
-        node: None,
-        rust_attributes: None,
-    }))
-}
-
 /// Get the implicit layout info of a particular element
 pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
     let mut elem_it = elem.clone();
@@ -538,7 +520,7 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                 // hard-code the value for rectangle because many rectangle end up optimized away and we
                 // don't want to depend on the element.
                 Expression::Struct {
-                    ty: layout_info_type(),
+                    ty: crate::typeregister::layout_info_type(),
                     values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
                         .iter()
                         .map(|(s, v)| {

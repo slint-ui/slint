@@ -209,10 +209,16 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         return;
     }
 
-    let li_v =
-        crate::layout::create_new_prop(elem, "layoutinfo-v", crate::layout::layout_info_type());
-    let li_h =
-        crate::layout::create_new_prop(elem, "layoutinfo-h", crate::layout::layout_info_type());
+    let li_v = crate::layout::create_new_prop(
+        elem,
+        "layoutinfo-v",
+        crate::typeregister::layout_info_type(),
+    );
+    let li_h = crate::layout::create_new_prop(
+        elem,
+        "layoutinfo-h",
+        crate::typeregister::layout_info_type(),
+    );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
     let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
     let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
@@ -316,7 +322,7 @@ fn explicit_layout_info(e: &ElementRc, orientation: Orientation) -> Expression {
     }
     values.insert("min_percent".into(), Expression::NumberLiteral(0., Unit::None));
     values.insert("max_percent".into(), Expression::NumberLiteral(100., Unit::None));
-    Expression::Struct { ty: crate::layout::layout_info_type(), values }
+    Expression::Struct { ty: crate::typeregister::layout_info_type(), values }
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`

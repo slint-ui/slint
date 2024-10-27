@@ -161,7 +161,7 @@ declare_builtin_function_types!(
     ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
     StringIsFloat: (Type::String) -> Type::Bool,
-    ImplicitLayoutInfo(..): (Type::ElementReference) -> crate::layout::layout_info_type(),
+    ImplicitLayoutInfo(..): (Type::ElementReference) -> crate::typeregister::layout_info_type(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
@@ -792,7 +792,7 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Expression::ComputeLayoutInfo(..) => crate::layout::layout_info_type(),
+            Expression::ComputeLayoutInfo(..) => crate::typeregister::layout_info_type(),
             Expression::SolveLayout(..) => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
