@@ -495,6 +495,12 @@ impl NodeCollection {
         {
             builder.set_position_in_set(position_in_set);
         }
+        if let Some(size_of_set) = item
+            .accessible_string_property(AccessibleStringProperty::SizeOfSet)
+            .and_then(|s| s.parse::<usize>().ok())
+        {
+            builder.set_size_of_set(size_of_set);
+        }
 
         let supported = item.supported_accessibility_actions();
         if supported.contains(SupportedAccessibilityAction::Default) {

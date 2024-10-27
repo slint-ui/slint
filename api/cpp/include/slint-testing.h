@@ -369,6 +369,19 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-size-of-set of that element, if any.
+    std::optional<uintptr_t> accessible_size_of_set() const
+    {
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::SizeOfSet)) {
+            uintptr_t value = 0;
+            if (cbindgen_private::slint_string_to_usize(&*result, &value)) {
+                return value;
+            }
+        }
+        return std::nullopt;
+    }
+
     /// Sets the accessible-value of that element.
     ///
     /// Setting the value will invoke the `accessible-action-set-value` callback.

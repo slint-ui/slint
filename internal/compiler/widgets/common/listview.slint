@@ -89,6 +89,7 @@ component StandardListViewBase inherits ListView {
         height: self.min-height;
         item: item;
         index: index;
+        total-items: root.model.length;
         is-selected: index == root.current-item;
         has-focus: root.has-focus && index == root.focus-item;
         has-hover: i-touch-area.has-hover;

@@ -97,6 +97,7 @@ export component ListItem {
     in property <bool> has_focus;
     in property <bool> pressed;
     in property <int> index;
+    in property <int> total-items;
     in property <length> pressed-x;
     in property <length> pressed-y;
 
@@ -109,6 +110,7 @@ export component ListItem {
     accessible-selectable: true;
     accessible-selected: root.is-selected;
     accessible-position-in-set: root.index + 1;
+    accessible-size-of-set: root.total-items;
 
     states [
         pressed when root.pressed: {

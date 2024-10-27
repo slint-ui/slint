@@ -25,6 +25,7 @@ pub enum AccessibleStringProperty {
     PositionInSet,
     Selectable,
     Selected,
+    SizeOfSet,
     Value,
     ValueMaximum,
     ValueMinimum,
