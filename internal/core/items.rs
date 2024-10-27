@@ -955,6 +955,7 @@ pub struct WindowItem {
     pub no_frame: Property<bool>,
     pub resize_border_width: Property<LogicalLength>,
     pub always_on_top: Property<bool>,
+    pub full_screen: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
@@ -963,7 +964,10 @@ pub struct WindowItem {
 }
 
 impl Item for WindowItem {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+        #[cfg(feature = "std")]
+        self.full_screen.set(std::env::var("SLINT_FULLSCREEN").is_ok());
+    }
 
     fn layout_info(
         self: Pin<&Self>,

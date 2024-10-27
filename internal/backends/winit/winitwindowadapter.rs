@@ -871,6 +871,7 @@ impl WindowAdapter for WinitWindowAdapter {
             } else {
                 winit_window_or_none.set_fullscreen(None);
             }
+            self.fullscreen.set(m);
         }
 
         let m = properties.is_maximized();
