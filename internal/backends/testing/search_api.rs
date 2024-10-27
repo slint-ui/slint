@@ -632,6 +632,17 @@ impl ElementHandle {
         })
     }
 
+    /// Returns the value of the element's `accessible-size-of-set` property, if present.
+    pub fn accessible_size_of_set(&self) -> Option<usize> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| {
+            item.accessible_string_property(AccessibleStringProperty::SizeOfSet)
+                .and_then(|s| s.parse().ok())
+        })
+    }
+
     /// Returns the size of the element in logical pixels. This corresponds to the value of the `width` and
     /// `height` properties in Slint code. Returns a zero size if the element is not valid.
     pub fn size(&self) -> i_slint_core::api::LogicalSize {
