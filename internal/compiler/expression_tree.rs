@@ -1200,6 +1200,18 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
+                (Type::Percent, Type::LogicalLength) => Expression::BinaryExpression {
+                    lhs: Box::new(self),
+                    rhs: Box::new(Expression::FunctionCall {
+                        function: Box::new(Expression::BuiltinFunctionReference(
+                            BuiltinFunction::GetWindowDefaultFontSize,
+                            Some(node.to_source_location()),
+                        )),
+                        arguments: vec![],
+                        source_location: Some(node.to_source_location()),
+                    }),
+                    op: '*',
+                },
                 (
                     ref from_ty @ Type::Struct { fields: ref left, .. },
                     Type::Struct { fields: right, .. },
