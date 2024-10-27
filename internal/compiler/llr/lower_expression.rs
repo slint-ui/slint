@@ -500,7 +500,7 @@ fn compute_layout_info(
             llr_Expression::ExtraBuiltinFunctionCall {
                 function: "grid_layout_info".into(),
                 arguments: vec![cells, spacing, padding],
-                return_ty: crate::layout::layout_info_type(),
+                return_ty: crate::typeregister::layout_info_type(),
             }
         }
         crate::layout::Layout::BoxLayout(layout) => {
@@ -510,13 +510,13 @@ fn compute_layout_info(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info".into(),
                     arguments: vec![bld.cells, spacing, padding, bld.alignment],
-                    return_ty: crate::layout::layout_info_type(),
+                    return_ty: crate::typeregister::layout_info_type(),
                 }
             } else {
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info_ortho".into(),
                     arguments: vec![bld.cells, padding],
-                    return_ty: crate::layout::layout_info_type(),
+                    return_ty: crate::typeregister::layout_info_type(),
                 }
             };
             match bld.compute_cells {
@@ -684,13 +684,7 @@ fn box_layout_data(
     let repeater_count =
         layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
-    let element_ty = Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([("constraint".into(), crate::layout::layout_info_type())])
-            .collect(),
-        name: Some("BoxLayoutCellData".into()),
-        node: None,
-        rust_attributes: None,
-    }));
+    let element_ty = crate::typeregister::box_layout_cell_data_type();
 
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
@@ -702,7 +696,7 @@ fn box_layout_data(
                         get_layout_info(&li.element, ctx, &li.constraints, orientation);
                     make_struct(
                         "BoxLayoutCellData",
-                        [("constraint", crate::layout::layout_info_type(), layout_info)],
+                        [("constraint", crate::typeregister::layout_info_type(), layout_info)],
                     )
                 })
                 .collect(),
@@ -725,13 +719,13 @@ fn box_layout_data(
                     get_layout_info(&item.element, ctx, &item.constraints, orientation);
                 elements.push(Either::Left(make_struct(
                     "BoxLayoutCellData",
-                    [("constraint", crate::layout::layout_info_type(), layout_info)],
+                    [("constraint", crate::typeregister::layout_info_type(), layout_info)],
                 )));
             }
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Rc::new(crate::layout::layout_info_type())),
+            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type())),
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
     }
@@ -755,7 +749,7 @@ fn grid_layout_cell_data(
                 make_struct(
                     "GridLayoutCellData",
                     [
-                        ("constraint", crate::layout::layout_info_type(), layout_info),
+                        ("constraint", crate::typeregister::layout_info_type(), layout_info),
                         ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
                         ("span", Type::Int32, llr_Expression::NumberLiteral(span as _)),
                     ],
@@ -771,7 +765,7 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("col_or_row"), Type::Int32),
             (SmolStr::new_static("span"), Type::Int32),
-            (SmolStr::new_static("constraint"), crate::layout::layout_info_type()),
+            (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type()),
         ])
         .collect(),
         name: Some("GridLayoutCellData".into()),
@@ -831,7 +825,7 @@ pub fn get_layout_info(
             name: "layout_info".into(),
             value: layout_info.into(),
         };
-        let ty = crate::layout::layout_info_type();
+        let ty = crate::typeregister::layout_info_type();
         let fields = match &ty {
             Type::Struct(s) => &s.fields,
             _ => panic!(),
@@ -869,12 +863,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
     fn llr_path_elements(elements: Vec<llr_Expression>) -> llr_Expression {
         llr_Expression::Cast {
             from: llr_Expression::Array {
-                element_ty: Type::Struct(Rc::new(Struct {
-                    fields: Default::default(),
-                    name: Some("PathElement".into()),
-                    node: None,
-                    rust_attributes: None,
-                })),
+                element_ty: crate::typeregister::path_element_type(),
                 values: elements,
                 as_model: false,
             }

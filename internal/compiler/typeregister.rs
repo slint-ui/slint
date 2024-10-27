@@ -83,10 +83,27 @@ pub struct BuiltinTypes {
     pub strarg_callback_type: Type,
     pub logical_point_type: Type,
     pub font_metrics_type: Type,
+    pub layout_info_type: Type,
+    pub path_element_type: Type,
+    pub box_layout_cell_data_type: Type,
 }
 
 impl BuiltinTypes {
     fn new() -> Self {
+        let layout_info_type = Type::Struct(Rc::new(Struct {
+            fields: ["min", "max", "preferred"]
+                .iter()
+                .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
+                .chain(
+                    ["min_percent", "max_percent", "stretch"]
+                        .iter()
+                        .map(|s| (SmolStr::new_static(s), Type::Float32)),
+                )
+                .collect(),
+            name: Some("slint::private_api::LayoutInfo".into()),
+            node: None,
+            rust_attributes: None,
+        }));
         Self {
             enums: BuiltinEnums::new(),
             logical_point_type: Type::Struct(Rc::new(Struct {
@@ -118,6 +135,20 @@ impl BuiltinTypes {
             strarg_callback_type: Type::Callback(Rc::new(Callback {
                 return_type: None,
                 args: vec![Type::String],
+            })),
+            layout_info_type: layout_info_type.clone(),
+            path_element_type: Type::Struct(Rc::new(Struct {
+                fields: Default::default(),
+                name: Some("PathElement".into()),
+                node: None,
+                rust_attributes: None,
+            })),
+            box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([("constraint".into(), layout_info_type)])
+                    .collect(),
+                name: Some("BoxLayoutCellData".into()),
+                node: None,
+                rust_attributes: None,
             })),
         }
     }
@@ -632,4 +663,19 @@ pub fn logical_point_type() -> Type {
 
 pub fn font_metrics_type() -> Type {
     BUILTIN.with(|types| types.font_metrics_type.clone())
+}
+
+/// The [`Type`] for a runtime LayoutInfo structure
+pub fn layout_info_type() -> Type {
+    BUILTIN.with(|types| types.layout_info_type.clone())
+}
+
+/// The [`Type`] for a runtime PathElement structure
+pub fn path_element_type() -> Type {
+    BUILTIN.with(|types| types.path_element_type.clone())
+}
+
+/// The [`Type`] for a runtime BoxLayoutCellData structure
+pub fn box_layout_cell_data_type() -> Type {
+    BUILTIN.with(|types| types.box_layout_cell_data_type.clone())
 }

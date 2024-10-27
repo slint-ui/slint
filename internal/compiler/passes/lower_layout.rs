@@ -13,7 +13,7 @@ use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
-use crate::typeregister::TypeRegister;
+use crate::typeregister::{layout_info_type, TypeRegister};
 use smol_str::format_smolstr;
 use std::cell::RefCell;
 use std::collections::HashSet;

@@ -2703,12 +2703,12 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         let li_v = crate::layout::create_new_prop(
             &new_root,
             "layoutinfo-v",
-            crate::layout::layout_info_type(),
+            crate::typeregister::layout_info_type(),
         );
         let li_h = crate::layout::create_new_prop(
             &new_root,
             "layoutinfo-h",
-            crate::layout::layout_info_type(),
+            crate::typeregister::layout_info_type(),
         );
         let expr_h = crate::layout::implicit_layout_info_call(old_root, Orientation::Horizontal);
         let expr_v = crate::layout::implicit_layout_info_call(old_root, Orientation::Vertical);
