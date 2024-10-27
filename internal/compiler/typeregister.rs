@@ -77,8 +77,18 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
+pub struct BuiltinTypes {
+    pub enums: BuiltinEnums,
+}
+
+impl BuiltinTypes {
+    fn new() -> Self {
+        Self { enums: BuiltinEnums::new() }
+    }
+}
+
 thread_local! {
-    pub static BUILTIN_ENUMS: BuiltinEnums = BuiltinEnums::new();
+    pub static BUILTIN: BuiltinTypes = BuiltinTypes::new();
 }
 
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
@@ -163,12 +173,12 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ("clear-focus", BuiltinFunction::ClearFocusItem.ty(), PropertyVisibility::Public),
             (
                 "dialog-button-role",
-                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone())),
+                Type::Enumeration(BUILTIN.with(|e| e.enums.DialogButtonRole.clone())),
                 PropertyVisibility::Constexpr,
             ),
             (
                 "accessible-role",
-                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone())),
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleRole.clone())),
                 PropertyVisibility::Constexpr,
             ),
         ]))
@@ -304,7 +314,7 @@ impl TypeRegister {
         register.insert_type(Type::Rem);
         register.types.insert("Point".into(), logical_point_type());
 
-        BUILTIN_ENUMS.with(|e| e.fill_register(&mut register));
+        BUILTIN.with(|e| e.enums.fill_register(&mut register));
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());
@@ -323,7 +333,7 @@ impl TypeRegister {
             ($pub_type:ident, Coord) => { Type::LogicalLength };
             ($pub_type:ident, KeyboardModifiers) => { $pub_type.clone() };
             ($pub_type:ident, $_:ident) => {
-                BUILTIN_ENUMS.with(|e| Type::Enumeration(e.$pub_type.clone()))
+                BUILTIN.with(|e| Type::Enumeration(e.enums.$pub_type.clone()))
             };
         }
         #[rustfmt::skip]

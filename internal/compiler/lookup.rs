@@ -823,10 +823,10 @@ impl LookupObject for SlintInternal {
             f(
                 "color-scheme",
                 if style.is_some_and(|s| s.ends_with("-light")) {
-                    let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone());
+                    let e = crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone());
                     Expression::EnumerationValue(e.try_value_from_string("light").unwrap())
                 } else if style.is_some_and(|s| s.ends_with("-dark")) {
-                    let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone());
+                    let e = crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone());
                     Expression::EnumerationValue(e.try_value_from_string("dark").unwrap())
                 } else {
                     Expression::FunctionCall {

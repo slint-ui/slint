@@ -259,7 +259,7 @@ impl BuiltinFunction {
             }),
             BuiltinFunction::ColorScheme => interned_type!(Function {
                 return_type: Type::Enumeration(
-                    crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone()),
+                    crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
                 ),
                 args: vec![],
             }),

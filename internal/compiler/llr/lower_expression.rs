@@ -19,7 +19,7 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
 use crate::{
     expression_tree::{BuiltinFunction, Expression as tree_Expression},
-    typeregister::BUILTIN_ENUMS,
+    typeregister::BUILTIN,
 };
 
 pub struct ExpressionContext<'a> {
@@ -415,7 +415,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
             (SmolStr::new_static("iteration-count"), Type::Float32),
             (
                 SmolStr::new_static("direction"),
-                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AnimationDirection.clone())),
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AnimationDirection.clone())),
             ),
             (SmolStr::new_static("easing"), Type::Easing),
             (SmolStr::new_static("delay"), Type::Int32),
@@ -546,7 +546,7 @@ fn solve_layout(
             if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, o)
             {
                 let cells_ty = cells.ty(ctx);
-                let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone());
+                let e = crate::typeregister::BUILTIN.with(|e| e.enums.DialogButtonRole.clone());
                 let roles = button_roles
                     .iter()
                     .map(|r| {
@@ -616,8 +616,8 @@ fn solve_layout(
                     ("padding", padding.ty(ctx), padding),
                     (
                         "alignment",
-                        crate::typeregister::BUILTIN_ENUMS
-                            .with(|e| Type::Enumeration(e.LayoutAlignment.clone())),
+                        crate::typeregister::BUILTIN
+                            .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
                         bld.alignment,
                     ),
                     ("cells", bld.cells.ty(ctx), bld.cells),
@@ -674,7 +674,7 @@ fn box_layout_data(
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.LayoutAlignment.clone());
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignment.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
