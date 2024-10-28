@@ -336,9 +336,31 @@ export component C13 {
 //           ^error{Cannot assign to private property 'internal'}
     Button { internal <=> self.checked; }
 //           ^error{Cannot assign to private property 'internal'}
+
+    Button { pressed <=> self.pressed; }
+//           ^error{Cannot assign to output property 'pressed'}
+    Button { pressed <=> self.checked; }
+//           ^error{Cannot assign to output property 'pressed'}
+    Button { pressed <=> self.enabled; }
+//           ^error{Cannot assign to output property 'pressed'}
+    Button { pressed <=> self.accessible-checked; }
+//           ^error{Cannot assign to output property 'pressed'}
+    Button { pressed <=> self.internal; }
+//           ^error{Cannot assign to output property 'pressed'}
+//                            ^^error{The property 'internal' is private. Annotate it with}
+    Button { pressed <=> out; }
+//           ^error{Cannot assign to output property 'pressed'}
+    Button { pressed <=> in; }
+//           ^error{Cannot assign to output property 'pressed'}
+    Button { pressed <=> inout; }
+//           ^error{Cannot assign to output property 'pressed'}
+    Button { pressed <=> priv; }
+//           ^error{Cannot assign to output property 'pressed'}
+
 }
 
 export Legacy1 := Rectangle {
+//             ^warning{':=' to declare a component is deprecated}
     b1:= Button {}
     in property in1 <=> b1.pressed;
 //                  ^warning{Link to a output property is deprecated}
