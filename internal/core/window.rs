@@ -412,7 +412,6 @@ struct WindowPinnedFields {
 }
 
 /// The style of the window.
-/// Values taken from Microsoft's [Window.WindowStyle](https://learn.microsoft.com/en-us/dotnet/api/system.windows.window.windowstyle?view=windowsdesktop-8.0).
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum WindowButtonStyle {
     /// A window with no buttons.
