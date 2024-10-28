@@ -10,6 +10,7 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
+use i_slint_core::window::WindowStyle;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
@@ -39,7 +40,7 @@ use i_slint_core::{self as corelib, OpenGLAPI};
 use once_cell::unsync::OnceCell;
 #[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
-use winit::window::WindowAttributes;
+use winit::window::{WindowAttributes, WindowButtons};
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -192,6 +193,23 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow(window) => window.set_maximized(maximized),
             Self::None(attributes) => attributes.borrow_mut().maximized = maximized,
+        }
+    }
+
+    fn set_window_style(&self, window_style: WindowStyle) {
+        match self {
+            Self::HasWindow(window) => match window_style {
+                WindowStyle::None => window.set_enabled_buttons(WindowButtons::empty()),
+                WindowStyle::SingleBorderWindow => window.set_enabled_buttons(
+                    WindowButtons::CLOSE | WindowButtons::MINIMIZE | WindowButtons::MAXIMIZE,
+                ),
+                WindowStyle::ToolWindow => {
+                    window.set_enabled_buttons(WindowButtons::CLOSE);
+                }
+            },
+            Self::None(attributes) => {
+                attributes.borrow_mut().enabled_buttons = WindowButtons::all()
+            }
         }
     }
 
@@ -763,6 +781,8 @@ impl WindowAdapter for WinitWindowAdapter {
         if self.window_level.replace(new_window_level) != new_window_level {
             winit_window_or_none.set_window_level(new_window_level);
         }
+
+        winit_window_or_none.set_window_style(properties.window_style());
 
         // Use our scale factor instead of winit's logical size to take a scale factor override into account.
         let sf = self.window().scale_factor();

@@ -264,7 +264,7 @@ impl Item for Rectangle {
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+        LayoutInfo { stretch: 1., min: 250.0, ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(

@@ -12,7 +12,7 @@ pub use crate::future::*;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
 use crate::item_tree::ItemTreeVTable;
-use crate::window::{WindowAdapter, WindowInner};
+use crate::window::{WindowAdapter, WindowInner, WindowStyle as WindowStyleInner};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
@@ -429,6 +429,10 @@ impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
 #[repr(transparent)]
 pub struct Window(pub(crate) WindowInner);
 
+/// This enum describes the different window styles that can be set on a window.
+/// The window style is a hint to the windowing system how the window should be displayed.
+pub type WindowStyle = WindowStyleInner;
+
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
 /// It is the return type of the callback provided to [Window::on_close_requested].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -565,6 +569,11 @@ impl Window {
     /// Maximize or unmaximize the window.
     pub fn set_maximized(&self, maximized: bool) {
         self.0.set_maximized(maximized);
+    }
+
+    /// Sets the window style for the window.
+    pub fn set_window_style(&self, window_style: WindowStyle) {
+        self.0.set_window_style(window_style);
     }
 
     /// Returns if the window is currently minimized

@@ -343,6 +343,11 @@ impl<'a> WindowProperties<'a> {
     pub fn is_minimized(&self) -> bool {
         self.0.minimized.get()
     }
+
+    /// The widow style
+    pub fn window_style(&self) -> WindowStyle {
+        self.0.window_style.get()
+    }
 }
 
 struct WindowPropertiesTracker {
@@ -406,6 +411,18 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
 }
 
+/// The style of the window.
+/// Values taken from Microsoft's [Window.WindowStyle](https://learn.microsoft.com/en-us/dotnet/api/system.windows.window.windowstyle?view=windowsdesktop-8.0).
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum WindowStyle {
+    /// Only the client area is visible - the title bar and border are not shown.
+    None,
+    /// A window with a single border. This is the default value.
+    SingleBorderWindow,
+    /// A fixed tool window.
+    ToolWindow,
+}
+
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
@@ -430,6 +447,8 @@ pub struct WindowInner {
     fullscreen: Cell<bool>,
     maximized: Cell<bool>,
     minimized: Cell<bool>,
+
+    window_style: Cell<WindowStyle>,
 
     active_popup: RefCell<Option<PopupWindow>>,
     had_popup_on_press: Cell<bool>,
@@ -489,6 +508,7 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
+            window_style: Cell::new(WindowStyle::SingleBorderWindow),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1163,6 +1183,12 @@ impl WindowInner {
     /// Set the window as maximized or unmaximized
     pub fn set_maximized(&self, maximized: bool) {
         self.maximized.set(maximized);
+        self.update_window_properties()
+    }
+
+    /// Set the window style
+    pub fn set_window_style(&self, window_style: WindowStyle) {
+        self.window_style.set(window_style);
         self.update_window_properties()
     }
 
