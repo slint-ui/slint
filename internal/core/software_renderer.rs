@@ -1520,25 +1520,26 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         };
                         let geometry = clipped_target.translate(offset).round();
                         let origin = (geometry.origin - offset.round()).round().cast::<i16>();
-                        let actual_x = (origin.x - target_rect.origin.x as i16) as usize;
-                        let actual_y = (origin.y - target_rect.origin.y as i16) as usize;
+                        let off_x = origin.x - target_rect.origin.x as i16;
+                        let off_y = origin.y - target_rect.origin.y as i16;
                         let pixel_stride = glyph.pixel_stride;
                         let mut geometry = geometry.cast();
-                        if geometry.size.width > glyph.width.get() - (actual_x as i16) {
-                            geometry.size.width = glyph.width.get() - (actual_x as i16)
+                        if geometry.size.width > glyph.width.get() - off_x {
+                            geometry.size.width = glyph.width.get() - off_x
                         }
-                        if geometry.size.height > glyph.height.get() - (actual_y as i16) {
-                            geometry.size.height = glyph.height.get() - (actual_y as i16)
+                        if geometry.size.height > glyph.height.get() - off_y {
+                            geometry.size.height = glyph.height.get() - off_y
                         }
                         let source_size = geometry.size;
                         if source_size.is_empty() {
                             continue;
                         }
+
                         match &glyph.alpha_map {
                             fonts::GlyphAlphaMap::Static(data) => {
                                 let texture = if !glyph.sdf {
                                     SceneTexture {
-                                        data: &data[actual_x + actual_y * pixel_stride as usize..],
+                                        data,
                                         pixel_stride,
                                         format: PixelFormat::AlphaMap,
                                         extra: SceneTextureExtra {
@@ -1548,8 +1549,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             rotation: self.rotation.orientation,
                                             dx: Fixed::from_integer(1),
                                             dy: Fixed::from_integer(1),
-                                            off_x: Fixed::from_integer(0),
-                                            off_y: Fixed::from_integer(0),
+                                            off_x: Fixed::from_integer(off_x as u16),
+                                            off_y: Fixed::from_integer(off_y as u16),
                                         },
                                     }
                                 } else {
@@ -1558,12 +1559,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     let dy = Fixed::from_integer(
                                         (data.len() as u16 - 1) / pixel_stride - 1,
                                     ) / (glyph.height.get() as u16 - 1);
-                                    let off_x = Fixed::<i32, 8>::from_fixed(dx)
-                                        * (clipped_target.origin.x - target_rect.origin.x) as i32;
-                                    let off_y = Fixed::<i32, 8>::from_fixed(dy)
-                                        * (clipped_target.origin.y - target_rect.origin.y) as i32;
+                                    let off_x = Fixed::<i32, 8>::from_fixed(dx) * off_x as i32;
+                                    let off_y = Fixed::<i32, 8>::from_fixed(dy) * off_y as i32;
                                     SceneTexture {
-                                        data: data,
+                                        data,
                                         pixel_stride,
                                         format: PixelFormat::SignedDistanceField,
                                         extra: SceneTextureExtra {
@@ -1589,10 +1588,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             data: data.clone(),
                                             width: pixel_stride,
                                         },
-                                        source_rect: PhysicalRect::new(
-                                            PhysicalPoint::new(actual_x as _, actual_y as _),
-                                            source_size,
-                                        ),
+                                        source_rect: PhysicalRect::from_size(source_size),
                                         extra: SceneTextureExtra {
                                             colorize: color,
                                             // color already is mixed with global alpha
@@ -1600,8 +1596,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             rotation: self.rotation.orientation,
                                             dx: Fixed::from_integer(1),
                                             dy: Fixed::from_integer(1),
-                                            off_x: Fixed::from_integer(0),
-                                            off_y: Fixed::from_integer(0),
+                                            off_x: Fixed::from_integer(off_x as u16),
+                                            off_y: Fixed::from_integer(off_y as u16),
                                         },
                                     },
                                 );
