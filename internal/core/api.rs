@@ -429,8 +429,8 @@ impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
 #[repr(transparent)]
 pub struct Window(pub(crate) WindowInner);
 
-/// This enum describes the different window styles that can be set on a window.
-/// The window style is a hint to the windowing system how the window should be displayed.
+/// This enum describes the different window button styles that can be set on a window.
+/// The window style is a hint to the windowing system how the window buttons should be displayed.
 pub type WindowButtonStyle = WindowButtonStyleInner;
 
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
