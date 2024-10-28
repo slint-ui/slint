@@ -418,7 +418,7 @@ pub enum WindowButtonStyle {
     /// A window with no buttons.
     None,
     /// A window with all buttons.
-    Full,
+    All,
     /// A window with only a close button.
     Close,
     /// A window with only a minimize button.
@@ -518,7 +518,7 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
-            window_button_style: Cell::new(WindowButtonStyle::Full),
+            window_button_style: Cell::new(WindowButtonStyle::All),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),

@@ -199,7 +199,7 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow(window) => match window_style {
                 WindowButtonStyle::None => window.set_enabled_buttons(WindowButtons::empty()),
-                WindowButtonStyle::Full => window.set_enabled_buttons(
+                WindowButtonStyle::All => window.set_enabled_buttons(
                     WindowButtons::CLOSE | WindowButtons::MINIMIZE | WindowButtons::MAXIMIZE,
                 ),
                 WindowButtonStyle::Close => {
