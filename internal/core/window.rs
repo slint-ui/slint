@@ -415,12 +415,22 @@ struct WindowPinnedFields {
 /// Values taken from Microsoft's [Window.WindowStyle](https://learn.microsoft.com/en-us/dotnet/api/system.windows.window.windowstyle?view=windowsdesktop-8.0).
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum WindowButtonStyle {
-    /// No buttons are available.
+    /// A window with no buttons.
     None,
-    /// A window with a single border. This is the default value.
-    SingleBorderWindow,
-    /// A fixed tool window.
-    ToolWindow,
+    /// A window with all buttons.
+    Full,
+    /// A window with only a close button.
+    Close,
+    /// A window with only a minimize button.
+    Minimize,
+    /// A window with only a maximize button.
+    Maximize,
+    /// A window with only a minimize and close button.
+    MinimizeClose,
+    /// A window with only a maximize and close button.
+    MaximizeClose,
+    /// A window with only a minimize and maximize button.
+    MinimizeMaximize,
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
@@ -508,7 +518,7 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
-            window_button_style: Cell::new(WindowButtonStyle::SingleBorderWindow),
+            window_button_style: Cell::new(WindowButtonStyle::Full),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),

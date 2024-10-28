@@ -199,11 +199,26 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow(window) => match window_style {
                 WindowButtonStyle::None => window.set_enabled_buttons(WindowButtons::empty()),
-                WindowButtonStyle::SingleBorderWindow => window.set_enabled_buttons(
+                WindowButtonStyle::Full => window.set_enabled_buttons(
                     WindowButtons::CLOSE | WindowButtons::MINIMIZE | WindowButtons::MAXIMIZE,
                 ),
-                WindowButtonStyle::ToolWindow => {
+                WindowButtonStyle::Close => {
                     window.set_enabled_buttons(WindowButtons::CLOSE);
+                }
+                WindowButtonStyle::Minimize => {
+                    window.set_enabled_buttons(WindowButtons::MINIMIZE);
+                }
+                WindowButtonStyle::Maximize => {
+                    window.set_enabled_buttons(WindowButtons::MAXIMIZE);
+                }
+                WindowButtonStyle::MaximizeClose => {
+                    window.set_enabled_buttons(WindowButtons::MAXIMIZE | WindowButtons::CLOSE);
+                }
+                WindowButtonStyle::MinimizeClose => {
+                    window.set_enabled_buttons(WindowButtons::MINIMIZE | WindowButtons::CLOSE);
+                }
+                WindowButtonStyle::MinimizeMaximize => {
+                    window.set_enabled_buttons(WindowButtons::MINIMIZE | WindowButtons::MAXIMIZE);
                 }
             },
             Self::None(attributes) => {
