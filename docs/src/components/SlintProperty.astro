@@ -2,8 +2,9 @@
 import "@astrojs/starlight/style/markdown.css";
 import {
     type KnownType,
-    type PropertyVisibility,
+    type propertyVisibility,
     getEnumContent,
+    getStructContent,
     getTypeInfo,
 } from "../utils/utils.ts";
 
@@ -12,11 +13,9 @@ interface Props {
     typeName: KnownType;
     defaultValue?: string;
     enumName?: string;
-    visibility?: PropertyVisibility;
+    propertyVisibility?: propertyVisibility;
 }
-const { propName, typeName, defaultValue, enumName, visibility } = Astro.props;
-
-const visibility_ = visibility ?? "in";
+const { propName, typeName, defaultValue, enumName, propertyVisibility } = Astro.props;
 
 if (propName === "") {
     console.error("No propName!!");
@@ -25,7 +24,7 @@ if (propName === "") {
 let fullTypeName = typeName;
 
 if (typeName === "enum") {
-    if (enumName !== undefined || enumName === "") {
+    if (enumName === undefined || enumName === "") {
         console.error("enum type without an enumName:", propName);
     } else {
         fullTypeName = typeName.toString() + " " + enumName!.toString();
@@ -38,6 +37,7 @@ if (typeName === "enum") {
 
 const typeInfo = getTypeInfo(typeName);
 const enumContent = await getEnumContent(enumName);
+const structContent = await getStructContent(typeName);
 
 const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
 
@@ -56,10 +56,11 @@ if (!defaultValue_) {
       <code>{fullTypeName}</code>
     </a>
 		)}
-		(<code>{visibility_}</code>)
+		{propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
     <br>
     <strong>default:</strong> <code dir="auto">{defaultValue_}</code><br>
     {enumName && <Fragment set:html={enumContent}/>}
+    {structContent && <Fragment set:html={structContent}/>}
   </p>
   <slot/>
 </div>
