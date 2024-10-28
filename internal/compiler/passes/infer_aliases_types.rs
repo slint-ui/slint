@@ -22,28 +22,23 @@ struct ComponentScope(Vec<ElementRc>);
 pub fn resolve_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     for component in doc.inner_components.iter() {
         let scope = ComponentScope(vec![]);
-        crate::object_tree::recurse_elem_no_borrow(
-            &component.root_element,
-            &scope,
-            &mut |elem, scope| {
-                let mut new_scope = scope.clone();
-                new_scope.0.push(elem.clone());
+        crate::object_tree::recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
+            let mut new_scope = scope.clone();
+            new_scope.0.push(elem.clone());
 
-                let mut need_resolving = vec![];
-                for (prop, decl) in elem.borrow().property_declarations.iter() {
-                    if matches!(decl.property_type, Type::InferredProperty | Type::InferredCallback)
-                    {
-                        need_resolving.push(prop.clone());
-                    }
+            let mut need_resolving = vec![];
+            for (prop, decl) in elem.borrow().property_declarations.iter() {
+                if matches!(decl.property_type, Type::InferredProperty | Type::InferredCallback) {
+                    need_resolving.push(prop.clone());
                 }
-                // make it deterministic
-                need_resolving.sort();
-                for n in need_resolving {
-                    resolve_alias(elem, &n, &new_scope, &doc.local_registry, diag);
-                }
-                new_scope
-            },
-        );
+            }
+            // make it deterministic
+            need_resolving.sort();
+            for n in need_resolving {
+                resolve_alias(elem, &n, &new_scope, &doc.local_registry, diag);
+            }
+            new_scope
+        });
     }
 }
 

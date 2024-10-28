@@ -8,7 +8,7 @@ use std::collections::HashSet;
 
 pub fn remove_unused_properties(doc: &Document) {
     fn recurse_remove_unused_properties(component: &Component) {
-        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+        crate::object_tree::recurse_elem_including_sub_components(
             component,
             &(),
             &mut |elem, _| {

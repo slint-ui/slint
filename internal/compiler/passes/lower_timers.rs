@@ -10,17 +10,16 @@ use crate::object_tree::*;
 use std::rc::Rc;
 
 pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    recurse_elem_including_sub_components_no_borrow(
-        component,
-        &None,
-        &mut |elem, parent_element: &Option<ElementRc>| {
-            let is_timer = matches!(&elem.borrow().base_type, ElementType::Builtin(base_type) if base_type.name == "Timer");
-            if is_timer {
-                lower_timer(elem, parent_element.as_ref(), diag);
-            }
-            Some(elem.clone())
-        },
-    )
+    recurse_elem_including_sub_components(component, &None, &mut |elem,
+                                                                  parent_element: &Option<
+        ElementRc,
+    >| {
+        let is_timer = matches!(&elem.borrow().base_type, ElementType::Builtin(base_type) if base_type.name == "Timer");
+        if is_timer {
+            lower_timer(elem, parent_element.as_ref(), diag);
+        }
+        Some(elem.clone())
+    })
 }
 
 fn lower_timer(

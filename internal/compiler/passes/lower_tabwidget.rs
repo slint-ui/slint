@@ -37,7 +37,7 @@ pub async fn lower_tabwidget(
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
 
     doc.visit_all_used_components(|component| {
-        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+        recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
                 process_tabwidget(
                     elem,

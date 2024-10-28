@@ -2110,47 +2110,6 @@ pub fn recurse_elem_including_sub_components<State>(
         .for_each(|p| recurse_elem_including_sub_components(&p.component, state, vis))
 }
 
-/// Same as recurse_elem, but will take the children from the element as to not keep the element borrow
-pub fn recurse_elem_no_borrow<State>(
-    elem: &ElementRc,
-    state: &State,
-    vis: &mut impl FnMut(&ElementRc, &State) -> State,
-) {
-    let state = vis(elem, state);
-    let children = elem.borrow().children.clone();
-    for sub in &children {
-        recurse_elem_no_borrow(sub, &state, vis);
-    }
-}
-
-/// Same as [`recurse_elem`] but include the elements form sub_components
-pub fn recurse_elem_including_sub_components_no_borrow<State>(
-    component: &Component,
-    state: &State,
-    vis: &mut impl FnMut(&ElementRc, &State) -> State,
-) {
-    recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
-        let base = if elem.borrow().repeated.is_some() {
-            if let ElementType::Component(base) = &elem.borrow().base_type {
-                Some(base.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        if let Some(base) = base {
-            recurse_elem_including_sub_components_no_borrow(&base, state, vis);
-        }
-        vis(elem, state)
-    });
-    component
-        .popup_windows
-        .borrow()
-        .iter()
-        .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p.component, state, vis));
-}
-
 /// This visit the binding attached to this element, but does not recurse in children elements
 /// Also does not recurse within the expressions.
 ///
@@ -2331,28 +2290,24 @@ pub fn visit_all_named_references(
     component: &Component,
     vis: &mut impl FnMut(&mut NamedReference),
 ) {
-    recurse_elem_including_sub_components_no_borrow(
-        component,
-        &Weak::new(),
-        &mut |elem, parent_compo| {
-            visit_all_named_references_in_element(elem, |nr| vis(nr));
-            let compo = elem.borrow().enclosing_component.clone();
-            if !Weak::ptr_eq(parent_compo, &compo) {
-                let compo = compo.upgrade().unwrap();
-                compo.root_constraints.borrow_mut().visit_named_references(vis);
-                compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
-                    vis(&mut p.x);
-                    vis(&mut p.y);
-                });
-                compo.timers.borrow_mut().iter_mut().for_each(|t| {
-                    vis(&mut t.interval);
-                    vis(&mut t.triggered);
-                    vis(&mut t.running);
-                });
-            }
-            compo
-        },
-    );
+    recurse_elem_including_sub_components(component, &Weak::new(), &mut |elem, parent_compo| {
+        visit_all_named_references_in_element(elem, |nr| vis(nr));
+        let compo = elem.borrow().enclosing_component.clone();
+        if !Weak::ptr_eq(parent_compo, &compo) {
+            let compo = compo.upgrade().unwrap();
+            compo.root_constraints.borrow_mut().visit_named_references(vis);
+            compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
+                vis(&mut p.x);
+                vis(&mut p.y);
+            });
+            compo.timers.borrow_mut().iter_mut().for_each(|t| {
+                vis(&mut t.interval);
+                vis(&mut t.triggered);
+                vis(&mut t.running);
+            });
+        }
+        compo
+    });
 }
 
 /// Visit all expression in this component and sub components

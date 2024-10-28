@@ -39,7 +39,7 @@ fn maybe_collect_object(ty: &Type, hash: &mut BTreeMap<SmolStr, Type>) {
 }
 
 fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<SmolStr, Type>) {
-    recurse_elem_including_sub_components_no_borrow(root_component, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(root_component, &(), &mut |elem, _| {
         for x in elem.borrow().property_declarations.values() {
             maybe_collect_object(&x.property_type, hash);
         }

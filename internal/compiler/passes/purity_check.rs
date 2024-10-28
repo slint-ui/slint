@@ -9,7 +9,7 @@ use crate::expression_tree::{Expression, NamedReference};
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
     for component in &doc.inner_components {
-        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+        crate::object_tree::recurse_elem_including_sub_components(
             component,
             &(),
             &mut |elem, &()| {

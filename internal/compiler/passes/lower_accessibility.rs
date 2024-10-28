@@ -11,52 +11,48 @@ use crate::object_tree::{Component, ElementRc};
 use std::rc::Rc;
 
 pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-        component,
-        &(),
-        &mut |elem, _| {
-            if elem.borrow().repeated.is_some() {
-                return;
-            };
-            apply_builtin(elem);
-            let accessible_role_set = match elem.borrow().bindings.get("accessible-role") {
-                Some(role) => {
-                    if let Expression::EnumerationValue(val) = &role.borrow().expression {
-                        debug_assert_eq!(val.enumeration.name, "AccessibleRole");
-                        debug_assert_eq!(val.enumeration.values[0], "none");
-                        if val.value == 0 {
-                            return;
-                        }
-                    } else {
-                        diag.push_error(
-                            "The `accessible-role` property must be a constant expression".into(),
-                            &*role.borrow(),
-                        );
+    crate::object_tree::recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+        if elem.borrow().repeated.is_some() {
+            return;
+        };
+        apply_builtin(elem);
+        let accessible_role_set = match elem.borrow().bindings.get("accessible-role") {
+            Some(role) => {
+                if let Expression::EnumerationValue(val) = &role.borrow().expression {
+                    debug_assert_eq!(val.enumeration.name, "AccessibleRole");
+                    debug_assert_eq!(val.enumeration.values[0], "none");
+                    if val.value == 0 {
+                        return;
                     }
-                    true
-                }
-                // maybe it was set on the parent
-                None => elem.borrow().is_binding_set("accessible-role", false),
-            };
-
-            for prop_name in crate::typeregister::reserved_accessibility_properties()
-                .map(|x| x.0)
-                .chain(std::iter::once("accessible-role"))
-            {
-                if accessible_role_set {
-                    if elem.borrow().is_binding_set(prop_name, false) {
-                        let nr = NamedReference::new(elem, prop_name);
-                        elem.borrow_mut().accessibility_props.0.insert(prop_name.into(), nr);
-                    }
-                } else if let Some(b) = elem.borrow().bindings.get(prop_name) {
+                } else {
                     diag.push_error(
+                        "The `accessible-role` property must be a constant expression".into(),
+                        &*role.borrow(),
+                    );
+                }
+                true
+            }
+            // maybe it was set on the parent
+            None => elem.borrow().is_binding_set("accessible-role", false),
+        };
+
+        for prop_name in crate::typeregister::reserved_accessibility_properties()
+            .map(|x| x.0)
+            .chain(std::iter::once("accessible-role"))
+        {
+            if accessible_role_set {
+                if elem.borrow().is_binding_set(prop_name, false) {
+                    let nr = NamedReference::new(elem, prop_name);
+                    elem.borrow_mut().accessibility_props.0.insert(prop_name.into(), nr);
+                }
+            } else if let Some(b) = elem.borrow().bindings.get(prop_name) {
+                diag.push_error(
                         format!("The `{prop_name}` property can only be set in combination to `accessible-role`"),
                         &*b.borrow(),
                     );
-                }
             }
-        },
-    )
+        }
+    })
 }
 
 fn apply_builtin(e: &ElementRc) {

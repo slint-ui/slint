@@ -17,7 +17,7 @@ pub const BORDER_RADIUS_PROPERTIES: [&str; 4] = [
 ];
 
 pub fn handle_border_radius(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
-    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+    crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &(),
         &mut |elem, _| {

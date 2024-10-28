@@ -14,7 +14,7 @@ pub fn lower_component_container(
 ) {
     let empty_type = type_register.empty_type();
 
-    recurse_elem_including_sub_components_no_borrow(component, &None, &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &None, &mut |elem, _| {
         if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "ComponentContainer") {
             diagnose_component_container(elem, diag);
             process_component_container(elem, &empty_type);

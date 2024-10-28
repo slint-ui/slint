@@ -35,7 +35,7 @@ pub(crate) fn lower_property_to_element(
         );
     }
 
-    object_tree::recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+    object_tree::recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         if elem.borrow().base_type.to_smolstr() == element_name {
             return;
         }

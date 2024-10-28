@@ -10,14 +10,13 @@ use std::rc::Rc;
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
-    recurse_elem_including_sub_components_no_borrow, visit_all_named_references_in_element,
-    Component,
+    recurse_elem_including_sub_components, visit_all_named_references_in_element, Component,
 };
 
 pub fn lower_absolute_coordinates(component: &Rc<Component>) {
     let mut to_materialize = std::collections::HashSet::new();
 
-    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         visit_all_named_references_in_element(elem, |nr| {
             if nr.name() == "absolute-position" {
                 to_materialize.insert(nr.clone());

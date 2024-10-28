@@ -125,11 +125,9 @@ fn perform_binding_analysis(
 ) {
     let mut context = AnalysisContext::default();
     doc.visit_all_used_components(|component| {
-        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-            component,
-            &(),
-            &mut |e, _| analyze_element(e, &mut context, reverse_aliases, diag),
-        )
+        crate::object_tree::recurse_elem_including_sub_components(component, &(), &mut |e, _| {
+            analyze_element(e, &mut context, reverse_aliases, diag)
+        })
     });
 }
 
@@ -530,11 +528,9 @@ fn visit_implicit_layout_info_dependencies(
 /// ```
 fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAliases) {
     doc.visit_all_used_components(|component| {
-        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-            component,
-            &(),
-            &mut |e, _| visit_element(e, reverse_aliases),
-        );
+        crate::object_tree::recurse_elem_including_sub_components(component, &(), &mut |e, _| {
+            visit_element(e, reverse_aliases)
+        });
     });
 
     fn visit_element(e: &ElementRc, reverse_aliases: &mut ReverseAliases) {
@@ -596,7 +592,7 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
 /// And change bindings are used externally
 fn mark_used_base_properties(doc: &Document) {
     doc.visit_all_used_components(|component| {
-        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+        crate::object_tree::recurse_elem_including_sub_components(
             component,
             &(),
             &mut |element, _| {

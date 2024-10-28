@@ -118,7 +118,7 @@ pub fn lower_shadow_properties(
         );
     }
 
-    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         // When encountering a repeater where the repeated element has a `drop-shadow` property, we create a new
         // dedicated shadow element and make the previously repeated element a child of that. This ensures rendering
         // underneath while maintaining the hierarchy for the repeater.

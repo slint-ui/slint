@@ -26,7 +26,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
         inline_selection: InlineSelection,
         diag: &mut BuildDiagnostics,
     ) {
-        recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
+        recurse_elem(&component.root_element, &(), &mut |elem, _| {
             let base = elem.borrow().base_type.clone();
             if let ElementType::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
@@ -293,7 +293,7 @@ fn inline_element(
     }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
-        recurse_elem_no_borrow(&root_component.root_element.clone(), &(), &mut |e, _| {
+        recurse_elem(&root_component.root_element.clone(), &(), &mut |e, _| {
             if !moved_into_popup.contains(&element_key(e.clone())) {
                 visit_all_named_references_in_element(e, |nr| {
                     if moved_into_popup.contains(&element_key(nr.element())) {
