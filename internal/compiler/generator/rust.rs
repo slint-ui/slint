@@ -466,11 +466,7 @@ fn handle_property_init(
         ctx2.argument_types = &callback.args;
         let tokens_for_expression =
             compile_expression(&binding_expression.expression.borrow(), &ctx2);
-        let as_ = if callback.return_type.as_ref().map_or(true, |t| matches!(t, Type::Void)) {
-            quote!(;)
-        } else {
-            quote!(as _)
-        };
+        let as_ = if matches!(callback.return_type, Type::Void) { quote!(;) } else { quote!(as _) };
         init.push(quote!({
             #[allow(unreachable_code, unused)]
             slint::private_unstable_api::set_callback_handler(#rust_property, &self_rc, {
@@ -553,10 +549,7 @@ fn public_api(
         if let Type::Callback(callback) = &p.ty {
             let callback_args =
                 callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = callback
-                .return_type
-                .as_ref()
-                .map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
+            let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = format_ident!("invoke_{}", prop_ident);
@@ -684,10 +677,7 @@ fn generate_sub_component(
         if let Type::Callback(callback) = &property.ty {
             let callback_args =
                 callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = callback
-                .return_type
-                .as_ref()
-                .map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
+            let return_type = rust_primitive_type(&callback.return_type).unwrap();
             declared_callbacks.push(prop_ident.clone());
             declared_callbacks_types.push(callback_args);
             declared_callbacks_ret.push(return_type);
@@ -1312,10 +1302,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
         if let Type::Callback(callback) = &property.ty {
             let callback_args =
                 callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = callback
-                .return_type
-                .as_ref()
-                .map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
+            let return_type = rust_primitive_type(&callback.return_type);
             declared_callbacks.push(prop_ident.clone());
             declared_callbacks_types.push(callback_args);
             declared_callbacks_ret.push(return_type);

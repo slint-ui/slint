@@ -27,7 +27,7 @@ pub enum Type {
     /// The type of a callback alias whose type was not yet inferred
     InferredCallback,
 
-    Callback(Rc<Callback>),
+    Callback(Rc<Function>),
     Function(Rc<Function>),
 
     ComponentFactory,
@@ -127,9 +127,7 @@ impl Display for Type {
                     }
                     write!(f, ")")?
                 }
-                if let Some(rt) = &callback.return_type {
-                    write!(f, "-> {}", rt)?;
-                }
+                write!(f, "-> {}", callback.return_type)?;
                 Ok(())
             }
             Type::ComponentFactory => write!(f, "component-factory"),
@@ -780,12 +778,6 @@ impl<'a> PropertyLookupResult<'a> {
                 | (PropertyVisibility::Output, false)
         )
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Callback {
-    pub return_type: Option<Type>,
-    pub args: Vec<Type>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

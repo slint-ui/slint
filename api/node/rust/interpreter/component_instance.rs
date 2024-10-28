@@ -160,18 +160,13 @@ impl JsComponentInstance {
                             }
                         };
 
-                        if let Some(return_type) = &return_type {
-                            if let Ok(value) = super::to_value(&env, result, return_type) {
-                                return value;
-                            } else {
-                                eprintln!(
-                                    "Node.js: cannot convert return type of callback {}",
-                                    callback_name
-                                );
-                                return slint_interpreter::default_value_for_type(return_type);
-                            }
-                        } else {
+                        if matches!(return_type, Type::Void) {
                             Value::Void
+                        } else if let Ok(value) = super::to_value(&env, result, &return_type) {
+                            return value;
+                        } else {
+                            eprintln!("Node.js: cannot convert return type of callback {callback_name}");
+                            return slint_interpreter::default_value_for_type(&return_type);
                         }
                     }
                 })
@@ -237,18 +232,13 @@ impl JsComponentInstance {
                             }
                         };
 
-                        if let Some(return_type) = &return_type {
-                            if let Ok(value) = super::to_value(&env, result, return_type) {
-                                return value;
-                            } else {
-                                eprintln!(
-                                    "Node.js: cannot convert return type of callback {}",
-                                    callback_name
-                                );
-                                return slint_interpreter::default_value_for_type(return_type);
-                            }
-                        } else {
+                        if matches!(return_type, Type::Void) {
                             Value::Void
+                        } else if let Ok(value) = super::to_value(&env, result, &return_type) {
+                            return value;
+                        } else {
+                            eprintln!("Node.js: cannot convert return type of callback {callback_name}");
+                            return slint_interpreter::default_value_for_type(&return_type);
                         }
                     }
                 })
@@ -306,10 +296,7 @@ impl JsComponentInstance {
             })?;
 
         let args = match ty {
-            Type::Callback(callback) => {
-                Self::invoke_args(env, &callback_name, arguments, &callback.args)?
-            }
-            Type::Function(function) => {
+            Type::Callback(function) | Type::Function(function) => {
                 Self::invoke_args(env, &callback_name, arguments, &function.args)?
             }
             _ => {
@@ -352,10 +339,7 @@ impl JsComponentInstance {
             })?;
 
         let args = match ty {
-            Type::Callback(callback) => {
-                Self::invoke_args(env, &callback_name, arguments, &callback.args)?
-            }
-            Type::Function(function) => {
+            Type::Callback(function) | Type::Function(function) => {
                 Self::invoke_args(env, &callback_name, arguments, &function.args)?
             }
             _ => {

@@ -34,7 +34,7 @@ pub(crate) fn fold_node(
                     if lk.declared_pure == Some(true) {
                         write!(file, "pure ")?;
                     } else if let Type::Callback(callback) = lk.property_type {
-                        if callback.return_type.is_some() {
+                        if !matches!(callback.return_type, Type::Void) {
                             write!(file, "pure ")?;
                         }
                     }

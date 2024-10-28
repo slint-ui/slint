@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, Callback, ElementType,
-    Enumeration, PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Enumeration,
+    Function, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -128,12 +128,12 @@ impl BuiltinTypes {
                 node: None,
                 rust_attributes: None,
             })),
-            noarg_callback_type: Type::Callback(Rc::new(Callback {
-                return_type: None,
+            noarg_callback_type: Type::Callback(Rc::new(Function {
+                return_type: Type::Void,
                 args: vec![],
             })),
-            strarg_callback_type: Type::Callback(Rc::new(Callback {
-                return_type: None,
+            strarg_callback_type: Type::Callback(Rc::new(Function {
+                return_type: Type::Void,
                 args: vec![Type::String],
             })),
             layout_info_type: layout_info_type.clone(),

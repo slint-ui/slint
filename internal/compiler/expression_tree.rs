@@ -706,10 +706,7 @@ impl Expression {
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
             Expression::FunctionCall { function, .. } => match function.ty() {
-                Type::Function(function) => function.return_type.clone(),
-                Type::Callback(callback) => {
-                    callback.return_type.as_ref().unwrap_or(&Type::Void).clone()
-                }
+                Type::Function(f) | Type::Callback(f) => f.return_type.clone(),
                 _ => Type::Invalid,
             },
             Expression::SelfAssignment { .. } => Type::Void,

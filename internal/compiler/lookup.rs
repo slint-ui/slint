@@ -65,8 +65,7 @@ impl<'a> LookupCtx<'a> {
 
     pub fn return_type(&self) -> &Type {
         match &self.property_type {
-            Type::Callback(callback) => callback.return_type.as_ref().unwrap_or(&Type::Void),
-            Type::Function(function) => &function.return_type,
+            Type::Callback(f) | Type::Function(f) => &f.return_type,
             _ => &self.property_type,
         }
     }
@@ -194,8 +193,7 @@ impl LookupObject for ArgumentsLookup {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let args = match &ctx.property_type {
-            Type::Callback(callback) => &callback.args,
-            Type::Function(function) => &function.args,
+            Type::Callback(f) | Type::Function(f) => &f.args,
             _ => return None,
         };
         for (index, (name, ty)) in ctx.arguments.iter().zip(args.iter()).enumerate() {

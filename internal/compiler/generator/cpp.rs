@@ -626,7 +626,7 @@ fn handle_property_init(
             code = return_compile_expression(
                 &binding_expression.expression.borrow(),
                 &ctx2,
-                callback.return_type.as_ref()
+                Some(&callback.return_type)
             )
         ));
     } else {
@@ -1861,10 +1861,7 @@ fn generate_sub_component(
         let ty = if let Type::Callback(callback) = &property.ty {
             let param_types =
                 callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = callback
-                .return_type
-                .as_ref()
-                .map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+            let return_type = callback.return_type.cpp_type().unwrap();
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
                 return_type,
@@ -2503,13 +2500,9 @@ fn generate_global(
         let ty = if let Type::Callback(callback) = &property.ty {
             let param_types =
                 callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = callback
-                .return_type
-                .as_ref()
-                .map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
-                return_type,
+                callback.return_type.cpp_type().unwrap(),
                 param_types.join(", ")
             )
         } else {
@@ -2640,8 +2633,6 @@ fn generate_public_api_for_properties(
         if let Type::Callback(callback) = &p.ty {
             let param_types =
                 callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type =
-                callback.return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
             let callback_emitter = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
@@ -2661,7 +2652,7 @@ fn generate_public_api_for_properties(
                             .enumerate()
                             .map(|(i, ty)| format!("{} arg_{}", ty, i))
                             .join(", "),
-                        return_type
+                        callback.return_type.cpp_type().unwrap()
                     ),
                     statements: Some(callback_emitter),
                     ..Default::default()
