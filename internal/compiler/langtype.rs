@@ -284,7 +284,6 @@ impl Type {
             | (Type::Rem, Type::PhysicalLength)
             | (Type::LogicalLength, Type::Rem)
             | (Type::PhysicalLength, Type::Rem)
-            | (Type::Percent, Type::LogicalLength)
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
