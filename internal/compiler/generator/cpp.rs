@@ -511,20 +511,20 @@ impl CppType for Type {
             Type::Rem => Some("float".into()),
             Type::Percent => Some("float".into()),
             Type::Bool => Some("bool".into()),
-            Type::Struct { name: Some(name), node: Some(_), .. } => Some(ident(name)),
-            Type::Struct { name: Some(name), node: None, .. } => {
-                Some(if name.starts_with("slint::") {
+            Type::Struct(s) => match (&s.name, &s.node) {
+                (Some(name), Some(_)) => Some(ident(name)),
+                (Some(name), None) => Some(if name.starts_with("slint::") {
                     name.clone()
                 } else {
                     format_smolstr!("slint::cbindgen_private::{}", ident(name))
-                })
-            }
-            Type::Struct { fields, .. } => {
-                let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
+                }),
+                _ => {
+                    let elem =
+                        s.fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
 
-                Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
-            }
-
+                    Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
+                }
+            },
             Type::Array(i) => {
                 Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?))
             }
@@ -607,11 +607,11 @@ fn handle_property_init(
 ) {
     let prop_access = access_member(prop, ctx);
     let prop_type = ctx.property_ty(prop);
-    if let Type::Callback { args, return_type, .. } = &prop_type {
+    if let Type::Callback(callback) = &prop_type {
         let mut ctx2 = ctx.clone();
-        ctx2.argument_types = args;
+        ctx2.argument_types = &callback.args;
 
-        let mut params = args.iter().enumerate().map(|(i, ty)| {
+        let mut params = callback.args.iter().enumerate().map(|(i, ty)| {
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
         });
 
@@ -626,7 +626,7 @@ fn handle_property_init(
             code = return_compile_expression(
                 &binding_expression.expression.borrow(),
                 &ctx2,
-                return_type.as_ref().map(|x| &**x)
+                Some(&callback.return_type)
             )
         ));
     } else {
@@ -693,8 +693,13 @@ pub fn generate(
 
     for ty in doc.used_types.borrow().structs_and_enums.iter() {
         match ty {
-            Type::Struct { fields, name: Some(name), node: Some(node), .. } => {
-                generate_struct(&mut file, name, fields, node);
+            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                generate_struct(
+                    &mut file,
+                    s.name.as_ref().unwrap(),
+                    &s.fields,
+                    s.node.as_ref().unwrap(),
+                );
             }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
@@ -1853,10 +1858,10 @@ fn generate_sub_component(
     for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
-        let ty = if let Type::Callback { args, return_type } = &property.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+        let ty = if let Type::Callback(callback) = &property.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type = callback.return_type.cpp_type().unwrap();
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
                 return_type,
@@ -2492,13 +2497,12 @@ fn generate_global(
     for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
-        let ty = if let Type::Callback { args, return_type } = &property.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+        let ty = if let Type::Callback(callback) = &property.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
-                return_type,
+                callback.return_type.cpp_type().unwrap(),
                 param_types.join(", ")
             )
         } else {
@@ -2626,15 +2630,15 @@ fn generate_public_api_for_properties(
 
         let access = access_member(&p.prop, ctx);
 
-        if let Type::Callback { args, return_type } = &p.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
+        if let Type::Callback(callback) = &p.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let callback_emitter = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "return {}.call({});",
                     access,
-                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                    (0..callback.args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
             declarations.push((
@@ -2648,7 +2652,7 @@ fn generate_public_api_for_properties(
                             .enumerate()
                             .map(|(i, ty)| format!("{} arg_{}", ty, i))
                             .join(", "),
-                        return_type
+                        callback.return_type.cpp_type().unwrap()
                     ),
                     statements: Some(callback_emitter),
                     ..Default::default()
@@ -2670,15 +2674,16 @@ fn generate_public_api_for_properties(
                     ..Default::default()
                 }),
             ));
-        } else if let Type::Function { return_type, args } = &p.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let ret = return_type.cpp_type().unwrap();
+        } else if let Type::Function(function) = &p.ty {
+            let param_types =
+                function.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let ret = function.return_type.cpp_type().unwrap();
             let call_code = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "{}{access}({});",
-                    if **return_type == Type::Void { "" } else { "return " },
-                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                    if function.return_type == Type::Void { "" } else { "return " },
+                    (0..function.args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
             declarations.push((
@@ -2745,8 +2750,8 @@ fn generate_public_api_for_properties(
     for (name, ty) in private_properties {
         let prop_ident = concatenate_ident(name);
 
-        if let Type::Function { args, .. } = &ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
+        if let Type::Function(function) = &ty {
+            let param_types = function.args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
@@ -2988,15 +2993,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
-            Type::Struct { fields, name : None, .. } => {
-                let index = fields
-                    .keys()
-                    .position(|k| k == name)
-                    .expect("Expression::ObjectAccess: Cannot find a key in an object");
-                format!("std::get<{}>({})", index, compile_expression(base, ctx))
-            }
-            Type::Struct{..} => {
-                format!("{}.{}", compile_expression(base, ctx), ident(name))
+            Type::Struct(s)=> {
+                if s.name.is_none() {
+                    let index = s.fields
+                        .keys()
+                        .position(|k| k == name)
+                        .expect("Expression::ObjectAccess: Cannot find a key in an object");
+                    format!("std::get<{}>({})", index, compile_expression(base, ctx))
+                } else {
+                    format!("{}.{}", compile_expression(base, ctx), ident(name))
+                }
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
@@ -3028,11 +3034,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 (Type::Brush, Type::Color) => {
                     format!("{}.color()", f)
                 }
-                (Type::Struct { .. }, Type::Struct{ fields, name: Some(_), ..}) => {
+                (Type::Struct (_), Type::Struct(s)) if s.name.is_some() => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
                         struct_name = to.cpp_type().unwrap(),
-                        fields = fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
+                        fields = s.fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
                         obj = f,
                     )
                 }
@@ -3047,7 +3053,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             .iter()
                             .map(|path_elem_expr| {
                                 let (field_count, qualified_elem_type_name) = match path_elem_expr.ty(ctx) {
-                                    Type::Struct{ fields, name: Some(name), .. } => (fields.len(), name),
+                                    Type::Struct(s) if s.name.is_some() => (s.fields.len(), s.name.as_ref().unwrap().clone()),
                                     _ => unreachable!()
                                 };
                                 // Turn slint::private_api::PathLineTo into `LineTo`
@@ -3238,28 +3244,32 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct{fields, name: None, ..} = ty {
-                let mut elem = fields.iter().map(|(k, t)| {
-                    values
-                        .get(k)
-                        .map(|e| compile_expression(e, ctx))
-                        .map(|e| {
-                            // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
-                            if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
-                        })
-                        .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
-                });
-                format!("std::make_tuple({})", elem.join(", "))
-            } else if let Type::Struct{ name: Some(_), .. } = ty {
-                format!(
-                    "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
-                    args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
-                    ty = ty.cpp_type().unwrap(),
-                    fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
-                    vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
-                )
-            } else {
+            match ty {
+                Type::Struct(s) if s.name.is_none() => {
+                    let mut elem = s.fields.iter().map(|(k, t)| {
+                        values
+                            .get(k)
+                            .map(|e| compile_expression(e, ctx))
+                            .map(|e| {
+                                // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
+                                if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
+                            })
+                            .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
+                    });
+                    format!("std::make_tuple({})", elem.join(", "))
+                },
+                Type::Struct(_) => {
+                    format!(
+                        "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
+                        args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
+                        ty = ty.cpp_type().unwrap(),
+                        fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
+                        vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
+                    )
+                },
+                _ => {
                 panic!("Expression::Object is not a Type::Object")
+                }
             }
         }
         Expression::EasingCurve(EasingCurve::Linear) => "slint::cbindgen_private::EasingCurve()".into(),
@@ -3800,8 +3810,8 @@ fn generate_type_aliases(file: &mut File, doc: &Document) {
                 Some((&export.0.name, &component.id))
             }
             Either::Right(ty) => match &ty {
-                Type::Struct { name: Some(name), node: Some(_), .. } => {
-                    Some((&export.0.name, name))
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                    Some((&export.0.name, s.name.as_ref().unwrap()))
                 }
                 Type::Enumeration(en) => Some((&export.0.name, &en.name)),
                 _ => None,

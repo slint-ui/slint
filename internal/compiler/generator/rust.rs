@@ -13,7 +13,7 @@ Some convention used in the generated code:
 */
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{Enumeration, EnumerationValue, Type};
+use crate::langtype::{Enumeration, EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, Expression, ParentCtx as llr_ParentCtx,
@@ -92,12 +92,16 @@ fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(sp::Image)),
-        Type::Struct { fields, name: None, .. } => {
-            let elem = fields.values().map(rust_primitive_type).collect::<Option<Vec<_>>>()?;
-            // This will produce a tuple
-            Some(quote!((#(#elem,)*)))
+        Type::Struct(s) => {
+            if let Some(name) = &s.name {
+                Some(struct_name_to_tokens(name))
+            } else {
+                let elem =
+                    s.fields.values().map(rust_primitive_type).collect::<Option<Vec<_>>>()?;
+                // This will produce a tuple
+                Some(quote!((#(#elem,)*)))
+            }
         }
-        Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(name)),
         Type::Array(o) => {
             let inner = rust_primitive_type(o)?;
             Some(quote!(sp::ModelRc<#inner>))
@@ -154,9 +158,12 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         .structs_and_enums
         .iter()
         .filter_map(|ty| match ty {
-            Type::Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
-                Some((ident(name), generate_struct(name, fields, rust_attributes)))
-            }
+            Type::Struct(s) => match s.as_ref() {
+                Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
+                    Some((ident(name), generate_struct(name, fields, rust_attributes)))
+                }
+                _ => None,
+            },
             Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
             _ => None,
         })
@@ -454,16 +461,12 @@ fn handle_property_init(
         quote!(let _self = self_rc.as_pin_ref();)
     };
 
-    if let Type::Callback { args, return_type } = &prop_type {
+    if let Type::Callback(callback) = &prop_type {
         let mut ctx2 = ctx.clone();
-        ctx2.argument_types = args;
+        ctx2.argument_types = &callback.args;
         let tokens_for_expression =
             compile_expression(&binding_expression.expression.borrow(), &ctx2);
-        let as_ = if return_type.as_deref().map_or(true, |t| matches!(t, Type::Void)) {
-            quote!(;)
-        } else {
-            quote!(as _)
-        };
+        let as_ = if matches!(callback.return_type, Type::Void) { quote!(;) } else { quote!(as _) };
         init.push(quote!({
             #[allow(unreachable_code, unused)]
             slint::private_unstable_api::set_callback_handler(#rust_property, &self_rc, {
@@ -543,12 +546,12 @@ fn public_api(
         let prop_ident = ident(&p.name);
         let prop = access_member(&p.prop, ctx).unwrap();
 
-        if let Type::Callback { args, return_type } = &p.ty {
+        if let Type::Callback(callback) = &p.ty {
             let callback_args =
-                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
-            let args_name = (0..args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
+                callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type = rust_primitive_type(&callback.return_type).unwrap();
+            let args_name =
+                (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = format_ident!("invoke_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
@@ -570,11 +573,12 @@ fn public_api(
                     )
                 }
             ));
-        } else if let Type::Function { return_type, args } = &p.ty {
+        } else if let Type::Function(function) = &p.ty {
             let callback_args =
-                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = rust_primitive_type(return_type).unwrap();
-            let args_name = (0..args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
+                function.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type = rust_primitive_type(&function.return_type).unwrap();
+            let args_name =
+                (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = format_ident!("invoke_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
@@ -670,11 +674,10 @@ fn generate_sub_component(
 
     for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let prop_ident = ident(&property.name);
-        if let Type::Callback { args, return_type } = &property.ty {
+        if let Type::Callback(callback) = &property.ty {
             let callback_args =
-                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
+                callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type = rust_primitive_type(&callback.return_type).unwrap();
             declared_callbacks.push(prop_ident.clone());
             declared_callbacks_types.push(callback_args);
             declared_callbacks_ret.push(return_type);
@@ -1296,11 +1299,10 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
 
     for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
         let prop_ident = ident(&property.name);
-        if let Type::Callback { args, return_type } = &property.ty {
+        if let Type::Callback(callback) = &property.ty {
             let callback_args =
-                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
+                callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type = rust_primitive_type(&callback.return_type);
             declared_callbacks.push(prop_ident.clone());
             declared_callbacks_types.push(callback_args);
             declared_callbacks_ret.push(return_type);
@@ -2138,13 +2140,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
                 }
-                (Type::Struct { ref fields, .. }, Type::Struct { name: Some(n), .. }) => {
-                    let fields = fields.iter().enumerate().map(|(index, (name, _))| {
+                (Type::Struct (lhs), Type::Struct (rhs)) if rhs.name.is_some() => {
+                    let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
                         let name = ident(name);
                         quote!(the_struct.#name =  obj.#index as _;)
                     });
-                    let id = struct_name_to_tokens(n);
+                    let id = struct_name_to_tokens(rhs.name.as_ref().unwrap());
                     quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
                 }
                 (Type::Array(..), Type::PathData)
@@ -2158,7 +2160,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             .iter()
                             .map(|path_elem_expr|
                                 // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
-                                if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct { fields, .. }, .. } if fields.is_empty()) {
+                                if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct (s), .. } if s.fields.is_empty()) {
                                     quote!(sp::PathElement::Close)
                                 } else {
                                     compile_expression(path_elem_expr, ctx)
@@ -2237,8 +2239,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote! {args.#i.clone()}
         }
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
-            Type::Struct { fields, name: None, .. } => {
-                let index = fields
+            Type::Struct (s) if s.name.is_none() => {
+                let index = s.fields
                     .keys()
                     .position(|k| k == name)
                     .expect("Expression::StructFieldAccess: Cannot find a key in an object");
@@ -2420,18 +2422,18 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct { fields, name, .. } = ty {
-                let elem = fields.keys().map(|k| values.get(k).map(|e| compile_expression(e, ctx)));
-                if let Some(name) = name {
+            if let Type::Struct (s) = ty {
+                let elem = s.fields.keys().map(|k| values.get(k).map(|e| compile_expression(e, ctx)));
+                if let Some(name) = &s.name {
                     let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
-                    let keys = fields.keys().map(|k| ident(k));
+                    let keys = s.fields.keys().map(|k| ident(k));
                     if name.starts_with("slint::private_api::") && name.ends_with("LayoutData") {
                         quote!(#name_tokens{#(#keys: #elem as _,)*})
                     } else {
                         quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
                     }
                 } else {
-                    let as_ = fields.values().map(|t| {
+                    let as_ = s.fields.values().map(|t| {
                         if t.as_unit_product().is_some() {
                             // number needs to be converted to the right things because intermediate
                             // result might be f64 and that's usually not what the type of the tuple is in the end
@@ -3120,8 +3122,8 @@ fn generate_named_exports(doc: &Document) -> Vec<TokenStream> {
                 Some((&export.0.name, &component.id))
             }
             Either::Right(ty) => match &ty {
-                Type::Struct { name: Some(name), node: Some(_), .. } => {
-                    Some((&export.0.name, name))
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                    Some((&export.0.name, s.name.as_ref().unwrap()))
                 }
                 Type::Enumeration(en) => Some((&export.0.name, &en.name)),
                 _ => None,

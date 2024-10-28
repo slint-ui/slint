@@ -209,10 +209,16 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         return;
     }
 
-    let li_v =
-        crate::layout::create_new_prop(elem, "layoutinfo-v", crate::layout::layout_info_type());
-    let li_h =
-        crate::layout::create_new_prop(elem, "layoutinfo-h", crate::layout::layout_info_type());
+    let li_v = crate::layout::create_new_prop(
+        elem,
+        "layoutinfo-v",
+        crate::typeregister::layout_info_type(),
+    );
+    let li_h = crate::layout::create_new_prop(
+        elem,
+        "layoutinfo-h",
+        crate::typeregister::layout_info_type(),
+    );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
     let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
     let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
@@ -264,8 +270,9 @@ fn merge_explicit_constraints(
             name: unique_name.clone(),
             value: Box::new(std::mem::take(expr)),
         };
-        let Type::Struct { fields, .. } = &ty else { unreachable!() };
-        let mut values = fields
+        let Type::Struct(s) = &ty else { unreachable!() };
+        let mut values = s
+            .fields
             .keys()
             .map(|p| {
                 (
@@ -315,7 +322,7 @@ fn explicit_layout_info(e: &ElementRc, orientation: Orientation) -> Expression {
     }
     values.insert("min_percent".into(), Expression::NumberLiteral(0., Unit::None));
     values.insert("max_percent".into(), Expression::NumberLiteral(100., Unit::None));
-    Expression::Struct { ty: crate::layout::layout_info_type(), values }
+    Expression::Struct { ty: crate::typeregister::layout_info_type(), values }
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`
@@ -420,7 +427,7 @@ fn make_default_aspect_ratio_preserving_binding(
         let implicit_size_var = Box::new(Expression::ReadLocalVariable {
             name: "image_implicit_size".into(),
             ty: match BuiltinFunction::ImageSize.ty() {
-                Type::Function { return_type, .. } => *return_type,
+                Type::Function(function) => function.return_type.clone(),
                 _ => panic!("invalid type for ImplicitItemSize built-in function"),
             },
         });

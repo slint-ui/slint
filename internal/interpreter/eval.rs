@@ -1445,8 +1445,8 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::Array(inner) => {
             matches!(value, Value::Model(m) if m.iter().all(|v| check_value_type(&v, inner)))
         }
-        Type::Struct { fields, .. } => {
-            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
+        Type::Struct(s) => {
+            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| s.fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
         }
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
@@ -1474,7 +1474,7 @@ pub(crate) fn invoke_callback(
                     let res = callback.call(args);
                     return Some(if res != Value::Void {
                         res
-                    } else if let Some(Type::Callback { return_type: Some(rt), .. }) = description
+                    } else if let Some(Type::Callback(callback)) = description
                         .original
                         .root_element
                         .borrow()
@@ -1485,7 +1485,7 @@ pub(crate) fn invoke_callback(
                         // If the callback was not set, the return value will be Value::Void, but we need
                         // to make sure that the value is actually of the right type as returned by the
                         // callback, otherwise we will get panics later
-                        default_value_for_type(rt)
+                        default_value_for_type(&callback.return_type)
                     } else {
                         res
                     });
@@ -1688,8 +1688,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Image => Value::Image(Default::default()),
         Type::Bool => Value::Bool(false),
         Type::Callback { .. } => Value::Void,
-        Type::Struct { fields, .. } => Value::Struct(
-            fields
+        Type::Struct(s) => Value::Struct(
+            s.fields
                 .iter()
                 .map(|(n, t)| (n.to_string(), default_value_for_type(t)))
                 .collect::<Struct>(),

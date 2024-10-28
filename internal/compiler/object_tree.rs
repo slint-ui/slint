@@ -9,8 +9,10 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
-use crate::langtype::EnumerationValue;
-use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, Enumeration, NativeClass, Type};
+use crate::langtype::{
+    BuiltinElement, BuiltinPropertyDefault, Enumeration, EnumerationValue, Function, NativeClass,
+    Struct, Type,
+};
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
@@ -88,14 +90,14 @@ impl Document {
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
             let rust_attributes = n.AtRustAttr().map(|child| vec![child.text().to_smolstr()]);
-            let mut ty =
-                type_struct_from_node(n.ObjectType(), diag, local_registry, rust_attributes);
-            if let Type::Struct { name, .. } = &mut ty {
-                *name = parser::identifier_text(&n.DeclaredIdentifier());
-            } else {
-                assert!(diag.has_errors());
-                return;
-            }
+            let ty = type_struct_from_node(
+                n.ObjectType(),
+                diag,
+                local_registry,
+                rust_attributes,
+                parser::identifier_text(&n.DeclaredIdentifier()),
+            );
+            assert!(matches!(ty, Type::Struct(_)));
             local_registry.insert_type(ty.clone());
             inner_types.push(ty);
         };
@@ -1155,11 +1157,12 @@ impl Element {
                 .collect();
             let return_type = sig_decl
                 .ReturnType()
-                .map(|ret_ty| Box::new(type_from_node(ret_ty.Type(), diag, tr)));
+                .map(|ret_ty| type_from_node(ret_ty.Type(), diag, tr))
+                .unwrap_or(Type::Void);
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Callback { return_type, args },
+                    property_type: Type::Callback(Rc::new(Function { return_type, args })),
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
                     pure,
@@ -1207,10 +1210,9 @@ impl Element {
                 }
                 arg_names.push(name);
             }
-            let return_type = Box::new(
-                func.ReturnType()
-                    .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr)),
-            );
+            let return_type = func
+                .ReturnType()
+                .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr));
             if r.bindings
                 .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
                 .is_some()
@@ -1241,7 +1243,7 @@ impl Element {
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Function { return_type, args },
+                    property_type: Type::Function(Rc::new(Function { return_type, args })),
                     node: Some(func.into()),
                     visibility,
                     pure,
@@ -1254,14 +1256,14 @@ impl Element {
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
             let PropertyLookupResult { resolved_name, property_type, .. } =
                 r.lookup_property(&unresolved_name);
-            if let Type::Callback { args, .. } = &property_type {
+            if let Type::Callback(callback) = &property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
-                if num_arg > args.len() {
+                if num_arg > callback.args.len() {
                     diag.push_error(
                         format!(
                             "'{}' only has {} arguments, but {} were provided",
                             unresolved_name,
-                            args.len(),
+                            callback.args.len(),
                             num_arg
                         ),
                         &con_node.child_token(SyntaxKind::Identifier).unwrap(),
@@ -1882,9 +1884,9 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
-        type_struct_from_node(object_node, diag, tr, None)
+        type_struct_from_node(object_node, diag, tr, None, None)
     } else if let Some(array_node) = node.ArrayType() {
-        Type::Array(Box::new(type_from_node(array_node.Type(), diag, tr)))
+        Type::Array(Rc::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
         assert!(diag.has_errors());
         Type::Invalid
@@ -1897,6 +1899,7 @@ pub fn type_struct_from_node(
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
     rust_attributes: Option<Vec<SmolStr>>,
+    name: Option<SmolStr>,
 ) -> Type {
     let fields = object_node
         .ObjectTypeMember()
@@ -1907,7 +1910,7 @@ pub fn type_struct_from_node(
             )
         })
         .collect();
-    Type::Struct { fields, name: None, node: Some(object_node), rust_attributes }
+    Type::Struct(Rc::new(Struct { fields, name, node: Some(object_node), rust_attributes }))
 }
 
 fn animation_element_from_node(
@@ -2701,12 +2704,12 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         let li_v = crate::layout::create_new_prop(
             &new_root,
             "layoutinfo-v",
-            crate::layout::layout_info_type(),
+            crate::typeregister::layout_info_type(),
         );
         let li_h = crate::layout::create_new_prop(
             &new_root,
             "layoutinfo-h",
-            crate::layout::layout_info_type(),
+            crate::typeregister::layout_info_type(),
         );
         let expr_h = crate::layout::implicit_layout_info_call(old_root, Orientation::Horizontal);
         let expr_v = crate::layout::implicit_layout_info_call(old_root, Orientation::Vertical);

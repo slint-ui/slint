@@ -116,7 +116,7 @@ fn should_materialize(
         } else if prop == "close-policy" {
             // PopupWindow::close-policy
             return Some(Type::Enumeration(
-                crate::typeregister::BUILTIN_ENUMS.with(|e| e.PopupClosePolicy.clone()),
+                crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
             ));
         }
     }

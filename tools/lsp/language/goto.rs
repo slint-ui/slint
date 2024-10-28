@@ -61,7 +61,9 @@ pub fn goto_definition(
 
 fn goto_type(ty: &Type) -> Option<GotoDefinitionResponse> {
     match ty {
-        Type::Struct { node: Some(node), .. } => goto_node(node.parent().as_ref()?),
+        Type::Struct(s) if s.node.is_some() => {
+            goto_node(s.node.as_ref().unwrap().parent().as_ref()?)
+        }
         Type::Enumeration(e) => goto_node(e.node.as_ref()?),
         _ => None,
     }

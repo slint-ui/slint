@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{BuiltinElement, EnumerationValue, Type};
+use crate::langtype::{BuiltinElement, EnumerationValue, Function, Struct, Type};
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
@@ -107,222 +107,130 @@ pub enum BuiltinMacroFunction {
     Debug,
 }
 
-impl BuiltinFunction {
-    pub fn ty(&self) -> Type {
-        match self {
-            BuiltinFunction::GetWindowScaleFactor => Type::Function {
-                return_type: Box::new(Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)])),
-                args: vec![],
-            },
-            BuiltinFunction::GetWindowDefaultFontSize => {
-                Type::Function { return_type: Box::new(Type::LogicalLength), args: vec![] }
-            }
-            BuiltinFunction::AnimationTick => {
-                Type::Function { return_type: Type::Duration.into(), args: vec![] }
-            }
-            BuiltinFunction::Debug => {
-                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
-            }
-            BuiltinFunction::Mod => Type::Function {
-                return_type: Box::new(Type::Int32),
-                args: vec![Type::Int32, Type::Int32],
-            },
-            BuiltinFunction::Round | BuiltinFunction::Ceil | BuiltinFunction::Floor => {
-                Type::Function { return_type: Box::new(Type::Int32), args: vec![Type::Float32] }
-            }
-            BuiltinFunction::Sqrt | BuiltinFunction::Abs => {
-                Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::Float32] }
-            }
-            BuiltinFunction::Cos | BuiltinFunction::Sin | BuiltinFunction::Tan => {
-                Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::Angle] }
-            }
-            BuiltinFunction::ACos | BuiltinFunction::ASin | BuiltinFunction::ATan => {
-                Type::Function { return_type: Box::new(Type::Angle), args: vec![Type::Float32] }
-            }
-            BuiltinFunction::ATan2 => Type::Function {
-                return_type: Box::new(Type::Angle),
-                args: vec![Type::Float32, Type::Float32],
-            },
-            BuiltinFunction::Log | BuiltinFunction::Pow => Type::Function {
-                return_type: Box::new(Type::Float32),
-                args: vec![Type::Float32, Type::Float32],
-            },
-            BuiltinFunction::SetFocusItem => Type::Function {
-                return_type: Box::new(Type::Void),
-                args: vec![Type::ElementReference],
-            },
-            BuiltinFunction::ClearFocusItem => Type::Function {
-                return_type: Box::new(Type::Void),
-                args: vec![Type::ElementReference],
-            },
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => {
-                Type::Function {
-                    return_type: Box::new(Type::Void),
-                    args: vec![Type::ElementReference],
+macro_rules! declare_builtin_function_types {
+    ($( $Name:ident $(($Pattern:tt))? : ($( $Arg:expr ),*) -> $ReturnType:expr $(,)? )*) => {
+        #[allow(non_snake_case)]
+        pub struct BuiltinFunctionTypes {
+            $(pub $Name : Type),*
+        }
+        impl BuiltinFunctionTypes {
+            pub fn new() -> Self {
+                Self {
+                    $($Name : Type::Function(Rc::new(Function{
+                        args: vec![$($Arg),*],
+                        return_type: $ReturnType,
+                    }))),*
                 }
             }
-            BuiltinFunction::SetSelectionOffsets => Type::Function {
-                return_type: Box::new(Type::Void),
-                args: vec![Type::ElementReference, Type::Int32, Type::Int32],
-            },
-            BuiltinFunction::ItemMemberFunction(..) => Type::Function {
-                return_type: Box::new(Type::Void),
-                args: vec![Type::ElementReference],
-            },
-            BuiltinFunction::ItemFontMetrics => Type::Function {
-                return_type: Box::new(crate::typeregister::font_metrics_type()),
-                args: vec![Type::ElementReference],
-            },
-            BuiltinFunction::StringToFloat => {
-                Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::String] }
-            }
-            BuiltinFunction::StringIsFloat => {
-                Type::Function { return_type: Box::new(Type::Bool), args: vec![Type::String] }
-            }
-            BuiltinFunction::ImplicitLayoutInfo(_) => Type::Function {
-                return_type: Box::new(crate::layout::layout_info_type()),
-                args: vec![Type::ElementReference],
-            },
-            BuiltinFunction::ColorRgbaStruct => Type::Function {
-                return_type: Box::new(Type::Struct {
-                    fields: IntoIterator::into_iter([
-                        (SmolStr::new_static("red"), Type::Int32),
-                        (SmolStr::new_static("green"), Type::Int32),
-                        (SmolStr::new_static("blue"), Type::Int32),
-                        (SmolStr::new_static("alpha"), Type::Int32),
-                    ])
-                    .collect(),
-                    name: Some("Color".into()),
-                    node: None,
-                    rust_attributes: None,
-                }),
-                args: vec![Type::Color],
-            },
-            BuiltinFunction::ColorHsvaStruct => Type::Function {
-                return_type: Box::new(Type::Struct {
-                    fields: IntoIterator::into_iter([
-                        (SmolStr::new_static("hue"), Type::Float32),
-                        (SmolStr::new_static("saturation"), Type::Float32),
-                        (SmolStr::new_static("value"), Type::Float32),
-                        (SmolStr::new_static("alpha"), Type::Float32),
-                    ])
-                    .collect(),
-                    name: Some("Color".into()),
-                    node: None,
-                    rust_attributes: None,
-                }),
-                args: vec![Type::Color],
-            },
-            BuiltinFunction::ColorBrighter => Type::Function {
-                return_type: Box::new(Type::Brush),
-                args: vec![Type::Brush, Type::Float32],
-            },
-            BuiltinFunction::ColorDarker => Type::Function {
-                return_type: Box::new(Type::Brush),
-                args: vec![Type::Brush, Type::Float32],
-            },
-            BuiltinFunction::ColorTransparentize => Type::Function {
-                return_type: Box::new(Type::Brush),
-                args: vec![Type::Brush, Type::Float32],
-            },
-            BuiltinFunction::ColorMix => Type::Function {
-                return_type: Box::new(Type::Color),
-                args: vec![Type::Color, Type::Color, Type::Float32],
-            },
-            BuiltinFunction::ColorWithAlpha => Type::Function {
-                return_type: Box::new(Type::Brush),
-                args: vec![Type::Brush, Type::Float32],
-            },
-            BuiltinFunction::ImageSize => Type::Function {
-                return_type: Box::new(Type::Struct {
-                    fields: IntoIterator::into_iter([
-                        (SmolStr::new_static("width"), Type::Int32),
-                        (SmolStr::new_static("height"), Type::Int32),
-                    ])
-                    .collect(),
-                    name: Some("Size".into()),
-                    node: None,
-                    rust_attributes: None,
-                }),
-                args: vec![Type::Image],
-            },
-            BuiltinFunction::ArrayLength => {
-                Type::Function { return_type: Box::new(Type::Int32), args: vec![Type::Model] }
-            }
-            BuiltinFunction::Rgb => Type::Function {
-                return_type: Box::new(Type::Color),
-                args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
-            },
-            BuiltinFunction::Hsv => Type::Function {
-                return_type: Box::new(Type::Color),
-                args: vec![Type::Float32, Type::Float32, Type::Float32, Type::Float32],
-            },
-            BuiltinFunction::ColorScheme => Type::Function {
-                return_type: Box::new(Type::Enumeration(
-                    crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone()),
-                )),
-                args: vec![],
-            },
-            BuiltinFunction::MonthDayCount => Type::Function {
-                return_type: Box::new(Type::Int32),
-                args: vec![Type::Int32, Type::Int32],
-            },
-            BuiltinFunction::MonthOffset => Type::Function {
-                return_type: Box::new(Type::Int32),
-                args: vec![Type::Int32, Type::Int32],
-            },
-            BuiltinFunction::FormatDate => Type::Function {
-                return_type: Box::new(Type::String),
-                args: vec![Type::String, Type::Int32, Type::Int32, Type::Int32],
-            },
-            BuiltinFunction::TextInputFocused => {
-                Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
-            }
-            BuiltinFunction::DateNow => Type::Function {
-                return_type: Box::new(Type::Array(Box::new(Type::Int32))),
-                args: vec![],
-            },
-            BuiltinFunction::ValidDate => Type::Function {
-                return_type: Box::new(Type::Bool),
-                args: vec![Type::String, Type::String],
-            },
-            BuiltinFunction::ParseDate => Type::Function {
-                return_type: Box::new(Type::Array(Box::new(Type::Int32))),
-                args: vec![Type::String, Type::String],
-            },
-            BuiltinFunction::SetTextInputFocused => {
-                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Bool] }
-            }
-            BuiltinFunction::ItemAbsolutePosition => Type::Function {
-                return_type: Box::new(crate::typeregister::logical_point_type()),
-                args: vec![Type::ElementReference],
-            },
-            BuiltinFunction::RegisterCustomFontByPath => {
-                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
-            }
-            BuiltinFunction::RegisterCustomFontByMemory => {
-                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Int32] }
-            }
-            BuiltinFunction::RegisterBitmapFont => {
-                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Int32] }
-            }
-            BuiltinFunction::Translate => Type::Function {
-                return_type: Box::new(Type::String),
-                // original, context, domain, args
-                args: vec![
-                    Type::String,
-                    Type::String,
-                    Type::String,
-                    Type::Array(Type::String.into()),
-                ],
-            },
-            BuiltinFunction::Use24HourFormat => {
-                Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
-            }
-            BuiltinFunction::UpdateTimers => {
-                Type::Function { return_type: Box::new(Type::Void), args: vec![] }
+
+            pub fn ty(&self, function: &BuiltinFunction) -> Type {
+                match function {
+                    $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
+                }
             }
         }
+    };
+}
+
+declare_builtin_function_types!(
+    GetWindowScaleFactor: () -> Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)]),
+    GetWindowDefaultFontSize: () -> Type::LogicalLength,
+    AnimationTick: () -> Type::Duration,
+    Debug: (Type::String) -> Type::Void,
+    Mod: (Type::Int32, Type::Int32) -> Type::Int32,
+    Round: (Type::Float32) -> Type::Int32,
+    Ceil: (Type::Float32) -> Type::Int32,
+    Floor: (Type::Float32) -> Type::Int32,
+    Sqrt: (Type::Float32) -> Type::Float32,
+    Abs: (Type::Float32) -> Type::Float32,
+    Cos: (Type::Angle) -> Type::Float32,
+    Sin: (Type::Angle) -> Type::Float32,
+    Tan: (Type::Angle) -> Type::Float32,
+    ACos: (Type::Float32) -> Type::Angle,
+    ASin: (Type::Float32) -> Type::Angle,
+    ATan: (Type::Float32) -> Type::Angle,
+    ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
+    Log: (Type::Float32, Type::Float32) -> Type::Float32,
+    Pow: (Type::Float32, Type::Float32) -> Type::Float32,
+    SetFocusItem: (Type::ElementReference) -> Type::Void,
+    ClearFocusItem: (Type::ElementReference) -> Type::Void,
+    ShowPopupWindow: (Type::ElementReference) -> Type::Void,
+    ClosePopupWindow: (Type::ElementReference) -> Type::Void,
+    ItemMemberFunction(..): (Type::ElementReference) -> Type::Void,
+    SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
+    ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
+    StringToFloat: (Type::String) -> Type::Float32,
+    StringIsFloat: (Type::String) -> Type::Bool,
+    ImplicitLayoutInfo(..): (Type::ElementReference) -> crate::typeregister::layout_info_type(),
+    ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
+        fields: IntoIterator::into_iter([
+            (SmolStr::new_static("red"), Type::Int32),
+            (SmolStr::new_static("green"), Type::Int32),
+            (SmolStr::new_static("blue"), Type::Int32),
+            (SmolStr::new_static("alpha"), Type::Int32),
+        ])
+        .collect(),
+        name: Some("Color".into()),
+        node: None,
+        rust_attributes: None,
+    })),
+    ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
+        fields: IntoIterator::into_iter([
+            (SmolStr::new_static("hue"), Type::Float32),
+            (SmolStr::new_static("saturation"), Type::Float32),
+            (SmolStr::new_static("value"), Type::Float32),
+            (SmolStr::new_static("alpha"), Type::Float32),
+        ])
+        .collect(),
+        name: Some("Color".into()),
+        node: None,
+        rust_attributes: None,
+    })),
+    ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
+    ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
+    ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct {
+        fields: IntoIterator::into_iter([
+            (SmolStr::new_static("width"), Type::Int32),
+            (SmolStr::new_static("height"), Type::Int32),
+        ])
+        .collect(),
+        name: Some("Size".into()),
+        node: None,
+        rust_attributes: None,
+    })),
+    ArrayLength: (Type::Model) -> Type::Int32,
+    Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
+    Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
+    ColorScheme: () -> Type::Enumeration(
+        crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
+    ),
+    MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
+    MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
+    FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
+    TextInputFocused: () -> Type::Bool,
+    DateNow: () -> Type::Array(Rc::new(Type::Int32)),
+    ValidDate: (Type::String, Type::String) -> Type::Bool,
+    ParseDate: (Type::String, Type::String) -> Type::Array(Rc::new(Type::Int32)),
+    SetTextInputFocused: (Type::Bool) -> Type::Void,
+    ItemAbsolutePosition: (Type::ElementReference) -> crate::typeregister::logical_point_type(),
+    RegisterCustomFontByPath: (Type::String) -> Type::Void,
+    RegisterCustomFontByMemory: (Type::Int32) -> Type::Void,
+    RegisterBitmapFont: (Type::Int32) -> Type::Void,
+    // original, context, domain, args
+    Translate: (Type::String, Type::String, Type::String, Type::Array(Type::String.into())) -> Type::String,
+    Use24HourFormat: () -> Type::Bool,
+    UpdateTimers: () -> Type::Void,
+);
+
+impl BuiltinFunction {
+    pub fn ty(&self) -> Type {
+        thread_local! {
+            static TYPES: BuiltinFunctionTypes = BuiltinFunctionTypes::new();
+        }
+        TYPES.with(|types| types.ty(&self))
     }
 
     /// It is const if the return value only depends on its argument and has no side effect
@@ -788,9 +696,7 @@ impl Expression {
                 .map_or(Type::Invalid, |e| model_inner_type(&e.model)),
             Expression::FunctionParameterReference { ty, .. } => ty.clone(),
             Expression::StructFieldAccess { base, name } => match base.ty() {
-                Type::Struct { fields, .. } => {
-                    fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
-                }
+                Type::Struct(s) => s.fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone(),
                 _ => Type::Invalid,
             },
             Expression::ArrayIndex { array, .. } => match array.ty() {
@@ -800,8 +706,7 @@ impl Expression {
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
             Expression::FunctionCall { function, .. } => match function.ty() {
-                Type::Function { return_type, .. } => *return_type,
-                Type::Callback { return_type, .. } => return_type.map_or(Type::Void, |x| *x),
+                Type::Function(f) | Type::Callback(f) => f.return_type.clone(),
                 _ => Type::Invalid,
             },
             Expression::SelfAssignment { .. } => Type::Void,
@@ -872,7 +777,7 @@ impl Expression {
                 }
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
-            Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
+            Expression::Array { element_ty, .. } => Type::Array(Rc::new(element_ty.clone())),
             Expression::Struct { ty, .. } => ty.clone(),
             Expression::PathData { .. } => Type::PathData,
             Expression::StoreLocalVariable { .. } => Type::Void,
@@ -884,7 +789,7 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Expression::ComputeLayoutInfo(..) => crate::layout::layout_info_type(),
+            Expression::ComputeLayoutInfo(..) => crate::typeregister::layout_info_type(),
             Expression::SolveLayout(..) => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
@@ -1200,13 +1105,12 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
-                (
-                    ref from_ty @ Type::Struct { fields: ref left, .. },
-                    Type::Struct { fields: right, .. },
-                ) if left != right => {
+                (ref from_ty @ Type::Struct(ref left), Type::Struct(ref right))
+                    if left.fields != right.fields =>
+                {
                     if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = HashMap::new();
-                        for (key, ty) in right {
+                        for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
                                 || (key.clone(), Expression::default_value_for_type(ty)),
                                 |(k, e)| (k, e.maybe_convert_to(ty.clone(), node, diag)),
@@ -1217,8 +1121,8 @@ impl Expression {
                     }
                     let var_name = "tmpobj";
                     let mut new_values = HashMap::new();
-                    for (key, ty) in right {
-                        let expression = if left.contains_key(key) {
+                    for (key, ty) in &right.fields {
+                        let expression = if left.fields.contains_key(key) {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.into(),
@@ -1305,15 +1209,15 @@ impl Expression {
                         .map(|e| e.maybe_convert_to((*target_type).clone(), node, diag))
                         .take_while(|e| !matches!(e, Expression::Invalid))
                         .collect(),
-                    element_ty: *target_type,
+                    element_ty: (*target_type).clone(),
                 },
                 _ => unreachable!(),
             }
-        } else if let (Type::Struct { fields, .. }, Expression::Struct { values, .. }) =
+        } else if let (Type::Struct(struct_type), Expression::Struct { values, .. }) =
             (&target_type, &self)
         {
             // Also special case struct literal in case they contain array literal
-            let mut fields = fields.clone();
+            let mut fields = struct_type.fields.clone();
             let mut new_values = HashMap::new();
             for (f, v) in values {
                 if let Some(t) = fields.remove(f) {
@@ -1390,9 +1294,10 @@ impl Expression {
             Type::Array(element_ty) => {
                 Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
             }
-            Type::Struct { fields, .. } => Expression::Struct {
+            Type::Struct(s) => Expression::Struct {
                 ty: ty.clone(),
-                values: fields
+                values: s
+                    .fields
                     .iter()
                     .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
                     .collect(),
@@ -1482,7 +1387,7 @@ fn model_inner_type(model: &Expression) -> Type {
         Expression::CodeBlock(cb) => cb.last().map_or(Type::Invalid, model_inner_type),
         _ => match model.ty() {
             Type::Float32 | Type::Int32 => Type::Int32,
-            Type::Array(elem) => *elem,
+            Type::Array(elem) => (*elem).clone(),
             _ => Type::Invalid,
         },
     }

@@ -12,14 +12,14 @@ use smol_str::{format_smolstr, SmolStr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
 use super::{Animation, PropertyReference};
-use crate::langtype::{EnumerationValue, Type};
+use crate::langtype::{EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
 use crate::{
     expression_tree::{BuiltinFunction, Expression as tree_Expression},
-    typeregister::BUILTIN_ENUMS,
+    typeregister::BUILTIN,
 };
 
 pub struct ExpressionContext<'a> {
@@ -260,8 +260,8 @@ fn lower_assignment(
                 tree_Expression::ReadLocalVariable { name: unique_name, ty: ty.clone() };
             let mut values = HashMap::new();
             match &ty {
-                Type::Struct { fields, .. } => {
-                    for field in fields.keys() {
+                Type::Struct(s) => {
+                    for field in s.fields.keys() {
                         let e = if field != name {
                             tree_Expression::StructFieldAccess {
                                 base: lower_base.clone().into(),
@@ -415,7 +415,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
             (SmolStr::new_static("iteration-count"), Type::Float32),
             (
                 SmolStr::new_static("direction"),
-                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AnimationDirection.clone())),
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AnimationDirection.clone())),
             ),
             (SmolStr::new_static("easing"), Type::Easing),
             (SmolStr::new_static("delay"), Type::Int32),
@@ -423,12 +423,12 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
     }
 
     fn animation_ty() -> Type {
-        Type::Struct {
+        Type::Struct(Rc::new(Struct {
             fields: animation_fields().collect(),
             name: Some("slint::private_api::PropertyAnimation".into()),
             node: None,
             rust_attributes: None,
-        }
+        }))
     }
 
     match a {
@@ -456,7 +456,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
             }
             let result = llr_Expression::Struct {
                 // This is going to be a tuple
-                ty: Type::Struct {
+                ty: Type::Struct(Rc::new(Struct {
                     fields: IntoIterator::into_iter([
                         (SmolStr::new_static("0"), animation_ty),
                         // The type is an instant, which does not exist in our type system
@@ -466,7 +466,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
                     name: None,
                     node: None,
                     rust_attributes: None,
-                },
+                })),
                 values: IntoIterator::into_iter([
                     (SmolStr::new_static("0"), get_anim),
                     (
@@ -500,7 +500,7 @@ fn compute_layout_info(
             llr_Expression::ExtraBuiltinFunctionCall {
                 function: "grid_layout_info".into(),
                 arguments: vec![cells, spacing, padding],
-                return_ty: crate::layout::layout_info_type(),
+                return_ty: crate::typeregister::layout_info_type(),
             }
         }
         crate::layout::Layout::BoxLayout(layout) => {
@@ -510,13 +510,13 @@ fn compute_layout_info(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info".into(),
                     arguments: vec![bld.cells, spacing, padding, bld.alignment],
-                    return_ty: crate::layout::layout_info_type(),
+                    return_ty: crate::typeregister::layout_info_type(),
                 }
             } else {
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info_ortho".into(),
                     arguments: vec![bld.cells, padding],
-                    return_ty: crate::layout::layout_info_type(),
+                    return_ty: crate::typeregister::layout_info_type(),
                 }
             };
             match bld.compute_cells {
@@ -546,7 +546,7 @@ fn solve_layout(
             if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, o)
             {
                 let cells_ty = cells.ty(ctx);
-                let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone());
+                let e = crate::typeregister::BUILTIN.with(|e| e.enums.DialogButtonRole.clone());
                 let roles = button_roles
                     .iter()
                     .map(|r| {
@@ -616,8 +616,8 @@ fn solve_layout(
                     ("padding", padding.ty(ctx), padding),
                     (
                         "alignment",
-                        crate::typeregister::BUILTIN_ENUMS
-                            .with(|e| Type::Enumeration(e.LayoutAlignment.clone())),
+                        crate::typeregister::BUILTIN
+                            .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
                         bld.alignment,
                     ),
                     ("cells", bld.cells.ty(ctx), bld.cells),
@@ -674,7 +674,7 @@ fn box_layout_data(
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.LayoutAlignment.clone());
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignment.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -684,13 +684,7 @@ fn box_layout_data(
     let repeater_count =
         layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
-    let element_ty = Type::Struct {
-        fields: IntoIterator::into_iter([("constraint".into(), crate::layout::layout_info_type())])
-            .collect(),
-        name: Some("BoxLayoutCellData".into()),
-        node: None,
-        rust_attributes: None,
-    };
+    let element_ty = crate::typeregister::box_layout_cell_data_type();
 
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
@@ -702,7 +696,7 @@ fn box_layout_data(
                         get_layout_info(&li.element, ctx, &li.constraints, orientation);
                     make_struct(
                         "BoxLayoutCellData",
-                        [("constraint", crate::layout::layout_info_type(), layout_info)],
+                        [("constraint", crate::typeregister::layout_info_type(), layout_info)],
                     )
                 })
                 .collect(),
@@ -725,13 +719,13 @@ fn box_layout_data(
                     get_layout_info(&item.element, ctx, &item.constraints, orientation);
                 elements.push(Either::Left(make_struct(
                     "BoxLayoutCellData",
-                    [("constraint", crate::layout::layout_info_type(), layout_info)],
+                    [("constraint", crate::typeregister::layout_info_type(), layout_info)],
                 )));
             }
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Box::new(crate::layout::layout_info_type())),
+            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type())),
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
     }
@@ -755,7 +749,7 @@ fn grid_layout_cell_data(
                 make_struct(
                     "GridLayoutCellData",
                     [
-                        ("constraint", crate::layout::layout_info_type(), layout_info),
+                        ("constraint", crate::typeregister::layout_info_type(), layout_info),
                         ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
                         ("span", Type::Int32, llr_Expression::NumberLiteral(span as _)),
                     ],
@@ -767,17 +761,17 @@ fn grid_layout_cell_data(
 }
 
 pub(super) fn grid_layout_cell_data_ty() -> Type {
-    Type::Struct {
+    Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("col_or_row"), Type::Int32),
             (SmolStr::new_static("span"), Type::Int32),
-            (SmolStr::new_static("constraint"), crate::layout::layout_info_type()),
+            (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type()),
         ])
         .collect(),
         name: Some("GridLayoutCellData".into()),
         node: None,
         rust_attributes: None,
-    }
+    }))
 }
 
 fn generate_layout_padding_and_spacing(
@@ -831,9 +825,9 @@ pub fn get_layout_info(
             name: "layout_info".into(),
             value: layout_info.into(),
         };
-        let ty = crate::layout::layout_info_type();
+        let ty = crate::typeregister::layout_info_type();
         let fields = match &ty {
-            Type::Struct { fields, .. } => fields,
+            Type::Struct(s) => &s.fields,
             _ => panic!(),
         };
         let mut values = fields
@@ -869,12 +863,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
     fn llr_path_elements(elements: Vec<llr_Expression>) -> llr_Expression {
         llr_Expression::Cast {
             from: llr_Expression::Array {
-                element_ty: Type::Struct {
-                    fields: Default::default(),
-                    name: Some("PathElement".into()),
-                    node: None,
-                    rust_attributes: None,
-                },
+                element_ty: crate::typeregister::path_element_type(),
                 values: elements,
                 as_model: false,
             }
@@ -888,7 +877,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
             let converted_elements = elements
                 .iter()
                 .map(|element| {
-                    let element_type = Type::Struct {
+                    let element_type = Type::Struct(Rc::new(Struct {
                         fields: element
                             .element_type
                             .properties
@@ -898,7 +887,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                         name: element.element_type.native_class.cpp_type.clone(),
                         node: None,
                         rust_attributes: None,
-                    };
+                    }));
 
                     llr_Expression::Struct {
                         ty: element_type,
@@ -941,7 +930,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
 
             llr_Expression::Cast {
                 from: llr_Expression::Struct {
-                    ty: Type::Struct {
+                    ty: Type::Struct(Rc::new(Struct {
                         fields: IntoIterator::into_iter([
                             (SmolStr::new_static("events"), Type::Array(event_type.clone().into())),
                             (SmolStr::new_static("points"), Type::Array(point_type.clone().into())),
@@ -950,7 +939,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                         name: None,
                         node: None,
                         rust_attributes: None,
-                    },
+                    })),
                     values: IntoIterator::into_iter([
                         (
                             SmolStr::new_static("events"),
@@ -994,12 +983,12 @@ pub fn make_struct(
     }
 
     llr_Expression::Struct {
-        ty: Type::Struct {
+        ty: Type::Struct(Rc::new(Struct {
             fields,
             name: Some(format_smolstr!("slint::private_api::{name}")),
             node: None,
             rust_attributes: None,
-        },
+        })),
         values,
     }
 }

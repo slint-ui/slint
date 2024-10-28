@@ -915,8 +915,8 @@ pub async fn load(
                 Some((&export.0.name, &component.id))
             }
             Either::Right(ty) => match &ty {
-                Type::Struct { name: Some(name), node: Some(_), .. } => {
-                    Some((&export.0.name, name))
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                    Some((&export.0.name, s.name.as_ref().unwrap()))
                 }
                 Type::Enumeration(en) => Some((&export.0.name, &en.name)),
                 _ => None,
@@ -1185,10 +1185,12 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Image => property_info::<i_slint_core::graphics::Image>(),
             Type::Bool => property_info::<bool>(),
             Type::ComponentFactory => property_info::<ComponentFactory>(),
-            Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
+            Type::Struct(s)
+                if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo")) =>
+            {
                 property_info::<i_slint_core::properties::StateInfo>()
             }
-            Type::Struct { .. } => property_info::<Value>(),
+            Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
             Type::Percent => property_info::<f32>(),
@@ -1577,7 +1579,7 @@ pub fn instantiate(
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
                 description.custom_properties.get(prop_name).filter(|_| is_root)
             {
-                let is_state_info = matches!(property_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
+                let is_state_info = matches!(property_type, Type::Struct (s) if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo")));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)
