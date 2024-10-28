@@ -2833,10 +2833,11 @@ fn compile_builtin_function_call(
             }})
         }
         BuiltinFunction::ArrayIndexOf => {
-            // quote!(match &#(#a)* { x => {
-            //     x.model_tracker().track_row_count_changes();
-            //     x.row_count() as i32
-            // }})
+            println!("ARRAY INDEX OF!");
+            let x = a.next().unwrap();
+            let item = a.next().unwrap();
+
+            quote!(#x.iter().position(|i| i == #item).map_or(-1., |v| v as f64))
         }
         BuiltinFunction::Rgb => {
             let (r, g, b, a) =

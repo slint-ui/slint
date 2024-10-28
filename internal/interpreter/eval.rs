@@ -963,6 +963,22 @@ fn call_builtin_function(
                 }
             }
         }
+        BuiltinFunction::ArrayIndexOf => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayIndexOf")
+            }
+
+            match eval_expression(&arguments[0], local_context) {
+                Value::Model(model) => {
+                    let item: Value =
+                        eval_expression(&arguments[1], local_context).try_into().unwrap();
+                    Value::Number(model.iter().position(|i| item == i).map_or(-1., |v| v as f64))
+                }
+                _ => {
+                    panic!("First argument not an array");
+                }
+            }
+        }
         BuiltinFunction::Rgb => {
             let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let g: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();

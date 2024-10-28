@@ -1127,6 +1127,7 @@ impl<'a> LookupObject for ArrayExpression<'a> {
             })
         };
         None.or_else(|| f("length", member_function(BuiltinFunction::ArrayLength)))
+            .or_else(|| f("index-of", member_function(BuiltinFunction::ArrayIndexOf)))
     }
 }
 

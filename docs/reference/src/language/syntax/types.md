@@ -268,6 +268,7 @@ Arrays define the following operations:
 
 -   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
 -   **`array[index]`**: The index operator retrieves individual elements of an array.
+-   **`array.index-of(item)`**: Returns the index of the give item. If the item is not part of array it returns -1.
 
 Out of bound access into an array will return default-constructed values.
 
@@ -277,6 +278,7 @@ export component Example {
 
     out property <int> list-len: list-of-int.length;
     out property <int> first-int: list-of-int[0];
+    out property <int> index-of-two: list-of-int.index-of(2);
 }
 
 ```

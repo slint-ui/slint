@@ -129,7 +129,6 @@ macro_rules! declare_builtin_function_types {
                     $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
                 }
             }
-
         }
     };
 }
