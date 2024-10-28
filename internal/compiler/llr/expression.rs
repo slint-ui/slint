@@ -273,7 +273,7 @@ impl Expression {
             },
             Self::CallBackCall { callback, .. } => {
                 if let Type::Callback(callback) = ctx.property_ty(callback) {
-                    callback.return_type.as_ref().unwrap_or(&Type::Void).clone()
+                    callback.return_type.clone()
                 } else {
                     Type::Invalid
                 }

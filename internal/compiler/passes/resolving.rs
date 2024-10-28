@@ -943,30 +943,26 @@ impl Expression {
         };
         arguments.extend(sub_expr);
 
-        let mut handle_args = |arguments: Vec<(Expression, Option<NodeOrToken>)>,
-                               args: &Vec<Type>| {
-            if arguments.len() != args.len() {
-                ctx.diag.push_error(
-                    format!(
-                        "The callback or function expects {} arguments, but {} are provided",
-                        args.len() - adjust_arg_count,
-                        arguments.len() - adjust_arg_count,
-                    ),
-                    &node,
-                );
-                arguments.into_iter().map(|x| x.0).collect()
-            } else {
-                arguments
-                    .into_iter()
-                    .zip(args.iter())
-                    .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, ctx.diag))
-                    .collect()
-            }
-        };
-
         let arguments = match function.ty() {
-            Type::Function(function) => handle_args(arguments, &function.args),
-            Type::Callback(callback) => handle_args(arguments, &callback.args),
+            Type::Function(function) | Type::Callback(function) => {
+                if arguments.len() != function.args.len() {
+                    ctx.diag.push_error(
+                        format!(
+                            "The callback or function expects {} arguments, but {} are provided",
+                            function.args.len() - adjust_arg_count,
+                            arguments.len() - adjust_arg_count,
+                        ),
+                        &node,
+                    );
+                    arguments.into_iter().map(|x| x.0).collect()
+                } else {
+                    arguments
+                        .into_iter()
+                        .zip(function.args.iter())
+                        .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, ctx.diag))
+                        .collect()
+                }
+            }
             Type::Invalid => {
                 debug_assert!(ctx.diag.has_errors());
                 arguments.into_iter().map(|x| x.0).collect()

@@ -1485,7 +1485,7 @@ pub(crate) fn invoke_callback(
                         // If the callback was not set, the return value will be Value::Void, but we need
                         // to make sure that the value is actually of the right type as returned by the
                         // callback, otherwise we will get panics later
-                        default_value_for_type(callback.return_type.as_ref().unwrap_or(&Type::Void))
+                        default_value_for_type(&callback.return_type)
                     } else {
                         res
                     });
