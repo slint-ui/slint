@@ -345,8 +345,8 @@ impl<'a> WindowProperties<'a> {
     }
 
     /// The widow style
-    pub fn window_style(&self) -> WindowStyle {
-        self.0.window_style.get()
+    pub fn window_style(&self) -> WindowButtonStyle {
+        self.0.window_button_style.get()
     }
 }
 
@@ -414,8 +414,8 @@ struct WindowPinnedFields {
 /// The style of the window.
 /// Values taken from Microsoft's [Window.WindowStyle](https://learn.microsoft.com/en-us/dotnet/api/system.windows.window.windowstyle?view=windowsdesktop-8.0).
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum WindowStyle {
-    /// Only the client area is visible - the title bar and border are not shown.
+pub enum WindowButtonStyle {
+    /// No buttons are available.
     None,
     /// A window with a single border. This is the default value.
     SingleBorderWindow,
@@ -448,7 +448,7 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
-    window_style: Cell<WindowStyle>,
+    window_button_style: Cell<WindowButtonStyle>,
 
     active_popup: RefCell<Option<PopupWindow>>,
     had_popup_on_press: Cell<bool>,
@@ -508,7 +508,7 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
-            window_style: Cell::new(WindowStyle::SingleBorderWindow),
+            window_button_style: Cell::new(WindowButtonStyle::SingleBorderWindow),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1187,8 +1187,8 @@ impl WindowInner {
     }
 
     /// Set the window style
-    pub fn set_window_style(&self, window_style: WindowStyle) {
-        self.window_style.set(window_style);
+    pub fn set_window_button_style(&self, window_button_style: WindowButtonStyle) {
+        self.window_button_style.set(window_button_style);
         self.update_window_properties()
     }
 

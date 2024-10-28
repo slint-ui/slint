@@ -10,7 +10,7 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
-use i_slint_core::window::WindowStyle;
+use i_slint_core::window::WindowButtonStyle;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
@@ -196,14 +196,14 @@ impl WinitWindowOrNone {
         }
     }
 
-    fn set_window_style(&self, window_style: WindowStyle) {
+    fn set_window_button_style(&self, window_style: WindowButtonStyle) {
         match self {
             Self::HasWindow(window) => match window_style {
-                WindowStyle::None => window.set_enabled_buttons(WindowButtons::empty()),
-                WindowStyle::SingleBorderWindow => window.set_enabled_buttons(
+                WindowButtonStyle::None => window.set_enabled_buttons(WindowButtons::empty()),
+                WindowButtonStyle::SingleBorderWindow => window.set_enabled_buttons(
                     WindowButtons::CLOSE | WindowButtons::MINIMIZE | WindowButtons::MAXIMIZE,
                 ),
-                WindowStyle::ToolWindow => {
+                WindowButtonStyle::ToolWindow => {
                     window.set_enabled_buttons(WindowButtons::CLOSE);
                 }
             },
@@ -768,6 +768,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
         winit_window_or_none.set_window_icon(icon_to_winit(window_item.icon()));
         winit_window_or_none.set_title(&properties.title());
+        winit_window_or_none.set_window_button_style(properties.window_style());
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
@@ -781,8 +782,6 @@ impl WindowAdapter for WinitWindowAdapter {
         if self.window_level.replace(new_window_level) != new_window_level {
             winit_window_or_none.set_window_level(new_window_level);
         }
-
-        winit_window_or_none.set_window_style(properties.window_style());
 
         // Use our scale factor instead of winit's logical size to take a scale factor override into account.
         let sf = self.window().scale_factor();
