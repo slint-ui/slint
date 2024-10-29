@@ -4,30 +4,32 @@
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
+use core::mem::MaybeUninit;
 use display_interface_spi::SPIInterface;
 use embedded_graphics_core::geometry::OriginDimensions;
 use embedded_hal::digital::OutputPin;
-use esp_alloc::EspHeap;
+use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::clock::ClockControl;
 use esp_hal::delay::Delay;
 pub use esp_hal::entry;
 use esp_hal::gpio::{Input, Io, Level, Output, Pull};
 use esp_hal::rtc_cntl::Rtc;
 use esp_hal::spi::{master::Spi, SpiMode};
-use esp_hal::system::SystemControl;
 use esp_hal::timer::{systimer::SystemTimer, timg::TimerGroup};
-use esp_hal::{i2c::I2C, peripherals::Peripherals, prelude::*};
+use esp_hal::{i2c::I2c, prelude::*};
 use mipidsi::{options::Orientation, Display};
 use slint::platform::WindowEvent;
 
-#[global_allocator]
-static ALLOCATOR: EspHeap = EspHeap::empty();
-
 pub fn init() {
     const HEAP_SIZE: usize = 250 * 1024;
-    static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
-    unsafe { ALLOCATOR.init(core::ptr::addr_of_mut!(HEAP) as *mut u8, HEAP_SIZE) }
+    static mut HEAP: MaybeUninit<[u8; HEAP_SIZE]> = MaybeUninit::uninit();
+    unsafe {
+        esp_alloc::HEAP.add_region(esp_alloc::HeapRegion::new(
+            HEAP.as_mut_ptr() as *mut u8,
+            HEAP_SIZE,
+            esp_alloc::MemoryCapability::Internal.into(),
+        ));
+    }
     slint::platform::set_platform(Box::new(EspBackend::default()))
         .expect("backend already initialized");
 }
@@ -50,27 +52,24 @@ impl slint::platform::Platform for EspBackend {
 
     fn duration_since_start(&self) -> core::time::Duration {
         core::time::Duration::from_millis(
-            SystemTimer::now() / (SystemTimer::TICKS_PER_SECOND / 1000),
+            SystemTimer::now() / (SystemTimer::ticks_per_second() / 1000),
         )
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        let peripherals = Peripherals::take();
-        let system = SystemControl::new(peripherals.SYSTEM);
-        let clocks = ClockControl::max(system.clock_control).freeze();
+        let peripherals = esp_hal::init(esp_hal::Config::default());
 
-        let mut rtc = Rtc::new(peripherals.LPWR, None);
+        let mut rtc = Rtc::new(peripherals.LPWR);
         rtc.rwdt.disable();
-        let mut timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks, None);
+        let mut timer_group0 = TimerGroup::new(peripherals.TIMG0);
         timer_group0.wdt.disable();
-        let mut timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks, None);
+        let mut timer_group1 = TimerGroup::new(peripherals.TIMG1);
         timer_group1.wdt.disable();
 
-        let mut delay = Delay::new(&clocks);
+        let mut delay = Delay::new();
         let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
 
-        let i2c =
-            I2C::new(peripherals.I2C0, io.pins.gpio8, io.pins.gpio18, 400u32.kHz(), &clocks, None);
+        let i2c = I2c::new(peripherals.I2C0, io.pins.gpio8, io.pins.gpio18, 400u32.kHz());
 
         let mut touch = tt21100::TT21100::new(i2c, Input::new(io.pins.gpio3, Pull::Up))
             .expect("Initialize the touch device");
@@ -78,11 +77,11 @@ impl slint::platform::Platform for EspBackend {
         let sclk = io.pins.gpio7;
         let mosi = io.pins.gpio6;
 
-        let spi = Spi::new(peripherals.SPI2, 60u32.MHz(), SpiMode::Mode0, &clocks).with_pins(
-            Some(sclk),
-            Some(mosi),
-            esp_hal::gpio::NO_PIN,
-            esp_hal::gpio::NO_PIN,
+        let spi = Spi::new(peripherals.SPI2, 60u32.MHz(), SpiMode::Mode0).with_pins(
+            sclk,
+            mosi,
+            Level::Low,
+            esp_hal::gpio::NoPin,
         );
 
         let dc = Output::new(io.pins.gpio4, Level::Low);
