@@ -77,6 +77,9 @@ importers:
       playwright:
         specifier: 1.48.2
         version: 1.48.2
+      playwright-ctrf-json-reporter:
+        specifier: 0.0.18
+        version: 0.0.18
       rehype-mermaid:
         specifier: 3.0.0
         version: 3.0.0(playwright@1.48.2)
@@ -3744,6 +3747,9 @@ packages:
     resolution: {integrity: sha512-sjjw+qrLFlriJo64du+EK0kJgZzoQPsabGF4lBvsid+3CNIZIYLgnMj9V6JY5VhM2Peh20DJWIVpVljLLnlawA==}
     engines: {node: '>=18'}
     hasBin: true
+
+  playwright-ctrf-json-reporter@0.0.18:
+    resolution: {integrity: sha512-AjFNpIMKI8zeyaktA2LBphYzy3ffiBjXobBXxEfrVUDov/Z8v5+y9FI0m3cBCr8yauk2brN+Er225vHsZDIu0g==}
 
   playwright@1.48.2:
     resolution: {integrity: sha512-NjYvYgp4BPmiwfe31j4gHLa3J7bD2WiBz8Lk2RoSsmX38SVIARZ18VYjxLjAcDsAhA+F4iSEXTSGgjua0rrlgQ==}
@@ -9048,6 +9054,8 @@ snapshots:
       pathe: 1.1.2
 
   playwright-core@1.48.2: {}
+
+  playwright-ctrf-json-reporter@0.0.18: {}
 
   playwright@1.48.2:
     dependencies:

@@ -21,6 +21,7 @@
     "@types/node": "20.16.10",
     "astro": "4.16.7",
     "playwright": "1.48.2",
+    "playwright-ctrf-json-reporter": "0.0.18",
     "rehype-mermaid": "3.0.0",
     "sharp": "0.33.5",
     "starlight-links-validator": "0.12.3",

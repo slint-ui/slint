@@ -56,15 +56,9 @@ jobs:
 
             # Test docs
             - name: Run Playwright tests
-              uses: docker://mcr.microsoft.com/playwright:v1.48.2-jammy
-              with:
-                run: cd docs && pnpm exec playwright test
-            - uses: actions/upload-artifact@v4
-              if: ${{ !cancelled() }}
-              with:
-                name: playwright-report
-                path: playwright-report/
-                retention-days: 30
+              run: cd docs && pnpm exec playwright test
+            - name: Publish Test Summary Results
+              run: cd docs && npx github-actions-ctrf playwright-report/ctrf-report.json
 
             # Commit to www-releases/snapshots/tng
 
