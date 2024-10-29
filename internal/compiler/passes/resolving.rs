@@ -29,7 +29,7 @@ fn resolve_expression(
     expr: &mut Expression,
     property_name: Option<&str>,
     property_type: Type,
-    scope: &ComponentScope,
+    scope: &[ElementRc],
     type_register: &TypeRegister,
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
@@ -38,7 +38,7 @@ fn resolve_expression(
         let mut lookup_ctx = LookupCtx {
             property_name,
             property_type,
-            component_scope: &scope.0,
+            component_scope: scope,
             diag,
             arguments: vec![],
             type_register,
@@ -76,6 +76,23 @@ fn resolve_expression(
     }
 }
 
+/// Call the visitor for each children of the element recursively, starting with the element itself
+///
+/// The item that is being visited will be pushed to the scope and popped once visitation is over.
+fn recurse_elem_with_scope(
+    elem: &ElementRc,
+    mut scope: ComponentScope,
+    vis: &mut impl FnMut(&ElementRc, &ComponentScope),
+) -> ComponentScope {
+    scope.0.push(elem.clone());
+    vis(elem, &scope);
+    for sub in &elem.borrow().children {
+        scope = recurse_elem_with_scope(sub, scope, vis);
+    }
+    scope.0.pop();
+    scope
+}
+
 pub fn resolve_expressions(
     doc: &Document,
     type_loader: &crate::typeloader::TypeLoader,
@@ -84,19 +101,27 @@ pub fn resolve_expressions(
     resolve_two_way_bindings(doc, &doc.local_registry, diag);
 
     for component in doc.inner_components.iter() {
-        let scope = ComponentScope(vec![]);
+        recurse_elem_with_scope(
+            &component.root_element,
+            ComponentScope(vec![]),
+            &mut |elem, scope| {
+                let mut is_repeated = elem.borrow().repeated.is_some();
+                visit_element_expressions(elem, |expr, property_name, property_type| {
+                    let scope = if is_repeated {
+                        // The first expression is always the model and it needs to be resolved with the parent scope
+                        debug_assert!(matches!(
+                            elem.borrow().repeated.as_ref().unwrap().model,
+                            Expression::Invalid
+                        )); // should be Invalid because it is taken by the visit_element_expressions function
 
-        recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
-            let mut new_scope = scope.clone();
-            let mut is_repeated = elem.borrow().repeated.is_some();
-            new_scope.0.push(elem.clone());
-            visit_element_expressions(elem, |expr, property_name, property_type| {
-                if is_repeated {
-                    // The first expression is always the model and it needs to be resolved with the parent scope
-                    debug_assert!(matches!(
-                        elem.borrow().repeated.as_ref().unwrap().model,
-                        Expression::Invalid
-                    )); // should be Invalid because it is taken by the visit_element_expressions function
+                        is_repeated = false;
+
+                        debug_assert!(scope.0.len() > 1);
+                        &scope.0[..scope.0.len() - 1]
+                    } else {
+                        &scope.0
+                    };
+
                     resolve_expression(
                         expr,
                         property_name,
@@ -106,21 +131,9 @@ pub fn resolve_expressions(
                         type_loader,
                         diag,
                     );
-                    is_repeated = false;
-                } else {
-                    resolve_expression(
-                        expr,
-                        property_name,
-                        property_type(),
-                        &new_scope,
-                        &doc.local_registry,
-                        type_loader,
-                        diag,
-                    )
-                }
-            });
-            new_scope
-        })
+                });
+            },
+        );
     }
 }
 
@@ -1548,134 +1561,139 @@ fn resolve_two_way_bindings(
     diag: &mut BuildDiagnostics,
 ) {
     for component in doc.inner_components.iter() {
-        let scope = ComponentScope(vec![]);
-
-        recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
-            let mut new_scope = scope.clone();
-            new_scope.0.push(elem.clone());
-            for (prop_name, binding) in &elem.borrow().bindings {
-                let mut binding = binding.borrow_mut();
-                if let Expression::Uncompiled(node) = binding.expression.clone() {
-                    if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
-                        let lhs_lookup = elem.borrow().lookup_property(prop_name);
-                        if !lhs_lookup.is_valid() {
-                            // An attempt to resolve this already failed when trying to resolve the property type
-                            assert!(diag.has_errors());
-                            continue;
-                        }
-                        let mut lookup_ctx = LookupCtx {
-                            property_name: Some(prop_name.as_str()),
-                            property_type: lhs_lookup.property_type.clone(),
-                            component_scope: &new_scope.0,
-                            diag,
-                            arguments: vec![],
-                            type_register,
-                            type_loader: None,
-                            current_token: Some(node.clone().into()),
-                        };
-
-                        binding.expression = Expression::Invalid;
-
-                        if let Some(nr) = resolve_two_way_binding(n, &mut lookup_ctx) {
-                            binding.two_way_bindings.push(nr.clone());
-
-                            nr.element()
-                                .borrow()
-                                .property_analysis
-                                .borrow_mut()
-                                .entry(nr.name().into())
-                                .or_default()
-                                .is_linked = true;
-
-                            if matches!(
-                                lhs_lookup.property_visibility,
-                                PropertyVisibility::Private | PropertyVisibility::Output
-                            ) && !lhs_lookup.is_local_to_component
-                            {
-                                // invalid property assignment should have been reported earlier
-                                assert!(diag.has_errors());
-                                continue;
-                            }
-
-                            // Check the compatibility.
-                            let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
-                            if rhs_lookup.property_type == Type::Invalid {
+        recurse_elem_with_scope(
+            &component.root_element,
+            ComponentScope(vec![]),
+            &mut |elem, scope| {
+                for (prop_name, binding) in &elem.borrow().bindings {
+                    let mut binding = binding.borrow_mut();
+                    if let Expression::Uncompiled(node) = binding.expression.clone() {
+                        if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
+                            let lhs_lookup = elem.borrow().lookup_property(prop_name);
+                            if !lhs_lookup.is_valid() {
                                 // An attempt to resolve this already failed when trying to resolve the property type
                                 assert!(diag.has_errors());
                                 continue;
                             }
-                            rhs_lookup.is_local_to_component &=
-                                lookup_ctx.is_local_element(&nr.element());
+                            let mut lookup_ctx = LookupCtx {
+                                property_name: Some(prop_name.as_str()),
+                                property_type: lhs_lookup.property_type.clone(),
+                                component_scope: &scope.0,
+                                diag,
+                                arguments: vec![],
+                                type_register,
+                                type_loader: None,
+                                current_token: Some(node.clone().into()),
+                            };
 
-                            if !rhs_lookup.is_valid_for_assignment() {
-                                match (
+                            binding.expression = Expression::Invalid;
+
+                            if let Some(nr) = resolve_two_way_binding(n, &mut lookup_ctx) {
+                                binding.two_way_bindings.push(nr.clone());
+
+                                nr.element()
+                                    .borrow()
+                                    .property_analysis
+                                    .borrow_mut()
+                                    .entry(nr.name().into())
+                                    .or_default()
+                                    .is_linked = true;
+
+                                if matches!(
                                     lhs_lookup.property_visibility,
-                                    rhs_lookup.property_visibility,
-                                ) {
-                                    (PropertyVisibility::Input, PropertyVisibility::Input)
-                                        if !lhs_lookup.is_local_to_component =>
-                                    {
-                                        assert!(rhs_lookup.is_local_to_component);
-                                        marked_linked_read_only(elem, prop_name);
-                                    }
-                                    (
-                                        PropertyVisibility::Output | PropertyVisibility::Private,
-                                        PropertyVisibility::Output | PropertyVisibility::Input,
-                                    ) => {
-                                        assert!(lhs_lookup.is_local_to_component);
-                                        marked_linked_read_only(elem, prop_name);
-                                    }
-                                    (PropertyVisibility::Input, PropertyVisibility::Output)
-                                        if !lhs_lookup.is_local_to_component =>
-                                    {
-                                        assert!(!rhs_lookup.is_local_to_component);
-                                        marked_linked_read_only(elem, prop_name);
-                                    }
-                                    _ => {
-                                        if lookup_ctx.is_legacy_component() {
-                                            diag.push_warning(
-                                                format!(
-                                                    "Link to a {} property is deprecated",
-                                                    rhs_lookup.property_visibility
-                                                ),
-                                                &node,
-                                            );
-                                        } else {
-                                            diag.push_error(
-                                                format!(
-                                                    "Cannot link to a {} property",
-                                                    rhs_lookup.property_visibility
-                                                ),
-                                                &node,
-                                            )
+                                    PropertyVisibility::Private | PropertyVisibility::Output
+                                ) && !lhs_lookup.is_local_to_component
+                                {
+                                    // invalid property assignment should have been reported earlier
+                                    assert!(diag.has_errors());
+                                    continue;
+                                }
+
+                                // Check the compatibility.
+                                let mut rhs_lookup =
+                                    nr.element().borrow().lookup_property(nr.name());
+                                if rhs_lookup.property_type == Type::Invalid {
+                                    // An attempt to resolve this already failed when trying to resolve the property type
+                                    assert!(diag.has_errors());
+                                    continue;
+                                }
+                                rhs_lookup.is_local_to_component &=
+                                    lookup_ctx.is_local_element(&nr.element());
+
+                                if !rhs_lookup.is_valid_for_assignment() {
+                                    match (
+                                        lhs_lookup.property_visibility,
+                                        rhs_lookup.property_visibility,
+                                    ) {
+                                        (PropertyVisibility::Input, PropertyVisibility::Input)
+                                            if !lhs_lookup.is_local_to_component =>
+                                        {
+                                            assert!(rhs_lookup.is_local_to_component);
+                                            marked_linked_read_only(elem, prop_name);
+                                        }
+                                        (
+                                            PropertyVisibility::Output
+                                            | PropertyVisibility::Private,
+                                            PropertyVisibility::Output | PropertyVisibility::Input,
+                                        ) => {
+                                            assert!(lhs_lookup.is_local_to_component);
+                                            marked_linked_read_only(elem, prop_name);
+                                        }
+                                        (PropertyVisibility::Input, PropertyVisibility::Output)
+                                            if !lhs_lookup.is_local_to_component =>
+                                        {
+                                            assert!(!rhs_lookup.is_local_to_component);
+                                            marked_linked_read_only(elem, prop_name);
+                                        }
+                                        _ => {
+                                            if lookup_ctx.is_legacy_component() {
+                                                diag.push_warning(
+                                                    format!(
+                                                        "Link to a {} property is deprecated",
+                                                        rhs_lookup.property_visibility
+                                                    ),
+                                                    &node,
+                                                );
+                                            } else {
+                                                diag.push_error(
+                                                    format!(
+                                                        "Cannot link to a {} property",
+                                                        rhs_lookup.property_visibility
+                                                    ),
+                                                    &node,
+                                                )
+                                            }
                                         }
                                     }
-                                }
-                            } else if !lhs_lookup.is_valid_for_assignment() {
-                                if rhs_lookup.is_local_to_component
-                                    && rhs_lookup.property_visibility == PropertyVisibility::InOut
-                                {
-                                    if lookup_ctx.is_legacy_component() {
-                                        debug_assert!(!diag.is_empty()); // warning should already be reported
+                                } else if !lhs_lookup.is_valid_for_assignment() {
+                                    if rhs_lookup.is_local_to_component
+                                        && rhs_lookup.property_visibility
+                                            == PropertyVisibility::InOut
+                                    {
+                                        if lookup_ctx.is_legacy_component() {
+                                            debug_assert!(!diag.is_empty()); // warning should already be reported
+                                        } else {
+                                            diag.push_error(
+                                                "Cannot link input property".into(),
+                                                &node,
+                                            );
+                                        }
+                                    } else if rhs_lookup.property_visibility
+                                        == PropertyVisibility::InOut
+                                    {
+                                        diag.push_warning("Linking input properties to input output properties is deprecated".into(), &node);
+                                        marked_linked_read_only(&nr.element(), nr.name());
                                     } else {
-                                        diag.push_error("Cannot link input property".into(), &node);
+                                        // This is allowed, but then the rhs must also become read only.
+                                        marked_linked_read_only(&nr.element(), nr.name());
                                     }
-                                } else if rhs_lookup.property_visibility
-                                    == PropertyVisibility::InOut
-                                {
-                                    diag.push_warning("Linking input properties to input output properties is deprecated".into(), &node);
-                                    marked_linked_read_only(&nr.element(), nr.name());
-                                } else {
-                                    // This is allowed, but then the rhs must also become read only.
-                                    marked_linked_read_only(&nr.element(), nr.name());
                                 }
                             }
                         }
                     }
                 }
-            }
-            new_scope
-        })
+            },
+        );
     }
 
     fn marked_linked_read_only(elem: &ElementRc, prop_name: &str) {
