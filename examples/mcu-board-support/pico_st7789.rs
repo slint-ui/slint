@@ -12,7 +12,7 @@ use cortex_m::interrupt::Mutex;
 use cortex_m::singleton;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
-use embedded_alloc::Heap;
+use embedded_alloc::LlffHeap as Heap;
 use embedded_hal::digital::{InputPin, OutputPin};
 use embedded_hal::spi::{ErrorType, Operation, SpiBus, SpiDevice};
 use fugit::{Hertz, RateExtU32};
