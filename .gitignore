@@ -11,6 +11,7 @@ node_modules
 Pipfile.lock
 /docs/src/content/collections/enums/
 /docs/src/content/collections/structs/
+/playwright-report
 
 # Ignore all package-lock.json files
 **/package-lock.json
