@@ -4,6 +4,8 @@ import starlight from "@astrojs/starlight";
 import { ExpressiveCodeTheme } from "@astrojs/starlight/expressive-code";
 import fs from "node:fs";
 import starlightLinksValidator from "starlight-links-validator";
+import rehypeMermaid from "rehype-mermaid";
+import addMermaidClass from "./src/utils/add-mermaid-classnames";
 
 const lightJsoncString = fs.readFileSync(
     new URL(`src/misc/light-theme.jsonc`, import.meta.url),
@@ -21,6 +23,12 @@ const darkTheme = ExpressiveCodeTheme.fromJSONString(darkJsoncString);
 export default defineConfig({
     site: "https://snapshots.slint.dev/tng/",
     base: "/tng",
+    markdown: {
+    rehypePlugins: [
+        addMermaidClass,
+        rehypeMermaid,
+        ]
+    },
     integrations: [
         starlight({
             title: "Slint Language Docs",
