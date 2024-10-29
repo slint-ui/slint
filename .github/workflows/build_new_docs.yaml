@@ -56,7 +56,9 @@ jobs:
 
             # Test docs
             - name: Run Playwright tests
-              run: pnpm exec playwright test
+              uses: docker://mcr.microsoft.com/playwright:v1.48.2-jammy
+              with:
+                run: cd docs && pnpm exec playwright test
             - uses: actions/upload-artifact@v4
               if: ${{ !cancelled() }}
               with:

@@ -21,7 +21,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         let sh = Shell::new()?;
         let _p = sh.push_dir(&docs_source_dir);
         cmd!(sh, "pnpm install --frozen-lockfile --ignore-scripts").run()?;
-        cmd!(sh, "pnpm exec playwright install --with-deps").run()?;
+        cmd!(sh, "pnpm exec playwright install").run()?;
         cmd!(sh, "pnpm run build").run()?;
     }
 
