@@ -1554,11 +1554,19 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                         },
                                     }
                                 } else {
-                                    let dx = Fixed::from_integer(pixel_stride - 1)
-                                        / (glyph.width.get() as u16 - 1);
-                                    let dy = Fixed::from_integer(
-                                        (data.len() as u16 - 1) / pixel_stride - 1,
-                                    ) / (glyph.height.get() as u16 - 1);
+                                    let dx = if glyph.width.get() <= 1 {
+                                        Fixed::from_integer(0)
+                                    } else {
+                                        Fixed::from_integer(pixel_stride - 1)
+                                            / (glyph.width.get() as u16 - 1)
+                                    };
+                                    let dy = if glyph.height.get() <= 1 {
+                                        Fixed::from_integer(0)
+                                    } else {
+                                        Fixed::from_integer(
+                                            (data.len() as u16 - 1) / pixel_stride - 1,
+                                        ) / (glyph.height.get() as u16 - 1)
+                                    };
                                     let off_x = Fixed::<i32, 8>::from_fixed(dx) * off_x as i32;
                                     let off_y = Fixed::<i32, 8>::from_fixed(dy) * off_y as i32;
                                     SceneTexture {
