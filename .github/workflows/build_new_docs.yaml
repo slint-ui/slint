@@ -50,6 +50,12 @@ jobs:
             # - name: Check reuse compliance
             #   run: cargo xtask check_reuse_compliance
 
+            # Generate screenshots
+            # 
+            # Note: This is not part of the xtask to avoid the xtask depending on all of slint!
+            - name: Generate screenshots
+              run: cargo run -p slint-docsnapper -- docs/src/content
+
             # Build Docs
             - name: Run slintdocs xtask
               run: cargo xtask slintdocs

@@ -58,6 +58,7 @@ members = [
     'tests/screenshots',
     'tests/manual/windowattributes',
     'tools/compiler',
+    'tools/docsnapper',
     'tools/figma_import',
     'tools/lsp',
     'tools/updater',

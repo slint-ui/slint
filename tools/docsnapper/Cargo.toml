@@ -1,0 +1,33 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-docsnapper"
+description = "Screenshot tool for slint docs"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "development-tools", "command-line-utilities"]
+keywords = ["viewer", "gui", "ui", "toolkit"]
+
+[dependencies]
+i-slint-compiler = { workspace = true }
+i-slint-core = { workspace = true }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility"] }
+i-slint-renderer-skia = { workspace = true, features = ["default", "wayland"] }
+
+clap = { workspace = true }
+itertools = { workspace = true }
+spin_on = { workspace = true }
+walkdir = { version = "2.5" }
+
+# Enable image-rs' default features to make all image formats available for preview
+image = { workspace = true, features = ["default"] }
+
+[[bin]]
+name = "slint-docsnapper"
+path = "main.rs"
