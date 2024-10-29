@@ -710,6 +710,11 @@ pub fn generate(
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config);
 
+    #[cfg(feature = "bundle-translations")]
+    if let Some(translations) = &llr.translations {
+        generate_translation(translations, &llr, &mut file.resources);
+    }
+
     // Forward-declare the root so that sub-components can access singletons, the window, etc.
     file.declarations.extend(
         llr.public_components
@@ -3369,6 +3374,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::EmptyComponentFactory => panic!("component-factory not yet supported in C++"),
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            let args = compile_expression(format_args, ctx);
+            match plural {
+                Some(plural) => {
+                    let plural = compile_expression(plural, ctx);
+                    format!("slint::private_api::translate_from_bundle_with_plural(slint_translation_bundle_plural_{string_index}_str, slint_translation_bundle_plural_{string_index}_idx,  slint_translated_plural_rules, {args}, {plural})")
+                }
+                None => format!("slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"),
+            }
+        },
     }
 }
 
@@ -3827,4 +3842,107 @@ fn generate_type_aliases(file: &mut File, doc: &Document) {
         });
 
     file.declarations.extend(type_aliases);
+}
+
+#[cfg(feature = "bundle-translations")]
+fn generate_translation(
+    translations: &llr::translations::Translations,
+    compilation_unit: &llr::CompilationUnit,
+    declarations: &mut Vec<Declaration>,
+) {
+    for (idx, m) in translations.strings.iter().enumerate() {
+        declarations.push(Declaration::Var(Var {
+            ty: "const char8_t* const".into(),
+            name: format_smolstr!("slint_translation_bundle_{idx}"),
+            array_size: Some(m.len()),
+            init: Some(format!(
+                "{{ {} }}",
+                m.iter()
+                    .map(|s| match s {
+                        Some(s) => format_smolstr!("u8\"{}\"", escape_string(s.as_str())),
+                        None => "nullptr".into(),
+                    })
+                    .join(", ")
+            )),
+            ..Default::default()
+        }));
+    }
+    for (idx, ms) in translations.plurals.iter().enumerate() {
+        let all_strs = ms.iter().flatten().flatten();
+        let all_strs_len = all_strs.clone().count();
+        declarations.push(Declaration::Var(Var {
+            ty: "const char8_t* const".into(),
+            name: format_smolstr!("slint_translation_bundle_plural_{}_str", idx),
+            array_size: Some(all_strs_len),
+            init: Some(format!(
+                "{{ {} }}",
+                all_strs.map(|s| format_smolstr!("u8\"{}\"", escape_string(s.as_str()))).join(", ")
+            )),
+            ..Default::default()
+        }));
+
+        let mut count = 0;
+        declarations.push(Declaration::Var(Var {
+            ty: "const uint32_t".into(),
+            name: format_smolstr!("slint_translation_bundle_plural_{}_idx", idx),
+            array_size: Some(ms.len()),
+            init: Some(format!(
+                "{{ {} }}",
+                ms.iter()
+                    .map(|x| {
+                        count += x.as_ref().map_or(0, |x| x.len());
+                        count
+                    })
+                    .join(", ")
+            )),
+            ..Default::default()
+        }));
+    }
+    let lang_len = translations.languages.len();
+    declarations.push(Declaration::Function(Function {
+        name: "slint_set_language".into(),
+        signature: "(std::string_view lang)".into(),
+        is_inline: true,
+        statements: Some(vec![
+            format!("std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};", translations.languages.iter().map(|l| format!("slint::private_api::string_to_slice({l:?})")).join(", ")),
+            format!("return slint::cbindgen_private::slint_translate_set_language(slint::private_api::string_to_slice(lang), {{ languages.data(), {lang_len} }});"
+        )]),
+        ..Default::default()
+    }));
+
+    let ctx = EvaluationContext {
+        compilation_unit,
+        current_sub_component: None,
+        current_global: None,
+        generator_state: CppGeneratorContext {
+            global_access: "\n#error \"language rule can't access state\";".into(),
+            conditional_includes: &Default::default(),
+        },
+        parent: None,
+        argument_types: &[Type::Int32],
+    };
+    declarations.push(Declaration::Var(Var {
+        ty: format_smolstr!(
+            "const std::array<uintptr_t (*const)(int32_t), {}>",
+            translations.plural_rules.len()
+        ),
+        name: "slint_translated_plural_rules".into(),
+        init: Some(format!(
+            "{{ {} }}",
+            translations
+                .plural_rules
+                .iter()
+                .map(|s| match s {
+                    Some(s) => {
+                        format!(
+                            "[]([[maybe_unused]] int32_t arg_0) -> uintptr_t {{ return {}; }}",
+                            compile_expression(s, &ctx)
+                        )
+                    }
+                    None => "nullptr".into(),
+                })
+                .join(", ")
+        )),
+        ..Default::default()
+    }));
 }

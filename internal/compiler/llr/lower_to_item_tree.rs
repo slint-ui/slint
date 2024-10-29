@@ -20,6 +20,17 @@ pub fn lower_to_item_tree(
 ) -> CompilationUnit {
     let mut state = LoweringState::default();
 
+    #[cfg(feature = "bundle-translations")]
+    if let Some(path) = &compiler_config.translation_path_bundle {
+        state.translation_builder = Some(std::cell::RefCell::new(
+            super::translations::TranslationsBuilder::load_translations(
+                path,
+                compiler_config.translation_domain.as_deref().unwrap_or(""),
+            )
+            .unwrap_or_else(|e| todo!("TODO: handle error loading translations: {e}")),
+        ));
+    }
+
     let mut globals = Vec::new();
     for g in &document.used_types.borrow().globals {
         let count = globals.len();
@@ -64,6 +75,8 @@ pub fn lower_to_item_tree(
             })
             .collect(),
         has_debug_info: compiler_config.debug_info,
+        #[cfg(feature = "bundle-translations")]
+        translations: state.translation_builder.take().map(|x| x.into_inner().result()),
     };
     super::optim_passes::run_passes(&root);
     root
@@ -73,6 +86,8 @@ pub fn lower_to_item_tree(
 pub struct LoweringState {
     global_properties: HashMap<NamedReference, PropertyReference>,
     sub_components: HashMap<ByAddress<Rc<Component>>, LoweredSubComponent>,
+    #[cfg(feature = "bundle-translations")]
+    pub translation_builder: Option<std::cell::RefCell<super::translations::TranslationsBuilder>>,
 }
 
 #[derive(Debug, Clone)]

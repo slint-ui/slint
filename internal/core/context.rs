@@ -18,9 +18,10 @@ thread_local! {
 pub(crate) struct SlintContextInner {
     platform: Box<dyn Platform>,
     pub(crate) window_count: core::cell::RefCell<isize>,
-    /// This property is read by all translations, and marked dirty when the language change
-    /// so that every translated string gets re-translated
-    pub(crate) translations_dirty: core::pin::Pin<Box<Property<()>>>,
+    /// This property is read by all translations, and marked dirty when the language changes,
+    /// so that every translated string gets re-translated. The property's value is the current selected
+    /// language when bundling translations.
+    pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
 }
@@ -37,7 +38,7 @@ impl SlintContext {
         Self(Rc::new(SlintContextInner {
             platform,
             window_count: 0.into(),
-            translations_dirty: Box::pin(Property::new_named((), "SlintContext::translations")),
+            translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             window_shown_hook: Default::default(),
         }))
     }

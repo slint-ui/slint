@@ -29,8 +29,10 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 
 # Enabled the support to render images and font in the binary
 software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fontdb", "dep:rayon"]
-
 embed-glyphs-as-sdf = ["dep:fdsm", "dep:ttf-parser-fdsm", "dep:nalgebra", "dep:image-fdsm", "dep:rayon"]
+
+# Translation bundler
+bundle-translations = ["dep:polib"]
 
 default = []
 
@@ -65,6 +67,8 @@ ttf-parser-fdsm = { package = "ttf-parser", version = "0.24.1", optional = true 
 image-fdsm = { package = "image", version = "0.25", optional = true, default-features = false }
 nalgebra = { version = "0.33.0", optional = true }
 rayon = { workspace = true, optional = true }
+# translations
+polib = { version = "0.2", optional = true }
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
