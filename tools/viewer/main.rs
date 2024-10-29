@@ -93,6 +93,9 @@ struct Cli {
     /// Translation directory where the translation files are searched for
     #[arg(long = "translation-dir", action)]
     translation_dir: Option<std::path::PathBuf>,
+
+    #[arg(long = "screenshot")]
+    screenshot: Option<PathBuf>,
 }
 
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
@@ -139,6 +142,7 @@ fn main() -> Result<()> {
     };
 
     let component = c.create()?;
+
     init_dialog(&component);
 
     if let Some(data_path) = args.load_data {
@@ -146,8 +150,53 @@ fn main() -> Result<()> {
     }
     install_callbacks(&component, &args.on);
 
-    if args.auto_reload {
+    if args.auto_reload || args.screenshot.is_some() {
         CURRENT_INSTANCE.with(|current| current.replace(Some(component.clone_strong())));
+    }
+
+    if let Some(path) = args.screenshot {
+        i_slint_core::api::invoke_from_event_loop(move || {
+            CURRENT_INSTANCE.with(|current| {
+                current
+                    .borrow()
+                    .as_ref()
+                    .map(|ci| ci.window())
+                    .unwrap()
+                    .set_rendering_notifier(move |state, _| {
+                        if !matches!(state, i_slint_core::api::RenderingState::AfterRendering) {
+                            return;
+                        }
+
+                        CURRENT_INSTANCE.with(|current| {
+                            let screen_dump = current.borrow().as_ref().and_then(|ci| {
+                                let window = ci.window();
+
+                                window.take_snapshot().ok()
+                            });
+                            if let Some(screen_dump) = screen_dump {
+                                eprintln!(
+                                    "Saving image with {}x{} pixels",
+                                    screen_dump.width(),
+                                    screen_dump.height()
+                                );
+                                image::save_buffer(
+                                    &path,
+                                    screen_dump.as_bytes(),
+                                    screen_dump.width(),
+                                    screen_dump.height(),
+                                    image::ColorType::Rgba8,
+                                )
+                                .expect("Failed to save the screenshot in {path:?}");
+                            }
+
+                            i_slint_core::api::quit_event_loop()
+                                .expect("Failed to quit the event loop");
+                        })
+                    })
+                    .expect("Failed to set rendering notifier");
+            });
+        })
+        .unwrap();
     }
 
     component.run()?;
