@@ -152,9 +152,6 @@ void EspPlatform::run_event_loop()
     bool touch_down = false;
 
     while (true) {
-        if (user_lock) {
-            xSemaphoreTake(user_lock, portMAX_DELAY);
-        }
         slint::platform::update_timers_and_animations();
 
         std::optional<slint::platform::Platform::Task> event;
@@ -233,7 +230,9 @@ void EspPlatform::run_event_loop()
                             }
                         }
                     }
-
+                    if (user_lock) {
+                        xSemaphoreTake(user_lock, portMAX_DELAY);
+                    }
                     if (buffer2) {
                         auto s = region.bounding_box_size();
                         if (s.width > 0 && s.height > 0) {
@@ -289,6 +288,9 @@ void EspPlatform::run_event_loop()
             }
 
             if (m_window->window().has_active_animations()) {
+                if (user_lock) {
+                    xSemaphoreGive(user_lock);
+                }
                 continue;
             }
         }
