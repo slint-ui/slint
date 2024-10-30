@@ -1498,7 +1498,11 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     }
                     let scale_delta = paragraph.layout.font.scale_delta();
                     for positioned_glyph in glyphs {
-                        let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
+                        let Some(glyph) =
+                            paragraph.layout.font.render_glyph(positioned_glyph.glyph_id)
+                        else {
+                            continue;
+                        };
 
                         let target_rect = PhysicalRect::new(
                             PhysicalPoint::from_lengths(
@@ -1538,9 +1542,6 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
                         match &glyph.alpha_map {
                             fonts::GlyphAlphaMap::Static(data) => {
-                                if data.is_empty() {
-                                    continue;
-                                }
                                 let texture = if !glyph.sdf {
                                     SceneTexture {
                                         data,

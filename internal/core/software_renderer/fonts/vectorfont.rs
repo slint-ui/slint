@@ -191,14 +191,14 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for VectorFont {
 }
 
 impl super::GlyphRenderer for VectorFont {
-    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> super::RenderableGlyph {
+    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<super::RenderableGlyph> {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
             let cache_key = (self.id, self.pixel_size, glyph_id);
 
             if let Some(entry) = cache.get(&cache_key) {
-                entry.clone()
+                Some(entry.clone())
             } else {
                 let (metrics, alpha_map) =
                     self.fontdue_font.rasterize_indexed(glyph_id.get(), self.pixel_size.get() as _);
@@ -216,7 +216,7 @@ impl super::GlyphRenderer for VectorFont {
                 };
 
                 cache.put_with_weight(cache_key, glyph.clone()).ok();
-                glyph
+                Some(glyph)
             }
         })
     }
