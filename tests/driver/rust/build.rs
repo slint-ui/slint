@@ -17,7 +17,13 @@ fn main() -> std::io::Result<()> {
         }
         writeln!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};", module_name)?;
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
-        let ignored = testcase.is_ignored("rust");
+        let ignored = if testcase.is_ignored("rust") {
+            "#[ignore = \"testcase ignored for rust\"]"
+        } else if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
+            "#[ignore = \"translation bundle not working with the macro\"]"
+        } else {
+            ""
+        };
 
         let mut output = BufWriter::new(std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
@@ -43,7 +49,7 @@ fn main() -> std::io::Result<()> {
     {}
     Ok(())
 }}",
-                if ignored { "#[ignore]" } else { "" },
+                ignored,
                 i,
                 x.source.replace('\n', "\n    ")
             )?;
@@ -69,7 +75,7 @@ fn generate_macro(
 ) -> Result<bool, std::io::Error> {
     if source.contains("\\{") {
         // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
-        output.write_all(b"#[test] #[ignore] fn ignored_because_string_template() {{}}")?;
+        output.write_all(b"#[test] #[ignore = \"string template don't work in macros\"] fn ignored_because_string_template() {{}}")?;
         return Ok(false);
     }
     // to silence all the warnings in .slint files that would be turned into errors
@@ -141,6 +147,12 @@ fn generate_source(
     compiler_config.library_paths = library_paths;
     compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());
     compiler_config.debug_info = true;
+    if source.contains("//bundle-translations") {
+        compiler_config.translation_path_bundle =
+            Some(testcase.absolute_path.parent().unwrap().to_path_buf());
+        compiler_config.translation_domain =
+            Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
+    }
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 

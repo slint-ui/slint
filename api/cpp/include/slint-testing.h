@@ -3,6 +3,7 @@
 
 #include "slint.h"
 #include "slint_testing_internal.h"
+#include <cstdint>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -351,6 +352,32 @@ public:
                 return true;
             else if (*result == "false")
                 return false;
+        }
+        return std::nullopt;
+    }
+
+    /// Returns the accessible-position-in-set of that element, if any.
+    std::optional<uintptr_t> accessible_position_in_set() const
+    {
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::PositionInSet)) {
+            uintptr_t value = 0;
+            if (cbindgen_private::slint_string_to_usize(&*result, &value)) {
+                return value;
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// Returns the accessible-size-of-set of that element, if any.
+    std::optional<uintptr_t> accessible_size_of_set() const
+    {
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::SizeOfSet)) {
+            uintptr_t value = 0;
+            if (cbindgen_private::slint_string_to_usize(&*result, &value)) {
+                return value;
+            }
         }
         return std::nullopt;
     }

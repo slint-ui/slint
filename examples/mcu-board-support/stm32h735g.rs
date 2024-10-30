@@ -19,7 +19,7 @@ use stm32h7xx_hal as hal; // global logger
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
 
-use embedded_alloc::Heap;
+use embedded_alloc::LlffHeap as Heap;
 
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -205,7 +205,8 @@ impl Default for StmBackend {
         led_green.set_low();
         */
 
-        let (fb1, fb2) = (core::ptr::addr_of!(FB1), core::ptr::addr_of!(FB2));
+        #[allow(unused_unsafe)] //(unsafe required for Rust <= 1.81)
+        let (fb1, fb2) = unsafe { (core::ptr::addr_of!(FB1), core::ptr::addr_of!(FB2)) };
         assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
             .contains(&(fb1 as usize)));
         assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)

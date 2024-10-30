@@ -368,6 +368,8 @@ pub struct CompilationUnit {
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
     pub has_debug_info: bool,
+    #[cfg(feature = "bundle-translations")]
+    pub translations: Option<super::translations::Translations>,
 }
 
 impl CompilationUnit {

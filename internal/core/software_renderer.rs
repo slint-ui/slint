@@ -1496,6 +1496,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 .process_rectangle(geometry, selection.selection_background.into());
                         }
                     }
+                    let scale_delta = paragraph.layout.font.scale_delta();
                     for positioned_glyph in glyphs {
                         let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
 
@@ -1537,6 +1538,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
                         match &glyph.alpha_map {
                             fonts::GlyphAlphaMap::Static(data) => {
+                                if data.is_empty() {
+                                    continue;
+                                }
                                 let texture = if !glyph.sdf {
                                     SceneTexture {
                                         data,
@@ -1554,13 +1558,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                         },
                                     }
                                 } else {
-                                    let dx = Fixed::from_integer(pixel_stride - 1)
-                                        / (glyph.width.get() as u16 - 1);
-                                    let dy = Fixed::from_integer(
-                                        (data.len() as u16 - 1) / pixel_stride - 1,
-                                    ) / (glyph.height.get() as u16 - 1);
-                                    let off_x = Fixed::<i32, 8>::from_fixed(dx) * off_x as i32;
-                                    let off_y = Fixed::<i32, 8>::from_fixed(dy) * off_y as i32;
+                                    let off_x =
+                                        Fixed::<i32, 8>::from_fixed(scale_delta) * off_x as i32;
+                                    let off_y =
+                                        Fixed::<i32, 8>::from_fixed(scale_delta) * off_y as i32;
                                     SceneTexture {
                                         data,
                                         pixel_stride,
@@ -1570,8 +1571,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             // color already is mixed with global alpha
                                             alpha: color.alpha(),
                                             rotation: self.rotation.orientation,
-                                            dx,
-                                            dy,
+                                            dx: scale_delta,
+                                            dy: scale_delta,
                                             off_x: Fixed::try_from_fixed(off_x).unwrap(),
                                             off_y: Fixed::try_from_fixed(off_y).unwrap(),
                                         },

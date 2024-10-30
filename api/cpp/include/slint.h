@@ -1265,6 +1265,39 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
+inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,
+                                          cbindgen_private::Slice<SharedString> arguments)
+{
+    SharedString result;
+    cbindgen_private::slint_translate_from_bundle(
+            cbindgen_private::Slice<const char *>(
+                    const_cast<char const **>(reinterpret_cast<char const *const *>(strs.data())),
+                    strs.size()),
+            arguments, &result);
+    return result;
+}
+inline SharedString
+translate_from_bundle_with_plural(std::span<const char8_t *const> strs,
+                                  std::span<const uint32_t> indices,
+                                  std::span<uintptr_t (*const)(int32_t)> plural_rules,
+                                  cbindgen_private::Slice<SharedString> arguments, int n)
+{
+    SharedString result;
+    cbindgen_private::Slice<const char *> strs_slice(
+            const_cast<char const **>(reinterpret_cast<char const *const *>(strs.data())),
+            strs.size());
+    cbindgen_private::Slice<uint32_t> indices_slice(
+            const_cast<uint32_t *>(reinterpret_cast<const uint32_t *>(indices.data())),
+            indices.size());
+    cbindgen_private::Slice<uintptr_t (*)(int32_t)> plural_rules_slice(
+            const_cast<uintptr_t (**)(int32_t)>(
+                    reinterpret_cast<uintptr_t (*const *)(int32_t)>(plural_rules.data())),
+            plural_rules.size());
+    cbindgen_private::slint_translate_from_bundle_with_plural(
+            strs_slice, indices_slice, plural_rules_slice, arguments, n, &result);
+    return result;
+}
+
 } // namespace private_api
 
 #ifdef SLINT_FEATURE_GETTEXT

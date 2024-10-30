@@ -44,12 +44,15 @@ impl GlyphRenderer for PixelFont {
         RenderableGlyph {
             x: self.scale_glyph_length(bitmap_glyph.x),
             y: self.scale_glyph_length(bitmap_glyph.y),
-            width: self.scale_glyph_length(bitmap_glyph.width),
-            height: self.scale_glyph_length(bitmap_glyph.height),
+            width: self.scale_glyph_length(bitmap_glyph.width - 1) + PhysicalLength::new(1),
+            height: self.scale_glyph_length(bitmap_glyph.height - 1) + PhysicalLength::new(1),
             alpha_map: bitmap_glyph.data.as_slice().into(),
             pixel_stride: bitmap_glyph.width as u16,
             sdf: self.bitmap_font.sdf,
         }
+    }
+    fn scale_delta(&self) -> super::Fixed<u16, 8> {
+        super::Fixed::from_integer(self.glyphs.pixel_size as u16) / self.pixel_size.get() as u16
     }
 }
 

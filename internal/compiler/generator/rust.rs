@@ -210,6 +210,15 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         .map(|c| format_ident!("slint_generated{}", ident(&c.id)))
         .unwrap_or_else(|| format_ident!("slint_generated"));
 
+    #[cfg(not(feature = "bundle-translations"))]
+    let (translations, exported_tr) = (quote!(), quote!());
+    #[cfg(feature = "bundle-translations")]
+    let (translations, exported_tr) = llr
+        .translations
+        .as_ref()
+        .map(|t| (generate_translations(t, &llr), quote!(slint_set_language,)))
+        .unzip();
+
     quote! {
         #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
@@ -224,10 +233,11 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
             #(#public_components)*
             #shared_globals
             #(#resource_symbols)*
+            #translations
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
-        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
+        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #exported_tr};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
@@ -2574,6 +2584,22 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            let args = compile_expression(format_args, ctx);
+            match plural {
+                Some(plural) => {
+                    let plural = compile_expression(plural, ctx);
+                    quote!(sp::translate_from_bundle_with_plural(
+                        &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
+                        &self::_SLINT_TRANSLATED_PLURAL_RULES,
+                        sp::Slice::<sp::SharedString>::from(#args).as_slice(),
+                        #plural as _
+                    ))
+                }
+                None => quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice())),
+
+            }
+        },
     }
 }
 
@@ -3137,4 +3163,60 @@ fn generate_named_exports(doc: &Document) -> Vec<TokenStream> {
             quote!(#type_id as #export_id)
         })
         .collect::<Vec<_>>()
+}
+
+#[cfg(feature = "bundle-translations")]
+fn generate_translations(
+    translations: &llr::translations::Translations,
+    compilation_unit: &llr::CompilationUnit,
+) -> TokenStream {
+    let strings = translations.strings.iter().map(|strings| {
+        let array = strings.iter().map(|s| match s.as_ref().map(SmolStr::as_str) {
+            Some(s) => quote!(Some(#s)),
+            None => quote!(None),
+        });
+        quote!(&[#(#array),*])
+    });
+    let plurals = translations.plurals.iter().map(|plurals| {
+        let array = plurals.iter().map(|p| match p {
+            Some(p) => {
+                let p = p.iter().map(SmolStr::as_str);
+                quote!(Some(&[#(#p),*]))
+            }
+            None => quote!(None),
+        });
+        quote!(&[#(#array),*])
+    });
+
+    let ctx = EvaluationContext {
+        compilation_unit,
+        current_sub_component: None,
+        current_global: None,
+        generator_state: RustGeneratorContext {
+            global_access: quote!(compile_error!("language rule can't access state")),
+        },
+        parent: None,
+        argument_types: &[Type::Int32],
+    };
+    let rules = translations.plural_rules.iter().map(|rule| {
+        let rule = match rule {
+            Some(rule) => {
+                let rule = compile_expression(rule, &ctx);
+                quote!(Some(|arg: i32| { let args = (arg,); (#rule) as usize } ))
+            }
+            None => quote!(None),
+        };
+        quote!(#rule)
+    });
+    let lang = translations.languages.iter().map(SmolStr::as_str).map(|lang| quote!(#lang));
+
+    quote!(
+        const _SLINT_TRANSLATED_STRINGS: &[&[sp::Option<&str>]] = &[#(#strings),*];
+        const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
+        #[allow(unused)]
+        const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
+        pub fn slint_set_language(lang: &str) -> bool {
+            sp::set_language_internal(lang, &[#(#lang),*])
+        }
+    )
 }

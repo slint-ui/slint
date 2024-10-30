@@ -1,0 +1,75 @@
+
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2024-10-29 09:15+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
+"Plural-Forms: nplurals=2; plural=(n >= 2);\n"
+
+#: bundle.slint:10
+msgctxt "TestCase"
+msgid "Hello World{{}}."
+msgstr "Bonjour Monde{{}}."
+
+#: bundle.slint:11
+msgctxt "TestCase"
+msgid "Hello {}."
+msgstr "Bonjour {}."
+
+#: bundle.slint:12
+msgctxt "TestCase"
+msgid "{} Hello {}"
+msgstr "{} Bonjour {}"
+
+#: bundle.slint:13
+msgctxt "TestCase"
+msgid "{1} Hello {0}🌍"
+msgstr "{0} Bonjour {1}🌍"
+
+#: bundle.slint:13
+msgctxt "TestCase"
+msgid "World"
+msgstr "Monde"
+
+#: bundle.slint:15
+msgctxt "Context"
+msgid "xx{0}xx"
+msgstr "rr{0}rr"
+
+#: bundle.slint:15
+msgctxt "CC"
+msgid "aa"
+msgstr "bb"
+
+#: bundle.slint:17
+msgctxt "TestCase"
+msgid "there is one file in my {}"
+msgid_plural "there are {n} files in my {}"
+msgstr[0] "Il y a {n} fichier dans mon {}"
+msgstr[1] "Il y a {n} fichiers dans mon {}"
+
+#: bundle.slint:18
+msgctxt "Ctx=>"
+msgid "xx{n}xx"
+msgid_plural "yy{n}yy"
+msgstr[0] "rr{n}rr"
+msgstr[1] "ss{n}ss"
+
+#: bundle.slint:20
+msgctxt "TestCase"
+msgid "Plop"
+msgstr "Plouf"
+
+#: bundle.slint:20
+msgctxt "TestCase"
+msgid "Flop🎃"
+msgstr "Floup🍓"
+
