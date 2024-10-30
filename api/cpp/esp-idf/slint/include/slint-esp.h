@@ -54,6 +54,11 @@ struct SlintPlatformConfiguration
     /// Swap the 2 bytes of RGB 565 pixels before sending to the display. Use this
     /// if your CPU is little endian but the display expects big-endian.
     bool color_swap_16 = false;
+
+    /// If not null, the Slint platform will take this semaphore in its event loop when doing
+    /// anything. All operation on the screen and on the Slint component will be done with the
+    /// semaphore acquired. The semaphore stays acquired even when waiting for the screen update
+    SemaphoreHandle_t lock = nullptr;
 };
 
 /**

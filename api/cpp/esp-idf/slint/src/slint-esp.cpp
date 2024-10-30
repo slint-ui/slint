@@ -27,7 +27,8 @@ struct EspPlatform : public slint::platform::Platform
           buffer1(config.buffer1),
           buffer2(config.buffer2),
           color_swap_16(config.color_swap_16),
-          rotation(config.rotation)
+          rotation(config.rotation),
+          user_lock(config.lock)
     {
 #if !defined(SLINT_FEATURE_EXPERIMENTAL)
         if (!buffer1 && !buffer2) {
@@ -53,6 +54,7 @@ private:
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2;
     bool color_swap_16;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
+    SemaphoreHandle_t user_lock = nullptr;
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
@@ -150,6 +152,9 @@ void EspPlatform::run_event_loop()
     bool touch_down = false;
 
     while (true) {
+        if (user_lock) {
+            xSemaphoreTake(user_lock, portMAX_DELAY);
+        }
         slint::platform::update_timers_and_animations();
 
         std::optional<slint::platform::Platform::Task> event;
@@ -293,6 +298,9 @@ void EspPlatform::run_event_loop()
             ticks_to_wait = std::min(ticks_to_wait, pdMS_TO_TICKS(wait_time->count()));
         }
 
+        if (user_lock) {
+            xSemaphoreGive(user_lock);
+        }
         ulTaskNotifyTake(/*reset to zero*/ pdTRUE, ticks_to_wait);
     }
 
