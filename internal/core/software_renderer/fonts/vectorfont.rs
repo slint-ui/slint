@@ -220,4 +220,8 @@ impl super::GlyphRenderer for VectorFont {
             }
         })
     }
+
+    fn scale_delta(&self) -> super::Fixed<u16, 8> {
+        super::Fixed::from_integer(1)
+    }
 }
