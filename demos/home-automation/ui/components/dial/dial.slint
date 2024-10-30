@@ -7,7 +7,7 @@ export global DialState {
     out property <angle> degreesFilledWithLights: 360deg - (startAngle - endAngle);
     out property <angle> startAngle: 104deg;
     out property <angle> endAngle: -startAngle;
-    in-out property <length> elementRadius: 240px;
+    in-out property <length> elementRadius: 120px;
 }
 
 export component Dial {
@@ -20,23 +20,23 @@ export component Dial {
     in-out property <angle> dialAngle: DialState.startAngle;
     out property <int> volume: ((dialAngle - DialState.startAngle) / DialState.degreesFilledWithLights) * DialState.totalLights;
 
-    width: 425px;
-    height: 427px;
+    width: 212px;
+    height: 213px;
     knob := Rectangle {
         base := Rectangle {
             Image {
-                y: 18px;
+                y: 9px;
                 source: Palette.dark-color-scheme ? @image-url("../../images/dial-frame.png") : @image-url("../../images/dial-frame-lite.png");
-                width: self.source.width * 1px;
-                height: self.source.height * 1px;
+                width: self.source.width * 0.5 * 1px;
+                height: self.source.height * 0.5 * 1px;
             }
 
             Image {
                 source: @image-url("../../images/lines.png");
                 colorize: Palette.dark-color-scheme ? #fff : #000;
                 rotation-angle: root.dialAngle;
-                width: self.source.width * 1.1 * 1px;
-                height: self.source.height * 1.1 * 1px;
+                width: self.source.width * 0.55 * 1px;
+                height: self.source.height * 0.55 * 1px;
                 opacity: 0.03;
             }
 
@@ -76,17 +76,17 @@ export component Dial {
     Rectangle {
         width: 1px;
         height: 1px;
-        x: 212px;
-        y: 210px;
+        x: 106px;
+        y: 105px;
         Rectangle {
             width: 0px;
             height: 0px;
-            x: 110px * root.dialAngle.cos();
-            y: 110px * root.dialAngle.sin();
+            x: 55px * root.dialAngle.cos();
+            y: 55px * root.dialAngle.sin();
             Image {
                 source: Palette.dark-color-scheme ? @image-url("../../images/notch.png") : @image-url("../../images/notch-lite.png");
-                width: self.source.width * 0.8 * 1px;
-                height: self.source.height * 0.8 * 1px;
+                width: self.source.width * 0.4 * 1px;
+                height: self.source.height * 0.4 * 1px;
             }
         }
     }
