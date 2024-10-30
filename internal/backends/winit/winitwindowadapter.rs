@@ -10,6 +10,7 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
+use i_slint_core::window::WindowButtonState;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
@@ -35,7 +36,7 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
-use i_slint_core::{self as corelib, window::WindowButtonStyle, OpenGLAPI};
+use i_slint_core::{self as corelib, OpenGLAPI};
 use once_cell::unsync::OnceCell;
 #[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
@@ -195,32 +196,21 @@ impl WinitWindowOrNone {
         }
     }
 
-    fn set_window_button_style(&self, window_style: WindowButtonStyle) {
+    fn set_window_buttons_state(&self, window_buttons_state: WindowButtonState) {
         match self {
-            Self::HasWindow(window) => match window_style {
-                WindowButtonStyle::None => window.set_enabled_buttons(WindowButtons::empty()),
-                WindowButtonStyle::All => window.set_enabled_buttons(
-                    WindowButtons::CLOSE | WindowButtons::MINIMIZE | WindowButtons::MAXIMIZE,
-                ),
-                WindowButtonStyle::Close => {
-                    window.set_enabled_buttons(WindowButtons::CLOSE);
+            Self::HasWindow(window) => {
+                let mut enabled_buttons = WindowButtons::empty();
+                if window_buttons_state.minimize {
+                    enabled_buttons |= WindowButtons::MINIMIZE;
                 }
-                WindowButtonStyle::Minimize => {
-                    window.set_enabled_buttons(WindowButtons::MINIMIZE);
+                if window_buttons_state.maximize {
+                    enabled_buttons |= WindowButtons::MAXIMIZE;
                 }
-                WindowButtonStyle::Maximize => {
-                    window.set_enabled_buttons(WindowButtons::MAXIMIZE);
+                if window_buttons_state.close {
+                    enabled_buttons |= WindowButtons::CLOSE;
                 }
-                WindowButtonStyle::MaximizeClose => {
-                    window.set_enabled_buttons(WindowButtons::MAXIMIZE | WindowButtons::CLOSE);
-                }
-                WindowButtonStyle::MinimizeClose => {
-                    window.set_enabled_buttons(WindowButtons::MINIMIZE | WindowButtons::CLOSE);
-                }
-                WindowButtonStyle::MinimizeMaximize => {
-                    window.set_enabled_buttons(WindowButtons::MINIMIZE | WindowButtons::MAXIMIZE);
-                }
-            },
+                window.set_enabled_buttons(enabled_buttons);
+            }
             Self::None(attributes) => {
                 attributes.borrow_mut().enabled_buttons = WindowButtons::all()
             }
@@ -782,7 +772,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
         winit_window_or_none.set_window_icon(icon_to_winit(window_item.icon()));
         winit_window_or_none.set_title(&properties.title());
-        winit_window_or_none.set_window_button_style(properties.window_style());
+        winit_window_or_none.set_window_buttons_state(properties.window_buttons_enabled());
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );

@@ -345,8 +345,9 @@ impl<'a> WindowProperties<'a> {
     }
 
     /// The widow style
-    pub fn window_style(&self) -> WindowButtonStyle {
-        self.0.window_button_style.get()
+    /// Returns a tuple of three booleans: (minimize, maximize, close)
+    pub fn window_buttons_enabled(&self) -> WindowButtonState {
+        self.0.window_button_state.get()
     }
 }
 
@@ -411,25 +412,26 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
 }
 
-/// The style of the window.
+/// A reference to the windows buttons
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum WindowButtonStyle {
-    /// A window with no buttons.
-    None,
-    /// A window with all buttons.
-    All,
-    /// A window with only a close button.
-    Close,
-    /// A window with only a minimize button.
+pub enum WindowButton {
+    /// Refers to the window's minimize button
     Minimize,
-    /// A window with only a maximize button.
+    /// Refers to the window's maximize button
     Maximize,
-    /// A window with only a minimize and close button.
-    MinimizeClose,
-    /// A window with only a maximize and close button.
-    MaximizeClose,
-    /// A window with only a minimize and maximize button.
-    MinimizeMaximize,
+    /// Refers to the window's close button
+    Close,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+/// The state of each window button
+pub struct WindowButtonState {
+    /// The minimize button state
+    pub minimize: bool,
+    /// The maximize button state
+    pub maximize: bool,
+    /// The close button state
+    pub close: bool,
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
@@ -457,7 +459,7 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
-    window_button_style: Cell<WindowButtonStyle>,
+    window_button_state: Cell<WindowButtonState>,
 
     active_popup: RefCell<Option<PopupWindow>>,
     had_popup_on_press: Cell<bool>,
@@ -517,7 +519,11 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
-            window_button_style: Cell::new(WindowButtonStyle::All),
+            window_button_state: Cell::new(WindowButtonState {
+                minimize: true,
+                maximize: true,
+                close: true,
+            }),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1195,9 +1201,15 @@ impl WindowInner {
         self.update_window_properties()
     }
 
-    /// Set the window style
-    pub fn set_window_button_style(&self, window_button_style: WindowButtonStyle) {
-        self.window_button_style.set(window_button_style);
+    /// Enable or disable a particular window button.
+    pub fn set_window_button_enabled(&self, window_button: WindowButton, enabled: bool) {
+        let mut state = self.window_button_state.get();
+        match window_button {
+            WindowButton::Minimize => state.minimize = enabled,
+            WindowButton::Maximize => state.maximize = enabled,
+            WindowButton::Close => state.close = enabled,
+        }
+        self.window_button_state.set(state);
         self.update_window_properties()
     }
 
