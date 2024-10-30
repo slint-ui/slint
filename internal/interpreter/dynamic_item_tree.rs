@@ -634,7 +634,7 @@ impl<'id> ItemTreeDescription<'id> {
                     let item_info = &description.items[element.borrow().id.as_str()];
                     let item =
                         unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                    if let Some(callback) = item_info.rtti.callbacks.get(alias.name()) {
+                    if let Some(callback) = item_info.rtti.callbacks.get(alias.name().as_str()) {
                         callback.set_handler(item, handler)
                     } else if let Some(callback_offset) =
                         description.custom_callbacks.get(alias.name())
@@ -664,7 +664,7 @@ impl<'id> ItemTreeDescription<'id> {
     pub fn invoke(
         &self,
         component: ItemTreeRefPin,
-        name: &str,
+        name: &SmolStr,
         args: &[Value],
     ) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
@@ -1090,7 +1090,7 @@ pub(crate) fn generate_item_tree<'id>(
             );
             for (prop, expr) in &item.change_callbacks {
                 self.change_callbacks.push((
-                    NamedReference::new(rc_item, prop),
+                    NamedReference::new(rc_item, prop.clone()),
                     Expression::CodeBlock(expr.borrow().clone()),
                 ));
             }
@@ -1133,7 +1133,7 @@ pub(crate) fn generate_item_tree<'id>(
     } else {
         for (prop, expr) in component.root_element.borrow().change_callbacks.iter() {
             builder.change_callbacks.push((
-                NamedReference::new(&component.root_element, prop),
+                NamedReference::new(&component.root_element, prop.clone()),
                 Expression::CodeBlock(expr.borrow().clone()),
             ));
         }
@@ -1569,7 +1569,8 @@ pub fn instantiate(
                     } else {
                         let item_within_component = &description.items[&elem.id];
                         let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                        if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name)
+                        if let Some(callback) =
+                            item_within_component.rtti.callbacks.get(prop_name.as_str())
                         {
                             callback.set_handler(
                                 item,
@@ -1625,7 +1626,9 @@ pub fn instantiate(
             } else {
                 let item_within_component = &description.items[&elem.id];
                 let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name) {
+                if let Some(prop_rtti) =
+                    item_within_component.rtti.properties.get(prop_name.as_str())
+                {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
                     for nr in &binding.two_way_bindings {
                         // Safety: The compiler must have ensured that the properties exist and are of the same type
@@ -1704,7 +1707,7 @@ pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *c
             let prop_info = item_info
                 .rtti
                 .properties
-                .get(nr.name())
+                .get(nr.name().as_str())
                 .unwrap_or_else(|| panic!("Property {} not in {}", nr.name(), element.id));
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };

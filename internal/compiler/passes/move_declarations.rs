@@ -55,7 +55,7 @@ fn do_move_declarations(component: &Rc<Component>) {
         for (k, e) in bindings {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
             if will_be_moved {
-                new_root_bindings.insert(map_name(elem, k.as_str()), e);
+                new_root_bindings.insert(map_name(elem, &k), e);
             } else {
                 new_bindings.insert(k, e);
             }
@@ -67,7 +67,7 @@ fn do_move_declarations(component: &Rc<Component>) {
         for (prop, a) in property_analysis {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&prop);
             if will_be_moved {
-                new_root_property_analysis.insert(map_name(elem, prop.as_str()), a);
+                new_root_property_analysis.insert(map_name(elem, &prop), a);
             } else {
                 new_property_analysis.insert(prop, a);
             }
@@ -80,7 +80,7 @@ fn do_move_declarations(component: &Rc<Component>) {
         for (k, e) in change_callbacks {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
             if will_be_moved {
-                new_root_change_callbacks.insert(map_name(elem, k.as_str()), e);
+                new_root_change_callbacks.insert(map_name(elem, &k), e);
             } else {
                 new_change_callbacks.insert(k, e);
             }
@@ -135,11 +135,11 @@ fn fixup_reference(nr: &mut NamedReference) {
     if !Rc::ptr_eq(&e, &component.root_element)
         && e.borrow().property_declarations.contains_key(nr.name())
     {
-        *nr = NamedReference::new(&component.root_element, map_name(&e, nr.name()).as_str());
+        *nr = NamedReference::new(&component.root_element, map_name(&e, nr.name()).into());
     }
 }
 
-fn map_name(e: &ElementRc, s: &str) -> SmolStr {
+fn map_name(e: &ElementRc, s: &SmolStr) -> SmolStr {
     format_smolstr!("{}-{}", e.borrow().id, s)
 }
 

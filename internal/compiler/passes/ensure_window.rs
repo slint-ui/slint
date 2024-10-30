@@ -69,10 +69,13 @@ pub fn ensure_window(
     win_elem_mut.children.push(new_root.clone());
     drop(win_elem_mut);
 
-    let make_two_way = |name: &str| {
+    let make_two_way = |name: &'static str| {
         new_root.borrow_mut().bindings.insert(
             name.into(),
-            RefCell::new(BindingExpression::new_two_way(NamedReference::new(&win_elem, name))),
+            RefCell::new(BindingExpression::new_two_way(NamedReference::new(
+                &win_elem,
+                SmolStr::new_static(name),
+            ))),
         );
     };
     make_two_way("width");
@@ -92,7 +95,7 @@ pub fn ensure_window(
             continue;
         }
 
-        must_update.insert(NamedReference::new(&win_elem, &prop));
+        must_update.insert(NamedReference::new(&win_elem, prop.clone()));
 
         if let Some(b) = win_elem.borrow_mut().bindings.remove(&prop) {
             new_root.borrow_mut().bindings.insert(prop.clone(), b);
@@ -104,7 +107,7 @@ pub fn ensure_window(
 
     crate::object_tree::visit_all_named_references(component, &mut |nr| {
         if must_update.contains(nr) {
-            *nr = NamedReference::new(&new_root, nr.name());
+            *nr = NamedReference::new(&new_root, nr.name().clone());
         }
     });
 
@@ -137,7 +140,7 @@ pub fn ensure_window(
         Expression::Cast {
             from: Expression::PropertyReference(NamedReference::new(
                 &style_metrics.root_element,
-                "window-background",
+                SmolStr::new_static("window-background"),
             ))
             .into(),
             to: Type::Brush,

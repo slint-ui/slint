@@ -75,7 +75,11 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
             (
                 SmolStr::new_static(prop),
                 RefCell::new(
-                    Expression::PropertyReference(NamedReference::new(parent_elem, prop)).into(),
+                    Expression::PropertyReference(NamedReference::new(
+                        parent_elem,
+                        SmolStr::new_static(prop),
+                    ))
+                    .into(),
                 ),
             )
         })
@@ -96,7 +100,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
                 RefCell::new(
                     Expression::PropertyReference(NamedReference::new(
                         parent_elem,
-                        "border-radius",
+                        SmolStr::new_static("border-radius"),
                     ))
                     .into(),
                 ),
@@ -105,17 +109,28 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     }
     clip.borrow_mut().bindings.insert(
         SmolStr::new_static("clip"),
-        BindingExpression::new_two_way(NamedReference::new(parent_elem, "clip")).into(),
+        BindingExpression::new_two_way(NamedReference::new(
+            parent_elem,
+            SmolStr::new_static("clip"),
+        ))
+        .into(),
     );
 }
 
-fn copy_optional_binding(parent_elem: &ElementRc, optional_binding: &str, clip: &ElementRc) {
+fn copy_optional_binding(
+    parent_elem: &ElementRc,
+    optional_binding: &'static str,
+    clip: &ElementRc,
+) {
     if parent_elem.borrow().bindings.contains_key(optional_binding) {
         clip.borrow_mut().bindings.insert(
             optional_binding.into(),
             RefCell::new(
-                Expression::PropertyReference(NamedReference::new(parent_elem, optional_binding))
-                    .into(),
+                Expression::PropertyReference(NamedReference::new(
+                    parent_elem,
+                    SmolStr::new_static(optional_binding),
+                ))
+                .into(),
             ),
         );
     }

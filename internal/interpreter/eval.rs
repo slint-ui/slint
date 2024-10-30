@@ -1239,7 +1239,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                         &enclosing_component.description.items[element.borrow().id.as_str()];
                     let item =
                         unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                    let p = &item_info.rtti.properties[nr.name()];
+                    let p = &item_info.rtti.properties[nr.name().as_str()];
                     p.set(item, eval(p.get(item)), None).unwrap();
                 }
                 ComponentInstance::GlobalComponent(global) => {
@@ -1470,7 +1470,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
 pub(crate) fn invoke_callback(
     component_instance: ComponentInstance,
     element: &ElementRc,
-    callback_name: &str,
+    callback_name: &SmolStr,
     args: &[Value],
 ) -> Option<Value> {
     generativity::make_guard!(guard);
@@ -1506,7 +1506,11 @@ pub(crate) fn invoke_callback(
             };
             let item_info = &description.items[element.id.as_str()];
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            item_info.rtti.callbacks.get(callback_name).map(|callback| callback.call(item, args))
+            item_info
+                .rtti
+                .callbacks
+                .get(callback_name.as_str())
+                .map(|callback| callback.call(item, args))
         }
         ComponentInstance::GlobalComponent(global) => {
             Some(global.as_ref().invoke_callback(callback_name, args).unwrap())

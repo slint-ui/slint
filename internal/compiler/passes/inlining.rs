@@ -511,7 +511,7 @@ fn duplicate_property_animation(
 
 fn fixup_reference(nr: &mut NamedReference, mapping: &Mapping) {
     if let Some(e) = mapping.get(&element_key(nr.element())) {
-        *nr = NamedReference::new(e, nr.name());
+        *nr = NamedReference::new(e, nr.name().clone());
     }
 }
 

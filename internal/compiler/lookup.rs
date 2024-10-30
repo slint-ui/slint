@@ -14,7 +14,7 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
-use smol_str::SmolStr;
+use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 
 mod named_colors;
@@ -125,12 +125,12 @@ pub trait LookupObject {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R>;
 
     /// Perform a lookup of a given identifier.
     /// One does not have to re-implement unless we can make it faster
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then_some(expr))
     }
 }
@@ -139,12 +139,12 @@ impl<T1: LookupObject, T2: LookupObject> LookupObject for (T1, T2) {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         self.0.for_each_entry(ctx, f).or_else(|| self.1.for_each_entry(ctx, f))
     }
 
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         self.0.lookup(ctx, name).or_else(|| self.1.lookup(ctx, name))
     }
 }
@@ -153,7 +153,7 @@ impl LookupObject for LookupResult {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         match self {
             LookupResult::Expression { expression, .. } => expression.for_each_entry(ctx, f),
@@ -169,7 +169,7 @@ impl LookupObject for LookupResult {
         }
     }
 
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         match self {
             LookupResult::Expression { expression, .. } => expression.lookup(ctx, name),
             LookupResult::Enumeration(e) => e.lookup(ctx, name),
@@ -190,7 +190,7 @@ impl LookupObject for ArgumentsLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let args = match &ctx.property_type {
             Type::Callback(f) | Type::Function(f) => &f.args,
@@ -212,10 +212,11 @@ impl LookupObject for SpecialIdLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let last = ctx.component_scope.last();
-        None.or_else(|| f("self", Expression::ElementReference(Rc::downgrade(last?)).into()))
+        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
+        None.or_else(|| f("self", Expression::ElementReference(Rc::downgrade(last?))))
             .or_else(|| {
                 let len = ctx.component_scope.len();
                 if len >= 2 {
@@ -228,8 +229,8 @@ impl LookupObject for SpecialIdLookup {
                     None
                 }
             })
-            .or_else(|| f("true", Expression::BoolLiteral(true).into()))
-            .or_else(|| f("false", Expression::BoolLiteral(false).into()))
+            .or_else(|| f("true", Expression::BoolLiteral(true)))
+            .or_else(|| f("false", Expression::BoolLiteral(false)))
         // "root" is just a normal id
     }
 }
@@ -239,11 +240,11 @@ impl LookupObject for IdLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         fn visit<R>(
             root: &ElementRc,
-            f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+            f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
         ) -> Option<R> {
             if !root.borrow().id.is_empty() {
                 if let Some(r) =
@@ -284,7 +285,7 @@ pub struct InScopeLookup;
 impl InScopeLookup {
     fn visit_scope<R>(
         ctx: &LookupCtx,
-        mut visit_entry: impl FnMut(&str, LookupResult) -> Option<R>,
+        mut visit_entry: impl FnMut(&SmolStr, LookupResult) -> Option<R>,
         mut visit_legacy_scope: impl FnMut(&ElementRc) -> Option<R>,
         mut visit_scope: impl FnMut(&ElementRc) -> Option<R>,
     ) -> Option<R> {
@@ -329,7 +330,7 @@ impl LookupObject for InScopeLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let f = RefCell::new(f);
         Self::visit_scope(
@@ -339,7 +340,7 @@ impl LookupObject for InScopeLookup {
             |elem| {
                 for (name, prop) in &elem.borrow().property_declarations {
                     let e = expression_from_reference(
-                        NamedReference::new(elem, name),
+                        NamedReference::new(elem, name.clone()),
                         &prop.property_type,
                         &ctx.current_token,
                     );
@@ -352,18 +353,18 @@ impl LookupObject for InScopeLookup {
         )
     }
 
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         if name.is_empty() {
             return None;
         }
         Self::visit_scope(
             ctx,
             |str, r| (str == name).then_some(r),
-            |elem| elem.lookup(ctx, name),
+            |elem| elem.lookup(ctx, &name),
             |elem| {
                 elem.borrow().property_declarations.get(name).map(|prop| {
                     expression_from_reference(
-                        NamedReference::new(elem, name),
+                        NamedReference::new(elem, name.clone()),
                         &prop.property_type,
                         &ctx.current_token,
                     )
@@ -378,11 +379,11 @@ impl LookupObject for ElementRc {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
             let e = expression_from_reference(
-                NamedReference::new(self, name),
+                NamedReference::new(self, name.clone()),
                 &prop.property_type,
                 &ctx.current_token,
             );
@@ -393,7 +394,7 @@ impl LookupObject for ElementRc {
         let list = self.borrow().base_type.property_list();
         for (name, ty) in list {
             let e = expression_from_reference(
-                NamedReference::new(self, &name),
+                NamedReference::new(self, name.clone()),
                 &ty,
                 &ctx.current_token,
             );
@@ -403,12 +404,13 @@ impl LookupObject for ElementRc {
         }
         if !matches!(self.borrow().base_type, ElementType::Global) {
             for (name, ty, _) in crate::typeregister::reserved_properties() {
+                let name = SmolStr::new_static(name);
                 let e = expression_from_reference(
-                    NamedReference::new(self, name),
+                    NamedReference::new(self, name.clone()),
                     &ty,
                     &ctx.current_token,
                 );
-                if let Some(r) = f(name, e.into()) {
+                if let Some(r) = f(&name, e.into()) {
                     return Some(r);
                 }
             }
@@ -416,7 +418,7 @@ impl LookupObject for ElementRc {
         None
     }
 
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         let lookup_result = self.borrow().lookup_property(name);
         if lookup_result.property_type != Type::Invalid
             && (lookup_result.is_local_to_component
@@ -424,11 +426,11 @@ impl LookupObject for ElementRc {
         {
             Some(LookupResult::Expression {
                 expression: expression_from_reference(
-                    NamedReference::new(self, &lookup_result.resolved_name),
+                    NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
                     &lookup_result.property_type,
                     &ctx.current_token,
                 ),
-                deprecated: (lookup_result.resolved_name != name)
+                deprecated: (lookup_result.resolved_name != name.as_str())
                     .then(|| lookup_result.resolved_name.to_string()),
             })
         } else {
@@ -456,7 +458,7 @@ impl LookupObject for LookupType {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, ty) in ctx.type_register.all_types() {
             if let Some(r) = Self::from_type(ty).and_then(|e| f(&name, e)) {
@@ -471,7 +473,7 @@ impl LookupObject for LookupType {
         None
     }
 
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         Self::from_type(ctx.type_register.lookup(name))
             .or_else(|| Self::from_element(ctx.type_register.lookup_element(name).ok()?, ctx, name))
     }
@@ -521,7 +523,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         match ctx.return_type() {
             Type::Color => ColorSpecific.for_each_entry(ctx, f),
@@ -532,7 +534,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
         }
     }
 
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         match ctx.return_type() {
             Type::Color => ColorSpecific.lookup(ctx, name),
             Type::Brush => ColorSpecific.lookup(ctx, name),
@@ -548,17 +550,17 @@ impl LookupObject for ColorSpecific {
     fn for_each_entry<R>(
         &self,
         _ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, c) in named_colors::named_colors().iter() {
-            if let Some(r) = f(name, Self::as_result(*c)) {
+            if let Some(r) = f(&SmolStr::new_static(name), Self::as_result(*c)) {
                 return Some(r);
             }
         }
         None
     }
-    fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        named_colors::named_colors().get(name).map(|c| Self::as_result(*c))
+    fn lookup(&self, _ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
+        named_colors::named_colors().get(name.as_str()).map(|c| Self::as_result(*c))
     }
 }
 impl ColorSpecific {
@@ -579,12 +581,12 @@ macro_rules! special_keys_lookup {
             fn for_each_entry<R>(
                 &self,
                 _ctx: &LookupCtx,
-                f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+                f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
             ) -> Option<R> {
                 None
                 $(.or_else(|| {
                     let mut tmp = [0; 4];
-                    f(stringify!($name), Expression::StringLiteral(SmolStr::new_inline($char.encode_utf8(&mut tmp))).into())
+                    f(&SmolStr::new_static(stringify!($name)), Expression::StringLiteral(SmolStr::new_inline($char.encode_utf8(&mut tmp))).into())
                 }))*
             }
         }
@@ -598,126 +600,79 @@ impl LookupObject for EasingSpecific {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         use EasingCurve::CubicBezier;
-        None.or_else(|| f("linear", Expression::EasingCurve(EasingCurve::Linear).into()))
+        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
+        None.or_else(|| f("linear", Expression::EasingCurve(EasingCurve::Linear)))
             .or_else(|| {
-                f("ease-in-quad", Expression::EasingCurve(CubicBezier(0.11, 0.0, 0.5, 0.0)).into())
+                f("ease-in-quad", Expression::EasingCurve(CubicBezier(0.11, 0.0, 0.5, 0.0)))
             })
             .or_else(|| {
-                f("ease-out-quad", Expression::EasingCurve(CubicBezier(0.5, 1.0, 0.89, 1.0)).into())
+                f("ease-out-quad", Expression::EasingCurve(CubicBezier(0.5, 1.0, 0.89, 1.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-in-out-quad",
-                    Expression::EasingCurve(CubicBezier(0.45, 0.0, 0.55, 1.0)).into(),
-                )
+                f("ease-in-out-quad", Expression::EasingCurve(CubicBezier(0.45, 0.0, 0.55, 1.0)))
+            })
+            .or_else(|| f("ease", Expression::EasingCurve(CubicBezier(0.25, 0.1, 0.25, 1.0))))
+            .or_else(|| f("ease-in", Expression::EasingCurve(CubicBezier(0.42, 0.0, 1.0, 1.0))))
+            .or_else(|| {
+                f("ease-in-out", Expression::EasingCurve(CubicBezier(0.42, 0.0, 0.58, 1.0)))
+            })
+            .or_else(|| f("ease-out", Expression::EasingCurve(CubicBezier(0.0, 0.0, 0.58, 1.0))))
+            .or_else(|| {
+                f("ease-in-quart", Expression::EasingCurve(CubicBezier(0.5, 0.0, 0.75, 0.0)))
             })
             .or_else(|| {
-                f("ease", Expression::EasingCurve(CubicBezier(0.25, 0.1, 0.25, 1.0)).into())
+                f("ease-out-quart", Expression::EasingCurve(CubicBezier(0.25, 1.0, 0.5, 1.0)))
             })
             .or_else(|| {
-                f("ease-in", Expression::EasingCurve(CubicBezier(0.42, 0.0, 1.0, 1.0)).into())
+                f("ease-in-out-quart", Expression::EasingCurve(CubicBezier(0.76, 0.0, 0.24, 1.0)))
             })
             .or_else(|| {
-                f("ease-in-out", Expression::EasingCurve(CubicBezier(0.42, 0.0, 0.58, 1.0)).into())
+                f("ease-in-quint", Expression::EasingCurve(CubicBezier(0.64, 0.0, 0.78, 0.0)))
             })
             .or_else(|| {
-                f("ease-out", Expression::EasingCurve(CubicBezier(0.0, 0.0, 0.58, 1.0)).into())
+                f("ease-out-quint", Expression::EasingCurve(CubicBezier(0.22, 1.0, 0.36, 1.0)))
             })
             .or_else(|| {
-                f("ease-in-quart", Expression::EasingCurve(CubicBezier(0.5, 0.0, 0.75, 0.0)).into())
+                f("ease-in-out-quint", Expression::EasingCurve(CubicBezier(0.83, 0.0, 0.17, 1.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-out-quart",
-                    Expression::EasingCurve(CubicBezier(0.25, 1.0, 0.5, 1.0)).into(),
-                )
+                f("ease-in-expo", Expression::EasingCurve(CubicBezier(0.7, 0.0, 0.84, 0.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-in-out-quart",
-                    Expression::EasingCurve(CubicBezier(0.76, 0.0, 0.24, 1.0)).into(),
-                )
+                f("ease-out-expo", Expression::EasingCurve(CubicBezier(0.16, 1.0, 0.3, 1.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-in-quint",
-                    Expression::EasingCurve(CubicBezier(0.64, 0.0, 0.78, 0.0)).into(),
-                )
+                f("ease-in-out-expo", Expression::EasingCurve(CubicBezier(0.87, 0.0, 0.13, 1.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-out-quint",
-                    Expression::EasingCurve(CubicBezier(0.22, 1.0, 0.36, 1.0)).into(),
-                )
+                f("ease-in-back", Expression::EasingCurve(CubicBezier(0.36, 0.0, 0.66, -0.56)))
             })
             .or_else(|| {
-                f(
-                    "ease-in-out-quint",
-                    Expression::EasingCurve(CubicBezier(0.83, 0.0, 0.17, 1.0)).into(),
-                )
+                f("ease-out-back", Expression::EasingCurve(CubicBezier(0.34, 1.56, 0.64, 1.0)))
             })
             .or_else(|| {
-                f("ease-in-expo", Expression::EasingCurve(CubicBezier(0.7, 0.0, 0.84, 0.0)).into())
+                f("ease-in-out-back", Expression::EasingCurve(CubicBezier(0.68, -0.6, 0.32, 1.6)))
             })
             .or_else(|| {
-                f("ease-out-expo", Expression::EasingCurve(CubicBezier(0.16, 1.0, 0.3, 1.0)).into())
+                f("ease-in-sine", Expression::EasingCurve(CubicBezier(0.12, 0.0, 0.39, 0.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-in-out-expo",
-                    Expression::EasingCurve(CubicBezier(0.87, 0.0, 0.13, 1.0)).into(),
-                )
+                f("ease-out-sine", Expression::EasingCurve(CubicBezier(0.61, 1.0, 0.88, 1.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-in-back",
-                    Expression::EasingCurve(CubicBezier(0.36, 0.0, 0.66, -0.56)).into(),
-                )
+                f("ease-in-out-sine", Expression::EasingCurve(CubicBezier(0.37, 0.0, 0.63, 1.0)))
             })
             .or_else(|| {
-                f(
-                    "ease-out-back",
-                    Expression::EasingCurve(CubicBezier(0.34, 1.56, 0.64, 1.0)).into(),
-                )
+                f("ease-in-circ", Expression::EasingCurve(CubicBezier(0.55, 0.0, 1.0, 0.45)))
             })
             .or_else(|| {
-                f(
-                    "ease-in-out-back",
-                    Expression::EasingCurve(CubicBezier(0.68, -0.6, 0.32, 1.6)).into(),
-                )
+                f("ease-out-circ", Expression::EasingCurve(CubicBezier(0.0, 0.55, 0.45, 1.0)))
             })
             .or_else(|| {
-                f("ease-in-sine", Expression::EasingCurve(CubicBezier(0.12, 0.0, 0.39, 0.0)).into())
-            })
-            .or_else(|| {
-                f(
-                    "ease-out-sine",
-                    Expression::EasingCurve(CubicBezier(0.61, 1.0, 0.88, 1.0)).into(),
-                )
-            })
-            .or_else(|| {
-                f(
-                    "ease-in-out-sine",
-                    Expression::EasingCurve(CubicBezier(0.37, 0.0, 0.63, 1.0)).into(),
-                )
-            })
-            .or_else(|| {
-                f("ease-in-circ", Expression::EasingCurve(CubicBezier(0.55, 0.0, 1.0, 0.45)).into())
-            })
-            .or_else(|| {
-                f(
-                    "ease-out-circ",
-                    Expression::EasingCurve(CubicBezier(0.0, 0.55, 0.45, 1.0)).into(),
-                )
-            })
-            .or_else(|| {
-                f(
-                    "ease-in-out-circ",
-                    Expression::EasingCurve(CubicBezier(0.85, 0.0, 0.15, 1.0)).into(),
-                )
+                f("ease-in-out-circ", Expression::EasingCurve(CubicBezier(0.85, 0.0, 0.15, 1.0)))
             })
             .or_else(|| {
                 f(
@@ -725,33 +680,18 @@ impl LookupObject for EasingSpecific {
                     Expression::BuiltinMacroReference(
                         BuiltinMacroFunction::CubicBezier,
                         ctx.current_token.clone(),
-                    )
-                    .into(),
+                    ),
                 )
             })
+            .or_else(|| f("ease-in-elastic", Expression::EasingCurve(EasingCurve::EaseInElastic)))
+            .or_else(|| f("ease-out-elastic", Expression::EasingCurve(EasingCurve::EaseOutElastic)))
             .or_else(|| {
-                f("ease-in-elastic", Expression::EasingCurve(EasingCurve::EaseInElastic).into())
+                f("ease-in-out-elastic", Expression::EasingCurve(EasingCurve::EaseInOutElastic))
             })
+            .or_else(|| f("ease-in-bounce", Expression::EasingCurve(EasingCurve::EaseInBounce)))
+            .or_else(|| f("ease-out-bounce", Expression::EasingCurve(EasingCurve::EaseOutBounce)))
             .or_else(|| {
-                f("ease-out-elastic", Expression::EasingCurve(EasingCurve::EaseOutElastic).into())
-            })
-            .or_else(|| {
-                f(
-                    "ease-in-out-elastic",
-                    Expression::EasingCurve(EasingCurve::EaseInOutElastic).into(),
-                )
-            })
-            .or_else(|| {
-                f("ease-in-bounce", Expression::EasingCurve(EasingCurve::EaseInBounce).into())
-            })
-            .or_else(|| {
-                f("ease-out-bounce", Expression::EasingCurve(EasingCurve::EaseOutBounce).into())
-            })
-            .or_else(|| {
-                f(
-                    "ease-in-out-bounce",
-                    Expression::EasingCurve(EasingCurve::EaseInOutBounce).into(),
-                )
+                f("ease-in-out-bounce", Expression::EasingCurve(EasingCurve::EaseInOutBounce))
             })
     }
 }
@@ -760,7 +700,7 @@ impl LookupObject for Rc<Enumeration> {
     fn for_each_entry<R>(
         &self,
         _ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (value, name) in self.values.iter().enumerate() {
             if let Some(r) = f(
@@ -780,12 +720,12 @@ impl LookupObject for MathFunctions {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         use Expression::{BuiltinFunctionReference, BuiltinMacroReference};
         let t = &ctx.current_token;
         let sl = || t.as_ref().map(|t| t.to_source_location());
-        let mut f = |n, e: Expression| f(n, e.into());
+        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
         None.or_else(|| f("mod", BuiltinMacroReference(BuiltinMacroFunction::Mod, t.clone())))
             .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
             .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
@@ -812,10 +752,11 @@ impl LookupObject for SlintInternal {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         use Expression::BuiltinFunctionReference as BFR;
         let sl = || ctx.current_token.as_ref().map(|t| t.to_source_location());
+        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
         None.or_else(|| {
             let style = ctx.type_loader.and_then(|tl| tl.compiler_config.style.as_ref());
             f(
@@ -832,8 +773,7 @@ impl LookupObject for SlintInternal {
                         arguments: vec![],
                         source_location: sl(),
                     }
-                }
-                .into(),
+                },
             )
         })
         .or_else(|| {
@@ -843,16 +783,15 @@ impl LookupObject for SlintInternal {
                     function: BFR(BuiltinFunction::Use24HourFormat, None).into(),
                     arguments: vec![],
                     source_location: sl(),
-                }
-                .into(),
+                },
             )
         })
-        .or_else(|| f("month-day-count", BFR(BuiltinFunction::MonthDayCount, sl()).into()))
-        .or_else(|| f("month-offset", BFR(BuiltinFunction::MonthOffset, sl()).into()))
-        .or_else(|| f("format-date", BFR(BuiltinFunction::FormatDate, sl()).into()))
-        .or_else(|| f("date-now", BFR(BuiltinFunction::DateNow, sl()).into()))
-        .or_else(|| f("valid-date", BFR(BuiltinFunction::ValidDate, sl()).into()))
-        .or_else(|| f("parse-date", BFR(BuiltinFunction::ParseDate, sl()).into()))
+        .or_else(|| f("month-day-count", BFR(BuiltinFunction::MonthDayCount, sl())))
+        .or_else(|| f("month-offset", BFR(BuiltinFunction::MonthOffset, sl())))
+        .or_else(|| f("format-date", BFR(BuiltinFunction::FormatDate, sl())))
+        .or_else(|| f("date-now", BFR(BuiltinFunction::DateNow, sl())))
+        .or_else(|| f("valid-date", BFR(BuiltinFunction::ValidDate, sl())))
+        .or_else(|| f("parse-date", BFR(BuiltinFunction::ParseDate, sl())))
     }
 }
 
@@ -861,11 +800,11 @@ impl LookupObject for ColorFunctions {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         use Expression::BuiltinMacroReference;
         let t = &ctx.current_token;
-        let mut f = |n, e: Expression| f(n, e.into());
+        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
         None.or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("hsv", BuiltinMacroReference(BuiltinMacroFunction::Hsv, t.clone())))
@@ -877,13 +816,13 @@ impl LookupObject for BuiltinFunctionLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         (MathFunctions, ColorFunctions)
             .for_each_entry(ctx, f)
             .or_else(|| {
                 f(
-                    "debug",
+                    &SmolStr::new_static("debug"),
                     Expression::BuiltinMacroReference(
                         BuiltinMacroFunction::Debug,
                         ctx.current_token.clone(),
@@ -893,7 +832,7 @@ impl LookupObject for BuiltinFunctionLookup {
             })
             .or_else(|| {
                 f(
-                    "animation-tick",
+                    &SmolStr::new_static("animation-tick"),
                     Expression::BuiltinFunctionReference(
                         BuiltinFunction::AnimationTick,
                         ctx.current_token.as_ref().map(|t| t.to_source_location()),
@@ -909,8 +848,9 @@ impl LookupObject for BuiltinNamespaceLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
             .or_else(|| f("Key", LookupResult::Namespace(BuiltinNamespace::Key)))
@@ -947,7 +887,7 @@ impl LookupObject for Expression {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().for_each_entry(ctx, f),
@@ -982,14 +922,14 @@ impl LookupObject for Expression {
         }
     }
 
-    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().lookup(ctx, name),
             _ => match self.ty() {
                 Type::Struct(s) => s.fields.contains_key(name).then(|| {
                     LookupResult::from(Expression::StructFieldAccess {
                         base: Box::new(self.clone()),
-                        name: name.into(),
+                        name: name.clone(),
                     })
                 }),
                 Type::String => StringExpression(self).lookup(ctx, name),
@@ -1013,7 +953,7 @@ impl<'a> LookupObject for StringExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
             LookupResult::from(Expression::MemberFunction {
@@ -1025,6 +965,7 @@ impl<'a> LookupObject for StringExpression<'a> {
                 )),
             })
         };
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("is-float", member_function(BuiltinFunction::StringIsFloat)))
             .or_else(|| f("to-float", member_function(BuiltinFunction::StringToFloat)))
     }
@@ -1034,7 +975,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
             let base = if f == BuiltinFunction::ColorHsvaStruct && self.0.ty() == Type::Brush {
@@ -1051,7 +992,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
                 )),
             })
         };
-        let field_access = |f: &str| {
+        let field_access = |f: &'static str| {
             let base = if self.0.ty() == Type::Brush {
                 Expression::Cast { from: Box::new(self.0.clone()), to: Type::Color }
             } else {
@@ -1066,9 +1007,11 @@ impl<'a> LookupObject for ColorExpression<'a> {
                     source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                     arguments: vec![base],
                 }),
-                name: f.into(),
+                name: SmolStr::new_static(f),
             })
         };
+
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("red", field_access("red")))
             .or_else(|| f("green", field_access("green")))
             .or_else(|| f("blue", field_access("blue")))
@@ -1087,7 +1030,7 @@ impl<'a> LookupObject for ImageExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let field_access = |f: &str| {
             LookupResult::from(Expression::StructFieldAccess {
@@ -1102,6 +1045,7 @@ impl<'a> LookupObject for ImageExpression<'a> {
                 name: f.into(),
             })
         };
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("width", field_access("width")))
             .or_else(|| f("height", field_access("height")))
     }
@@ -1112,7 +1056,7 @@ impl<'a> LookupObject for ArrayExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
@@ -1124,7 +1068,9 @@ impl<'a> LookupObject for ArrayExpression<'a> {
                 arguments: vec![self.0.clone()],
             })
         };
-        None.or_else(|| f("length", member_function(BuiltinFunction::ArrayLength)))
+        None.or_else(|| {
+            f(&SmolStr::new_static("length"), member_function(BuiltinFunction::ArrayLength))
+        })
     }
 }
 
@@ -1134,7 +1080,7 @@ impl<'a> LookupObject for NumberExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
             LookupResult::from(Expression::MemberFunction {
@@ -1147,15 +1093,16 @@ impl<'a> LookupObject for NumberExpression<'a> {
             })
         };
 
-        None.or_else(|| f("round", member_function(BuiltinFunction::Round)))
-            .or_else(|| f("ceil", member_function(BuiltinFunction::Ceil)))
-            .or_else(|| f("floor", member_function(BuiltinFunction::Floor)))
-            .or_else(|| f("sqrt", member_function(BuiltinFunction::Sqrt)))
-            .or_else(|| f("asin", member_function(BuiltinFunction::ASin)))
-            .or_else(|| f("acos", member_function(BuiltinFunction::ACos)))
-            .or_else(|| f("atan", member_function(BuiltinFunction::ATan)))
-            .or_else(|| f("log", member_function(BuiltinFunction::Log)))
-            .or_else(|| f("pow", member_function(BuiltinFunction::Pow)))
+        let mut f2 = |s, res| f(&SmolStr::new_static(s), res);
+        None.or_else(|| f2("round", member_function(BuiltinFunction::Round)))
+            .or_else(|| f2("ceil", member_function(BuiltinFunction::Ceil)))
+            .or_else(|| f2("floor", member_function(BuiltinFunction::Floor)))
+            .or_else(|| f2("sqrt", member_function(BuiltinFunction::Sqrt)))
+            .or_else(|| f2("asin", member_function(BuiltinFunction::ASin)))
+            .or_else(|| f2("acos", member_function(BuiltinFunction::ACos)))
+            .or_else(|| f2("atan", member_function(BuiltinFunction::ATan)))
+            .or_else(|| f2("log", member_function(BuiltinFunction::Log)))
+            .or_else(|| f2("pow", member_function(BuiltinFunction::Pow)))
             .or_else(|| NumberWithUnitExpression(self.0).for_each_entry(ctx, f))
     }
 }
@@ -1166,7 +1113,7 @@ impl<'a> LookupObject for NumberWithUnitExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_macro = |f: BuiltinMacroFunction| {
             LookupResult::from(Expression::MemberFunction {
@@ -1176,6 +1123,7 @@ impl<'a> LookupObject for NumberWithUnitExpression<'a> {
             })
         };
 
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("mod", member_macro(BuiltinMacroFunction::Mod)))
             .or_else(|| f("clamp", member_macro(BuiltinMacroFunction::Clamp)))
             .or_else(|| f("abs", member_macro(BuiltinMacroFunction::Abs)))

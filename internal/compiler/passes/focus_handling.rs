@@ -13,6 +13,7 @@ use crate::langtype::{ElementType, Function, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use by_address::ByAddress;
+use smol_str::SmolStr;
 use std::collections::{HashMap, HashSet};
 use strum::IntoEnumIterator;
 
@@ -269,7 +270,7 @@ fn call_set_focus_function(
     if declares_focus_function {
         Some(Expression::FunctionCall {
             function: Box::new(Expression::FunctionReference(
-                NamedReference::new(element, function_name),
+                NamedReference::new(element, SmolStr::new_static(function_name)),
                 None,
             )),
             arguments: vec![],
