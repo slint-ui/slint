@@ -55,8 +55,8 @@ export component Overhead inherits Control {
         }
 
         switch := DropShadowToggle {
+            x: root.height < Measurements.medium-height-tile ? root.width - self.width : 0;
             y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
-            x: root.height < Measurements.medium-height-tile ? root.width - self.width : root.x + (tilePadding / 2);
             labelOff: "";
             labelOn: "";
             scale: 33%;

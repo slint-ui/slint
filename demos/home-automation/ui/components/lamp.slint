@@ -28,7 +28,7 @@ export component Lamp inherits Control {
             }
         }
         Rectangle {
-            x: tile.width - self.width + 40px;
+            x: tile.width - self.width + 20px;
             y: (root.width > Measurements.small-width-tile) ? -60px : -40px;
             animate y {
                 duration: 300ms;
@@ -101,14 +101,13 @@ export component Lamp inherits Control {
                 maxValue: 24;
                 value: self.maxValue;
                 width: root.width * 0.8;
-
                 icon: @image-url("../images/brightness.svg");
                 colorize-icon: Colors.black;
             }
         }
 
         switch := DropShadowToggle {
-            x: root.height < Measurements.medium-height-tile ? root.width - self.width : root.x + tilePadding/2;
+            x: 0;
             y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
             labelOff: "";
             labelOn: "";
