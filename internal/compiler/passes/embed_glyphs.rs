@@ -557,8 +557,8 @@ fn generate_sdf_for_glyph(
     glyph_data.push(0);
 
     let metrics = fontdue::Metrics {
-        xmin: -(1. - bbox.x_min as f64 * scale).floor() as i32,
-        ymin: -(1. - bbox.y_min as f64 * scale).floor() as i32,
+        xmin: -(1. - bbox.x_min as f64 * scale).round() as i32,
+        ymin: -(1. - bbox.y_min as f64 * scale).round() as i32,
         width: width as usize,
         height: height as usize,
         advance_width: (face.glyph_hor_advance(glyph_id).unwrap() as f64 * scale) as f32,
