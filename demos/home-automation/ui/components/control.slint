@@ -12,7 +12,7 @@ export component Control inherits Rectangle {
     in property <bool> name-label: true;
     in property <bool> full-screen: false;
     in property <bool> control-label: true;
-    in property <length> control-label-position: 5px;
+    in property <length> control-label-position: 2.5px;
     in property <int> index;
     in property <length> tile-shadow-blur: Measurements.tile-shadow-blur;
     in property <brush> tile-background: Palette.control-background;
@@ -38,7 +38,7 @@ export component Control inherits Rectangle {
         @children
         if show-label: Rectangle {
             x: control-label-position;
-            y: 5px;
+            y: 2.5px;
             border-radius: Measurements.tile-radius;
             background: Colors.black.transparentize(0.7);
             width: self.preferred-width;
@@ -55,7 +55,7 @@ export component Control inherits Rectangle {
 
                     Text {
                         text: root.name;
-                        font-size: 20pt;
+                        font-size: 10pt;
                         font-weight: 400;
                         color: Palette.control-foreground;
                     }

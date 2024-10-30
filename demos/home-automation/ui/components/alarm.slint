@@ -10,9 +10,9 @@ export component ArmButton inherits Rectangle {
     callback clicked <=> ta.clicked;
     in property <int> label;
     background: ta.pressed ? Palette.control-alternate-background.transparentize(0.5) : Palette.control-alternate-background;
-    border-radius: 10px;
-    width: 130px;
-    height: 95px;
+    border-radius: 5px;
+    width: 65px;
+    height: 47px;
     HaText {
         font-size: root.label == -2 ? Style.H1-font-size * 0.6 : Style.H2-font-size;
         text: root.label == -2 ? "⌫" : root.label;
@@ -37,6 +37,11 @@ export component Alarm inherits Control {
         font-size: Style.H1-font-size;
         text: root.indirect-passcode;
         opacity: 0;
+        changed width => {
+            if self.width > 130px {
+                root.passcode = -1;
+            }
+        }
     }
 
     content := Rectangle {
@@ -54,7 +59,7 @@ export component Alarm inherits Control {
             color: Palette.hvac-knob-foreground;
             font-weight: 300;
             x: parent.width / 2 - self.width / 2;
-            y: 100px;
+            y: 50px;
         }
 
         Rectangle {
@@ -77,20 +82,20 @@ export component Alarm inherits Control {
 
                 Rectangle {
                     width: 100%;
-                    height: 50px;
+                    height: 25px;
                     border-radius: self.height / 2;
                     background: Palette.alternate-background;
 
                     HaText {
                         text: "Arm Alarm";
                         color: Palette.foreground;
-                        font-size: 2rem;
+                        font-size: 1rem;
                     }
                 }
             }
 
             Rectangle {
-                width: 400px;
+                width: 200px;
                 states [
                     isVisible when root.full-screen: {
                         opacity: 1;
@@ -113,7 +118,8 @@ export component Alarm inherits Control {
                 ]
                 x: parent.width / 2 - self.width / 2;
                 Rectangle {
-                    width: 130px * 3 + 2 * 10px;
+                    y: parent.height * 0.2;
+                    width: 65px * 3 + 2 * 5px;
                     height: (95px * 5) + (4 * 10px);
                     visible: root.full-screen;
 
@@ -121,26 +127,21 @@ export component Alarm inherits Control {
                         y: 0;
                         border-radius: 10px;
                         width: 100%;
-                        height: 95px;
+                        height: 48px;
                         background: Palette.alternate-background;
                         le := LineEdit {
                             font-size: Style.H1-font-size;
                             text: root.indirect-passcode;
                             input-type: password;
-                            width: Math.max(290px, hidden-text.width);
-                            changed width => {
-                                if self.width > 300px {
-                                    root.passcode = -1;
-                                }
-                            }
+                            width: 145px;
                         }
 
                         mask := Rectangle {
-                            width: le.width + (17px * 2);
+                            width: le.width + (9px * 2);
                             height: container.height - 1px;
-                            x: le.x - 17px;
+                            x: le.x - 9px;
                             y: container.y + 1px;
-                            border-width: 18px;
+                            border-width: 9px;
                             border-color: Palette.lineedit-background;
                         }
 
@@ -149,7 +150,7 @@ export component Alarm inherits Control {
                             height: container.height;
                             x: container.x;
                             y: container.y;
-                            border-radius: 10px;
+                            border-radius: 5px;
                             background: Palette.lineedit-background;
                         }
 
@@ -158,7 +159,7 @@ export component Alarm inherits Control {
                             height: container.height;
                             x: mask.x + mask.width;
                             y: container.y;
-                            border-radius: 10px;
+                            border-radius: 5px;
                             background: Palette.lineedit-background;
                         }
                     }
@@ -171,12 +172,12 @@ export component Alarm inherits Control {
                         [7, 8, 9],
                         [-1, 0, -2],
                     ]: Rectangle {
-                        y: (r * 105px) + 105px;
+                        y: (r * 52px) + 52px;
                         width: 100%;
-                        height: 170px;
+                        height: 85px;
 
                         HorizontalLayout {
-                            spacing: 10px;
+                            spacing: 5px;
                             for num[c] in row-model: ArmButton {
                                 label: num;
                                 clicked => {
@@ -198,11 +199,11 @@ export component Alarm inherits Control {
         x: 0;
         VerticalLayout {
             alignment: end;
-            spacing: 5px;
-            padding: 5px;
+            spacing: 2px;
+            padding: 2px;
 
             controls := Rectangle {
-                border-radius: 20px;
+                border-radius: 10px;
                 width: 95%;
                 height: self.preferred-height;
                 background: Palette.music-gradient.transparentize(0.2);
@@ -212,8 +213,8 @@ export component Alarm inherits Control {
                 }
                 HorizontalLayout {
                     alignment: space-around;
-                    padding-top: 15px;
-                    padding-bottom: 15px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
                 }
             }
         }
@@ -227,10 +228,10 @@ export component Alarm inherits Control {
         }
         source: @image-url("../images/reduce.svg");
         colorize: white;
-        x: root.width - self.width - 30px;
-        y: 30px;
-        width: 60px;
-        height: 60px;
+        x: root.width - self.width - self.y;
+        y: 15px;
+        width: 30px;
+        height: 30px;
         TouchArea {
             enabled: closeButton.opacity > 0.1;
             clicked => {
