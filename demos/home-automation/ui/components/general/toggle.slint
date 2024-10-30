@@ -18,7 +18,7 @@ export component DropShadowToggle inherits Rectangle {
     property <duration> animation-duration: 100ms;
     callback toggle();
     width: self.preferred-width;
-    height: 90px * root.scale;
+    height: 45px * root.scale;
     toggle => {
         active = !active;
     }
@@ -83,7 +83,7 @@ export component DropShadowToggle inherits Rectangle {
                 }
                 // CONTROL
                 Rectangle {
-                    property <length> thumb-margin: 11px * root.scale;
+                    property <length> thumb-margin: 5.5px * root.scale;
                     border-radius: self.height / 2;
                     height: parent.height * 0.78;
                     width: parent.height * 0.78;

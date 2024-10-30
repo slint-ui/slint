@@ -10,7 +10,7 @@ import { DropShadowToggle} from "general/toggle.slint";
 
 
 export component Lamp inherits Control {
-    in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 36px : 18px;
+    in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 18px : 9px;
     show-label: false;
     tile-shadow-blur: 0px;
 
@@ -29,7 +29,7 @@ export component Lamp inherits Control {
         }
         Rectangle {
             x: tile.width - self.width + 40px;
-            y: (root.width > Measurements.small-width-tile) ? -120px : -80px;
+            y: (root.width > Measurements.small-width-tile) ? -60px : -40px;
             animate y {
                 duration: 300ms;
                 easing: ease-in-out-sine;
@@ -39,6 +39,8 @@ export component Lamp inherits Control {
             height: 100%;
 
             sh := Image {
+                width: self.source.width * 0.5 * 1px;
+                height: self.source.height * 0.5 * 1px;
                 property <[image]> frames: [
                     @image-url("../images/lamp/0000.png"),
                     @image-url("../images/lamp/0001.png"),
@@ -106,8 +108,8 @@ export component Lamp inherits Control {
         }
 
         switch := DropShadowToggle {
-            y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
             x: root.height < Measurements.medium-height-tile ? root.width - self.width : root.x + tilePadding/2;
+            y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
             labelOff: "";
             labelOn: "";
             scale: 33%;

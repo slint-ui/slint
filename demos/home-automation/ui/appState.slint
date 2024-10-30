@@ -34,8 +34,8 @@ export global AppState {
     in-out property <int> current-page: 0; // Don't use this directly. Use target-page instead.
     in-out property <int> target-page: 0;
     out property <DataGroup> current-layout-data: pageData[current-page];
-    in property <length> window-width;
-    in property <length> window-height;
+    in property <length> window-width: 960px;
+    in property <length> window-height: 540px;
     out property <float> x-scale: window-width / 1920px;
     out property <float> y-scale: window-height / 1080px;
 

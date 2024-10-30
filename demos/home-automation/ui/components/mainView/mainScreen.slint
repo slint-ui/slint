@@ -60,7 +60,7 @@ export component MainScreen inherits Rectangle {
     swipe := TouchArea {
         x: 0;
         y: 0;
-        width: 500px;
+        width: 250px;
         in-out property <bool> showing-sidebar: false;
         property <bool> first-touch: false;
         property <length> initial-position;
@@ -103,9 +103,9 @@ export component MainScreen inherits Rectangle {
                     x: 0;
                     y: 0;
                     width: 100%;
-                    height: root.height - 100px;
+                    height: root.height - 50px;
                     border-radius: 0px;
-                    drop-shadow-blur: (AppState.current-page > 3) ? 15px : 1px;
+                    drop-shadow-blur: (AppState.current-page > 3) ? 7px : 1px;
                     drop-shadow-color: Palette.shadow-color;
                     background: Palette.background-gradient;
                     animate background {
@@ -115,16 +115,16 @@ export component MainScreen inherits Rectangle {
                 }
 
                 navBar := Rectangle {
-                    x: 36px;
+                    x: 18px;
                     y: self.height / 5;
-                    width: AppState.current-page > (AppState.pageData.length - 7) ? 1848px : 1380px;
+                    width: AppState.current-page > (AppState.pageData.length - 7) ? 924px : 690px;
                     animate width {
                         duration: Animation.transitionDuration;
                         easing: ease-in-out-sine;
                     }
-                    height: 121px;
+                    height: 60.5px;
                     HorizontalLayout {
-                        spacing: 10px;
+                        spacing: 5px;
                         ViewButton {
                             target-page: 0;
                             text: "House";
@@ -151,41 +151,41 @@ export component MainScreen inherits Rectangle {
 
                     Rectangle {
                         y: root.height - self.height;
-                        height: 120px;
+                        height: 60px;
                         HorizontalLayout {
-                            spacing: 10px;
+                            spacing: 5px;
                             ViewButton {
-                                font-size: 2rem;
+                                font-size: 1rem;
                                 target-page: 4;
                                 text: "Controls";
                             }
 
                             ViewButton {
-                                font-size: 2rem;
+                                font-size: 1rem;
                                 target-page: 5;
                                 text: "Lamps";
                             }
 
                             ViewButton {
-                                font-size: 2rem;
+                                font-size: 1rem;
                                 target-page: 6;
                                 text: "Overhead Lights";
                             }
 
                             ViewButton {
-                                font-size: 2rem;
+                                font-size: 1rem;
                                 target-page: 7;
                                 text: "Appliances";
                             }
 
                             ViewButton {
-                                font-size: 2rem;
+                                font-size: 1rem;
                                 target-page: 8;
                                 text: "Info";
                             }
 
                             ViewButton {
-                                font-size: 2rem;
+                                font-size: 1rem;
                                 target-page: 9;
                                 text: "Graphs";
                             }
@@ -273,7 +273,7 @@ export component MainScreen inherits Rectangle {
                     ]
 
                     sidebar := Sidebar {
-                        drop-shadow-blur: sidebar-holder.x == 0 ? 0 : 30px;
+                        drop-shadow-blur: sidebar-holder.x == 0 ? 0 : 15px;
                         drop-shadow-color: black.transparentize(0.5);
                         x: -self.width;
                         lockDemo => {
