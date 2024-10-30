@@ -59,7 +59,7 @@ export type KnownType =
     | "string"
     | "struct";
 
-export type propertyVisibility = "private" | "in" | "out" | "in-out";
+export type PropertyVisibility = "private" | "in" | "out" | "in-out";
 
 export interface TypeInfo {
     href: string;
@@ -172,4 +172,16 @@ export function extractLines(
         .split("\n")
         .slice(start - 1, end)
         .join("\n");
+}
+
+export function removeLeadingSpaces(input: string, spaces: number = 4): string {
+    const lines = input.split("\n");
+    const modifiedLines = lines.map((line) => {
+        const leadingSpaces = line.match(/^ */)?.[0].length ?? 0;
+        if (leadingSpaces >= spaces) {
+            return line.slice(spaces);
+        }
+        return line;
+    });
+    return modifiedLines.join("\n");
 }

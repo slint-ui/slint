@@ -2,7 +2,7 @@
 import "@astrojs/starlight/style/markdown.css";
 import {
     type KnownType,
-    type propertyVisibility,
+    type PropertyVisibility,
     getEnumContent,
     getStructContent,
     getTypeInfo,
@@ -13,7 +13,7 @@ interface Props {
     typeName: KnownType;
     defaultValue?: string;
     enumName?: string;
-    propertyVisibility?: propertyVisibility;
+    propertyVisibility?: PropertyVisibility;
 }
 const { propName, typeName, defaultValue, enumName, propertyVisibility } = Astro.props;
 

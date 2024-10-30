@@ -24,10 +24,7 @@ export default defineConfig({
     site: "https://snapshots.slint.dev/tng/",
     base: "/tng",
     markdown: {
-    rehypePlugins: [
-        addMermaidClass,
-        rehypeMermaid,
-        ]
+        rehypePlugins: [addMermaidClass, rehypeMermaid],
     },
     integrations: [
         starlight({
@@ -59,13 +56,18 @@ export default defineConfig({
             sidebar: [
                 {
                     label: "Getting started",
+                    collapsed: true,
                     items: [
                         { label: "Welcome", slug: "getting-started/intro" },
-                        { label: "Which language?", slug: "getting-started/which_language" },
+                        {
+                            label: "Which language?",
+                            slug: "getting-started/which_language",
+                        },
                     ],
                 },
                 {
                     label: "Guide",
+                    collapsed: true,
                     items: [
                         // Each item here is one entry in the navigation menu.
                         { label: "Introduction", slug: "guide/philosophy" },
@@ -109,11 +111,13 @@ export default defineConfig({
                 },
                 {
                     label: "Elements",
+                    collapsed: true,
                     autogenerate: { directory: "elements" },
                 },
 
                 {
                     label: "Native API",
+                    collapsed: true,
                     items: [
                         {
                             label: "C++",
