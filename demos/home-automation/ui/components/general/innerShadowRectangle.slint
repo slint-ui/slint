@@ -4,7 +4,7 @@ import { Palette, Measurements, Colors } from "../../common.slint";
 import { AppState } from "../../appState.slint";
 
 export component InnerShadowRectangle inherits Rectangle {
-    in property <length> inner-shadow-blur: 15px;
+    in property <length> inner-shadow-blur: 7px;
     in property <brush> inner-color: Palette.background;
     in property <brush> inner-shadow-color: Palette.shadow-color;
     in property <bool> nine-slice: true;
@@ -20,8 +20,9 @@ export component InnerShadowRectangle inherits Rectangle {
             easing: ease-in-out-sine;
         }
         Image {
-            source: @image-url("../../images/inner-shadow-box-soft.png", nine-slice(50));
+            source: @image-url("../../images/inner-shadow-box-soft.png", nine-slice(60));
             colorize: inner-shadow-color;
+            opacity: 0.6;
             width: 100%;
             height: 100%;
         }

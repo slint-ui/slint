@@ -44,7 +44,7 @@ export component Light {
     Rectangle {
 
         Rectangle {
-            width: 10px;
+            width: 5px;
             height: self.width;
             border-radius: self.width / 2;
             background: Palette.door-light-off;
@@ -53,23 +53,25 @@ export component Light {
 
         dialLed := Image {
             source: Palette.dark-color-scheme ? @image-url("../../images/led-dark.png") : @image-url("../../images/led.png");
+            width: self.source.width * 0.5 * 1px;
+            height: self.source.height * 0.5 * 1px;
         }
     }
 }
 
 export component DialLights {
-    width: 425px;
-    height: 427px;
+    width: 212px;
+    height: 213px;
     in property <int> volume;
 
     Rectangle {
         width: 1px;
         height: 1px;
-        x: 212px;
-        y: 210px;
+        x: 106px;
+        y: 105px;
         lightHolder := Rectangle {
             x: 0px;
-            y: 2px;
+            y: 1px;
             for i in DialState.totalLights + 1: Light {
                 index: i;
                 volume: root.volume;

@@ -6,7 +6,7 @@ import { AppState } from "../appState.slint";
 import { HaText } from "general/haText.slint";
 export component AudioVisualizer inherits Rectangle {
     width: self.preferred-width;
-    height: 100px;
+    height: 50px;
     y: 0px;
 
 
@@ -19,7 +19,7 @@ export component AudioVisualizer inherits Rectangle {
     HorizontalLayout {
         spacing: parent.spacing;
         alignment: start;
-        y: 80px;
+        y: 40px;
 
         // Random heights for demonstration purposes
         property <[float]> getBarHeight:
@@ -81,7 +81,7 @@ export component AudioVisualizer inherits Rectangle {
 
         for bar[i] in numBars: Rectangle {
             width: barWidth;
-            height: getBarHeight[i] * 1px * 4000%;
+            height: getBarHeight[i] * 1px * 2000%;
             background: Palette.music-gradient.transparentize(0.2);
             y: -self.height / 2;
         }
@@ -99,7 +99,7 @@ export component MusicPlayer inherits Control {
 
     tile := Rectangle {
         border-color: white;
-        border-width: 2px;
+        border-width: 1px;
         x: 0cm;
         Image {
 
@@ -113,12 +113,12 @@ export component MusicPlayer inherits Control {
 
         VerticalLayout {
             alignment: end;
-            spacing: 5px;
-            padding: 5px;
+            spacing: 2px;
+            padding: 2px;
             HorizontalLayout {
                 width: tile.width;
                 alignment: start;
-                padding-left: 10px;
+                padding-left: 5px;
                 AudioVisualizer {
                     width: tile.width * 0.7;
                     states [
@@ -145,7 +145,7 @@ export component MusicPlayer inherits Control {
             }
 
             controls := Rectangle {
-                border-radius: 20px;
+                border-radius: 10px;
                 width: 95%;
                 height: self.preferred-height;
                 background: Palette.music-gradient.transparentize(0.2);
@@ -155,33 +155,33 @@ export component MusicPlayer inherits Control {
                 }
                 HorizontalLayout {
                     alignment: space-around;
-                    padding-top: 15px;
-                    padding-bottom: 15px;
+                    padding-top: 7px;
+                    padding-bottom: 7px;
                     Image {
                         source: @image-url("../images/back.svg");
-                        width: 35px;
-                        height: 35px;
+                        width: 18px;
+                        height: self.width;
                         colorize: Palette.music-alternate-foreground;
                     }
 
                     Image {
                         source: @image-url("../images/pause.svg");
-                        width: 35px;
-                        height: 35px;
+                        width: 18px;
+                        height: self.width;
                         colorize: Palette.music-alternate-foreground;
                     }
 
                     Image {
                         source: @image-url("../images/fwd.svg");
-                        width: 35px;
-                        height: 35px;
+                        width: 18px;
+                        height: self.width;
                         colorize: Palette.music-alternate-foreground;
                     }
                 }
             }
 
             info := Rectangle {
-                border-radius: 20px;
+                border-radius: 10px;
                 width: 95%;
                 height: self.preferred-height;
                 background: Palette.music-gradient.transparentize(0.2);
@@ -190,15 +190,28 @@ export component MusicPlayer inherits Control {
                     easing: ease-in-out-sine;
                 }
                 VerticalLayout {
-                    padding-top: (tile.height > Measurements.small-height-tile) ? 36px : 18px;
-                    padding: (tile.height <= Measurements.small-height-tile) ? 36px : 18px;
-                    spacing: 10px;
+                    padding-top: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
+                    padding: (tile.height <= Measurements.small-height-tile) ? 18px : 9px ;
+                    spacing: 5px;
 
                     HaText {
                         color: Palette.control-background;
                         text: title;
-                        font-size: 3rem;
+                        font-size: 1.5rem;
                         font-weight: 500;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        height: 5px;
+                    }
+
+                    HaText {
+                        color: Palette.control-background;
+                        text: artist;
+                        font-size: 1rem;
+                        font-weight: 400;
                         horizontal-alignment: left;
                         vertical-alignment: center;
                     }
@@ -208,22 +221,9 @@ export component MusicPlayer inherits Control {
                     }
 
                     HaText {
-                        color: Palette.control-background;
-                        text: artist;
-                        font-size: 2rem;
-                        font-weight: 400;
-                        horizontal-alignment: left;
-                        vertical-alignment: center;
-                    }
-
-                    Rectangle {
-                        height: 20px;
-                    }
-
-                    HaText {
                         color: Palette.music-alternate-foreground;
                         text: "Album: " + album;
-                        font-size: 2rem;
+                        font-size: 1rem;
                         font-weight: 400;
                         horizontal-alignment: left;
                         vertical-alignment: center;

@@ -13,7 +13,7 @@ export component Overhead inherits Control {
     full-screen: false;
     tile-shadow-blur: 0px;
 
-    in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 36px : 18px;
+    in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 18px : 9px;
     tile := InnerShadowRectangle {
         width: 100%;
         height: 100%;
@@ -34,13 +34,13 @@ export component Overhead inherits Control {
             width: 100%;
             height: 100%;
             HorizontalLayout {
-                spacing: 10px;
+                spacing: 5px;
                 alignment: space-between;
                 VerticalLayout {
                     alignment: start;
                     HaText {
                         text: root.name;
-                        font-size: 20pt;
+                        font-size: 10pt;
                         font-weight: 400;
                         color: Palette.overhead-foreground;
                     }
@@ -48,15 +48,15 @@ export component Overhead inherits Control {
             }
 
             slider := FancySlider {
-                width: (root.height < Measurements.medium-height-tile) ? root.width - switch.width - 36px : root.width * 0.8;
+                width: (root.height < Measurements.medium-height-tile) ? root.width - switch.width - 18px : root.width * 0.8;
                 value: 0.0;
                 icon: @image-url("../images/brightness.svg");
             }
         }
 
         switch := DropShadowToggle {
+            x: root.height < Measurements.medium-height-tile ? root.width - self.width : 0;
             y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
-            x: root.height < Measurements.medium-height-tile ? root.width - self.width : root.x + (tilePadding / 2);
             labelOff: "";
             labelOn: "";
             scale: 33%;

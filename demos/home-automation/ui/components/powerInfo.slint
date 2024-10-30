@@ -10,7 +10,7 @@ export component PowerInfo inherits Info {
     in property <int> minutes: 15;
     tile := Rectangle {
         layout := VerticalLayout {
-            padding: (tile.height > Measurements.small-height-tile) ? 36px : 18px;
+            padding: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
             width: 100%;
             height: 100%;
             alignment: space-between;
@@ -65,11 +65,11 @@ export component PowerInfo inherits Info {
                 }
                 Rectangle {
                     height:tile.height * 0.3;
-                    width: 8px;
-                    drop-shadow-blur: 10px;
+                    width: 4px;
+                    drop-shadow-blur: 5px;
                     drop-shadow-color: Colors.black;
                     background: Colors.white;
-                    y: -2px;
+                    y: -1px;
                 }
             }
         }
