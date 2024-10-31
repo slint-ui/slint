@@ -153,21 +153,21 @@ impl WinitWindowOrNone {
         }
     }
 
-    fn set_window_disabled(&self, disabled: bool) {
+    fn set_window_disabled(&self, _disabled: bool) {
         match self {
             Self::HasWindow(_window) => {
                 #[cfg(target_family = "windows")]
-                _window.set_enable(!disabled);
+                _window.set_enable(!_disabled);
             }
             Self::None(..) => { /* Winit doesn't have an attribute for this. */ }
         }
     }
 
-    fn set_skip_taskbar(&self, disabled: bool) {
+    fn set_skip_taskbar(&self, _disabled: bool) {
         match self {
             Self::HasWindow(_window) => {
                 #[cfg(target_family = "windows")]
-                _window.set_skip_taskbar(disabled);
+                _window.set_skip_taskbar(_disabled);
             }
             Self::None(..) => { /* Winit doesn't have an attribute for this. */ }
         }
