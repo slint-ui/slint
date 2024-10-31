@@ -448,6 +448,7 @@ pub struct WindowInner {
     fullscreen: Cell<bool>,
     maximized: Cell<bool>,
     minimized: Cell<bool>,
+    window_button_state: Cell<WindowButtonState>,
 
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
