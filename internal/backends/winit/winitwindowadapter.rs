@@ -159,7 +159,7 @@ impl WinitWindowOrNone {
                 #[cfg(target_family = "windows")]
                 window.set_enable(!disabled);
             }
-            Self::None(attributes) => { /* Winit doesn't have an attribute for this. */ }
+            Self::None(..) => { /* Winit doesn't have an attribute for this. */ }
         }
     }
 
