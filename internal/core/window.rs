@@ -345,6 +345,7 @@ impl<'a> WindowProperties<'a> {
         self.0.minimized.get()
     }
 
+    /// Gets the disabled state of the window
     pub fn disabled(&self) -> bool {
         self.0.disabled.get()
     }
