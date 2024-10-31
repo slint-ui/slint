@@ -1,0 +1,29 @@
+---
+title: Introduction
+description: Slint overview
+---
+
+Slint is a GUI toolkit for building modern fluid user interfaces for embedded devices, as well as desktop and mobile applications.
+
+Slint ties together many of todays most modern, powerful and popular UI language techniques to provide a simple, yet powerful, declarative language for building user interfaces. It's also been designed with the
+aim to help ensure your application stays maintainable over time. So you can rapidly prototype and iterate
+your initial design, refine them into a final product and keep evolving that over time with less effort.
+
+```mermaid
+  flowchart LR
+    id1(Slint) <--> id2(Business Logic)
+```
+
+### A Single UI Language for all products
+There is only one Slint UI language. Regardless of the target platform be it an ultra-low-power microcontroller, a desktop application, or a mobile application, the same language is used to describe the user interface.
+
+### Separate Business Logic
+The business logic can then be written with Rust, C++ or TypeScript. 
+
+### Powerful UI renderer.
+Slint provides its own UI render layer. It's optimized for power efficiency and low memory usage. Offering a software renderer for platforms without a GPU and a hardware renderer for platforms with a GPU.
+
+### Bridge between the two worlds.
+Slint also provides a simple way to bridge the gap between the business logic and the UI.
+
+

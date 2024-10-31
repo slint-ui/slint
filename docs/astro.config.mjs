@@ -70,7 +70,8 @@ export default defineConfig({
                     collapsed: true,
                     items: [
                         // Each item here is one entry in the navigation menu.
-                        { label: "Introduction", slug: "guide/philosophy" },
+                        { label: "Introduction", slug: "guide/intro" },
+                        { label: "Basics", slug: "guide/basics" },
                         { label: "Types", slug: "guide/types" },
                     ],
                 },

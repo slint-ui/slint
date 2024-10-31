@@ -6,6 +6,7 @@ description: Text element api.
 import { Aside } from '@astrojs/starlight/components';
 import SlintProperty  from '../../../components/SlintProperty.astro';
 import CodeSnippet from '../../../components/CodeSnippet.astro';
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
 import { Image } from 'astro:assets';
 
 
@@ -37,27 +38,27 @@ a `width` and `height`, the text will be wrapped into multiple lines
 of text.
 
 ### `color`
+
 <SlintProperty propName="color" typeName="brush" defaultValue="<depends on theme>"> 
 The color of the text.
+</SlintProperty>
 
 import col_img from '../../../assets/slint-logo-square-dark.webp'
-import col_snippet from '../../snippets/elements/text/color.slint?raw'
 
-<CodeSnippet 
-    codeContent={col_snippet} 
-    lines={[2, 5]}
-    meta="{3}"
-    removeSpaces={4} 
-    codeLang='slint' 
-    imageSrc={col_img}
-    imageAlt='Colored text'
-/>
-</SlintProperty>
+<CodeSnippetMD imageSrc={col_img} imageAlt='Colored text'>
+```slint {3}
+Text {
+    text: "Hello";
+    color: red;
+}
+```
+</CodeSnippetMD>
 
 ### `font-family`
 <SlintProperty propName="font-family" typeName="string" > 
 The name of the font family selected for rendering the text.
 
+<CodeSnippetMD imageSrc={col_img} imageAlt='font-family'>
 ```slint {4}
 Text {
     text: "Hello";
@@ -65,6 +66,7 @@ Text {
     font-family: "Arial";
 }
 ```
+</CodeSnippetMD>
 
 <Aside type="note" title="Note">
   Make sure the font is loaded before using it in a `Text` element.
