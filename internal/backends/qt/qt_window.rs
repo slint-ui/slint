@@ -160,10 +160,10 @@ cpp! {{
             void *parent_of_popup_to_close = nullptr;
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
                 void *parent_window = p->rust_window;
-                bool close_on_click = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*"] -> bool as "bool" {
+                bool inside = rect().contains(event->pos());
+                bool close_on_click = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", inside: bool as "bool"] -> bool as "bool" {
                     let close_policy = parent_window.close_policy();
-
-                    close_policy == PopupClosePolicy::CloseOnClick || close_policy == PopupClosePolicy::CloseOnClickOutside
+                    close_policy == PopupClosePolicy::CloseOnClick || (close_policy == PopupClosePolicy::CloseOnClickOutside && !inside)
                 });
                 if (close_on_click) {
                     parent_of_popup_to_close = parent_window;
