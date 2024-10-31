@@ -196,6 +196,7 @@ component WindowItem {
     in-out property <length> default-font-size; // <=> StyleMetrics.default-font-size  set in apply_default_properties_from_style
     in property <int> default-font-weight;
     in property <image> icon;
+    in-out property <bool> disabled;
 }
 
 export component Window inherits WindowItem { }
@@ -418,7 +419,7 @@ export component PopupWindow {
     in property <length> anchor_y;
     in property <length> anchor_height;
     in property <length> anchor_width;*/
-    in property <bool> close-on-click;      
+    in property <bool> close-on-click;
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
     //show() is hardcoded in typeregister.rs
 }

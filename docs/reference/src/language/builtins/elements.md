@@ -1064,3 +1064,4 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 -   **`no-frame`** (_in_ _bool_): Whether the window should be borderless/frameless or not.
 -   **`resize-border-width`** (_in_ _length_): Size of the resize border in borderless/frameless windows (winit only for now).
 -   **`title`** (_in_ _string_): The window title that is shown in the title bar.
+-   **`is-disabled`** (_out_ _bool_): Disables the window from being interacted with. This is useful for dialog windows.

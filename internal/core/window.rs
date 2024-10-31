@@ -17,8 +17,8 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
-use crate::items::PopupClosePolicy;
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor};
+use crate::items::{PopupClosePolicy, VoidArg};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -431,6 +431,8 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
+    disabled: Cell<bool>,
+
     active_popup: RefCell<Option<PopupWindow>>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -489,6 +491,7 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
+            disabled: Cell::new(false),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1174,6 +1177,11 @@ impl WindowInner {
     /// Set the window as minimized or unminimized
     pub fn set_minimized(&self, minimized: bool) {
         self.minimized.set(minimized);
+        self.update_window_properties()
+    }
+
+    pub fn set_disabled(&self, disabled: bool) {
+        self.disabled.set(disabled);
         self.update_window_properties()
     }
 

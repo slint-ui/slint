@@ -10,6 +10,7 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
+use i_slint_core::items::VoidArg;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
@@ -35,7 +36,7 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
-use i_slint_core::{self as corelib, OpenGLAPI};
+use i_slint_core::{self as corelib, Callback, OpenGLAPI};
 use once_cell::unsync::OnceCell;
 #[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
@@ -150,6 +151,13 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow(window) => window.set_title(title),
             Self::None(attributes) => attributes.borrow_mut().title = title.into(),
+        }
+    }
+
+    fn set_window_disabled(&self, disabled: bool) {
+        match self {
+            Self::HasWindow(window) => window.set_enable(!disabled),
+            Self::None(attributes) => { /* Winit doesn't have an attribute for this. */ }
         }
     }
 
@@ -763,6 +771,9 @@ impl WindowAdapter for WinitWindowAdapter {
         if self.window_level.replace(new_window_level) != new_window_level {
             winit_window_or_none.set_window_level(new_window_level);
         }
+
+        let is_window_disabled = window_item.disabled();
+        winit_window_or_none.set_window_disabled(is_window_disabled);
 
         // Use our scale factor instead of winit's logical size to take a scale factor override into account.
         let sf = self.window().scale_factor();

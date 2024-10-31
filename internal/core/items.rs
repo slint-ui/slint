@@ -34,7 +34,7 @@ use crate::lengths::{
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc};
-use crate::{Coord, Property, SharedString};
+use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -958,6 +958,7 @@ pub struct WindowItem {
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
+    pub disabled: Property<bool>,
 }
 
 impl Item for WindowItem {
