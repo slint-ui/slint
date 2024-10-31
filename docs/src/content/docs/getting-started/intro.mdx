@@ -9,8 +9,8 @@ import myImageDark from '/src/assets/mattermost-logo-light.svg';
 import { Steps, LinkCard, Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
 
 
-<Image class="light:sl-hidden" src={myImageDark} width={50} alt="A description of my image." />
-<Image class="dark:sl-hidden" src={myImageLight} width={50} alt="A description of my image." />
+<Image class="light:sl-hidden" src={myImageDark} loading="lazy" width="50" alt="A description of my image." />
+<Image class="dark:sl-hidden" src={myImageLight} loading="lazy" width="50" alt="A description of my image." />
 As a first step we invite you to join our community on [Mattermost](https://chat.slint.dev/). This is a great place to ask questions and get help from other Slint users.
 
 
