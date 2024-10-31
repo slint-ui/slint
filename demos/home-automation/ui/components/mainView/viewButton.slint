@@ -9,7 +9,7 @@ export component ViewButton inherits Rectangle {
     in property <string> text <=> t.text;
     in property <brush> active-color: Palette.selection-foreground;
     in property <brush> inactive-color: Palette.foreground;
-    in property <length> font-size: 3rem;
+    in property <length> font-size: 1.5rem;
     property <bool> is-active: target-page == AppState.target-page;
     TouchArea {
         clicked => {
@@ -30,8 +30,8 @@ export component ViewButton inherits Rectangle {
             duration: 500ms;
             easing: ease-in-out-sine;
         }
-        height: 3px;
-        y: parent.height - 30px;
+        height: 1.5px;
+        y: parent.height - 15px;
     }
 
     t := HaText {

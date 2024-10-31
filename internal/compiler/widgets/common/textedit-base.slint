@@ -29,28 +29,29 @@ export component TextEditBase inherits Rectangle {
     in property <brush> placeholder-color;
 
     callback edited(/* text */ string);
+    callback rejected(/* text */ string);
 
-    public function set-selection-offsets(start: int,end: int){
+    public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
     }
 
-    public function select-all(){
+    public function select-all() {
         text-input.select-all();
     }
 
-    public function clear-selection(){
+    public function clear-selection() {
         text-input.clear-selection();
     }
 
-    public function cut(){
+    public function cut() {
         text-input.cut();
     }
 
-    public function copy(){
+    public function copy() {
         text-input.copy();
     }
 
-    public function paste(){
+    public function paste() {
         text-input.paste();
     }
 
@@ -73,6 +74,10 @@ export component TextEditBase inherits Rectangle {
 
             edited => {
                 root.edited(self.text);
+            }
+
+            rejected => {
+                root.rejected(self.text);
             }
 
             cursor-position-changed(cpos) => {

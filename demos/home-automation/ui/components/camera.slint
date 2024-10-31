@@ -62,10 +62,10 @@ export component Camera inherits Control {
         Image {
             source: @image-url("../images/enlarge.svg");
             opacity: root.full-screen ? 0 : 1;
-            width: 40px;
+            width: 20px;
             colorize: Colors.white;
-            x: root.width - self.width - 30px;
-            y: 30px;
+            x: root.width - self.width - 15px;
+            y: 15px;
             animate opacity {
                 duration: 500ms;
                 easing: ease-in-out-sine;
@@ -80,10 +80,10 @@ export component Camera inherits Control {
             }
             source: @image-url("../images/reduce.svg");
             colorize: white;
-            x: root.width - self.width - 30px;
-            y: 30px;
-            width: 60px;
-            height: 60px;
+            x: root.width - self.width - 15px;
+            y: 15px;
+            width: 30px;
+            height: 30px;
         }
 
         TouchArea {

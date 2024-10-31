@@ -44,7 +44,7 @@ impl RenderableGlyph {
 }
 
 pub trait GlyphRenderer {
-    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> RenderableGlyph;
+    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<RenderableGlyph>;
     /// The amount of pixel in the original image that correspond to one pixel in the rendered image
     fn scale_delta(&self) -> Fixed<u16, 8>;
 }
