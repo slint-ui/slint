@@ -614,6 +614,7 @@ fn call_builtin_function(
                 .expect("Invalid internal enumeration representation for close policy");
 
                 crate::dynamic_item_tree::show_popup(
+                    component,
                     popup,
                     |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
@@ -633,7 +634,7 @@ fn call_builtin_function(
                 );
                 Value::Void
             } else {
-                panic!("internal error: argument to SetFocusItem must be an element")
+                panic!("internal error: argument to ShowPopupWindow must be an element")
             }
         }
         BuiltinFunction::ClosePopupWindow => {
@@ -644,7 +645,7 @@ fn call_builtin_function(
                 }
             };
 
-            component.access_window(|window| window.close_popup());
+            crate::dynamic_item_tree::close_popup(component, component.window_adapter());
 
             Value::Void
         }

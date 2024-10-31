@@ -411,6 +411,8 @@ pub struct ItemTreeDescription<'id> {
         Vec<(NamedReference, Expression)>,
     )>,
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
+    /// ID of the active popup
+    popup_id: std::cell::Cell<u32>,
 
     /// The collection of compiled globals
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
@@ -1341,6 +1343,7 @@ pub(crate) fn generate_item_tree<'id>(
         compiled_globals,
         change_trackers,
         timers,
+        popup_id: std::cell::Cell::from(0),
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "highlight")]
@@ -2330,6 +2333,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
 /// Show the popup at the given location
 pub fn show_popup(
+    instance: InstanceRef,
     popup: &object_tree::PopupWindow,
     pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> i_slint_core::graphics::Point,
     close_policy: PopupClosePolicy,
@@ -2355,12 +2359,22 @@ pub fn show_popup(
         let instance_ref = compo_box.borrow_instance();
         pos_getter(instance_ref)
     };
-    WindowInner::from_pub(parent_window_adapter.window()).show_popup(
-        &vtable::VRc::into_dyn(inst),
-        pos,
-        close_policy,
-        parent_item,
+    close_popup(instance, parent_window_adapter.clone());
+    instance.description.popup_id.replace(
+        WindowInner::from_pub(parent_window_adapter.window()).show_popup(
+            &vtable::VRc::into_dyn(inst),
+            pos,
+            close_policy,
+            parent_item,
+        ),
     );
+}
+
+pub fn close_popup(instance: InstanceRef, parent_window_adapter: WindowAdapterRc) {
+    let current_id = instance.description.popup_id.take();
+    if current_id > 0 {
+        WindowInner::from_pub(parent_window_adapter.window()).close_popup(current_id);
+    }
 }
 
 pub fn update_timers(instance: InstanceRef) {

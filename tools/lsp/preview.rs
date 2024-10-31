@@ -1358,8 +1358,8 @@ fn set_preview_factory(
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
 ) {
-    // Ensure that the popup is closed as it is related to the old factory
-    i_slint_core::window::WindowInner::from_pub(ui.window()).close_popup();
+    // Ensure that any popups are closed as they are related to the old factory
+    i_slint_core::window::WindowInner::from_pub(ui.window()).close_all_popups();
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
