@@ -1,23 +1,9 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import { ExpressiveCodeTheme } from "@astrojs/starlight/expressive-code";
-import fs from "node:fs";
 import starlightLinksValidator from "starlight-links-validator";
 import rehypeMermaid from "rehype-mermaid";
 import addMermaidClass from "./src/utils/add-mermaid-classnames";
-
-const lightJsoncString = fs.readFileSync(
-    new URL(`src/misc/light-theme.jsonc`, import.meta.url),
-    "utf-8",
-);
-const lightTheme = ExpressiveCodeTheme.fromJSONString(lightJsoncString);
-
-const darkJsoncString = fs.readFileSync(
-    new URL(`src/misc/dark-theme.jsonc`, import.meta.url),
-    "utf-8",
-);
-const darkTheme = ExpressiveCodeTheme.fromJSONString(darkJsoncString);
 
 // https://astro.build/config
 export default defineConfig({
@@ -35,20 +21,6 @@ export default defineConfig({
                     errorOnRelativeLinks: false,
                 }),
             ],
-            expressiveCode: {
-                styleOverrides: { borderRadius: "0.2rem" },
-                themes: [darkTheme, lightTheme],
-                shiki: {
-                    langs: [
-                        JSON.parse(
-                            fs.readFileSync(
-                                "src/misc/Slint-tmLanguage.json",
-                                "utf-8",
-                            ),
-                        ),
-                    ],
-                },
-            },
             social: {
                 github: "https://github.com/slint-ui/slint",
                 "x.com": "https://x.com/slint_ui",
