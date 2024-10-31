@@ -34,7 +34,7 @@ use crate::lengths::{
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc};
-use crate::{Callback, Coord, Property, SharedString};
+use crate::{Coord, Property, SharedString};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;

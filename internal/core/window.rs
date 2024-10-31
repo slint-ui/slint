@@ -17,8 +17,8 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
+use crate::items::PopupClosePolicy;
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor};
-use crate::items::{PopupClosePolicy, VoidArg};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -1180,6 +1180,7 @@ impl WindowInner {
         self.update_window_properties()
     }
 
+    /// Enables or disables the window
     pub fn set_disabled(&self, disabled: bool) {
         self.disabled.set(disabled);
         self.update_window_properties()

@@ -10,7 +10,6 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
-use i_slint_core::items::VoidArg;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
@@ -36,7 +35,7 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
-use i_slint_core::{self as corelib, Callback, OpenGLAPI};
+use i_slint_core::{self as corelib, OpenGLAPI};
 use once_cell::unsync::OnceCell;
 #[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;

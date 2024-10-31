@@ -503,6 +503,12 @@ impl Window {
         self.0.window_adapter().renderer().set_rendering_notifier(Box::new(callback))
     }
 
+    /// This function allows registering a callback that's invoked when the user tries to close a window.
+    /// The callback has to return a [CloseRequestResponse].
+    pub fn on_close_requested(&self, callback: impl FnMut() -> CloseRequestResponse + 'static) {
+        self.0.on_close_requested(callback);
+    }
+
     /// This function issues a request to the windowing system to redraw the contents of the window.
     pub fn request_redraw(&self) {
         self.0.window_adapter().request_redraw()
