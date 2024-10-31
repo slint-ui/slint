@@ -156,7 +156,7 @@ impl WinitWindowOrNone {
     fn set_window_disabled(&self, disabled: bool) {
         match self {
             Self::HasWindow(window) => window.set_enable(!disabled),
-            Self::None(attributes) => { /* Winit doesn't have an attribute for this. */ }
+            Self::None(..) => { /* Winit doesn't have an attribute for this. */ }
         }
     }
 
