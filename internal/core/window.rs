@@ -412,17 +412,6 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
 }
 
-/// A reference to the windows buttons
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum WindowButton {
-    /// Refers to the window's minimize button
-    Minimize,
-    /// Refers to the window's maximize button
-    Maximize,
-    /// Refers to the window's close button
-    Close,
-}
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 /// The state of each window button
 pub struct WindowButtonState {
@@ -1198,18 +1187,6 @@ impl WindowInner {
     /// Set the window as maximized or unmaximized
     pub fn set_maximized(&self, maximized: bool) {
         self.maximized.set(maximized);
-        self.update_window_properties()
-    }
-
-    /// Enable or disable a particular window button.
-    pub fn set_window_button_enabled(&self, window_button: WindowButton, enabled: bool) {
-        let mut state = self.window_button_state.get();
-        match window_button {
-            WindowButton::Minimize => state.minimize = enabled,
-            WindowButton::Maximize => state.maximize = enabled,
-            WindowButton::Close => state.close = enabled,
-        }
-        self.window_button_state.set(state);
         self.update_window_properties()
     }
 

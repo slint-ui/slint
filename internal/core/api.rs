@@ -12,7 +12,7 @@ pub use crate::future::*;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
 use crate::item_tree::ItemTreeVTable;
-use crate::window::{WindowAdapter, WindowButton as WindowButtonInner, WindowInner};
+use crate::window::{WindowAdapter, WindowInner};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
@@ -429,10 +429,6 @@ impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
 #[repr(transparent)]
 pub struct Window(pub(crate) WindowInner);
 
-/// This enum describes the different window button styles that can be set on a window.
-/// The window style is a hint to the windowing system how the window buttons should be displayed.
-pub type WindowButton = WindowButtonInner;
-
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
 /// It is the return type of the callback provided to [Window::on_close_requested].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -569,11 +565,6 @@ impl Window {
     /// Maximize or unmaximize the window.
     pub fn set_maximized(&self, maximized: bool) {
         self.0.set_maximized(maximized);
-    }
-
-    /// Enable or disable a particular window button.
-    pub fn set_window_button_enabled(&self, window_button: WindowButton, enabled: bool) {
-        self.0.set_window_button_enabled(window_button, enabled);
     }
 
     /// Returns if the window is currently minimized

@@ -200,13 +200,13 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow(window) => {
                 let mut enabled_buttons = WindowButtons::empty();
-                if window_buttons_state.minimize {
+                if !window_buttons_state.minimize {
                     enabled_buttons |= WindowButtons::MINIMIZE;
                 }
-                if window_buttons_state.maximize {
+                if !window_buttons_state.maximize {
                     enabled_buttons |= WindowButtons::MAXIMIZE;
                 }
-                if window_buttons_state.close {
+                if !window_buttons_state.close {
                     enabled_buttons |= WindowButtons::CLOSE;
                 }
                 window.set_enabled_buttons(enabled_buttons);
@@ -772,7 +772,6 @@ impl WindowAdapter for WinitWindowAdapter {
 
         winit_window_or_none.set_window_icon(icon_to_winit(window_item.icon()));
         winit_window_or_none.set_title(&properties.title());
-        winit_window_or_none.set_window_buttons_state(properties.window_buttons_enabled());
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
@@ -786,6 +785,13 @@ impl WindowAdapter for WinitWindowAdapter {
         if self.window_level.replace(new_window_level) != new_window_level {
             winit_window_or_none.set_window_level(new_window_level);
         }
+
+        // Get the associated window button states
+        let mut win_props = properties.window_buttons_enabled();
+        win_props.close = window_item.no_close_button();
+        win_props.minimize = window_item.no_minimize_button();
+        win_props.maximize = window_item.no_maximize_button();
+        winit_window_or_none.set_window_buttons_state(win_props);
 
         // Use our scale factor instead of winit's logical size to take a scale factor override into account.
         let sf = self.window().scale_factor();
