@@ -344,6 +344,10 @@ impl<'a> WindowProperties<'a> {
     pub fn is_minimized(&self) -> bool {
         self.0.minimized.get()
     }
+
+    pub fn disabled(&self) -> bool {
+        self.0.disabled.get()
+    }
 }
 
 struct WindowPropertiesTracker {

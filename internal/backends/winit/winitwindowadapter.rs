@@ -771,8 +771,7 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window_or_none.set_window_level(new_window_level);
         }
 
-        let is_window_disabled = window_item.disabled();
-        println!("is_window_disabled: {}", is_window_disabled);
+        let is_window_disabled = properties.disabled();
         winit_window_or_none.set_window_disabled(is_window_disabled);
 
         // Use our scale factor instead of winit's logical size to take a scale factor override into account.
