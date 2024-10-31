@@ -5,7 +5,7 @@ use by_address::ByAddress;
 
 use super::lower_expression::ExpressionContext;
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, Struct, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
@@ -19,6 +19,17 @@ pub fn lower_to_item_tree(
     compiler_config: &CompilerConfiguration,
 ) -> CompilationUnit {
     let mut state = LoweringState::default();
+
+    #[cfg(feature = "bundle-translations")]
+    if let Some(path) = &compiler_config.translation_path_bundle {
+        state.translation_builder = Some(std::cell::RefCell::new(
+            super::translations::TranslationsBuilder::load_translations(
+                path,
+                compiler_config.translation_domain.as_deref().unwrap_or(""),
+            )
+            .unwrap_or_else(|e| todo!("TODO: handle error loading translations: {e}")),
+        ));
+    }
 
     let mut globals = Vec::new();
     for g in &document.used_types.borrow().globals {
@@ -64,6 +75,8 @@ pub fn lower_to_item_tree(
             })
             .collect(),
         has_debug_info: compiler_config.debug_info,
+        #[cfg(feature = "bundle-translations")]
+        translations: state.translation_builder.take().map(|x| x.into_inner().result()),
     };
     super::optim_passes::run_passes(&root);
     root
@@ -73,6 +86,8 @@ pub fn lower_to_item_tree(
 pub struct LoweringState {
     global_properties: HashMap<NamedReference, PropertyReference>,
     sub_components: HashMap<ByAddress<Rc<Component>>, LoweredSubComponent>,
+    #[cfg(feature = "bundle-translations")]
+    pub translation_builder: Option<std::cell::RefCell<super::translations::TranslationsBuilder>>,
 }
 
 #[derive(Debug, Clone)]
@@ -255,16 +270,18 @@ fn lower_sub_component(
             if x.is_alias.is_some() {
                 continue;
             }
-            if let Type::Function { return_type, args } = &x.property_type {
+            if let Type::Function(function) = &x.property_type {
                 let function_index = sub_component.functions.len();
                 mapping.property_mapping.insert(
                     NamedReference::new(element, p),
                     PropertyReference::Function { sub_component_path: vec![], function_index },
                 );
+                // TODO: Function could wrap the Rc<langtype::Function>
+                //       instead of cloning the return type and args?
                 sub_component.functions.push(Function {
                     name: p.clone(),
-                    ret_ty: (**return_type).clone(),
-                    args: args.clone(),
+                    ret_ty: function.return_type.clone(),
+                    args: function.args.clone(),
                     // will be replaced later
                     code: super::Expression::CodeBlock(vec![]),
                 });
@@ -393,7 +410,7 @@ fn lower_sub_component(
 
             let is_state_info = matches!(
                 e.borrow().lookup_property(p).property_type,
-                Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo")
+                Type::Struct(s) if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo"))
             );
 
             sub_component.property_init.push((
@@ -500,9 +517,9 @@ fn lower_sub_component(
                 Type::Enumeration(e) if e.name == "AccessibleRole" => {
                     super::Expression::PropertyReference(prop)
                 }
-                Type::Callback { return_type: None, args } => super::Expression::CallBackCall {
+                Type::Callback(callback) => super::Expression::CallBackCall {
                     callback: prop,
-                    arguments: (0..args.len())
+                    arguments: (0..callback.args.len())
                         .map(|index| super::Expression::FunctionParameterReference { index })
                         .collect(),
                 },
@@ -552,7 +569,7 @@ fn lower_geometry(
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
     super::Expression::Struct {
-        ty: Type::Struct { fields, name: None, node: None, rust_attributes: None },
+        ty: Type::Struct(Rc::new(Struct { fields, name: None, node: None, rust_attributes: None })),
         values,
     }
 }
@@ -716,7 +733,7 @@ fn lower_global(
         let property_index = properties.len();
         let nr = NamedReference::new(&global.root_element, p);
 
-        if let Type::Function { return_type, args } = &x.property_type {
+        if let Type::Function(function) = &x.property_type {
             let function_index = functions.len();
             mapping.property_mapping.insert(
                 nr.clone(),
@@ -726,10 +743,11 @@ fn lower_global(
                 nr.clone(),
                 PropertyReference::GlobalFunction { global_index, function_index },
             );
+            // TODO: wrap the Rc<langtype::Function> instead of cloning
             functions.push(Function {
                 name: p.clone(),
-                ret_ty: (**return_type).clone(),
-                args: args.clone(),
+                ret_ty: function.return_type.clone(),
+                args: function.args.clone(),
                 // will be replaced later
                 code: super::Expression::CodeBlock(vec![]),
             });

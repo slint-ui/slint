@@ -31,6 +31,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 ### Callbacks
 
 -   **`edited(string)`**: Emitted when the text has changed because the user modified it
+-   **`rejected()`**: Emitted when the user pressed the escape key
 
 ### Example
 

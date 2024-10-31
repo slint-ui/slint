@@ -13,7 +13,7 @@ use std::rc::Rc;
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, DefaultSizeBinding, ElementType,
-    NativeClass, Type,
+    Function, NativeClass, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
@@ -103,7 +103,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 .chain(e.CallbackDeclaration().map(|s| {
                     (
                         identifier_text(&s.DeclaredIdentifier()).unwrap(),
-                        BuiltinPropertyInfo::new(Type::Callback {
+                        BuiltinPropertyInfo::new(Type::Callback(Rc::new(Function{
                             args: s
                                 .CallbackDeclarationParameter()
                                 .map(|a| {
@@ -111,13 +111,13 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                                 })
                                 .collect(),
                             return_type: s.ReturnType().map(|a| {
-                                Box::new(object_tree::type_from_node(
+                                object_tree::type_from_node(
                                     a.Type(),
                                     *diag.borrow_mut(),
                                     register,
-                                ))
-                            }),
-                        }),
+                                )
+                            }).unwrap_or(Type::Void),
+                        }))),
                     )
                 }))
         );

@@ -42,13 +42,13 @@ export component Doors {
     }
 
     leftDoor := Rectangle {
-        x: -60px;
-        width: parent.width / 2 + 140px;
+        x: -30px;
+        width: parent.width / 2 + 70px;
         height: 100%;
         background: Palette.doors-background;
-        border-width: 10px;
+        border-width: 5px;
         border-color: notch-border-color;
-        border-radius: 60px;
+        border-radius: 30px;
         clip: true;
         changed x => {
             if root.initial-door-state == DoorState.closed && self.x <= -leftDoor.width {
@@ -62,12 +62,14 @@ export component Doors {
         Image {
             x: 0;
             y: 0;
+            width: self.source.width * 0.5 * 1px;
+            height: self.source.height * 0.5 * 1px;
             source: @image-url("../../images/logo-fragment.png");
             opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
         }
 
         DialLights {
-            x: parent.width - 250px;
+            x: parent.width - 125px;
             volume: dial.volume;
         }
     }
@@ -75,7 +77,7 @@ export component Doors {
     states [
         doorsOpen when target-door-state == DoorState.open: {
             leftDoor.x: -leftDoor.width;
-            rightDoor.x: root.width + 170px;
+            rightDoor.x: root.width + 85px;
             dial.dialAngle: DialState.startAngle;
             in {
                 animate rightDoor.x, leftDoor.x {
@@ -85,7 +87,7 @@ export component Doors {
             }
         }
         doorsClosed when target-door-state == DoorState.closed: {
-            leftDoor.x: -60px;
+            leftDoor.x: -30px;
             rightDoor.x: root.width / 2;
             in {
                 animate rightDoor.x, leftDoor.x {
@@ -97,20 +99,22 @@ export component Doors {
     ]
 
     rightDoor := Rectangle {
-        property <length> notch-width: 440px;
-        property <length> notch-border: 8px;
-        property <length> notch-indent: 40px;
+        property <length> notch-width: 220px;
+        property <length> notch-border: 4px;
+        property <length> notch-indent: 20px;
 
         x: parent.width / 2;
-        width: parent.width / 2 + 60px;
+        width: parent.width / 2 + 30px;
         height: 100%;
         Rectangle {
             background: Palette.doors-background;
             clip: true;
-            border-radius: 60px;
+            border-radius: 30px;
             Image {
                 x: parent.width - self.width;
                 y: parent.height - self.height;
+                width: self.source.width * 0.5 * 1px;
+                height: self.source.height * 0.5 * 1px;
                 source: @image-url("../../images/logo-fragment.png");
                 rotation-angle: 180deg;
                 opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
@@ -120,7 +124,7 @@ export component Doors {
         Rectangle {
             border-width: notch-border;
             border-color: notch-border-color;
-            border-radius: 60px;
+            border-radius: 30px;
         }
 
         Rectangle {
@@ -147,17 +151,17 @@ export component Doors {
 
         Image {
             x: 20px;
-            y: (parent.height / 2) - 250px;
+            y: (parent.height / 2) - 125px;
             source: @image-url("../../images/open-lock.svg");
             colorize: Palette.dark-color-scheme ? #000 : #6f6f6f;
-            width: self.source.width * 1.4 * 1px;
-            height: self.source.height * 1.4 * 1px;
+            width: self.source.width * 0.7 * 1px;
+            height: self.source.height * 0.7 * 1px;
             opacity: 0.4;
         }
 
         dial := Dial {
-            x: -164px;
-            y: (parent.height - self.height) / 2 - 2px;
+            x: -82px;
+            y: (parent.height - self.height) / 2 - 1px;
             interactive: root.demo-locked;
             changed volume => {
                 if self.volume >= 60 {

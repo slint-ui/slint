@@ -61,15 +61,17 @@ fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMa
 /// it are placed before in the vector
 fn sort_types(hash: &mut BTreeMap<SmolStr, Type>, vec: &mut Vec<Type>, key: &str) {
     let ty = if let Some(ty) = hash.remove(key) { ty } else { return };
-    if let Type::Struct { fields, name: Some(name), .. } = &ty {
-        if name.contains("::") {
-            // This is a builtin type.
-            // FIXME! there should be a better way to handle builtin struct
-            return;
-        }
+    if let Type::Struct(s) = &ty {
+        if let Some(name) = &s.name {
+            if name.contains("::") {
+                // This is a builtin type.
+                // FIXME! there should be a better way to handle builtin struct
+                return;
+            }
 
-        for sub_ty in fields.values() {
-            visit_declared_type(sub_ty, &mut |name, _| sort_types(hash, vec, name));
+            for sub_ty in s.fields.values() {
+                visit_declared_type(sub_ty, &mut |name, _| sort_types(hash, vec, name));
+            }
         }
     }
     vec.push(ty)
@@ -78,28 +80,20 @@ fn sort_types(hash: &mut BTreeMap<SmolStr, Type>, vec: &mut Vec<Type>, key: &str
 /// Will call the `visitor` for every named struct or enum that is not builtin
 fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
     match ty {
-        Type::Struct { fields, name, node, .. } => {
-            if node.is_some() {
-                if let Some(struct_name) = name.as_ref() {
+        Type::Struct(s) => {
+            if s.node.is_some() {
+                if let Some(struct_name) = s.name.as_ref() {
                     visitor(struct_name, ty);
                 }
             }
-            for sub_ty in fields.values() {
+            for sub_ty in s.fields.values() {
                 visit_declared_type(sub_ty, visitor);
             }
         }
         Type::Array(x) => visit_declared_type(x, visitor),
-        Type::Callback { return_type, args } => {
-            if let Some(rt) = return_type {
-                visit_declared_type(rt, visitor);
-            }
-            for a in args {
-                visit_declared_type(a, visitor);
-            }
-        }
-        Type::Function { return_type, args } => {
-            visit_declared_type(return_type, visitor);
-            for a in args {
+        Type::Function(function) | Type::Callback(function) => {
+            visit_declared_type(&function.return_type, visitor);
+            for a in &function.args {
                 visit_declared_type(a, visitor);
             }
         }

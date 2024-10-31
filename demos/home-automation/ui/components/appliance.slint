@@ -30,47 +30,47 @@ export component Appliance {
             if (root.width > Measurements.small-width-tile): Image {
                 width: parent.width;
                 height: image-size;
-                y: -80px;
+                y: -40px;
                 image-fit: cover;
                 source: appliance-image;
             }
         }
 
         VerticalLayout {
-            padding: (tile.height > Measurements.small-height-tile) ? 36px : 18px;
+            padding: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
             width: 100%;
             height: 100%;
             alignment: start;
             HaText {
                 text: "Appliance";
-                font-size: 16pt;
+                font-size: 8pt;
                 font-weight: 400;
                 color: Palette.appliance-alternate-foreground;
             }
 
             HaText {
                 text: root.name;
-                font-size: 20pt;
+                font-size: 10pt;
                 font-weight: 400;
                 color: Palette.appliance-foreground;
             }
 
             Rectangle {
-                height: 10px;
+                height: 5px;
             }
 
             VerticalLayout {
-                spacing: -10px;
+                spacing: -5px;
                 HaText {
                     text: "Time Remaining: ";
-                    font-size: 16pt;
+                    font-size: 8pt;
                     font-weight: 400;
                     color: Palette.appliance-foreground;
                 }
 
                 HaText {
                     text: root.time-remaining;
-                    font-size: 30pt;
+                    font-size: 15pt;
                     font-weight: 500;
                     color: Palette.appliance-foreground;
                 }

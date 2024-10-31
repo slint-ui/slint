@@ -511,20 +511,20 @@ impl CppType for Type {
             Type::Rem => Some("float".into()),
             Type::Percent => Some("float".into()),
             Type::Bool => Some("bool".into()),
-            Type::Struct { name: Some(name), node: Some(_), .. } => Some(ident(name)),
-            Type::Struct { name: Some(name), node: None, .. } => {
-                Some(if name.starts_with("slint::") {
+            Type::Struct(s) => match (&s.name, &s.node) {
+                (Some(name), Some(_)) => Some(ident(name)),
+                (Some(name), None) => Some(if name.starts_with("slint::") {
                     name.clone()
                 } else {
                     format_smolstr!("slint::cbindgen_private::{}", ident(name))
-                })
-            }
-            Type::Struct { fields, .. } => {
-                let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
+                }),
+                _ => {
+                    let elem =
+                        s.fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
 
-                Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
-            }
-
+                    Some(format_smolstr!("std::tuple<{}>", elem.join(", ")))
+                }
+            },
             Type::Array(i) => {
                 Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?))
             }
@@ -607,11 +607,11 @@ fn handle_property_init(
 ) {
     let prop_access = access_member(prop, ctx);
     let prop_type = ctx.property_ty(prop);
-    if let Type::Callback { args, return_type, .. } = &prop_type {
+    if let Type::Callback(callback) = &prop_type {
         let mut ctx2 = ctx.clone();
-        ctx2.argument_types = args;
+        ctx2.argument_types = &callback.args;
 
-        let mut params = args.iter().enumerate().map(|(i, ty)| {
+        let mut params = callback.args.iter().enumerate().map(|(i, ty)| {
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
         });
 
@@ -626,7 +626,7 @@ fn handle_property_init(
             code = return_compile_expression(
                 &binding_expression.expression.borrow(),
                 &ctx2,
-                return_type.as_ref().map(|x| &**x)
+                Some(&callback.return_type)
             )
         ));
     } else {
@@ -693,8 +693,13 @@ pub fn generate(
 
     for ty in doc.used_types.borrow().structs_and_enums.iter() {
         match ty {
-            Type::Struct { fields, name: Some(name), node: Some(node), .. } => {
-                generate_struct(&mut file, name, fields, node);
+            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                generate_struct(
+                    &mut file,
+                    s.name.as_ref().unwrap(),
+                    &s.fields,
+                    s.node.as_ref().unwrap(),
+                );
             }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
@@ -704,6 +709,11 @@ pub fn generate(
     }
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config);
+
+    #[cfg(feature = "bundle-translations")]
+    if let Some(translations) = &llr.translations {
+        generate_translation(translations, &llr, &mut file.resources);
+    }
 
     // Forward-declare the root so that sub-components can access singletons, the window, etc.
     file.declarations.extend(
@@ -1853,10 +1863,10 @@ fn generate_sub_component(
     for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
-        let ty = if let Type::Callback { args, return_type } = &property.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+        let ty = if let Type::Callback(callback) = &property.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type = callback.return_type.cpp_type().unwrap();
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
                 return_type,
@@ -2492,13 +2502,12 @@ fn generate_global(
     for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
-        let ty = if let Type::Callback { args, return_type } = &property.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type =
-                return_type.as_ref().map_or(SmolStr::new_static("void"), |t| t.cpp_type().unwrap());
+        let ty = if let Type::Callback(callback) = &property.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             format_smolstr!(
                 "slint::private_api::Callback<{}({})>",
-                return_type,
+                callback.return_type.cpp_type().unwrap(),
                 param_types.join(", ")
             )
         } else {
@@ -2626,15 +2635,15 @@ fn generate_public_api_for_properties(
 
         let access = access_member(&p.prop, ctx);
 
-        if let Type::Callback { args, return_type } = &p.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
+        if let Type::Callback(callback) = &p.ty {
+            let param_types =
+                callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let callback_emitter = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "return {}.call({});",
                     access,
-                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                    (0..callback.args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
             declarations.push((
@@ -2648,7 +2657,7 @@ fn generate_public_api_for_properties(
                             .enumerate()
                             .map(|(i, ty)| format!("{} arg_{}", ty, i))
                             .join(", "),
-                        return_type
+                        callback.return_type.cpp_type().unwrap()
                     ),
                     statements: Some(callback_emitter),
                     ..Default::default()
@@ -2670,15 +2679,16 @@ fn generate_public_api_for_properties(
                     ..Default::default()
                 }),
             ));
-        } else if let Type::Function { return_type, args } = &p.ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let ret = return_type.cpp_type().unwrap();
+        } else if let Type::Function(function) = &p.ty {
+            let param_types =
+                function.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let ret = function.return_type.cpp_type().unwrap();
             let call_code = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "{}{access}({});",
-                    if **return_type == Type::Void { "" } else { "return " },
-                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                    if function.return_type == Type::Void { "" } else { "return " },
+                    (0..function.args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
             declarations.push((
@@ -2745,8 +2755,8 @@ fn generate_public_api_for_properties(
     for (name, ty) in private_properties {
         let prop_ident = concatenate_ident(name);
 
-        if let Type::Function { args, .. } = &ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
+        if let Type::Function(function) = &ty {
+            let param_types = function.args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
@@ -2988,15 +2998,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
-            Type::Struct { fields, name : None, .. } => {
-                let index = fields
-                    .keys()
-                    .position(|k| k == name)
-                    .expect("Expression::ObjectAccess: Cannot find a key in an object");
-                format!("std::get<{}>({})", index, compile_expression(base, ctx))
-            }
-            Type::Struct{..} => {
-                format!("{}.{}", compile_expression(base, ctx), ident(name))
+            Type::Struct(s)=> {
+                if s.name.is_none() {
+                    let index = s.fields
+                        .keys()
+                        .position(|k| k == name)
+                        .expect("Expression::ObjectAccess: Cannot find a key in an object");
+                    format!("std::get<{}>({})", index, compile_expression(base, ctx))
+                } else {
+                    format!("{}.{}", compile_expression(base, ctx), ident(name))
+                }
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
@@ -3028,11 +3039,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 (Type::Brush, Type::Color) => {
                     format!("{}.color()", f)
                 }
-                (Type::Struct { .. }, Type::Struct{ fields, name: Some(_), ..}) => {
+                (Type::Struct (_), Type::Struct(s)) if s.name.is_some() => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
                         struct_name = to.cpp_type().unwrap(),
-                        fields = fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
+                        fields = s.fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
                         obj = f,
                     )
                 }
@@ -3047,7 +3058,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             .iter()
                             .map(|path_elem_expr| {
                                 let (field_count, qualified_elem_type_name) = match path_elem_expr.ty(ctx) {
-                                    Type::Struct{ fields, name: Some(name), .. } => (fields.len(), name),
+                                    Type::Struct(s) if s.name.is_some() => (s.fields.len(), s.name.as_ref().unwrap().clone()),
                                     _ => unreachable!()
                                 };
                                 // Turn slint::private_api::PathLineTo into `LineTo`
@@ -3238,28 +3249,32 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct{fields, name: None, ..} = ty {
-                let mut elem = fields.iter().map(|(k, t)| {
-                    values
-                        .get(k)
-                        .map(|e| compile_expression(e, ctx))
-                        .map(|e| {
-                            // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
-                            if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
-                        })
-                        .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
-                });
-                format!("std::make_tuple({})", elem.join(", "))
-            } else if let Type::Struct{ name: Some(_), .. } = ty {
-                format!(
-                    "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
-                    args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
-                    ty = ty.cpp_type().unwrap(),
-                    fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
-                    vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
-                )
-            } else {
+            match ty {
+                Type::Struct(s) if s.name.is_none() => {
+                    let mut elem = s.fields.iter().map(|(k, t)| {
+                        values
+                            .get(k)
+                            .map(|e| compile_expression(e, ctx))
+                            .map(|e| {
+                                // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
+                                if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
+                            })
+                            .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
+                    });
+                    format!("std::make_tuple({})", elem.join(", "))
+                },
+                Type::Struct(_) => {
+                    format!(
+                        "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
+                        args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
+                        ty = ty.cpp_type().unwrap(),
+                        fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
+                        vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
+                    )
+                },
+                _ => {
                 panic!("Expression::Object is not a Type::Object")
+                }
             }
         }
         Expression::EasingCurve(EasingCurve::Linear) => "slint::cbindgen_private::EasingCurve()".into(),
@@ -3359,6 +3374,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::EmptyComponentFactory => panic!("component-factory not yet supported in C++"),
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            let args = compile_expression(format_args, ctx);
+            match plural {
+                Some(plural) => {
+                    let plural = compile_expression(plural, ctx);
+                    format!("slint::private_api::translate_from_bundle_with_plural(slint_translation_bundle_plural_{string_index}_str, slint_translation_bundle_plural_{string_index}_idx,  slint_translated_plural_rules, {args}, {plural})")
+                }
+                None => format!("slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"),
+            }
+        },
     }
 }
 
@@ -3800,8 +3825,8 @@ fn generate_type_aliases(file: &mut File, doc: &Document) {
                 Some((&export.0.name, &component.id))
             }
             Either::Right(ty) => match &ty {
-                Type::Struct { name: Some(name), node: Some(_), .. } => {
-                    Some((&export.0.name, name))
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                    Some((&export.0.name, s.name.as_ref().unwrap()))
                 }
                 Type::Enumeration(en) => Some((&export.0.name, &en.name)),
                 _ => None,
@@ -3817,4 +3842,107 @@ fn generate_type_aliases(file: &mut File, doc: &Document) {
         });
 
     file.declarations.extend(type_aliases);
+}
+
+#[cfg(feature = "bundle-translations")]
+fn generate_translation(
+    translations: &llr::translations::Translations,
+    compilation_unit: &llr::CompilationUnit,
+    declarations: &mut Vec<Declaration>,
+) {
+    for (idx, m) in translations.strings.iter().enumerate() {
+        declarations.push(Declaration::Var(Var {
+            ty: "const char8_t* const".into(),
+            name: format_smolstr!("slint_translation_bundle_{idx}"),
+            array_size: Some(m.len()),
+            init: Some(format!(
+                "{{ {} }}",
+                m.iter()
+                    .map(|s| match s {
+                        Some(s) => format_smolstr!("u8\"{}\"", escape_string(s.as_str())),
+                        None => "nullptr".into(),
+                    })
+                    .join(", ")
+            )),
+            ..Default::default()
+        }));
+    }
+    for (idx, ms) in translations.plurals.iter().enumerate() {
+        let all_strs = ms.iter().flatten().flatten();
+        let all_strs_len = all_strs.clone().count();
+        declarations.push(Declaration::Var(Var {
+            ty: "const char8_t* const".into(),
+            name: format_smolstr!("slint_translation_bundle_plural_{}_str", idx),
+            array_size: Some(all_strs_len),
+            init: Some(format!(
+                "{{ {} }}",
+                all_strs.map(|s| format_smolstr!("u8\"{}\"", escape_string(s.as_str()))).join(", ")
+            )),
+            ..Default::default()
+        }));
+
+        let mut count = 0;
+        declarations.push(Declaration::Var(Var {
+            ty: "const uint32_t".into(),
+            name: format_smolstr!("slint_translation_bundle_plural_{}_idx", idx),
+            array_size: Some(ms.len()),
+            init: Some(format!(
+                "{{ {} }}",
+                ms.iter()
+                    .map(|x| {
+                        count += x.as_ref().map_or(0, |x| x.len());
+                        count
+                    })
+                    .join(", ")
+            )),
+            ..Default::default()
+        }));
+    }
+    let lang_len = translations.languages.len();
+    declarations.push(Declaration::Function(Function {
+        name: "slint_set_language".into(),
+        signature: "(std::string_view lang)".into(),
+        is_inline: true,
+        statements: Some(vec![
+            format!("std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};", translations.languages.iter().map(|l| format!("slint::private_api::string_to_slice({l:?})")).join(", ")),
+            format!("return slint::cbindgen_private::slint_translate_set_language(slint::private_api::string_to_slice(lang), {{ languages.data(), {lang_len} }});"
+        )]),
+        ..Default::default()
+    }));
+
+    let ctx = EvaluationContext {
+        compilation_unit,
+        current_sub_component: None,
+        current_global: None,
+        generator_state: CppGeneratorContext {
+            global_access: "\n#error \"language rule can't access state\";".into(),
+            conditional_includes: &Default::default(),
+        },
+        parent: None,
+        argument_types: &[Type::Int32],
+    };
+    declarations.push(Declaration::Var(Var {
+        ty: format_smolstr!(
+            "const std::array<uintptr_t (*const)(int32_t), {}>",
+            translations.plural_rules.len()
+        ),
+        name: "slint_translated_plural_rules".into(),
+        init: Some(format!(
+            "{{ {} }}",
+            translations
+                .plural_rules
+                .iter()
+                .map(|s| match s {
+                    Some(s) => {
+                        format!(
+                            "[]([[maybe_unused]] int32_t arg_0) -> uintptr_t {{ return {}; }}",
+                            compile_expression(s, &ctx)
+                        )
+                    }
+                    None => "nullptr".into(),
+                })
+                .join(", ")
+        )),
+        ..Default::default()
+    }));
 }

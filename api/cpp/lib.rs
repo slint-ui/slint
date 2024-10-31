@@ -153,6 +153,17 @@ pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) 
 }
 
 #[no_mangle]
+pub extern "C" fn slint_string_to_usize(string: &SharedString, value: &mut usize) -> bool {
+    match string.as_str().parse::<usize>() {
+        Ok(v) => {
+            *value = v;
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn slint_debug(string: &SharedString) {
     i_slint_core::debug_log!("{string}");
 }

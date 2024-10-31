@@ -13,17 +13,17 @@ export component Sidebar inherits Rectangle {
     Rectangle {
         x: root.width - self.width / 2;
         border-radius: self.width / 4;
-        width: 30px;
-        height: 100px;
+        width: 15px;
+        height: 50px;
         background: Palette.tab;
-        drop-shadow-blur: 4px;
+        drop-shadow-blur: 2px;
         drop-shadow-color: black.transparentize(0.5);
-        drop-shadow-offset-x: 2px;
-        drop-shadow-offset-y: 2px;
+        drop-shadow-offset-x: 1px;
+        drop-shadow-offset-y: 1px;
         Rectangle {
             height: 85%;
-            width: 3px;
-            x: parent.width - 7px;
+            width: 1.5px;
+            x: parent.width - 3.5px;
             background: Palette.tab-highlight;
         }
     }
@@ -44,7 +44,7 @@ export component Sidebar inherits Rectangle {
                 spacing: Measurements.sidebar-spacing;
                 padding: Measurements.sidebar-padding;
                 HorizontalLayout {
-                    spacing: 10px;
+                    spacing: 5px;
                     alignment: stretch;
                     HaText {
                         text: "Theme: ";
@@ -57,14 +57,14 @@ export component Sidebar inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         ThemeSwitch {
-                            scale: 0.5;
+                            scale: 0.25;
                         }
                     }
                 }
 
                 Rectangle {
                     width: 100%;
-                    height: 50px;
+                    height: 25px;
                     border-radius: self.height / 2;
                     background: Palette.alternate-background;
                     HorizontalLayout {
@@ -73,15 +73,15 @@ export component Sidebar inherits Rectangle {
                             vertical-alignment: center;
                             text: "Lock Controls ";
                             color: Palette.foreground;
-                            font-size: 2rem;
+                            font-size: 1rem;
                         }
 
                         VerticalLayout {
                             alignment: center;
                             Image {
                                 source: @image-url("../../images/lock.svg");
-                                width: 30px;
-                                height: 30px;
+                                width: 15px;
+                                height: self.width;
                                 colorize: Palette.foreground;
                             }
                         }
@@ -96,7 +96,7 @@ export component Sidebar inherits Rectangle {
 
                 Rectangle {
                     width: 100%;
-                    height: 50px;
+                    height: 25px;
                     border-radius: self.height / 2;
                     background: ta2.pressed ? Palette.background : Palette.alternate-background;
                     ta2 := TouchArea { }
@@ -104,14 +104,14 @@ export component Sidebar inherits Rectangle {
                     HaText {
                         text: "setting 2";
                         color: Palette.foreground;
-                        font-size: 2rem;
+                        font-size: 1rem;
                         TouchArea { }
                     }
                 }
 
                 Rectangle {
                     width: 100%;
-                    height: 50px;
+                    height: 25px;
                     border-radius: self.height / 2;
                     background: ta3.pressed ? Palette.background : Palette.alternate-background;
                     ta3 := TouchArea { }
@@ -119,14 +119,14 @@ export component Sidebar inherits Rectangle {
                     HaText {
                         text: "setting 3";
                         color: Palette.foreground;
-                        font-size: 2rem;
+                        font-size: 1rem;
                         TouchArea { }
                     }
                 }
 
                 Rectangle {
                     width: 100%;
-                    height: 50px;
+                    height: 25px;
                     border-radius: self.height / 2;
                     background: ta4.pressed ? Palette.background : Palette.alternate-background;
                     ta4 := TouchArea { }
@@ -134,7 +134,7 @@ export component Sidebar inherits Rectangle {
                     HaText {
                         text: "setting 4";
                         color: Palette.foreground;
-                        font-size: 2rem;
+                        font-size: 1rem;
                         TouchArea { }
                     }
                 }

@@ -63,7 +63,7 @@ fn apply_builtin(e: &ElementRc) {
     let bty = if let Some(bty) = e.borrow().builtin_type() { bty } else { return };
     if bty.name == "Text" {
         e.borrow_mut().set_binding_if_not_set("accessible-role".into(), || {
-            let enum_ty = crate::typeregister::BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone());
+            let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.AccessibleRole.clone());
             Expression::EnumerationValue(EnumerationValue {
                 value: enum_ty.values.iter().position(|v| v == "text").unwrap(),
                 enumeration: enum_ty,

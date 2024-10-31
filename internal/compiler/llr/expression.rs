@@ -190,6 +190,15 @@ pub enum Expression {
     },
 
     EmptyComponentFactory,
+
+    /// A reference to bundled translated string
+    TranslationReference {
+        /// An expression of type array of strings
+        format_args: Box<Expression>,
+        string_index: usize,
+        /// The `n` value to use for the plural form if it is a plural form
+        plural: Option<Box<Expression>>,
+    },
 }
 
 impl Expression {
@@ -228,9 +237,10 @@ impl Expression {
                 values: vec![],
                 as_model: true,
             },
-            Type::Struct { fields, .. } => Expression::Struct {
+            Type::Struct(s) => Expression::Struct {
                 ty: ty.clone(),
-                values: fields
+                values: s
+                    .fields
                     .iter()
                     .map(|(k, v)| Some((k.clone(), Expression::default_value_for_type(v)?)))
                     .collect::<Option<_>>()?,
@@ -257,22 +267,22 @@ impl Expression {
             Self::StoreLocalVariable { .. } => Type::Void,
             Self::ReadLocalVariable { ty, .. } => ty.clone(),
             Self::StructFieldAccess { base, name } => match base.ty(ctx) {
-                Type::Struct { fields, .. } => fields[name].clone(),
+                Type::Struct(s) => s.fields[name].clone(),
                 _ => unreachable!(),
             },
             Self::ArrayIndex { array, .. } => match array.ty(ctx) {
-                Type::Array(ty) => *ty,
+                Type::Array(ty) => (*ty).clone(),
                 _ => unreachable!(),
             },
             Self::Cast { to, .. } => to.clone(),
             Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty(ctx)),
             Self::BuiltinFunctionCall { function, .. } => match function.ty() {
-                Type::Function { return_type, .. } => *return_type,
+                Type::Function(function) => function.return_type.clone(),
                 _ => unreachable!(),
             },
             Self::CallBackCall { callback, .. } => {
-                if let Type::Callback { return_type, .. } = ctx.property_ty(callback) {
-                    return_type.as_ref().map_or(Type::Void, |x| (**x).clone())
+                if let Type::Callback(callback) = ctx.property_ty(callback) {
+                    callback.return_type.clone()
                 } else {
                     Type::Invalid
                 }
@@ -305,6 +315,7 @@ impl Expression {
             }
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
+            Self::TranslationReference { .. } => Type::String,
         }
     }
 }
@@ -387,6 +398,12 @@ macro_rules! visit_impl {
                 $visitor(rhs);
             }
             Expression::EmptyComponentFactory => {}
+            Expression::TranslationReference { format_args, plural, string_index: _ } => {
+                $visitor(format_args);
+                if let Some(plural) = plural {
+                    $visitor(plural);
+                }
+            }
         }
     };
 }

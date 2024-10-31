@@ -114,10 +114,11 @@ impl JsComponentCompiler {
     pub fn structs(&self, env: Env) -> HashMap<String, JsUnknown> {
         fn convert_type(env: &Env, ty: &Type) -> Option<(String, JsUnknown)> {
             match ty {
-                Type::Struct { fields, name: Some(name), node: Some(_), .. } => {
+                Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                    let name = s.name.as_ref().unwrap();
                     let struct_instance = to_js_unknown(
                         env,
-                        &Value::Struct(slint_interpreter::Struct::from_iter(fields.iter().map(
+                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.iter().map(
                             |(name, field_type)| {
                                 (
                                     name.to_string(),

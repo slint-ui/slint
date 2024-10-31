@@ -51,8 +51,8 @@ struct SlintPlatformConfiguration
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {};
     slint::platform::SoftwareRenderer::RenderingRotation rotation =
             slint::platform::SoftwareRenderer::RenderingRotation::NoRotation;
-    // Swap the 2 bytes of RGB 565 pixels before sending to the display. Use this
-    // if your CPU is little endian but the display expects big-endian.
+    /// Swap the 2 bytes of RGB 565 pixels before sending to the display. Use this
+    /// if your CPU is little endian but the display expects big-endian.
     bool color_swap_16 = false;
 };
 

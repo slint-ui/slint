@@ -1,6 +1,6 @@
 # Slint Software License
 
-Version 3.0
+Version 3.0.1
 
 ## Preamble
 
@@ -24,17 +24,11 @@ Desktop Application, Mobile Application, and Web Application are hereafter refer
 
 The grant of rights in section 1 are conditional, provided that You do all of the following:
 
-(a) You have purchased an appropriate **Pricing Plan** (*Startup & Individual* / *Small Enterprise* / *Enterprise*) and the required amount of seats to cover all individual users of the Software associated with the designing, developing, or testing your Application or Embedded System. For clarity, each individual user is counted as one seat.
+(a) You have purchased an appropriate **Paid License Plan** ([see Annex 1](#annex-1-paid-license-plans)) and the required amount of seats to cover all individual users of the Software associated with the designing, developing, or testing your Application or Embedded System. For clarity, each individual user is counted as one seat.
 
 (b) In the case that You are distributing the Software as as part of an Embedded System, You have purchased an appropriate quantity of **Royalties**, one Royalty for each Embedded System.
 
 (c) You have fully paid all applicable fees (**Fees**) pursuant to Section 6.
-
-*Startup & Individual Plan* is limited to individuals as well as individual companies with a staff headcount of less than 10 with either turnover or balance sheet of 2MEUR or less.
-
-*Small Enterprise Plan* is limited to individual companies with a staff headcount of less than 50 with either turnover or balance sheet of 10MEUR or less.
-
-*Enterprise Plan* is available to all individuals and individual companies.
 
 ## 3. Limitations
 
@@ -87,3 +81,41 @@ In the event that any provision of this License will, for any reason, be determi
 ## 10. Governing Law
 
 This Agreement shall be construed, interpreted, and governed by the laws of the Federal Republic of Germany.
+
+## Annex 1: Paid License Plans
+
+### Enterprise Plan
+
+The following is included as part of the plan
+
+(a) No restriction on the number of applications that are developed with Slint.
+
+(b) Live Preview.
+
+(c) Standard Support that includes addressing technical queries, troubleshooting, and rectifying bugs or errors (faults) present in the latest official stable release.
+
+(d) Perpetual Fallback License that allows continued use of a specific Slint version, including all bugfix updates (i.e., all Z releases within the X.Y.Z version), without an active subscription. This license applies only to those versions of Slint for which at least 12 consecutive months of subscription have been paid.
+
+(e) GUI Test Framework.
+
+### Small Enterprise Plan
+
+This plan is limited to individual companies with a staff headcount between 10 and 50 and either a turnover or balance sheet total of 10 million EUR or less.
+
+The following is included as part of the plan
+
+(a) No restriction on the number of applications that are developed with Slint.
+
+(b) Live Preview.
+
+(c) Standard Support that includes addressing technical queries, troubleshooting, and rectifying bugs or errors (faults) present in the latest official stable release.
+
+### Startup & Individual Plan
+
+This plan is limited to individuals and individual companies with a staff headcount of less than 10 and either a turnover or balance sheet total of 2 million EUR or less.
+
+The following is included as part of the plan
+
+(a) No restriction on the number of applications that are developed with Slint.
+
+(b) Live Preview.

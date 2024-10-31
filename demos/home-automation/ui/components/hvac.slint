@@ -9,24 +9,24 @@ enum Mode { increment, decrement }
 component TempAdjustButton inherits Rectangle {
     in property <Mode> mode: increment;
     callback clicked <=> ta.clicked;
-    width: 70px;
+    width: 35px;
     height: self.width;
     border-radius: self.height / 2;
     background: ta.pressed ? Palette.accent-background.transparentize(0.9) : Palette.accent-background.transparentize(0.8);
     Rectangle {
         width: 0;
         height: self.width;
-        property <length> icon-size: 35px;
+        property <length> icon-size: 18px;
         Rectangle {
             border-radius: self.height / 2;
             width: icon-size;
-            height: 4px;
+            height: 2px;
             background: Palette.hvac-foreground;
         }
 
         if mode == Mode.increment: Rectangle {
             border-radius: self.width / 2;
-            width: 4px;
+            width: 2px;
             height: icon-size;
             background: Palette.hvac-foreground;
         }
@@ -40,20 +40,20 @@ export component ZoneButton inherits Rectangle {
     in-out property <int> zone-set-point: 22;
     in property <int> min-temp: 12;
     in property <int> max-temp: 32;
-    width: 400px;
-    height: 80px;
+    width: 200px;
+    height: 40px;
     HorizontalLayout {
         alignment: space-between;
         HaText {
             horizontal-alignment: left;
             vertical-alignment: center;
-            font-size: 20pt;
+            font-size: 10pt;
             text: root.zone-name;
             color: Palette.hvac-foreground;
         }
 
         HorizontalLayout {
-            width: 100px;
+            width: 50px;
             spacing: Measurements.zone-button-spacing;
             alignment: end;
 
@@ -67,10 +67,10 @@ export component ZoneButton inherits Rectangle {
             }
 
             HaText {
-                width: 120px;
+                width: 60px;
                 vertical-alignment: center;
                 horizontal-alignment: center;
-                font-size: 30pt;
+                font-size: 15pt;
                 text: root.zone-set-point + "°C";
                 color: Palette.hvac-foreground;
             }
@@ -100,7 +100,7 @@ export component HVAC inherits Control {
             // height: dial.height * 1.25;
             colorize: Palette.glow-color;
             x: (Math.min(parent.width, parent.height) - self.height) / 2;
-            height: root.full-screen ? 550px * 1.25 : 400px * 1.25;
+            height: root.full-screen ? 275px * 1.25 : 200px * 1.25;
             animate height {
                 duration: Animation.full-screen-duration;
                 easing: ease-in-out-sine;
@@ -117,7 +117,7 @@ export component HVAC inherits Control {
         dial := Rectangle {
             background: Palette.hvac-knob-background;
             width: self.height;
-            height: root.full-screen ? 550px : 400px;
+            height: root.full-screen ? 275px : 200px;
             animate height {
                 duration: Animation.full-screen-duration;
                 easing: ease-in-out-sine;
@@ -126,8 +126,8 @@ export component HVAC inherits Control {
 
             border-radius: self.width / 2;
             Image {
-                height: 40px;
-                width: 40px;
+                height: 20px;
+                width: 20px;
                 y: dial.height / 4;
                 x: dial.width * 3 / 4;
                 source: @image-url("../images/cold.svg");
@@ -137,7 +137,7 @@ export component HVAC inherits Control {
             VerticalLayout {
                 x: dial.width / 2 - self.preferred-width / 2;
                 alignment: center;
-                spacing: -30px;
+                spacing: -15px;
                 HaText {
                     text: "Current";
                     font-size: Style.tile-title-font-size;
@@ -148,7 +148,7 @@ export component HVAC inherits Control {
 
                 HaText {
                     text: "22°C";
-                    font-size: 90pt;
+                    font-size: 45pt;
                     color: Palette.hvac-knob-foreground.transparentize(0.5);
                     font-weight: 300;
                     x: parent.width / 2 - self.width / 2;
@@ -166,7 +166,7 @@ export component HVAC inherits Control {
 
         VerticalLayout {
             y: root.height / 2 - self.preferred-height / 2;
-            x: Math.max(36px + root.width / 2,root.height);
+            x: Math.max(18px + root.width / 2, root.height);
             spacing: Measurements.padding;
             // animate the opacity as it reduces some visual pop when HVAC minimises to
             // not be full screen.
@@ -199,11 +199,11 @@ export component HVAC inherits Control {
         x: 0;
         VerticalLayout {
             alignment: end;
-            spacing: 5px;
-            padding: 5px;
+            spacing: 2px;
+            padding: 2px;
 
             controls := Rectangle {
-                border-radius: 20px;
+                border-radius: 10px;
                 width: 95%;
                 height: self.preferred-height;
                 background: Palette.music-gradient.transparentize(0.2);
@@ -222,10 +222,10 @@ export component HVAC inherits Control {
         Image {
             source: @image-url("../images/enlarge.svg");
             opacity: root.full-screen ? 0 : 0.6;
-            width: 40px;
+            width: 20px;
             colorize: Palette.foreground;
-            x: root.width - self.width - 30px;
-            y: 30px;
+            x: root.width - self.width - self.y;
+            y: 15px;
             animate opacity {
                 duration: Animation.full-screen-duration;
                 easing: ease-in-out-sine;
@@ -240,10 +240,10 @@ export component HVAC inherits Control {
             }
             source: @image-url("../images/reduce.svg");
             colorize: white;
-            x: root.width - self.width - 30px;
-            y: 30px;
-            width: 60px;
-            height: 60px;
+            x: root.width - self.width - self.y;
+            y: 15px;
+            width: 30px;
+            height: 30px;
 
             TouchArea {
                 enabled: closeButton.opacity > 0.1;

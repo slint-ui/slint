@@ -78,32 +78,34 @@ export component TextEdit {
     in property <string> placeholder-text;
 
     callback edited(/* text */ string);
+    callback rejected(/* text */ string);
+
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
     accessible-value <=> text;
     accessible-placeholder-text: text == "" ? placeholder-text : "";
 
-    public function set-selection-offsets(start: int,end: int){
+    public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
     }
 
-    public function select-all(){
+    public function select-all() {
         text-input.select-all();
     }
 
-    public function clear-selection(){
+    public function clear-selection() {
         text-input.clear-selection();
     }
 
-    public function cut(){
+    public function cut() {
         text-input.cut();
     }
 
-    public function copy(){
+    public function copy() {
         text-input.copy();
     }
 
-    public function paste(){
+    public function paste() {
         text-input.paste();
     }
 
@@ -155,6 +157,10 @@ export component TextEdit {
 
             edited => {
                 root.edited(self.text);
+            }
+
+            rejected => {
+                root.rejected(self.text);
             }
 
             cursor-position-changed(cpos) => {

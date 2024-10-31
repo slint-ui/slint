@@ -27,14 +27,8 @@ pub enum Type {
     /// The type of a callback alias whose type was not yet inferred
     InferredCallback,
 
-    Callback {
-        return_type: Option<Box<Type>>,
-        args: Vec<Type>,
-    },
-    Function {
-        return_type: Box<Type>,
-        args: Vec<Type>,
-    },
+    Callback(Rc<Function>),
+    Function(Rc<Function>),
 
     ComponentFactory,
 
@@ -57,17 +51,8 @@ pub enum Type {
     Easing,
     Brush,
     /// This is usually a model
-    Array(Box<Type>),
-    Struct {
-        fields: BTreeMap<SmolStr, Type>,
-        /// When declared in .slint as  `struct Foo := { }`, then the name is "Foo"
-        /// When there is no node, but there is a name, then it is a builtin type
-        name: Option<SmolStr>,
-        /// When declared in .slint, this is the node of the declaration.
-        node: Option<syntax_nodes::ObjectType>,
-        /// derived
-        rust_attributes: Option<Vec<SmolStr>>,
-    },
+    Array(Rc<Type>),
+    Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
 
     /// A type made up of the product of several "unit" types.
@@ -88,11 +73,11 @@ impl core::cmp::PartialEq for Type {
             Type::Void => matches!(other, Type::Void),
             Type::InferredProperty => matches!(other, Type::InferredProperty),
             Type::InferredCallback => matches!(other, Type::InferredCallback),
-            Type::Callback { args: a, return_type: ra } => {
-                matches!(other, Type::Callback { args: b, return_type: rb } if a == b && ra == rb)
+            Type::Callback(lhs) => {
+                matches!(other, Type::Callback(rhs) if lhs == rhs)
             }
-            Type::Function { return_type: lhs_rt, args: lhs_args } => {
-                matches!(other, Type::Function { return_type: rhs_rt, args: rhs_args } if lhs_rt == rhs_rt && lhs_args == rhs_args)
+            Type::Function(lhs) => {
+                matches!(other, Type::Function(rhs) if lhs == rhs)
             }
             Type::ComponentFactory => matches!(other, Type::ComponentFactory),
             Type::Float32 => matches!(other, Type::Float32),
@@ -112,8 +97,8 @@ impl core::cmp::PartialEq for Type {
             Type::Easing => matches!(other, Type::Easing),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
-            Type::Struct { fields, name, node: _, rust_attributes: _ } => {
-                matches!(other, Type::Struct{fields:f,name:n,node:_, rust_attributes: _ } if fields == f && name == n)
+            Type::Struct(lhs) => {
+                matches!(other, Type::Struct(rhs) if lhs.fields == rhs.fields && lhs.name == rhs.name)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
@@ -130,11 +115,11 @@ impl Display for Type {
             Type::Void => write!(f, "void"),
             Type::InferredProperty => write!(f, "?"),
             Type::InferredCallback => write!(f, "callback"),
-            Type::Callback { args, return_type } => {
+            Type::Callback(callback) => {
                 write!(f, "callback")?;
-                if !args.is_empty() {
+                if !callback.args.is_empty() {
                     write!(f, "(")?;
-                    for (i, arg) in args.iter().enumerate() {
+                    for (i, arg) in callback.args.iter().enumerate() {
                         if i > 0 {
                             write!(f, ",")?;
                         }
@@ -142,21 +127,19 @@ impl Display for Type {
                     }
                     write!(f, ")")?
                 }
-                if let Some(rt) = return_type {
-                    write!(f, "-> {}", rt)?;
-                }
+                write!(f, "-> {}", callback.return_type)?;
                 Ok(())
             }
             Type::ComponentFactory => write!(f, "component-factory"),
-            Type::Function { return_type, args } => {
+            Type::Function(function) => {
                 write!(f, "function(")?;
-                for (i, arg) in args.iter().enumerate() {
+                for (i, arg) in function.args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ",")?;
                     }
                     write!(f, "{}", arg)?;
                 }
-                write!(f, ") -> {}", return_type)
+                write!(f, ") -> {}", function.return_type)
             }
             Type::Float32 => write!(f, "float"),
             Type::Int32 => write!(f, "int"),
@@ -172,15 +155,17 @@ impl Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
-            Type::Struct { name: Some(name), .. } => write!(f, "{}", name),
-            Type::Struct { fields, name: None, .. } => {
-                write!(f, "{{ ")?;
-                for (k, v) in fields {
-                    write!(f, "{}: {},", k, v)?;
+            Type::Struct(t) => {
+                if let Some(name) = &t.name {
+                    write!(f, "{}", name)
+                } else {
+                    write!(f, "{{ ")?;
+                    for (k, v) in &t.fields {
+                        write!(f, "{}: {},", k, v)?;
+                    }
+                    write!(f, "}}")
                 }
-                write!(f, "}}")
             }
-
             Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
@@ -288,9 +273,7 @@ impl Type {
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
-            (Type::Struct { fields: a, .. }, Type::Struct { fields: b, .. }) => {
-                can_convert_struct(a, b)
-            }
+            (Type::Struct(a), Type::Struct(b)) => can_convert_struct(&a.fields, &b.fields),
             (Type::UnitProduct(u), o) => match o.as_unit_product() {
                 Some(o) => unit_product_length_conversion(u.as_slice(), o.as_slice()).is_some(),
                 None => false,
@@ -796,6 +779,24 @@ impl<'a> PropertyLookupResult<'a> {
                 | (PropertyVisibility::Output, false)
         )
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub return_type: Type,
+    pub args: Vec<Type>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Struct {
+    pub fields: BTreeMap<SmolStr, Type>,
+    /// When declared in .slint as  `struct Foo := { }`, then the name is "Foo"
+    /// When there is no node, but there is a name, then it is a builtin type
+    pub name: Option<SmolStr>,
+    /// When declared in .slint, this is the node of the declaration.
+    pub node: Option<syntax_nodes::ObjectType>,
+    /// derived
+    pub rust_attributes: Option<Vec<SmolStr>>,
 }
 
 #[derive(Debug, Clone)]

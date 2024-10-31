@@ -349,6 +349,23 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),
             },
             Expression::EmptyComponentFactory => write!(f, "<empty-component-factory>",),
+            Expression::TranslationReference { format_args, string_index, plural } => {
+                match plural {
+                    Some(plural) => write!(
+                        f,
+                        "@tr({:?} % {}, {})",
+                        string_index,
+                        DisplayExpression(plural, ctx),
+                        DisplayExpression(format_args, ctx)
+                    ),
+                    None => write!(
+                        f,
+                        "@tr({:?}, {})",
+                        string_index,
+                        DisplayExpression(format_args, ctx)
+                    ),
+                }
+            }
         }
     }
 }

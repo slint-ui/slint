@@ -464,7 +464,7 @@ pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&E
                     .iter()
                     .filter(|(_, x)| {
                         x.property_type.is_property_type() &&
-                            !matches!( &x.property_type, crate::langtype::Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"))
+                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo")))
                     })
                     .map(|(k, _)| k.clone()),
             );

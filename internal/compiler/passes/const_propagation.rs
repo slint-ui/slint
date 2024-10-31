@@ -23,7 +23,12 @@ fn simplify_expression(expr: &mut Expression) -> bool {
     match expr {
         Expression::PropertyReference(nr) => {
             if nr.is_constant()
-                && !matches!(nr.ty(), Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"))
+                && !match nr.ty() {
+                    Type::Struct(s) => {
+                        s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo"))
+                    }
+                    _ => false,
+                }
             {
                 // Inline the constant value
                 if let Some(result) = extract_constant_property_reference(nr) {

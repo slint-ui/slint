@@ -192,10 +192,7 @@ pub fn translate(
 
 #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
 fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str) -> String {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else { return };
-        ctx.0.translations_dirty.as_ref().get();
-    });
+    global_translation_property();
     fn mangle_context(ctx: &str, s: &str) -> String {
         format!("{}\u{4}{}", ctx, s)
     }
@@ -222,6 +219,14 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str
     } else {
         gettextrs::dngettext(domain, string, plural, n as u32)
     }
+}
+
+/// Returns the language index and make sure to register a dependency
+fn global_translation_property() -> usize {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return 0 };
+        ctx.0.translations_dirty.as_ref().get()
+    })
 }
 
 pub fn mark_all_translations_dirty() {
@@ -260,6 +265,65 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
     Ok(())
 }
 
+pub fn translate_from_bundle(
+    strs: &[Option<&str>],
+    arguments: &(impl FormatArgs + ?Sized),
+) -> SharedString {
+    let idx = global_translation_property();
+    let mut output = SharedString::default();
+    let Some(translated) = strs.get(idx).and_then(|x| *x).or_else(|| strs.first().and_then(|x| *x))
+    else {
+        return output;
+    };
+    use core::fmt::Write;
+    write!(output, "{}", formatter::format(translated, arguments)).unwrap();
+    output
+}
+
+pub fn translate_from_bundle_with_plural(
+    strs: &[Option<&[&str]>],
+    plural_rules: &[Option<fn(i32) -> usize>],
+    arguments: &(impl FormatArgs + ?Sized),
+    n: i32,
+) -> SharedString {
+    let idx = global_translation_property();
+    let mut output = SharedString::default();
+    let en = |n| (n != 1) as usize;
+    let (translations, rule) = match strs.get(idx) {
+        Some(Some(x)) => (x, plural_rules.get(idx).and_then(|x| *x).unwrap_or(en)),
+        _ => match strs.first() {
+            Some(Some(x)) => (x, plural_rules.first().and_then(|x| *x).unwrap_or(en)),
+            _ => return output,
+        },
+    };
+    let Some(translated) = translations.get(rule(n)).or_else(|| translations.first()).cloned()
+    else {
+        return output;
+    };
+    use core::fmt::Write;
+    write!(output, "{}", formatter::format(translated, &WithPlural(arguments, n))).unwrap();
+    output
+}
+
+pub fn set_language_internal(language: &str, languages: &[&str]) -> bool {
+    let idx = languages.iter().position(|x| *x == language);
+    if let Some(idx) = idx {
+        crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            let Some(ctx) = ctx.get() else { return false };
+            ctx.0.translations_dirty.as_ref().set(idx);
+            true
+        })
+    } else if language == "en" {
+        crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            let Some(ctx) = ctx.get() else { return false };
+            ctx.0.translations_dirty.as_ref().set(0);
+            true
+        })
+    } else {
+        false
+    }
+}
+
 #[cfg(feature = "ffi")]
 mod ffi {
     #![allow(unsafe_code)]
@@ -284,5 +348,78 @@ mod ffi {
     #[no_mangle]
     pub extern "C" fn slint_translations_mark_dirty() {
         mark_all_translations_dirty();
+    }
+
+    /// Safety: The slice must contain valid null-terminated utf-8 strings
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_translate_from_bundle(
+        strs: Slice<*const core::ffi::c_char>,
+        arguments: Slice<SharedString>,
+        output: &mut SharedString,
+    ) {
+        *output = SharedString::default();
+        let idx = global_translation_property();
+        let Some(translated) = strs
+            .get(idx)
+            .filter(|x| !x.is_null())
+            .or_else(|| strs.first())
+            .map(|x| core::ffi::CStr::from_ptr(*x).to_str().unwrap())
+        else {
+            return;
+        };
+        use core::fmt::Write;
+        write!(output, "{}", formatter::format(translated, arguments.as_slice())).unwrap();
+    }
+    /// strs is all the strings variant of all languages.
+    /// indices is the array of indices such that for each language, the corresponding indice is one past the last index of the string for that language.
+    /// So to get the string array for that language, one would do `strs[indices[lang-1]..indices[lang]]`
+    /// (where indices[-1] is 0)
+    ///
+    /// Safety; the strs must be pointer to valid null-terminated utf-8 strings
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_translate_from_bundle_with_plural(
+        strs: Slice<*const core::ffi::c_char>,
+        indices: Slice<u32>,
+        plural_rules: Slice<Option<fn(i32) -> usize>>,
+        arguments: Slice<SharedString>,
+        n: i32,
+        output: &mut SharedString,
+    ) {
+        *output = SharedString::default();
+        let idx = global_translation_property();
+        let en = |n| (n != 1) as usize;
+        let begin = *indices.get(idx.wrapping_sub(1)).unwrap_or(&0);
+        let (translations, rule) = match indices.get(idx) {
+            Some(end) if *end != begin => (
+                &strs.as_slice()[begin as usize..*end as usize],
+                plural_rules.get(idx).and_then(|x| *x).unwrap_or(en),
+            ),
+            _ => (
+                &strs.as_slice()[..*indices.first().unwrap_or(&0) as usize],
+                plural_rules.first().and_then(|x| *x).unwrap_or(en),
+            ),
+        };
+        let Some(translated) = translations
+            .get(rule(n))
+            .or_else(|| translations.first())
+            .map(|x| core::ffi::CStr::from_ptr(*x).to_str().unwrap())
+        else {
+            return;
+        };
+        use core::fmt::Write;
+        write!(output, "{}", formatter::format(translated, &WithPlural(arguments.as_slice(), n)))
+            .unwrap();
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_translate_set_language(
+        lang: Slice<u8>,
+        languages: Slice<Slice<u8>>,
+    ) -> bool {
+        let languages = languages
+            .iter()
+            .map(|x| core::str::from_utf8(x).unwrap())
+            .collect::<alloc::vec::Vec<_>>();
+        set_language_internal(core::str::from_utf8(&lang).unwrap(), &languages)
     }
 }

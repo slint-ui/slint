@@ -38,18 +38,27 @@ impl PixelFont {
 }
 
 impl GlyphRenderer for PixelFont {
-    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> RenderableGlyph {
+    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<RenderableGlyph> {
         let glyph_index = Self::glyph_id_to_glyph_index(glyph_id);
         let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
-        RenderableGlyph {
+        if bitmap_glyph.data.len() == 0 {
+            // For example, ' ' has no glyph data
+            return None;
+        }
+        let width = self.scale_glyph_length(bitmap_glyph.width - 1) + PhysicalLength::new(1);
+        let height = self.scale_glyph_length(bitmap_glyph.height - 1) + PhysicalLength::new(1);
+        Some(RenderableGlyph {
             x: self.scale_glyph_length(bitmap_glyph.x),
-            y: self.scale_glyph_length(bitmap_glyph.y),
-            width: self.scale_glyph_length(bitmap_glyph.width),
-            height: self.scale_glyph_length(bitmap_glyph.height),
+            y: self.scale_glyph_length(bitmap_glyph.y + bitmap_glyph.height) - height,
+            width,
+            height,
             alpha_map: bitmap_glyph.data.as_slice().into(),
             pixel_stride: bitmap_glyph.width as u16,
             sdf: self.bitmap_font.sdf,
-        }
+        })
+    }
+    fn scale_delta(&self) -> super::Fixed<u16, 8> {
+        super::Fixed::from_integer(self.glyphs.pixel_size as u16) / self.pixel_size.get() as u16
     }
 }
 

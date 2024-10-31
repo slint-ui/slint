@@ -216,11 +216,11 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 Ok(Value::Image(Image::from_rgba8(pixel_buffer)))
             }
         }
-        Type::Struct { fields, name: _, node: _, rust_attributes: _ } => {
+        Type::Struct(s) => {
             let js_object = unknown.coerce_to_object()?;
 
             Ok(Value::Struct(
-                fields
+                s.fields
                     .iter()
                     .map(|(pro_name, pro_ty)| {
                         let prop: JsUnknown = js_object

@@ -9,7 +9,7 @@ use core::cell::RefCell;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::thread_local_ as thread_local;
 
-use super::{PhysicalLength, PhysicalSize};
+use super::{Fixed, PhysicalLength, PhysicalSize};
 use crate::graphics::{BitmapFont, FontRequest};
 use crate::items::TextWrap;
 use crate::lengths::{LogicalLength, LogicalSize, ScaleFactor};
@@ -44,7 +44,9 @@ impl RenderableGlyph {
 }
 
 pub trait GlyphRenderer {
-    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> RenderableGlyph;
+    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<RenderableGlyph>;
+    /// The amount of pixel in the original image that correspond to one pixel in the rendered image
+    fn scale_delta(&self) -> Fixed<u16, 8>;
 }
 
 pub(super) const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12 as Coord);

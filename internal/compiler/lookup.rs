@@ -65,10 +65,7 @@ impl<'a> LookupCtx<'a> {
 
     pub fn return_type(&self) -> &Type {
         match &self.property_type {
-            Type::Callback { return_type, .. } => {
-                return_type.as_ref().map_or(&Type::Void, |b| &(**b))
-            }
-            Type::Function { return_type, .. } => return_type,
+            Type::Callback(f) | Type::Function(f) => &f.return_type,
             _ => &self.property_type,
         }
     }
@@ -196,7 +193,7 @@ impl LookupObject for ArgumentsLookup {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let args = match &ctx.property_type {
-            Type::Callback { args, .. } | Type::Function { args, .. } => args,
+            Type::Callback(f) | Type::Function(f) => &f.args,
             _ => return None,
         };
         for (index, (name, ty)) in ctx.arguments.iter().zip(args.iter()).enumerate() {
@@ -824,10 +821,10 @@ impl LookupObject for SlintInternal {
             f(
                 "color-scheme",
                 if style.is_some_and(|s| s.ends_with("-light")) {
-                    let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone());
+                    let e = crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone());
                     Expression::EnumerationValue(e.try_value_from_string("light").unwrap())
                 } else if style.is_some_and(|s| s.ends_with("-dark")) {
-                    let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone());
+                    let e = crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone());
                     Expression::EnumerationValue(e.try_value_from_string("dark").unwrap())
                 } else {
                     Expression::FunctionCall {
@@ -955,8 +952,8 @@ impl LookupObject for Expression {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().for_each_entry(ctx, f),
             _ => match self.ty() {
-                Type::Struct { fields, .. } => {
-                    for name in fields.keys() {
+                Type::Struct(s) => {
+                    for name in s.fields.keys() {
                         if let Some(r) = f(
                             name,
                             Expression::StructFieldAccess {
@@ -989,7 +986,7 @@ impl LookupObject for Expression {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().lookup(ctx, name),
             _ => match self.ty() {
-                Type::Struct { fields, .. } => fields.contains_key(name).then(|| {
+                Type::Struct(s) => s.fields.contains_key(name).then(|| {
                     LookupResult::from(Expression::StructFieldAccess {
                         base: Box::new(self.clone()),
                         name: name.into(),

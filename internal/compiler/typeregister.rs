@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Enumeration,
-    PropertyLookupResult, Type,
+    Function, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -77,8 +77,85 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
+pub struct BuiltinTypes {
+    pub enums: BuiltinEnums,
+    pub noarg_callback_type: Type,
+    pub strarg_callback_type: Type,
+    pub logical_point_type: Type,
+    pub font_metrics_type: Type,
+    pub layout_info_type: Type,
+    pub path_element_type: Type,
+    pub box_layout_cell_data_type: Type,
+}
+
+impl BuiltinTypes {
+    fn new() -> Self {
+        let layout_info_type = Type::Struct(Rc::new(Struct {
+            fields: ["min", "max", "preferred"]
+                .iter()
+                .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
+                .chain(
+                    ["min_percent", "max_percent", "stretch"]
+                        .iter()
+                        .map(|s| (SmolStr::new_static(s), Type::Float32)),
+                )
+                .collect(),
+            name: Some("slint::private_api::LayoutInfo".into()),
+            node: None,
+            rust_attributes: None,
+        }));
+        Self {
+            enums: BuiltinEnums::new(),
+            logical_point_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    (SmolStr::new_static("x"), Type::LogicalLength),
+                    (SmolStr::new_static("y"), Type::LogicalLength),
+                ])
+                .collect(),
+                name: Some("slint::LogicalPosition".into()),
+                node: None,
+                rust_attributes: None,
+            })),
+            font_metrics_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    (SmolStr::new_static("ascent"), Type::LogicalLength),
+                    (SmolStr::new_static("descent"), Type::LogicalLength),
+                    (SmolStr::new_static("x-height"), Type::LogicalLength),
+                    (SmolStr::new_static("cap-height"), Type::LogicalLength),
+                ])
+                .collect(),
+                name: Some("slint::private_api::FontMetrics".into()),
+                node: None,
+                rust_attributes: None,
+            })),
+            noarg_callback_type: Type::Callback(Rc::new(Function {
+                return_type: Type::Void,
+                args: vec![],
+            })),
+            strarg_callback_type: Type::Callback(Rc::new(Function {
+                return_type: Type::Void,
+                args: vec![Type::String],
+            })),
+            layout_info_type: layout_info_type.clone(),
+            path_element_type: Type::Struct(Rc::new(Struct {
+                fields: Default::default(),
+                name: Some("PathElement".into()),
+                node: None,
+                rust_attributes: None,
+            })),
+            box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([("constraint".into(), layout_info_type)])
+                    .collect(),
+                name: Some("BoxLayoutCellData".into()),
+                node: None,
+                rust_attributes: None,
+            })),
+        }
+    }
+}
+
 thread_local! {
-    pub static BUILTIN_ENUMS: BuiltinEnums = BuiltinEnums::new();
+    pub static BUILTIN: BuiltinTypes = BuiltinTypes::new();
 }
 
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
@@ -101,6 +178,14 @@ pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-origin-y", Type::LogicalLength),
 ];
 
+fn noarg_callback_type() -> Type {
+    BUILTIN.with(|types| types.noarg_callback_type.clone())
+}
+
+fn strarg_callback_type() -> Type {
+    BUILTIN.with(|types| types.strarg_callback_type.clone())
+}
+
 pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str, Type)> {
     [
         //("accessible-role", ...)
@@ -115,15 +200,14 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-value-minimum", Type::Float32),
         ("accessible-value-step", Type::Float32),
         ("accessible-placeholder-text", Type::String),
-        ("accessible-action-default", Type::Callback { return_type: None, args: vec![] }),
-        ("accessible-action-increment", Type::Callback { return_type: None, args: vec![] }),
-        ("accessible-action-decrement", Type::Callback { return_type: None, args: vec![] }),
-        (
-            "accessible-action-set-value",
-            Type::Callback { return_type: None, args: vec![Type::String] },
-        ),
+        ("accessible-action-default", noarg_callback_type()),
+        ("accessible-action-increment", noarg_callback_type()),
+        ("accessible-action-decrement", noarg_callback_type()),
+        ("accessible-action-set-value", strarg_callback_type()),
         ("accessible-selectable", Type::Bool),
         ("accessible-selected", Type::Bool),
+        ("accessible-position-in-set", Type::Int32),
+        ("accessible-size-of-set", Type::Int32),
     ]
     .into_iter()
 }
@@ -150,35 +234,35 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ("clear-focus", BuiltinFunction::ClearFocusItem.ty(), PropertyVisibility::Public),
             (
                 "dialog-button-role",
-                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone())),
+                Type::Enumeration(BUILTIN.with(|e| e.enums.DialogButtonRole.clone())),
                 PropertyVisibility::Constexpr,
             ),
             (
                 "accessible-role",
-                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone())),
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleRole.clone())),
                 PropertyVisibility::Constexpr,
             ),
         ]))
-        .chain(std::iter::once((
-            "init",
-            Type::Callback { return_type: None, args: vec![] },
-            PropertyVisibility::Private,
-        )))
+        .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
 }
 
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: &str) -> PropertyLookupResult {
-    for (p, t, property_visibility) in reserved_properties() {
-        if p == name {
-            return PropertyLookupResult {
-                property_type: t,
-                resolved_name: name.into(),
-                is_local_to_component: false,
-                is_in_direct_base: false,
-                property_visibility,
-                declared_pure: None,
-            };
-        }
+    thread_local! {
+        static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility)>
+            = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility))).collect();
+    }
+    if let Some(result) = RESERVED_PROPERTIES.with(|reserved| {
+        reserved.get(name).map(|(ty, visibility)| PropertyLookupResult {
+            property_type: ty.clone(),
+            resolved_name: name.into(),
+            is_local_to_component: false,
+            is_in_direct_base: false,
+            property_visibility: *visibility,
+            declared_pure: None,
+        })
+    }) {
+        return result;
     }
 
     // Report deprecated known reserved properties (maximum_width, minimum_height, ...)
@@ -291,7 +375,7 @@ impl TypeRegister {
         register.insert_type(Type::Rem);
         register.types.insert("Point".into(), logical_point_type());
 
-        BUILTIN_ENUMS.with(|e| e.fill_register(&mut register));
+        BUILTIN.with(|e| e.enums.fill_register(&mut register));
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());
@@ -310,7 +394,7 @@ impl TypeRegister {
             ($pub_type:ident, Coord) => { Type::LogicalLength };
             ($pub_type:ident, KeyboardModifiers) => { $pub_type.clone() };
             ($pub_type:ident, $_:ident) => {
-                BUILTIN_ENUMS.with(|e| Type::Enumeration(e.$pub_type.clone()))
+                BUILTIN.with(|e| Type::Enumeration(e.enums.$pub_type.clone()))
             };
         }
         #[rustfmt::skip]
@@ -331,14 +415,14 @@ impl TypeRegister {
                     }
                 }
             )*) => { $(
-                let $Name = Type::Struct {
+                let $Name = Type::Struct(Rc::new(Struct{
                     fields: BTreeMap::from([
                         $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
                     ]),
                     name: Some(format_smolstr!("{}", $inner_name)),
                     node: None,
                     rust_attributes: None,
-                };
+                }));
                 register.insert_type_with_name(maybe_clone!($Name, $Name), SmolStr::new(stringify!($Name)));
             )* };
         }
@@ -576,29 +660,24 @@ impl TypeRegister {
 }
 
 pub fn logical_point_type() -> Type {
-    Type::Struct {
-        fields: IntoIterator::into_iter([
-            (SmolStr::new_static("x"), Type::LogicalLength),
-            (SmolStr::new_static("y"), Type::LogicalLength),
-        ])
-        .collect(),
-        name: Some("slint::LogicalPosition".into()),
-        node: None,
-        rust_attributes: None,
-    }
+    BUILTIN.with(|types| types.logical_point_type.clone())
 }
 
 pub fn font_metrics_type() -> Type {
-    Type::Struct {
-        fields: IntoIterator::into_iter([
-            (SmolStr::new_static("ascent"), Type::LogicalLength),
-            (SmolStr::new_static("descent"), Type::LogicalLength),
-            (SmolStr::new_static("x-height"), Type::LogicalLength),
-            (SmolStr::new_static("cap-height"), Type::LogicalLength),
-        ])
-        .collect(),
-        name: Some("slint::private_api::FontMetrics".into()),
-        node: None,
-        rust_attributes: None,
-    }
+    BUILTIN.with(|types| types.font_metrics_type.clone())
+}
+
+/// The [`Type`] for a runtime LayoutInfo structure
+pub fn layout_info_type() -> Type {
+    BUILTIN.with(|types| types.layout_info_type.clone())
+}
+
+/// The [`Type`] for a runtime PathElement structure
+pub fn path_element_type() -> Type {
+    BUILTIN.with(|types| types.path_element_type.clone())
+}
+
+/// The [`Type`] for a runtime BoxLayoutCellData structure
+pub fn box_layout_cell_data_type() -> Type {
+    BUILTIN.with(|types| types.box_layout_cell_data_type.clone())
 }
