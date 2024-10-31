@@ -159,6 +159,9 @@ cpp! {{
 
             void *parent_of_popup_to_close = nullptr;
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
+                while (auto pp = dynamic_cast<const SlintWidget*>(p->parent())) {
+                    p = pp;
+                }
                 void *parent_window = p->rust_window;
                 bool inside = rect().contains(event->pos());
                 bool close_on_click = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", inside: bool as "bool"] -> bool as "bool" {
