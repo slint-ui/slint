@@ -71,6 +71,7 @@ export default defineConfig({
                     items: [
                         // Each item here is one entry in the navigation menu.
                         { label: "Introduction", slug: "guide/intro" },
+                        { label: "Live Preview", slug: "guide/preview" },
                         { label: "Basics", slug: "guide/basics" },
                         { label: "Types", slug: "guide/types" },
                     ],
@@ -121,20 +122,20 @@ export default defineConfig({
                     collapsed: true,
                     items: [
                         {
-                            label: "C++",
+                            label: "C++ ↗",
                             link: "https://docs.slint.dev/latest/docs/cpp/",
                         },
                         {
-                            label: "Python",
+                            label: "Python ↗",
                             badge: { text: "beta", variant: "caution" },
                             link: "https://pypi.org/project/slint/",
                         },
                         {
-                            label: "Rust",
+                            label: "Rust ↗",
                             link: "https://docs.slint.dev/latest/docs/rust/slint/",
                         },
                         {
-                            label: "TypeScript",
+                            label: "TypeScript ↗",
                             link: "https://docs.slint.dev/latest/docs/node/",
                         },
                     ],

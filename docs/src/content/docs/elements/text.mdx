@@ -5,9 +5,7 @@ description: Text element api.
 
 import { Aside } from '@astrojs/starlight/components';
 import SlintProperty  from '../../../components/SlintProperty.astro';
-import CodeSnippet from '../../../components/CodeSnippet.astro';
 import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
-import { Image } from 'astro:assets';
 
 
 ```slint title="test-example.slint"
@@ -43,10 +41,9 @@ of text.
 The color of the text.
 </SlintProperty>
 
-import col_img from '../../../assets/slint-logo-square-dark.webp'
 
-<CodeSnippetMD imageSrc={col_img} imageAlt='Colored text'>
-```slint {3}
+<CodeSnippetMD imagePath="/src/assets/generated/test1.png" imageAlt='Colored text'>
+```slint "color: red;"
 Text {
     text: "Hello";
     color: red;
@@ -58,8 +55,8 @@ Text {
 <SlintProperty propName="font-family" typeName="string" > 
 The name of the font family selected for rendering the text.
 
-<CodeSnippetMD imageSrc={col_img} imageAlt='font-family'>
-```slint {4}
+<CodeSnippetMD imagePath="/src/assets/generated/test2.png" imageAlt='font-family'>
+```slint 'font-family: "Arial";'
 Text {
     text: "Hello";
     color: black;

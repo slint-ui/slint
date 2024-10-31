@@ -1,18 +1,17 @@
 ---
 import "@astrojs/starlight/style/markdown.css";
-import { Code } from '@astrojs/starlight/components';
+import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
-import { extractLines, removeLeadingSpaces } from '../utils/utils.ts';
 
 interface Props {
-    imageSrc: string;
+    imagePath: string;
     imageAlt: string;
+    imageWidth: number;
+    imageHeight: number;
 }
-const { imageSrc, imageAlt } = Astro.props as Props;
-
-if (!imageSrc) {
-    console.error("No image source provided!");
-}
+const { imagePath, imageAlt, imageWidth, imageHeight } = Astro.props as Props;
+const images = import.meta.glob<{ default: ImageMetadata }>('/src/assets/generated/*.{jpeg,jpg,png,gif}')
+if (!images[imagePath]) { throw new Error(`"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`); }
 ---
 
 <div class="code-image-container">
@@ -20,7 +19,7 @@ if (!imageSrc) {
         <slot/>
     </div>
     <div class="image-block">
-        <Image src={imageSrc} alt={imageAlt} width={100} height={100} />
+        <Image src={images[imagePath]()} alt={imageAlt} />
     </div>
 </div>
 
