@@ -371,11 +371,11 @@ An `Image` can be used to represent an image loaded from a file.
 -   **`source`** (_in_ _image_): The image to load. Use the [`@image-url("...")` macro](../syntax/types.md#images) to specify the location of the image.
 -   **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (_in_ _int_): Properties in source
     image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
-    | Property             | Default Binding                 |
-    | -------------------- | ------------------------------- |
-    | `source-clip-x`      | `0`                             |
-    | `source-clip-y`      | `0`                             |
-    | `source-clip-width`  | `source.width - source-clip-x`  |
+    | Property | Default Binding |
+    |----------|---------------|
+    | `source-clip-x` | `0` |
+    | `source-clip-y` | `0` |
+    | `source-clip-width` | `source.width - source-clip-x` |
     | `source-clip-height` | `source.height - source-clip-y` |
 -   **`vertical-alignment`** (_in_ _enum [`ImageVerticalAlignment`](enums.md#imageverticalalignment)_): The vertical alignment of the image within the element.
 -   **`vertical-tiling`** (_in_ _enum [`ImageTiling`](enums.md#imagetiling)_): Whether the image should be tiled on the vertical axis.
