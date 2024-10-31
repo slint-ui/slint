@@ -155,10 +155,9 @@ impl WinitWindowOrNone {
 
     fn set_window_disabled(&self, disabled: bool) {
         match self {
-            Self::HasWindow(window) =>
-            {
+            Self::HasWindow(window) => {
                 #[cfg(target_family = "windows")]
-                window.set_enable(!disabled)
+                window.set_enable(!disabled);
             }
             Self::None(attributes) => { /* Winit doesn't have an attribute for this. */ }
         }
