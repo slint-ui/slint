@@ -1973,7 +1973,7 @@ fn generate_sub_component(
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
-                ty: ident("uint32_t"),
+                ty: ident("mutable uint32_t"),
                 name: format_smolstr!("popup_id_{}", i),
                 ..Default::default()
             }),
