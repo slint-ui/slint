@@ -1,15 +1,16 @@
 import { ExpressiveCodeTheme } from "@astrojs/starlight/expressive-code";
 import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
+import fs from "node:fs";
 
 const lightJsoncString = fs.readFileSync(
-    new URL(`src/misc/light-theme.jsonc`, import.meta.url),
+    new URL(`./src/misc/light-theme.jsonc`, import.meta.url),
     "utf-8",
 );
 const lightTheme = ExpressiveCodeTheme.fromJSONString(lightJsoncString);
 
 const darkJsoncString = fs.readFileSync(
-    new URL(`src/misc/dark-theme.jsonc`, import.meta.url),
+    new URL(`./src/misc/dark-theme.jsonc`, import.meta.url),
     "utf-8",
 );
 const darkTheme = ExpressiveCodeTheme.fromJSONString(darkJsoncString);

@@ -38,26 +38,27 @@ of text.
 ### `color`
 
 <SlintProperty propName="color" typeName="brush" defaultValue="<depends on theme>"> 
-The color of the text.
-</SlintProperty>
+    The color of the text.
 
-
-<CodeSnippetMD imagePath="/src/assets/generated/text_color.png" imageAlt='Colored text'>
-
+<CodeSnippetMD imagePath="/src/assets/generated/text-color.png" imageWidth="200" imageHeight="200" imageAlt='text color'>
 ```slint "color: red;"
 Text {
     text: "Hello";
     color: red;
+    font-size: 40px;
 }
 ```
 </CodeSnippetMD>
+</SlintProperty>
+
+
+
 
 ### `font-family`
 <SlintProperty propName="font-family" typeName="string" > 
 The name of the font family selected for rendering the text.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text_font-family.png" imageAlt='font-family'>
-
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-family.png" imageAlt='text font-family'>
 ```slint 'font-family: "Arial";'
 Text {
     text: "Hello";
@@ -78,8 +79,7 @@ Text {
 <SlintProperty propName="font-size" typeName="length"> 
 The font size of the text.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text_font-size.png" imageAlt='font-size'>
-
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-size.png" imageAlt='text font-size'>
 ```slint {4}
 Text {
     text: "Hello";
@@ -94,7 +94,7 @@ Text {
 <SlintProperty propName="font-weight" typeName="int">  
 The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text_font-weight.png" imageAlt='font-weight'>
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-weight.png" imageWidth="100" imageHeight="100" imageAlt='text font-weight'>
 
 ```slint 'font-weight: 800;'
 Text {
@@ -110,8 +110,7 @@ Text {
 <SlintProperty propName="font-italic" typeName="bool" defaultValue="false" >  
 Whether or not the font face should be drawn italicized or not.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text_font-italic.png" imageAlt='font-italic'>
-
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-italic.png" imageAlt='text font-family'>
 ```slint {4}
 Text {
     text: "Hello";
@@ -130,6 +129,15 @@ The design metrics of the font scaled to the font pixel size used by the element
 ### `horizontal-alignment`
 <SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' > 
 
+<CodeSnippetMD imagePath="/src/assets/generated/text-horizontal-alignment.png" imageAlt='text-horizontal-alignment'>
+```slint
+Text {
+    text: "Hello";
+    color: black;
+    horizontal-alignment: left;
+}
+```
+</CodeSnippetMD>
 </SlintProperty>
 
 ### `letter-spacing` 

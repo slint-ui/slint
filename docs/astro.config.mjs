@@ -5,6 +5,8 @@ import starlightLinksValidator from "starlight-links-validator";
 import rehypeMermaid from "rehype-mermaid";
 import addMermaidClass from "./src/utils/add-mermaid-classnames";
 
+
+
 // https://astro.build/config
 export default defineConfig({
     site: "https://snapshots.slint.dev/tng/",
