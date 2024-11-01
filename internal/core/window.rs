@@ -1086,11 +1086,8 @@ impl WindowInner {
         popup_id
     }
 
-    // Remove the popup at the given index from the popups vector.
-    fn close_popup_by_index(&self, popup_index: usize) {
-        let mut active_popups = self.active_popups.borrow_mut();
-        let current_popup = active_popups.get(popup_index).unwrap();
-
+    // Close the popup associated with the given popup window.
+    fn close_popup_impl(&self, current_popup: &PopupWindow) {
         match &current_popup.location {
             PopupWindowLocation::ChildWindow(offset) => {
                 // Refresh the area that was previously covered by the popup.
@@ -1110,35 +1107,31 @@ impl WindowInner {
                 let _ = adapter.set_visible(false);
             }
         }
-
-        active_popups.remove(popup_index);
     }
 
     /// Removes the popup matching the given ID.
     pub fn close_popup(&self, popup_id: u32) {
-        let maybe_index =
-            self.active_popups.borrow().iter().position(|popup| popup.popup_id == popup_id);
+        let mut active_popups = self.active_popups.borrow_mut();
+        let maybe_index = active_popups.iter().position(|popup| popup.popup_id == popup_id);
 
         if let Some(popup_index) = maybe_index {
-            self.close_popup_by_index(popup_index);
+            self.close_popup_impl(&active_popups[popup_index]);
+            active_popups.remove(popup_index);
         }
     }
 
     /// Close all active popups.
     pub fn close_all_popups(&self) {
-        for (i, _) in self.active_popups.borrow().iter().enumerate() {
-            self.close_popup_by_index(i);
+        for popup in self.active_popups.take() {
+            self.close_popup_impl(&popup);
         }
     }
 
     /// Close the top-most popup.
     pub fn close_top_popup(&self) {
-        if self.active_popups.borrow().is_empty() {
-            return;
+        if let Some(popup) = self.active_popups.borrow_mut().pop() {
+            self.close_popup_impl(&popup);
         }
-
-        let last_index = self.active_popups.borrow().len() - 1;
-        self.close_popup_by_index(last_index);
     }
 
     /// Returns the close policy of the top-most popup. PopupClosePolicy::NoAutoClose if there is no active popup.
