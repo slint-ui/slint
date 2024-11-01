@@ -293,6 +293,7 @@ function tabTitleFromURL(url: monaco.Uri | undefined): string {
 
 class EditorPaneWidget extends Widget {
     #editor: monaco.editor.IStandaloneCodeEditor;
+    #model_ref: IRefernece<ITextEditorModel>;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -306,6 +307,8 @@ class EditorPaneWidget extends Widget {
         const node = EditorPaneWidget.createNode();
 
         super({ node: node });
+
+        this.#model_ref = model_ref;
 
         this.id = model_ref.object.textEditorModel?.uri.toString() ?? "";
 
@@ -329,7 +332,8 @@ class EditorPaneWidget extends Widget {
 
     dispose() {
         this.#editor.dispose();
-        this.dispose();
+        this.#model_ref.dispose();
+        super.dispose();
     }
 
     protected get contentNode(): HTMLDivElement {
@@ -420,7 +424,7 @@ export class EditorWidget extends Widget {
         this.#url_mapper = null;
 
         if (this.#tab_panel !== null) {
-            this.#layout.removeWidget(this.#tab_panel);
+            this.#tab_panel.dispose();
         }
         this.#tab_panel = new TabPanel({ addButtonEnabled: false });
         this.#layout.addWidget(this.#tab_panel);
