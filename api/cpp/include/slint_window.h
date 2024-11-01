@@ -117,7 +117,11 @@ public:
                                                     &parent_item);
     }
 
-    void close_popup(uint32_t popup_id) const { cbindgen_private::slint_windowrc_close_popup(&inner, popup_id); }
+    void close_popup(uint32_t popup_id) const {
+        if (popup_id > 0) {
+            cbindgen_private::slint_windowrc_close_popup(&inner, popup_id);
+        }
+    }
 
     template<std::invocable<RenderingState, GraphicsAPI> F>
     std::optional<SetRenderingNotifierError> set_rendering_notifier(F callback) const

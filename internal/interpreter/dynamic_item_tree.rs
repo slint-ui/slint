@@ -42,6 +42,7 @@ use once_cell::unsync::{Lazy, OnceCell};
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 use std::{pin::Pin, rc::Rc};
 
 pub const SPECIAL_PROPERTY_INDEX: &str = "$index";
@@ -412,7 +413,7 @@ pub struct ItemTreeDescription<'id> {
     )>,
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
     /// ID of the active popup
-    popup_id: std::cell::Cell<u32>,
+    popup_id: std::cell::Cell<Option<NonZeroU32>>,
 
     /// The collection of compiled globals
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
@@ -1343,7 +1344,7 @@ pub(crate) fn generate_item_tree<'id>(
         compiled_globals,
         change_trackers,
         timers,
-        popup_id: std::cell::Cell::from(0),
+        popup_id: std::cell::Cell::from(None),
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "highlight")]
@@ -2360,19 +2361,18 @@ pub fn show_popup(
         pos_getter(instance_ref)
     };
     close_popup(instance, parent_window_adapter.clone());
-    instance.description.popup_id.replace(
+    instance.description.popup_id.set(Some(
         WindowInner::from_pub(parent_window_adapter.window()).show_popup(
             &vtable::VRc::into_dyn(inst),
             pos,
             close_policy,
             parent_item,
         ),
-    );
+    ));
 }
 
 pub fn close_popup(instance: InstanceRef, parent_window_adapter: WindowAdapterRc) {
-    let current_id = instance.description.popup_id.take();
-    if current_id > 0 {
+    if let Some(current_id) = instance.description.popup_id.take() {
         WindowInner::from_pub(parent_window_adapter.window()).close_popup(current_id);
     }
 }

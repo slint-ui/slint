@@ -28,6 +28,7 @@ use alloc::rc::{Rc, Weak};
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
+use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
 use vtable::VRcMapped;
@@ -385,7 +386,7 @@ enum PopupWindowLocation {
 /// UI content, for example to show a context menu.
 struct PopupWindow {
     /// The ID of the associated popup.
-    popup_id: u32,
+    popup_id: NonZeroU32,
     /// The location defines where the pop up is rendered.
     location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
@@ -436,7 +437,7 @@ pub struct WindowInner {
 
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
-    popup_counter: Cell<u32>,
+    next_popup_id: Cell<NonZeroU32>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
@@ -498,7 +499,7 @@ impl WindowInner {
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
-            popup_counter: Default::default(),
+            next_popup_id: Cell::new(NonZeroU32::MIN),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
@@ -983,7 +984,7 @@ impl WindowInner {
         position: Point,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-    ) -> u32 {
+    ) -> NonZeroU32 {
         let position = parent_item.map_to_window(
             parent_item.geometry().origin + LogicalPoint::from_untyped(position).to_vector(),
         );
@@ -1051,8 +1052,8 @@ impl WindowInner {
             height_property.set(size.height_length());
         };
 
-        self.popup_counter.set(self.popup_counter.get() + 1);
-        let popup_id = self.popup_counter.get();
+        let popup_id = self.next_popup_id.get();
+        self.next_popup_id.set(self.next_popup_id.get().checked_add(1).unwrap());
 
         let location = match parent_window_adapter
             .internal(crate::InternalToken)
@@ -1110,7 +1111,7 @@ impl WindowInner {
     }
 
     /// Removes the popup matching the given ID.
-    pub fn close_popup(&self, popup_id: u32) {
+    pub fn close_popup(&self, popup_id: NonZeroU32) {
         let mut active_popups = self.active_popups.borrow_mut();
         let maybe_index = active_popups.iter().position(|popup| popup.popup_id == popup_id);
 
@@ -1402,7 +1403,7 @@ pub mod ffi {
         position: crate::graphics::Point,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-    ) -> u32 {
+    ) -> NonZeroU32 {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         return WindowInner::from_pub(window_adapter.window()).show_popup(
             popup,
@@ -1411,11 +1412,12 @@ pub mod ffi {
             parent_item,
         );
     }
+
     /// Close the popup by the given ID.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_close_popup(
         handle: *const WindowAdapterRcOpaque,
-        popup_id: u32,
+        popup_id: NonZeroU32,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         WindowInner::from_pub(window_adapter.window()).close_popup(popup_id);

@@ -1119,7 +1119,7 @@ fn generate_sub_component(
         struct #inner_component_id {
             #(#item_names : sp::#item_types,)*
             #(#sub_component_names : #sub_component_types,)*
-            #(#popup_id_names : ::core::cell::Cell<u32>,)*
+            #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sp::Repeater<#repeated_element_components>,)*
@@ -2676,17 +2676,16 @@ fn compile_builtin_function_call(
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     #popup_window_id::user_init(popup_instance_vrc.clone());
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
-                    let current_id = #component_access_tokens.#popup_id_name.take();
-                    if current_id > 0 {
+                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
                     }
-                    #component_access_tokens.#popup_id_name.replace(
+                    #component_access_tokens.#popup_id_name.set(Some(
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             position,
                             #close_policy,
                             #parent_component
-                        )
+                        ))
                     );
                 })
             } else {
@@ -2709,8 +2708,7 @@ fn compile_builtin_function_call(
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 quote!(
-                    let current_id = #component_access_tokens.#popup_id_name.take();
-                    if current_id > 0 {
+                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
                     }
                 )
