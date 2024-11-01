@@ -79,7 +79,8 @@ fn main() -> Result<()> {
         let ext = e.path().extension();
         ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx"))
     }) {
-        if process_doc_file(entry.unwrap().path(), &project_root, &args).is_err() {
+        if let Err(e) = process_doc_file(entry.unwrap().path(), &project_root, &args) {
+            eprintln!("    Error: {e:?}");
             error_count += 1;
         }
     }
@@ -313,7 +314,7 @@ fn process_tag(
         project_root.join(&path[1..]).to_path_buf()
     } else {
         let Some(current_dir) = file_path.parent() else {
-            return Err("Could not find directory containing {file:?}".into());
+            return Err(format!("Could not find directory containing {file_path:?}").into());
         };
         current_dir.join(path)
     };
@@ -372,7 +373,7 @@ fn find_project_root(docs_folder: &Path) -> Result<PathBuf> {
         path = d.parent().map(|p| p.to_path_buf());
     }
 
-    Err("No project root found for doc_folder {docs_folder:?}".into())
+    Err(format!("No project root found for doc_folder {docs_folder:?}").into())
 }
 
 fn build_and_snapshot(
@@ -405,11 +406,22 @@ fn build_and_snapshot(
     component.show()?;
     let screen_dump = component.window().take_snapshot()?;
 
+    {
+        if let Some(dir) = screenshot_path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+    }
+
+    if screenshot_path.exists() {
+        return Err(format!("{screenshot_path:?} already exists, aborting").into());
+    }
+
     eprintln!(
         "    Saving image with {}x{} pixels to {screenshot_path:?}",
         screen_dump.width(),
         screen_dump.height()
     );
+
     image::save_buffer(
         screenshot_path,
         screen_dump.as_bytes(),

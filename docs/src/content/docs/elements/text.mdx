@@ -42,7 +42,8 @@ The color of the text.
 </SlintProperty>
 
 
-<CodeSnippetMD imagePath="/src/assets/generated/test1.png" imageAlt='Colored text'>
+<CodeSnippetMD imagePath="/src/assets/generated/text_color.png" imageAlt='Colored text'>
+
 ```slint "color: red;"
 Text {
     text: "Hello";
@@ -55,7 +56,8 @@ Text {
 <SlintProperty propName="font-family" typeName="string" > 
 The name of the font family selected for rendering the text.
 
-<CodeSnippetMD imagePath="/src/assets/generated/test2.png" imageAlt='font-family'>
+<CodeSnippetMD imagePath="/src/assets/generated/text_font-family.png" imageAlt='font-family'>
+
 ```slint 'font-family: "Arial";'
 Text {
     text: "Hello";
@@ -76,6 +78,8 @@ Text {
 <SlintProperty propName="font-size" typeName="length"> 
 The font size of the text.
 
+<CodeSnippetMD imagePath="/src/assets/generated/text_font-size.png" imageAlt='font-size'>
+
 ```slint {4}
 Text {
     text: "Hello";
@@ -83,13 +87,14 @@ Text {
     font-size: 2rem;
 }
 ```
+</CodeSnippetMD>
 </SlintProperty>
 
 ### `font-weight`
 <SlintProperty propName="font-weight" typeName="int">  
 The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 
-<CodeSnippetMD imagePath="/src/assets/generated/test2.png" imageWidth="100" imageHeight="100" imageAlt='font-family'>
+<CodeSnippetMD imagePath="/src/assets/generated/text_font-weight.png" imageAlt='font-weight'>
 
 ```slint 'font-weight: 800;'
 Text {
@@ -99,12 +104,13 @@ Text {
 }
 ```
 </CodeSnippetMD>
-
 </SlintProperty>
 
 ### `font-italic` 
 <SlintProperty propName="font-italic" typeName="bool" defaultValue="false" >  
 Whether or not the font face should be drawn italicized or not.
+
+<CodeSnippetMD imagePath="/src/assets/generated/text_font-italic.png" imageAlt='font-italic'>
 
 ```slint {4}
 Text {
@@ -113,6 +119,7 @@ Text {
     font-italic: true;
 }
 ```
+</CodeSnippetMD>
 </SlintProperty>
 
 ### `font-metrics`
@@ -143,6 +150,10 @@ The text rendered.
 
 ### `wrap` 
 <SlintProperty propName="wrap" typeName="enum" enumName="TextWrap">
+
+
+<CodeSnippetMD imagePath="/src/assets/generated/text_wrap.png" imageAlt='wrap'>
+
 ```slint {3}
 Text {
     text: "This paragraph breaks into multiple lines of text";
@@ -150,6 +161,7 @@ Text {
     width: 150px;
 }
 ```
+</CodeSnippetMD>
 </SlintProperty>
 
 ### `stroke`
@@ -164,18 +176,23 @@ The width of the text outline. If the width is zero, then a hairline stroke (1 p
 
 ###  `stroke-style`
 <SlintProperty propName="stroke-style" typeName="enum" enumName="TextStrokeStyle">
+<CodeSnippetMD imagePath="/src/assets/generated/text_stroke-style.png" imageAlt='stroke-style'>
+
 ```slint {3}
 Text {
     text: "Hello";
     stroke-style: center;
 }
 ```
+</CodeSnippetMD>
 </SlintProperty>
 
 ## Rotation
 
 Rotates the text by the given angle around the specified origin point. The default origin point is the center of the element.
 When these properties are set, the `Text` can't have children.
+
+<CodeSnippetMD imagePath="/src/assets/generated/text_rotation.png" imageAlt='rotation properties'>
 
 ```slint {5-7}
 Text {
@@ -188,11 +205,14 @@ Text {
     font-size: 20pt;
 }
 ```
+</CodeSnippetMD>
 
 ### `rotation-angle`
 <SlintProperty propName="rotation-angle" typeName="angle"/>
+
 ### `rotation-origin-x`
 <SlintProperty propName="rotation-origin-x" typeName="length"/>
+
 ### `rotation-origin-y`
 <SlintProperty propName="rotation-origin-y" typeName="length"/>
 

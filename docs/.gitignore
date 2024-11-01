@@ -19,7 +19,11 @@ pnpm-debug.log*
 
 # macOS-specific files
 .DS_Store
+
+# More to ignore
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/src/assets/generated/
+
