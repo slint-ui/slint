@@ -6,7 +6,7 @@ use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::model::{Model, ModelExt, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
 use i_slint_core::{PathData, SharedVector};
@@ -429,6 +429,32 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalLength, Self::Error> {
         match v {
             Value::Number(n) => Ok(i_slint_core::lengths::LogicalLength::new(n as _)),
+            _ => Err(v),
+        }
+    }
+}
+
+impl<T: Into<Value> + 'static> From<ModelRc<T>> for Value {
+    fn from(m: ModelRc<T>) -> Self {
+        if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<Value>>(&m) {
+            Value::Model(v.clone())
+        } else {
+            Value::Model(ModelRc::new(m.map(|v| v.into())))
+        }
+    }
+}
+impl<T: TryFrom<Value> + Default + 'static> TryFrom<Value> for ModelRc<T> {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<ModelRc<T>, Self::Error> {
+        match v {
+            Value::Model(m) => {
+                if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<T>>(&m) {
+                    Ok(v.clone())
+                } else {
+                    Ok(ModelRc::new(m.map(|v| T::try_from(v).unwrap_or_default())))
+                }
+            }
             _ => Err(v),
         }
     }
