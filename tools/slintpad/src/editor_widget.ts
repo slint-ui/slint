@@ -48,9 +48,7 @@ export function initialize(): Promise<void> {
                     ...getConfigurationServiceOverride(),
                     ...getEditorServiceOverride(
                         (model, _input, _side_by_side) => {
-                            return Promise.resolve(
-                                EDITOR_WIDGET!.open_model_ref(model),
-                            );
+                            return EDITOR_WIDGET!.open_model_ref(model);
                         },
                     ),
                     ...getKeybindingsServiceOverride(),
@@ -390,12 +388,7 @@ export class EditorWidget extends Widget {
 
         this.clear_editors();
 
-        this.open_default_content().then((uri) => {
-            this.#client?.sendRequest("workspace/executeCommand", {
-                command: "slint/showPreview",
-                arguments: [uri?.toString() ?? "", ""],
-            });
-        });
+        this.open_default_content();
     }
 
     private async open_default_content() {
@@ -451,9 +444,9 @@ export class EditorWidget extends Widget {
             .then((model_ref) => this.open_model_ref(model_ref));
     }
 
-    public open_model_ref(
+    public async open_model_ref(
         model_ref: IReference<ITextEditorModel>,
-    ): IStandaloneCodeEditor {
+    ): Promise<IStandaloneCodeEditor> {
         const pane = new EditorPaneWidget(model_ref);
         this.#tab_map.set(
             model_ref.object.textEditorModel?.uri ??
@@ -462,7 +455,17 @@ export class EditorWidget extends Widget {
         );
         this.#tab_panel!.addWidget(pane);
 
-        return pane.editor;
+        if (this.#tab_map.size === 1) {
+            await this.#client?.sendRequest("workspace/executeCommand", {
+                command: "slint/showPreview",
+                arguments: [
+                    model_ref.object.textEditorModel?.uri.toString() ?? "",
+                    "",
+                ],
+            });
+        }
+
+        return Promise.resolve(pane.editor);
     }
 
     public async map_url(url_: string): Promise<string | undefined> {
