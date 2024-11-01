@@ -6,10 +6,7 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::Weak;
 
-use accesskit::{
-    Action, ActionRequest, DefaultActionVerb, Node, NodeBuilder, NodeId, Role, Toggled, Tree,
-    TreeUpdate,
-};
+use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeUpdate};
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -110,7 +107,7 @@ impl AccessKitAdapter {
     fn handle_request(&self, request: ActionRequest) {
         let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return };
         let a = match request.action {
-            Action::Default => AccessibilityAction::Default,
+            Action::Click => AccessibilityAction::Default,
             Action::Focus => {
                 if let Some(item) = self.nodes.item_rc_for_node_id(request.target) {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(&item, true);
@@ -184,12 +181,9 @@ impl AccessKitAdapter {
                         let scale_factor = ScaleFactor::new(window.scale_factor());
                         let item = self.nodes.item_rc_for_node_id(cached_node.id)?;
 
-                        let mut builder =
-                            self.nodes.build_node_without_children(&item, scale_factor);
+                        let mut node = self.nodes.build_node_without_children(&item, scale_factor);
 
-                        builder.set_children(cached_node.children.clone());
-
-                        let node = builder.build();
+                        node.set_children(cached_node.children.clone());
 
                         Some((cached_node.id, node))
                     })?
@@ -300,14 +294,14 @@ impl NodeCollection {
     ) -> NodeId {
         let tracker = Box::pin(PropertyTracker::default());
 
-        let mut builder =
+        let mut node =
             tracker.as_ref().evaluate(|| self.build_node_without_children(&item, scale_factor));
 
         let children = i_slint_core::accessibility::accessible_descendents(&item)
             .map(|child| self.build_node_for_item_recursively(child, nodes, scale_factor))
             .collect::<Vec<NodeId>>();
 
-        builder.set_children(children.clone());
+        node.set_children(children.clone());
 
         let component = item.item_tree();
         let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
@@ -320,7 +314,6 @@ impl NodeCollection {
 
         let id = self.encode_item_node_id(&item).unwrap();
         self.all_nodes.push(CachedNode { id, children, tracker });
-        let node = builder.build();
 
         nodes.push((id, node));
 
@@ -363,7 +356,7 @@ impl NodeCollection {
         }
     }
 
-    fn build_node_without_children(&self, item: &ItemRc, scale_factor: ScaleFactor) -> NodeBuilder {
+    fn build_node_without_children(&self, item: &ItemRc, scale_factor: ScaleFactor) -> Node {
         let is_checkable = item
             .accessible_string_property(AccessibleStringProperty::Checkable)
             .is_some_and(|x| x == "true");
@@ -400,24 +393,28 @@ impl NodeCollection {
             )
         };
 
-        let mut builder = NodeBuilder::new(role);
+        let mut node = Node::new(role);
 
         if let Some(label) = label {
-            builder.set_name(label);
+            if role == Role::Label {
+                node.set_value(label);
+            } else {
+                node.set_label(label);
+            }
         }
 
         if item
             .accessible_string_property(AccessibleStringProperty::Enabled)
             .is_some_and(|x| x != "true")
         {
-            builder.set_disabled();
+            node.set_disabled();
         }
 
         let geometry = item.geometry();
         let absolute_origin = item.map_to_window(geometry.origin);
         let physical_origin = (absolute_origin * scale_factor).cast::<f64>();
         let physical_size = (geometry.size * scale_factor).cast::<f64>();
-        builder.set_bounds(accesskit::Rect {
+        node.set_bounds(accesskit::Rect {
             x0: physical_origin.x,
             y0: physical_origin.y,
             x1: physical_origin.x + physical_size.width,
@@ -429,13 +426,13 @@ impl NodeCollection {
                 .accessible_string_property(AccessibleStringProperty::Checked)
                 .is_some_and(|x| x == "true");
         if is_checkable {
-            builder.set_toggled(if is_checked { Toggled::True } else { Toggled::False });
+            node.set_toggled(if is_checked { Toggled::True } else { Toggled::False });
         }
 
         if let Some(description) =
             item.accessible_string_property(AccessibleStringProperty::Description)
         {
-            builder.set_description(description.to_string());
+            node.set_description(description.to_string());
         }
 
         if matches!(
@@ -448,33 +445,33 @@ impl NodeCollection {
                 | Role::SpinButton
                 | Role::Tab
         ) {
-            builder.add_action(Action::Focus);
+            node.add_action(Action::Focus);
         }
 
         if let Some(min) = item
             .accessible_string_property(AccessibleStringProperty::ValueMinimum)
             .and_then(|min| min.parse().ok())
         {
-            builder.set_min_numeric_value(min);
+            node.set_min_numeric_value(min);
         }
         if let Some(max) = item
             .accessible_string_property(AccessibleStringProperty::ValueMaximum)
             .and_then(|max| max.parse().ok())
         {
-            builder.set_max_numeric_value(max);
+            node.set_max_numeric_value(max);
         }
         if let Some(step) = item
             .accessible_string_property(AccessibleStringProperty::ValueStep)
             .and_then(|step| step.parse().ok())
         {
-            builder.set_numeric_value_step(step);
+            node.set_numeric_value_step(step);
         }
 
         if let Some(value) = item.accessible_string_property(AccessibleStringProperty::Value) {
             if let Ok(value) = value.parse() {
-                builder.set_numeric_value(value);
+                node.set_numeric_value(value);
             } else {
-                builder.set_value(value.to_string());
+                node.set_value(value.to_string());
             }
         }
 
@@ -482,14 +479,14 @@ impl NodeCollection {
             .accessible_string_property(AccessibleStringProperty::PlaceholderText)
             .filter(|x| !x.is_empty())
         {
-            builder.set_placeholder(placeholder.to_string());
+            node.set_placeholder(placeholder.to_string());
         }
 
         if item
             .accessible_string_property(AccessibleStringProperty::Selectable)
             .is_some_and(|x| x == "true")
         {
-            builder.set_selected(
+            node.set_selected(
                 item.accessible_string_property(AccessibleStringProperty::Selected)
                     .is_some_and(|x| x == "true"),
             );
@@ -499,52 +496,33 @@ impl NodeCollection {
             .accessible_string_property(AccessibleStringProperty::PositionInSet)
             .and_then(|s| s.parse::<usize>().ok())
         {
-            builder.set_position_in_set(position_in_set);
+            node.set_position_in_set(position_in_set);
         }
         if let Some(size_of_set) = item
             .accessible_string_property(AccessibleStringProperty::SizeOfSet)
             .and_then(|s| s.parse::<usize>().ok())
         {
-            builder.set_size_of_set(size_of_set);
+            node.set_size_of_set(size_of_set);
         }
 
         let supported = item.supported_accessibility_actions();
         if supported.contains(SupportedAccessibilityAction::Default) {
-            builder.add_action(accesskit::Action::Default);
-            builder.set_default_action_verb(if is_checked {
-                DefaultActionVerb::Uncheck
-            } else if is_checkable {
-                DefaultActionVerb::Check
-            } else {
-                DefaultActionVerb::Click
-            });
+            node.add_action(accesskit::Action::Click);
         }
         if supported.contains(SupportedAccessibilityAction::Decrement) {
-            builder.add_action(accesskit::Action::Decrement);
-            if builder.default_action_verb().is_none() {
-                builder.set_default_action_verb(DefaultActionVerb::Click);
-            }
+            node.add_action(accesskit::Action::Decrement);
         }
         if supported.contains(SupportedAccessibilityAction::Increment) {
-            builder.add_action(accesskit::Action::Increment);
-            if builder.default_action_verb().is_none() {
-                builder.set_default_action_verb(DefaultActionVerb::Click);
-            }
+            node.add_action(accesskit::Action::Increment);
         }
         if supported.contains(SupportedAccessibilityAction::SetValue) {
-            builder.add_action(accesskit::Action::SetValue);
-            if builder.default_action_verb().is_none() {
-                builder.set_default_action_verb(DefaultActionVerb::Focus);
-            }
+            node.add_action(accesskit::Action::SetValue);
         }
         if supported.contains(SupportedAccessibilityAction::ReplaceSelectedText) {
-            builder.add_action(accesskit::Action::ReplaceSelectedText);
-            if builder.default_action_verb().is_none() {
-                builder.set_default_action_verb(DefaultActionVerb::Focus);
-            }
+            node.add_action(accesskit::Action::ReplaceSelectedText);
         }
 
-        builder
+        node
     }
 }
 
