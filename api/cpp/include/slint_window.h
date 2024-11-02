@@ -114,7 +114,7 @@ public:
         cbindgen_private::Point p = pos(popup);
         auto popup_dyn = popup.into_dyn();
         return cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
-                                                            &parent_item);
+                                                           &parent_item);
     }
 
     void close_popup(uint32_t popup_id) const
