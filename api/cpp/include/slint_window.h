@@ -107,17 +107,18 @@ public:
 
     template<typename Component, typename Parent, typename PosGetter>
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
-                    cbindgen_private::PopupClosePolicy close_policy,
-                    cbindgen_private::ItemRc parent_item) const
+                        cbindgen_private::PopupClosePolicy close_policy,
+                        cbindgen_private::ItemRc parent_item) const
     {
         auto popup = Component::create(parent_component);
         cbindgen_private::Point p = pos(popup);
         auto popup_dyn = popup.into_dyn();
         return cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
-                                                    &parent_item);
+                                                            &parent_item);
     }
 
-    void close_popup(uint32_t popup_id) const {
+    void close_popup(uint32_t popup_id) const
+    {
         if (popup_id > 0) {
             cbindgen_private::slint_windowrc_close_popup(&inner, popup_id);
         }
