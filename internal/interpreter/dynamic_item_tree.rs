@@ -412,8 +412,8 @@ pub struct ItemTreeDescription<'id> {
         Vec<(NamedReference, Expression)>,
     )>,
     timers: Vec<FieldOffset<Instance<'id>, Timer>>,
-    /// ID of the active popup
-    popup_id: std::cell::Cell<Option<NonZeroU32>>,
+    /// Map of element IDs to their active popup's ID
+    popup_ids: std::cell::RefCell<HashMap<SmolStr, NonZeroU32>>,
 
     /// The collection of compiled globals
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
@@ -1344,7 +1344,7 @@ pub(crate) fn generate_item_tree<'id>(
         compiled_globals,
         change_trackers,
         timers,
-        popup_id: std::cell::Cell::from(None),
+        popup_ids: std::cell::RefCell::new(HashMap::new()),
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "highlight")]
@@ -2334,6 +2334,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
 /// Show the popup at the given location
 pub fn show_popup(
+    element: ElementRc,
     instance: InstanceRef,
     popup: &object_tree::PopupWindow,
     pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> i_slint_core::graphics::Point,
@@ -2360,19 +2361,26 @@ pub fn show_popup(
         let instance_ref = compo_box.borrow_instance();
         pos_getter(instance_ref)
     };
-    close_popup(instance, parent_window_adapter.clone());
-    instance.description.popup_id.set(Some(
+    close_popup(element.clone(), instance, parent_window_adapter.clone());
+    instance.description.popup_ids.borrow_mut().insert(
+        element.borrow().id.clone(),
         WindowInner::from_pub(parent_window_adapter.window()).show_popup(
             &vtable::VRc::into_dyn(inst),
             pos,
             close_policy,
             parent_item,
         ),
-    ));
+    );
 }
 
-pub fn close_popup(instance: InstanceRef, parent_window_adapter: WindowAdapterRc) {
-    if let Some(current_id) = instance.description.popup_id.take() {
+pub fn close_popup(
+    element: ElementRc,
+    instance: InstanceRef,
+    parent_window_adapter: WindowAdapterRc,
+) {
+    if let Some(current_id) =
+        instance.description.popup_ids.borrow_mut().remove(&element.borrow().id)
+    {
         WindowInner::from_pub(parent_window_adapter.window()).close_popup(current_id);
     }
 }

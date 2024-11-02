@@ -614,6 +614,7 @@ fn call_builtin_function(
                 .expect("Invalid internal enumeration representation for close policy");
 
                 crate::dynamic_item_tree::show_popup(
+                    popup_window,
                     component,
                     popup,
                     |instance_ref| {
@@ -645,9 +646,18 @@ fn call_builtin_function(
                 }
             };
 
-            crate::dynamic_item_tree::close_popup(component, component.window_adapter());
+            if let Expression::ElementReference(popup_window) = &arguments[0] {
+                let popup_window = popup_window.upgrade().unwrap();
+                crate::dynamic_item_tree::close_popup(
+                    popup_window,
+                    component,
+                    component.window_adapter(),
+                );
 
-            Value::Void
+                Value::Void
+            } else {
+                panic!("internal error: argument to ClosePopupWindow must be an element")
+            }
         }
         BuiltinFunction::SetSelectionOffsets => {
             if arguments.len() != 3 {
