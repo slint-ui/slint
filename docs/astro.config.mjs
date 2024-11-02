@@ -5,8 +5,6 @@ import starlightLinksValidator from "starlight-links-validator";
 import rehypeMermaid from "rehype-mermaid";
 import addMermaidClass from "./src/utils/add-mermaid-classnames";
 
-
-
 // https://astro.build/config
 export default defineConfig({
     site: "https://snapshots.slint.dev/tng/",
@@ -16,7 +14,11 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Slint Language Docs",
+            title: "",
+            logo: {
+                light: "./src/assets/slint-logo-simple-light.webp",
+                dark: "./src/assets/slint-logo-simple-dark.webp",
+            },
             customCss: ["./src/styles/custom.css"],
             plugins: [
                 starlightLinksValidator({
@@ -49,6 +51,11 @@ export default defineConfig({
                         { label: "Basics", slug: "guide/basics" },
                         { label: "Types", slug: "guide/types" },
                     ],
+                },
+                {
+                    label: "Elements Reference",
+                    collapsed: true,
+                    autogenerate: { directory: "elements" },
                 },
                 {
                     label: "Tutorial",
@@ -85,12 +92,6 @@ export default defineConfig({
                         { label: "Conclusion", slug: "tutorial/conclusion" },
                     ],
                 },
-                {
-                    label: "Elements",
-                    collapsed: true,
-                    autogenerate: { directory: "elements" },
-                },
-
                 {
                     label: "Native API",
                     collapsed: true,
