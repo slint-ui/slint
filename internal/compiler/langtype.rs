@@ -157,7 +157,12 @@ impl Display for Type {
             Type::Array(t) => write!(f, "[{}]", t),
             Type::Struct(t) => {
                 if let Some(name) = &t.name {
-                    write!(f, "{}", name)
+                    if let Some(separator_pos) = name.rfind("::") {
+                        // write the slint type and not the native type
+                        write!(f, "{}", &name[separator_pos + 2..])
+                    } else {
+                        write!(f, "{}", name)
+                    }
                 } else {
                     write!(f, "{{ ")?;
                     for (k, v) in &t.fields {
