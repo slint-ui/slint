@@ -6,6 +6,7 @@
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{Function, Type};
 use i_slint_compiler::object_tree::PropertyVisibility;
+use i_slint_compiler::parser::syntax_nodes;
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::{SmolStr, ToSmolStr};
@@ -19,11 +20,17 @@ struct PropertyInfo {
     ty: Type,
     vis: PropertyVisibility,
     pure: bool,
+    /// For a function or callback: the names of the arguments
+    arg_names: Vec<SmolStr>,
 }
 
 impl Display for PropertyInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}{:?}", self.ty, if self.pure { "pure-" } else { "" }, self.vis)
+        write!(f, "{}/{}{:?}", self.ty, if self.pure { "pure-" } else { "" }, self.vis)?;
+        if !self.arg_names.is_empty() {
+            write!(f, "{:?}", self.arg_names)?
+        }
+        Ok(())
     }
 }
 
@@ -55,6 +62,29 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                             ty: v.property_type.clone(),
                             vis: v.visibility,
                             pure: v.pure.unwrap_or(false),
+                            arg_names: v
+                                .node
+                                .as_ref()
+                                .map(|n| {
+                                    if let Some(n) =
+                                        syntax_nodes::CallbackDeclaration::new(n.clone())
+                                    {
+                                        n.CallbackDeclarationParameter()
+                                            .map(|p| {
+                                                p.DeclaredIdentifier()
+                                                    .map(|p| p.text().to_smolstr())
+                                                    .unwrap_or_default()
+                                            })
+                                            .collect()
+                                    } else if let Some(n) = syntax_nodes::Function::new(n.clone()) {
+                                        n.ArgumentDeclaration()
+                                            .map(|p| p.DeclaredIdentifier().to_smolstr())
+                                            .collect()
+                                    } else {
+                                        vec![]
+                                    }
+                                })
+                                .unwrap_or_default(),
                         },
                     )
                 }),
@@ -89,6 +119,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                                 ty: v.ty.clone(),
                                 vis: v.property_visibility,
                                 pure: false,
+                                arg_names: vec![],
                             },
                         )
                     }),
@@ -104,6 +135,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                             })),
                             vis: PropertyVisibility::Public,
                             pure: false,
+                            arg_names: vec![],
                         },
                     );
                     result.properties.insert(
@@ -115,6 +147,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                             })),
                             vis: PropertyVisibility::Public,
                             pure: false,
+                            arg_names: vec![],
                         },
                     );
                 }

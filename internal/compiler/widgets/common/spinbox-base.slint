@@ -15,7 +15,7 @@ export component SpinBoxBase {
     out property <bool> has-focus <=> text-input.has-focus;
     in-out property <int> value: minimum;
 
-    callback edited(/* value */ int);
+    callback edited(value: int);
 
     public function update-value(value: int) {
         if root.value == value || (value >= root.minimum && value <= root.maximum) {
@@ -43,7 +43,7 @@ export component SpinBoxBase {
     function set-text-to-value() {
         text-input.text = root.value;
     }
-    
+
     TouchArea {
         enabled: root.enabled;
 

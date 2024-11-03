@@ -12,8 +12,8 @@ component StandardListViewBase inherits ListView {
     in property <[StandardListViewItem]> model;
     in-out property <int> current-item: -1;
 
-    callback current-item-changed(/* current-item */ int);
-    callback item-pointer-event(/* item-index */ int, /* event */ PointerEvent,  /* absolute mouse position */ Point);
+    callback current-item-changed(current-item: int);
+    callback item-pointer-event(item-index: int, event: PointerEvent, absolute-mouse-position: Point);
 
     public function set-current-item(index: int) {
         if index < 0 || index >= model.length || index == root.current-item {

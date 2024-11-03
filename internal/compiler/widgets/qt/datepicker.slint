@@ -17,7 +17,7 @@ export component DatePickerPopup inherits PopupWindow  {
     property <brush> state-secondary: Palette.color-scheme == ColorScheme.dark ? #000000 : #ffffff;
 
     callback canceled();
-    callback accepted(/* current-date */ Date);
+    callback accepted(current-date: Date);
 
     width: 360px;
     height: 524px;

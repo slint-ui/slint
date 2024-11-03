@@ -6,14 +6,14 @@ import { TextButton } from "./button.slint";
 import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 
 import { Date, DatePickerBase } from "../common/datepicker_base.slint";
-export { Date } 
+export { Date }
 
 export component DatePickerPopup inherits PopupWindow {
     in property <string> title: "Select date";
     in property <Date> date <=> base.date;
 
     callback canceled();
-    callback accepted(/* current-date */ Date);
+    callback accepted(current-date: Date);
 
     width: 360px;
     height: 524px;
@@ -26,9 +26,9 @@ export component DatePickerPopup inherits PopupWindow {
         border-radius: 28px;
     }
 
-    dialog := Dialog {    
+    dialog := Dialog {
         padding: 8px;
-        
+
         base := DatePickerBase {
             title: root.title;
             style: {
@@ -58,12 +58,12 @@ export component DatePickerPopup inherits PopupWindow {
                 current-day-style: {
                     font-size: MaterialFontSettings.headline-large.font-size,
                     font-weight: MaterialFontSettings.headline-large.font-weight,
-                    foreground: MaterialPalette.foreground,  
+                    foreground: MaterialPalette.foreground,
                 },
                 title-style: {
                     font-size: MaterialFontSettings.label-medium.font-size,
                     font-weight: MaterialFontSettings.label-medium.font-weight,
-                    foreground: MaterialPalette.foreground,  
+                    foreground: MaterialPalette.foreground,
                 },
                 previous-icon: Icons.arrow-back,
                 next-icon: Icons.arrow-forward,
@@ -76,10 +76,10 @@ export component DatePickerPopup inherits PopupWindow {
                     icon-size: 10px,
                     font-size: MaterialFontSettings.label-large.font-size,
                     font-weight: MaterialFontSettings.label-large.font-weight
-                } 
+                }
             };
         }
-        
+
         TextButton {
             text: @tr("Cancel");
             dialog-button-role: reject;
