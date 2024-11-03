@@ -3,8 +3,9 @@
 
 use super::token_info::TokenInfo;
 use crate::common::DocumentCache;
-use i_slint_compiler::langtype::{ElementType, PropertyLookupResult, Type};
-use i_slint_compiler::parser::SyntaxToken;
+use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;
 use lsp_types::{Hover, HoverContents, MarkupContent};
 
@@ -34,41 +35,85 @@ pub fn get_tooltip(document_cache: &mut DocumentCache, token: SyntaxToken) -> Op
                 from_slint_code(&format!("{} := {} {{ /*...*/ }}", e.id, e.base_type))
             }
         }
-        TokenInfo::NamedReference(nr) => {
-            let prop_info = nr.element().borrow().lookup_property(nr.name());
-            from_prop_result(prop_info)?
-        }
+        TokenInfo::NamedReference(nr) => from_property_in_element(&nr.element(), nr.name())?,
         TokenInfo::EnumerationValue(v) => from_slint_code(&format!("{}.{}", v.enumeration.name, v)),
         TokenInfo::FileName(_) => return None,
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) => return None,
-        TokenInfo::IncompleteNamedReference(el, name) => {
-            let prop_info = el.lookup_property(&name);
-            from_prop_result(prop_info)?
-        }
+        TokenInfo::IncompleteNamedReference(el, name) => from_property_in_type(&el, &name)?,
     };
 
     Some(Hover { contents: HoverContents::Markup(contents), range: None })
 }
 
-fn from_prop_result(prop_info: PropertyLookupResult) -> Option<MarkupContent> {
+fn from_property_in_element(element: &ElementRc, name: &str) -> Option<MarkupContent> {
+    if let Some(decl) = element.borrow().property_declarations.get(name) {
+        return property_tooltip(
+            &decl.property_type,
+            decl.node.as_ref(),
+            name,
+            decl.pure.unwrap_or(false),
+        );
+    }
+    from_property_in_type(&element.borrow().base_type, name)
+}
+
+fn from_property_in_type(base: &ElementType, name: &str) -> Option<MarkupContent> {
+    match base {
+        ElementType::Component(c) => from_property_in_element(&c.root_element, name),
+        ElementType::Builtin(b) => {
+            let resolved_name = b.native_class.lookup_alias(name).unwrap_or(name);
+            let info = b.properties.get(resolved_name)?;
+            property_tooltip(&info.ty, None, name, false)
+        }
+        _ => None,
+    }
+}
+
+fn property_tooltip(
+    ty: &Type,
+    node: Option<&SyntaxNode>,
+    name: &str,
+    pure: bool,
+) -> Option<MarkupContent> {
+    let pure = if pure { "pure " } else { "" };
     let ret_ty =
         |ty: &Type| if matches!(ty, Type::Void) { String::new() } else { format!(" -> {}", ty) };
-
-    let pure = if prop_info.declared_pure.is_some_and(|x| x) { "pure " } else { "" };
-    if let Type::Callback(callback) = &prop_info.property_type {
+    if let Type::Callback(callback) = ty {
         let ret = ret_ty(&callback.return_type);
-        let args = callback.args.iter().map(|x| x.to_string()).join(", ");
-        Some(from_slint_code(&format!("{pure}callback {}({args}){ret}", prop_info.resolved_name)))
-    } else if let Type::Function(function) = &prop_info.property_type {
+        let args =
+            if let Some(node) = node.cloned().and_then(syntax_nodes::CallbackDeclaration::new) {
+                callback
+                    .args
+                    .iter()
+                    .zip(node.CallbackDeclarationParameter())
+                    .map(|(ty, n)| {
+                        if let Some(id) = n.DeclaredIdentifier() {
+                            format!("{}: {ty}", id.text())
+                        } else {
+                            ty.to_string()
+                        }
+                    })
+                    .join(", ")
+            } else {
+                callback.args.iter().map(|x| x.to_string()).join(", ")
+            };
+        Some(from_slint_code(&format!("{pure}callback {name}({args}){ret}")))
+    } else if let Type::Function(function) = &ty {
         let ret = ret_ty(&function.return_type);
-        let args = function.args.iter().map(|x| x.to_string()).join(", ");
-        Some(from_slint_code(&format!("{pure}function {}({args}){ret}", prop_info.resolved_name)))
-    } else if prop_info.property_type.is_property_type() {
-        Some(from_slint_code(&format!(
-            "property <{}> {}",
-            prop_info.property_type, prop_info.resolved_name
-        )))
+        let args = if let Some(node) = node.cloned().and_then(syntax_nodes::Function::new) {
+            function
+                .args
+                .iter()
+                .zip(node.ArgumentDeclaration())
+                .map(|(ty, n)| format!("{}: {ty}", n.DeclaredIdentifier().text()))
+                .join(", ")
+        } else {
+            function.args.iter().map(|x| x.to_string()).join(", ")
+        };
+        Some(from_slint_code(&format!("{pure}function {name}({args}){ret}")))
+    } else if ty.is_property_type() {
+        Some(from_slint_code(&format!("property <{ty}> {name}")))
     } else {
         None
     }
@@ -94,6 +139,7 @@ mod tests {
     #[test]
     fn test_tooltip() {
         let source = r#"
+import { StandardTableView } from "std-widgets.slint";
 global Glob {
   in-out property <{a:int,b:float}> hello_world;
   callback cb(string, int) -> [int];
@@ -123,6 +169,9 @@ export component Test {
   Rectangle {
     background: red;
     border-color: self.background;
+  }
+  StandardTableView {
+    row-pointer-event => { }
   }
 }"#;
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
@@ -185,8 +234,13 @@ export component Test {
             "```slint\ncallback cb(string, int) -> [int]\n```",
         );
         assert_tooltip(
+            get_tooltip(&mut dc, find_tk("row-pointer-event", 0.into())),
+            // Fixme: this uses LogicalPoint instead of Point because of implementation details
+            "```slint\ncallback row-pointer-event(row-index: int, event: PointerEvent, mouse-position: LogicalPosition)\n```",
+        );
+        assert_tooltip(
             get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 1.into())),
-            "```slint\npure function fn-glob(int)\n```",
+            "```slint\npure function fn-glob(abc: int)\n```",
         );
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("root.fn_loc", 8.into())),
