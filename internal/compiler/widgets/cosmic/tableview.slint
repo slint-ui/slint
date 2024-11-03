@@ -94,7 +94,8 @@ component TableViewRow inherits Rectangle {
     in property <bool> even;
 
     callback clicked <=> touch-area.clicked;
-    callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point);
+    callback pointer-event(event: PointerEvent, absolute-mouse-position: Point);
+
 
     min-width: layout.min-width;
     min-height: max(24px, layout.min-height);
@@ -128,10 +129,10 @@ export component StandardTableView {
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
 
-    callback sort-ascending(/* column-index */ int);
-    callback sort-descending(/* column-index */ int);
-    callback row-pointer-event(/* row-index */ int, /* event */ PointerEvent,  /* absolute mouse position */ Point);
-    callback current-row-changed(/* current-row */ int);
+    callback sort-ascending(column-index: int);
+    callback sort-descending(column-index: int);
+    callback row-pointer-event(row-index: int, event: PointerEvent, mouse-position: Point);
+    callback current-row-changed(current-row: int);
 
     public function set-current-row(index: int) {
         if (index < 0 || index >= rows.length) {

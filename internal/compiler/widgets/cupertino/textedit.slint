@@ -77,8 +77,8 @@ export component TextEdit {
     in-out property <length> viewport-height <=> scroll-view.viewport-height;
     in property <string> placeholder-text;
 
-    callback edited(/* text */ string);
-    callback rejected(/* text */ string);
+    callback edited <=> text-input.edited-with-text;
+    callback rejected <=> text-input.rejected-with-text;
 
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
@@ -155,12 +155,15 @@ export component TextEdit {
             single-line: false;
             wrap: word-wrap;
 
+            // The other style use an alias to the TextEditBase, and for consistency we also need to use an alias
+            callback edited-with-text(text: string);
             edited => {
-                root.edited(self.text);
+                edited-with-text(self.text);
             }
 
+            callback rejected-with-text(text: string);
             rejected => {
-                root.rejected(self.text);
+                rejected-with-text(self.text);
             }
 
             cursor-position-changed(cpos) => {

@@ -138,7 +138,7 @@ export component Calendar {
     in property <int> display-month;
     in property <int> display-year;
 
-    callback select-date(/* date */ Date);
+    callback select-date(date: Date);
 
     // header
     for day[index] in root.header-model : CalendarHeaderDelegate {
@@ -201,7 +201,7 @@ component YearSelection {
     in property <int> selected-year;
     in property <int> today-year;
 
-    callback select-year(/* year */ int);
+    callback select-year(year: int);
 
     property <length> row-height: root.height / root.visible-row-count;
     property <int> row-count: root.model.length / root.column-count;
@@ -311,7 +311,7 @@ export component DatePickerBase {
 
     content-layer := VerticalLayout {
         spacing: root.style.vertical-spacing;
-        
+
         Text {
             text: root.title;
             horizontal-alignment: left;
@@ -351,7 +351,7 @@ export component DatePickerBase {
 
         if root.selection-mode : HorizontalLayout {
             spacing: root.style.horizontal-spacing;
-            
+
             VerticalLayout {
                 horizontal-stretch: 0;
                 alignment: center;
@@ -387,9 +387,9 @@ export component DatePickerBase {
             }
         }
 
-        if root.selection-mode : VerticalLayout {        
+        if root.selection-mode : VerticalLayout {
             spacing: root.style.vertical-spacing;
-            
+
             if !root.year-selection : Calendar {
                 min-width: root.calendar-min-width;
                 min-height: root.calendar-min-height;

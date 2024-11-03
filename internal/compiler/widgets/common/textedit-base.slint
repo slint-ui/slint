@@ -28,8 +28,8 @@ export component TextEditBase inherits Rectangle {
     in property <string> placeholder-text;
     in property <brush> placeholder-color;
 
-    callback edited(/* text */ string);
-    callback rejected(/* text */ string);
+    callback edited(text: string);
+    callback rejected(text: string);
 
     public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);

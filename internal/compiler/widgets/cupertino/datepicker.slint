@@ -8,25 +8,25 @@ import { MenuBorder } from "./components.slint";
 import { StandardButton } from "../common/standardbutton.slint";
 
 import { Date, DatePickerBase } from "../common/datepicker_base.slint";
-export { Date } 
+export { Date }
 
 export component DatePickerPopup inherits PopupWindow {
     in property <string> title: "Select date";
     in property <Date> date <=> base.date;
 
     callback canceled();
-    callback accepted(/* current-date */ Date);
-    
+    callback accepted(current-date: Date);
+
     width: 360px;
     height: 524px;
     close-policy: PopupClosePolicy.no-auto-close;
 
-    background-layer := MenuBorder {       
+    background-layer := MenuBorder {
         width: dialog.width;
         height: dialog.height;
     }
 
-    dialog := Dialog { 
+    dialog := Dialog {
         padding: 8px;
 
         base := DatePickerBase {
@@ -58,12 +58,12 @@ export component DatePickerPopup inherits PopupWindow {
                   current-day-style: {
                       foreground: CupertinoPalette.foreground,
                       font-size: CupertinoFontSettings.title.font-size,
-                      font-weight: CupertinoFontSettings.title.font-weight,  
+                      font-weight: CupertinoFontSettings.title.font-weight,
                   },
                   title-style: {
                       font-size: CupertinoFontSettings.body.font-size,
                       font-weight: CupertinoFontSettings.body.font-weight,
-                      foreground: CupertinoPalette.foreground,  
+                      foreground: CupertinoPalette.foreground,
                   },
                   previous-icon: Icons.arrow-back,
                   next-icon: Icons.arrow-forward,
@@ -78,8 +78,8 @@ export component DatePickerPopup inherits PopupWindow {
                       font-weight: CupertinoFontSettings.body.font-weight
                   }
             };
-        } 
-        
+        }
+
         StandardButton {
             kind: cancel;
 
