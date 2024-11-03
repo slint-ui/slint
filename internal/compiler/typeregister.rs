@@ -491,9 +491,7 @@ impl TypeRegister {
                 text_input
                     .member_functions
                     .insert("set-selection-offsets".into(), BuiltinFunction::SetSelectionOffsets);
-                text_input
-                    .reserved_properties
-                    .insert("font-metrics".into(), font_metrics_prop.clone());
+                text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
             }
 
             _ => unreachable!(),
@@ -502,7 +500,7 @@ impl TypeRegister {
         match &mut register.elements.get_mut("Text").unwrap() {
             ElementType::Builtin(ref mut b) => {
                 let text = Rc::get_mut(b).unwrap();
-                text.reserved_properties.insert("font-metrics".into(), font_metrics_prop);
+                text.properties.insert("font-metrics".into(), font_metrics_prop);
             }
 
             _ => unreachable!(),

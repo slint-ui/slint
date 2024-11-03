@@ -412,11 +412,7 @@ impl ElementType {
                     } else {
                         Cow::Borrowed(name)
                     };
-                match b
-                    .properties
-                    .get(resolved_name.as_ref())
-                    .or_else(|| b.reserved_properties.get(resolved_name.as_ref()))
-                {
+                match b.properties.get(resolved_name.as_ref()) {
                     None => {
                         if b.is_non_item_type {
                             PropertyLookupResult {
@@ -483,12 +479,9 @@ impl ElementType {
                 );
                 r
             }
-            Self::Builtin(b) => b
-                .properties
-                .iter()
-                .chain(b.reserved_properties.iter())
-                .map(|(k, t)| (k.clone(), t.ty.clone()))
-                .collect(),
+            Self::Builtin(b) => {
+                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
             Self::Native(n) => {
                 n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
             }
@@ -733,7 +726,6 @@ pub struct BuiltinElement {
     pub name: SmolStr,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
-    pub reserved_properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     pub additional_accepted_child_types: HashMap<SmolStr, ElementType>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
