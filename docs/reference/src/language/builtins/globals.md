@@ -51,7 +51,6 @@ the selected style e.g. fluent, cupertino, material, or qt.
 
 -   **`layout-spacing`** (_out_ _length_): Defines the default layout spacing. This spacing is also used by `VerticalBox`, `HorizontalBox` and `GridBox`.
 -   **`layout-padding`** (_out_ _length_): Defines the default layout padding. This padding is also used by `VerticalBox`, `HorizontalBox` and `GridBox`.
--   **`text-cursor-width`** (_out_ _length_): Defines the default width of the text cursor. This text cursor width is also use by `LineEdit` and `TextEdit`.
 
 ## `TextInputInterface`
 
