@@ -4,16 +4,15 @@ description: Rectangle element api.
 ---
 import SlintProperty  from '../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
+import { Aside } from '@astrojs/starlight/components';
 
 <CodeSnippetMD imagePath="/src/assets/generated/rectangle-example.png" imageAlt='rectangle example'>
 ```slint playground
-export component Example2 inherits Window {
-    width: 200px;
-    height: 800px;
+export component ExampleRectangle inherits Window {
+    width: 200px; height: 800px;
 
     Rectangle {
-        x: 10px;
-        y: 10px;
+        x: 10px; y: 10px;
         width: 180px;
         height: 180px;
         background: #315afd;
@@ -21,8 +20,7 @@ export component Example2 inherits Window {
 
     // Rectangle with a border
     Rectangle {
-        x: 10px;
-        y: 210px;
+        x: 10px; y: 210px;
         width: 180px;
         height: 180px;
         background: green;
@@ -32,8 +30,7 @@ export component Example2 inherits Window {
 
     // Transparent Rectangle with a border and a radius
     Rectangle {
-        x: 10px;
-        y: 410px;
+        x: 10px; y: 410px;
         width: 180px;
         height: 180px;
         border-width: 4px;
@@ -43,8 +40,7 @@ export component Example2 inherits Window {
 
     // A radius of width/2 makes it a circle
     Rectangle {
-        x: 10px;
-        y: 610px;
+        x: 10px; y: 610px;
         width: 180px;
         height: 180px;
         background: yellow;
@@ -63,22 +59,113 @@ When not part of a layout, its width and height default to 100% of the parent el
 
 ### `background`
 <SlintProperty propName="background" typeName="brush" defaultValue="transparent">
-The background brush of this `Rectangle`, typically a color.
+The background brush of this `Rectangle`.
+
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-background.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle background'>
+```slint
+property <brush> rainbow-gradient: @linear-gradient(40deg, rgba(255, 0, 0, 1) 0%, rgba(255, 154, 0, 1) 10%, rgba(208, 222, 33, 1) 20%,rgba(79, 220, 74, 1) 30%, rgba(63, 218, 216, 1) 40%, rgba(47, 201, 226, 1) 50%, rgba(28, 127, 238, 1) 60%, rgba(95, 21, 242, 1) 70%, rgba(186, 12, 248, 1) 80%, rgba(251, 7, 217, 1) 90%, rgba(255, 0, 0, 1) 100%);
+
+Rectangle {
+    x: 10px;
+    y: 10px;
+    width: 180px;
+    height: 180px;
+    background: #315afd;
+}
+
+
+Rectangle {
+    x: 10px;
+    y: 210px;
+    width: 180px;
+    height: 180px;
+    background: rainbow-gradient;
+}
+```
+</CodeSnippetMD>
 </SlintProperty>
 
 ### `border-color`
 <SlintProperty propName="border-color" typeName="brush" defaultValue="transparent">
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-border-color.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle border-color'>
+```slint
+Rectangle {
+    width: 200px;
+    height: 200px;
+    border-width: 10px;
+    border-color: lightslategray;
+}
+```
+</CodeSnippetMD>
 The color of the border.
+<Aside type="caution" title="Caution">
+The default `border-width` is `0px`, so the border is invisible. After setting a color also ensure that the `border-width` is set to a non-zero value.
+</Aside>
 </SlintProperty>
 
 ### `border-width`
 <SlintProperty propName="border-width" typeName="length" defaultValue="0">
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-border-width.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle border-width'>
+```slint
+Rectangle {
+    width: 200px;
+    height: 200px;
+    border-width: 30px;
+    border-color: lightslategray;
+}
+```
+</CodeSnippetMD>
 The width of the border.
 </SlintProperty>
 
 ### `clip`
 <SlintProperty propName="clip" typeName="bool" defaultValue="false">
-By default, when an element is bigger or outside another element, it's still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle.
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-clip.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle clip'>
+```slint
+// clip: false; the default
+Rectangle {
+    x: 50px; y: 50px;
+    width: 150px;
+    height: 150px;
+    background: darkslategray;
+    Text {
+        text: "clip: false";
+        font-size: 20pt;
+        color: white;
+    }
+    Rectangle {
+        x: -40px; y: -40px;
+        width: 100px;
+        height: 100px;
+        background: lightslategray;
+    }
+}
+
+// clip: true; Clips the children of this Rectangle
+Rectangle {
+    x: 50px; y: 250px;
+    width: 150px;
+    height: 150px;
+    background: darkslategray;
+    clip: true;
+    Text {
+        text: "clip: true";
+        font-size: 20pt;
+        color: white;
+    }
+    Rectangle {
+        x: -40px; y: -40px;
+        width: 100px;
+        height: 100px;
+        background: lightslategray;
+    }
+}
+
+```
+</CodeSnippetMD>
+By default, when child elements are outside the bounds of a parent, 
+they are still shown. When this property is set to `true`, the children 
+of this `Rectangle` are clipped and only the contents inside the elements bounds are shown.
 </SlintProperty>
 
 
