@@ -4,8 +4,10 @@ description: Image element api.
 ---
 
 import SlintProperty  from '../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
 
-```slint title="test-example.slint"
+<CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="200" imageHeight="100"  imageAlt='image example'>
+```slint title="test-example.slint" preview
 export component Example inherits Window {
     width: 100px;
     height: 100px;
@@ -21,12 +23,16 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 An `Image` can be used to represent an image loaded from a file. Supported image formats are:
 
-* png
-* jpeg
-* svg
+| Format    | Extensions |
+| -------- | ------- |
+| PNG  | .png    |
+| JPEG | .jpg, .jpeg     |
+| SVG    | .svg    |
+
 
 ## Properties
 

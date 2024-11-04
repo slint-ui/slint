@@ -3,26 +3,28 @@ title: Rectangle
 description: Rectangle element api.
 ---
 import SlintProperty  from '../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
 
-```slint
-export component Example inherits Window {
-    width: 270px;
-    height: 100px;
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-example.png" imageAlt='rectangle example'>
+```slint playground
+export component Example2 inherits Window {
+    width: 200px;
+    height: 800px;
 
     Rectangle {
         x: 10px;
         y: 10px;
-        width: 50px;
-        height: 50px;
-        background: blue;
+        width: 180px;
+        height: 180px;
+        background: #315afd;
     }
 
     // Rectangle with a border
     Rectangle {
-        x: 70px;
-        y: 10px;
-        width: 50px;
-        height: 50px;
+        x: 10px;
+        y: 210px;
+        width: 180px;
+        height: 180px;
         background: green;
         border-width: 2px;
         border-color: red;
@@ -30,21 +32,21 @@ export component Example inherits Window {
 
     // Transparent Rectangle with a border and a radius
     Rectangle {
-        x: 140px;
-        y: 10px;
-        width: 50px;
-        height: 50px;
+        x: 10px;
+        y: 410px;
+        width: 180px;
+        height: 180px;
         border-width: 4px;
         border-color: black;
-        border-radius: 10px;
+        border-radius: 30px;
     }
 
     // A radius of width/2 makes it a circle
     Rectangle {
-        x: 210px;
-        y: 10px;
-        width: 50px;
-        height: 50px;
+        x: 10px;
+        y: 610px;
+        width: 180px;
+        height: 180px;
         background: yellow;
         border-width: 2px;
         border-color: blue;
@@ -52,6 +54,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
 it's then possible to draw a rectangle on the screen.

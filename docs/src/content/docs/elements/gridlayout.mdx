@@ -3,6 +3,48 @@ title: GridLayout
 description: GridLayout element api.
 ---
 import SlintProperty  from '../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/gridlayout-example1.png"  imageWidth="200" imageHeight="100"  imageAlt='gridlayout example'>
+
+```slint playground
+// This example uses the `Row` element
+export component Foo inherits Window {
+    width: 200px;
+    height: 200px;
+    GridLayout {
+        spacing: 5px;
+        Row {
+            Rectangle { background: red; }
+            Rectangle { background: blue; }
+        }
+        Row {
+            Rectangle { background: yellow; }
+            Rectangle { background: green; }
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+
+<CodeSnippetMD imagePath="/src/assets/generated/gridlayout-example2.png"  imageWidth="200" imageHeight="100"  imageAlt='gridlayout example2'>
+
+```slint playground
+// This example uses the `col` and `row` properties
+export component Foo inherits Window {
+    width: 200px;
+    height: 150px;
+    GridLayout {
+        Rectangle { background: red; }
+        Rectangle { background: blue; }
+        Rectangle { background: yellow; row: 1; }
+        Rectangle { background: green; }
+        Rectangle { background: black; col: 2; row: 0; }
+    }
+}
+```
+</CodeSnippetMD>
 
 `GridLayout` places elements on a grid.
 
@@ -42,44 +84,6 @@ To target specific sides with different values use the following properties:
 ### `padding-bottom`
 <SlintProperty propName="padding-bottom" typeName="length"/>
 
-
-### Examples
-
-This example uses the `Row` element:
-
-```slint
-export component Foo inherits Window {
-    width: 200px;
-    height: 200px;
-    GridLayout {
-        spacing: 5px;
-        Row {
-            Rectangle { background: red; }
-            Rectangle { background: blue; }
-        }
-        Row {
-            Rectangle { background: yellow; }
-            Rectangle { background: green; }
-        }
-    }
-}
-```
-
-This example uses the `col` and `row` properties
-
-```slint
-export component Foo inherits Window {
-    width: 200px;
-    height: 150px;
-    GridLayout {
-        Rectangle { background: red; }
-        Rectangle { background: blue; }
-        Rectangle { background: yellow; row: 1; }
-        Rectangle { background: green; }
-        Rectangle { background: black; col: 2; row: 0; }
-    }
-}
-```
 
 ## Cell elements
 Cell elements inside a `GridLayout` obtain the following new properties. Any bindings to these properties must be compile-time constants:

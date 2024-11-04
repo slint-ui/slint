@@ -3,8 +3,9 @@ title: Flickable
 description: Flickable element api.
 ---
 import SlintProperty  from '../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
 
-```slint
+```slint playground
 export component Example inherits Window {
     width: 270px;
     height: 100px;
@@ -57,8 +58,16 @@ interacting with `TouchArea` elements:
 
 
 ### `interactive`
-<SlintProperty propName="icon" typeName="bool" defaultValue="true">
+<SlintProperty propName="interactive" typeName="bool" defaultValue="true">
+<CodeSnippetMD imagePath="/src/assets/generated/flickable-interactive.png"  imageWidth="200" imageHeight="200"  imageAlt='flickable interactive'>
+```slint
+Flickable {
+    interactive: false;
+}
+```
+</CodeSnippetMD>
 When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+
 </SlintProperty>
 
 ### `viewport-width`

@@ -3,6 +3,9 @@ title: Dialog
 description: Dialog element api.
 ---
 import SlintProperty  from '../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/dialog-example.png"  imageWidth="200" imageHeight="100"  imageAlt='dialog example'>
 
 ```slint title="dialog-example.slint"
 import { StandardButton, Button } from "std-widgets.slint";
@@ -18,6 +21,7 @@ export component Example inherits Dialog {
     }
 }
 ```
+</CodeSnippetMD>
 
 Dialog is like a window, but it has buttons that are automatically laid out.
 
