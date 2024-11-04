@@ -55,6 +55,10 @@ struct Cli {
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
 
+    /// Write over existing files
+    #[arg(long = "overwrite", default_value = "false")]
+    overwrite_files: bool,
+
     /// The name of the component to view. If unset, the last exported component of the file is used.
     /// If the component name is not in the .slint file , nothing will be shown
     #[arg(long, value_name = "component name", action)]
@@ -418,12 +422,17 @@ fn build_and_snapshot(
         }
     }
 
-    if screenshot_path.exists() {
-        return Err(format!("{screenshot_path:?} already exists, aborting").into());
-    }
+    let overwrite_tag = if screenshot_path.exists() {
+        if !args.overwrite_files {
+            return Err(format!("{screenshot_path:?} already exists, aborting").into());
+        }
+        " [overwrite]"
+    } else {
+        ""
+    };
 
     eprintln!(
-        "    Saving image with {}x{} pixels to {screenshot_path:?}",
+        "    Saving image with {}x{} pixels to {screenshot_path:?}{overwrite_tag}",
         screen_dump.width(),
         screen_dump.height()
     );
