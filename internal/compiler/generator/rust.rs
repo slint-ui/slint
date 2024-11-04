@@ -1001,6 +1001,9 @@ fn generate_sub_component(
         sub_component_types.push(sub_component_id);
     }
 
+    let popup_id_names =
+        component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
+
     for (prop1, prop2) in &component.two_way_bindings {
         let p1 = access_member(prop1, &ctx);
         let p2 = access_member(prop2, &ctx);
@@ -1116,6 +1119,7 @@ fn generate_sub_component(
         struct #inner_component_id {
             #(#item_names : sp::#item_types,)*
             #(#sub_component_names : #sub_component_types,)*
+            #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sp::Repeater<#repeated_element_components>,)*
@@ -1817,6 +1821,12 @@ fn generate_repeated_component(
 /// Return an identifier suitable for this component for internal use
 fn inner_component_id(component: &llr::SubComponent) -> proc_macro2::Ident {
     format_ident!("Inner{}", ident(&component.name))
+}
+
+fn internal_popup_id(index: usize) -> proc_macro2::Ident {
+    let mut name = index.to_string();
+    name.insert_str(0, "popup_id_");
+    ident(&name)
 }
 
 fn global_inner_name(g: &llr::GlobalComponent) -> TokenStream {
@@ -2660,27 +2670,51 @@ fn compile_builtin_function_call(
 
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
+                let popup_id_name = internal_popup_id(*popup_index as usize);
                 quote!({
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     #popup_window_id::user_init(popup_instance_vrc.clone());
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
-                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                        &sp::VRc::into_dyn(popup_instance.into()),
-                        position,
-                        #close_policy,
-                        #parent_component
-                    )
+                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                    }
+                    #component_access_tokens.#popup_id_name.set(Some(
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                            &sp::VRc::into_dyn(popup_instance.into()),
+                            position,
+                            #close_policy,
+                            #parent_component
+                        ))
+                    );
                 })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
             }
         }
         BuiltinFunction::ClosePopupWindow => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(
-                sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup()
-            )
+            if let [Expression::NumberLiteral(popup_index), Expression::PropertyReference(parent_ref)] =
+                arguments
+            {
+                let mut parent_ctx = ctx;
+                let mut component_access_tokens = quote!(_self);
+                if let llr::PropertyReference::InParent { level, .. } = parent_ref {
+                    for _ in 0..level.get() {
+                        component_access_tokens =
+                            quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
+                        parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
+                    }
+                }
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let popup_id_name = internal_popup_id(*popup_index as usize);
+                quote!(
+                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                    }
+                )
+            } else {
+                panic!("internal error: invalid args to ClosePopupWindow {:?}", arguments)
+            }
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {

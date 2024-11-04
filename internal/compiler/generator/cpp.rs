@@ -1969,6 +1969,17 @@ fn generate_sub_component(
         ));
     }
 
+    for (i, _) in component.popup_windows.iter().enumerate() {
+        target_struct.members.push((
+            field_access,
+            Declaration::Var(Var {
+                ty: ident("mutable uint32_t"),
+                name: format_smolstr!("popup_id_{}", i),
+                ..Default::default()
+            }),
+        ));
+    }
+
     for (prop1, prop2) in &component.two_way_bindings {
         init.push(format!(
             "slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
@@ -3613,15 +3624,28 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 format!(
-                    "{window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
+                    "{window}.close_popup({component_access}->popup_id_{popup_index}); {component_access}->popup_id_{popup_index} = {window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
             }
         }
         BuiltinFunction::ClosePopupWindow => {
-            let window = access_window_field(ctx);
-            format!("{window}.close_popup()")
+            if let [llr::Expression::NumberLiteral(popup_index), llr::Expression::PropertyReference(parent_ref)] = arguments {
+                let mut parent_ctx = ctx;
+                let mut component_access = "self".into();
+
+                if let llr::PropertyReference::InParent { level, .. } = parent_ref {
+                    for _ in 0..level.get() {
+                        component_access = format!("{}->parent", component_access);
+                        parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
+                    }
+                };
+                let window = access_window_field(ctx);
+                format!("{window}.close_popup({component_access}->popup_id_{popup_index})")
+            } else {
+                panic!("internal error: invalid args to ClosePopupWindow {:?}", arguments)
+            }
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
