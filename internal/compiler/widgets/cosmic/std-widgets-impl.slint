@@ -7,12 +7,12 @@ export { ScrollView } from "scrollview.slint";
 export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
 
-import { CosmicPalette } from "styling.slint";
+import { CosmicPalette, CosmicLayoutSettings } from "styling.slint";
 
 export global StyleMetrics  {
-    out property <length> layout-spacing: 8px;
-    out property <length> layout-padding: 8px;
-    out property <length> text-cursor-width: 1px;
+    out property <length> layout-spacing: CosmicLayoutSettings.layout-spacing;
+    out property <length> layout-padding: CosmicLayoutSettings.layout-padding;
+    out property <length> text-cursor-width: CosmicLayoutSettings.text-cursor-width;
     out property <color> window-background: CosmicPalette.background;
     out property <color> default-text-color: CosmicPalette.foreground;
     out property <color> textedit-background: CosmicPalette.background;
@@ -35,4 +35,10 @@ export global Palette {
     out property <brush> selection-foreground: CosmicPalette.selection-foreground;
     out property <brush> border: CosmicPalette.border;
     in-out property <ColorScheme> color-scheme <=> CosmicPalette.color-scheme;
+}
+
+export global LayoutSettings {
+    out property <length> layout-spacing: CosmicLayoutSettings.layout-spacing;
+    out property <length> layout-padding: CosmicLayoutSettings.layout-padding;
+    out property <length> text-cursor-width: CosmicLayoutSettings.text-cursor-width;
 }

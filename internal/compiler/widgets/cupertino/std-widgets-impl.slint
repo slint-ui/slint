@@ -5,12 +5,12 @@ export { Button } from "button.slint";
 export { ScrollView } from "scrollview.slint";
 export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
-import { CupertinoPalette } from "styling.slint";
+import { CupertinoPalette, CupertinoLayoutSettings } from "styling.slint";
 
 export global StyleMetrics  {
-    out property <length> layout-spacing: 10px;
-    out property <length> layout-padding: 12px;
-    out property <length> text-cursor-width: 1px;
+    out property <length> layout-spacing: CupertinoLayoutSettings.layout-spacing;
+    out property <length> layout-padding: CupertinoLayoutSettings.layout-padding;
+    out property <length> text-cursor-width: CupertinoLayoutSettings.text-cursor-width;
     out property <color> window-background: CupertinoPalette.background;
     out property <color> default-text-color: CupertinoPalette.foreground;
     out property <color> textedit-background: CupertinoPalette.alternate-background;
@@ -33,4 +33,10 @@ export global Palette {
     out property <brush> selection-foreground: CupertinoPalette.selection-foreground;
     out property <brush> border: CupertinoPalette.border;
     in-out property <ColorScheme> color-scheme <=> CupertinoPalette.color-scheme;
+}
+
+export global LayoutSettings {
+    out property <length> layout-spacing: CupertinoLayoutSettings.layout-spacing;
+    out property <length> layout-padding: CupertinoLayoutSettings.layout-padding;
+    out property <length> text-cursor-width: CupertinoLayoutSettings.text-cursor-width;
 }

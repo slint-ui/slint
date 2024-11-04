@@ -69,6 +69,12 @@ export global CosmicPalette {
     out property <brush> state-secondary: dark-color-scheme ? #000000 : #ffffff;
 }
 
+export global CosmicLayoutSettings {
+    out property <length> layout-spacing: 8px;
+    out property <length> layout-padding: 8px;
+    out property <length> text-cursor-width: 1px;
+}
+
 export global Icons {
     out property <image> arrow-down: @image-url("_arrow_down.svg");
     out property <image> arrow-up: @image-url("_arrow_up.svg");

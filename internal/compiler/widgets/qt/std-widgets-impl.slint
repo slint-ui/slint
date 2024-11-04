@@ -8,4 +8,10 @@ export { NativePalette as Palette }
 export { ScrollView } from "scrollview.slint";
 export { LineEdit } from "lineedit.slint";
 
+export global LayoutSettings {
+    out property <length> layout-spacing: NativeStyleMetrics.layout-spacing;
+    out property <length> layout-padding: NativeStyleMetrics.layout-padding;
+    out property <length> text-cursor-width: NativeStyleMetrics.text-cursor-width;
+}
+
 export component ListItem inherits NativeStandardListViewItem {}
