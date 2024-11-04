@@ -315,6 +315,10 @@ fn process_tag(
     args: &Cli,
 ) -> Result<()> {
     let attr = parse_attribute(attributes)?;
+    if attr.contains_key("noScreenShot") {
+        return Ok(());
+    }
+
     let Some(path) = attr.get("imagePath") else {
         // No image path, no need to save anything...
         return Ok(());
