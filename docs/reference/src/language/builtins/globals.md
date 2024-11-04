@@ -56,7 +56,7 @@ the selected style e.g. fluent, cupertino, material, or qt.
 ### Example
 
 ```slint
-import { LayoutSettings, HorizontalBox } from "std-widgets.slint";
+import { LayoutSettings, Palette } from "std-widgets.slint";
 
 export component MyCustomWidget {
     in property <string> text <=> label.text;
