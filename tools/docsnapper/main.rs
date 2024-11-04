@@ -88,6 +88,24 @@ fn main() -> Result<()> {
     std::process::exit(error_count);
 }
 
+fn wrap_code(code: &str, size: Option<(usize, usize)>) -> String {
+    let sizing_lines = if let Some((w, h)) = size {
+        format!("width: {w}px;\nheight: {h}px;\n")
+    } else {
+        String::new()
+    };
+    format!(
+        r#"export component ScreenShotThis inherits Window {{
+    background: #0000;
+    {sizing_lines}VerticalLayout {{
+        Rectangle {{
+        {code}  
+        }}
+    }}
+}}"#
+    )
+}
+
 fn parse_attribute(attributes: &str) -> Result<HashMap<String, String>> {
     let mut result: HashMap<String, String> = Default::default();
 
@@ -217,16 +235,7 @@ fn extract_code_from_text(text: &str, size: Option<(usize, usize)>) -> Result<St
         );
     };
 
-    let code = if code.contains("component") {
-        code.to_string()
-    } else {
-        let sizing_lines = if let Some((w, h)) = size {
-            format!("width: {w}px;\nheight: {h}px;\n")
-        } else {
-            String::new()
-        };
-        format!("export component ScreenShotThis {{\n{sizing_lines}{code}\n}}")
-    };
+    let code = if code.contains("component") { code.to_string() } else { wrap_code(code, size) };
 
     Ok(code)
 }
@@ -239,9 +248,8 @@ fn test_extract_code_from_text() {
 ```"#,
             Some((100, 200))
         )
-        .unwrap()
-        .as_str(),
-        "export component ScreenShotThis {\nwidth: 100px;\nheight: 200px;\n\n\n}"
+        .unwrap(),
+        wrap_code("\n", Some((100, 200)))
     );
     assert_eq!(
         extract_code_from_text(
@@ -249,19 +257,17 @@ fn test_extract_code_from_text() {
 ```````````"#,
             None
         )
-        .unwrap()
-        .as_str(),
-        "export component ScreenShotThis {\n\n\n}"
+        .unwrap(),
+        wrap_code("\n", None)
     );
     assert_eq!(
         extract_code_from_text(
             r#"```  slint foo=bar
-```"#,
+    ```"#,
             None
         )
-        .unwrap()
-        .as_str(),
-        "export component ScreenShotThis {\n\n\n}"
+        .unwrap(),
+        wrap_code("\n        ", None)
     );
     assert!(extract_code_from_text(
         r#"```````````slint foo=bar
