@@ -40,6 +40,8 @@ fn main() {
     }
     config.flag_if_supported("-std=c++17");
     config.flag_if_supported("/std:c++17");
+    // Workaround QTBUG-123153
+    config.flag_if_supported("-Wno-template-id-cdtor");
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");
 
     println!("cargo:rerun-if-changed=lib.rs");
