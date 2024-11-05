@@ -460,7 +460,11 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
         }
         return Expression::Struct { values: new_values, ty: to };
     }
-    let var_name = "tmpobj";
+    static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let var_name = format_smolstr!(
+        "tmpobj_ret_conv_{}",
+        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    );
     let from_ty = from.ty();
     let mut new_values = HashMap::new();
     let Type::Struct(from_s) = &from_ty else {
@@ -471,7 +475,7 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
         let expression = if from_s.fields.contains_key(key) {
             Expression::StructFieldAccess {
                 base: Box::new(Expression::ReadLocalVariable {
-                    name: var_name.into(),
+                    name: var_name.clone(),
                     ty: from_ty.clone(),
                 }),
                 name: key.clone(),
@@ -482,7 +486,7 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
         new_values.insert(key.clone(), expression);
     }
     Expression::CodeBlock(vec![
-        Expression::StoreLocalVariable { name: var_name.into(), value: Box::new(from) },
+        Expression::StoreLocalVariable { name: var_name, value: Box::new(from) },
         Expression::Struct { values: new_values, ty: to },
     ])
 }
