@@ -492,12 +492,10 @@ impl Item for SwipeGestureHandler {
 
                     if start_swipe {
                         Self::FIELD_OFFSETS.swiping.apply_pin(self).set(true);
-                    } else {
-                        return InputEventResult::EventIgnored;
                     }
                 }
                 Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
-                InputEventResult::EventAccepted
+                InputEventResult::GrabMouse
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
         }
