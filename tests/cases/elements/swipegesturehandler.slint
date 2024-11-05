@@ -161,10 +161,9 @@ assert_eq!(instance.get_ta_hover(), false);
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 assert_eq!(instance.get_left_swiping(), true);
-// the root gesture cause the mouse event to be repeated twice
-assert_eq!(instance.get_r(), "M2(20)M2(20)");
+assert_eq!(instance.get_r(), "M2(20)");
 instance.window().dispatch_event(WindowEvent::PointerExited);
-assert_eq!(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq!(instance.get_r(), "M2(20)C2(20)");
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
@@ -191,10 +190,9 @@ assert_eq!(instance.get_ta_hover(), false);
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 assert_eq!(instance.get_left_swiping(), true);
-// the root gesture cause the mouse event to be repeated twice
-assert_eq!(instance.get_r(), "M2(20)M2(20)");
+assert_eq!(instance.get_r(), "M2(20)");
 instance.invoke_invoke_cancel();
-assert_eq!(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq!(instance.get_r(), "M2(20)C2(20)");
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
@@ -204,7 +202,7 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 slint_testing::mock_elapsed_time(120);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(120);
-assert_eq!(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq!(instance.get_r(), "M2(20)C2(20)");
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
@@ -253,7 +251,7 @@ assert_eq!(instance.get_right_swiping(), false, "got cancelled");
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(220.0, 519.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_r(), "S1(169)");
-assert_eq!(instance.get_ta_hover(), false, "FIXME: or should it be true as the mouse is still over it?");
+assert_eq!(instance.get_ta_hover(), true);
 assert_eq!(instance.get_ta_pressed(), false);
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
@@ -278,10 +276,9 @@ assert_eq(instance.get_ta_hover(), false);
 assert_eq(instance.get_down_swiping(), false);
 assert_eq(instance.get_right_swiping(), false);
 assert_eq(instance.get_left_swiping(), true);
-// the root gesture cause the mouse event to be repeated twice
-assert_eq(instance.get_r(), "M2(20)M2(20)");
+assert_eq(instance.get_r(), "M2(20)");
 instance.invoke_invoke_cancel();
-assert_eq(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq(instance.get_r(), "M2(20)C2(20)");
 assert_eq(instance.get_down_swiping(), false);
 assert_eq(instance.get_left_swiping(), false);
 assert_eq(instance.get_right_swiping(), false);
@@ -291,7 +288,7 @@ instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 60.0, 100
 slint_testing::mock_elapsed_time(120);
 instance.window().dispatch_pointer_release_event(slint::LogicalPosition({40.0, 100.0}), PointerEventButton::Left);
 slint_testing::mock_elapsed_time(120);
-assert_eq(instance.get_r(), "M2(20)M2(20)C2(20)");
+assert_eq(instance.get_r(), "M2(20)C2(20)");
 assert_eq(instance.get_down_swiping(), false);
 assert_eq(instance.get_left_swiping(), false);
 assert_eq(instance.get_right_swiping(), false);
