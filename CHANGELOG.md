@@ -14,20 +14,78 @@ All notable changes to this project are documented in this file.
 
  - Added animation `direction` property. (#6260)
  - TextInput: fix selection colors not used from style (#6326)
+ - TextInput: added `rejected` callback
+ - Fixed `changed` callback on unused property causing compiler panic (#6331)
+ - Fixed geometry constraints when they are partially infered  from the content,
+   and partially infered from the explicit constraints (#6285)
+ - Deprecated two way binding between `in` and `in-out` property (#6400)
+ - TouchArea: Send cancel event and update `pressed` and `has-hover` property when `enabled` is set to false while pressed. (#6422)
+ - Added `font-metrics` property to `Text` and `TextInput`. (#6047)
+ - Added `accessible-selectable`, `accessible-selected`, `accessible-enabled`, `accessible-position-in-set`, and `accessible-delegate-focus` properties
+ - Emit a warning when the case of the import file differ from the case of the file that was imported (#4265)
+ - Support property changed callbacks in globals (#6599)
+ - PopupWindow: added `close-policy` property, deprecated `close-on-click` (#6614)
 
 ### Widgets
 
- - Checkbox: fix text color in fluent style (#6239)
+ - CheckBox: fix text color in fluent style (#6239)
+ - CheckBox: remove margin in fluent and cupertino style (#6639)
  - LineEdit: fix cursor draws out of bounds (#6243)
+ - TabWidget: Fix tabs overflow behavior (#6517)
 
-### LSP and tooling
+### Rust API
 
- - Bring the window to the front and focus when clicking on "Show preview" in the editor. (#196)
+ - Added `slint_build::compile_with_output`
+ - Fixed `init=>` callback on PopupWindow ran twice in rust generated code.
+ - Derive serde traits for `PhysicalPosition`, `LogicalPosition`, `PhysicalSize` and `LogicalSize` (#6534)
+ - Use `approx_eq` to compare float in the generated code
+ - Added `PlatformBuilder` to select OpenGL API and renderer
 
+### C++ API
+
+ - Add `Image::to_rgb8/to_rgba8/to_rgba8_premultiplied` pixel buffer accessors. (#6399)
+ - Added `SharedString::size()` (#6417)
+ - cmake: support generator expression for `SLINT_EMBED_RESOURCES` & `SLINT_SCALE_FACTOR`
+ - Adds `_` to the end of identifier that would otherwise be keywords (#5613)
+ - Improve float comparison in the generated code
+ - esp-idf: Fix vsync locking
 
 ### Node API
 
  - Added support for enums
+ - Added initTranslations function (#6504)
+
+### LSP and tooling
+
+ - LSP: auto-completion of changed callbacks
+ - LSP: preserve `_` when auto-completing element identifiers (#6479)
+ - live-preview: Bring the window to the front and focus when clicking on "Show preview" in the editor. (#196)
+ - live-preview: On MacOS, Renamed "Quit" to "Closed" and uses cmd+w to close the window
+ - live-preview: don't panic if run_event_loop returns an error, show an error in the editor instead
+ - live-preview: Fix panic when dragging elements onto layouts
+ - live-preview: In the property editor, filter layout property not applicable to the selected element
+ - live-preview: In the property editor, visualize negative number
+ - live-preview: delay updating the preview
+ - live-preview: Reload when image resources change on disk
+ - live-preview: macOS: Add support for reloading via cmd+r
+ - Slintpad: updated monaco editor and other dependencies
+
+### Renderer
+
+ - Software renderer: fixed `char-wrap` not braking between lines
+ - Software renderer: fix artifact with partial drawing and rotation
+ - Skia: Fixed opacity not being applied to box shadows correctly (#6359)
+
+### Misc
+
+ - adjusted thresholds and behavior of the SwipeGestureHandler (#6344, #6542, #6543)
+ - Improved PopupWindow positioning: position it so it is not clipped by the window
+ - Window::icon is also used as big taskbar ison in Windows
+ - Fixed TextInput mouse cursor after left click (#6444)
+ - Fixed panic in timer code (#6187, #6505)
+ - Fixed support older android (9.0)
+ - Android: handle properly the Destroy event (#6626)
+ - Support multiple PopupWindow at the same time (#4356)
 
 ## 1.8.0 - 2024-09-23
 
