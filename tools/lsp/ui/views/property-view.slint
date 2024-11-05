@@ -200,7 +200,7 @@ component FloatWidget inherits VerticalLayout {
 component ColorWidget inherits VerticalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
-    padding-bottom: EditorSpaceSettings.property-spacing;
+    padding-bottom: EditorSpaceSettings.default-spacing;
     width: 100%;
     NameLabel {
         property-information: root.property-information;
@@ -428,14 +428,13 @@ component ExpandableGroup {
                         }
 
                         if property.value.kind == PropertyValueKind.code: VerticalLayout {
-                            padding-top: 2px;
 
                             NameLabel {
                                 property-information: property;
                                 element-information: root.element-information;
                             }
 
-                            spacing: EditorSpaceSettings.default-spacing;
+                            padding-bottom: EditorSpaceSettings.default-spacing;
                             if property.value.code == "": Rectangle {
                                 min-height: 2rem;
                                 width: 100%;
