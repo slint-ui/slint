@@ -1,17 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LayoutSettings } from "std-widgets-impl.slint";
+import { LayoutSpec } from "std-widgets-impl.slint";
 
 export component VerticalBox inherits VerticalLayout {
-    spacing: LayoutSettings .layout-spacing;
-    padding: LayoutSettings .layout-padding;
+    spacing: LayoutSpec .layout-spacing;
+    padding: LayoutSpec .layout-padding;
 }
 export component HorizontalBox inherits HorizontalLayout {
-    spacing: LayoutSettings .layout-spacing;
-    padding: LayoutSettings .layout-padding;
+    spacing: LayoutSpec .layout-spacing;
+    padding: LayoutSpec .layout-padding;
 }
 export component GridBox inherits GridLayout {
-    spacing: LayoutSettings .layout-spacing;
-    padding: LayoutSettings .layout-padding;
+    spacing: LayoutSpec .layout-spacing;
+    padding: LayoutSpec .layout-padding;
 }

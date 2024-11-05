@@ -5,12 +5,12 @@ export { Button } from "button.slint";
 export { ScrollView } from "scrollview.slint";
 export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
-import { FluentPalette, FluentLayoutSettings } from "styling.slint";
+import { FluentPalette, FluentLayoutSpec } from "styling.slint";
 
 export global StyleMetrics  {
-    out property <length> layout-spacing: FluentLayoutSettings.layout-spacing;
-    out property <length> layout-padding: FluentLayoutSettings.layout-padding;
-    out property <length> text-cursor-width: FluentLayoutSettings.text-cursor-width;
+    out property <length> layout-spacing: FluentLayoutSpec.layout-spacing;
+    out property <length> layout-padding: FluentLayoutSpec.layout-padding;
+    out property <length> text-cursor-width: FluentLayoutSpec.text-cursor-width;
     out property <color> window-background: FluentPalette.background;
     out property <color> default-text-color: FluentPalette.foreground;
     out property <color> textedit-background: FluentPalette.background;
@@ -35,7 +35,7 @@ export global Palette {
     in-out property <ColorScheme> color-scheme <=> FluentPalette.color-scheme;
 }
 
-export global LayoutSettings {
-    out property <length> layout-spacing: FluentLayoutSettings.layout-spacing;
-    out property <length> layout-padding: FluentLayoutSettings.layout-padding;
+export global LayoutSpec {
+    out property <length> layout-spacing: FluentLayoutSpec.layout-spacing;
+    out property <length> layout-padding: FluentLayoutSpec.layout-padding;
 }

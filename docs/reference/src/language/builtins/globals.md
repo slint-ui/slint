@@ -42,9 +42,9 @@ export component MyCustomWidget {
 }
 ```
 
-## `LayoutSettings`
+## `LayoutSpec`
 
-Use `LayoutSettings` to create custom widgets that match the layout settings of
+Use `LayoutSpec` to create custom widgets that match the layout settings of
 the selected style e.g. fluent, cupertino, material, or qt.
 
 ### Properties
