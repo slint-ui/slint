@@ -47,16 +47,16 @@ export component HeaderView {
                 spacing: EditorSpaceSettings.default-spacing;
 
                 HorizontalLayout {
+                    visible: false;
                     spacing: EditorSpaceSettings.default-spacing / 2;
-                    horizontal-stretch: 0;
-
-                    @children
+                    horizontal-stretch: 1;
 
                     BodyText {
                         text: @tr("Interact");
                     }
 
                     interaction-switch := Switch {
+                        checked: true;
                         toggled => {
                             root.edit-mode-toggled();
                         }
@@ -66,6 +66,7 @@ export component HeaderView {
                         text: @tr("Edit");
                     }
                 }
+                @children
 
                 left-panel-button := Button {
                     horizontal-stretch: 0;
@@ -73,7 +74,6 @@ export component HeaderView {
                     checkable: true;
                     icon: self.checked ? Icons.sidebar-left : Icons.sidebar-left-off;
                     colorize-icon: true;
-                    visible:root.edit-mode;
                 }
 
                 right-panel-button := Button {
@@ -82,7 +82,7 @@ export component HeaderView {
                     checkable: true;
                     icon: self.checked ? Icons.sidebar-right : Icons.sidebar-right-off;
                     colorize-icon: true;
-                    visible: root.edit-mode;
+                    // visible: root.edit-mode;
                 }
             }
 

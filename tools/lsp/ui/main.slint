@@ -16,6 +16,7 @@ import { PropertyView } from "./views/property-view.slint";
 
 export { Api }
 
+
 export component PreviewUi inherits Window {
     property <length> border: 20px;
     property <ComponentItem> visible-component: {
@@ -25,8 +26,9 @@ export component PreviewUi inherits Window {
         is-user-defined: false,
         is-currently-shown: false,
     };
-    property <bool> show-left-sidebar: true;
-    property <bool> show-right-sidebar: true;
+    property <bool> show-left-sidebar;
+    property <bool> show-right-sidebar;
+
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -63,20 +65,22 @@ export component PreviewUi inherits Window {
                         Api.style-changed();
                     }
 
-                    Button {
+                    edit:=Button {
                         icon: Icons.inspect;
-                        colorize-icon: true;
+                        colorize-icon: preview.select-mode ? false : true;
                         checkable: true;
                         checked <=> preview.select-mode;
                         enabled: !preview.design-mode;
                         visible: !preview.design-mode;
+                        primary: preview.select-mode;
                     }
                 }
+
 
                 HorizontalLayout {
                     spacing: EditorSpaceSettings.default-spacing;
 
-                    if Api.design-mode && root.show-left-sidebar: LibraryView {
+                    if  root.show-left-sidebar: LibraryView {
                         known-components: Api.known-components;
                         preview-area-position-x: preview.preview-area-position-x;
                         preview-area-position-y: preview.preview-area-position-y;
@@ -101,7 +105,7 @@ export component PreviewUi inherits Window {
                         visible-component <=> root.visible-component;
                     }
 
-                    if Api.design-mode && root.show-right-sidebar: PropertyView { }
+                    if  root.show-right-sidebar: PropertyView { }
                 }
 
                 StatusLine { }
