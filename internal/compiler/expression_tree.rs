@@ -8,7 +8,7 @@ use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
-use smol_str::SmolStr;
+use smol_str::{format_smolstr, SmolStr};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -1119,13 +1119,18 @@ impl Expression {
                         }
                         return Expression::Struct { values: new_values, ty: target_type };
                     }
-                    let var_name = "tmpobj";
+                    static COUNT: std::sync::atomic::AtomicUsize =
+                        std::sync::atomic::AtomicUsize::new(0);
+                    let var_name = format_smolstr!(
+                        "tmpobj_conv_{}",
+                        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                    );
                     let mut new_values = HashMap::new();
                     for (key, ty) in &right.fields {
                         let expression = if left.fields.contains_key(key) {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
-                                    name: var_name.into(),
+                                    name: var_name.clone(),
                                     ty: from_ty.clone(),
                                 }),
                                 name: key.clone(),
@@ -1137,10 +1142,7 @@ impl Expression {
                         new_values.insert(key.clone(), expression);
                     }
                     return Expression::CodeBlock(vec![
-                        Expression::StoreLocalVariable {
-                            name: var_name.into(),
-                            value: Box::new(self),
-                        },
+                        Expression::StoreLocalVariable { name: var_name, value: Box::new(self) },
                         Expression::Struct { values: new_values, ty: target_type },
                     ]);
                 }
