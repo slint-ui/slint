@@ -42,6 +42,16 @@ export component MyCustomWidget {
 }
 ```
 
+## `LayoutSpec`
+
+Use `LayoutSpec` to create custom widgets that match the layout settings of
+the selected style e.g. fluent, cupertino, material, or qt.
+
+### Properties
+
+-   **`layout-spacing`** (_out_ _length_): Defines the default layout spacing. This spacing is also used by `VerticalBox`, `HorizontalBox` and `GridBox`.
+-   **`layout-padding`** (_out_ _length_): Defines the default layout padding. This padding is also used by `VerticalBox`, `HorizontalBox` and `GridBox`.
+
 ## `TextInputInterface`
 
 The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
