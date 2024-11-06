@@ -111,19 +111,19 @@ macro_rules! declare_builtin_function_types {
     ($( $Name:ident $(($Pattern:tt))? : ($( $Arg:expr ),*) -> $ReturnType:expr $(,)? )*) => {
         #[allow(non_snake_case)]
         pub struct BuiltinFunctionTypes {
-            $(pub $Name : Type),*
+            $(pub $Name : Rc<Function>),*
         }
         impl BuiltinFunctionTypes {
             pub fn new() -> Self {
                 Self {
-                    $($Name : Type::Function(Rc::new(Function{
+                    $($Name : Rc::new(Function{
                         args: vec![$($Arg),*],
                         return_type: $ReturnType,
-                    }))),*
+                    })),*
                 }
             }
 
-            pub fn ty(&self, function: &BuiltinFunction) -> Type {
+            pub fn ty(&self, function: &BuiltinFunction) -> Rc<Function> {
                 match function {
                     $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
                 }
@@ -226,7 +226,7 @@ declare_builtin_function_types!(
 );
 
 impl BuiltinFunction {
-    pub fn ty(&self) -> Type {
+    pub fn ty(&self) -> Rc<Function> {
         thread_local! {
             static TYPES: BuiltinFunctionTypes = BuiltinFunctionTypes::new();
         }
@@ -682,7 +682,7 @@ impl Expression {
             Expression::CallbackReference(nr, _) => nr.ty(),
             Expression::FunctionReference(nr, _) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
-            Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
+            Expression::BuiltinFunctionReference(funcref, _) => Type::Function(funcref.ty()),
             Expression::MemberFunction { member, .. } => member.ty(),
             Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
             Expression::ElementReference(_) => Type::ElementReference,

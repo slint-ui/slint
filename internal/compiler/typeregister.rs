@@ -230,8 +230,16 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(IntoIterator::into_iter([
             ("absolute-position", logical_point_type(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
-            ("focus", BuiltinFunction::SetFocusItem.ty(), PropertyVisibility::Public),
-            ("clear-focus", BuiltinFunction::ClearFocusItem.ty(), PropertyVisibility::Public),
+            (
+                "focus",
+                Type::Function(BuiltinFunction::SetFocusItem.ty()),
+                PropertyVisibility::Public,
+            ),
+            (
+                "clear-focus",
+                Type::Function(BuiltinFunction::ClearFocusItem.ty()),
+                PropertyVisibility::Public,
+            ),
             (
                 "dialog-button-role",
                 Type::Enumeration(BUILTIN.with(|e| e.enums.DialogButtonRole.clone())),
@@ -442,13 +450,15 @@ impl TypeRegister {
                 let popup = Rc::get_mut(b).unwrap();
                 popup.properties.insert(
                     "show".into(),
-                    BuiltinPropertyInfo::new(BuiltinFunction::ShowPopupWindow.ty()),
+                    BuiltinPropertyInfo::new(Type::Function(BuiltinFunction::ShowPopupWindow.ty())),
                 );
                 popup.member_functions.insert("show".into(), BuiltinFunction::ShowPopupWindow);
 
                 popup.properties.insert(
                     "close".into(),
-                    BuiltinPropertyInfo::new(BuiltinFunction::ClosePopupWindow.ty()),
+                    BuiltinPropertyInfo::new(Type::Function(
+                        BuiltinFunction::ClosePopupWindow.ty(),
+                    )),
                 );
                 popup.member_functions.insert("close".into(), BuiltinFunction::ClosePopupWindow);
 
@@ -486,7 +496,9 @@ impl TypeRegister {
                 let text_input = Rc::get_mut(b).unwrap();
                 text_input.properties.insert(
                     "set-selection-offsets".into(),
-                    BuiltinPropertyInfo::new(BuiltinFunction::SetSelectionOffsets.ty()),
+                    BuiltinPropertyInfo::new(Type::Function(
+                        BuiltinFunction::SetSelectionOffsets.ty(),
+                    )),
                 );
                 text_input
                     .member_functions

@@ -25,10 +25,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
         });
     });
 
-    let point_type = match BuiltinFunction::ItemAbsolutePosition.ty() {
-        crate::langtype::Type::Function(sig) => sig.return_type.clone(),
-        _ => unreachable!(),
-    };
+    let point_type = BuiltinFunction::ItemAbsolutePosition.ty().return_type.clone();
 
     for nr in to_materialize {
         let elem = nr.element();
