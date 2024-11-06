@@ -5,9 +5,10 @@ import { FluentPalette, Icons } from "styling.slint";
 
 component ScrollViewButton inherits TouchArea {
     in property <image> icon;
+    in property <bool> horizontal;
 
-    width: 8px;
-    height: 8px;
+    width: root.horizontal ? 6px : 8px;
+    height: root.horizontal ? 8px : 6px;
 
     icon := Image {
         x: (parent.width - self.width) / 2;
@@ -23,7 +24,7 @@ component ScrollViewButton inherits TouchArea {
     states [
         pressed when root.pressed : {
             opacity: 1;
-            icon.width: 6px;
+            icon.width: root.width - 2px;
         }
         hover when root.has-hover : {
             opacity: 1;
@@ -109,6 +110,7 @@ component ScrollBar inherits Rectangle {
         x: !root.horizontal ? (parent.width - self.width) / 2 : 4px;
         y: root.horizontal ? (parent.height - self.height) / 2 : 4px;
         icon: root.horizontal ? Icons.left : Icons.up;
+        horizontal: root.horizontal;
 
         clicked => {
             root.value = min(0px, root.value + root.step-size);
@@ -120,6 +122,7 @@ component ScrollBar inherits Rectangle {
         x: !root.horizontal ? (parent.width - self.width) / 2 : root.width - self.width - 4px;
         y: root.horizontal ? (parent.height - self.height) / 2 : root.height - self.height - 4px;
         icon: root.horizontal ? Icons.right : Icons.down;
+        horizontal: root.horizontal;
 
         clicked => {
             root.value = max(-root.maximum, root.value - root.step-size);
