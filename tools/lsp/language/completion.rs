@@ -19,7 +19,6 @@ use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
 };
-use smol_str::SmolStr;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -63,29 +62,8 @@ pub(crate) fn completion_at(
             return Some(vec![CompletionItem::new_simple("children".into(), String::new())]);
         }
 
-        return resolve_element_scope(element, document_cache).map(|mut r| {
-            let mut available_types = HashSet::new();
-            if snippet_support {
-                for c in r.iter_mut() {
-                    c.insert_text_format = Some(InsertTextFormat::SNIPPET);
-                    match c.kind {
-                        Some(CompletionItemKind::PROPERTY) => {
-                            c.insert_text = Some(format!("{}: ", c.label))
-                        }
-                        Some(CompletionItemKind::METHOD) => {
-                            c.insert_text = Some(format!("{} => {{$1}}", c.label))
-                        }
-                        Some(CompletionItemKind::CLASS) => {
-                            available_types.insert(c.label.clone());
-                            if !is_followed_by_brace(&token) {
-                                c.insert_text = Some(format!("{} {{$1}}", c.label))
-                            }
-                        }
-                        _ => (),
-                    }
-                }
-            }
-
+        let with_snippets = snippet_support && !is_followed_by_brace(&token);
+        return resolve_element_scope(element, document_cache, with_snippets).map(|mut r| {
             let is_global = node
                 .parent()
                 .and_then(|n| n.child_text(SyntaxKind::Identifier))
@@ -131,7 +109,7 @@ pub(crate) fn completion_at(
             }
 
             if !is_global && snippet_support {
-                add_components_to_import(&token, document_cache, available_types, &mut r);
+                add_components_to_import(&token, document_cache, &mut r);
             }
 
             r
@@ -147,7 +125,8 @@ pub(crate) fn completion_at(
         if token.kind() != SyntaxKind::Identifier {
             return None;
         }
-        let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
+        let all =
+            resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache, false)?;
         return Some(
             all.into_iter()
                 .filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY))
@@ -182,7 +161,7 @@ pub(crate) fn completion_at(
             }
             parent = parent.parent()?;
         };
-        let all = resolve_element_scope(element, document_cache)?;
+        let all = resolve_element_scope(element, document_cache, false)?;
         return Some(
             all.into_iter()
                 .filter(|ce| ce.kind == Some(CompletionItemKind::METHOD))
@@ -273,8 +252,7 @@ pub(crate) fn completion_at(
                 drop(global_tr);
 
                 if snippet_support {
-                    let available_types = result.iter().map(|c| c.label.clone()).collect();
-                    add_components_to_import(&token, document_cache, available_types, &mut result);
+                    add_components_to_import(&token, document_cache, &mut result);
                 }
 
                 return Some(result);
@@ -491,7 +469,20 @@ fn properties_for_changed_callbacks(
 fn resolve_element_scope(
     element: syntax_nodes::Element,
     document_cache: &DocumentCache,
+    with_snippets: bool,
 ) -> Option<Vec<CompletionItem>> {
+    let apply_property_ty = |mut c: CompletionItem, ty: &Type| -> CompletionItem {
+        if matches!(ty, Type::InferredCallback | Type::Callback { .. }) {
+            c.kind = Some(CompletionItemKind::METHOD);
+            let ins_text = format!("{} => {{$1}}", c.label);
+            with_insert_text(c, &ins_text, with_snippets)
+        } else {
+            c.kind = Some(CompletionItemKind::PROPERTY);
+            let ins_text = format!("{}: ", c.label);
+            with_insert_text(c, &ins_text, with_snippets)
+        }
+    };
+
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -510,57 +501,40 @@ fn resolve_element_scope(
             lk.is_local_to_component = false;
             return lk.is_valid_for_assignment();
         })
-        .map(|(k, t)| {
+        .map(|(k, ty)| {
             let k = de_normalize_property_name(&element_type, &k).into_owned();
-            let mut c = CompletionItem::new_simple(k, t.to_string());
-            c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
-                CompletionItemKind::METHOD
-            } else {
-                CompletionItemKind::PROPERTY
-            });
+            let mut c = CompletionItem::new_simple(k, ty.to_string());
             c.sort_text = Some(format!("#{}", c.label));
-            c
+            apply_property_ty(c, &ty)
         })
         .chain(element.PropertyDeclaration().filter_map(|pr| {
+            let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
             let mut c = CompletionItem::new_simple(
-                pr.DeclaredIdentifier()
-                    .child_text(SyntaxKind::Identifier)
-                    .as_ref()
-                    .map(SmolStr::to_string)?,
+                name.to_string(),
                 pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
             );
             c.kind = Some(CompletionItemKind::PROPERTY);
             c.sort_text = Some(format!("#{}", c.label));
-            Some(c)
+            Some(with_insert_text(c, &format!("{name}: "), with_snippets))
         }))
         .chain(element.CallbackDeclaration().filter_map(|cd| {
-            let mut c = CompletionItem::new_simple(
-                cd.DeclaredIdentifier()
-                    .child_text(SyntaxKind::Identifier)
-                    .as_ref()
-                    .map(SmolStr::to_string)?,
-                "callback".into(),
-            );
+            let name = cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
+            let mut c = CompletionItem::new_simple(name.to_string(), "callback".into());
             c.kind = Some(CompletionItemKind::METHOD);
             c.sort_text = Some(format!("#{}", c.label));
-            Some(c)
+            Some(with_insert_text(c, &format!("{name} => {{$1}}"), with_snippets))
         }))
         .collect::<Vec<_>>();
 
     if !matches!(element_type, ElementType::Global) {
         result.extend(
             i_slint_compiler::typeregister::reserved_properties()
-                .filter_map(|(k, t, _)| {
-                    if matches!(t, Type::Function { .. }) {
+                .filter_map(|(k, ty, _)| {
+                    if matches!(ty, Type::Function { .. }) {
                         return None;
                     }
-                    let mut c = CompletionItem::new_simple(k.into(), t.to_string());
-                    c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
-                        CompletionItemKind::METHOD
-                    } else {
-                        CompletionItemKind::PROPERTY
-                    });
-                    Some(c)
+                    let c = CompletionItem::new_simple(k.into(), ty.to_string());
+                    Some(apply_property_ty(c, &ty))
                 })
                 .chain(tr.all_elements().into_iter().filter_map(|(k, t)| {
                     match t {
@@ -570,7 +544,7 @@ fn resolve_element_scope(
                     };
                     let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
                     c.kind = Some(CompletionItemKind::CLASS);
-                    Some(c)
+                    Some(with_insert_text(c, &format!("{k} {{$1}}"), with_snippets))
                 })),
         );
     };
@@ -768,9 +742,9 @@ fn complete_path_in_string(
 fn add_components_to_import(
     token: &SyntaxToken,
     document_cache: &common::DocumentCache,
-    mut available_types: HashSet<String>,
     result: &mut Vec<CompletionItem>,
 ) {
+    let mut available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
     build_import_statements_edits(
         token,
         document_cache,
@@ -1066,19 +1040,23 @@ mod tests {
             }
         "#;
         let res = get_completions(source).unwrap();
+
+        const P: Option<CompletionItemKind> = Some(CompletionItemKind::PROPERTY);
+        const M: Option<CompletionItemKind> = Some(CompletionItemKind::METHOD);
+
         // from TouchArea
-        res.iter().find(|ci| ci.label == "enabled").unwrap();
-        res.iter().find(|ci| ci.label == "clicked").unwrap();
+        assert_eq!(res.iter().find(|ci| ci.label == "enabled").unwrap().kind, P);
+        assert_eq!(res.iter().find(|ci| ci.label == "clicked").unwrap().kind, M);
         // general
-        res.iter().find(|ci| ci.label == "width").unwrap();
-        res.iter().find(|ci| ci.label == "y").unwrap();
-        res.iter().find(|ci| ci.label == "accessible-role").unwrap();
-        res.iter().find(|ci| ci.label == "opacity").unwrap();
+        assert_eq!(res.iter().find(|ci| ci.label == "width").unwrap().kind, P);
+        assert_eq!(res.iter().find(|ci| ci.label == "y").unwrap().kind, P);
+        assert_eq!(res.iter().find(|ci| ci.label == "accessible-role").unwrap().kind, P);
+        assert_eq!(res.iter().find(|ci| ci.label == "opacity").unwrap().kind, P);
         // from Bar
-        res.iter().find(|ci| ci.label == "in_prop").unwrap();
-        res.iter().find(|ci| ci.label == "the-callback").unwrap();
+        assert_eq!(res.iter().find(|ci| ci.label == "in_prop").unwrap().kind, P);
+        assert_eq!(res.iter().find(|ci| ci.label == "the-callback").unwrap().kind, M);
         // local
-        res.iter().find(|ci| ci.label == "local-prop").unwrap();
+        assert_eq!(res.iter().find(|ci| ci.label == "local-prop").unwrap().kind, P);
         // no functions, no private stuff
         assert_eq!(res.iter().find(|ci| ci.label == "out_prop" || ci.label == "out-prop"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "priv_prop" || ci.label == "priv-prop"), None);
@@ -1119,6 +1097,16 @@ mod tests {
         assert_eq!(
             res.iter().find(|ci| ci.label == "if").unwrap().kind,
             Some(CompletionItemKind::KEYWORD)
+        );
+
+        // check snippets:
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "local-prop").unwrap().insert_text,
+            Some("local-prop: ".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "the-callback").unwrap().insert_text,
+            Some("the-callback => {$1}".into())
         );
     }
 
@@ -1433,7 +1421,6 @@ mod tests {
                 matches!(
                     ci,
                     CompletionItem {
-                        insert_text_format: Some(InsertTextFormat::SNIPPET),
                         detail: Some(detail),
                         ..
                     }
