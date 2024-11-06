@@ -471,17 +471,21 @@ fn resolve_element_scope(
     document_cache: &DocumentCache,
     with_snippets: bool,
 ) -> Option<Vec<CompletionItem>> {
-    let apply_property_ty = |mut c: CompletionItem, ty: &Type| -> CompletionItem {
-        if matches!(ty, Type::InferredCallback | Type::Callback { .. }) {
-            c.kind = Some(CompletionItemKind::METHOD);
-            let ins_text = format!("{} => {{$1}}", c.label);
-            with_insert_text(c, &ins_text, with_snippets)
-        } else {
-            c.kind = Some(CompletionItemKind::PROPERTY);
-            let ins_text = format!("{}: ", c.label);
-            with_insert_text(c, &ins_text, with_snippets)
-        }
-    };
+    let apply_property_ty =
+        |mut c: CompletionItem, ty: &Type, cb_args: Option<&[String]>| -> CompletionItem {
+            if matches!(ty, Type::InferredCallback | Type::Callback { .. }) {
+                c.kind = Some(CompletionItemKind::METHOD);
+                let ins_text = match cb_args {
+                    Some(a) => format!("{}({}) => {{$1}}", c.label, a.join(", ")),
+                    None => format!("{} => {{$1}}", c.label),
+                };
+                with_insert_text(c, &ins_text, with_snippets)
+            } else {
+                c.kind = Some(CompletionItemKind::PROPERTY);
+                let ins_text = format!("{}: ", c.label);
+                with_insert_text(c, &ins_text, with_snippets)
+            }
+        };
 
     let global_tr = document_cache.global_type_registry();
     let tr = element
@@ -502,10 +506,37 @@ fn resolve_element_scope(
             return lk.is_valid_for_assignment();
         })
         .map(|(k, ty)| {
+            let cb_args = if with_snippets && matches!(ty, Type::Callback { .. }) {
+                let mut base = element_type.clone();
+                loop {
+                    let ElementType::Component(c) = base else { break None };
+                    if let Some(p) = c.root_element.borrow().property_declarations.get(&k) {
+                        if let Some(node) =
+                            p.node.clone().and_then(syntax_nodes::CallbackDeclaration::new)
+                        {
+                            if !node
+                                .CallbackDeclarationParameter()
+                                .all(|x| x.DeclaredIdentifier().is_some())
+                            {
+                                break None;
+                            }
+                            let vec = node
+                                .CallbackDeclarationParameter()
+                                .map(|x| x.DeclaredIdentifier().unwrap().text().to_string())
+                                .collect::<Vec<_>>();
+                            break (!vec.is_empty()).then_some(vec);
+                        }
+                    }
+
+                    base = c.root_element.borrow().base_type.clone();
+                }
+            } else {
+                None
+            };
             let k = de_normalize_property_name(&element_type, &k).into_owned();
             let mut c = CompletionItem::new_simple(k, ty.to_string());
             c.sort_text = Some(format!("#{}", c.label));
-            apply_property_ty(c, &ty)
+            apply_property_ty(c, &ty, cb_args.as_deref())
         })
         .chain(element.PropertyDeclaration().filter_map(|pr| {
             let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
@@ -534,7 +565,7 @@ fn resolve_element_scope(
                         return None;
                     }
                     let c = CompletionItem::new_simple(k.into(), ty.to_string());
-                    Some(apply_property_ty(c, &ty))
+                    Some(apply_property_ty(c, &ty, None))
                 })
                 .chain(tr.all_elements().into_iter().filter_map(|(k, t)| {
                     match t {
@@ -1512,5 +1543,27 @@ mod tests {
             res.iter().find(|ci| ci.label == "prop").unwrap();
             assert!(!res.iter().any(|ci| ci.label == "elem"));
         }
+    }
+
+    #[test]
+    fn callback_args() {
+        let source = r#"
+            import { StandardTableView } from "std-widgets.slint";
+            component Foo {
+                StandardTableView {
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "row-pointer-event").unwrap().insert_text,
+            Some("row-pointer-event(row-index, event, mouse-position) => {$1}".into())
+        );
+        // builtin callback don't have named argument yet
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "accessible-action-set-value").unwrap().insert_text,
+            Some("accessible-action-set-value => {$1}".into())
+        );
     }
 }
