@@ -426,10 +426,7 @@ fn make_default_aspect_ratio_preserving_binding(
     } else {
         let implicit_size_var = Box::new(Expression::ReadLocalVariable {
             name: "image_implicit_size".into(),
-            ty: match BuiltinFunction::ImageSize.ty() {
-                Type::Function(function) => function.return_type.clone(),
-                _ => panic!("invalid type for ImplicitItemSize built-in function"),
-            },
+            ty: BuiltinFunction::ImageSize.ty().return_type.clone(),
         });
 
         Expression::CodeBlock(vec![

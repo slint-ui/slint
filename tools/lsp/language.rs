@@ -8,6 +8,7 @@ mod formatting;
 mod goto;
 mod hover;
 mod semantic_tokens;
+mod signature_help;
 #[cfg(test)]
 pub mod test;
 pub mod token_info;
@@ -25,7 +26,7 @@ use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
-    HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest,
+    HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest, SignatureHelpRequest,
 };
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
@@ -208,6 +209,11 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
     InitializeResult {
         capabilities: ServerCapabilities {
             hover_provider: Some(true.into()),
+            signature_help_provider: Some(lsp_types::SignatureHelpOptions {
+                trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
+                retrigger_characters: None,
+                work_done_progress_options: WorkDoneProgressOptions::default(),
+            }),
             completion_provider: Some(CompletionOptions {
                 resolve_provider: None,
                 trigger_characters: Some(vec![".".to_owned()]),
@@ -309,6 +315,16 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         )
         .and_then(|(token, _)| hover::get_tooltip(document_cache, token));
 
+        Ok(result)
+    });
+    rh.register::<SignatureHelpRequest, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+        let result = token_descr(
+            document_cache,
+            &params.text_document_position_params.text_document.uri,
+            &params.text_document_position_params.position,
+        )
+        .and_then(|(token, _)| signature_help::get_signature_help(document_cache, token));
         Ok(result)
     });
     rh.register::<CodeActionRequest, _>(|params, ctx| async move {
