@@ -47,7 +47,7 @@ export function initialize(): Promise<void> {
                 {
                     ...getConfigurationServiceOverride(),
                     ...getEditorServiceOverride(
-                        (model, _input, _side_by_side) => {
+                        (model, _options, _side_by_side) => {
                             return EDITOR_WIDGET!.open_model_ref(model);
                         },
                     ),
@@ -291,7 +291,7 @@ function tabTitleFromURL(url: monaco.Uri | undefined): string {
 
 class EditorPaneWidget extends Widget {
     #editor: monaco.editor.IStandaloneCodeEditor;
-    #model_ref: IRefernece<ITextEditorModel>;
+    #model_ref: IReference<ITextEditorModel>;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -356,7 +356,7 @@ class EditorPaneWidget extends Widget {
 
 export class EditorWidget extends Widget {
     #layout: BoxLayout;
-    #tab_map: Map<monaco.Uri, EditorPaneWidget> = new Map();
+    #tab_map: Map<string, EditorPaneWidget> = new Map();
     #tab_panel: TabPanel | null = null;
 
     #client: MonacoLanguageClient | null = null;
@@ -389,6 +389,46 @@ export class EditorWidget extends Widget {
         this.clear_editors();
 
         this.open_default_content();
+
+        monaco.editor.registerEditorOpener({
+            openCodeEditor: (_source, uri, position) => {
+                const pane = this.#tab_map.get(uri.toString());
+                if (pane) {
+                    this.#tab_panel!.currentWidget = pane;
+
+                    pane.editor.focus();
+
+                    if (position instanceof monaco.Position) {
+                        pane.editor.setSelection(
+                            {
+                                startLineNumber: position.lineNumber,
+                                startColumn: position.column,
+                                endLineNumber: position.lineNumber,
+                                endColumn: position.column,
+                            },
+                            "lsp:gotoDefinition",
+                        );
+                        pane.editor.revealPositionNearTop(
+                            position,
+                            monaco.editor.ScrollType.Immediate,
+                        );
+                    } else if (position instanceof monaco.Range) {
+                        pane.editor.setSelection(
+                            position,
+                            "lsp:gotoDefinition",
+                        );
+                        pane.editor.revealRangeNearTop(
+                            position,
+                            monaco.editor.ScrollType.Immediate,
+                        );
+                    }
+
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+        });
     }
 
     private async open_default_content() {
@@ -447,12 +487,13 @@ export class EditorWidget extends Widget {
     public async open_model_ref(
         model_ref: IReference<ITextEditorModel>,
     ): Promise<IStandaloneCodeEditor> {
-        const pane = new EditorPaneWidget(model_ref);
-        this.#tab_map.set(
+        const uri =
             model_ref.object.textEditorModel?.uri ??
-                internal_file_uri("unknown.slint"),
-            pane,
-        );
+            internal_file_uri("unknown.slint");
+
+        const pane = new EditorPaneWidget(model_ref);
+
+        this.#tab_map.set(uri.toString(), pane);
         this.#tab_panel!.addWidget(pane);
 
         if (this.#tab_map.size === 1) {
@@ -489,7 +530,8 @@ export class EditorWidget extends Widget {
             monaco.Uri.parse(this.current_text_document_uri ?? "") ??
             internal_file_uri("broken.slint");
         return (
-            this.#tab_map.get(uri) ?? this.#tab_map.entries().next().value![1]
+            this.#tab_map.get(uri.toString()) ??
+            this.#tab_map.entries().next().value![1]
         );
     }
 
@@ -588,15 +630,11 @@ export class EditorWidget extends Widget {
     }
 
     public get open_document_urls(): string[] {
-        return new Array(...this.#tab_map).map((uri, _w) => uri.toString());
+        return [...this.#tab_map.keys()];
     }
 
     public document_contents(url: string): string | undefined {
-        const uri = monaco.Uri.parse(url);
-        if (uri === undefined) {
-            return undefined;
-        }
-        const pane = this.#tab_map.get(uri);
+        const pane = this.#tab_map.get(url);
         return pane?.editor.getModel()?.getValue();
     }
 
