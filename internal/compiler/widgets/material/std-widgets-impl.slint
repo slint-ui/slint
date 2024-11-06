@@ -5,16 +5,20 @@
 export { Button } from "button.slint";
 export { CheckBox } from "checkbox.slint";
 export { ScrollView } from "scrollview.slint";
-import { MaterialPalette, MaterialLayoutSpec } from "styling.slint";
+import { MaterialPalette } from "styling.slint";
 export { Switch } from "switch.slint";
 export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
 
+export global LayoutSpec {
+    out property <length> layout-spacing: 16px;
+    out property <length> layout-padding: 16px;
+}
 
 export global StyleMetrics  {
-    out property <length> layout-spacing: MaterialLayoutSpec.layout-spacing;
-    out property <length> layout-padding: MaterialLayoutSpec.layout-padding;
-    out property <length> text-cursor-width: MaterialLayoutSpec.text-cursor-width;
+    out property <length> layout-spacing: LayoutSpec.layout-spacing;
+    out property <length> layout-padding: LayoutSpec.layout-padding;
+    out property <length> text-cursor-width: 2px;
     out property <color> default-text-color: MaterialPalette.foreground;
     out property <color> textedit-background: transparent;
     out property <color> textedit-text-color: MaterialPalette.foreground;
@@ -40,7 +44,3 @@ export global Palette {
     in-out property <ColorScheme> color-scheme <=> MaterialPalette.color-scheme;
 }
 
-export global LayoutSpec {
-    out property <length> layout-spacing: MaterialLayoutSpec.layout-spacing;
-    out property <length> layout-padding: MaterialLayoutSpec.layout-padding;
-}
