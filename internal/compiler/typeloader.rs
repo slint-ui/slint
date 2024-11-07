@@ -886,20 +886,16 @@ impl TypeLoader {
         let mut foreign_imports = vec![];
         let mut dependencies_futures = vec![];
         for mut import in Self::collect_dependencies(state, doc) {
-            let resolved_import = if let Some((path, _)) = state
-                .borrow()
-                .tl
-                .resolve_import_path(Some(&import.import_uri_token.clone().into()), &import.file)
-            {
-                path.to_string_lossy().to_string()
-            } else {
-                import.file.clone()
-            };
-            if !(resolved_import.ends_with(".slint")
-                || resolved_import.ends_with(".60")
+            if !(import.file.ends_with(".slint")
+                || import.file.ends_with(".60")
                 || import.file.starts_with('@'))
             {
-                import.file = resolved_import;
+                if let Some((path, _)) = state.borrow().tl.resolve_import_path(
+                    Some(&import.import_uri_token.clone().into()),
+                    &import.file,
+                ) {
+                    import.file = path.to_string_lossy().into_owned();
+                };
                 foreign_imports.push(import);
                 continue;
             }
