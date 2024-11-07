@@ -18,7 +18,7 @@ use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
-use crate::typeloader::ImportedTypes;
+use crate::typeloader::{ImportKind, ImportedTypes};
 use crate::typeregister::TypeRegister;
 use itertools::Either;
 use once_cell::unsync::OnceCell;
@@ -170,6 +170,7 @@ impl Document {
 
         let custom_fonts = foreign_imports
             .into_iter()
+            .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
                 if import.file.ends_with(".ttc")
                     || import.file.ends_with(".ttf")
@@ -194,6 +195,9 @@ impl Document {
                         );
                         None
                     }
+                } else if import.file.ends_with(".slint") {
+                    diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token.parent());
+                    None
                 } else {
                     diag.push_error(
                         format!("Unsupported foreign import \"{}\"", import.file),
