@@ -2108,6 +2108,58 @@ fn test_multi_components() {
     assert!(result.component("xyz").is_none());
 }
 
+#[cfg(all(test, feature = "highlight"))]
+fn compile(code: &str) -> (ComponentInstance, PathBuf) {
+    i_slint_backend_testing::init_no_event_loop();
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let path = PathBuf::from("/tmp/test.slint");
+
+    let compile_result =
+        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+
+    for d in &compile_result.diagnostics {
+        eprintln!("{d}");
+    }
+
+    assert!(!compile_result.has_errors());
+
+    let definition = compile_result.components().next().unwrap();
+    let instance = definition.create().unwrap();
+
+    (instance, path)
+}
+
+#[cfg(feature = "highlight")]
+#[test]
+fn test_element_node_at_source_code_position() {
+    let code = r#"
+component Bar1 {}
+
+component Foo1 {
+}
+
+export component Foo2 inherits Window  {
+    Bar1 {}
+    Foo1   {}
+}"#;
+
+    let (handle, path) = compile(code);
+
+    for i in 0..code.as_bytes().len() as u32 {
+        let elements = handle.element_node_at_source_code_position(&path, i);
+        eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
+        match i {
+            16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
+            35 => assert_eq!(elements.len(), 1),       // Foo1 (def)
+            71..=78 => assert_eq!(elements.len(), 1),  // Window + WS (from Foo2)
+            85..=89 => assert_eq!(elements.len(), 1),  // Bar1 + WS (use)
+            97..=103 => assert_eq!(elements.len(), 1), // Foo1 + WS (use)
+            _ => assert!(elements.is_empty()),
+        }
+    }
+}
+
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
 #[path = "ffi.rs"]
