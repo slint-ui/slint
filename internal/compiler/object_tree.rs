@@ -53,6 +53,7 @@ pub struct Document {
     /// startup for custom font use.
     pub custom_fonts: Vec<(SmolStr, crate::parser::SyntaxToken)>,
     pub exports: Exports,
+    pub imports: Vec<ImportedTypes>,
 
     /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
     /// disk on the build system
@@ -66,7 +67,7 @@ pub struct Document {
 impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
-        foreign_imports: Vec<ImportedTypes>,
+        imports: Vec<ImportedTypes>,
         reexports: Exports,
         diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
@@ -168,8 +169,8 @@ impl Document {
         let mut exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
         exports.add_reexports(reexports, diag);
 
-        let custom_fonts = foreign_imports
-            .into_iter()
+        let custom_fonts = imports
+            .iter()
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
                 if import.file.ends_with(".ttc")
@@ -187,7 +188,7 @@ impl Document {
                         || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
                             .is_some()
                     {
-                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token))
+                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token.clone()))
                     } else {
                         diag.push_error(
                             format!("File \"{}\" not found", import.file),
@@ -238,6 +239,7 @@ impl Document {
             inner_types,
             local_registry,
             custom_fonts,
+            imports,
             exports,
             embedded_file_resources: Default::default(),
             used_types: Default::default(),
