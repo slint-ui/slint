@@ -150,7 +150,16 @@ fn select_element_node(
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
     if root_element.borrow().debug.is_empty() {
-        let child = root_element.borrow().children.first().cloned();
+        // The root element has no debug set if it is a window inserted by the compiler.
+        // That window will have one child -- the "real root", but it might
+        // have a few more compiler-generated nodes in front or beghing the "real root"!
+        let child = root_element
+            .borrow()
+            .children
+            .iter()
+            .filter(|c| !c.borrow().debug.is_empty())
+            .next()
+            .cloned();
         child.unwrap_or(root_element)
     } else {
         root_element
