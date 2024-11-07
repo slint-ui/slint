@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 <CodeSnippetMD imagePath="/src/assets/generated/rectangle-example.png" imageAlt='rectangle example'>
 ```slint playground
 export component ExampleRectangle inherits Window {
-    width: 200px; height: 800px;
+    width: 200px; height: 800px; background: transparent;
 
     Rectangle {
         x: 10px; y: 10px;
@@ -120,7 +120,7 @@ The width of the border.
 
 ### `clip`
 <SlintProperty propName="clip" typeName="bool" defaultValue="false">
-<CodeSnippetMD imagePath="/src/assets/generated/rectangle-clip.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle clip'>
+<CodeSnippetMD hideCode="true" imagePath="/src/assets/generated/rectangle-clip.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle clip'>
 ```slint
 // clip: false; the default
 Rectangle {
@@ -153,6 +153,40 @@ Rectangle {
         font-size: 20pt;
         color: white;
     }
+    Rectangle {
+        x: -40px; y: -40px;
+        width: 100px;
+        height: 100px;
+        background: lightslategray;
+    }
+}
+
+```
+</CodeSnippetMD>
+
+<CodeSnippetMD noScreenShot imagePath="/src/assets/generated/rectangle-clip.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle clip'>
+```slint
+// clip: false; the default
+Rectangle {
+    x: 50px; y: 50px;
+    width: 150px;
+    height: 150px;
+    background: darkslategray;
+    Rectangle {
+        x: -40px; y: -40px;
+        width: 100px;
+        height: 100px;
+        background: lightslategray;
+    }
+}
+
+// clip: true; Clips the children of this Rectangle
+Rectangle {
+    x: 50px; y: 250px;
+    width: 150px;
+    height: 150px;
+    background: darkslategray;
+    clip: true;
     Rectangle {
         x: -40px; y: -40px;
         width: 100px;

@@ -40,11 +40,11 @@ of text.
 <SlintProperty propName="color" typeName="brush" defaultValue="<depends on theme>"> 
     The color of the text.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text-color.png" imageWidth="200" imageHeight="200" imageAlt='text color'>
-```slint "color: red;"
+<CodeSnippetMD imagePath="/src/assets/generated/text-color.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text color'>
+```slint "color: #3586f4;"
 Text {
     text: "Hello";
-    color: red;
+    color: #3586f4;
     font-size: 40pt;
 }
 ```
@@ -58,8 +58,8 @@ Text {
 <SlintProperty propName="font-family" typeName="string" > 
 The name of the font family selected for rendering the text.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text-font-family.png" imageWidth="200" imageHeight="200" imageAlt='text font-family'>
-```slint 'font-family: "Comic Sans MS";'
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-family.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-family'>
+```slint  'font-family: "Comic Sans MS";'
 Text {
     text: "CoMiC!";
     color: black;
@@ -80,8 +80,8 @@ Text {
 <SlintProperty propName="font-size" typeName="length"> 
 The font size of the text.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text-font-size.png" imageWidth="200" imageHeight="200" imageAlt='text font-size'>
-```slint {4}
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-size.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-size'>
+```slint "font-size: 70pt;"
 Text {
     text: "Big";
     color: black;
@@ -95,7 +95,7 @@ Text {
 <SlintProperty propName="font-weight" typeName="int">  
 The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text-font-weight.png" imageWidth="200" imageHeight="200" imageAlt='text font-weight'>
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-weight.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-weight'>
 
 ```slint 'font-weight: 800;'
 Text {
@@ -112,8 +112,8 @@ Text {
 <SlintProperty propName="font-italic" typeName="bool" defaultValue="false" >  
 Whether or not the font face should be drawn italicized or not.
 
-<CodeSnippetMD imagePath="/src/assets/generated/text-font-italic.png" imageWidth="200" imageHeight="200" imageAlt='text font-family'>
-```slint {4} "font-italic: true;"
+<CodeSnippetMD imagePath="/src/assets/generated/text-font-italic.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-family'>
+```slint "font-italic: true;"
 Text {
     text: "Italic";
     color: black;
@@ -132,8 +132,8 @@ The design metrics of the font scaled to the font pixel size used by the element
 ### `horizontal-alignment`
 <SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' > 
 
-<CodeSnippetMD imagePath="/src/assets/generated/text-horizontal-alignment.png"  imageWidth="200" imageHeight="200"  imageAlt='text-horizontal-alignment'>
-```slint
+<CodeSnippetMD imagePath="/src/assets/generated/text-horizontal-alignment.png" needsBackground="true" imageWidth="200" imageHeight="200"  imageAlt='text-horizontal-alignment'>
+```slint "horizontal-alignment: left;"
 Text {
     text: "Hello";
     color: black;
@@ -147,8 +147,8 @@ Text {
 ### `letter-spacing` 
 <SlintProperty propName="letter-spacing" typeName="length">
 The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
-<CodeSnippetMD imagePath="/src/assets/generated/text-letter-spacing.png"  imageWidth="200" imageHeight="200"  imageAlt='text-horizontal-alignment'>
-```slint
+<CodeSnippetMD imagePath="/src/assets/generated/text-letter-spacing.png" needsBackground="true"  imageWidth="200" imageHeight="200"  imageAlt='text-horizontal-alignment'>
+```slint "letter-spacing: 4px;"
 Text {
     text: "Spaced!";
     color: black;
@@ -174,14 +174,14 @@ The text rendered.
 <SlintProperty propName="wrap" typeName="enum" enumName="TextWrap">
 
 
-<CodeSnippetMD imagePath="/src/assets/generated/text_wrap.png" imageWidth="200" imageHeight="200" imageAlt='wrap'>
+<CodeSnippetMD imagePath="/src/assets/generated/text_wrap.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='wrap'>
 
-```slint {3}
+```slint "wrap: word-wrap;"
 Text {
     text: "This paragraph breaks into multiple lines of text";
-    font-size: 40pt;
+    font-size: 20pt;
     wrap: word-wrap;
-    width: 150px;
+    width: 180px;
 }
 ```
 </CodeSnippetMD>
@@ -190,16 +190,16 @@ Text {
 ### `stroke`
 <SlintProperty propName="stroke" typeName="brush">
 The brush used for the text outline.
-<CodeSnippetMD imagePath="/src/assets/generated/text-stroke.png" imageWidth="300" imageHeight="200" imageAlt='text stroke'>
-```slint 
+<CodeSnippetMD imagePath="/src/assets/generated/text-stroke.png" needsBackground="true" imageWidth="300" imageHeight="200" imageAlt='text stroke'>
+```slint "stroke: darkblue;"
 Text {
-        text: "Stroke";
-        stroke-width: 2px;
-        stroke: darkblue;
-        stroke-style: center;
-        font-size: 80px;
-        color: lightblue;
-    }
+    text: "Stroke";
+    stroke-width: 2px;
+    stroke: darkblue;
+    stroke-style: center;
+    font-size: 80px;
+    color: lightblue;
+}
 ```
 </CodeSnippetMD>
 </SlintProperty>
@@ -211,14 +211,16 @@ The width of the text outline. If the width is zero, then a hairline stroke (1 p
 
 ###  `stroke-style`
 <SlintProperty propName="stroke-style" typeName="enum" enumName="TextStrokeStyle">
-<CodeSnippetMD imagePath="/src/assets/generated/text-stroke-style.png" imageWidth="200" imageHeight="200" imageAlt='stroke-style'>
+<CodeSnippetMD imagePath="/src/assets/generated/text-stroke-style.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='stroke-style'>
 
-```slint {3}
+```slint "stroke-style: center;"
 Text {
-    text: "Hello";
+    text: "Style";
     stroke-width: 2px;
-    stroke: red;
+    stroke: #3586f4;
     stroke-style: center;
+    font-size: 60px;
+    color: white;
 }
 ```
 </CodeSnippetMD>
@@ -231,9 +233,9 @@ Rotates the text by the given angle around the specified origin point. The defau
 When these properties are set, the `Text` can't have children.
 </Aside>
 
-<CodeSnippetMD imagePath="/src/assets/generated/text-rotation.png" imageWidth="200" imageHeight="200" imageAlt='rotation properties'>
+<CodeSnippetMD imagePath="/src/assets/generated/text-rotation.png" imageWidth="200" needsBackground="true" imageHeight="200" imageAlt='rotation properties'>
 
-```slint {5-7}
+```slint {3-5}
 Text {
     text: "I'm dizzy";
     rotation-angle: 45deg;

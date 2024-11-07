@@ -1,4 +1,39 @@
 :root {
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
+    .screenshot-container {
+        background-color: whitesmoke;
+    }
+}
+
+.code-image-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    align-items: center;
+}
+.code-block {
+    width: 80%; /* Reduced from 300px to accommodate the gap */
+    overflow-x: auto;
+}
+.image-block {
+    width: 20%;
+    margin-top: 0 !important;
+    margin-left: 20px;
+    border-radius: 10px;
+}
+.image-block img {
+    width: auto;
+    height: auto;
+    border-radius: 3px;
+    
+}
+
+
+
+:root[data-theme="dark"] {
+    .screenshot-container {
+        background-color: #cdcdcd;
+    }
+     
 }
