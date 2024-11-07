@@ -1634,7 +1634,7 @@ struct SelectionInfo {
     selection: core::ops::Range<usize>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct RenderState {
     alpha: f32,
     offset: LogicalPoint,
@@ -1873,19 +1873,29 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             if border_color.alpha > 0 {
                 let mut add_border = |r: LogicalRect| {
                     if let Some(r) = r.intersection(&self.current_state.clip) {
-                        let geometry = (r.translate(self.current_state.offset.to_vector()).cast()
-                            * self.scale_factor)
-                            .round()
-                            .cast()
-                            .transformed(self.rotation);
+                        let geometry =
+                            (r.translate(self.current_state.offset.to_vector()).try_cast()?
+                                * self.scale_factor)
+                                .round()
+                                .try_cast()?
+                                .transformed(self.rotation);
                         self.processor.process_rectangle(geometry, border_color);
                     }
+                    Some(())
                 };
                 let b = border.get();
-                add_border(euclid::rect(0 as _, 0 as _, geom.width(), b));
-                add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b));
-                add_border(euclid::rect(0 as _, b, b, geom.height() - b - b));
-                add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b));
+                let err = || {
+                    panic!(
+                        "invalid border rectangle {geom:?} border={b} state={:?}",
+                        self.current_state
+                    )
+                };
+                add_border(euclid::rect(0 as _, 0 as _, geom.width(), b)).unwrap_or_else(err);
+                add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b))
+                    .unwrap_or_else(err);
+                add_border(euclid::rect(0 as _, b, b, geom.height() - b - b)).unwrap_or_else(err);
+                add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b))
+                    .unwrap_or_else(err);
             }
         }
     }
