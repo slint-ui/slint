@@ -52,7 +52,7 @@ jobs:
             MACOSX_DEPLOYMENT_TARGET: "11.0"
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen
-            RUSTFLAGS: -D warnings
+            RUSTFLAGS: -D warnings -Cinstrument-coverage -Clink-dead-code
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
@@ -95,6 +95,9 @@ jobs:
             - name: Install gstreamer and libunwind (Linux)
               if: runner.os == 'Linux'
               run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+            - name: Install grcov (Linux)
+              if: runner.os == 'Linux' && inputs.rust_version == 'nightly'
+              run: sudo apt-get install grcov
             - name: Setup headless display
               if: runner.os != 'macOS'
               uses: pyvista/setup-headless-display-action@v4
@@ -135,6 +138,16 @@ jobs:
                   name: screenshots-${{ inputs.os }}
                   path: |
                       tests/screenshots/references
+            - name: Generate coverage report
+              if: runner.os == 'Linux' && inputs.rust_version == 'nightly'
+              run: |
+                grcov . --binary-path target/debug/ -s . -t html --branch --ignore-not-existing --ignore "/*" -o target/debug/coverage
+            - name: Upload coverage
+              if: runner.os == 'Linux' && inputs.rust_version == 'nightly'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage
+                  path: target/debug/coverage/index.html
             - name: Print Disk Usage
               if: always()
               run: df -h
