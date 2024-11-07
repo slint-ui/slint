@@ -150,14 +150,23 @@ fn find_element_node_at_source_code_position(
             if elem.borrow().repeated.is_some() {
                 return;
             }
-            for (index, node) in elem
-                .borrow()
-                .debug
-                .iter()
-                .enumerate()
-                .filter_map(|(i, n)| n.node.QualifiedName().map(|n| (i, n)))
+            for (index, node_path, node_range) in
+                elem.borrow().debug.iter().enumerate().map(|(i, n)| {
+                    let text_range = n
+                        .node
+                        .QualifiedName()
+                        .map(|n| n.text_range())
+                        .or_else(|| {
+                            n.node
+                                .child_token(i_slint_compiler::parser::SyntaxKind::LBrace)
+                                .map(|n| n.text_range())
+                        })
+                        .expect("A Element must contain a LBrace somewhere pretty early");
+
+                    (i, n.node.source_file.path(), text_range)
+                })
             {
-                if node.source_file.path() == path && node.text_range().contains(offset.into()) {
+                if node_path == path && node_range.contains(offset.into()) {
                     result.push((elem.clone(), index));
                 }
             }
