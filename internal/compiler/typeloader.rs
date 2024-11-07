@@ -29,7 +29,10 @@ struct LoadedDocuments {
 }
 
 pub enum ImportKind {
-    ImportList(syntax_nodes::ImportSpecifier),
+    /// `import {Foo, Bar} from "foo"`
+    ImportList(syntax_nodes::ImportIdentifierList),
+    /// `import "foo"` without an import list
+    FileImport,
     /// re-export types, as per `export ... from "foo"``.
     ModuleReexport(syntax_nodes::ExportsList),
 }
@@ -50,11 +53,9 @@ pub struct ImportedName {
 
 impl ImportedName {
     pub fn extract_imported_names(
-        import: &syntax_nodes::ImportSpecifier,
+        import_identifiers: &syntax_nodes::ImportIdentifierList,
     ) -> impl Iterator<Item = ImportedName> + '_ {
-        import.ImportIdentifierList().into_iter().flat_map(|import_identifiers| {
-            import_identifiers.ImportIdentifier().map(Self::from_node)
-        })
+        import_identifiers.ImportIdentifier().map(Self::from_node)
     }
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
@@ -886,10 +887,7 @@ impl TypeLoader {
         let mut foreign_imports = vec![];
         let mut dependencies_futures = vec![];
         for mut import in Self::collect_dependencies(state, doc) {
-            if !(import.file.ends_with(".slint")
-                || import.file.ends_with(".60")
-                || import.file.starts_with('@'))
-            {
+            if matches!(import.import_kind, ImportKind::FileImport) {
                 if let Some((path, _)) = state.borrow().tl.resolve_import_path(
                     Some(&import.import_uri_token.clone().into()),
                     &import.file,
@@ -965,6 +963,9 @@ impl TypeLoader {
                                 .collect::<Vec<_>>();
                             exports.add_reexports(e, state.diag);
                         }
+                    }
+                    ImportKind::FileImport => {
+                        unreachable!("FileImport should have been handled above")
                     }
                 }
                 false
@@ -1416,7 +1417,11 @@ impl TypeLoader {
         doc.ImportSpecifier()
             .map(|import| {
                 let maybe_import_uri = import.child_token(SyntaxKind::StringLiteral);
-                (maybe_import_uri, ImportKind::ImportList(import))
+                let kind = import
+                    .ImportIdentifierList()
+                    .map(ImportKind::ImportList)
+                    .unwrap_or(ImportKind::FileImport);
+                (maybe_import_uri, kind)
             })
             .chain(
                 // process `export ... from "foo"`
