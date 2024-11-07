@@ -23,6 +23,7 @@ export default defineConfig({
             plugins: [
                 starlightLinksValidator({
                     errorOnRelativeLinks: false,
+                    errorOnLocalLinks: false,
                 }),
             ],
             social: {
