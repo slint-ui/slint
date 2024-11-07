@@ -37,6 +37,11 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                 toolchain: nightly
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: libfontconfig-dev fonts-open-sans ttf-mscorefonts-installer
+
+            
 
             # - name: Check license headers
             #   run: cargo xtask check_license_headers --fix-it
