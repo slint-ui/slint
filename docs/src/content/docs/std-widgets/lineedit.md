@@ -4,7 +4,7 @@ title: LineEdit
 description: LineEdit api.
 ---
 
-A widget used to enter a single line of text. See [`TextEdit`](#textedit) for
+A widget used to enter a single line of text. See [`TextEdit`](./textedit) for
 a widget able to handle several lines of text.
 
 ### Properties

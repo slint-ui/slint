@@ -4,8 +4,7 @@ title: Button
 description: Button api.
 ---
 
-A simple button. Common types of buttons can also be created with [`StandardButton`](#standardbutton).
-
+A simple button. Common types of buttons can also be created with [`StandardButton`](standardbutton).
 ### Properties
 
 -   **`checkable`** (_in_ _bool_): Shows whether the button can be checked or not. This enables the `checked` property to possibly become true.

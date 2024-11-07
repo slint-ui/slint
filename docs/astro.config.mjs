@@ -55,12 +55,7 @@ export default defineConfig({
                 {
                     label: "Elements Reference",
                     collapsed: true,
-                    items: [
-                        { label: "Overview", slug: "guide/intro" },
-                        { label: "Live Preview", slug: "guide/preview" },
-                        { label: "Basics", slug: "guide/basics" },
-                        { label: "Types", slug: "guide/types" },
-                    ],
+                    autogenerate: { directory: "elements"},
                 },
                 {
                     label: "Std-Widgets",

@@ -4,7 +4,7 @@ title: VerticalBox
 description: VerticalBox api.
 ---
 
-A `VerticalBox` is a [`VerticalLayout`](../builtins/elements.md#verticallayout-and-horizontallayout) where the spacing and padding values
+A `VerticalBox` is a [`VerticalLayout`](../elements/verticallayout) where the spacing and padding values
 depend on the style instead of defaulting to 0.
 
-See also [`HorizontalBox`](horizontalbox.md).
+See also [`HorizontalBox`](horizontalbox).

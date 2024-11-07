@@ -6,7 +6,7 @@ description: ScrollView api.
 
 A Scrollview contains a viewport that is bigger than the view and can be
 scrolled. It has scrollbar to interact with. The viewport-width and
-viewport-height are calculated automatically to create a scollable view
+viewport-height are calculated automatically to create a scrollable view
 except for when using a for loop to populate the elements. In that case
 the viewport-width and viewport-height aren't calculated automatically
 and must be set manually for scrolling to work. The ability to

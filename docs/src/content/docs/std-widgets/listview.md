@@ -4,22 +4,7 @@ title: ListView
 description: ListView api.
 ---
 
-A ListView is like a Scrollview but it should have a `for` element, and the content are
-automatically laid out in a list.
-Elements are only instantiated if they are visible
-
-### Properties
-
-Same as [`ScrollView`](#scrollview)
-
-
-### Callbacks
-
-Same as [`ScrollView`](#scrollview)
-
-### Example
-
-```slint
+```slint playground
 import { ListView } from "std-widgets.slint";
 export component Example inherits Window {
     width: 150px;
@@ -49,3 +34,16 @@ export component Example inherits Window {
     }
 }
 ```
+
+A ListView is like a Scrollview but it should have a `for` element, and the content are
+automatically laid out in a list.
+Elements are only instantiated if they are visible
+
+### Properties
+
+Same as [`ScrollView`](scrollview)
+
+
+### Callbacks
+
+Same as [`ScrollView`](scrollview)

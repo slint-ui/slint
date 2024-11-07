@@ -4,10 +4,23 @@ title: TextEdit
 description: TextEdit api.
 ---
 
-Similar to [`LineEdit`](#lineedit), but can be used to enter several lines of text
+```slint playground
+import { TextEdit } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 200px;
+    TextEdit {
+        font-size: 14px;
+        width: parent.width;
+        height: parent.height;
+        text: "Lorem ipsum dolor sit amet,\n consectetur adipisici elit";
+    }
+}
+```
 
-_Note:_ The current implementation only implement very few basic shortcut. More
-shortcut will be implemented in a future version: <https://github.com/slint-ui/slint/issues/474>
+Similar to [`LineEdit`](lineedit), but can be used to enter several lines of text
+
+
 
 ### Properties
 
@@ -36,18 +49,3 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 -   **`edited(string)`**: Emitted when the text has changed because the user modified it
 -   **`rejected()`**: Emitted when the user pressed the escape key
 
-### Example
-
-```slint
-import { TextEdit } from "std-widgets.slint";
-export component Example inherits Window {
-    width: 200px;
-    height: 200px;
-    TextEdit {
-        font-size: 14px;
-        width: parent.width;
-        height: parent.height;
-        text: "Lorem ipsum dolor sit amet,\n consectetur adipisici elit";
-    }
-}
-```
