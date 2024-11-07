@@ -197,6 +197,53 @@ component FloatWidget inherits VerticalLayout {
     }
 }
 
+component StringWidget inherits VerticalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    NameLabel {
+        element-information: element-information;
+        property-information: property-information;
+    }
+
+    HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        height: 2rem;
+
+        ResettingLineEdit {
+            default-text: property-information.value.value-string;
+
+            edited(text) => {
+                self.can-compile = Api.test-string-binding(
+                root.element-information.source-uri,
+                root.element-information.source-version,
+                root.element-information.range.start,
+                property-information.name,
+                text,
+                property-information.value.is-translatable,
+                property-information.value.tr-context,
+                property-information.value.tr-plural,
+                property-information.value.tr-plural-expression,
+            );
+            }
+
+            accepted(text) => {
+                Api.set-string-binding(
+                root.element-information.source-uri,
+                root.element-information.source-version,
+                root.element-information.range.start,
+                property-information.name,
+                text,
+                property-information.value.is-translatable,
+                property-information.value.tr-context,
+                property-information.value.tr-plural,
+                property-information.value.tr-plural-expression,
+            );
+            }
+        }
+    }
+}
+
 component ColorWidget inherits VerticalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -243,6 +290,149 @@ component ColorWidget inherits VerticalLayout {
             background: property-information.value.value-brush;
             border-width: 1px;
             border-color: Palette.foreground;
+        }
+    }
+}
+
+component CodeWidget inherits VerticalLayout {
+
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+    padding-bottom: EditorSpaceSettings.default-spacing;
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    if property-information.value.code == "": Rectangle {
+        min-height: 2rem;
+        width: 100%;
+        background: Palette.alternate-background;
+        Text {
+            x: EditorSpaceSettings.default-padding;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            text: @tr("Not Set");
+            font-italic: true;
+        }
+    }
+    if property-information.value.code != "": HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        ResetButton {
+            element-information <=> element-information;
+            property-information: property-information;
+        }
+
+        CodeButton {
+            element-information <=> element-information;
+            property-information: property-information;
+        }
+    }
+}
+
+component IntegerWidget inherits VerticalLayout {
+
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    HorizontalLayout {
+        height: 2rem;
+        spacing: EditorSpaceSettings.default-spacing;
+        ResettingLineEdit {
+            horizontal-alignment: right;
+            input-type: number;
+
+            default-text: property-information.value.value-int;
+
+            edited(text) => {
+                self.can-compile = Api.test-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            text,
+        );
+            }
+
+            accepted(text) => {
+                Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            text,
+        );
+            }
+        }
+    }
+}
+
+component EnumWidget inherits VerticalLayout {
+
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    HorizontalLayout {
+        ComboBox {
+            current-index: property-information.value.value-int;
+
+            model: property-information.value.visual-items;
+
+            selected(value) => {
+                Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            property-information.value.value_string + "." + value,
+        )
+            }
+        }
+    }
+}
+
+component BooleanWidget inherits VerticalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        height: 2rem;
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: Palette.alternate-background;
+            HorizontalLayout {
+                alignment: start;
+                padding-left: 0;
+                CheckBox {
+                    checked: property-information.value.value_bool;
+
+                    toggled() => {
+                        Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            self.checked ? "true" : "false",
+        );
+                    }
+                }
+            }
         }
     }
 }
@@ -388,187 +578,34 @@ component ExpandableGroup {
                     for property in root.properties: HorizontalLayout {
                         alignment: stretch;
 
-                        if property.value.kind == PropertyValueKind.boolean: VerticalLayout {
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                alignment: start;
-                                height: 2rem;
-                                Rectangle {
-                                    width: 100%;
-                                    height: 100%;
-                                    background: Palette.alternate-background;
-                                    HorizontalLayout {
-                                        alignment: start;
-                                        padding-left: 0;
-                                        CheckBox {
-                                            checked: property.value.value_bool;
-
-                                            toggled() => {
-                                                Api.set-code-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    self.checked ? "true" : "false",
-                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        if property.value.kind == PropertyValueKind.boolean: BooleanWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
                         }
                         if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
                             element-information <=> root.element-information;
                             property-information: property;
                         }
 
-                        if property.value.kind == PropertyValueKind.code: VerticalLayout {
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            padding-bottom: EditorSpaceSettings.default-spacing;
-                            if property.value.code == "": Rectangle {
-                                min-height: 2rem;
-                                width: 100%;
-                                background: Palette.alternate-background;
-                                Text {
-                                    x: EditorSpaceSettings.default-padding;
-                                    horizontal-alignment: left;
-                                    vertical-alignment: center;
-                                    text: @tr("Not Set");
-                                    font-italic: true;
-                                }
-                            }
-                            if property.value.code != "": HorizontalLayout {
-                                spacing: EditorSpaceSettings.default-spacing;
-                                ResetButton {
-                                    element-information <=> root.element-information;
-                                    property-information: property;
-                                }
-
-                                CodeButton {
-                                    element-information <=> root.element-information;
-                                    property-information: property;
-                                }
-                            }
-                        }
-                        if property.value.kind == PropertyValueKind.enum: VerticalLayout {
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                ComboBox {
-                                    current-index: property.value.value-int;
-
-                                    model: property.value.visual-items;
-
-                                    selected(value) => {
-                                        Api.set-code-binding(
-                                        root.element-information.source-uri,
-                                        root.element-information.source-version,
-                                        root.element-information.range.start,
-                                        property.name,
-                                        property.value.value_string + "." + value,
-                                    )
-                                    }
-                                }
-                            }
-                        }
-                        if property.value.kind == PropertyValueKind.float:  FloatWidget {
+                        if property.value.kind == PropertyValueKind.code: CodeWidget {
                             element-information <=> root.element-information;
                             property-information: property;
                         }
-                        if property.value.kind == PropertyValueKind.integer: VerticalLayout {
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                height: 2rem;
-                                spacing: EditorSpaceSettings.default-spacing;
-                                ResettingLineEdit {
-                                    horizontal-alignment: right;
-                                    input-type: number;
-
-                                    default-text: property.value.value-int;
-
-                                    edited(text) => {
-                                        self.can-compile = Api.test-code-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                );
-                                    }
-
-                                    accepted(text) => {
-                                        Api.set-code-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                );
-                                    }
-                                }
-                            }
+                        if property.value.kind == PropertyValueKind.enum:  EnumWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
                         }
-                        if property.value.kind == PropertyValueKind.string: VerticalLayout {
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                spacing: EditorSpaceSettings.default-spacing;
-                                height: 2rem;
-
-                                ResettingLineEdit {
-                                    default-text: property.value.value-string;
-
-                                    edited(text) => {
-                                        self.can-compile = Api.test-string-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                    property.value.is-translatable,
-                                    property.value.tr-context,
-                                    property.value.tr-plural,
-                                    property.value.tr-plural-expression,
-                                );
-                                    }
-
-                                    accepted(text) => {
-                                        Api.set-string-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                    property.value.is-translatable,
-                                    property.value.tr-context,
-                                    property.value.tr-plural,
-                                    property.value.tr-plural-expression,
-                                );
-                                    }
-                                }
-                            }
+                        if property.value.kind == PropertyValueKind.integer: IntegerWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
+                        }
+                        if property.value.kind == PropertyValueKind.string: StringWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
+                        }
+                        if property.value.kind == PropertyValueKind.float: FloatWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
                         }
                     }
                 }
