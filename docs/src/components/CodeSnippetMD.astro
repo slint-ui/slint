@@ -9,18 +9,20 @@ interface Props {
     imageWidth: number;
     imageHeight: number;
     needsBackground?: boolean;
+    skip?: boolean;
 
 }
-const { imagePath, imageAlt, imageWidth, imageHeight, needsBackground } = Astro.props as Props;
+const { imagePath, imageAlt, skip, needsBackground } = Astro.props as Props;
 const images = import.meta.glob<{ default: ImageMetadata }>('/src/assets/generated/*.{jpeg,jpg,png,gif}')
 if (!images[imagePath]) { throw new Error(`"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`); }
 ---
 
-<div class="code-image-container">
+{!skip && <div class="code-image-container">
     <div class="code-block">
         <slot/>
     </div>
     <div class={`image-block ${needsBackground ? 'screenshot-container' : ''}`}>
         <Image src={images[imagePath]()} alt={imageAlt} />
     </div>
-</div>
+</div>}
+
