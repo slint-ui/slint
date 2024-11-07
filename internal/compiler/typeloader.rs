@@ -28,6 +28,7 @@ struct LoadedDocuments {
     currently_loading: HashMap<PathBuf, Vec<std::task::Waker>>,
 }
 
+#[derive(Debug, Clone)]
 pub enum ImportKind {
     /// `import {Foo, Bar} from "foo"`
     ImportList(syntax_nodes::ImportIdentifierList),
@@ -37,6 +38,7 @@ pub enum ImportKind {
     ModuleReexport(syntax_nodes::ExportsList),
 }
 
+#[derive(Debug, Clone)]
 pub struct ImportedTypes {
     pub import_uri_token: SyntaxToken,
     pub import_kind: ImportKind,
@@ -252,6 +254,7 @@ impl Snapshotter {
             inner_types: document.inner_types.clone(),
             local_registry: document.local_registry.snapshot(self),
             custom_fonts: document.custom_fonts.clone(),
+            imports: document.imports.clone(),
             exports,
             embedded_file_resources: document.embedded_file_resources.clone(),
             used_types: RefCell::new(self.snapshot_used_sub_types(&document.used_types.borrow())),
@@ -884,7 +887,7 @@ impl TypeLoader {
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         import_stack: &'b HashSet<PathBuf>,
     ) -> (Vec<ImportedTypes>, Exports) {
-        let mut foreign_imports = vec![];
+        let mut imports = vec![];
         let mut dependencies_futures = vec![];
         for mut import in Self::collect_dependencies(state, doc) {
             if matches!(import.import_kind, ImportKind::FileImport) {
@@ -894,7 +897,7 @@ impl TypeLoader {
                 ) {
                     import.file = path.to_string_lossy().into_owned();
                 };
-                foreign_imports.push(import);
+                imports.push(import);
                 continue;
             }
             dependencies_futures.push(Box::pin(async move {
@@ -914,7 +917,7 @@ impl TypeLoader {
         let mut has_star_reexport = false;
         std::future::poll_fn(|cx| {
             dependencies_futures.retain_mut(|fut| {
-                let core::task::Poll::Ready((import, doc_path)) = fut.as_mut().poll(cx) else { return true; };
+                let core::task::Poll::Ready((mut import, doc_path)) = fut.as_mut().poll(cx) else { return true; };
                 let Some(doc_path) = doc_path else { return false };
                 let mut state = state.borrow_mut();
                 let state = &mut *state;
@@ -968,6 +971,8 @@ impl TypeLoader {
                         unreachable!("FileImport should have been handled above")
                     }
                 }
+                import.file = doc_path.to_string_lossy().into_owned();
+                imports.push(import);
                 false
             });
             if dependencies_futures.is_empty() {
@@ -976,7 +981,7 @@ impl TypeLoader {
                 core::task::Poll::Pending
             }
         }).await;
-        (foreign_imports, reexports.unwrap_or_default())
+        (imports, reexports.unwrap_or_default())
     }
 
     pub async fn import_component(
@@ -1285,7 +1290,7 @@ impl TypeLoader {
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
         dependency_registry.borrow_mut().expose_internal_types =
             is_builtin || state.borrow().tl.compiler_config.enable_experimental;
-        let (foreign_imports, reexports) = Self::load_dependencies_recursively_impl(
+        let (imports, reexports) = Self::load_dependencies_recursively_impl(
             state,
             &dependency_doc,
             &dependency_registry,
@@ -1304,7 +1309,7 @@ impl TypeLoader {
             );
             let doc = crate::object_tree::Document::from_node(
                 dependency_doc,
-                foreign_imports,
+                imports,
                 reexports,
                 &mut ignore_diag,
                 &dependency_registry,
@@ -1315,7 +1320,7 @@ impl TypeLoader {
         let state = &mut *state;
         let doc = crate::object_tree::Document::from_node(
             dependency_doc,
-            foreign_imports,
+            imports,
             reexports,
             state.diag,
             &dependency_registry,
@@ -1585,7 +1590,8 @@ fn test_dependency_loading() {
 
     assert!(!test_diags.has_errors());
     assert!(!build_diagnostics.has_errors());
-    assert!(foreign_imports.is_empty());
+    assert_eq!(foreign_imports.len(), 3);
+    assert!(foreign_imports.iter().all(|x| matches!(x.import_kind, ImportKind::ImportList(..))));
 }
 
 #[test]
@@ -1629,7 +1635,8 @@ fn test_dependency_loading_from_rust() {
     assert!(test_diags.is_empty()); // also no warnings
     assert!(!build_diagnostics.has_errors());
     assert!(build_diagnostics.is_empty()); // also no warnings
-    assert!(foreign_imports.is_empty());
+    assert_eq!(foreign_imports.len(), 3);
+    assert!(foreign_imports.iter().all(|x| matches!(x.import_kind, ImportKind::ImportList(..))));
 }
 
 #[test]
