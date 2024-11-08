@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
     docs:
-        runs-on: ubuntu-24.04
+        runs-on: macos-14
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
@@ -37,9 +37,12 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                 toolchain: nightly
-            - uses: ./.github/actions/install-linux-dependencies
+            - uses: actions/setup-python@v5
               with:
-                  extra-packages: libfontconfig-dev fonts-open-sans ttf-mscorefonts-installer
+                python-version: '3.12'
+            # - uses: ./.github/actions/install-linux-dependencies
+            #   with:
+            #       extra-packages: libfontconfig-dev fonts-open-sans ttf-mscorefonts-installer
 
             
 
