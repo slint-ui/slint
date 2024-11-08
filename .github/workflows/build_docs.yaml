@@ -40,16 +40,13 @@ jobs:
               with:
                 node-version: 20
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                extra-packages: doxygen python3-pip pipenv reuse
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
                   components: rustfmt
                   target: aarch64-linux-android
-            - name: Install apt dependencies
-              run: sudo apt-get install doxygen
-            - name: Upgrade pip and install pipenv
-              run: |
-                  sudo apt-get install python3-pip pipenv
             - name: Remove docs from cache # Avoid stale docs
               run: |
                   rm -rf target/doc target/cppdocs api/node/docs
@@ -61,7 +58,6 @@ jobs:
                   tool_name: xtask license_header
                   level: error
                   fail_on_error: true
-            - run: sudo apt-get install reuse
             - name: Check reuse compliance
               run: cargo xtask check_reuse_compliance
 
