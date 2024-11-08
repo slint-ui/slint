@@ -28,7 +28,9 @@ component CodeButton inherits Button {
 component ResetButton inherits Button {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     text: @tr("Reset");
+
     clicked => {
         Api.set-code-binding(
             element-information.source-uri,
@@ -43,7 +45,9 @@ component ResetButton inherits Button {
 component NameLabel inherits HorizontalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     horizontal-stretch: 0;
+
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
 
@@ -67,7 +71,7 @@ component ResettingLineEdit {
     in property <TextHorizontalAlignment> horizontal-alignment <=> le.horizontal-alignment;
     in property <string> placeholder-text <=> le.placeholder-text;
     out property <bool> has-focus <=> le.has-focus;
-    out property <string> text <=> le.text;
+    in-out property <string> text <=> le.text;
 
     callback accepted <=> le.accepted;
     callback edited <=> le.edited;
@@ -112,6 +116,99 @@ component ResettingLineEdit {
         height: root.height - 2 * root.border;
 
         border-radius: root.border;
+    }
+}
+
+component CodeWidget inherits VerticalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    padding-bottom: EditorSpaceSettings.default-spacing;
+
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    if property-information.value.code == "": Rectangle {
+        min-height: 2rem;
+        width: 100%;
+        background: Palette.alternate-background;
+        Text {
+            x: EditorSpaceSettings.default-padding;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            text: @tr("Not Set");
+            font-italic: true;
+        }
+    }
+    if property-information.value.code != "": HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        ResetButton {
+            element-information <=> element-information;
+            property-information: property-information;
+        }
+
+        CodeButton {
+            element-information <=> element-information;
+            property-information: property-information;
+        }
+    }
+}
+
+component ChildIndicator {
+    out property <bool> open: false;
+    
+    // in property <> content;
+    x: - EditorSpaceSettings.group-indent * 2;
+
+    Rectangle {
+        width: 100%;
+        height: 1cm;
+        expand := TouchArea {
+            clicked => {
+                root.open = !root.open;
+            }
+            indicator := Image {
+                colorize: Palette.foreground;
+                visible: expand.has-hover;
+                source: Icons.chevron-down;
+                width: 16px;
+                height: 16px;
+                rotation-angle: root.open ? 0deg : -90deg;
+            }
+        }
+    }
+}
+
+component SecondaryContent inherits Rectangle {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    in property <bool> open: false;
+
+    background: Palette.background;
+    clip: true;
+    height: open ? content.preferred-height : 0px;
+
+    animate height { duration: EditorAnimationSettings.roation-duration; }
+
+    content := VerticalLayout {
+        padding: EditorSpaceSettings.default-padding;
+        spacing: EditorSpaceSettings.default-padding;
+        @children
+        HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            ResetButton {
+                element-information <=> element-information;
+                property-information: property-information;
+            }
+
+            CodeButton {
+                element-information <=> element-information;
+                property-information: property-information;
+            }
+        }
     }
 }
 
@@ -197,143 +294,183 @@ component FloatWidget inherits VerticalLayout {
     }
 }
 
-component StringWidget inherits VerticalLayout {
+component StringWidget {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
-    NameLabel {
-        element-information: element-information;
-        property-information: property-information;
+    property <bool> open: false;
+
+    childIndicator := ChildIndicator {
+        y: content.y;
     }
 
-    HorizontalLayout {
-        spacing: EditorSpaceSettings.default-spacing;
-        height: 2rem;
+    VerticalLayout {
+        NameLabel {
+            element-information: element-information;
+            property-information: property-information;
+        }
 
-        ResettingLineEdit {
-            default-text: property-information.value.value-string;
+        content := HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            height: 2rem;
+            ResettingLineEdit {
+                default-text: property-information.value.value-string;
+                edited(text) => {
+                    self.can-compile = Api.test-string-binding(
+                 root.element-information.source-uri,
+                 root.element-information.source-version,
+                 root.element-information.range.start,
+                 property-information.name,
+                 text,
+                 property-information.value.is-translatable,
+                 property-information.value.tr-context,
+                 property-information.value.tr-plural,
+                 property-information.value.tr-plural-expression,
+             );
+                }
+                accepted(text) => {
+                    Api.set-string-binding(
+                 root.element-information.source-uri,
+                 root.element-information.source-version,
+                 root.element-information.range.start,
+                 property-information.name,
+                 text,
+                 property-information.value.is-translatable,
+                 property-information.value.tr-context,
+                 property-information.value.tr-plural,
+                 property-information.value.tr-plural-expression,
+             );
+                }
+            }
+        }
 
-            edited(text) => {
-                self.can-compile = Api.test-string-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.range.start,
-                property-information.name,
-                text,
-                property-information.value.is-translatable,
-                property-information.value.tr-context,
-                property-information.value.tr-plural,
-                property-information.value.tr-plural-expression,
-            );
+        SecondaryContent {
+            element-information: element-information;
+            property-information: property-information;
+            open: childIndicator.open;
+            CheckBox {
+                text: "Translatable";
             }
 
-            accepted(text) => {
-                Api.set-string-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.range.start,
-                property-information.name,
-                text,
-                property-information.value.is-translatable,
-                property-information.value.tr-context,
-                property-information.value.tr-plural,
-                property-information.value.tr-plural-expression,
-            );
+            CheckBox {
+                text: "Disambiguate";
             }
         }
     }
 }
 
-component ColorWidget inherits VerticalLayout {
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
-    padding-bottom: EditorSpaceSettings.default-spacing;
-    width: 100%;
-    NameLabel {
-        property-information: root.property-information;
-        element-information: root.element-information;
+component ColorLineEdit inherits HorizontalLayout {
+    in property <string> channel:"R";
+
+    property <float> val: Math.floor(num-value.text.to-float());
+
+    alignment: stretch;
+    spacing: EditorSpaceSettings.default-spacing;
+
+    Text {
+        text: channel;
+        vertical-alignment: center;
+        color: Palette.foreground;
     }
 
-    HorizontalLayout {
-        spacing: EditorSpaceSettings.default-spacing;
-        alignment: stretch;
+    slide-value := Slider {
+        value <=> val;
+        changed => {
+            num-value.text = Math.floor(self.value / 100 * 255);
+        }
+    }
 
-        ResettingLineEdit {
-            default-text: property-information.value.value-string;
+    num-value := ResettingLineEdit {
+        input-type: number;
+        width: 4rem;
+        default-text: 0;
+    }
+}
 
-            edited(text) => {
-                if text == "" {
+component ColorWidget inherits Rectangle {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    property <bool> open: false;
+
+    childIndicator := ChildIndicator {
+        y: content.y;
+    }
+
+    VerticalLayout {
+        padding-bottom: EditorSpaceSettings.default-spacing;
+        width: 100%;
+        NameLabel {
+            property-information: root.property-information;
+            element-information: root.element-information;
+        }
+
+        content := HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            alignment: stretch;
+
+            ResettingLineEdit {
+                default-text: property-information.value.value-string;
+
+                edited(text) => {
+                    if text == "" {
                     // allow empty text -- which will delete the property
                     self.can-compile = true;
-                    color-preview.background = Colors.transparent;
-                } else {
-                    self.can-compile = Api.string-is-color(text);
-                    if self.can-compile {
-                        color-preview.background = Api.string-to-color(text);
+                        color-preview.background = Colors.transparent;
+                    } else {
+                        self.can-compile = Api.string-is-color(text);
+                        if self.can-compile {
+                            color-preview.background = Api.string-to-color(text);
+                        }
                     }
                 }
-            }
 
-            accepted(text) => {
-                Api.set-code-binding(
+                accepted(text) => {
+                    Api.set-code-binding(
                     root.element-information.source-uri,
                     root.element-information.source-version,
                     root.element-information.range.start,
                     root.property-information.name,
                     text,
                 );
+                }
+            }
+
+            color-preview := Rectangle {
+                height: 1.8rem;
+                background: property-information.value.value-brush;
+                border-width: 1px;
+                border-color: Palette.foreground;
             }
         }
 
-        color-preview := Rectangle {
-            height: 1.8rem;
-            background: property-information.value.value-brush;
-            border-width: 1px;
-            border-color: Palette.foreground;
-        }
-    }
-}
-
-component CodeWidget inherits VerticalLayout {
-
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
-    padding-bottom: EditorSpaceSettings.default-spacing;
-    NameLabel {
-        property-information: property-information;
-        element-information: element-information;
-    }
-
-    if property-information.value.code == "": Rectangle {
-        min-height: 2rem;
-        width: 100%;
-        background: Palette.alternate-background;
-        Text {
-            x: EditorSpaceSettings.default-padding;
-            horizontal-alignment: left;
-            vertical-alignment: center;
-            text: @tr("Not Set");
-            font-italic: true;
-        }
-    }
-    if property-information.value.code != "": HorizontalLayout {
-        spacing: EditorSpaceSettings.default-spacing;
-        ResetButton {
-            element-information <=> element-information;
+        SecondaryContent {
+            element-information: element-information;
             property-information: property-information;
-        }
+            open: childIndicator.open;
+            ColorLineEdit {
+                channel: "R";
+            }
 
-        CodeButton {
-            element-information <=> element-information;
-            property-information: property-information;
+            ColorLineEdit {
+                channel: "G";
+            }
+
+            ColorLineEdit {
+                channel: "B";
+            }
+
+            ColorLineEdit {
+                channel: "A";
+            }
         }
     }
 }
 
 component IntegerWidget inherits VerticalLayout {
-
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     NameLabel {
         property-information: property-information;
         element-information: element-information;
@@ -372,7 +509,6 @@ component IntegerWidget inherits VerticalLayout {
 }
 
 component EnumWidget inherits VerticalLayout {
-
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
