@@ -3,7 +3,7 @@
 
 import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button, HorizontalBox, SpinBox, Slider } from "std-widgets.slint";
 
-import { Api, ElementInformation, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ColorData, ElementInformation, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
 import { GroupHeader } from "../components/group.slint";
 import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
@@ -188,6 +188,8 @@ component SecondaryContent inherits Rectangle {
 
     in property <bool> open: false;
 
+    callback reset();
+
     background: Palette.background;
     clip: true;
     height: open ? content.preferred-height : 0px;
@@ -212,6 +214,7 @@ component SecondaryContent inherits Rectangle {
                 ResetButton {
                     element-information <=> element-information;
                     property-information: property-information;
+                    clicked() => { root.reset(); }
                 }
 
                 CodeButton {
@@ -372,9 +375,8 @@ component StringWidget {
 }
 
 component ColorLineEdit inherits HorizontalLayout {
-    in property <string> channel:"R";
-
-    property <float> val: Math.floor(num-value.text.to-float());
+    in property <string> channel: "R";
+    in-out property <int> value;
 
     alignment: stretch;
     spacing: EditorSpaceSettings.default-spacing;
@@ -386,16 +388,23 @@ component ColorLineEdit inherits HorizontalLayout {
     }
 
     slide-value := Slider {
-        value <=> val;
-        changed => {
-            num-value.text = Math.floor(self.value / 100 * 255);
+        minimum: 0;
+        maximum: 255;
+        value: root.value;
+
+        changed value => {
+            root.value = Math.floor(self.value);
         }
     }
 
     num-value := ResettingLineEdit {
         input-type: number;
         width: 4rem;
-        default-text: 0;
+        default-text: root.value;
+
+        edited() => {
+            root.value = self.text.to-float();
+        }
     }
 }
 
@@ -403,7 +412,9 @@ component ColorWidget inherits Rectangle {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
-    property <bool> open: false;
+    private property <bool> open: false;
+    private property <color> current-color: property-information.value.value-brush;
+    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 
     childIndicator := ChildIndicator {
         y: content.y;
@@ -422,7 +433,7 @@ component ColorWidget inherits Rectangle {
             alignment: stretch;
 
             ResettingLineEdit {
-                default-text: property-information.value.value-string;
+                default-text: root.current-color-data.text;
 
                 edited(text) => {
                     if text == "" {
@@ -450,30 +461,44 @@ component ColorWidget inherits Rectangle {
 
             color-preview := Rectangle {
                 height: 1.8rem;
-                background: property-information.value.value-brush;
+                background: root.current-color;
                 border-width: 1px;
                 border-color: Palette.foreground;
             }
         }
 
         sub := SecondaryContent {
-            element-information: element-information;
-            property-information: property-information;
+            out property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+
+            changed slider-color => {
+                root.current-color = slider-color;
+            }
+            
             open: childIndicator.open;
-            ColorLineEdit {
+
+
+            r := ColorLineEdit {
+                value: root.current-color-data.r;
                 channel: "R";
             }
 
-            ColorLineEdit {
+            g := ColorLineEdit {
+                value: root.current-color-data.g;
                 channel: "G";
             }
 
-            ColorLineEdit {
+            b := ColorLineEdit {
+                value: root.current-color-data.b;
                 channel: "B";
             }
 
-            ColorLineEdit {
+            a := ColorLineEdit {
+                value: root.current-color-data.a;
                 channel: "A";
+            }
+
+            reset => {
+                root.current-color = root.property-information.value.value-brush;
             }
         }
     }

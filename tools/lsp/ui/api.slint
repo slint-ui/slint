@@ -70,6 +70,14 @@ export struct Range {
     end: int,
 }
 
+export struct ColorData {
+    r: int,
+    g: int,
+    b: int,
+    a: int,
+    text: string,
+}
+
 export enum PropertyValueKind {
     boolean,
     brush,
@@ -292,8 +300,10 @@ export global Api {
     // # Callbacks
 
     // ## Custom conversion functions:
-    callback string-is-color(string) -> bool;
-    callback string-to-color(string) -> color;
+    pure callback string-is-color(string) -> bool;
+    pure callback string-to-color(string) -> color;
+    pure callback color-to-data(color) -> ColorData;
+    pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
 
     // ## Style:
     callback style-changed();
