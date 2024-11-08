@@ -1,6 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-<!-- cSpell: ignore dgettext ngettext xgettext -->
-
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Recipes
+description: Recipes
+---
 
 # Custom Control Introduction
 
