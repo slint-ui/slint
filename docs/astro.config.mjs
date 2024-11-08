@@ -32,7 +32,7 @@ export default defineConfig({
             },
             sidebar: [
                 {
-                    slug: "overview",
+                    slug: "index",
                 },
                 {
                     label: "Getting started",

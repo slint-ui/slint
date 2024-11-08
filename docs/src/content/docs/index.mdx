@@ -1,52 +1,40 @@
 ---
 // Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
 title: Welcome
-description: Get started building your product with Slint.
-template: splash
+type: overview
+sidebar:
+  order: 1
+head:
+  - tag: title
+    content: Slint Documentation Overview
 hero:
   tagline: Get started building your product with Slint.
   image:
     alt: Slint logo
     dark: ../../assets/slint-logo-square-dark.webp
     light: ../../assets/slint-logo-square-light.webp
-
-  actions:
-    - text: Language Docs
-      link: /tng/overview/
-      icon: right-arrow
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { LinkButton } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
+import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
 
-## API Reference
+Get started building your product with Slint.
 
-<CardGrid >
-	<Card title="Rust" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
-	</Card>
-	<Card title="C++" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="TypeScript" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Python" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
-	</Card>
-</CardGrid>
 
-## Extras
-<CardGrid >
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
-	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
-	</Card>
-</CardGrid>
+<LinkButton href="/tng/getting-started/intro">Get started</LinkButton>
+<LinkButton href="/tng/tutorial/quickstart" variant="secondary">
+  Tutorial
+</LinkButton>
+<LinkButton href="/tng/elements/rectangle" variant="secondary">
+  Element Reference
+</LinkButton>
+
+
+
+## More resources
+
+<Image class="light:sl-hidden" src={mattermostLogoDark} loading="lazy" width="50" alt="Mattermost logo" />
+<Image class="dark:sl-hidden" src={mattermostLogoLight} loading="lazy" width="50" alt="Mattermost logo" />
+As a first step please join our community on [Mattermost](https://chat.slint.dev/). This is a great place to ask questions and get help from other Slint users.
