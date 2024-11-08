@@ -208,6 +208,13 @@ impl RequestHandler {
 pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeResult {
     InitializeResult {
         capabilities: ServerCapabilities {
+            // Note: we only support UTF8 at the moment (which is a bug, as the spec says that support for utf-16 is mandatory)
+            position_encoding: client_cap
+                .general
+                .as_ref()
+                .and_then(|x| x.position_encodings.as_ref())
+                .and_then(|x| x.iter().find(|x| *x == &lsp_types::PositionEncodingKind::UTF8))
+                .cloned(),
             hover_provider: Some(true.into()),
             signature_help_provider: Some(lsp_types::SignatureHelpOptions {
                 trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
