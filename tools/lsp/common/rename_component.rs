@@ -5,11 +5,8 @@ use std::path::Path;
 
 use crate::{common, util};
 
-use i_slint_compiler::{
-    diagnostics::Spanned,
-    object_tree,
-    parser::{syntax_nodes, SyntaxKind},
-};
+use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use lsp_types::Url;
 
 #[cfg(target_arch = "wasm32")]
@@ -134,16 +131,12 @@ fn fix_imports(
 
 fn fix_import_in_document(
     document_cache: &common::DocumentCache,
-    document: &object_tree::Document,
+    document_node: &syntax_nodes::Document,
     exporter_path: &Path,
     old_type: &str,
     new_type: &str,
     edits: &mut Vec<common::SingleTextEdit>,
 ) {
-    let Some(document_node) = &document.node else {
-        return;
-    };
-
     let Some(document_directory) =
         document_node.source_file().and_then(|sf| sf.path().parent()).map(|p| p.to_owned())
     else {
@@ -406,7 +399,6 @@ mod tests {
         let code = {
             let mut map: HashMap<Url, String> = document_cache
                 .all_url_documents()
-                .filter_map(|(url, doc)| Some((url, doc.node.as_ref()?)))
                 .map(|(url, dn)| (url, dn.source_file.as_ref()))
                 .map(|(url, sf)| (url, sf.source().unwrap().to_string()))
                 .collect();

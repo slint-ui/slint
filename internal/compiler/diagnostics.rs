@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::parser::TextSize;
+use std::collections::BTreeSet;
 
 /// Span represent an error location within a file.
 ///
@@ -299,7 +300,7 @@ pub struct BuildDiagnostics {
     /// does not include the main file.
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
     /// (maybe in a compilation state that include the diagnostics?)
-    pub all_loaded_files: Vec<PathBuf>,
+    pub all_loaded_files: BTreeSet<PathBuf>,
 }
 
 impl IntoIterator for BuildDiagnostics {

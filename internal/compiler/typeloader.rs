@@ -16,16 +16,25 @@ use crate::{fileaccess, langtype, layout, parser};
 use core::future::Future;
 use itertools::Itertools;
 
+enum LoadedDocument {
+    Document(Document),
+    Invalidated(syntax_nodes::Document),
+}
+
 /// Storage for a cache of all loaded documents
 #[derive(Default)]
 struct LoadedDocuments {
     /// maps from the canonical file name to the object_tree::Document
-    docs: HashMap<PathBuf, Document>,
+    docs: HashMap<PathBuf, LoadedDocument>,
     /// The .slint files that are currently being loaded, potentially asynchronously.
     /// When a task start loading a file, it will add an empty vector to this map, and
     /// the same task will remove the entry from the map when finished, and awake all
     /// wakers.
     currently_loading: HashMap<PathBuf, Vec<std::task::Waker>>,
+
+    /// The dependencies of the currently loaded files.
+    /// Maps all the files that depends directly on the key
+    dependencies: HashMap<PathBuf, HashSet<PathBuf>>,
 }
 
 #[derive(Debug, Clone)]
@@ -127,7 +136,7 @@ pub(crate) fn snapshot_with_extra_doc(
     if let Some(doc_node) = &new_doc.node {
         let path = doc_node.source_file.path().to_path_buf();
         if let Some(r) = &mut result {
-            r.all_documents.docs.insert(path, new_doc);
+            r.all_documents.docs.insert(path, LoadedDocument::Document(new_doc));
         }
     }
 
@@ -219,15 +228,32 @@ impl Snapshotter {
             return None;
         }
 
-        loaded_documents.docs.values().for_each(|d| self.create_document(d));
+        loaded_documents.docs.values().for_each(|d| {
+            if let LoadedDocument::Document(d) = d {
+                self.create_document(d)
+            }
+        });
 
         Some(LoadedDocuments {
             docs: loaded_documents
                 .docs
                 .iter()
-                .map(|(p, d)| (p.clone(), self.snapshot_document(d)))
+                .map(|(p, d)| {
+                    (
+                        p.clone(),
+                        match d {
+                            LoadedDocument::Document(d) => {
+                                LoadedDocument::Document(self.snapshot_document(d))
+                            }
+                            LoadedDocument::Invalidated(d) => {
+                                LoadedDocument::Invalidated(d.clone())
+                            }
+                        },
+                    )
+                })
                 .collect(),
             currently_loading: Default::default(),
+            dependencies: Default::default(),
         })
     }
 
@@ -853,7 +879,16 @@ impl TypeLoader {
     }
 
     pub fn drop_document(&mut self, path: &Path) -> Result<(), std::io::Error> {
-        self.all_documents.docs.remove(path);
+        if let Some(LoadedDocument::Document(doc)) = self.all_documents.docs.remove(path) {
+            for dep in &doc.imports {
+                self.all_documents
+                    .dependencies
+                    .entry(Path::new(&dep.file).into())
+                    .or_default()
+                    .remove(path);
+            }
+        }
+        self.all_documents.dependencies.remove(path);
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -862,6 +897,40 @@ impl TypeLoader {
         } else {
             Ok(())
         }
+    }
+
+    /// Invalidate a document and all its dependencies.
+    pub fn invalidate_document(&mut self, path: &Path) -> HashSet<PathBuf> {
+        if let Some(d) = self.all_documents.docs.get_mut(path) {
+            if let LoadedDocument::Document(doc) = d {
+                for dep in &doc.imports {
+                    self.all_documents
+                        .dependencies
+                        .entry(Path::new(&dep.file).into())
+                        .or_default()
+                        .remove(path);
+                }
+                match doc.node.take() {
+                    None => {
+                        self.all_documents.docs.remove(path);
+                    }
+                    Some(n) => {
+                        *d = LoadedDocument::Invalidated(n);
+                    }
+                };
+            } else {
+                return HashSet::new();
+            }
+        } else {
+            return HashSet::new();
+        }
+        let deps = self.all_documents.dependencies.remove(path).unwrap_or_default();
+        let mut extra_deps = HashSet::new();
+        for dep in &deps {
+            extra_deps.extend(self.invalidate_document(dep));
+        }
+        extra_deps.extend(deps);
+        extra_deps
     }
 
     /// Imports of files that don't have the .slint extension are returned.
@@ -921,7 +990,9 @@ impl TypeLoader {
                 let Some(doc_path) = doc_path else { return false };
                 let mut state = state.borrow_mut();
                 let state = &mut *state;
-                let doc = state.tl.all_documents.docs.get(&doc_path).unwrap();
+                let Some(LoadedDocument::Document(doc)) = state.tl.all_documents.docs.get(&doc_path) else {
+                    panic!("Just loaded document not available")
+                };
                 match &import.import_kind {
                     ImportKind::ImportList(imported_types) => {
                         let mut imported_types = ImportedName::extract_imported_names(imported_types).peekable();
@@ -999,7 +1070,9 @@ impl TypeLoader {
                 None => return None,
             };
 
-        let doc = self.all_documents.docs.get(&doc_path).unwrap();
+        let Some(LoadedDocument::Document(doc)) = self.all_documents.docs.get(&doc_path) else {
+            panic!("Just loaded document not available")
+        };
 
         doc.exports.find(type_name).and_then(|compo_or_type| compo_or_type.left())
     }
@@ -1097,9 +1170,10 @@ impl TypeLoader {
             );
             return None;
         }
+
         drop(borrowed_state);
 
-        let is_loaded = core::future::poll_fn(|cx| {
+        let (is_loaded, doc_node) = core::future::poll_fn(|cx| {
             let mut state = state.borrow_mut();
             let all_documents = &mut state.tl.all_documents;
             match all_documents.currently_loading.entry(path_canon.clone()) {
@@ -1111,71 +1185,85 @@ impl TypeLoader {
                     core::task::Poll::Pending
                 }
                 std::collections::hash_map::Entry::Vacant(v) => {
-                    if all_documents.docs.contains_key(path_canon.as_path()) {
-                        core::task::Poll::Ready(true)
-                    } else {
-                        v.insert(Default::default());
-                        core::task::Poll::Ready(false)
+                    match all_documents.docs.get(path_canon.as_path()) {
+                        Some(LoadedDocument::Document(_)) => core::task::Poll::Ready((true, None)),
+                        Some(LoadedDocument::Invalidated(doc)) => {
+                            v.insert(Default::default());
+                            core::task::Poll::Ready((false, Some(doc.clone())))
+                        }
+                        None => {
+                            v.insert(Default::default());
+                            core::task::Poll::Ready((false, None))
+                        }
                     }
                 }
             }
         })
         .await;
         if is_loaded {
+            state.borrow_mut().diag.all_loaded_files.insert(path_canon.clone());
             return Some(path_canon);
         }
 
-        let source_code_result = if let Some(builtin) = builtin {
-            Ok(String::from(
-                core::str::from_utf8(builtin)
-                    .expect("internal error: embedded file is not UTF-8 source code"),
-            ))
+        let doc_node = if let Some(doc_node) = doc_node {
+            Some(doc_node)
         } else {
-            let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
-            if let Some(fallback) = fallback {
-                let result = fallback(path_canon.to_string_lossy().into()).await;
-                result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
+            let source_code_result = if let Some(builtin) = builtin {
+                Ok(String::from(
+                    core::str::from_utf8(builtin)
+                        .expect("internal error: embedded file is not UTF-8 source code"),
+                ))
             } else {
-                std::fs::read_to_string(&path_canon)
+                let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
+                if let Some(fallback) = fallback {
+                    let result = fallback(path_canon.to_string_lossy().into()).await;
+                    result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
+                } else {
+                    std::fs::read_to_string(&path_canon)
+                }
+            };
+            match source_code_result {
+                Ok(source) => syntax_nodes::Document::new(crate::parser::parse(
+                    source,
+                    Some(&path_canon),
+                    &mut state.borrow_mut().diag,
+                )),
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    state.borrow_mut().diag.push_error(
+                            if file_to_import.starts_with('@') {
+                                format!(
+                                    "Cannot find requested import \"{file_to_import}\" in the library search path",
+                                )
+                            } else {
+                                format!(
+                                    "Cannot find requested import \"{file_to_import}\" in the include search path",
+                                )
+                            },
+                            &import_token,
+                        );
+                    None
+                }
+                Err(err) => {
+                    state.borrow_mut().diag.push_error(
+                        format!(
+                            "Error reading requested import \"{}\": {}",
+                            path_canon.display(),
+                            err
+                        ),
+                        &import_token,
+                    );
+                    None
+                }
             }
         };
 
-        let ok = match source_code_result {
-            Ok(source) => {
-                Self::load_file_impl(
-                    state,
-                    &path_canon,
-                    &path_canon,
-                    source,
-                    builtin.is_some(),
-                    &import_stack,
-                )
+        let ok = if let Some(doc_node) = doc_node {
+            Self::load_file_impl(state, &path_canon, doc_node, builtin.is_some(), &import_stack)
                 .await;
-
-                true
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                state.borrow_mut().diag.push_error(
-                        if file_to_import.starts_with('@') {
-                            format!(
-                                "Cannot find requested import \"{file_to_import}\" in the library search path",
-                            )
-                        } else {
-                            format!(
-                                "Cannot find requested import \"{file_to_import}\" in the include search path",
-                            )
-                        },
-                        &import_token,
-                    );
-                false
-            }
-            Err(err) => {
-                state.borrow_mut().diag.push_error(
-                    format!("Error reading requested import \"{}\": {}", path_canon.display(), err),
-                    &import_token,
-                );
-                false
-            }
+            state.borrow_mut().diag.all_loaded_files.insert(path_canon.clone());
+            true
+        } else {
+            false
         };
 
         let wakers = state
@@ -1203,16 +1291,10 @@ impl TypeLoader {
         is_builtin: bool,
         diag: &mut BuildDiagnostics,
     ) {
+        let doc_node: syntax_nodes::Document =
+            crate::parser::parse(source_code, Some(source_path), diag).into();
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
-        Self::load_file_impl(
-            &state,
-            path,
-            source_path,
-            source_code,
-            is_builtin,
-            &Default::default(),
-        )
-        .await;
+        Self::load_file_impl(&state, path, doc_node, is_builtin, &Default::default()).await;
     }
 
     /// Load a file, and its dependency, running the full set of passes.
@@ -1227,16 +1309,11 @@ impl TypeLoader {
         diag: &mut BuildDiagnostics,
     ) -> (PathBuf, Option<TypeLoader>) {
         let path = crate::pathutils::clean_path(path);
+        let doc_node: syntax_nodes::Document =
+            crate::parser::parse(source_code, Some(source_path), diag).into();
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
-        let (path, mut doc) = Self::load_file_no_pass(
-            &state,
-            &path,
-            source_path,
-            source_code,
-            false,
-            &Default::default(),
-        )
-        .await;
+        let (path, mut doc) =
+            Self::load_doc_no_pass(&state, &path, doc_node, false, &Default::default()).await;
 
         let mut state = state.borrow_mut();
         let state = &mut *state;
@@ -1245,47 +1322,44 @@ impl TypeLoader {
         } else {
             None
         };
-        state.tl.all_documents.docs.insert(path.clone(), doc);
+        state.tl.all_documents.docs.insert(path.clone(), LoadedDocument::Document(doc));
         (path, raw_type_loader)
     }
 
     async fn load_file_impl<'a>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         path: &Path,
-        source_path: &Path,
-        source_code: String,
+        doc_node: syntax_nodes::Document,
         is_builtin: bool,
         import_stack: &HashSet<PathBuf>,
     ) {
-        let (path, doc) = Self::load_file_no_pass(
-            state,
-            path,
-            source_path,
-            source_code,
-            is_builtin,
-            import_stack,
-        )
-        .await;
+        let (path, doc) =
+            Self::load_doc_no_pass(state, path, doc_node, is_builtin, import_stack).await;
 
         let mut state = state.borrow_mut();
         let state = &mut *state;
         if !state.diag.has_errors() {
             crate::passes::run_import_passes(&doc, state.tl, state.diag);
         }
-        state.tl.all_documents.docs.insert(path, doc);
+        for dep in &doc.imports {
+            state
+                .tl
+                .all_documents
+                .dependencies
+                .entry(Path::new(&dep.file).into())
+                .or_default()
+                .insert(path.clone());
+        }
+        state.tl.all_documents.docs.insert(path, LoadedDocument::Document(doc));
     }
 
-    async fn load_file_no_pass<'a>(
+    async fn load_doc_no_pass<'a>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         path: &Path,
-        source_path: &Path,
-        source_code: String,
+        dependency_doc: syntax_nodes::Document,
         is_builtin: bool,
         import_stack: &HashSet<PathBuf>,
     ) -> (PathBuf, Document) {
-        let dependency_doc: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(source_path), state.borrow_mut().diag).into();
-
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
         dependency_registry.borrow_mut().expose_internal_types =
@@ -1467,7 +1541,11 @@ impl TypeLoader {
     /// Return a document if it was already loaded
     pub fn get_document<'b>(&'b self, path: &Path) -> Option<&'b object_tree::Document> {
         let path = crate::pathutils::clean_path(path);
-        self.all_documents.docs.get(&path)
+        if let Some(LoadedDocument::Document(d)) = self.all_documents.docs.get(&path) {
+            Some(d)
+        } else {
+            None
+        }
     }
 
     /// Return an iterator over all the loaded file path
@@ -1477,18 +1555,29 @@ impl TypeLoader {
 
     /// Returns an iterator over all the loaded documents
     pub fn all_documents(&self) -> impl Iterator<Item = &object_tree::Document> + '_ {
-        self.all_documents.docs.values()
+        self.all_documents.docs.values().filter_map(|d| match d {
+            LoadedDocument::Document(d) => Some(d),
+            LoadedDocument::Invalidated(_) => None,
+        })
     }
 
     /// Returns an iterator over all the loaded documents
     pub fn all_file_documents(
         &self,
-    ) -> impl Iterator<Item = (&PathBuf, &object_tree::Document)> + '_ {
-        self.all_documents.docs.iter()
+    ) -> impl Iterator<Item = (&PathBuf, &syntax_nodes::Document)> + '_ {
+        self.all_documents.docs.iter().filter_map(|(p, d)| {
+            Some((
+                p,
+                match d {
+                    LoadedDocument::Document(d) => d.node.as_ref()?,
+                    LoadedDocument::Invalidated(d) => d,
+                },
+            ))
+        })
     }
 }
 
-fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
+fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<PathBuf>) -> String {
     // Try to get the value written by the i-slint-backend-selector's build script
 
     // It is in the target/xxx/build directory
@@ -1517,7 +1606,7 @@ fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
             })
         });
     if let Some(style) = target_path.and_then(|target_path| {
-        all_loaded_files.push(target_path.clone());
+        all_loaded_files.insert(target_path.clone());
         std::fs::read_to_string(target_path).map(|style| style.trim().into()).ok()
     }) {
         return style;
