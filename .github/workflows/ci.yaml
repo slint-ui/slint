@@ -417,6 +417,9 @@ jobs:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
 
+    license:
+        uses: ./.github/workflows/license_check.yaml
+
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
 
