@@ -92,3 +92,89 @@ component MainWindow inherits Window {
 }
             "#.to_string())
 }
+
+#[test]
+fn accurate_diagnostics_in_dependencies() {
+    // Test for issue 5797
+    let mut dc = empty_document_cache();
+
+    let bar_ctn = r#" export component Bar { property <int> hi; } "#;
+    let bar_url =
+        Url::from_file_path(std::env::current_dir().unwrap().join("xxx/bar.slint")).unwrap();
+    let diag = spin_on::spin_on(reload_document_impl(
+        None,
+        bar_ctn.into(),
+        bar_url.clone(),
+        Some(1),
+        &mut dc,
+    ));
+    assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), vec![])]));
+
+    let reexport_ctn = r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; }"#;
+    let reexport_url =
+        Url::from_file_path(std::env::current_dir().unwrap().join("xxx/reexport.slint")).unwrap();
+    let diag = spin_on::spin_on(reload_document_impl(
+        None,
+        reexport_ctn.into(),
+        reexport_url.clone(),
+        Some(1),
+        &mut dc,
+    ));
+    assert_eq!(
+        diag,
+        HashMap::from_iter([(reexport_url.clone(), vec![]), (bar_url.clone(), vec![])])
+    );
+
+    let foo_ctn = r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; } }"#;
+    let foo_url =
+        Url::from_file_path(std::env::current_dir().unwrap().join("xxx/foo.slint")).unwrap();
+    let diag = spin_on::spin_on(reload_document_impl(
+        None,
+        foo_ctn.into(),
+        foo_url.clone(),
+        Some(1),
+        &mut dc,
+    ));
+    //assert_eq!(diag.len(), 3);
+    assert_eq!(diag[&reexport_url], vec![]);
+    //assert_eq!(diag[&bar_url], vec![]);
+    assert!(diag[&foo_url][0].message.contains("hello"));
+
+    let bar_ctn = r#" export component Bar { in property <int> hello; } "#;
+    let diag = spin_on::spin_on(reload_document_impl(
+        None,
+        bar_ctn.into(),
+        bar_url.clone(),
+        Some(1),
+        &mut dc,
+    ));
+    assert_eq!(diag.len(), 3);
+    assert_eq!(
+        diag,
+        HashMap::from_iter([
+            (reexport_url.clone(), vec![]),
+            (bar_url.clone(), vec![]),
+            (foo_url.clone(), vec![])
+        ])
+    );
+
+    let foo_ctn = r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hi: 45; } }"#;
+    let diag = spin_on::spin_on(reload_document_impl(
+        None,
+        foo_ctn.into(),
+        foo_url.clone(),
+        Some(1),
+        &mut dc,
+    ));
+    assert!(diag[&foo_url][0].message.contains("hi"));
+
+    let foo_ctn = r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 12; } }"#;
+    let diag = spin_on::spin_on(reload_document_impl(
+        None,
+        foo_ctn.into(),
+        foo_url.clone(),
+        Some(1),
+        &mut dc,
+    ));
+    assert_eq!(diag[&foo_url], vec![]);
+}

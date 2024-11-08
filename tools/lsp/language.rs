@@ -38,6 +38,7 @@ use lsp_types::{
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -69,17 +70,16 @@ fn create_show_preview_command(
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
     let document_cache = ctx.document_cache.borrow();
 
-    for (url, d) in document_cache.all_url_documents() {
+    for (url, node) in document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
         }
         let version = document_cache.document_version(&url);
-        if let Some(node) = &d.node {
-            ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-                url: common::VersionedUrl::new(url, version),
-                contents: node.text().to_string(),
-            })
-        }
+
+        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
+            url: common::VersionedUrl::new(url, version),
+            contents: node.text().to_string(),
+        })
     }
     ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
         config: ctx.preview_config.borrow().clone(),
@@ -131,7 +131,8 @@ pub struct Context {
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub to_show: RefCell<Option<common::PreviewComponent>>,
-    pub open_urls: RefCell<std::collections::HashSet<lsp_types::Url>>,
+    /// File currently open in the editor
+    pub open_urls: RefCell<HashSet<lsp_types::Url>>,
 }
 
 /// An error from a LSP request
@@ -599,17 +600,17 @@ pub(crate) async fn reload_document_impl(
             contents: content.clone(),
         });
     }
+    let dependencies = document_cache.invalidate_url(&url);
     let mut diag = BuildDiagnostics::default();
     let _ = document_cache.load_url(&url, version, content, &mut diag).await; // ignore url conversion errors
 
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
-    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
-        .chain(diag.all_loaded_files.iter())
-        .map(|path| {
-            let uri = Url::from_file_path(path).unwrap();
-            (uri, Default::default())
-        })
-        .collect();
+    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> =
+        core::iter::once(Url::from_file_path(&path).unwrap())
+            .chain(dependencies.iter().cloned())
+            .chain(diag.all_loaded_files.iter().filter_map(|p| Url::from_file_path(&p).ok()))
+            .map(|uri| (uri, Default::default()))
+            .collect();
 
     for d in diag.into_iter() {
         #[cfg(not(target_arch = "wasm32"))]
