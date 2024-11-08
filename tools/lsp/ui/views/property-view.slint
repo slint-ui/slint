@@ -159,8 +159,7 @@ component CodeWidget inherits VerticalLayout {
 component ChildIndicator {
     out property <bool> open: false;
 
-    x: -1.0 * EditorSpaceSettings.group-indent * 2;
-
+    x: -1.0 * EditorSpaceSettings.group-indent * 1.5;
     Rectangle {
         width: 100%;
         height: 1cm;
@@ -316,7 +315,7 @@ component StringWidget {
     property <bool> open: false;
 
     childIndicator := ChildIndicator {
-        y: content.y;
+        y: content.y + EditorSpaceSettings.default-spacing/2;
     }
 
     VerticalLayout {
@@ -399,7 +398,7 @@ component ColorLineEdit inherits HorizontalLayout {
 
     num-value := ResettingLineEdit {
         input-type: number;
-        width: 4rem;
+        width: 5rem;
         default-text: root.value;
 
         edited() => {
@@ -417,7 +416,7 @@ component ColorWidget inherits Rectangle {
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 
     childIndicator := ChildIndicator {
-        y: content.y;
+        y: content.y + EditorSpaceSettings.default-spacing/2;
     }
 
     all := VerticalLayout {
@@ -460,7 +459,7 @@ component ColorWidget inherits Rectangle {
             }
 
             color-preview := Rectangle {
-                height: 1.8rem;
+                height: 2rem;
                 background: root.current-color;
                 border-width: 1px;
                 border-color: Palette.foreground;
@@ -591,9 +590,11 @@ component BooleanWidget inherits VerticalLayout {
             background: Palette.alternate-background;
             HorizontalLayout {
                 alignment: start;
-                padding-left: 0;
-                CheckBox {
+                padding-left: EditorSpaceSettings.default-padding;
+                spacing: EditorSpaceSettings.default-spacing;
+                checkbox:=CheckBox {
                     checked: property-information.value.value_bool;
+                    text: self.checked ? "True" : "False";
 
                     toggled() => {
                         Api.set-code-binding(
@@ -605,6 +606,7 @@ component BooleanWidget inherits VerticalLayout {
         );
                     }
                 }
+
             }
         }
     }
@@ -692,14 +694,12 @@ component ExpandableGroup {
     in property <ElementInformation> element-information;
     in property <string> text;
     in property <[PropertyInformation]> properties;
+    in property <length> panel-width;
 
     property <bool> open: true;
     group-layer := Rectangle {
 
         content-layer := VerticalLayout {
-            // header
-            padding-left: 0;
-            padding-right: EditorSpaceSettings.default-padding;
 
             if text != "": Rectangle {
                 touch-area := TouchArea {
@@ -709,18 +709,19 @@ component ExpandableGroup {
                 }
 
                 state-layer := StateLayer {
-                    width: group-layer.width - EditorSpaceSettings.default-padding;
+                    width: panel-width;
                     height: group-layer.height;
-                    x: 0;
                     y: group-layer.y;
                     has-hover: touch-area.has-hover;
                     pressed: touch-area.pressed;
                 }
 
                 HorizontalLayout {
+                    padding-left: -EditorSpaceSettings.group-indent;
+                    spacing: EditorSpaceSettings.default-spacing/2;
                     icon-image := Image {
                         width: EditorSizeSettings.default-icon-width;
-                        colorize: Palette.foreground;
+                        colorize: Palette.alternate-foreground.transparentize(0.7);
                         source: Icons.chevron-down;
                         height: 2rem;
                         rotation-origin-x: self.width / 2;
@@ -741,7 +742,7 @@ component ExpandableGroup {
             }
 
             if root.open: Rectangle {
-                background: Palette.alternate-background;
+                // background: Palette.alternate-background;
                 VerticalLayout {
                     spacing: EditorSpaceSettings.property-spacing;
                     padding-left: EditorSpaceSettings.group-indent;
@@ -817,7 +818,7 @@ export component PropertyView {
 
                 for group in root.properties: ExpandableGroup {
                     text: group.group-name;
-
+                    panel-width: content-layer.width;
                     element-information <=> root.current-element;
                     properties: group.properties;
                 }
