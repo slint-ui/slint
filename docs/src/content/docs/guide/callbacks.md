@@ -15,7 +15,7 @@ it with the mouse. In the example below, the invocation of that callback is forw
 to another custom callback (`hello`) by declaring a handler and invoking our
 custom callback:
 
-```slint,no-preview
+```slint
 export component Example inherits Rectangle {
     // declare a callback
     callback hello;
@@ -32,7 +32,7 @@ export component Example inherits Rectangle {
 
 It's possible to add parameters to a callback:
 
-```slint,no-preview
+```slint
 export component Example inherits Rectangle {
     // declares a callback
     callback hello(int, string);
@@ -42,7 +42,7 @@ export component Example inherits Rectangle {
 
 Callbacks may also return a value:
 
-```slint,no-preview
+```slint
 export component Example inherits Rectangle {
     // declares a callback with a return value
     callback hello(int, int) -> int;
@@ -54,7 +54,7 @@ export component Example inherits Rectangle {
 
 It's possible to declare callback aliases in a similar way to two-way bindings:
 
-```slint,no-preview
+```slint
 export component Example inherits Rectangle {
     callback clicked <=> area.clicked;
     area := TouchArea {}

@@ -8,7 +8,7 @@ description: Recipes
 
 ## A Clickable Button
 
-```slint,no-auto-preview
+```slint
 import { VerticalBox, Button } from "std-widgets.slint";
 export component Recipe inherits Window {
     in-out property <int> counter: 0;
@@ -51,7 +51,7 @@ In this first example, you see the basics of the Slint language:
 
 This example increments the `counter` using native code:
 
-```slint,no-preview
+```slint
 import { VerticalBox, Button } from "std-widgets.slint";
 export component Recipe inherits Window {
     in-out property <int> counter: 0;
@@ -82,7 +82,7 @@ In real code, you can put the whole Slint code in the `slint!` macro, or use
 an external `.slint` file together with a build script.
 
 
-```rust,no_run
+```rust
 slint::slint!(export { Recipe } from "docs/reference/src/recipes/button_native.slint";);
 
 fn main() {
@@ -145,7 +145,7 @@ set up the callback.
 
 ## Use Property Bindings to Synchronize Controls
 
-```slint,no-auto-preview
+```slint
 import { VerticalBox, Slider } from "std-widgets.slint";
 export component Recipe inherits Window {
     VerticalBox {
@@ -168,7 +168,7 @@ the result of code between the curly braces as a string.
 
 ## Animate the Position of an Element
 
-```slint,no-auto-preview
+```slint
 import { CheckBox } from "std-widgets.slint";
 export component Recipe inherits Window {
     width: 200px;
@@ -210,7 +210,7 @@ its binding value changes.
 
 ## Animation Sequence
 
-```slint,no-auto-preview
+```slint
 import { CheckBox } from "std-widgets.slint";
 export component Recipe inherits Window {
     width: 200px;
@@ -256,7 +256,7 @@ This example uses the `delay` property to make one animation run after another.
 
 ## Associate Property Values With States
 
-```slint,no-auto-preview
+```slint
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
 
 component Circle inherits Rectangle {
@@ -304,7 +304,7 @@ export component Recipe inherits Window {
 
 ## Transitions
 
-```slint,no-auto-preview
+```slint
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
 
 component Circle inherits Rectangle {
@@ -354,7 +354,7 @@ export component Recipe inherits Window {
 
 ## Vertical
 
-```slint,no-auto-preview
+```slint
 import { VerticalBox, Button } from "std-widgets.slint";
 export component Recipe inherits Window {
     VerticalBox {
@@ -367,7 +367,7 @@ export component Recipe inherits Window {
 
 ## Horizontal
 
-```slint,no-auto-preview
+```slint
 import { HorizontalBox, Button } from "std-widgets.slint";
 export component Recipe inherits Window {
     HorizontalBox {
@@ -380,7 +380,7 @@ export component Recipe inherits Window {
 
 ## Grid
 
-```slint,no-auto-preview
+```slint
 import { GridBox, Button, Slider } from "std-widgets.slint";
 export component Recipe inherits Window {
     GridBox {
@@ -410,7 +410,7 @@ This singleton may also store properties that are accessible to native code.
 
 Note: The preview visualize the Slint code only. It's not connected to the native code.
 
-```slint,no-preview
+```slint
 import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
 export global Logic  {
@@ -514,7 +514,7 @@ recipe.Logic.to_upper_case = (str) => {
 
 ## Custom Button
 
-```slint,no-auto-preview
+```slint
 component Button inherits Rectangle {
     in-out property text <=> txt.text;
     callback clicked <=> touch.clicked;
@@ -542,7 +542,7 @@ export component Recipe inherits Window {
 
 ## ToggleSwitch
 
-```slint,no-auto-preview
+```slint
 export component ToggleSwitch inherits Rectangle {
     callback toggled;
     in-out property <string> text;
@@ -609,7 +609,7 @@ export component Recipe inherits Window {
 The `TouchArea` is covering the entire widget, so you can drag this slider from
 any point within itself.
 
-```slint,no-auto-preview
+```slint
 import { VerticalBox } from "std-widgets.slint";
 
 export component MySlider inherits Rectangle {
@@ -670,7 +670,7 @@ This example show another implementation that has a drag-able handle:
 The handle only moves when we click on that handle.
 The TouchArea is within the handle and moves with the handle.
 
-```slint,no-auto-preview
+```slint
 import { VerticalBox } from "std-widgets.slint";
 
 export component MySlider inherits Rectangle {
@@ -725,7 +725,7 @@ export component Recipe inherits Window {
 
 Use this recipe as a basis to when you want to create your own custom tab widget.
 
-```slint,no-auto-preview
+```slint
 import { Button } from "std-widgets.slint";
 
 export component Recipe inherits Window {
@@ -774,7 +774,7 @@ export component Recipe inherits Window {
 Slint provides a table widget, but you can also do something custom based on a
 `ListView`.
 
-```slint,no-auto-preview
+```slint
 import { VerticalBox, ListView } from "std-widgets.slint";
 
 component TableView inherits Rectangle {
@@ -853,7 +853,7 @@ width is smaller than the given break-point. When clicking the Button, the
 SideBar expands again. Use the blue Splitter to resize the container and
 test the responsive behavior.
 
-```slint,no-auto-preview
+```slint
 import { Button, Palette } from "std-widgets.slint";
 
 export component SideBar inherits Rectangle {

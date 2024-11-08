@@ -8,7 +8,7 @@ All elements have properties. Built-in elements come with common properties such
 as color or dimensional properties. You can assign values or entire
 [expressions](expressions.md) to them:
 
-```slint,no-preview
+```slint
 export component Example inherits Window {
     // Simple expression: ends with a semi colon
     width: 42px;
@@ -23,7 +23,7 @@ For example a boolean property defaults to `false`, an `int` property to zero, e
 In addition to the existing properties, define extra properties by specifying the
 type, the name, and optionally a default value:
 
-```slint,no-preview
+```slint
 export component Example {
     // declare a property of type int with the name `my-property`
     property<int> my-property;
@@ -45,7 +45,7 @@ property can be read and written:
     users of the components.
 -   **`in-out`**: The property can be read and modified by everyone.
 
-```slint,no-preview
+```slint
 export component Button {
     // This is meant to be set by the user of the component.
     in property <string> text;
@@ -101,7 +101,7 @@ The property type is optional with two-way bindings, it will be inferred if not 
 The initial value of a linked property will be the value of the right hand side of the binding.
 The two linked properties must be compatible in terms of input/output.
 
-```slint,no-preview
+```slint
 export component Example  {
     in property<brush> rect-color <=> r.background;
     // It's allowed to omit the type to have it automatically inferred
@@ -181,7 +181,7 @@ Additionally, if a property's value changes and then reverts to its original sta
 
 **Warning:** Altering properties during a change event in a way that could lead to the same property being affected is undefined behaviour.
 
-```slint,no_preview
+```slint
 export component Example {
     in-out property <int> foo;
     property bar: foo + 1;
@@ -200,13 +200,13 @@ Therefore, it's crucial not to overuse changed callbacks.
 
 For instance, avoid doing this:
 
-```slint,ignore
+```slint
 changed bar => { foo = bar + 1; }
 ```
 
 Instead, opt for:
 
-```slint,ignore
+```slint
 foo: bar + 1;
 ```
 

@@ -1,25 +1,25 @@
 ---
 // Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
-title: VerticalLayout
-description: VerticalLayout element api.
+title: HorizontalLayout
+description: HorizontalLayout element api.
 ---
-import SlintProperty  from '../../../components/SlintProperty.astro';
+import SlintProperty  from '../../../../components/SlintProperty.astro';
 
 ```slint
 export component Foo inherits Window {
     width: 200px;
     height: 100px;
-    VerticalLayout {
+    HorizontalLayout {
         spacing: 5px;
         Rectangle { background: red; width: 10px; }
         Rectangle { background: blue; min-width: 10px; }
-        Rectangle { background: yellow; vertical-stretch: 1; }
-        Rectangle { background: green; vertical-stretch: 2; }
+        Rectangle { background: yellow; horizontal-stretch: 1; }
+        Rectangle { background: green; horizontal-stretch: 2; }
     }
 }
 ```
 
-Places its children next to each other vertically.
+Places its children next to each other horizontally.
 The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
 

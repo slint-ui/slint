@@ -56,9 +56,35 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: "Elements Reference",
+                    label: "Reference",
                     collapsed: true,
-                    autogenerate: { directory: "elements"},
+                    items: [
+                        {
+                            label: "Overview",
+                            slug: "reference/overview",
+                        },
+                        {
+                            label: "Builtin reference",
+                            autogenerate: { directory: "reference/builtins" },
+                        },
+                        {
+                            label: "Elements",
+                            autogenerate: { directory: "reference/elements" },
+                        },
+                        {
+                            label: "Gestures",
+                            autogenerate: { directory: "reference/gestures" },
+                        },
+                        {
+                            label: "Layouts",
+                            autogenerate: { directory: "reference/layouts" },
+                        },
+                        {
+                            label: "Window",
+                            autogenerate: { directory: "reference/window" },
+                        },
+                        
+                    ],
                 },
                 {
                     label: "Std-Widgets",

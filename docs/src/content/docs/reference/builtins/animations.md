@@ -74,13 +74,13 @@ Fine-tune animations using the following parameters:
 
 It's also possible to animate several properties with the same animation, so:
 
-```slint,ignore
+```slint
 animate x, y { duration: 100ms; easing: ease-out-bounce; }
 ```
 
 is the same as:
 
-```slint,ignore
+```slint
 animate x { duration: 100ms; easing: ease-out-bounce; }
 animate y { duration: 100ms; easing: ease-out-bounce; }
 ```

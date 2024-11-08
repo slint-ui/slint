@@ -9,7 +9,7 @@ make properties and callbacks available throughout the entire project. Access th
 
 For example, this can be useful for a common color palette:
 
-```slint,no-preview
+```slint
 global Palette  {
     in-out property<color> primary: blue;
     in-out property<color> secondary: green;
@@ -26,7 +26,7 @@ Export a global to make it accessible from other files (see [Modules](modules.md
 the file also exporting the main application component to make it visible
 to native code in the business logic.
 
-```slint,ignore
+```slint
 export global Logic  {
     in-out property <int> the-value;
     pure callback magic-operation(int) -> int;
@@ -98,7 +98,7 @@ app.Logic.the_value = 42;
 
 It's possible to re-expose a callback or properties from a global using the two way binding syntax.
 
-```slint,no-preview
+```slint
 global Logic  {
     in-out property <int> the-value;
     pure callback magic-operation(int) -> int;

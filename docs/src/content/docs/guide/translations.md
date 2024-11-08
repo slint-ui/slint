@@ -42,7 +42,7 @@ takes care of both the translation and the formatting by replacing `{}` placehol
 
 The first argument must be a plain string literal, followed by the arguments:
 
-```slint,no-preview
+```slint
 export component Example {
     property <string> name;
     Text {
@@ -71,7 +71,7 @@ Given `count` and an expression that represents the count of something, form the
 
 Use `{n}` in the format string to access the expression after the `%`.
 
-```slint,no-preview
+```slint
 export component Example inherits Text {
     in property <int> score;
     in property <int> name;
@@ -89,7 +89,7 @@ Use the context to provide additional context information to translators, ensuri
 The context must be a plain string literal and it appears as `msgctx` in the `.pot` files. If not specified, the context defaults
 to the name of the surrounding component.
 
-```slint,no-preview
+```slint
 export component MenuItem {
     property <string> name : @tr("Default Name"); // Default: `MenuItem` will be the context.
     property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name); // Specified: The context will be `ToolTip`.

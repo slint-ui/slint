@@ -8,25 +8,25 @@ Callback handlers may contain complex statements:
 
 Assignment:
 
-```slint,ignore
+```slint
 clicked => { some-property = 42; }
 ```
 
 Self-assignment with `+=` `-=` `*=` `/=`
 
-```slint,ignore
+```slint
 clicked => { some-property += 42; }
 ```
 
 Calling a callback
 
-```slint,ignore
+```slint
 clicked => { root.some-callback(); }
 ```
 
 Conditional statements
 
-```slint,ignore
+```slint
 clicked => {
     if (condition) {
         foo = 42;
@@ -40,7 +40,7 @@ clicked => {
 
 Empty expression
 
-```slint,ignore
+```slint
 clicked => { }
 // or
 clicked => { ; }

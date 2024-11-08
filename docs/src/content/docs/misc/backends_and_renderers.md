@@ -34,14 +34,7 @@ for an overview. Override the choice of renderer by adding the name to the `SLIN
 For example if you want to choose the `winit` backend in combination with the `software` renderer, set `SLINT_BACKEND=winit-software`.
 Similarly, `SLINT_BACKEND=linuxkms-skia` chooses the `linuxkms` backend and then instructs the LinuxKMS backend to use Skia for rendering.
 
-```{toctree}
-:hidden:
-:maxdepth: 2
 
-backend_qt.md
-backend_winit.md
-backend_linuxkms.md
-```
 
 ## Renderers
 
