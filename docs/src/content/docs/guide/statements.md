@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Statements
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Statements
+description: Statements
+---
 
 Callback handlers may contain complex statements:
 

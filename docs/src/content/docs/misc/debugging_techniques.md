@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Debugging Techniques
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Debugging Techniques
+description: Debugging Techniques
+---
 
 On this page we share different techniques and tools we've built into Slint that help you track down different issues you may be running into, during the design and development.
 

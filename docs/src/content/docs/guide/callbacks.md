@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Callbacks
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Callbacks
+description: Callbacks
+---
 
 Components may declare callbacks, that communicate changes of state
 to the outside. Callbacks are invoked by "calling" them like you would

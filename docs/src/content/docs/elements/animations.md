@@ -1,6 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-
-# Animations
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Animations
+description: Animations
+---
 
 Declare animations for properties with the `animate` keyword like this:
 

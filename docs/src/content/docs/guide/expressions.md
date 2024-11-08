@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Expressions
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Expressions
+description: Expressions
+---
 
 Expressions are a powerful way to declare relationships and connections in your
 user interface. They´re typically used to combine basic arithmetic with access

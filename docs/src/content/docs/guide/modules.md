@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Modules
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Modules
+description: Modules
+---
 
 Components declared in a `.slint` file can be used as elements in other
 `.slint` files, by means of exporting and importing them.

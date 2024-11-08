@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Qt Backend
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Qt Backend
+description: Qt Backend
+---
 
 The Qt backend uses the [Qt](https://www.qt.io) library to interact with the windowing system, for
 rendering, as well as widget style for a native look and feel.

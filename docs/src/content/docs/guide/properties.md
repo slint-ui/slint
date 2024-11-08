@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Properties
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Properties
+description: Properties
+---
 
 All elements have properties. Built-in elements come with common properties such
 as color or dimensional properties. You can assign values or entire

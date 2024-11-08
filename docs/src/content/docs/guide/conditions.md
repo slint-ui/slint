@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Conditional Element
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Conditional Elements
+description: Conditional Elements
+---
 
 The `if` construct instantiates an element only if a given condition is true.
 The syntax is `if condition : id := Element { ... }`

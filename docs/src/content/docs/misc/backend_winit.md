@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Winit Backend
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Winit Backend
+description: Winit Backend
+---
 
 The Winit backend uses the [winit](https://docs.rs/winit/latest/winit/) library to interact with the
 windowing system.

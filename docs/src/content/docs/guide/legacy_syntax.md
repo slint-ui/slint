@@ -1,5 +1,8 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Legacy Syntax
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Legacy Syntax
+description: Legacy Syntax
+---
 
 To maintain compatibility with earlier version of Slint, the pre-1.0 syntax that declared
 components and named structs with `:=` remains supported:
