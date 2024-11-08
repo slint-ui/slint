@@ -184,20 +184,27 @@ component SecondaryContent inherits Rectangle {
     clip: true;
     height: open ? content.preferred-height : 0px;
     animate height { duration: EditorAnimationSettings.roation-duration; }
-    content := VerticalLayout {
-        padding: EditorSpaceSettings.default-padding;
-        spacing: EditorSpaceSettings.default-padding;
-        @children
-        HorizontalLayout {
-            spacing: EditorSpaceSettings.default-spacing;
-            ResetButton {
-                element-information <=> element-information;
-                property-information: property-information;
-            }
+    content := HorizontalLayout {
+        Rectangle {
+            height: 100%;
+            width: 1px;
+            background: Palette.border;
+        }
+        VerticalLayout {
+            padding: EditorSpaceSettings.default-padding;
+            spacing: EditorSpaceSettings.default-padding;
+            @children
+            HorizontalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                ResetButton {
+                    element-information <=> element-information;
+                    property-information: property-information;
+                }
 
-            CodeButton {
-                element-information <=> element-information;
-                property-information: property-information;
+                CodeButton {
+                    element-information <=> element-information;
+                    property-information: property-information;
+                }
             }
         }
     }
@@ -291,6 +298,8 @@ component StringWidget {
     property <bool> open: false;
     childIndicator := ChildIndicator {
         y: content.y;
+        // content-height: sub.preferred-height;
+        // content-x: sub.x;
     }
 
     VerticalLayout {
@@ -336,7 +345,7 @@ component StringWidget {
             }
         }
 
-        SecondaryContent {
+        sub := SecondaryContent {
             element-information: element-information;
             property-information: property-information;
             open: childIndicator.open;
@@ -365,7 +374,7 @@ component ColorLineEdit inherits HorizontalLayout {
     slide-value := Slider {
         value <=> val;
         changed => {
-            num-value.text = Math.floor(self.value/100*255);
+            num-value.text = Math.floor(self.value / 100 * 255);
         }
     }
 
@@ -384,7 +393,7 @@ component ColorWidget inherits Rectangle {
         y: content.y;
     }
 
-    VerticalLayout {
+    all := VerticalLayout {
         padding-bottom: EditorSpaceSettings.default-spacing;
         width: 100%;
         NameLabel {
@@ -431,7 +440,7 @@ component ColorWidget inherits Rectangle {
             }
         }
 
-        SecondaryContent {
+        sub := SecondaryContent {
             element-information: element-information;
             property-information: property-information;
             open: childIndicator.open;
