@@ -4,6 +4,8 @@ title: TextEdit
 description: TextEdit api.
 ---
 
+import SlintProperty  from '../../../components/SlintProperty.astro';
+
 ```slint playground
 import { TextEdit } from "std-widgets.slint";
 export component Example inherits Window {
@@ -18,7 +20,7 @@ export component Example inherits Window {
 }
 ```
 
-Similar to [`LineEdit`](lineedit), but can be used to enter several lines of text
+Similar to [`LineEdit`](/tng/std-widgets/lineedit), but can be used to enter several lines of text
 
 
 
@@ -29,14 +31,22 @@ Similar to [`LineEdit`](lineedit), but can be used to enter several lines of tex
 -   **`has-focus`**: (_in_out_ _bool_): Set to true when the widget currently has the focus
 -   **`enabled`**: (_in_ _bool_): Defaults to true. When false, nothing can be entered
 -   **`read-only`** (_in_ _bool_): When set to true, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically (default value: `false`)
--   **`wrap`** (_in_ _enum [`TextWrap`](../builtins/enums.md#textwrap)_): The way the text wraps (default: word-wrap).
--   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](../builtins/enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+
+### `wrap` 
+<SlintProperty propName="wrap" typeName="enum" enumName="TextWrap">
+The way the text wraps (default: word-wrap).
+</SlintProperty>
+
+### `horizontal-alignment`
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' > 
+The horizontal alignment of the text.
+</SlintProperty>
 -   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field.
 
 ### Functions
 
 -   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
--   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also [](../concepts/focus.md).
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also [focus handling](/tng/guide/focus).
 -   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.

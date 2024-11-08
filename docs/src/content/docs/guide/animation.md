@@ -4,8 +4,6 @@ title: Animations
 description: UI Animations.
 ---
 
-# Animations
-
 Declare animations for properties with the `animate` keyword like this:
 
 ```slint

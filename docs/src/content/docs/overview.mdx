@@ -1,0 +1,39 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+title: Overview
+type: overview
+sidebar:
+  order: 1
+head:
+  - tag: title
+    content: Slint Documentation Overview
+---
+
+import { LinkButton } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import slintLogoLight from '/src/assets/slint-logo-square-dark.webp';
+import slintLogoDark from '/src/assets/slint-logo-square-light.webp';
+import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
+import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
+
+<Image class="light:sl-hidden"  src={slintLogoLight} loading="lazy" width="250" alt="Slint logo" />
+<Image class="dark:sl-hidden" src={slintLogoDark} loading="lazy" width="250" alt="Slint logo" />
+
+Slint is a toolkit that can be used to build user interfaces for embedded devices, mobile and desktop applications. 
+
+
+<LinkButton href="/tng/getting-started/intro">Get started</LinkButton>
+<LinkButton href="/tng/tutorial/quickstart" variant="secondary">
+  Tutorial
+</LinkButton>
+<LinkButton href="/tng/elements/rectangle" variant="secondary">
+  Element Reference
+</LinkButton>
+
+
+
+## More resources
+
+<Image class="light:sl-hidden" src={mattermostLogoDark} loading="lazy" width="50" alt="Mattermost logo" />
+<Image class="dark:sl-hidden" src={mattermostLogoLight} loading="lazy" width="50" alt="Mattermost logo" />
+As a first step please join our community on [Mattermost](https://chat.slint.dev/). This is a great place to ask questions and get help from other Slint users.

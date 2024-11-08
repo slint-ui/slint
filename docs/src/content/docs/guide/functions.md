@@ -4,8 +4,6 @@ title: Functions
 description: Functions
 ---
 
-# Functions
-
 Similar to other programming languages, functions in Slint are way to name, organize and reuse
 a piece of logic/code.
 
