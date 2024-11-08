@@ -28,7 +28,9 @@ component CodeButton inherits Button {
 component ResetButton inherits Button {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     text: @tr("Reset");
+
     clicked => {
         Api.set-code-binding(
             element-information.source-uri,
@@ -43,7 +45,9 @@ component ResetButton inherits Button {
 component NameLabel inherits HorizontalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     horizontal-stretch: 0;
+
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
 
@@ -118,7 +122,9 @@ component ResettingLineEdit {
 component CodeWidget inherits VerticalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     padding-bottom: EditorSpaceSettings.default-spacing;
+
     NameLabel {
         property-information: property-information;
         element-information: element-information;
@@ -152,17 +158,18 @@ component CodeWidget inherits VerticalLayout {
 
 component ChildIndicator {
     out property <bool> open: false;
-    
-    // in property <> content;
-    x: - EditorSpaceSettings.group-indent * 2;
+
+    x: -1.0 * EditorSpaceSettings.group-indent * 2;
 
     Rectangle {
         width: 100%;
         height: 1cm;
+
         expand := TouchArea {
             clicked => {
                 root.open = !root.open;
             }
+
             indicator := Image {
                 colorize: Palette.foreground;
                 visible: expand.has-hover;
@@ -176,24 +183,30 @@ component ChildIndicator {
 }
 
 component SecondaryContent inherits Rectangle {
-    background: Palette.background;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
     in property <bool> open: false;
+
+    background: Palette.background;
     clip: true;
     height: open ? content.preferred-height : 0px;
+
     animate height { duration: EditorAnimationSettings.roation-duration; }
+
     content := HorizontalLayout {
         Rectangle {
             height: 100%;
             width: 1px;
             background: Palette.border;
         }
+
         VerticalLayout {
             padding: EditorSpaceSettings.default-padding;
             spacing: EditorSpaceSettings.default-padding;
+
             @children
+
             HorizontalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 ResetButton {
@@ -248,6 +261,7 @@ component FloatWidget inherits VerticalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         alignment: stretch;
         height: 2rem;
+
         number := ResettingLineEdit {
             horizontal-alignment: right;
             min-width: EditorSizeSettings.float-size;
@@ -295,11 +309,11 @@ component FloatWidget inherits VerticalLayout {
 component StringWidget {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     property <bool> open: false;
+
     childIndicator := ChildIndicator {
         y: content.y;
-        // content-height: sub.preferred-height;
-        // content-x: sub.x;
     }
 
     VerticalLayout {
@@ -311,36 +325,33 @@ component StringWidget {
         content := HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
             height: 2rem;
-
             ResettingLineEdit {
                 default-text: property-information.value.value-string;
-
                 edited(text) => {
                     self.can-compile = Api.test-string-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.range.start,
-                property-information.name,
-                text,
-                property-information.value.is-translatable,
-                property-information.value.tr-context,
-                property-information.value.tr-plural,
-                property-information.value.tr-plural-expression,
-            );
+                 root.element-information.source-uri,
+                 root.element-information.source-version,
+                 root.element-information.range.start,
+                 property-information.name,
+                 text,
+                 property-information.value.is-translatable,
+                 property-information.value.tr-context,
+                 property-information.value.tr-plural,
+                 property-information.value.tr-plural-expression,
+             );
                 }
-
                 accepted(text) => {
                     Api.set-string-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.range.start,
-                property-information.name,
-                text,
-                property-information.value.is-translatable,
-                property-information.value.tr-context,
-                property-information.value.tr-plural,
-                property-information.value.tr-plural-expression,
-            );
+                 root.element-information.source-uri,
+                 root.element-information.source-version,
+                 root.element-information.range.start,
+                 property-information.name,
+                 text,
+                 property-information.value.is-translatable,
+                 property-information.value.tr-context,
+                 property-information.value.tr-plural,
+                 property-information.value.tr-plural-expression,
+             );
                 }
             }
         }
@@ -362,9 +373,12 @@ component StringWidget {
 
 component ColorLineEdit inherits HorizontalLayout {
     in property <string> channel:"R";
+
     property <float> val: Math.floor(num-value.text.to-float());
+
     alignment: stretch;
     spacing: EditorSpaceSettings.default-spacing;
+
     Text {
         text: channel;
         vertical-alignment: center;
@@ -388,7 +402,9 @@ component ColorLineEdit inherits HorizontalLayout {
 component ColorWidget inherits Rectangle {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     property <bool> open: false;
+
     childIndicator := ChildIndicator {
         y: content.y;
     }
@@ -464,9 +480,9 @@ component ColorWidget inherits Rectangle {
 }
 
 component IntegerWidget inherits VerticalLayout {
-
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     NameLabel {
         property-information: property-information;
         element-information: element-information;
@@ -505,7 +521,6 @@ component IntegerWidget inherits VerticalLayout {
 }
 
 component EnumWidget inherits VerticalLayout {
-
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
@@ -708,6 +723,7 @@ component ExpandableGroup {
                     padding-right: EditorSpaceSettings.group-indent;
                     padding-top: EditorSpaceSettings.default-padding;
                     padding-bottom: EditorSpaceSettings.default-padding;
+
                     for property in root.properties: HorizontalLayout {
                         alignment: stretch;
 
