@@ -5,6 +5,8 @@ import { DarkModeSwitch } from "DarkModeSwitch.slint";
 import { SunMoonSwitch } from "SunMoonSwitch.slint";
 
 export component AppWindow inherits Window {
+    property <string> test-text: "foo";
+
     preferred-width: 600px;
     preferred-height: 450px;
     background: #e3e3e3;

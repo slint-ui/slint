@@ -158,17 +158,18 @@ component CodeWidget inherits VerticalLayout {
 
 component ChildIndicator {
     out property <bool> open: false;
-    
-    // in property <> content;
-    x: - EditorSpaceSettings.group-indent * 2;
+
+    x: -1.0 * EditorSpaceSettings.group-indent * 2;
 
     Rectangle {
         width: 100%;
         height: 1cm;
+
         expand := TouchArea {
             clicked => {
                 root.open = !root.open;
             }
+
             indicator := Image {
                 colorize: Palette.foreground;
                 visible: expand.has-hover;
@@ -193,20 +194,30 @@ component SecondaryContent inherits Rectangle {
 
     animate height { duration: EditorAnimationSettings.roation-duration; }
 
-    content := VerticalLayout {
-        padding: EditorSpaceSettings.default-padding;
-        spacing: EditorSpaceSettings.default-padding;
-        @children
-        HorizontalLayout {
-            spacing: EditorSpaceSettings.default-spacing;
-            ResetButton {
-                element-information <=> element-information;
-                property-information: property-information;
-            }
+    content := HorizontalLayout {
+        Rectangle {
+            height: 100%;
+            width: 1px;
+            background: Palette.border;
+        }
 
-            CodeButton {
-                element-information <=> element-information;
-                property-information: property-information;
+        VerticalLayout {
+            padding: EditorSpaceSettings.default-padding;
+            spacing: EditorSpaceSettings.default-padding;
+
+            @children
+
+            HorizontalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                ResetButton {
+                    element-information <=> element-information;
+                    property-information: property-information;
+                }
+
+                CodeButton {
+                    element-information <=> element-information;
+                    property-information: property-information;
+                }
             }
         }
     }
@@ -250,6 +261,7 @@ component FloatWidget inherits VerticalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         alignment: stretch;
         height: 2rem;
+
         number := ResettingLineEdit {
             horizontal-alignment: right;
             min-width: EditorSizeSettings.float-size;
@@ -344,7 +356,7 @@ component StringWidget {
             }
         }
 
-        SecondaryContent {
+        sub := SecondaryContent {
             element-information: element-information;
             property-information: property-information;
             open: childIndicator.open;
@@ -397,7 +409,7 @@ component ColorWidget inherits Rectangle {
         y: content.y;
     }
 
-    VerticalLayout {
+    all := VerticalLayout {
         padding-bottom: EditorSpaceSettings.default-spacing;
         width: 100%;
         NameLabel {
@@ -444,7 +456,7 @@ component ColorWidget inherits Rectangle {
             }
         }
 
-        SecondaryContent {
+        sub := SecondaryContent {
             element-information: element-information;
             property-information: property-information;
             open: childIndicator.open;
@@ -711,6 +723,7 @@ component ExpandableGroup {
                     padding-right: EditorSpaceSettings.group-indent;
                     padding-top: EditorSpaceSettings.default-padding;
                     padding-bottom: EditorSpaceSettings.default-padding;
+
                     for property in root.properties: HorizontalLayout {
                         alignment: stretch;
 
