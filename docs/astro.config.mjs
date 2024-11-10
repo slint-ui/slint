@@ -1,16 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import rehypeMermaid from "rehype-mermaid";
 import addMermaidClass from "./src/utils/add-mermaid-classnames";
+import rehypeExternalLinks from "rehype-external-links";
 
 // https://astro.build/config
 export default defineConfig({
     site: "https://snapshots.slint.dev/tng/",
     base: "/tng",
     markdown: {
-        rehypePlugins: [addMermaidClass, rehypeMermaid],
+        rehypePlugins: [
+            [
+                rehypeExternalLinks,
+                {
+                    content: {
+                        type: "text",
+                        value: " ↗",
+                    },
+                    properties: {
+                        target: "_blank",
+                    },
+                    rel: ["noopener"],
+                },
+            ],
+            addMermaidClass,
+            rehypeMermaid,
+        ],
     },
     integrations: [
         starlight({
@@ -83,7 +101,6 @@ export default defineConfig({
                             label: "Window",
                             autogenerate: { directory: "reference/window" },
                         },
-                        
                     ],
                 },
                 {
