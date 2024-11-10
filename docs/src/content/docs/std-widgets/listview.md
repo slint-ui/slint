@@ -41,9 +41,9 @@ Elements are only instantiated if they are visible
 
 ### Properties
 
-Same as [`ScrollView`](scrollview)
+Same as [`ScrollView`](/tng/std-widgets/scrollview/)
 
 
 ### Callbacks
 
-Same as [`ScrollView`](scrollview)
+Same as [`ScrollView`](/tng/std-widgets/scrollview/)
