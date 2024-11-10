@@ -7,21 +7,10 @@ description: Image element api.
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="200" imageHeight="100"  imageAlt='image example'>
-```slint title="test-example.slint" preview
-export component Example inherits Window {
-    width: 100px;
-    height: 100px;
-    VerticalLayout {
-        Image {
-            source: @image-url("..images/slint-logo-full-light.svg");
-            // image-fit default is `contain` when in layout, preserving aspect ratio
-        }
-        Image {
-            source: @image-url("..images/slint-logo-full-light.svg");
-            colorize: red;
-        }
-    }
+<CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="282" imageHeight="84"  imageAlt='image example'>
+```slint title="test-example.slint"
+Image {
+    source: @image-url("slint-logo-simple-dark.png");
 }
 ```
 </CodeSnippetMD>

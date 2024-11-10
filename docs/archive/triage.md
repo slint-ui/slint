@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document will outline the process of triaging GitHub issues and provide an explanation of GitHub labels.
+This document will outline the process to triage GitHub issues and provide an explanation of GitHub labels.
 
 ## GitHub Labels
 
@@ -40,7 +40,7 @@ A clear and concise issue description is crucial for effective communication.
 ## Triage Process
 
 1. The first person who identifies an issue can assign labels to it. Make sure to include at least one area label.
-   Add the `Need Triaging` label to the issue if triaging is not complete, so that the individual responsible
+   Add the `Needs Triage` label to the issue if triage is not complete, so that the individual responsible
    for the area can continue with the process.
 2. Investigate the issue by trying to reproduce and analyze it.
    (Is it for a specific platform? what part of the code is involved? Narrowing down to the root cause)
@@ -52,7 +52,7 @@ A clear and concise issue description is crucial for effective communication.
    The comment can add context and information from the analyze step so that the next person looking at the issue can understand it better.
 
 Issues should be responded to reasonably fast. Ideally, within one business day.
-Remember, effective communication and prompt action are essential for successful issue triaging.
+Remember, effective communication and prompt action are essential for successful issue triage.
 
 If an issue seems like a good candidate for a good-first-issue, add the `good first issue` label to it and add instructions
 in a comment on how to do it, ideally with link to the code.

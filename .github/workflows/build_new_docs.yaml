@@ -74,6 +74,9 @@ jobs:
             - name: Publish Test Summary Results
               run: cd docs && npx github-actions-ctrf playwright-report/ctrf-report.json
 
+            - name: Check spelling
+              run: cd docs && pnpm spellcheck
+
             # Commit to www-releases/snapshots/tng
 
             - name: Generate a token

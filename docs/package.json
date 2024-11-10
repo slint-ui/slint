@@ -12,6 +12,7 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
+    "spellcheck": "cspell --no-progress --gitignore  ./**/*.{md,mdx}",
     "type-check": "tsc --noEmit",
     "test": "playwright test"
   },
@@ -28,6 +29,7 @@
     "typescript": "5.6.3"
   },
   "devDependencies": {
-    "@playwright/test": "1.48.2"
+    "@playwright/test": "1.48.2",
+    "cspell": "8.16.0"
   }
 }

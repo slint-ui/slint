@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+<!-- cSpell: ignore Torizon Toradex Vivante -->
 # Running Slint Demos on Torizon
 
 Toradex provides [TorizonCore](https://developer.toradex.com/torizon/) a Linux based platform for its embedded devices that packages applications in docker containers.

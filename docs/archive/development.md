@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+<!-- cSpell: ignore frontends -->
 # Slint development guide
 
 The build instructions are in the [building.md](./building.md) file.

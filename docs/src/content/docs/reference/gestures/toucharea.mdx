@@ -4,8 +4,12 @@ title: TouchArea
 description: TouchArea element api.
 ---
 import SlintProperty  from '../../../../components/SlintProperty.astro';
+import PointerEvent from '../../../collections/structs/PointerEvent.md';
+import PointerScrollEvent from '../../../collections/structs/PointerScrollEvent.md';
+import EventResult from '../../../collections/enums/EventResult.md';
 
-```slint
+
+```slint playground
 export component Example inherits Window {
     width: 200px;
     height: 100px;
@@ -85,14 +89,13 @@ The mouse or finger has been moved. This will only be called if the mouse is als
 the display. See also **pointer-event(PointerEvent)**.
 
 ### `pointer-event(PointerEvent)`
-Invoked when a button was pressed or released, a finger touched, or the pointer moved.
-The [_`PointerEvent`_](language/builtins/structs.md#pointerevent) argument contains information such which button was pressed
-and any active keyboard modifiers.
-In the [_`PointerEventKind::Move`_](../language/builtins/structs.md#pointereventkind) case the `buttons` field will always
-be set to `PointerEventButton::Other`, independent of whether any button is pressed or not.
+<PointerEvent />
+
 
 ### `scroll-event(PointerScrollEvent) -> EventResult`
 Invoked when the mouse wheel was rotated or another scroll gesture was made.
-The [_`PointerScrollEvent`_](../language/builtins/structs.md#pointerscrollevent) argument contains information about how much to scroll in what direction.
-The returned [`EventResult`](../language/builtins/enums.md#eventresult) indicates whether to accept or ignore the event. Ignored events are
+The `PointerScrollEvent` argument contains information about how much to scroll in what direction.
+<PointerScrollEvent />
+The returned `EventResult`indicates whether to accept or ignore the event. Ignored events are
 forwarded to the parent element.
+<EventResult />
