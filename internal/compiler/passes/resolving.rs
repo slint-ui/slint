@@ -977,7 +977,18 @@ impl Expression {
                 }
             }
             Type::Invalid => {
-                debug_assert!(ctx.diag.has_errors());
+                debug_assert!(
+                    ctx.diag.has_errors() || {
+                        let mut has_macro = false;
+                        function.visit_recursive(&mut |e| {
+                            if matches!(e, Expression::BuiltinMacroReference(..)) {
+                                has_macro = true
+                            }
+                        });
+                        has_macro
+                    },
+                    "The error must already have been reported. (unless it is a BuiltinMacroReference, then it will be reported later)"
+                );
                 arguments.into_iter().map(|x| x.0).collect()
             }
             _ => {
@@ -1224,7 +1235,7 @@ impl Expression {
         );
 
         let ty = array_expr.ty();
-        if !matches!(ty, Type::Array(_) | Type::Invalid) {
+        if !matches!(ty, Type::Array(_) | Type::Invalid | Type::Function(_) | Type::Callback(_)) {
             ctx.diag.push_error(format!("{} is not an indexable type", ty), &node);
         }
         Expression::ArrayIndex { array: Box::new(array_expr), index: Box::new(index_expr) }
