@@ -13,7 +13,7 @@ use objc2_quartz_core::{CAMetalDrawable, CAMetalLayer};
 use skia_safe::gpu::mtl;
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// This surface renders into the given window using Metal. The provided display argument
 /// is ignored, as it has no meaning on macOS.
@@ -28,8 +28,8 @@ pub struct MetalSurface {
 
 impl super::Surface for MetalSurface {
     fn new(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        _display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        _display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {

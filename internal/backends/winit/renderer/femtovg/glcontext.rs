@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{num::NonZeroU32, rc::Rc};
+use std::{num::NonZeroU32, sync::Arc};
 
 use glutin::{
     config::GlConfig,
@@ -16,7 +16,7 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 pub struct OpenGLContext {
     context: glutin::context::PossiblyCurrentContext,
     surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    winit_window: Rc<winit::window::Window>,
+    winit_window: Arc<winit::window::Window>,
 }
 
 unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
@@ -59,7 +59,7 @@ impl OpenGLContext {
         window_attributes: winit::window::WindowAttributes,
         event_loop: crate::event_loop::ActiveOrInactiveEventLoop<'_>,
         requested_opengl_version: Option<RequestedOpenGLVersion>,
-    ) -> Result<(Rc<winit::window::Window>, Self), PlatformError> {
+    ) -> Result<(Arc<winit::window::Window>, Self), PlatformError> {
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
         // On macOS, there's only one GL config and that's initialized based on the values in the config template
@@ -247,7 +247,7 @@ impl OpenGLContext {
             )
             .ok();
 
-        let window = Rc::new(window);
+        let window = Arc::new(window);
 
         Ok((window.clone(), Self { context, surface, winit_window: window }))
     }

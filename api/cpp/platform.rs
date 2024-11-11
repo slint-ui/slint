@@ -821,7 +821,7 @@ mod software_renderer {
 pub mod skia {
     use super::*;
     use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     struct RawHandlePair((RawWindowHandle, RawDisplayHandle));
 
@@ -843,11 +843,11 @@ pub mod skia {
         }
     }
 
-    struct CppRawHandle(Rc<RawHandlePair>);
+    struct CppRawHandle(Arc<RawHandlePair>);
 
     impl From<(RawWindowHandle, RawDisplayHandle)> for CppRawHandle {
         fn from(pair: (RawWindowHandle, RawDisplayHandle)) -> Self {
-            Self(Rc::new(RawHandlePair(pair)))
+            Self(Arc::new(RawHandlePair(pair)))
         }
     }
 

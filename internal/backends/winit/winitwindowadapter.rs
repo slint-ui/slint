@@ -9,6 +9,7 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
+use std::sync::Arc;
 
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -123,7 +124,7 @@ fn window_is_resizable(
 
 enum WinitWindowOrNone {
     HasWindow {
-        window: Rc<winit::window::Window>,
+        window: Arc<winit::window::Window>,
         #[cfg(enable_accesskit)]
         accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
     },
@@ -131,7 +132,7 @@ enum WinitWindowOrNone {
 }
 
 impl WinitWindowOrNone {
-    fn as_window(&self) -> Option<Rc<winit::window::Window>> {
+    fn as_window(&self) -> Option<Arc<winit::window::Window>> {
         match self {
             Self::HasWindow { window, .. } => Some(window.clone()),
             Self::None { .. } => None,
@@ -360,7 +361,7 @@ impl WinitWindowAdapter {
         self.renderer.as_ref()
     }
 
-    pub fn ensure_window(&self) -> Result<Rc<winit::window::Window>, PlatformError> {
+    pub fn ensure_window(&self) -> Result<Arc<winit::window::Window>, PlatformError> {
         #[allow(unused_mut)]
         let mut window_attributes = match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => return Ok(window.clone()),
@@ -424,7 +425,7 @@ impl WinitWindowAdapter {
                 attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
-                if let Some(last_instance) = Rc::into_inner(last_window_rc) {
+                if let Some(last_instance) = Arc::into_inner(last_window_rc) {
                     crate::event_loop::unregister_window(last_instance.id());
                     drop(last_instance);
                 } else {
@@ -507,7 +508,7 @@ impl WinitWindowAdapter {
         Ok(())
     }
 
-    pub fn winit_window(&self) -> Option<Rc<winit::window::Window>> {
+    pub fn winit_window(&self) -> Option<Arc<winit::window::Window>> {
         self.winit_window_or_none.borrow().as_window()
     }
 
