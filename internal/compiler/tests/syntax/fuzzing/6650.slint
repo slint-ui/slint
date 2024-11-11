@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Foo {
+    property <[int]> name;
+    TouchArea{
+        clicked=>{debug[9]()}
+//                ^error{Builtin function must be called}
+    }
+
+    TouchArea{
+        function abc(x:int){}
+        clicked=>{abc[9]()}
+//                ^error{'abc' must be called. Did you forgot the '\(\)'?}
+    }
+
+    TouchArea{
+        clicked=>{self.moved[9]()}
+//                ^error{'self.moved' must be called. Did you forgot the '\(\)'?}
+    }
+}
+
