@@ -22,6 +22,7 @@ path = "lib.rs"
 wayland = ["winit/wayland", "winit/wayland-csd-adwaita", "glutin?/wayland", "glutin-winit?/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland", "softbuffer?/wayland", "softbuffer?/wayland-dlopen"]
 x11 = ["winit/x11", "glutin?/x11", "glutin?/glx", "glutin-winit?/x11", "glutin-winit?/glx", "copypasta/x11", "i-slint-renderer-skia?/x11", "softbuffer?/x11", "softbuffer?/x11-dlopen"]
 renderer-femtovg = ["dep:i-slint-renderer-femtovg", "dep:glutin", "dep:glutin-winit"]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu"]
 renderer-skia = ["i-slint-renderer-skia", "winit/rwh_06"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]

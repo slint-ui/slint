@@ -7,6 +7,7 @@ fn main() {
     // Setup cfg aliases
     cfg_aliases! {
        enable_skia_renderer: { any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan")},
+       enable_femtovg_renderer: { any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu") },
        enable_accesskit: { all(feature = "accessibility", not(target_arch = "wasm32")) },
        supports_opengl: { all(any(enable_skia_renderer, feature = "renderer-femtovg"), not(target_os = "ios")) },
        use_winit_theme: { any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32") },

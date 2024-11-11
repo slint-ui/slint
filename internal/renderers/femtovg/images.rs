@@ -21,9 +21,24 @@ where
     fn convert_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
 }
 
+#[cfg(not(target_family = "wasm"))]
 impl OpenGLTextureImporter for femtovg::renderer::OpenGl {
     fn convert_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
         glow::NativeTexture(opengl_texture)
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl OpenGLTextureImporter for femtovg::renderer::OpenGl {
+    fn convert_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
+        unimplemented!("Glow does not permit foreign texture import for WebGL")
+    }
+}
+
+#[cfg(all(feature = "wgpu", not(target_family = "wasm")))]
+impl OpenGLTextureImporter for femtovg::renderer::WGPURenderer {
+    fn convert_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
+        todo!()
     }
 }
 

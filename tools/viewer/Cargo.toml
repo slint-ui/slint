@@ -24,6 +24,7 @@ backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
 backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
+renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
 renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan"]

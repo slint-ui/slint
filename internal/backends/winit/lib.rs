@@ -66,7 +66,7 @@ mod renderer {
         fn is_suspended(&self) -> bool;
     }
 
-    #[cfg(feature = "renderer-femtovg")]
+    #[cfg(enable_femtovg_renderer)]
     pub(crate) mod femtovg;
     #[cfg(enable_skia_renderer)]
     pub(crate) mod skia;
@@ -100,14 +100,14 @@ pub fn create_gl_window_with_canvas_id(
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "renderer-femtovg")] {
+    if #[cfg(enable_femtovg_renderer)] {
         const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
     } else if #[cfg(enable_skia_renderer)] {
         const DEFAULT_RENDERER_NAME: &'static str = "Skia";
     } else if #[cfg(feature = "renderer-software")] {
         const DEFAULT_RENDERER_NAME: &'static str = "Software";
     } else {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-femtovg-wgpu`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
     }
 }
 
@@ -115,6 +115,8 @@ fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
     cfg_if::cfg_if! {
         if #[cfg(enable_skia_renderer)] {
             renderer::skia::WinitSkiaRenderer::new_suspended()
+        } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+            renderer::femtovg::WGPUFemtoVGRenderer::new_suspended()
         } else if #[cfg(feature = "renderer-femtovg")] {
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended()
         } else if #[cfg(feature = "renderer-software")] {
