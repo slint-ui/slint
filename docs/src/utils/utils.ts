@@ -17,7 +17,9 @@ export async function getEnumContent(enumName: string | undefined) {
 }
 
 const KnownStructs = ["Point"];
-export async function getStructContent(typeName: KnownType | undefined): Promise<string> {
+export async function getStructContent(
+    typeName: KnownType | undefined,
+): Promise<string> {
     if (typeName === undefined) {
         return "";
     }
@@ -37,7 +39,7 @@ export async function getStructContent(typeName: KnownType | undefined): Promise
             }
         }
     }
-    return ""
+    return "";
 }
 
 export type KnownType =

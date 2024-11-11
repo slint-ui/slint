@@ -1,8 +1,8 @@
 ---
 // Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
 import "@astrojs/starlight/style/markdown.css";
-import type { ImageMetadata } from 'astro';
-import { Image } from 'astro:assets';
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
 
 interface Props {
     imagePath: string;
@@ -11,11 +11,16 @@ interface Props {
     imageHeight: number;
     needsBackground?: boolean;
     skip?: boolean;
-
 }
 const { imagePath, imageAlt, skip, needsBackground } = Astro.props as Props;
-const images = import.meta.glob<{ default: ImageMetadata }>('/src/assets/generated/*.{jpeg,jpg,png,gif}')
-if (!images[imagePath]) { throw new Error(`"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`); }
+const images = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/generated/*.{jpeg,jpg,png,gif}",
+);
+if (!images[imagePath]) {
+    throw new Error(
+        `"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`,
+    );
+}
 ---
 
 {!skip && <div class="code-image-container">

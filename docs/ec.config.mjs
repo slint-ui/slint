@@ -16,7 +16,6 @@ const darkJsoncString = fs.readFileSync(
 );
 const darkTheme = ExpressiveCodeTheme.fromJSONString(darkJsoncString);
 
-
 function workersPlaygroundButton() {
     return definePlugin({
         name: "Adds 'Run in Slintpad' button to slint codeblocks",
@@ -40,7 +39,7 @@ function workersPlaygroundButton() {
         `,
         hooks: {
             postprocessRenderedBlock: async (context) => {
-                if (!context.codeBlock.meta.includes("playground")) return;
+                if (!context.codeBlock.meta.includes("playground")) { return; }
 
                 const content = context.codeBlock.code;
                 const url = `https://slintpad.com?snippet=${encodeURIComponent(content)}`;

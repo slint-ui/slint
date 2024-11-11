@@ -26,14 +26,10 @@
     width: auto;
     height: auto;
     border-radius: 3px;
-    
 }
-
-
 
 :root[data-theme="dark"] {
     .screenshot-container {
         background-color: #cdcdcd;
     }
-     
 }

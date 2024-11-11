@@ -16,7 +16,8 @@ interface Props {
     enumName?: string;
     propertyVisibility?: PropertyVisibility;
 }
-const { propName, typeName, defaultValue, enumName, propertyVisibility } = Astro.props;
+const { propName, typeName, defaultValue, enumName, propertyVisibility } =
+    Astro.props;
 
 if (propName === "") {
     console.error("No propName!!");
