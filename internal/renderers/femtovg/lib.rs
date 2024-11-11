@@ -122,9 +122,9 @@ unsafe impl OpenGLInterface for SuspendedRenderer {
 pub struct FemtoVGRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
-    canvas: RefCell<Option<CanvasRc>>,
-    graphics_cache: itemrenderer::ItemGraphicsCache,
-    texture_cache: RefCell<images::TextureCache>,
+    canvas: RefCell<Option<CanvasRc<femtovg::renderer::OpenGl>>>,
+    graphics_cache: itemrenderer::ItemGraphicsCache<femtovg::renderer::OpenGl>,
+    texture_cache: RefCell<images::TextureCache<femtovg::renderer::OpenGl>>,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
     // Last field, so that it's dropped last and context exists and is current when destroying the FemtoVG canvas
