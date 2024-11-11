@@ -25,28 +25,41 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
+use crate::images::OpenGLTextureImporter;
+
 use super::images::{Texture, TextureCacheKey};
 use super::PhysicalSize;
 use super::{fonts, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect};
 
-type FemtovgBoxShadowCache = BoxShadowCache<ItemGraphicsCacheEntry>;
+type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 
-pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
-pub type CanvasRc = Rc<RefCell<Canvas>>;
+pub use femtovg::Canvas;
+pub type CanvasRc<R> = Rc<RefCell<Canvas<R>>>;
 
-#[derive(Clone)]
-pub enum ItemGraphicsCacheEntry {
-    Texture(Rc<Texture>),
+pub enum ItemGraphicsCacheEntry<R: femtovg::Renderer + OpenGLTextureImporter> {
+    Texture(Rc<Texture<R>>),
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
         // changes to the colorization brush will not require re-uploading the image.
-        _original_image: Rc<Texture>,
-        colorized_image: Rc<Texture>,
+        _original_image: Rc<Texture<R>>,
+        colorized_image: Rc<Texture<R>>,
     },
 }
 
-impl ItemGraphicsCacheEntry {
-    fn as_texture(&self) -> &Rc<Texture> {
+impl<R: femtovg::Renderer + OpenGLTextureImporter> Clone for ItemGraphicsCacheEntry<R> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Texture(arg0) => Self::Texture(arg0.clone()),
+            Self::ColorizedImage { _original_image, colorized_image } => Self::ColorizedImage {
+                _original_image: _original_image.clone(),
+                colorized_image: colorized_image.clone(),
+            },
+        }
+    }
+}
+
+impl<R: femtovg::Renderer + OpenGLTextureImporter> ItemGraphicsCacheEntry<R> {
+    fn as_texture(&self) -> &Rc<Texture<R>> {
         match self {
             ItemGraphicsCacheEntry::Texture(image) => image,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
@@ -57,7 +70,7 @@ impl ItemGraphicsCacheEntry {
     }
 }
 
-pub(super) type ItemGraphicsCache = ItemCache<Option<ItemGraphicsCacheEntry>>;
+pub(super) type ItemGraphicsCache<R> = ItemCache<Option<ItemGraphicsCacheEntry<R>>>;
 
 const KAPPA90: f32 = 0.55228;
 
@@ -68,15 +81,15 @@ struct State {
     current_render_target: femtovg::RenderTarget,
 }
 
-pub struct GLItemRenderer<'a> {
-    graphics_cache: &'a ItemGraphicsCache,
-    texture_cache: &'a RefCell<super::images::TextureCache>,
-    box_shadow_cache: FemtovgBoxShadowCache,
-    canvas: CanvasRc,
+pub struct GLItemRenderer<'a, R: femtovg::Renderer + OpenGLTextureImporter> {
+    graphics_cache: &'a ItemGraphicsCache<R>,
+    texture_cache: &'a RefCell<super::images::TextureCache<R>>,
+    box_shadow_cache: FemtovgBoxShadowCache<R>,
+    canvas: CanvasRc<R>,
     // Textures from layering or tiling that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
-    textures_to_delete_after_flush: RefCell<Vec<Rc<super::images::Texture>>>,
+    textures_to_delete_after_flush: RefCell<Vec<Rc<super::images::Texture<R>>>>,
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
     /// track the state manually since femtovg don't have accessor for its state
@@ -133,7 +146,10 @@ fn adjust_rect_and_border_for_inner_drawing(
     rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
 }
 
-fn path_bounding_box(canvas: &CanvasRc, path: &femtovg::Path) -> euclid::default::Box2D<f32> {
+fn path_bounding_box<R: femtovg::Renderer>(
+    canvas: &CanvasRc<R>,
+    path: &femtovg::Path,
+) -> euclid::default::Box2D<f32> {
     // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
     // we operate in item local coordinates with the `path` parameter as well as the resulting
     // paint.
@@ -172,13 +188,13 @@ fn clip_path_for_rect_alike_item(
     rect_with_radius_to_path(clip_rect, radius)
 }
 
-impl GLItemRenderer<'_> {
+impl<'a, R: femtovg::Renderer + OpenGLTextureImporter> GLItemRenderer<'a, R> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
     }
 }
 
-impl ItemRenderer for GLItemRenderer<'_> {
+impl<'a, R: femtovg::Renderer + OpenGLTextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -1095,11 +1111,11 @@ impl ItemRenderer for GLItemRenderer<'_> {
     }
 }
 
-impl<'a> GLItemRenderer<'a> {
+impl<'a, R: femtovg::Renderer + OpenGLTextureImporter> GLItemRenderer<'a, R> {
     pub(super) fn new(
-        canvas: &CanvasRc,
-        graphics_cache: &'a ItemGraphicsCache,
-        texture_cache: &'a RefCell<super::images::TextureCache>,
+        canvas: &CanvasRc<R>,
+        graphics_cache: &'a ItemGraphicsCache<R>,
+        texture_cache: &'a RefCell<super::images::TextureCache<R>>,
         window: &'a i_slint_core::api::Window,
         width: u32,
         height: u32,
@@ -1129,7 +1145,7 @@ impl<'a> GLItemRenderer<'a> {
         &mut self,
         item_rc: &ItemRc,
         layer_logical_size_fn: &dyn Fn() -> LogicalSize,
-    ) -> Option<Rc<Texture>> {
+    ) -> Option<Rc<Texture<R>>> {
         let existing_layer_texture =
             self.graphics_cache.with_entry(item_rc, |cache_entry| match cache_entry {
                 Some(ItemGraphicsCacheEntry::Texture(texture)) => Some(texture.clone()),
@@ -1243,11 +1259,11 @@ impl<'a> GLItemRenderer<'a> {
 
     fn colorize_image(
         &self,
-        original_cache_entry: ItemGraphicsCacheEntry,
+        original_cache_entry: ItemGraphicsCacheEntry<R>,
         colorize_brush: Brush,
         scaling: ImageRendering,
         tiling: (ImageTiling, ImageTiling),
-    ) -> ItemGraphicsCacheEntry {
+    ) -> ItemGraphicsCacheEntry<R> {
         if colorize_brush.is_transparent() {
             return original_cache_entry;
         };
