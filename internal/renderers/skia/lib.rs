@@ -6,6 +6,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 
 use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
@@ -64,8 +65,8 @@ cfg_if::cfg_if! {
 }
 
 fn create_default_surface(
-    window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-    display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+    window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
@@ -128,8 +129,8 @@ pub struct SkiaRenderer {
     rendering_first_time: Cell<bool>,
     surface: RefCell<Option<Box<dyn Surface>>>,
     surface_factory: fn(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Box<dyn Surface>, PlatformError>,
@@ -297,8 +298,8 @@ impl SkiaRenderer {
 
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
         Ok(Self::new_with_surface(create_default_surface(
@@ -375,8 +376,8 @@ impl SkiaRenderer {
     /// Reset the surface to the window given the window handle
     pub fn set_window_handle(
         &self,
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), PlatformError> {
@@ -915,8 +916,8 @@ impl Drop for SkiaRenderer {
 pub trait Surface {
     /// Creates a new surface with the given window, display, and size.
     fn new(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError>

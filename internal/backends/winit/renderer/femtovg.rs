@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::Cell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_core::renderer::Renderer;
 use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
@@ -46,7 +46,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         #[cfg_attr(target_arch = "wasm32", allow(unused_variables))] requested_graphics_api: Option<
             RequestedGraphicsAPI,
         >,
-    ) -> Result<Rc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<winit::window::Window>, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
             window_attributes,
@@ -56,7 +56,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
 
         #[cfg(target_arch = "wasm32")]
         let winit_window =
-            Rc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+            Arc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
                 PlatformError::from(format!(
                     "FemtoVG Renderer: Could not create winit window wrapper for DOM canvas: {}",
                     winit_os_error

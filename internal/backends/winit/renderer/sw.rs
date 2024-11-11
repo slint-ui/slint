@@ -9,15 +9,17 @@ use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use i_slint_core::{graphics::RequestedGraphicsAPI, graphics::Rgb8Pixel};
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::sync::Arc;
 
 use super::WinitCompatibleRenderer;
 
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
-    _context: RefCell<Option<softbuffer::Context<Rc<winit::window::Window>>>>,
-    surface:
-        RefCell<Option<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>>,
+    _context: RefCell<Option<softbuffer::Context<Arc<winit::window::Window>>>>,
+    surface: RefCell<
+        Option<softbuffer::Surface<Arc<winit::window::Window>, Arc<winit::window::Window>>>,
+    >,
 }
 
 #[repr(transparent)]
@@ -175,14 +177,14 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         event_loop: &dyn crate::event_loop::EventLoopInterface,
         window_attributes: winit::window::WindowAttributes,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
-    ) -> Result<Rc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window =
             event_loop.create_window(window_attributes).map_err(|winit_os_error| {
                 PlatformError::from(format!(
                     "Error creating native window for software rendering: {winit_os_error}"
                 ))
             })?;
-        let winit_window = Rc::new(winit_window);
+        let winit_window = Arc::new(winit_window);
 
         let context = softbuffer::Context::new(winit_window.clone())
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;

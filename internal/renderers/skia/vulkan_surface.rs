@@ -159,8 +159,8 @@ impl VulkanSurface {
 
 impl super::Surface for VulkanSurface {
     fn new(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {

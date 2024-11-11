@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::Cell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::winitwindowadapter::physical_size_to_slint;
 use i_slint_core::graphics::RequestedGraphicsAPI;
@@ -127,9 +127,9 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         event_loop: &dyn crate::event_loop::EventLoopInterface,
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
-    ) -> Result<Rc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window =
-            Rc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+            Arc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
                 PlatformError::from(format!(
                     "Error creating native window for Skia rendering: {}",
                     winit_os_error

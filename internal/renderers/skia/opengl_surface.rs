@@ -1,9 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::cell::RefCell;
 use std::num::NonZeroU32;
-use std::rc::Rc;
+use std::{cell::RefCell, sync::Arc};
 
 use glutin::{
     config::GetGlConfig,
@@ -31,8 +30,8 @@ pub struct OpenGLSurface {
 
 impl super::Surface for OpenGLSurface {
     fn new(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
@@ -155,8 +154,8 @@ impl super::Surface for OpenGLSurface {
 
 impl OpenGLSurface {
     pub fn new_with_config(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_opengl_version: Option<RequestedOpenGLVersion>,
         config_builder: glutin::config::ConfigTemplateBuilder,
