@@ -1,4 +1,5 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
 import { defineConfig, devices } from "@playwright/test";
 
 /**

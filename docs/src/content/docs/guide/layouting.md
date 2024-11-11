@@ -1,5 +1,5 @@
 ---
-// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: Positioning and Layout of Elements
 description: Positioning and Layout of ElementsContainer Components
 ---

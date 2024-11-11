@@ -1,5 +1,5 @@
 ---
-// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: Focus Handling
 description: Focus Handling
 ---

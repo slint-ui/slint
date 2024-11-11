@@ -1,4 +1,5 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
 import { test, expect } from "@playwright/test";
 
 test("smoke test", async ({ page }) => {

@@ -40,7 +40,7 @@ if(SLINT_BUILD_EXAMPLES)
     add_subdirectory(demos)
 endif()
 if(SLINT_BUILD_TESTING AND (SLINT_FEATURE_COMPILER OR SLINT_COMPILER))
-    add_subdirectory(docs/reference/src/quickstart/)
+    add_subdirectory(docs/src/content/code/)
 endif()
 
 feature_summary(WHAT ENABLED_FEATURES DESCRIPTION "Enabled features:")

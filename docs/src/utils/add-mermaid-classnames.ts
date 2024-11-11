@@ -1,3 +1,5 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
 import { visit, CONTINUE } from "unist-util-visit";
 import type { Plugin } from "unified";
 import type { Root, Element } from "hast";

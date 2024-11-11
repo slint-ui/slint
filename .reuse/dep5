@@ -7,7 +7,7 @@ Files: */slint-icon-*.svg */slint-icon-*.png */slint-icon-*.pdf */slint-logo-*.s
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 
-Files: .gitattributes .gitignore */.gitignore .dockerignore .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock */.npmignore biome.json package-lock.json docs/search/scraper-config.json pnpm-lock.yaml package.json
+Files: .gitattributes .gitignore */.gitignore .dockerignore .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock */.npmignore biome.json package-lock.json docs/search/scraper-config.json pnpm-lock.yaml package.json docs/playwright.config.ts docs/ec.config.mjs docs/astro.config.mjs
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
@@ -28,6 +28,10 @@ Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
 Files: docs/_templates/*.md
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
+Files: docs/src/assets/*.svg docs/src/assets/*.webp docs/src/assets/getting-started/*.webp
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 

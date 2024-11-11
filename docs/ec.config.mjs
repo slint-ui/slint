@@ -1,4 +1,5 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
 import { ExpressiveCodeTheme } from "@astrojs/starlight/expressive-code";
 import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
@@ -39,7 +40,9 @@ function workersPlaygroundButton() {
         `,
         hooks: {
             postprocessRenderedBlock: async (context) => {
-                if (!context.codeBlock.meta.includes("playground")) { return; }
+                if (!context.codeBlock.meta.includes("playground")) {
+                    return;
+                }
 
                 const content = context.codeBlock.code;
                 const url = `https://slintpad.com?snippet=${encodeURIComponent(content)}`;

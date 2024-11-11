@@ -1,5 +1,5 @@
 ---
-// Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: The `.slint` File
 description:  The `.slint` File
 ---
