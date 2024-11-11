@@ -265,7 +265,6 @@ impl Type {
             | (Type::Float32, Type::String)
             | (Type::Int32, Type::Float32)
             | (Type::Int32, Type::String)
-            | (Type::Array(_), Type::Model)
             | (Type::Float32, Type::Model)
             | (Type::Int32, Type::Model)
             | (Type::PhysicalLength, Type::LogicalLength)
@@ -277,6 +276,7 @@ impl Type {
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
+            (Type::Array(a), Type::Model) if a.is_property_type() => true,
             (Type::Struct(a), Type::Struct(b)) => can_convert_struct(&a.fields, &b.fields),
             (Type::UnitProduct(u), o) => match o.as_unit_product() {
                 Some(o) => unit_product_length_conversion(u.as_slice(), o.as_slice()).is_some(),

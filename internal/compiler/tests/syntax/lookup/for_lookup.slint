@@ -92,4 +92,7 @@ export Hello := Rectangle {
     if self.pressed : TouchArea { }
     //      ^error{Element 'Rectangle' does not have a property 'pressed'}
 
+
+    for i[idx] in [] : Text { text: idx; }
+    //            ^error{Cannot convert \[void] to model}
 }
