@@ -3,6 +3,7 @@
 
 use i_slint_core::{
     input::{FocusEventResult, KeyEventType},
+    items::TextHorizontalAlignment,
     platform::PointerEventButton,
 };
 
@@ -27,6 +28,7 @@ pub struct NativeSpinBox {
     pub minimum: Property<i32>,
     pub maximum: Property<i32>,
     pub step_size: Property<i32>,
+    pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub cached_rendering_data: CachedRenderingData,
     pub edited: Callback<IntArg>,
     data: Property<NativeSpinBoxData>,
@@ -289,6 +291,12 @@ impl Item for NativeSpinBox {
         let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let horizontal_alignment = match this.horizontal_alignment() {
+            // TextHorizontalAlignment to Qt::AligmentFlag
+            TextHorizontalAlignment::Left => 1,
+            TextHorizontalAlignment::Right => 2,
+            TextHorizontalAlignment::Center => 4
+        };
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -300,7 +308,8 @@ impl Item for NativeSpinBox {
             active_controls as "int",
             pressed as "bool",
             dpr as "float",
-            initial_state as "int"
+            initial_state as "int",
+            horizontal_alignment as "int"
         ] {
             auto style = qApp->style();
             QStyleOptionSpinBox option;
@@ -313,6 +322,7 @@ impl Item for NativeSpinBox {
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, painter->get(), widget);
 
+            static_cast<QAbstractSpinBox*>(widget)->setAlignment(Qt::AlignRight);
             QStyleOptionFrame frame;
             frame.state = option.state;
             frame.palette = option.palette;
@@ -324,7 +334,7 @@ impl Item for NativeSpinBox {
             QRect text_rect = qApp->style()->subElementRect(QStyle::SE_LineEditContents, &frame, widget);
             text_rect.adjust(1, 2, 1, 2);
             (*painter)->setPen(option.palette.color(QPalette::Text));
-            (*painter)->drawText(text_rect, QString::number(value));
+                (*painter)->drawText(text_rect, QString::number(value), QTextOption(static_cast<Qt::AlignmentFlag>(horizontal_alignment)));
         });
     }
 }
