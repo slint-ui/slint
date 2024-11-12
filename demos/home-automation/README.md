@@ -2,7 +2,7 @@
 
 ### `Home Automation Demo`
 
-A fictional user interface for the touch screen of a printer
+A fictional Home Automation User Interface.
 
 | `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- | --- |
