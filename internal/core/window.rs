@@ -345,6 +345,11 @@ impl<'a> WindowProperties<'a> {
     pub fn is_minimized(&self) -> bool {
         self.0.minimized.get()
     }
+
+    /// Gets the disabled state of the window
+    pub fn disabled(&self) -> bool {
+        self.0.disabled.get()
+    }
 }
 
 struct WindowPropertiesTracker {
@@ -435,6 +440,8 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
+    disabled: Cell<bool>,
+
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
@@ -495,6 +502,7 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
+            disabled: Cell::new(false),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1234,6 +1242,12 @@ impl WindowInner {
     /// Set the window as minimized or unminimized
     pub fn set_minimized(&self, minimized: bool) {
         self.minimized.set(minimized);
+        self.update_window_properties()
+    }
+
+    /// Enables or disables the window
+    pub fn set_disabled(&self, disabled: bool) {
+        self.disabled.set(disabled);
         self.update_window_properties()
     }
 

@@ -153,6 +153,26 @@ impl WinitWindowOrNone {
         }
     }
 
+    fn set_window_disabled(&self, _disabled: bool) {
+        match self {
+            Self::HasWindow(_window) => {
+                #[cfg(target_family = "windows")]
+                _window.set_enable(!_disabled);
+            }
+            Self::None(..) => { /* Winit doesn't have an attribute for this. */ }
+        }
+    }
+
+    fn set_skip_taskbar(&self, _disabled: bool) {
+        match self {
+            Self::HasWindow(_window) => {
+                #[cfg(target_family = "windows")]
+                _window.set_skip_taskbar(_disabled);
+            }
+            Self::None(..) => { /* Winit doesn't have an attribute for this. */ }
+        }
+    }
+
     fn set_decorations(&self, decorations: bool) {
         match self {
             Self::HasWindow(window) => window.set_decorations(decorations),
@@ -763,6 +783,12 @@ impl WindowAdapter for WinitWindowAdapter {
         if self.window_level.replace(new_window_level) != new_window_level {
             winit_window_or_none.set_window_level(new_window_level);
         }
+
+        let is_window_disabled = properties.disabled();
+        winit_window_or_none.set_window_disabled(is_window_disabled);
+
+        let is_skip_taskbar = window_item.skip_taskbar();
+        winit_window_or_none.set_skip_taskbar(is_skip_taskbar);
 
         // Use our scale factor instead of winit's logical size to take a scale factor override into account.
         let sf = self.window().scale_factor();

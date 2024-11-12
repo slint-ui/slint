@@ -1056,6 +1056,7 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 ### Properties
 
 -   **`always-on-top`** (_in_ _bool_): Whether the window should be placed above all other windows on window managers supporting it.
+-   **`skip-taskbar`** (_in_ _bool_): Whether the window should be shown in the taskbar or not.
 -   **`background`** (_in_ _brush_): The background brush of the `Window`. (default value: depends on the style)
 -   **`default-font-family`** (_in_ _string_): The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
 -   **`default-font-size`** (_in-out_ _length_): The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
@@ -1064,3 +1065,4 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 -   **`no-frame`** (_in_ _bool_): Whether the window should be borderless/frameless or not.
 -   **`resize-border-width`** (_in_ _length_): Size of the resize border in borderless/frameless windows (winit only for now).
 -   **`title`** (_in_ _string_): The window title that is shown in the title bar.
+-   **`disabled`** (_out_ _bool_): Disables the window from being interacted with. This is useful for dialog windows.

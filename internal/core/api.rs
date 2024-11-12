@@ -577,6 +577,12 @@ impl Window {
         self.0.set_minimized(minimized);
     }
 
+    /// Enables or disables the window interactions.\
+    /// When disabled, the window will not accept any user input.
+    pub fn set_disabled(&self, disabled: bool) {
+        self.0.set_disabled(disabled);
+    }
+
     /// Dispatch a window event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.
