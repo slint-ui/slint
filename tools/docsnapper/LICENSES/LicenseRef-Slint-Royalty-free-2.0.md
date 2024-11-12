@@ -1,1 +1,1 @@
-../../../LICENSES/LicenseRef-Slint-Royalty-free-2.0.md
+/Users/nigelb/gb-slint/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md

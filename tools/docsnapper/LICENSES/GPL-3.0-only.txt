@@ -1,1 +1,1 @@
-../../../LICENSES/GPL-3.0-only.txt
+/Users/nigelb/gb-slint/LICENSES/GPL-3.0-only.txt
