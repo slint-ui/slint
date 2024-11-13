@@ -46,7 +46,7 @@ export default defineConfig({
                 }),
             ],
             social: {
-                github: "https://github.com/slint-ui/slint",
+                github: "https://githttp://localhost:4321/tng/guide/basicshub.com/slint-ui/slint",
                 "x.com": "https://x.com/slint_ui",
             },
             sidebar: [
@@ -62,6 +62,7 @@ export default defineConfig({
                     items: [
                         { label: "Introduction", slug: "guide/intro" },
                         { label: "Basics", slug: "guide/basics" },
+                        { label: "Syntax", slug: "guide/syntax" },
                         { label: "Old stuff", slug: "guide/old" },
                     ],
                 },
