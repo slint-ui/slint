@@ -67,7 +67,9 @@ pub fn embed_glyphs<'a>(
         ('a'..='z')
             .chain('A'..='Z')
             .chain('0'..='9')
-            .chain(" '!\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars())
+            .chain(" !\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars())
+            .chain('À'..='ÿ') // latin-1 characters
+            .chain("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ".chars()) // a bit more for polish that's not in latin-1
             .chain(std::iter::once('●'))
             .chain(std::iter::once('…')),
     );
