@@ -1,57 +1,71 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 // cSpell: ignore CACHEDIR
-title: Getting started
+title: VsCode Quick Start
 description: Get going with Slint.
 ---
 
-import { Steps, LinkCard, Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
+import { Steps, LinkCard, Tabs, TabItem, FileTree, Aside } from '@astrojs/starlight/components';
 
+If you are new to Slint and want to quickly get started and learning the basics we recommend 
+using Visual Studio Code. VSCode is popular, free and thanks to our official Slint extension 
+it is also the easiest to get started with.
 
-
-
-
-This guide will help you get started with Slint. It will cover the basics of the language and how to get started with the Slint extension for Visual Studio Code.
-
+<Aside type="tip" title="Tip">
+We support many other tools and editors see [here](https://slint.dev/get-started)).
+</Aside>
 
 
 ## Setting up VSCode
 
+
 <Tabs syncKey="dev-platform">
 <TabItem label="Windows" icon="seti:windows">
 <Steps>
-1. Install VSCode.  
+1. Install VSCode. 
 Download it [here](https://code.visualstudio.com).
+
 2. Install the Slint extension.
 Find it [here](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
+
 3. Create a new project based on a Slint template.
 This is done via the command palette (Ctrl+Shift+P).
+
 4. Choose your language.
+
 </Steps>
 </TabItem>
 <TabItem label="macOS" icon="apple">
 <Steps>
-1. Install VSCode.  
+1. **Install VSCode.**   
 Download it [here](https://code.visualstudio.com).
-2. Install the Slint extension.
+
+2. **Install the Slint extension.**  
 Find it [here](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
-3. Create a new project based on a Slint template.
+
+3. **Create a new project based on a Slint template.**  
 This is done via the command palette (CMD+Shift+P).
-4. Choose your language.
+
+4. **Choose your language.**  
 ![Command palette](../../../assets/getting-started/macos-vscode-template-1.webp)
-5. Choose a folder to save the project in.
+
+5. **Choose a folder to save the project in.**  
 ![Project folder](../../../assets/getting-started/macos-vscode-template-2.webp)
+
 </Steps>
 </TabItem>
 <TabItem label="Linux" icon="linux">
 <Steps>
-1. Install VSCode.  
+1. **Install VSCode.**  
 Download it [here](https://code.visualstudio.com).
-2. Install the Slint extension.
+
+2. **Install the Slint extension.**  
 Find it [here](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
-3. Create a new project based on a Slint template.
+
+3. **Create a new project based on a Slint template.**  
 This is done via the command palette (Ctrl+Shift+P).
-4. Choose your language.
+
+4. **Choose your language.**  
 </Steps>
 </TabItem>
 
@@ -61,11 +75,8 @@ This is done via the command palette (Ctrl+Shift+P).
 ### Slint project structure
 
 
-
-
-
 <Tabs syncKey="dev-language">
-<TabItem label="C++" icon="seti:cpp">
+<TabItem label="C++">
 
 <FileTree>
 
@@ -81,7 +92,7 @@ This is done via the command palette (Ctrl+Shift+P).
 </FileTree>
 
 </TabItem>
-<TabItem label="NodeJS" icon="seti:javascript">
+<TabItem label="NodeJS">
 
 
 <FileTree>
@@ -96,7 +107,7 @@ This is done via the command palette (Ctrl+Shift+P).
 
 </FileTree>
 </TabItem>
-<TabItem label="Rust" icon="seti:rust">
+<TabItem label="Rust">
 
 <FileTree>
 

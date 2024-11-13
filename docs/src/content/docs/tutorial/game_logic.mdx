@@ -18,7 +18,7 @@ considers them solved and they remain open. Otherwise, the game waits briefly so
 the location of the icons, and then closes the curtains again.
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++" icon="seti:cpp">
+<TabItem label="C++">
 
 Add the following code inside the <span class="hljs-title">MainWindow</span> component to signal to the C++ code when the user clicks on a tile.
 
@@ -55,7 +55,7 @@ The `MainWindow` owns the callback handler, which itself owns a reference to the
 instead of strong to avoid a memory leak.
 
 </TabItem>
-<TabItem label="NodeJS" icon="seti:javascript">
+<TabItem label="NodeJS">
 
 Change the contents of `memory.slint` to signal to the JavaScript code when the user clicks on a tile.
 
@@ -82,7 +82,7 @@ import gameLogicInJs from '../../code/main_game_logic.js?raw'
 <Code code={extractLines(gameLogicInJs, 24, 57)} lang="js"  />
 </TabItem>
 
-<TabItem label="Rust" icon="seti:rust">
+<TabItem label="Rust">
 
 Add the following code inside the <span class="hljs-title">MainWindow</span> component to signal to the Rust code when the user clicks on a tile.
 

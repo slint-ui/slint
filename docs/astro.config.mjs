@@ -54,24 +54,15 @@ export default defineConfig({
                     slug: "index",
                 },
                 {
-                    label: "Getting started",
-                    collapsed: true,
-                    items: [
-                        { label: "Welcome", slug: "getting-started/intro" },
-                        {
-                            label: "Which language?",
-                            slug: "getting-started/which_language",
-                        },
-                    ],
+                   label: "Vscode Quick Start", slug: "getting-started/intro",
                 },
                 {
                     label: "Guide",
                     collapsed: true,
                     items: [
                         { label: "Introduction", slug: "guide/intro" },
-                        { label: "Live Preview", slug: "guide/preview" },
                         { label: "Basics", slug: "guide/basics" },
-                        { label: "Types", slug: "guide/types" },
+                        { label: "Old stuff", slug: "guide/old" },
                     ],
                 },
                 {
