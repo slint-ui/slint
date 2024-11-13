@@ -602,6 +602,21 @@ public:
         return cbindgen_private::slint_windowrc_has_active_animations(&inner.handle());
     }
 
+    /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
+    ///
+    /// Note that this function may be slow to call. Reading from the framebuffer previously
+    /// rendered, too, may take a long time.
+    std::optional<SharedPixelBuffer<Rgba8Pixel>> take_snapshot() const
+    {
+        SharedPixelBuffer<Rgba8Pixel> result;
+        if (cbindgen_private::slint_windowrc_take_snapshot(&inner.handle(), &result.m_data,
+                                                           &result.m_width, &result.m_height)) {
+            return result;
+        } else {
+            return {};
+        }
+    }
+
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }
     /// \private

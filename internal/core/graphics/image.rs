@@ -62,7 +62,7 @@ OpaqueImageVTable_static! {
 pub struct SharedPixelBuffer<Pixel> {
     width: u32,
     height: u32,
-    data: SharedVector<Pixel>,
+    pub(crate) data: SharedVector<Pixel>,
 }
 
 impl<Pixel> SharedPixelBuffer<Pixel> {
