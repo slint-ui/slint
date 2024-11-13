@@ -1583,6 +1583,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     .process_texture(geometry.transformed(self.rotation), texture);
                             }
                             fonts::GlyphAlphaMap::Shared(data) => {
+                                let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                                 self.processor.process_shared_image_buffer(
                                     geometry.transformed(self.rotation),
                                     SharedBufferCommand {
@@ -1590,7 +1591,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             data: data.clone(),
                                             width: pixel_stride,
                                         },
-                                        source_rect: PhysicalRect::from_size(source_size),
+                                        source_rect,
                                         extra: SceneTextureExtra {
                                             colorize: color,
                                             // color already is mixed with global alpha
