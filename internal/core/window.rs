@@ -1261,8 +1261,9 @@ pub mod ffi {
 
     use super::*;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
-    use crate::graphics::IntSize;
     use crate::graphics::Size;
+    use crate::graphics::{IntSize, Rgba8Pixel};
+    use crate::SharedVector;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -1686,6 +1687,25 @@ pub mod ffi {
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.window().set_maximized(value)
+    }
+
+    /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_take_snapshot(
+        handle: *const WindowAdapterRcOpaque,
+        data: &mut SharedVector<Rgba8Pixel>,
+        width: &mut u32,
+        height: &mut u32,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        if let Ok(snapshot) = window_adapter.window().take_snapshot() {
+            *data = snapshot.data.clone();
+            *width = snapshot.width();
+            *height = snapshot.height();
+            true
+        } else {
+            false
+        }
     }
 }
 
