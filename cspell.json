@@ -106,6 +106,7 @@
         "opengl",
         "opengles",
         "pixmap",
+        "prestart",
         "printerdemo",
         "riscv",
         "rowspan",

@@ -5,10 +5,11 @@
     "type": "module",
     "dependencies": {
         "@biomejs/biome": "1.9.3",
-        "slint-ui": "../../../api/node"
+        "slint-ui": "workspace:*"
     },
     "scripts": {
         "start": "node .",
+        "prestart": "cd ../../../api/node/ && node build-on-demand.mjs && pnpm compile",
         "check": "biome check",
         "format": "biome format",
         "format:fix": "biome format --write",

@@ -7,4 +7,7 @@ packages:
   - "demos/printerdemo/node"
   - "demos/home-automation/node"
   - "examples/imagefilter/node"
+  - "examples/carousel/node"
+  - "examples/todo/node"
+  - "examples/memory"
   - "docs/editor"

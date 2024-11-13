@@ -4,7 +4,7 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
-        "slint-ui": "../../../api/node",
+        "slint-ui": "workspace:*",
         "jimp": "1.6.0"
     },
     "devDependencies": {
@@ -13,7 +13,7 @@
     },
     "scripts": {
         "start": "tsc --build && node ./main.js",
+        "prestart": "cd ../../../api/node/ && node build-on-demand.mjs && pnpm compile",
         "type-check": "tsc --noEmit"
-
     }
 }

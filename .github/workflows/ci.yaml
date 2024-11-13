@@ -142,7 +142,7 @@ jobs:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
             - name: Run pnpm install
               working-directory: api/node
-              run: pnpm install --frozen-lockfile --ignore-scripts
+              run: pnpm install --frozen-lockfile
             - name: Build node plugin in debug
               run: pnpm build:testing
               working-directory: api/node
@@ -345,7 +345,7 @@ jobs:
                   echo 1 > target/debug/slint-lsp
             - name: Run pnpm install
               working-directory: editors/vscode
-              run: pnpm install --frozen-lockfile --ignore-scripts
+              run: pnpm install --frozen-lockfile
             - name: vscode prebuild
               working-directory: editors/vscode
               run: pnpm vscode:prepublish
