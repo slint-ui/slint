@@ -1,7 +1,3 @@
 Run with
-# pushd ../../../api/node
-# npm install
-# npm run compile
-# popd
-# npm install
-# npm start
+# pnpm install
+# pnpm start

@@ -45,7 +45,7 @@ The following step will build a local version of the vscode extension and the LS
 cargo install wasm-pack
 cargo build -p slint-lsp
 cd editors/vscode
-pnpm install --frozen-lockfile --ignore-scripts
+pnpm install --frozen-lockfile
 pnpm build:wasm_lsp
 pnpm compile
 ```

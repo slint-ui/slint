@@ -51,13 +51,13 @@ importers:
         specifier: 1.9.3
         version: 1.9.3
       slint-ui:
-        specifier: ../../../api/node
+        specifier: workspace:*
         version: link:../../../api/node
 
   demos/printerdemo/node:
     dependencies:
       slint-ui:
-        specifier: ../../../api/node
+        specifier: workspace:*
         version: link:../../../api/node
 
   docs/editor:
@@ -146,13 +146,19 @@ importers:
         specifier: 0.1.3
         version: 0.1.3
 
+  examples/carousel/node:
+    dependencies:
+      slint-ui:
+        specifier: workspace:*
+        version: link:../../../api/node
+
   examples/imagefilter/node:
     dependencies:
       jimp:
         specifier: 1.6.0
         version: 1.6.0
       slint-ui:
-        specifier: ../../../api/node
+        specifier: workspace:*
         version: link:../../../api/node
     devDependencies:
       '@types/node':
@@ -161,6 +167,18 @@ importers:
       typescript:
         specifier: 5.6.2
         version: 5.6.2
+
+  examples/memory:
+    dependencies:
+      slint-ui:
+        specifier: workspace:*
+        version: link:../../api/node
+
+  examples/todo/node:
+    dependencies:
+      slint-ui:
+        specifier: workspace:*
+        version: link:../../../api/node
 
   tools/slintpad:
     devDependencies:
