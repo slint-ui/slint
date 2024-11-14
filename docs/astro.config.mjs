@@ -46,7 +46,7 @@ export default defineConfig({
                 }),
             ],
             social: {
-                github: "https://githttp://localhost:4321/master/docs/slint/guide/basicshub.com/slint-ui/slint",
+                github: "https://github.com/slint-ui/slint",
                 "x.com": "https://x.com/slint_ui",
             },
             sidebar: [
