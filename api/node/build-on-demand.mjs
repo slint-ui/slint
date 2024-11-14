@@ -11,7 +11,7 @@ import { existsSync } from "node:fs";
 const worker = new Worker("./rust-module.cjs");
 // Define dummy error handler to prevent node from aborting on errors
 worker.on("error", (error) => {
-    console.log(`Error loading rust-module.cjs: {error}`);
+    //console.log(`Error loading rust-module.cjs: {error}`);
 });
 worker.on("exit", (code) => {
     if (code !== 0) {
