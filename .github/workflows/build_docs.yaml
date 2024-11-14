@@ -83,8 +83,7 @@ jobs:
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_testing/ target/doc/
 
             - name: "Generate Screenshots for Example Snippets"
-              working-directory: docs
-              run: cargo run -p slint-docsnapper -- src/content --overwrite
+              run: cargo run -p slint-docsnapper -- docs/src/content --overwrite
             - name: "Install Node dependencies for Slint and Node docs"
               run: pnpm install --frozen-lockfile
             - name: "Slint Language Documentation"
