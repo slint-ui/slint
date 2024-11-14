@@ -355,7 +355,7 @@ jobs:
             - name: Extract Version
               id: version
               run: |
-                version=$(grep -oP '(?<=<p class="title logo__title">Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
+                version=$(grep -oP '(?<=<meta property="og:site_name" content="Slint )[0-9]+\.[0-9]+\.[0-9]+' docs/dist/index.html)
                 if [[ -z "$version" ]]; then
                   echo "Version not found"
                   exit 1
