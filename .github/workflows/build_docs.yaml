@@ -81,6 +81,7 @@ jobs:
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_testing/ target/doc/
+
             - name: "Generate Screenshots for Example Snippets"
               working-directory: docs
               run: cargo run -p slint-docsnapper -- src/content --overwrite
@@ -88,6 +89,14 @@ jobs:
               run: pnpm install --frozen-lockfile
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
+            # Test docs
+            - name: Run Playwright tests
+              working-directory: docs
+              run: pnpm exec playwright test
+            - name: Publish Test Summary Results
+              working-directory: docs
+              run: npx github-actions-ctrf playwright-report/ctrf-report.json
+
             - name: "Node docs"
               run: pnpm run docs
               working-directory: api/node
