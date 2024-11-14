@@ -3,9 +3,11 @@
         "module": "CommonJS",
         "target": "esnext",
         "declaration": true,
-        "outDir": "dist"
+        "outDir": "dist",
+        "skipLibCheck": true
     },
     "include": [
         "typescript/"
     ],
+    "exclude": ["**/node_modules/**"]
 }
