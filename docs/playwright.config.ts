@@ -83,7 +83,7 @@ export default defineConfig({
     /* Run your local dev server before starting the tests */
     webServer: {
         command: "pnpm run preview",
-        url: "http://localhost:4321/tng",
+        url: "http://localhost:4321/master/docs/slint",
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,
     },
