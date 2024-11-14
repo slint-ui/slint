@@ -54,7 +54,8 @@ export default defineConfig({
                     slug: "index",
                 },
                 {
-                   label: "Vscode Quick Start", slug: "getting-started/intro",
+                    label: "Vscode Quick Start",
+                    slug: "getting-started/intro",
                 },
                 {
                     label: "Guide",
