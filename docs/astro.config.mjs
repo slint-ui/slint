@@ -11,7 +11,7 @@ import rehypeExternalLinks from "rehype-external-links";
 // https://astro.build/config
 export default defineConfig({
     site: "https://snapshots.slint.dev/master/docs/slint/",
-    base: "/tng",
+    base: "/master/docs/slint",
     markdown: {
         rehypePlugins: [
             [

@@ -3,7 +3,7 @@
 import { test, expect } from "@playwright/test";
 
 test("smoke test", async ({ page }) => {
-    await page.goto("http://localhost:4321/tng");
+    await page.goto("http://localhost:4321/master/docs/slint");
     await expect(page.locator('[id="_top"]')).toContainText("Welcome");
     await expect(page.getByRole("main")).toContainText(
         "Get started building your product with Slint.",
