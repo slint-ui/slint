@@ -84,7 +84,7 @@ export default defineConfig({
                             autogenerate: { directory: "reference/elements" },
                         },
                         {
-                            label: "Gestures",
+                            label: "Gestures & Keyboard",
                             autogenerate: { directory: "reference/gestures" },
                         },
                         {
