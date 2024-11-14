@@ -8,6 +8,6 @@
     },
     "scripts": {
         "start": "node .",
-        "prestart": "cd ../../../api/node/ && node build-on-demand.mjs && pnpm compile"
+        "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile"
     }
 }
