@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             rest = match rest.split_once('\n') {
                 Some((",no-preview", rest)) | Some((",no-auto-preview", rest)) => rest,
                 Some(("", rest)) => rest,
+                Some((" no-test", ..)) => continue,
                 _ => continue,
             };
 

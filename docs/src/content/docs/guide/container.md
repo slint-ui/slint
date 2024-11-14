@@ -8,7 +8,7 @@ When creating components, it's sometimes useful to influence where child
 elements are placed when used. For example, a component that draws
 a label above an element inside:
 
-```slint
+```slint no-test
 export component MyApp inherits Window {
 
     BoxWithLabel {

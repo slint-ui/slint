@@ -53,7 +53,7 @@ export component Button inherits Rectangle {
 
 Similarly, components exported from other files may be imported:
 
-```slint
+```slint no-test
 import { Button } from "./button.slint";
 
 export component App inherits Rectangle {
@@ -67,7 +67,7 @@ export component App inherits Rectangle {
 In the event that two files export a type under the same name, then you have the option
 of assigning a different name at import time:
 
-```slint
+```slint no-test
 import { Button } from "./button.slint";
 import { Button as CoolButton } from "../other_theme/button.slint";
 
@@ -83,7 +83,7 @@ Elements, globals and structs can be exported and imported.
 It's also possible to export globals (see [Global Singletons](globals.md)) imported from
 other files:
 
-```slint
+```slint no-test
 import { Logic as MathLogic } from "math.slint";
 export { MathLogic } // known as "MathLogic" when using native APIs to access globals
 ```
@@ -92,7 +92,7 @@ export { MathLogic } // known as "MathLogic" when using native APIs to access gl
 
 The following syntax is supported for importing types:
 
-```slint
+```slint no-test
 import { export1 } from "module.slint";
 import { export1, export2 } from "module.slint";
 import { export1 as alias1 } from "module.slint";
@@ -101,7 +101,7 @@ import { export1, export2 as alias2, /* ... */ } from "module.slint";
 
 The following syntax is supported for exporting types:
 
-```slint
+```slint no-test
 // Export declarations
 export component MyButton inherits Rectangle { /* ... */ }
 
@@ -125,7 +125,7 @@ well within a project's own directory structure. To share libraries of
 components between projects without hardcoding their relative paths, use
 the component library syntax:
 
-```slint
+```slint no-test
 import { MySwitch } from "@mylibrary/switch.slint";
 import { MyButton } from "@otherlibrary";
 ```

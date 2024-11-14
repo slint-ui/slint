@@ -184,7 +184,7 @@ Additionally, if a property's value changes and then reverts to its original sta
 ```slint
 export component Example {
     in-out property <int> foo;
-    property bar: foo + 1;
+    property <int> bar: foo + 1;
     // This setup creates a potential loop between `foo` and `bar`, and the outcome is undefined.
     changed bar => { foo += 1; }
 }
@@ -200,13 +200,13 @@ Therefore, it's crucial not to overuse changed callbacks.
 
 For instance, avoid doing this:
 
-```slint
+```slint no-test
 changed bar => { foo = bar + 1; }
 ```
 
 Instead, opt for:
 
-```slint
+```slint no-test
 foo: bar + 1;
 ```
 

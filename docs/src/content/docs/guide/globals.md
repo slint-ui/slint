@@ -26,7 +26,7 @@ Export a global to make it accessible from other files (see [Modules](modules.md
 the file also exporting the main application component to make it visible
 to native code in the business logic.
 
-```slint
+```slint no-test
 export global Logic  {
     in-out property <int> the-value;
     pure callback magic-operation(int) -> int;
