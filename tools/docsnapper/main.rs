@@ -271,7 +271,7 @@ fn test_extract_code_from_text() {
             None
         )
         .unwrap(),
-        wrap_code("\n        ", None)
+        wrap_code("\n    ", None)
     );
     assert!(extract_code_from_text(
         r#"```````````slint foo=bar
