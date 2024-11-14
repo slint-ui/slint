@@ -5,7 +5,7 @@ export { Button } from "button.slint";
 export { ScrollView } from "scrollview.slint";
 export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
-import { CupertinoPalette } from "styling.slint";
+import { CupertinoPalette, CupertinoColors } from "styling.slint";
 
 export global LayoutSpec {
     out property <length> layout-spacing: 10px;
@@ -31,12 +31,14 @@ export global Palette {
     out property <brush> alternate-background: CupertinoPalette.alternate-background;
     out property <brush> alternate-foreground: CupertinoPalette.alternate-foreground;
     out property <brush> control-background: CupertinoPalette.control-background;
+    out property <brush> alternate-control-background: CupertinoPalette.control-background;
     out property <brush> control-foreground: CupertinoPalette.control-foreground;
     out property <brush> accent-background: CupertinoPalette.accent-background;
     out property <brush> accent-foreground: CupertinoPalette.accent-foreground;
     out property <brush> selection-background: CupertinoPalette.selection-background;
     out property <brush> selection-foreground: CupertinoPalette.selection-foreground;
     out property <brush> border: CupertinoPalette.border;
+    in-out property <brush> selection-color <=> CupertinoColors.selection-color;
     in-out property <ColorScheme> color-scheme <=> CupertinoPalette.color-scheme;
 }
 
