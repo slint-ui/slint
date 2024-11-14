@@ -5,6 +5,7 @@
         "esModuleInterop": true,
         "sourceMap": true,
         "incremental": true,
-        "composite": true
+        "composite": true,
+        "skipLibCheck": true
     }
 }
