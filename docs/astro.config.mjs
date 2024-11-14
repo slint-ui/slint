@@ -10,7 +10,7 @@ import rehypeExternalLinks from "rehype-external-links";
 
 // https://astro.build/config
 export default defineConfig({
-    site: "https://snapshots.slint.dev/tng/",
+    site: "https://snapshots.slint.dev/master/docs/slint/",
     base: "/tng",
     markdown: {
         rehypePlugins: [
@@ -46,7 +46,7 @@ export default defineConfig({
                 }),
             ],
             social: {
-                github: "https://githttp://localhost:4321/tng/guide/basicshub.com/slint-ui/slint",
+                github: "https://githttp://localhost:4321/master/docs/slint/guide/basicshub.com/slint-ui/slint",
                 "x.com": "https://x.com/slint_ui",
             },
             sidebar: [

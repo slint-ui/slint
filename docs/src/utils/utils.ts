@@ -72,32 +72,32 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
     switch (typeName) {
         case "angle":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0deg",
             };
         case "bool":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "false",
             };
         case "brush":
             return {
-                href: "/tng/guide/types/#colors-and-brushes",
+                href: "/master/docs/slint/guide/types/#colors-and-brushes",
                 defaultValue: "a transparent brush",
             };
         case "color":
             return {
-                href: "/tng/guide/types/#colors-and-brushes",
+                href: "/master/docs/slint/guide/types/#colors-and-brushes",
                 defaultValue: "a transparent color",
             };
         case "duration":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0ms",
             };
         case "easing":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "linear",
             };
         case "enum":
@@ -107,52 +107,52 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "float":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0.0",
             };
         case "image":
             return {
-                href: "/tng/guide/types/#images",
+                href: "/master/docs/slint/guide/types/#images",
                 defaultValue: "the empty image",
             };
         case "int":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0",
             };
         case "length":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0px",
             };
         case "percent":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0%",
             };
         case "physical-length":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0phx",
             };
         case "Point":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "(0px, 0px)",
             };
         case "relative-font-size":
             return {
-                href: "/tng/guide/types/",
+                href: "/master/docs/slint/guide/types/",
                 defaultValue: "0rem",
             };
         case "string":
             return {
-                href: "/tng/guide/types/#string",
+                href: "/master/docs/slint/guide/types/#string",
                 defaultValue: '""',
             };
         case "struct":
             return {
-                href: "/tng/guide/types/#structs",
+                href: "/master/docs/slint/guide/types/#structs",
                 defaultValue: "a struct with all default values",
             };
         default: {

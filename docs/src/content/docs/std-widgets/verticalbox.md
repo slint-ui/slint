@@ -4,7 +4,7 @@ title: VerticalBox
 description: VerticalBox api.
 ---
 
-A `VerticalBox` is a [`VerticalLayout`](/tng/reference/layouts/verticallayout) where the spacing and padding values
+A `VerticalBox` is a [`VerticalLayout`](/master/docs/slint/reference/layouts/verticallayout) where the spacing and padding values
 depend on the style instead of defaulting to 0.
 
-See also [`HorizontalBox`](/tng/std-widgets/horizontalbox).
+See also [`HorizontalBox`](/master/docs/slint/std-widgets/horizontalbox).

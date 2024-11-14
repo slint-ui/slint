@@ -10,7 +10,7 @@ are organized in a model where each row is a model of
 
 ### Properties
 
-Same as [`ListView`](/tng/std-widgets/listview/), and in addition:
+Same as [`ListView`](/master/docs/slint/std-widgets/listview/), and in addition:
 
 -   **`current-sort-column`** (_out_ _int_): Indicates the sorted column. -1 mean no column is sorted.
 -   **`columns`** (_in-out_ _\[[`TableColumn`](../builtins/structs.md#tablecolumn)\]_): Defines the model of the table columns.
