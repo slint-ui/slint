@@ -17,11 +17,7 @@ worker.on("exit", (code) => {
     if (code !== 0) {
         // HACK: npm package removes .npmignore. If the file is present, then it means that we're in the Slint git repo,
         // and we don't want to automatically build (see https://github.com/slint-ui/slint/pull/6780).
-        if (existsSync("./.npmignore")) {
-            console.log(
-                "slint-ui: loading rust-module.cjs failed, please run `npm run build` first.",
-            );
-        } else {
+        if (!existsSync("./.npmignore")) {
             console.log(
                 "slint-ui: loading rust-module.cjs failed, building now",
             );
