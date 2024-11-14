@@ -89,14 +89,10 @@ examples as well by default
 ---
 ### Running the Node Examples
 
-You can run the examples by going into the node sub-folder and use `npm`, for example:
+You can run the examples by going into the node sub-folder and use [`pnpm`](https://pnpm.io), for example:
 
 ```sh
-pushd api/node
-npm install
-npm run compile
-popd
 cd examples/todo/node
-npm install
-npm start
+pnpm install
+pnpm start
 ```
