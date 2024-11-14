@@ -13,7 +13,7 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "spellcheck": "cspell --no-progress --gitignore  ./**/*.{md,mdx}",
-    "type-check": "tsc --noEmit",
+    "type-check": "astro check",
     "test": "playwright test"
   },
   "dependencies": {
