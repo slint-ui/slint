@@ -444,7 +444,6 @@ jobs:
                 cp -a ../api/node/docs/* $output_path/docs/node/
                 mkdir -p $output_path/docs/slint
                 cp -a ../docs/dist/* $output_path/docs/slint/
-                git status $output_path
 
             - name: Adjust redirections
               if: github.event.inputs.release == 'true'
@@ -508,12 +507,10 @@ jobs:
               if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
               working-directory: ./www-releases
               run: |
-                git status
                 git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
                 git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>'
                 git add .
                 git add -u .
-                git status
                 git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
                 git push
 
