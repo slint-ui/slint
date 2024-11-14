@@ -33,7 +33,7 @@ impl PixelFont {
 
     /// Convert from the glyph coordinate to the target coordinate
     pub fn scale_glyph_length(&self, v: i16) -> PhysicalLength {
-        self.pixel_size * v / self.glyphs.pixel_size
+        (self.pixel_size.cast() * v as i32 / self.glyphs.pixel_size as i32).cast()
     }
 }
 
@@ -48,8 +48,8 @@ impl GlyphRenderer for PixelFont {
         let width = self.scale_glyph_length(bitmap_glyph.width - 1) + PhysicalLength::new(1);
         let height = self.scale_glyph_length(bitmap_glyph.height - 1) + PhysicalLength::new(1);
         Some(RenderableGlyph {
-            x: self.scale_glyph_length(bitmap_glyph.x),
-            y: self.scale_glyph_length(bitmap_glyph.y + bitmap_glyph.height) - height,
+            x: self.scale_glyph_length(bitmap_glyph.x) / 64,
+            y: self.scale_glyph_length(bitmap_glyph.y + bitmap_glyph.height * 64) / 64 - height,
             width,
             height,
             alpha_map: bitmap_glyph.data.as_slice().into(),
@@ -82,8 +82,10 @@ impl TextShaper for PixelFont {
             let x_advance = glyph_index.map_or_else(
                 || self.pixel_size,
                 |glyph_index| {
-                    self.pixel_size * self.glyphs.glyph_data[glyph_index].x_advance
-                        / self.glyphs.pixel_size
+                    (self.pixel_size.cast() * self.glyphs.glyph_data[glyph_index].x_advance as i32
+                        / self.glyphs.pixel_size as i32
+                        / 64)
+                        .cast()
                 },
             );
             Glyph {

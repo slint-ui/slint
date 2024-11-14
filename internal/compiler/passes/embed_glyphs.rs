@@ -420,11 +420,11 @@ fn embed_alpha_map_glyphs(
                         .unwrap_or_else(|| font.rasterize(*code_point, *pixel_size as _));
 
                     BitmapGlyph {
-                        x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
-                        y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
+                        x: i16::try_from(metrics.xmin * 64).expect("large glyph x coordinate"),
+                        y: i16::try_from(metrics.ymin * 64).expect("large glyph y coordinate"),
                         width: i16::try_from(metrics.width).expect("large width"),
                         height: i16::try_from(metrics.height).expect("large height"),
-                        x_advance: i16::try_from(metrics.advance_width as i64)
+                        x_advance: i16::try_from((metrics.advance_width * 64.) as i64)
                             .expect("large advance width"),
                         data: bitmap,
                     }
@@ -467,15 +467,6 @@ fn embed_sdf_glyphs(
                 .unwrap_or_else(|| {
                     generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE)
                 })
-                .map(|(metrics, bitmap)| BitmapGlyph {
-                    x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
-                    y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
-                    width: i16::try_from(metrics.width).expect("large width"),
-                    height: i16::try_from(metrics.height).expect("large height"),
-                    x_advance: i16::try_from(metrics.advance_width as i64)
-                        .expect("large advance width"),
-                    data: bitmap,
-                })
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>();
@@ -489,7 +480,7 @@ fn generate_sdf_for_glyph(
     code_point: char,
     target_pixel_size: i16,
     range: f64,
-) -> Option<(fontdue::Metrics, Vec<u8>)> {
+) -> Option<BitmapGlyph> {
     use fdsm::transform::Transform;
     use nalgebra::{Affine2, Similarity2, Vector2};
 
@@ -505,11 +496,10 @@ fn generate_sdf_for_glyph(
     // TODO: handle bitmap glyphs (emojis)
     let Some(bbox) = face.glyph_bounding_box(glyph_id) else {
         // For example, for space
-        let metrics = fontdue::Metrics {
-            advance_width: (face.glyph_hor_advance(glyph_id).unwrap_or(0) as f64 * scale) as f32,
+        return Some(BitmapGlyph {
+            x_advance: (face.glyph_hor_advance(glyph_id).unwrap_or(0) as f64 * scale * 64.) as i16,
             ..Default::default()
-        };
-        return Some((metrics, vec![]));
+        });
     };
 
     let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale + 2.).ceil() as u32;
@@ -556,17 +546,21 @@ fn generate_sdf_for_glyph(
     // (so that the last row will look like `data[len-1]*1 + data[len]*0`)
     glyph_data.push(0);
 
-    let metrics = fontdue::Metrics {
-        xmin: -(1. - bbox.x_min as f64 * scale).round() as i32,
-        ymin: -(1. - bbox.y_min as f64 * scale).round() as i32,
-        width: width as usize,
-        height: height as usize,
-        advance_width: (face.glyph_hor_advance(glyph_id).unwrap() as f64 * scale) as f32,
-        advance_height: 0.,         /*unused */
-        bounds: Default::default(), /*unused */
+    let bg = BitmapGlyph {
+        x: i16::try_from((-(1. - bbox.x_min as f64 * scale) * 64.).ceil() as i32)
+            .expect("large glyph x coordinate"),
+        y: i16::try_from((-(1. - bbox.y_min as f64 * scale) * 64.).ceil() as i32)
+            .expect("large glyph y coordinate"),
+        width: i16::try_from(width).expect("large width"),
+        height: i16::try_from(height).expect("large height"),
+        x_advance: i16::try_from(
+            (face.glyph_hor_advance(glyph_id).unwrap() as f64 * scale * 64.).round() as i32,
+        )
+        .expect("large advance width"),
+        data: glyph_data,
     };
 
-    Some((metrics, glyph_data))
+    Some(bg)
 }
 
 fn try_extract_font_size_from_element(elem: &ElementRc, property_name: &str) -> Option<f64> {
