@@ -345,6 +345,12 @@ impl<'a> WindowProperties<'a> {
     pub fn is_minimized(&self) -> bool {
         self.0.minimized.get()
     }
+
+    /// The widow style
+    /// Returns a tuple of three booleans: (minimize, maximize, close)
+    pub fn window_buttons_enabled(&self) -> WindowButtonState {
+        self.0.window_button_state.get()
+    }
 }
 
 struct WindowPropertiesTracker {
@@ -410,6 +416,17 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+/// The state of each window button
+pub struct WindowButtonState {
+    /// The minimize button state
+    pub minimize: bool,
+    /// The maximize button state
+    pub maximize: bool,
+    /// The close button state
+    pub close: bool,
+}
+
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
@@ -434,6 +451,7 @@ pub struct WindowInner {
     fullscreen: Cell<bool>,
     maximized: Cell<bool>,
     minimized: Cell<bool>,
+    window_button_state: Cell<WindowButtonState>,
 
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
@@ -495,6 +513,11 @@ impl WindowInner {
             fullscreen: Cell::new(false),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
+            window_button_state: Cell::new(WindowButtonState {
+                minimize: true,
+                maximize: true,
+                close: true,
+            }),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),

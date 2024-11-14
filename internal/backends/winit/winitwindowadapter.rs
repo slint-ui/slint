@@ -10,6 +10,7 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
+use i_slint_core::window::WindowButtonState;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
@@ -39,7 +40,7 @@ use i_slint_core::{self as corelib, OpenGLAPI};
 use once_cell::unsync::OnceCell;
 #[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
-use winit::window::WindowAttributes;
+use winit::window::{WindowAttributes, WindowButtons};
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -192,6 +193,27 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow(window) => window.set_maximized(maximized),
             Self::None(attributes) => attributes.borrow_mut().maximized = maximized,
+        }
+    }
+
+    fn set_window_buttons_state(&self, window_buttons_state: WindowButtonState) {
+        match self {
+            Self::HasWindow(window) => {
+                let mut enabled_buttons = WindowButtons::empty();
+                if !window_buttons_state.minimize {
+                    enabled_buttons |= WindowButtons::MINIMIZE;
+                }
+                if !window_buttons_state.maximize {
+                    enabled_buttons |= WindowButtons::MAXIMIZE;
+                }
+                if !window_buttons_state.close {
+                    enabled_buttons |= WindowButtons::CLOSE;
+                }
+                window.set_enabled_buttons(enabled_buttons);
+            }
+            Self::None(attributes) => {
+                attributes.borrow_mut().enabled_buttons = WindowButtons::all()
+            }
         }
     }
 
@@ -763,6 +785,13 @@ impl WindowAdapter for WinitWindowAdapter {
         if self.window_level.replace(new_window_level) != new_window_level {
             winit_window_or_none.set_window_level(new_window_level);
         }
+
+        // Get the associated window button states
+        let mut win_props = properties.window_buttons_enabled();
+        win_props.close = window_item.no_close_button();
+        win_props.minimize = window_item.no_minimize_button();
+        win_props.maximize = window_item.no_maximize_button();
+        winit_window_or_none.set_window_buttons_state(win_props);
 
         // Use our scale factor instead of winit's logical size to take a scale factor override into account.
         let sf = self.window().scale_factor();

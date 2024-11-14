@@ -1064,3 +1064,6 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 -   **`no-frame`** (_in_ _bool_): Whether the window should be borderless/frameless or not.
 -   **`resize-border-width`** (_in_ _length_): Size of the resize border in borderless/frameless windows (winit only for now).
 -   **`title`** (_in_ _string_): The window title that is shown in the title bar.
+-   **`no-minimize-button`** (_in_ _bool_): Whether the window should have a minimize button in the title bar. Default is `false` to show the minimize button.
+-   **`no-maximize-button`** (_in_ _bool_): Whether the window should have a maximize button in the title bar. Default is `false` to show the maximize button.
+-   **`no-close-button`** (_in_ _bool_): Whether the window should have a close button in the title bar. Default is `false` to show the close button.

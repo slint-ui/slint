@@ -958,6 +958,9 @@ pub struct WindowItem {
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
+    pub no_minimize_button: Property<bool>,
+    pub no_maximize_button: Property<bool>,
+    pub no_close_button: Property<bool>,
 }
 
 impl Item for WindowItem {
