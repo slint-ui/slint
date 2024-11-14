@@ -10,7 +10,7 @@
     "lint:fix": "biome lint --fix"
   },
   "devDependencies": {
-    "rollup": "^3.5.1",
+    "rollup": "^4.26.0",
     "@rollup/plugin-node-resolve": "^15.0.1"
   },
   "dependencies": {
@@ -22,7 +22,7 @@
     "@codemirror/search": "^6.2.3",
     "@codemirror/theme-one-dark": "^6.1.0",
     "@codemirror/view": "^6.6.0",
-    "minify": "^9.1.0",
+    "minify": "^11.4.1",
     "@uiw/codemirror-theme-dracula": "^4.23.5",
     "@babel/runtime": "^7.25.7"
   }
