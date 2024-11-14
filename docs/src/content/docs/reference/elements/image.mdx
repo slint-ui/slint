@@ -1,0 +1,124 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Image
+description: Image element api.
+---
+
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="282" imageHeight="84"  imageAlt='image example'>
+```slint title="test-example.slint"
+Image {
+    source: @image-url("slint-logo-simple-dark.png");
+}
+```
+</CodeSnippetMD>
+
+An `Image` can be used to represent an image loaded from a file. Supported image formats are:
+
+| Format    | Extensions |
+| -------- | ------- |
+| PNG  | .png    |
+| JPEG | .jpg, .jpeg     |
+| SVG    | .svg    |
+
+
+## Properties
+
+### `colorize`
+<SlintProperty propName="colorize" typeName="brush">  
+When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
+</SlintProperty>
+
+### `horizontal-alignment`
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="ImageHorizontalAlignment"/>
+
+### `horizontal-tiling` 
+<SlintProperty propName="horizontal-tiling" typeName="enum" enumName="ImageTiling"/>
+
+### `image-fit`
+<SlintProperty propName="image-fit" typeName="enum" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise" enumName="ImageFit"/>
+
+### `image-rendering`
+<SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering"/>  
+
+## Rotation
+
+Rotates the text by the given angle around the specified origin point. The default origin point is the center of the element.
+When these properties are set, the `Image` can't have children.
+
+```slint {5-7}
+Image {
+    x: 0;
+    y: 0;
+    source: @image-url("images/slint-logo.svg");
+    rotation-angle: 45deg;
+    rotation-origin-x: 0;
+    rotation-origin-y: 0;
+}
+```
+
+### `rotation-angle`
+<SlintProperty propName="rotation-angle" typeName="angle" defaultValue='0deg'/>
+### `rotation-origin-x`
+<SlintProperty propName="rotation-origin-x" typeName="length"/>
+### `rotation-origin-y`
+<SlintProperty propName="rotation-origin-y" typeName="length"/>
+
+## `source` properties
+
+### `source`
+<SlintProperty propName="source" typeName="image">
+
+The `image` type is a reference to an image. It's defined using the `@image-url("...")` construct.
+The address within the `@image-url` function must be known at compile time.
+
+Slint looks for images in the following places:
+
+1. The absolute path or the path relative to the current `.slint` file.
+2. The include path used by the compiler to look up `.slint` files.
+
+Access an `image`'s source dimension using its `source.width` and `source.height` properties.
+
+```slint
+export component Example inherits Window {
+    preferred-width: 150px;
+    preferred-height: 50px;
+
+    in property <image> some_image: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
+
+    Text {
+        text: "The image is " + some_image.width + "x" + some_image.height;
+    }
+}
+```
+
+```slint title="nine-slice scaling"
+export component Example inherits Window {
+    width: 100px;
+    height: 150px;
+    VerticalLayout {
+        Image {
+            source: @image-url("https://interactive-examples.mdn.mozilla.net/media/examples/border-diamonds.png", nine-slice(30 30 30 30));
+        }
+    }
+}
+```
+
+Use the `@image-url("...")` macro to specify the location of the image.
+</SlintProperty>
+
+
+### `source-clip-x`
+<SlintProperty propName="source-clip-x" typeName="int"/>
+### `source-clip-y`  
+<SlintProperty propName="source-clip-y" typeName="int"/>
+### `source-clip-width`  
+<SlintProperty propName="source-clip-width" typeName="int" defaultValue="source.width - source.clip-x"/>
+### `source-clip-height`
+<SlintProperty propName="source-clip-height" typeName="int" defaultValue="source.height - source.clip-y"/>
+
+### `vertical-alignment`
+<SlintProperty propName="vertical-alignment" typeName="enum" enumName="ImageVerticalAlignment"/>
+

@@ -23,7 +23,7 @@ jobs:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
             RUSTFLAGS: -D warnings -W deprecated
-            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/src/utils/slint-docs-highlight.html -D warnings -W deprecated
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
@@ -81,27 +81,23 @@ jobs:
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_testing/ target/doc/
-            - name: "Slint Language Documentation"
-              run: |
-                searchbox_html=docs/reference/_templates/searchbox.html
-                sed -i "s/\$TYPESENSE_SEARCH_API_KEY/${{ secrets.TYPESENSE_SEARCH_API_KEY }}/g" $searchbox_html
-                sed -i "s/\$TYPESENSE_SERVER_PROTOCOL/https/g" "$searchbox_html"
-                if [ "$RELEASE_INPUT" == "true" ]; then
-                  version=$(sed -n 's/^version = "\(.*\)"/\1/p' docs/reference/conf.py)
-                  sed -i "s/\$TYPESENSE_INDEX_NAME/$version/g" "$searchbox_html"
-                  sed -i 's/sitemap_url_scheme = "master\/docs\/slint\/{link}"/sitemap_url_scheme = "{version}docs\/slint\/{link}"/' docs/reference/conf.py
-                  sed -i "s/snapshots.slint.dev\/master/releases.slint.dev\/$version/" docs/editor/codemirror.js docs/editor/rollup.config.js
-                else
-                  sed -i "s/\$TYPESENSE_INDEX_NAME/master/g" "$searchbox_html"
-                fi
-                sed -i "s/\$TYPESENSE_SERVER_PORT/443/g" "$searchbox_html"
-                sed -i "s/\$TYPESENSE_SERVER_URL/typesense.slint.dev/g" "$searchbox_html"
-                cargo xtask slintdocs --show-warnings
-            - name: "Node docs"
 
-              run: |
-                  pnpm install --frozen-lockfile
-                  pnpm run docs
+            - name: "Generate Screenshots for Example Snippets"
+              run: cargo run -p slint-docsnapper -- docs/src/content --overwrite
+            - name: "Install Node dependencies for Slint and Node docs"
+              run: pnpm install --frozen-lockfile
+            - name: "Slint Language Documentation"
+              run: cargo xtask slintdocs
+            # Test docs
+            - name: Run Playwright tests
+              working-directory: docs
+              run: pnpm exec playwright test
+            - name: Publish Test Summary Results
+              working-directory: docs
+              run: npx github-actions-ctrf playwright-report/ctrf-report.json
+
+            - name: "Node docs"
+              run: pnpm run docs
               working-directory: api/node
                 
             - name: Generate a token
@@ -143,12 +139,12 @@ jobs:
                   path: |
                       target/doc
                       target/cppdocs/html
-                      target/slintdocs/html
+                      docs/dist
                       api/node/docs
                       docs/site
             - name: "Check for docs warnings in internal crates"
               run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
             - name: Clean cache # Don't cache docs to avoid them including removed classes being published
               run: |
-                  rm -rf target/doc target/cppdocs target/slintdocs api/node/docs
+                  rm -rf target/doc target/cppdocs api/node/docs
 

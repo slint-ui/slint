@@ -31,6 +31,10 @@ Files: docs/_templates/*.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
+Files: docs/src/assets/*.svg docs/src/assets/*.webp docs/src/assets/getting-started/*.webp docs/playwright.config.ts docs/*.mjs docs/*.json docs/public/*.svg docs/src/misc/*.json docs/src/misc/*.jsonc
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
 Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0

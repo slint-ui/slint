@@ -1,0 +1,38 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Welcome
+type: overview
+sidebar:
+  order: 1
+head:
+  - tag: title
+    content: Slint Documentation Overview
+hero:
+  tagline: Get started building your product with Slint.
+  image:
+    alt: Slint logo
+    dark: ../../assets/slint-logo-square-dark.webp
+    light: ../../assets/slint-logo-square-light.webp
+---
+
+import { LinkButton } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
+import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
+
+
+<LinkButton href="/master/docs/slint/getting-started/intro">Get started</LinkButton>
+<LinkButton href="/master/docs/slint/tutorial/quickstart" variant="secondary">
+  Tutorial
+</LinkButton>
+<LinkButton href="/master/docs/slint/reference/overview" variant="secondary">
+  Element Reference
+</LinkButton>
+
+
+
+## More resources
+
+<Image class="light:sl-hidden" src={mattermostLogoDark} loading="lazy" width="50" alt="Mattermost logo" />
+<Image class="dark:sl-hidden" src={mattermostLogoLight} loading="lazy" width="50" alt="Mattermost logo" />
+As a first step please join our community on [Mattermost](https://chat.slint.dev/). This is a great place to ask questions and get help from other Slint users.

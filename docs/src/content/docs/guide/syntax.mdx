@@ -1,0 +1,124 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Syntax
+description: Basic syntax
+---
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+## Comments
+
+Comments are lines of code that are ignored by the Slint compiler. They are used to explain the code or
+to temporarily disable code. 
+
+### Single line comments
+
+Single line comments are denoted by `//` and are terminated by a new line.
+
+```slint title="Single line comments"
+// Amazing text! This is a comment
+Text {
+    text: "Hello World"; // This is also a comment
+    color: blue;
+}
+```
+
+### Multi line comments
+
+Multi line comments are denoted by `/*` and `*/` and are terminated by a new line.
+
+```slint title="Multi line comments"
+/*
+    This is a multi 
+    line comment
+*/
+Text {
+    text: "Hello World";
+    color: blue;
+}
+```
+
+
+## Elements and components
+
+The core part of the Slint language are elements and components. Technically they are the same thing
+so once you know how to declare and use one you know the other. Elements are the basic building blocks
+that are part of the Slint Language, while components (also know as widgets) are larger items that
+are built up from multiple elements and properties.
+
+To declare an element you use the `element-name` followed by a set of curly braces `{}` that contain
+the properties of the element. Note that elements are not lines of code that must be terminated with a
+semicolon `;`. Doing so will result in an error.
+
+```slint title="A Slint Text element with properties" "};"
+// Note: This is not a valid Slint file, it's just an example of the syntax
+Text {
+    text: "Hello World";
+    color: blue;
+}
+
+// valid
+Text {}
+// Also valid
+Text {
+
+}
+// Valid, but considered bad Slint practice
+Text
+{
+
+}
+// Valid but hard to read when there are no spaces between the name and braces
+Text{}
+
+// Not valid due to terminating semicolon
+Text {
+};
+```
+<Aside type="note" title="Note">
+The Slint tooling provides a code formatter that enforces what is considered good practice.
+
+If you are new to coding then you can make friends with fellow developers by discussing aspects of
+code formatting you don't like. It's a type of small talk developers love and appreciate.
+</Aside>
+
+If you have come from other languages such as HTML or React you might be used to opening and closing tags as well
+as self closing tags.
+
+```html title="HTML"
+<!-- opening and closing tag -->
+<Button>Hello World</Button> 
+ <!-- self closing tag -->
+<img/>
+```
+
+Slint only has a single way to declare an item `element-name {}`. There are some additions to this, such
+as declaring an element to be a component or a global singleton. Additionally how to declare an Identifier
+so other elements can reference it's properties. 
+
+## The root element
+<Aside type="note" title="Note">
+As well as following along with VsCode you can also run the above code in Slint's web
+based editor [Slintpad](https://slintpad.com) by clicking the the `Run in Slintpad` Button
+on the top right of the code snippet.
+</Aside>
+
+```slint title="The root element" playground
+component MyApp {
+    Text {
+        text: "Hello World";
+        font-size: 24px;
+    }
+}
+```
+
+To be a valid Slint file the root element must be a component. Then inside the component you can declare
+any number of elements. This is explained in more detail later, it's not important to understand at this point.
+
+## Properties
+
+Properties are the values that are assigned to an element. They are set using the `property-name: value;` syntax.
+
+
+
+

@@ -1,0 +1,147 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: GridLayout
+description: GridLayout element api.
+---
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/gridlayout-example1.png"  imageWidth="200" imageHeight="100"  imageAlt='gridlayout example'>
+
+```slint playground
+// This example uses the `Row` element
+export component Foo inherits Window {
+    width: 200px;
+    height: 200px;
+    GridLayout {
+        spacing: 5px;
+        Row {
+            Rectangle { background: red; }
+            Rectangle { background: blue; }
+        }
+        Row {
+            Rectangle { background: yellow; }
+            Rectangle { background: green; }
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+
+<CodeSnippetMD imagePath="/src/assets/generated/gridlayout-example2.png"  imageWidth="200" imageHeight="100"  imageAlt='gridlayout example2'>
+
+```slint playground
+// This example uses the `col` and `row` properties
+export component Foo inherits Window {
+    width: 200px;
+    height: 150px;
+    GridLayout {
+        Rectangle { background: red; }
+        Rectangle { background: blue; }
+        Rectangle { background: yellow; row: 1; }
+        Rectangle { background: green; }
+        Rectangle { background: black; col: 2; row: 0; }
+    }
+}
+```
+</CodeSnippetMD>
+
+`GridLayout` places elements on a grid.
+
+`GridLayout` covers its entire surface with cells. Cells are not aligned. The elements constituting the cells will be stretched inside their allocated space, unless their size constraints&mdash;like, e.g., `min-height` or `max-width`&mdash;work against this.
+
+## Spacing properties
+
+### `spacing`
+<SlintProperty propName="spacing" typeName="length">
+The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
+</SlintProperty>
+
+To target specific axis with different values use the following properties:
+### `spacing-horizontal`
+<SlintProperty propName="spacing-horizontal" typeName="length"/>
+
+### `spacing-vertical`
+<SlintProperty propName="spacing-vertical" typeName="length"/>
+
+## Padding properties
+
+### `padding`
+<SlintProperty propName="padding" typeName="length">
+The padding around the grid structure as a whole. This single value is applied to all sides.
+</SlintProperty>
+
+To target specific sides with different values use the following properties:
+### `padding-left`
+<SlintProperty propName="padding-left" typeName="length"/>
+
+### `padding-right`
+<SlintProperty propName="padding-right" typeName="length"/>
+
+### `padding-top`
+<SlintProperty propName="padding-top" typeName="length"/>
+
+### `padding-bottom`
+<SlintProperty propName="padding-bottom" typeName="length"/>
+
+
+## Cell elements
+Cell elements inside a `GridLayout` obtain the following new properties. Any bindings to these properties must be compile-time constants:
+
+### `row`
+<SlintProperty propName="row" typeName="int">
+The index of the element's row within the grid. Setting this property resets the element's column to zero, unless explicitly set.
+</SlintProperty>
+
+### `col`
+<SlintProperty propName="col" typeName="int">
+The index of the element's column within the grid. Set this property to override the sequential column assignment (e.g., to skip a column).
+</SlintProperty>
+
+### `rowspan`
+<SlintProperty propName="rowspan" typeName="int" defaultValue="1">
+The number of rows this element should span.
+</SlintProperty>
+
+### `colspan`
+<SlintProperty propName="colspan" typeName="int" defaultValue="1">
+The number of columns this element should span.
+</SlintProperty>
+
+To implicitly sequentially assign row indices&mdash;just like with `col`&mdash;wrap cell elements in `Row` elements.
+
+The following example creates a 2-by-2 grid with `Row` elements, omitting one cell:
+
+```slint
+import { Button } from "std-widgets.slint";
+export component Foo inherits Window {
+    width: 200px;
+    height: 100px;
+    GridLayout {
+        Row { // children implicitly on row 0
+            Button { col: 1; text: "Top Right"; } // implicit column after this would be 2
+        }
+        Row { // children implicitly on row 1
+            Button { text: "Bottom Left"; }  // implicitly in column 0...
+            Button { text: "Bottom Right"; } // ...and 1
+        }
+    }
+}
+```
+
+The following example creates the same grid using the `row` property. Row indices must be taken care of manually:
+
+```slint
+import { Button } from "std-widgets.slint";
+export component Foo inherits Window {
+    width: 200px;
+    height: 100px;
+    GridLayout {
+        Button { row: 0; col: 1; text: "Top Right"; } // `row: 0;` could even be left out at the start
+        Button { row: 1; text: "Bottom Left"; } // new row, implicitly resets column to 0
+        Button { text: "Bottom Right"; } // same row, sequentially assigned column 1
+    }
+}
+```
+

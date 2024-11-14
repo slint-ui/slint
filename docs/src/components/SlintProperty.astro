@@ -1,0 +1,69 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import "@astrojs/starlight/style/markdown.css";
+import {
+    type KnownType,
+    type PropertyVisibility,
+    getEnumContent,
+    getStructContent,
+    getTypeInfo,
+} from "../utils/utils.ts";
+
+interface Props {
+    propName: string;
+    typeName: KnownType;
+    defaultValue?: string;
+    enumName?: string;
+    propertyVisibility?: PropertyVisibility;
+}
+const { propName, typeName, defaultValue, enumName, propertyVisibility } =
+    Astro.props;
+
+if (propName === "") {
+    console.error("No propName!!");
+}
+
+let fullTypeName = typeName;
+
+if (typeName === "enum") {
+    if (enumName === undefined || enumName === "") {
+        console.error("enum type without an enumName:", propName);
+    } else {
+        fullTypeName = typeName.toString() + " " + enumName!.toString();
+    }
+} else {
+    if (enumName && enumName !== "") {
+        console.error("Non-enum type with an enumName set:", propName);
+    }
+}
+
+const typeInfo = getTypeInfo(typeName);
+const enumContent = await getEnumContent(enumName);
+const structContent = await getStructContent(typeName);
+
+const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
+
+if (!defaultValue_) {
+    console.error("No defaultValue for:", propName);
+}
+---
+
+<div class="sl-markdown-content">
+  <p>
+    <strong>type:</strong>
+		{typeInfo.href === "" ? (
+      <code>{fullTypeName}</code>
+		) : (
+    <a href={typeInfo.href} dir="auto">
+      <code>{fullTypeName}</code>
+    </a>
+		)}
+		{propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
+    <br>
+    <strong>default:</strong> <code dir="auto">{defaultValue_}</code><br>
+    {enumName && <Fragment set:html={enumContent}/>}
+    {structContent && <Fragment set:html={structContent}/>}
+  </p>
+  <slot/>
+</div>
