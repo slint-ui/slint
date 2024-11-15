@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+---
+name: Install Skia dependencies
+description: Set up dependencies needed to build Skia
+
+runs:
+    using: composite
+    steps:
+        - name: Install Ninja
+          if: runner.os == 'macOS'
+          run: brew install ninja
+          shell: bash
+        - name: Upgrade LLVM for Skia build on Windows
+          if: runner.os == 'Windows'
+          run: choco upgrade llvm
+          shell: bash
+        # See https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#caveats
+        - name: Remove GNU link.exe from GH actions
+          if: runner.os == 'Windows'
+          run: rm /usr/bin/link
+          shell: bash

@@ -124,10 +124,6 @@ jobs:
                   target: x86_64-apple-darwin
             - name: Install cargo-bundle
               run: cargo install --version=0.6.0 cargo-bundle
-            # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.
-            - uses: actions/setup-python@v5
-              with:
-                python-version: '3.12'
             - name: Build Main LSP Bundle
               working-directory: tools/lsp
               run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }}
@@ -151,10 +147,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
-            # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.
-            - uses: actions/setup-python@v5
-              with:
-                python-version: '3.12'
             - name: Build AArch64 LSP
               run: cargo build --target aarch64-apple-darwin --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
             - name: Create artifact directory

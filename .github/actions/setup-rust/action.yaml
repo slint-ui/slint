@@ -40,10 +40,10 @@ runs:
           run: |
               git config --system core.longpaths true
           shell: powershell
-        - name: Move cargo home to the same drive as the build, so that relative paths from build to cargo source are without drive letter
+        - name: Move cargo home close to the target/$profile directory, so that relative paths from build to cargo source are without drive letter
           if: runner.os == 'Windows'
           run: |
-              echo "CARGO_HOME=\cargo" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+              echo "CARGO_HOME=${{ runner.workspace }}\cargo" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           shell: powershell
         - name: Install Rust ${{ inputs.toolchain }}
           uses: dtolnay/rust-toolchain@stable
