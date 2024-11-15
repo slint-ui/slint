@@ -27,7 +27,7 @@ Files: .github/issue_template.md .github/pull_request_template.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: docs/_templates/*.md
+Files: docs/src/utils/_templates/*.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
