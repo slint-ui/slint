@@ -65,9 +65,26 @@ export default defineConfig({
                         {
                             label: "Slint Language",
                             items: [
-                                { label: "Basics", slug: "guide/basics" },
-                                { label: "Syntax", slug: "guide/syntax" },
-                                { label: "Old stuff", slug: "guide/old" },
+                                {
+                                    label: "Basics",
+                                    slug: "guide/language/basics",
+                                },
+                                {
+                                    label: "Syntax",
+                                    slug: "guide/language/syntax",
+                                },
+                                {
+                                    label: "Types",
+                                    slug: "guide/language/types",
+                                },
+                                {
+                                    label: "Font Handling",
+                                    slug: "guide/language/fonts",
+                                },
+                                {
+                                    label: "Legacy Syntax",
+                                    slug: "guide/language/legacy_syntax",
+                                },
                             ],
                         },
                         {
