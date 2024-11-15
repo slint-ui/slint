@@ -451,6 +451,12 @@ pub trait ItemRenderer {
 
     fn draw_image_direct(&mut self, image: crate::graphics::Image);
 
+    /// Fills a rectangle at (0,0) with the given size. This is used for example by the Skia renderer to
+    /// handle window backgrounds with a brush (gradient).
+    fn draw_rect(&mut self, _size: LogicalSize, _brush: Brush) {
+        unimplemented!()
+    }
+
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
@@ -883,6 +889,10 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn draw_image_direct(&mut self, image: crate::graphics::image::Image) {
         self.actual_renderer.draw_image_direct(image)
+    }
+
+    fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
+        self.actual_renderer.draw_rect(size, brush);
     }
 
     fn window(&self) -> &crate::window::WindowInner {

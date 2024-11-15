@@ -14,11 +14,13 @@ use i_slint_core::api::{
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::{BorderRadius, FontRequest, SharedPixelBuffer};
-use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::item_rendering::{DirtyRegion, ItemCache, ItemRenderer, PartialRenderer};
+use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::PlatformError;
+use i_slint_core::software_renderer::RepaintBufferType;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::{Brush, OpenGLAPI};
 
@@ -47,6 +49,7 @@ pub mod vulkan_surface;
 pub mod opengl_surface;
 
 use i_slint_core::items::TextWrap;
+use itemrenderer::to_skia_rect;
 pub use skia_safe;
 
 cfg_if::cfg_if! {
@@ -83,6 +86,99 @@ fn create_default_surface(
     }
 }
 
+#[derive(Default)]
+struct PartialRenderingState {
+    partial_cache: RefCell<i_slint_core::item_rendering::PartialRenderingCache>,
+    /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
+    force_dirty: RefCell<DirtyRegion>,
+    repaint_buffer_type: Cell<RepaintBufferType>,
+    /// This is the area which was dirty on the previous frame.
+    /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
+    prev_frame_dirty: Cell<DirtyRegion>,
+    /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
+    force_screen_refresh: Cell<bool>,
+}
+
+impl PartialRenderingState {
+    fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
+        if self.repaint_buffer_type.replace(repaint_buffer_type) != repaint_buffer_type {
+            self.partial_cache.borrow_mut().clear();
+        }
+    }
+
+    fn create_partial_renderer<'a, T: ItemRenderer>(
+        &'a self,
+        renderer: T,
+    ) -> i_slint_core::item_rendering::PartialRenderer<'a, T> {
+        i_slint_core::item_rendering::PartialRenderer::new(
+            &self.partial_cache,
+            self.force_dirty.take(),
+            renderer,
+        )
+    }
+
+    fn apply_dirty_region<T: ItemRenderer>(
+        &self,
+        partial_renderer: &mut PartialRenderer<'_, T>,
+        components: &[(&ItemTreeRc, LogicalPoint)],
+        logical_window_size: LogicalSize,
+    ) {
+        for (component, origin) in components {
+            partial_renderer.compute_dirty_regions(component, *origin, logical_window_size);
+        }
+
+        let screen_region = LogicalRect::from_size(logical_window_size);
+
+        if self.force_screen_refresh.take() {
+            partial_renderer.dirty_region = screen_region.into();
+        }
+
+        partial_renderer.dirty_region = match self.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => screen_region.into(),
+            RepaintBufferType::ReusedBuffer => partial_renderer.dirty_region.clone(),
+            RepaintBufferType::SwappedBuffers => partial_renderer
+                .dirty_region
+                .union(&self.prev_frame_dirty.replace(partial_renderer.dirty_region.clone())),
+        }
+        .intersection(screen_region);
+    }
+
+    fn mark_dirty_region(&self, region: i_slint_core::item_rendering::DirtyRegion) {
+        self.force_dirty.replace_with(|r| r.union(&region));
+    }
+
+    fn free_graphics_resources(
+        &self,
+        items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) {
+        for item in items {
+            item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
+        }
+
+        // We don't have a way to determine the screen region of the delete items, what's in the cache is relative. So
+        // as a last resort, refresh everything.
+        self.force_screen_refresh.set(true)
+    }
+
+    fn clear_cache(&self) {
+        self.partial_cache.borrow_mut().clear();
+    }
+
+    fn force_screen_refresh(&self) {
+        self.force_screen_refresh.set(true);
+    }
+}
+
+fn create_partial_renderer_state() -> (RefCell<Option<PartialRenderingState>>, bool) {
+    let visualize_dirty_region = match std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref() {
+        Ok("debug") => true,
+        Ok(_) => false,
+        _ => return (None.into(), false),
+    };
+
+    (Some(PartialRenderingState::default()).into(), visualize_dirty_region)
+}
+
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
 pub struct SkiaRenderer {
@@ -100,10 +196,13 @@ pub struct SkiaRenderer {
         opengl_api: Option<OpenGLAPI>,
     ) -> Result<Box<dyn Surface>, PlatformError>,
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
+    partial_rendering_state: RefCell<Option<PartialRenderingState>>,
+    visualize_dirty_region: bool,
 }
 
 impl Default for SkiaRenderer {
     fn default() -> Self {
+        let (partial_rendering_state, visualize_dirty_region) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -114,6 +213,8 @@ impl Default for SkiaRenderer {
             surface: Default::default(),
             surface_factory: create_default_surface,
             pre_present_callback: Default::default(),
+            partial_rendering_state,
+            visualize_dirty_region,
         }
     }
 }
@@ -122,6 +223,7 @@ impl SkiaRenderer {
     #[cfg(skia_backend_software)]
     /// Creates a new SkiaRenderer that will always use Skia's software renderer.
     pub fn default_software() -> Self {
+        let (partial_rendering_state, visualize_dirty_region) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -140,11 +242,14 @@ impl SkiaRenderer {
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
+            partial_rendering_state,
+            visualize_dirty_region,
         }
     }
 
     /// Creates a new SkiaRenderer that will always use Skia's OpenGL renderer.
     pub fn default_opengl() -> Self {
+        let (partial_rendering_state, visualize_dirty_region) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -158,6 +263,8 @@ impl SkiaRenderer {
                     .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
+            partial_rendering_state,
+            visualize_dirty_region,
         }
     }
 
@@ -177,6 +284,7 @@ impl SkiaRenderer {
 
     /// Creates a new renderer with the given surface trait implementation.
     pub fn new_with_surface(surface: Box<dyn Surface + 'static>) -> Self {
+        let (partial_rendering_state, visualize_dirty_region) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -189,6 +297,8 @@ impl SkiaRenderer {
                 Err("Skia renderer constructed with surface does not support dynamic surface re-creation".into())
             },
             pre_present_callback: Default::default(),
+            partial_rendering_state,
+            visualize_dirty_region,
         }
     }
 
@@ -342,7 +452,7 @@ impl SkiaRenderer {
         &self,
         skia_canvas: &skia_safe::Canvas,
         mut gr_context: Option<&mut skia_safe::gpu::DirectContext>,
-        _back_buffer_age: u8,
+        back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
@@ -355,7 +465,7 @@ impl SkiaRenderer {
         self.image_cache.clear_cache_if_scale_factor_changed(window);
         self.path_cache.clear_cache_if_scale_factor_changed(window);
 
-        let mut item_renderer = itemrenderer::SkiaItemRenderer::new(
+        let mut skia_item_renderer = itemrenderer::SkiaItemRenderer::new(
             skia_canvas,
             window,
             &self.image_cache,
@@ -363,54 +473,112 @@ impl SkiaRenderer {
             &mut box_shadow_cache,
         );
 
-        // Draws the window background as gradient
-        match window_inner.window_item().map(|w| w.as_pin_ref().background()) {
-            Some(Brush::SolidColor(clear_color)) => {
-                skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+        let scale_factor = ScaleFactor::new(window_inner.scale_factor());
+        let logical_window_size = i_slint_core::lengths::logical_size_from_api(
+            window.size().to_logical(window_inner.scale_factor()),
+        );
+
+        {
+            let mut item_renderer: &mut dyn ItemRenderer = &mut skia_item_renderer;
+            let mut partial_renderer;
+            let mut dirty_region_to_visualize = None;
+
+            let partial_rendering_state = self.partial_rendering_state.borrow();
+            if let Some(partial_rendering_state) = partial_rendering_state.as_ref() {
+                partial_rendering_state.set_repaint_buffer_type(match back_buffer_age {
+                    1 => RepaintBufferType::ReusedBuffer,
+                    2 => RepaintBufferType::SwappedBuffers,
+                    _ => RepaintBufferType::NewBuffer,
+                });
+
+                partial_renderer =
+                    partial_rendering_state.create_partial_renderer(skia_item_renderer);
+
+                partial_rendering_state.apply_dirty_region(
+                    &mut partial_renderer,
+                    components,
+                    logical_window_size,
+                );
+
+                let mut clip_path = skia_safe::Path::new();
+
+                for dirty_rect in partial_renderer.dirty_region.iter() {
+                    let physical_rect = (dirty_rect * scale_factor).to_rect().round_out();
+                    clip_path.add_rect(&to_skia_rect(&physical_rect), None);
+                }
+
+                skia_canvas.clip_path(&clip_path, None, false);
+
+                if self.visualize_dirty_region {
+                    dirty_region_to_visualize = Some(clip_path);
+                }
+
+                item_renderer = &mut partial_renderer;
             }
-            None => {}
-            Some(brush @ _) => {
-                item_renderer.draw_rect(
-                    i_slint_core::lengths::logical_size_from_api(
-                        window.size().to_logical(window_inner.scale_factor()),
-                    ),
-                    brush,
+
+            // Draws the window background as gradient
+            match window_inner.window_item().map(|w| w.as_pin_ref().background()) {
+                Some(Brush::SolidColor(clear_color)) => {
+                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+                }
+                None => {}
+                Some(brush @ _) => {
+                    item_renderer.draw_rect(
+                        i_slint_core::lengths::logical_size_from_api(
+                            window.size().to_logical(window_inner.scale_factor()),
+                        ),
+                        brush,
+                    );
+                }
+            }
+
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+                if let Some(ctx) = gr_context.as_mut() {
+                    ctx.flush(None);
+                }
+
+                if let Some(surface) = surface {
+                    surface.with_graphics_api(&mut |api| {
+                        callback.notify(RenderingState::BeforeRendering, &api)
+                    })
+                }
+            }
+
+            for (component, origin) in components {
+                i_slint_core::item_rendering::render_component_items(
+                    component,
+                    item_renderer,
+                    *origin,
                 );
             }
-        }
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
-            // the back buffer, in order to allow the callback to provide its own rendering of the background.
-            // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-            if let Some(ctx) = gr_context.as_mut() {
-                ctx.flush(None);
+            if let Some(path) = dirty_region_to_visualize {
+                let mut paint = skia_safe::Paint::new(
+                    &skia_safe::Color4f { a: 0.5, r: 1.0, g: 0., b: 0. },
+                    None,
+                );
+                paint.set_style(skia_safe::PaintStyle::Stroke);
+                skia_canvas.draw_path(&path, &paint);
             }
 
-            if let Some(surface) = surface {
-                surface.with_graphics_api(&mut |api| {
-                    callback.notify(RenderingState::BeforeRendering, &api)
-                })
+            if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref() {
+                collector.measure_frame_rendered(item_renderer);
+                if collector.refresh_mode()
+                    == i_slint_core::graphics::rendering_metrics_collector::RefreshMode::FullSpeed
+                {
+                    if let Some(partial_rendering_state) = partial_rendering_state.as_ref() {
+                        partial_rendering_state.force_screen_refresh();
+                    }
+                }
+            }
+
+            if let Some(cb) = post_render_cb.as_ref() {
+                cb(item_renderer)
             }
         }
-
-        for (component, origin) in components {
-            i_slint_core::item_rendering::render_component_items(
-                component,
-                &mut item_renderer,
-                *origin,
-            );
-        }
-
-        if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref() {
-            collector.measure_frame_rendered(&mut item_renderer);
-        }
-
-        if let Some(cb) = post_render_cb.as_ref() {
-            cb(&mut item_renderer)
-        }
-
-        drop(item_renderer);
 
         if let Some(ctx) = gr_context.as_mut() {
             ctx.flush(None);
@@ -580,6 +748,9 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         }) {
             return Err(SetRenderingNotifierError::Unsupported);
         }
+        if self.partial_rendering_state.borrow().is_some() {
+            return Err(SetRenderingNotifierError::Unsupported);
+        }
         let mut notifier = self.rendering_notifier.borrow_mut();
         if notifier.replace(callback).is_some() {
             Err(SetRenderingNotifierError::AlreadySet)
@@ -595,10 +766,16 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     fn free_graphics_resources(
         &self,
         component: i_slint_core::item_tree::ItemTreeRef,
-        _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
+        items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.image_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
+
+        let partial_rendering_state = self.partial_rendering_state.borrow();
+        if let Some(partial_rendering_state) = partial_rendering_state.as_ref() {
+            partial_rendering_state.free_graphics_resources(items);
+        }
+
         Ok(())
     }
 
@@ -606,6 +783,11 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+
+        let mut partial_rendering_state = self.partial_rendering_state.borrow_mut();
+        if let Some(partial_rendering_state) = partial_rendering_state.as_mut() {
+            partial_rendering_state.clear_cache();
+        }
     }
 
     fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
@@ -643,6 +825,13 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window, None);
 
         Ok(target_buffer)
+    }
+
+    fn mark_dirty_region(&self, region: i_slint_core::item_rendering::DirtyRegion) {
+        let mut partial_rendering_state = self.partial_rendering_state.borrow_mut();
+        if let Some(partial_rendering_state) = partial_rendering_state.as_mut() {
+            partial_rendering_state.mark_dirty_region(region);
+        }
     }
 }
 
