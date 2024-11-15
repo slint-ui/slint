@@ -107,7 +107,7 @@ function getPreviewHtml(
     import * as slint_preview from '${slint_wasm_preview_url}';
     await slint_preview.default();
 
-    const vscode = acquireVsCodeApi();
+    const vscode = acquireVscodeApi();
     let promises = {};
     try {
         slint_preview.run_event_loop();

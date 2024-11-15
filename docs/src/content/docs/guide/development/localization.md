@@ -1,22 +1,20 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Translations
-description: Translations
+title: Localization (l10n)
+description: Localization
 ---
 
 Slint's translation infrastructure makes your application available in different languages.
 
 ## Overview
 
-:::tip Prerequisite
-
+:::tip[Prerequisite]
 Install the `slint-tr-extractor` tool to extract translatable strings from `.slint` files:
-
 ```sh
 cargo install slint-tr-extractor
 ```
-
 :::
+
 
 Complete the following steps to translate your application:
 
@@ -29,10 +27,8 @@ Complete the following steps to translate your application:
 
 At this point, all strings marked for translation are automatically rendered in the target language.
 
-:::{note}
-
+:::note[Note]
 Support for translations via gettext is currently not supported on Windows, see [Add support for translations on Windows #3307](https://github.com/slint-ui/slint/issues/3307).
-
 :::
 
 ## Annotating Translatable Strings
@@ -108,10 +104,8 @@ find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
 This creates a file called `MY_PROJECT.pot`. Replace "MY_PROJECT" with your actual project name.
 To learn how the project name affects the lookup of translations, read the sections below.
 
-:::info
-
+:::tip[Tip]
 `.pot` files are [Gettext](https://www.gnu.org/software/gettext/) template files.
-
 :::
 
 ## Translate the Strings
@@ -230,14 +224,12 @@ Slint looks for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 
 ## Previewing Translations with `slint-viewer`
 
-:::tip Prerequisite
-
+:::tip[Prerequisite]
 Use `slint-viewer` to preview translations when previewing `.slint` files:
 
 ```sh
 cargo install slint-viewer
 ```
-
 :::
 
 1. Enable the `gettext` feature when compiling `slint-viewer`.

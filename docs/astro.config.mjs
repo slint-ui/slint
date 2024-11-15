@@ -54,7 +54,7 @@ export default defineConfig({
                     slug: "index",
                 },
                 {
-                    label: "Vscode Quick Start",
+                    label: "Getting Started",
                     slug: "getting-started/intro",
                 },
                 {
@@ -62,9 +62,38 @@ export default defineConfig({
                     collapsed: true,
                     items: [
                         { label: "Introduction", slug: "guide/intro" },
-                        { label: "Basics", slug: "guide/basics" },
-                        { label: "Syntax", slug: "guide/syntax" },
-                        { label: "Old stuff", slug: "guide/old" },
+                        {
+                            label: "Slint Language",
+                            items: [
+                                {
+                                    label: "Basics",
+                                    slug: "guide/language/basics",
+                                },
+                                {
+                                    label: "Syntax",
+                                    slug: "guide/language/syntax",
+                                },
+                                {
+                                    label: "Types",
+                                    slug: "guide/language/types",
+                                },
+                                {
+                                    label: "Font Handling",
+                                    slug: "guide/language/fonts",
+                                },
+                                {
+                                    label: "Legacy Syntax",
+                                    slug: "guide/language/legacy_syntax",
+                                },
+                            ],
+                        },
+                        {
+                            label: "App Development",
+                            items: [
+                                "guide/development/debugging_techniques",
+                                "guide/development/localization",
+                            ],
+                        },
                     ],
                 },
                 {
@@ -172,6 +201,10 @@ export default defineConfig({
                         },
                         { label: "Conclusion", slug: "tutorial/conclusion" },
                     ],
+                },
+                {
+                    label: "FAQ",
+                    slug: "faq",
                 },
                 {
                     label: "Native API",
