@@ -23,18 +23,34 @@ function workersPlaygroundButton() {
         baseStyles: `
         .run {
             display: flex;
-            gap: 0.25rem;
-            flex-direction: row;
+            align-items: center;
+            justify-content: center;
             position: absolute;
             inset-block-start: calc(var(--ec-brdWd) + var(--button-spacing));
             inset-inline-end: calc(var(--ec-brdWd) + var(--ec-uiPadInl) * 3);
             direction: ltr;
             unicode-bidi: isolate;
 
-            text-decoration-color: var(--sl-color-accent);
-            span {
-                color: var(--sl-color-white);
-                font-family: var(--sl-font-system);
+            background-color: color-mix(in srgb, var(--sl-color-accent) 50%, transparent);
+            color: var(--sl-color-white);
+            text-decoration: none;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            font-size: 0;
+            transition: background-color 0.3s;
+
+            &:hover {
+                background-color: color-mix(in srgb, var(--sl-color-accent) 90%, transparent);
+            }
+
+            &::before {
+                content: '';
+                display: inline-block;
+                margin-left: 0.25rem;
+                border-style: solid;
+                border-width: 0.5rem 0 0.5rem 0.75rem;
+                border-color: transparent transparent transparent white;
             }
         }
         `,
@@ -48,7 +64,7 @@ function workersPlaygroundButton() {
                 const url = `https://slintpad.com?snippet=${encodeURIComponent(content)}`;
 
                 const runButton = h("a.run", { href: url, target: "__blank" }, [
-                    h("span", "Run in Slintpad"),
+                    // h("span", "Live-Code"),
                 ]);
 
                 const ast = context.renderData.blockAst;
