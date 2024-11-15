@@ -4,11 +4,14 @@ title: Timer
 description: Timer element api.
 ---
 import SlintProperty  from '../../../../components/SlintProperty.astro';
-import { Aside } from '@astrojs/starlight/components';
+
+:::note[Note]
+Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+:::
 
 This example shows a timer that counts down from 10 to 0 every second:
 
-```slint
+```slint playground
 import { Button } from "std-widgets.slint";
 export component Example inherits Window {
     property <int> value: 10;
@@ -39,13 +42,25 @@ The timer is only running when the `running` property is set to `true`. To stop 
 It can be also set to a binding expression.
 When already running, the timer will be restarted if the `interval` property is changed.
 
-<Aside type="note" title="Note">
-The default value for `running` is `true`, so if you don't specify it, it will be running.
-</Aside>
+:::caution[Caution]
+By default the `Timer` is always running `running: true`. This can result in constant CPU usage and
+power usage so ensure that you set `running` to `false` when you don't want the timer to run.
+:::
 
-<Aside type="note" title="Note">
-Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
-</Aside>
+```slint
+property <int> count: 0;
+Timer {
+    interval: 8s; // every 8 seconds the timer will activate (tick)
+    triggered() => { // The triggered callback activates every time the timer ticks
+        if count >= 5 {
+            self.running = false; // stop the timer after 5 ticks
+        }
+        count += 1;
+    }
+}
+```
+
+
 
 
 ### `interval`
