@@ -176,6 +176,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
             std::num::NonZeroU32,
             std::num::NonZeroU32,
             skia_safe::ColorType,
+            u8,
             &mut [u8],
         )
             -> Result<(), i_slint_core::platform::PlatformError>,
@@ -186,7 +187,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
             return Ok(());
         };
 
-        self.display.map_back_buffer(&mut |pixels, _age, format| {
+        self.display.map_back_buffer(&mut |pixels, age, format| {
             render_callback(
                 width,
                 height,
@@ -200,6 +201,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                         .into())
                     }
                 },
+                age,
                 pixels.as_mut(),
             )
         })

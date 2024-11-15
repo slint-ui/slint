@@ -285,12 +285,13 @@ impl SkiaRenderer {
 
         surface.render(
             surface_size,
-            &|skia_canvas, gr_context| {
+            &|skia_canvas, gr_context, back_buffer_age| {
                 self.render_to_canvas(
                     skia_canvas,
                     rotation_angle_degrees,
                     translation,
                     gr_context,
+                    back_buffer_age,
                     Some(surface.as_ref()),
                     window,
                     post_render_cb,
@@ -306,6 +307,7 @@ impl SkiaRenderer {
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         mut gr_context: Option<&mut skia_safe::gpu::DirectContext>,
+        _back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
@@ -620,7 +622,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         )
         .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
 
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, None, window, None);
+        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window, None);
 
         Ok(target_buffer)
     }
@@ -675,7 +677,11 @@ pub trait Surface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        render_callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        render_callback: &dyn Fn(
+            &skia_safe::Canvas,
+            Option<&mut skia_safe::gpu::DirectContext>,
+            u8,
+        ),
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.

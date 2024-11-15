@@ -16,6 +16,7 @@ pub trait RenderBuffer {
             NonZeroU32,
             NonZeroU32,
             skia_safe::ColorType,
+            u8,
             &mut [u8],
         )
             -> Result<(), i_slint_core::platform::PlatformError>,
@@ -40,6 +41,7 @@ impl RenderBuffer for SoftbufferRenderBuffer {
             NonZeroU32,
             NonZeroU32,
             skia_safe::ColorType,
+            u8,
             &mut [u8],
         )
             -> Result<(), i_slint_core::platform::PlatformError>,
@@ -64,6 +66,7 @@ impl RenderBuffer for SoftbufferRenderBuffer {
             width,
             height,
             skia_safe::ColorType::BGRA8888,
+            target_buffer.age(),
             bytemuck::cast_slice_mut(target_buffer.as_mut()),
         )?;
 
@@ -115,10 +118,10 @@ impl super::Surface for SoftwareSurface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>, u8),
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.render_buffer.with_buffer(size, &mut |width, height, pixel_format, pixels| {
+        self.render_buffer.with_buffer(size, &mut |width, height, pixel_format, age, pixels| {
             let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
                 &skia_safe::ImageInfo::new(
                     (width.get() as i32, height.get() as i32),
@@ -132,7 +135,7 @@ impl super::Surface for SoftwareSurface {
             )
             .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
 
-            callback(surface_borrow.canvas(), None);
+            callback(surface_borrow.canvas(), None, age);
 
             if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
                 pre_present_callback();
