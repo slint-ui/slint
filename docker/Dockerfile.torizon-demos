@@ -26,7 +26,7 @@ ENV CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
 
 # Install Slint build dependencies (libxcb, etc.)
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes --allow-change-held-packages pkg-config libfontconfig1-dev:$TOOLCHAIN_ARCH libxcb1-dev:$TOOLCHAIN_ARCH libxcb-render0-dev:$TOOLCHAIN_ARCH libxcb-shape0-dev:$TOOLCHAIN_ARCH libxcb-xfixes0-dev:$TOOLCHAIN_ARCH libxkbcommon-dev:$TOOLCHAIN_ARCH libinput-dev:$TOOLCHAIN_ARCH libudev-dev:$TOOLCHAIN_ARCH libgbm-dev:$TOOLCHAIN_ARCH libdrm2:$TOOLCHAIN_ARCH libdrm2- libdrm-amdgpu1- python3 clang libstdc++-11-dev:$TOOLCHAIN_ARCH && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes --allow-change-held-packages pkg-config libfontconfig1-dev:$TOOLCHAIN_ARCH libxcb1-dev:$TOOLCHAIN_ARCH libxcb-render0-dev:$TOOLCHAIN_ARCH libxcb-shape0-dev:$TOOLCHAIN_ARCH libxcb-xfixes0-dev:$TOOLCHAIN_ARCH libxkbcommon-dev:$TOOLCHAIN_ARCH libinput-dev:$TOOLCHAIN_ARCH libudev-dev:$TOOLCHAIN_ARCH libgbm-dev:$TOOLCHAIN_ARCH libdrm2:$TOOLCHAIN_ARCH libdrm2- libdrm-amdgpu1- python3 clang libstdc++-11-dev:$TOOLCHAIN_ARCH ninja-build && \
     rm -rf /var/lib/apt/lists/*
 
 # Don't require font-config when the compiler runs
