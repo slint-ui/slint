@@ -4,7 +4,7 @@ title: Syntax
 description: Basic syntax
 ---
 import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
-import { Aside, LinkCard } from '@astrojs/starlight/components';
+import { LinkCard } from '@astrojs/starlight/components';
 
 ## Comments
 
@@ -75,12 +75,13 @@ Text{}
 Text {
 };
 ```
-<Aside type="note" title="Note">
+
+:::note[Note]
 The Slint tooling provides a code formatter that enforces what is considered good practice.
 
 If you are new to coding then you can make friends with fellow developers by discussing aspects of
 code formatting you don't like. It's a type of small talk developers love and appreciate.
-</Aside>
+:::
 
 If you have come from other languages such as HTML or React you might be used to opening and closing tags as well
 as self closing tags.
@@ -97,11 +98,11 @@ as declaring an element to be a component or a global singleton. Additionally ho
 so other elements can reference it's properties. 
 
 ## The root element
-<Aside type="note" title="Note">
+:::note[Note]
 As well as following along with VsCode you can also run the above code in Slint's web
-based editor [Slintpad](https://slintpad.com) by clicking the the `Run in Slintpad` Button
+based editor [Slintpad](https://slintpad.com) by clicking the the `Play` Button
 on the top right of the code snippet.
-</Aside>
+:::
 
 ```slint title="The root element" playground
 component MyApp {

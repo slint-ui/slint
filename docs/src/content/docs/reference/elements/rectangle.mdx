@@ -5,7 +5,6 @@ description: Rectangle element api.
 ---
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
-import { Aside } from '@astrojs/starlight/components';
 
 <CodeSnippetMD imagePath="/src/assets/generated/rectangle-example.png" imageAlt='rectangle example'>
 ```slint playground
@@ -99,9 +98,9 @@ Rectangle {
 ```
 </CodeSnippetMD>
 The color of the border.
-<Aside type="caution" title="Caution">
+:::caution[Caution]
 The default `border-width` is `0px`, so the border is invisible. After setting a color also ensure that the `border-width` is set to a non-zero value.
-</Aside>
+:::
 </SlintProperty>
 
 ### `border-width`
