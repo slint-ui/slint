@@ -33,7 +33,7 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Slint 1.8.0",
+            title: "Slint 1.9.0",
             logo: {
                 light: "./src/assets/slint-logo-simple-light.webp",
                 dark: "./src/assets/slint-logo-simple-dark.webp",
