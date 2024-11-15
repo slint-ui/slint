@@ -15,27 +15,19 @@ to temporarily disable code.
 
 Single line comments are denoted by `//` and are terminated by a new line.
 
-```slint title="Single line comments"
+```slint
 // Amazing text! This is a comment
-Text {
-    text: "Hello World"; // This is also a comment
-    color: blue;
-}
 ```
 
 ### Multi line comments
 
 Multi line comments are denoted by `/*` and `*/` and are terminated by a new line.
 
-```slint title="Multi line comments"
+```slint
 /*
-    This is a multi 
-    line comment
+    This is a multi line comment.
+    It can span multiple lines.
 */
-Text {
-    text: "Hello World";
-    color: blue;
-}
 ```
 
 
@@ -46,34 +38,32 @@ so once you know how to declare and use one you know the other. Elements are the
 that are part of the Slint Language, while components (also know as widgets) are larger items that
 are built up from multiple elements and properties.
 
-To declare an element you use the `element-name` followed by a set of curly braces `{}` that contain
-the properties of the element. Note that elements are not lines of code that must be terminated with a
-semicolon `;`. Doing so will result in an error.
+If you have come from other languages such as HTML or React you might be used to opening and closing tags as well
+as self closing tags.
 
-```slint title="A Slint Text element with properties" "};"
-// Note: This is not a valid Slint file, it's just an example of the syntax
-Text {
-    text: "Hello World";
-    color: blue;
-}
+```html
+<!-- opening and closing tag -->
+<Button>Hello World</Button> 
+ <!-- self closing tag -->
+<img/>
+```
 
+Slint simply has a single way to declare an item the `element-name` followed by a set of curly braces `{}` that contain
+the properties of the element.
+
+```slint del="Text {};"
 // valid
 Text {}
-// Also valid
-Text {
 
+Text {
 }
 // Valid, but considered bad Slint practice
 Text
 {
-
 }
-// Valid but hard to read when there are no spaces between the name and braces
-Text{}
 
 // Not valid due to terminating semicolon
-Text {
-};
+Text {};
 ```
 
 :::note[Note]
@@ -83,28 +73,13 @@ If you are new to coding then you can make friends with fellow developers by dis
 code formatting you don't like. It's a type of small talk developers love and appreciate.
 :::
 
-If you have come from other languages such as HTML or React you might be used to opening and closing tags as well
-as self closing tags.
 
-```html title="HTML"
-<!-- opening and closing tag -->
-<Button>Hello World</Button> 
- <!-- self closing tag -->
-<img/>
-```
 
-Slint only has a single way to declare an item `element-name {}`. There are some additions to this, such
-as declaring an element to be a component or a global singleton. Additionally how to declare an Identifier
-so other elements can reference it's properties. 
 
 ## The root element
-:::note[Note]
-As well as following along with Vscode you can also run the above code in Slint's web
-based editor [Slintpad](https://slintpad.com) by clicking the the `Play` Button
-on the top right of the code snippet.
-:::
 
-```slint title="The root element" playground
+
+```slint playground
 component MyApp {
     Text {
         text: "Hello World";
