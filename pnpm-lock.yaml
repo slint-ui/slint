@@ -67,13 +67,13 @@ importers:
         version: 0.9.4(typescript@5.6.3)
       '@astrojs/starlight':
         specifier: 0.29.0
-        version: 0.29.0(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
+        version: 0.29.0(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
       '@types/node':
         specifier: 20.16.10
         version: 20.16.10
       astro:
-        specifier: 4.16.10
-        version: 4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
+        specifier: 4.16.12
+        version: 4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
       playwright:
         specifier: 1.48.2
         version: 1.48.2
@@ -90,8 +90,8 @@ importers:
         specifier: 0.33.5
         version: 0.33.5
       starlight-links-validator:
-        specifier: 0.13.0
-        version: 0.13.0(@astrojs/starlight@0.29.0(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)))(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
+        specifier: 0.13.2
+        version: 0.13.2(@astrojs/starlight@0.29.0(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)))(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
       typescript:
         specifier: 5.6.3
         version: 5.6.3
@@ -2091,8 +2091,8 @@ packages:
     peerDependencies:
       astro: ^4.0.0-beta || ^5.0.0-beta || ^3.3.0
 
-  astro@4.16.10:
-    resolution: {integrity: sha512-a+nB4bZE50NXHLzVXUHtx/lYct2Aa8kbqZnWNrWqkU97RuhBuWJ5H5/LQbKRnBWGvqChKfJBiMWJe53TY9ieYQ==}
+  astro@4.16.12:
+    resolution: {integrity: sha512-NnFeIKhGW6MdXCQT2hRariUwfxqJUIRs6qKqaovaQkTojzxh2r1L8C49qanKc+huH9wK2C94VZB2T/tosyRl1A==}
     engines: {node: ^18.17.1 || ^20.3.0 || >=21.0.0, npm: '>=9.6.5', pnpm: '>=7.1.0'}
     hasBin: true
 
@@ -4285,8 +4285,8 @@ packages:
     resolution: {integrity: sha512-XlkWvfIm6RmsWtNJx+uqtKLS8eqFbxUg0ZzLXqY0caEy9l7hruX8IpiDnjsLavoBgqCCR71TqWO8MaXYheJ3RQ==}
     engines: {node: '>=10'}
 
-  starlight-links-validator@0.13.0:
-    resolution: {integrity: sha512-+kG/SO3j5190k7du5dd1Lcj9ZWvrjk9dhpsedEFC8AhfujkwuSkYm0b3u/jl3Yu9mA6zYA2JPlizAr9GtQssRg==}
+  starlight-links-validator@0.13.2:
+    resolution: {integrity: sha512-BP6vf+fj91LnQXPnggWVhZXhcSF1x6SHof0GRg+IGgY0idSbIU7OHE2SvLggs2fRZ5SflVqpCTpK0pQcOmYcDg==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
       '@astrojs/starlight': '>=0.15.0'
@@ -4973,12 +4973,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/mdx@3.1.8(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))':
+  '@astrojs/mdx@3.1.8(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))':
     dependencies:
       '@astrojs/markdown-remark': 5.3.0
       '@mdx-js/mdx': 3.1.0(acorn@8.14.0)
       acorn: 8.14.0
-      astro: 4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
+      astro: 4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
       es-module-lexer: 1.5.4
       estree-util-visit: 2.0.0
       gray-matter: 4.0.3
@@ -5003,15 +5003,15 @@ snapshots:
       stream-replace-string: 2.0.0
       zod: 3.23.8
 
-  '@astrojs/starlight@0.29.0(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))':
+  '@astrojs/starlight@0.29.0(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))':
     dependencies:
-      '@astrojs/mdx': 3.1.8(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
+      '@astrojs/mdx': 3.1.8(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
       '@astrojs/sitemap': 3.2.1
       '@pagefind/default-ui': 1.1.1
       '@types/hast': 3.0.4
       '@types/mdast': 4.0.4
-      astro: 4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
-      astro-expressive-code: 0.38.3(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
+      astro: 4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
+      astro-expressive-code: 0.38.3(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
       bcp-47: 2.1.0
       hast-util-from-html: 2.0.3
       hast-util-select: 6.0.3
@@ -6917,12 +6917,12 @@ snapshots:
 
   astring@1.9.0: {}
 
-  astro-expressive-code@0.38.3(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)):
+  astro-expressive-code@0.38.3(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)):
     dependencies:
-      astro: 4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
+      astro: 4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
       rehype-expressive-code: 0.38.3
 
-  astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3):
+  astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3):
     dependencies:
       '@astrojs/compiler': 2.10.3
       '@astrojs/internal-helpers': 0.4.1
@@ -9854,11 +9854,11 @@ snapshots:
     dependencies:
       escape-string-regexp: 2.0.0
 
-  starlight-links-validator@0.13.0(@astrojs/starlight@0.29.0(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)))(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)):
+  starlight-links-validator@0.13.2(@astrojs/starlight@0.29.0(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)))(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)):
     dependencies:
-      '@astrojs/starlight': 0.29.0(astro@4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
+      '@astrojs/starlight': 0.29.0(astro@4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3))
       '@types/picomatch': 2.3.3
-      astro: 4.16.10(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
+      astro: 4.16.12(@types/node@20.16.10)(rollup@4.24.2)(terser@5.34.1)(typescript@5.6.3)
       github-slugger: 2.0.0
       hast-util-from-html: 2.0.1
       hast-util-has-property: 3.0.0

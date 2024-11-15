@@ -4,7 +4,6 @@ title: Window
 description: Window element api.
 ---
 import SlintProperty  from '../../../../components/SlintProperty.astro';
-import { Aside } from '@astrojs/starlight/components';
 
 `Window` is the root of the tree of elements that are visible on the screen.
 
@@ -49,9 +48,9 @@ Whether the window should be borderless/frameless or not.
 
 ### `resize-border-width`
 <SlintProperty propName="resize-border-width" typeName="length" defaultValue="0">
-    <Aside type="caution" title="Caution">
+    :::caution[Caution]
     This property is `winit` only for now.
-    </Aside>
+    :::
     Size of the resize border in borderless/frameless windows.
 </SlintProperty>
 

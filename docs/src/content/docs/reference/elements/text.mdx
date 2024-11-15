@@ -4,7 +4,6 @@ title: Text
 description: Text element api.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
@@ -70,10 +69,10 @@ Text {
 ```
 </CodeSnippetMD>
 
-<Aside type="note" title="Note">
+:::note[Note]
   Make sure the font is loaded before using it in a `Text` element.
   See ??????.
-</Aside>
+:::
 </SlintProperty>
 
 
@@ -230,9 +229,9 @@ Text {
 ## Rotation
 
 Rotates the text by the given angle around the specified origin point. The default origin point is the center of the element.
-<Aside type="caution" title="Caution">
+:::caution[Caution]
 When these properties are set, the `Text` can't have children.
-</Aside>
+:::
 
 <CodeSnippetMD imagePath="/src/assets/generated/text-rotation.png" imageWidth="200" needsBackground="true" imageHeight="200" imageAlt='rotation properties'>
 

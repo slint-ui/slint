@@ -6,7 +6,7 @@ description: Getting started
 
 ---
 import { extractLines } from "../../../utils/utils.ts"
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 import { Code } from '@astrojs/starlight/components'
 
 
@@ -57,11 +57,11 @@ Configure with CMake:
 cmake -B build
 ```
 
-<Aside type="tip" title="Tip">
+:::tip[Tip]
 When configuring with CMake, the FetchContent module fetches the source code of Slint via git.
 This may take some time when building for the first time, as the process needs to build
 the Slint runtime and compiler.
-</Aside>
+:::
 
 Build with CMake:
 

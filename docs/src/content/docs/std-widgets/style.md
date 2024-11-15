@@ -1,11 +1,11 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Functions
-description: Functions
+title: Style
+description: std-widgets Style.
 ---
 # Selecting a Widget Style
 
-Slint offers a variety of [built-in widgets](../language/widgets/widgets.md) which can be imported from `"std-widgets.slint"`. You can modify the look of these widgets by choosing a style.
+You can modify the look of these widgets by choosing a style.
 
 The styles available include:
 
