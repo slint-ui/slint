@@ -12,6 +12,7 @@ description: SpinBox api.
 -   **`minimum`** (_in_ _int_): The minimum value (default: 0).
 -   **`maximum`** (_in_ _int_): The maximum value (default: 100).
 -   **`step-size`** (_in_ _int_): The size that is used on increment or decrement of `value` (default: 1).
+-   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](../builtins/enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 
 ### Callbacks
 
