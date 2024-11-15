@@ -224,7 +224,6 @@ export component PreviewView {
             unselect-area := TouchArea {
                 clicked => {
                     Api.unselect();
-                    root.select-mode = false;
                 }
                 mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
 
@@ -344,7 +343,6 @@ export component PreviewView {
                             } else if (self.selection-kind == SelectionKind.select-at) {
                                 Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
                             }
-                            root.select-mode = false;
                         }
                         self.selection-kind = SelectionKind.none;
                     }
