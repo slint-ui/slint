@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::key_generated;
 use i_slint_core::{
     input::{FocusEventResult, KeyEventType},
     items::TextHorizontalAlignment,
@@ -291,11 +292,11 @@ impl Item for NativeSpinBox {
         let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+
         let horizontal_alignment = match this.horizontal_alignment() {
-            // TextHorizontalAlignment to Qt::AligmentFlag
-            TextHorizontalAlignment::Left => 1,
-            TextHorizontalAlignment::Right => 2,
-            TextHorizontalAlignment::Center => 4
+            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
         };
 
         cpp!(unsafe [
@@ -334,7 +335,7 @@ impl Item for NativeSpinBox {
             QRect text_rect = qApp->style()->subElementRect(QStyle::SE_LineEditContents, &frame, widget);
             text_rect.adjust(1, 2, 1, 2);
             (*painter)->setPen(option.palette.color(QPalette::Text));
-                (*painter)->drawText(text_rect, QString::number(value), QTextOption(static_cast<Qt::AlignmentFlag>(horizontal_alignment)));
+            (*painter)->drawText(text_rect, QString::number(value), QTextOption(static_cast<Qt::AlignmentFlag>(horizontal_alignment)));
         });
     }
 }
