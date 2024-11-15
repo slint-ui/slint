@@ -24,7 +24,6 @@ enum SelectionKind {
 export enum DrawAreaMode {
     uninitialized,
     viewing,
-    designing,
     selecting,
     error,
 }
@@ -187,7 +186,6 @@ export component PreviewView {
     in property <ComponentItem> visible-component;
     property <DropMark> drop-mark <=> Api.drop-mark;
     property <component-factory> preview-area <=> Api.preview-area;
-    out property <bool> design-mode <=> Api.design-mode;
     in-out property <bool> select-mode: false;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
@@ -228,7 +226,7 @@ export component PreviewView {
                     Api.unselect();
                     root.select-mode = false;
                 }
-                mouse-cursor: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
+                mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
 
                 changed has-hover => {
                     StatusLineApi.help-text = "<click> unselect";
@@ -249,8 +247,8 @@ export component PreviewView {
                 private property <length> target-width;
                 private property <length> target-height;
 
-                color: root.design-mode ? Colors.black : Colors.transparent;
-                fill-color: root.design-mode ? Colors.white : Colors.transparent;
+                color: root.select-mode ? Colors.black : Colors.transparent;
+                fill-color: root.select-mode ? Colors.white : Colors.transparent;
 
                 is-moveable: false;
                 is-resizable <=> preview-area-container.is-resizable;
@@ -351,7 +349,7 @@ export component PreviewView {
                         self.selection-kind = SelectionKind.none;
                     }
                     mouse-cursor: crosshair;
-                    enabled: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting;
+                    enabled: root.mode == DrawAreaMode.selecting;
 
                     changed has-hover => {
                         if self.has-hover && self.enabled {
@@ -364,7 +362,7 @@ export component PreviewView {
 
                 selection-display-area := Rectangle {
                     for s in root.selections: SelectionFrame {
-                        interactive: root.mode == DrawAreaMode.designing;
+                        interactive: root.mode == DrawAreaMode.selecting;
                         selection: s;
                         resize(x, y, w, h) => {
                             Api.selected-element-resize(x, y, w, h);
@@ -419,13 +417,10 @@ export component PreviewView {
         error when diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.error;
         }
-        designing when root.design-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
-            root.mode: DrawAreaMode.designing;
-        }
         selecting when root.select-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.selecting;
         }
-        viewing when !root.design-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
+        viewing when !root.select-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.viewing;
         }
     ]
