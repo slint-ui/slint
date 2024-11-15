@@ -104,7 +104,7 @@ impl super::Surface for MetalSurface {
     fn render(
         &self,
         _size: PhysicalWindowSize,
-        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>, u8),
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         autoreleasepool(|| {
@@ -142,7 +142,7 @@ impl super::Surface for MetalSurface {
                 .unwrap()
             };
 
-            callback(surface.canvas(), Some(gr_context));
+            callback(surface.canvas(), Some(gr_context), 0);
 
             drop(surface);
 
