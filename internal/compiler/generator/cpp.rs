@@ -1708,6 +1708,20 @@ fn generate_item_tree(
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
     ];
 
+    #[cfg(feature = "bundle-translations")]
+    if let Some(translations) = &root.translations {
+        let lang_len = translations.languages.len();
+        create_code.push(format!(
+            "std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};",
+            translations
+                .languages
+                .iter()
+                .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
+                .join(", ")
+        ));
+        create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages({{ languages.data(), {lang_len} }});"));
+    }
+
     if parent_ctx.is_none() {
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
@@ -3922,17 +3936,6 @@ fn generate_translation(
             ..Default::default()
         }));
     }
-    let lang_len = translations.languages.len();
-    declarations.push(Declaration::Function(Function {
-        name: "slint_set_language".into(),
-        signature: "(std::string_view lang)".into(),
-        is_inline: true,
-        statements: Some(vec![
-            format!("std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};", translations.languages.iter().map(|l| format!("slint::private_api::string_to_slice({l:?})")).join(", ")),
-            format!("return slint::cbindgen_private::slint_translate_set_language(slint::private_api::string_to_slice(lang), {{ languages.data(), {lang_len} }});"
-        )]),
-        ..Default::default()
-    }));
 
     let ctx = EvaluationContext {
         compilation_unit,

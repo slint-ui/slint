@@ -1318,6 +1318,16 @@ inline void update_all_translations()
 }
 #endif
 
+/// Select the current translation language when using bundled translations.
+/// This function only has effect if the slint code was compiled with bundled translations.
+/// It must be called after creating the first component.
+/// It returns an error if the language is not found.
+inline bool select_bundled_translation(std::string_view locale)
+{
+    return cbindgen_private::slint_translate_select_bundled_translation(
+            slint::private_api::string_to_slice(locale));
+}
+
 #if !defined(DOXYGEN)
 cbindgen_private::Flickable::Flickable()
 {
