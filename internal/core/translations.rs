@@ -317,9 +317,9 @@ pub fn set_bundled_languages(languages: &[&'static str]) {
 }
 
 /// Select the current translation language when using bundled translations.
-/// This function only has effect if the slint code was compiled with bundled translations.
+/// This function requires that the application's `.slint` file was compiled with bundled translations..
 /// It must be called after creating the first component.
-/// It returns an error if the language is not found.
+/// Returns `Ok` if the language was selected; [`SelectBundledTranslationError`] otherwise.
 pub fn select_bundled_translation(locale: &str) -> Result<(), SelectBundledTranslationError> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else {
@@ -347,7 +347,7 @@ pub fn select_bundled_translation(locale: &str) -> Result<(), SelectBundledTrans
 /// Error type returned from the [`select_bundled_translation`] function.
 #[derive(Debug)]
 pub enum SelectBundledTranslationError {
-    /// The language was not found. Available languages are ...
+    /// The language was not found. The list of available languages is included in this error variant.
     LanguageNotFound { available_languages: crate::SharedVector<SharedString> },
     /// There is no bundled languages. Either the select_bundled_translation was called to soon (before creating a component), or the generation was done without the bundle translation option)
     NoLanguageBundled,
@@ -360,7 +360,7 @@ impl core::fmt::Display for SelectBundledTranslationError {
                 write!(f, "The specified language was not found. Available languages are: {available_languages:?}")
             }
             SelectBundledTranslationError::NoLanguageBundled => {
-                write!(f, "There is no bundled languages. Either the select_bundled_translation was called to soon (before creating a component), or the generation was done without the bundle translation option)")
+                write!(f, "There are no bundled languages. Either select_bundled_translation was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option")
             }
         }
     }
