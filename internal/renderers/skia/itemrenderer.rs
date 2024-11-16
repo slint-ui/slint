@@ -29,6 +29,7 @@ pub type SkiaBoxShadowCache = BoxShadowCache<skia_safe::Image>;
 #[derive(Clone, Copy)]
 struct RenderState {
     alpha: f32,
+    translation: LogicalVector,
 }
 
 pub struct SkiaItemRenderer<'a> {
@@ -55,7 +56,7 @@ impl<'a> SkiaItemRenderer<'a> {
             scale_factor: ScaleFactor::new(window.scale_factor()),
             window,
             state_stack: vec![],
-            current_state: RenderState { alpha: 1.0 },
+            current_state: RenderState { alpha: 1.0, translation: Default::default() },
             image_cache,
             path_cache,
             box_shadow_cache,
@@ -840,8 +841,13 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     }
 
     fn translate(&mut self, distance: LogicalVector) {
+        self.current_state.translation += distance;
         let distance = distance * self.scale_factor;
         self.canvas.translate(skia_safe::Vector::from((distance.x, distance.y)));
+    }
+
+    fn translation(&self) -> LogicalVector {
+        self.current_state.translation
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
