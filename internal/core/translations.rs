@@ -349,7 +349,7 @@ pub fn select_bundled_translation(locale: &str) -> Result<(), SelectBundledTrans
 pub enum SelectBundledTranslationError {
     /// The language was not found. The list of available languages is included in this error variant.
     LanguageNotFound { available_languages: crate::SharedVector<SharedString> },
-    /// There is no bundled languages. Either the select_bundled_translation was called to soon (before creating a component), or the generation was done without the bundle translation option)
+    /// There are no bundled languages. Either [`select_bundled_translation`] was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option.
     NoLanguageBundled,
 }
 
