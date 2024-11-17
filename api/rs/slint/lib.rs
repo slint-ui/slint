@@ -223,6 +223,7 @@ pub use i_slint_core::model::{
 };
 pub use i_slint_core::sharedvector::SharedVector;
 pub use i_slint_core::timers::{Timer, TimerMode};
+pub use i_slint_core::translations::{select_bundled_translation, SelectBundledTranslationError};
 pub use i_slint_core::{format, string::SharedString};
 
 pub mod private_unstable_api;

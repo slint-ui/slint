@@ -22,6 +22,8 @@ pub(crate) struct SlintContextInner {
     /// so that every translated string gets re-translated. The property's value is the current selected
     /// language when bundling translations.
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
+    pub(crate) translations_bundle_languages:
+        core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
 }
@@ -39,6 +41,7 @@ impl SlintContext {
             platform,
             window_count: 0.into(),
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
+            translations_bundle_languages: Default::default(),
             window_shown_hook: Default::default(),
         }))
     }

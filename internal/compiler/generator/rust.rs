@@ -211,13 +211,9 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         .unwrap_or_else(|| format_ident!("slint_generated"));
 
     #[cfg(not(feature = "bundle-translations"))]
-    let (translations, exported_tr) = (quote!(), quote!());
+    let translations = quote!();
     #[cfg(feature = "bundle-translations")]
-    let (translations, exported_tr) = llr
-        .translations
-        .as_ref()
-        .map(|t| (generate_translations(t, &llr), quote!(slint_set_language,)))
-        .unzip();
+    let translations = llr.translations.as_ref().map(|t| (generate_translations(t, &llr)));
 
     quote! {
         #[allow(non_snake_case, non_camel_case_types)]
@@ -237,7 +233,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
-        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #exported_tr};
+        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
@@ -270,6 +266,14 @@ fn generate_public_component(
         &ctx,
     );
 
+    #[cfg(feature = "bundle-translations")]
+    let init_bundle_translations = unit
+        .translations
+        .as_ref()
+        .map(|_| quote!(sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES);));
+    #[cfg(not(feature = "bundle-translations"))]
+    let init_bundle_translations = quote!();
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
@@ -277,6 +281,7 @@ fn generate_public_component(
         impl #public_component_id {
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
+                #init_bundle_translations
                 inner.globals.get().unwrap().init();
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 core::result::Result::Ok(Self(inner))
@@ -3249,8 +3254,6 @@ fn generate_translations(
         const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
         #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
-        pub fn slint_set_language(lang: &str) -> bool {
-            sp::set_language_internal(lang, &[#(#lang),*])
-        }
+        const _SLINT_BUNDLED_LANGUAGES: &[&str] = &[#(#lang),*];
     )
 }

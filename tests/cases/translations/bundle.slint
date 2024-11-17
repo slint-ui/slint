@@ -11,6 +11,7 @@
     out property <string> t2: @tr("Hello {}.", "World");
     out property <string> t3: @tr("{} Hello {}", int_value, "World");
     out property <string> t4: @tr("{1} Hello {0}🌍", @tr("World"), int_value + 1);
+    out property <string> t5: @tr("Untranslated string");
 
     property <string> c1: @tr("Context" => "xx{0}xx", @tr("CC" => "aa"));
 
@@ -20,7 +21,7 @@
     out property <string> result1: make_plural1(1, @tr("Plop")) + "\n" + make_plural1(2, @tr("Flop🎃")) + "\n" + make_plural1(10, t1);
     out property <string> result2: make_plural2(1) + "\n" + make_plural2(-999) + "\n" + make_plural2(0) + "\n" + make_plural2(42);
 
-    out property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍"
+    out property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍" && t5 == "Untranslated string"
         && c1 == "xxaaxx"
         && result1 == "there is one file in my Plop\nthere are 2 files in my Flop🎃\nthere are 10 files in my Hello World{}."
         && result2 == "xx1xx\nyy-999yy\nyy0yy\nyy42yy";
@@ -33,35 +34,41 @@ auto result1 = "there is one file in my Plop\nthere are 2 files in my Flop🎃\n
 auto result2 = "xx1xx\nyy-999yy\nyy0yy\nyy42yy";
 assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
+assert_eq(instance.get_t5(), "Untranslated string");
 assert(instance.get_test());
 
-assert(!slint_set_language("abc"));
+assert(!slint::select_bundled_translation("abc"));
 assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
+assert_eq(instance.get_t5(), "Untranslated string");
 assert(instance.get_test());
 
-assert(slint_set_language("up"));
+assert(slint::select_bundled_translation("up"));
 std::string result1_upper = result1;
 std::transform(result1_upper.begin(), result1_upper.end(), result1_upper.begin(), ::toupper);
 std::string result2_upper = result2;
 std::transform(result2_upper.begin(), result2_upper.end(), result2_upper.begin(), ::toupper);
 assert_eq(std::string_view(instance.get_result1()), result1_upper);
 assert_eq(std::string_view(instance.get_result2()), result2_upper);
+assert_eq(instance.get_t5(), "Untranslated string");
 assert(!instance.get_test());
 
-assert(!slint_set_language("def"));
+assert(!slint::select_bundled_translation("def"));
 assert_eq(std::string_view(instance.get_result1()), result1_upper);
 assert_eq(std::string_view(instance.get_result2()), result2_upper);
+assert_eq(instance.get_t5(), "Untranslated string");
 assert(!instance.get_test());
 
-assert(slint_set_language(""));
+assert(slint::select_bundled_translation(""));
 assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
+assert_eq(instance.get_t5(), "Untranslated string");
 assert(instance.get_test());
 
-assert(slint_set_language("fr"));
+assert(slint::select_bundled_translation("fr"));
 assert_eq(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fichiers dans mon Floup🍓\nIl y a 10 fichiers dans mon Bonjour Monde{}.");
 assert_eq(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
+assert_eq(instance.get_t5(), "Untranslated string");
 assert(!instance.get_test());
 ```
 
@@ -72,31 +79,37 @@ let result1 = "there is one file in my Plop\nthere are 2 files in my Flop🎃\nt
 let result2 = "xx1xx\nyy-999yy\nyy0yy\nyy42yy";
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
+assert_eq!(instance.get_t5(), "Untranslated string");
 assert!(instance.get_test());
 
-assert!(!slint_set_language("abc"));
+assert!(slint::select_bundled_translation("abc").is_err());
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
+assert_eq!(instance.get_t5(), "Untranslated string");
 assert!(instance.get_test());
 
-assert!(slint_set_language("up"));
+assert!(slint::select_bundled_translation("up").is_ok());
 assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
+assert_eq!(instance.get_t5(), "Untranslated string");
 assert!(!instance.get_test());
 
-assert!(!slint_set_language("def"));
+assert!(slint::select_bundled_translation("def").is_err());
 assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
+assert_eq!(instance.get_t5(), "Untranslated string");
 assert!(!instance.get_test());
 
-assert!(slint_set_language(""));
+assert!(slint::select_bundled_translation("").is_ok());
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
+assert_eq!(instance.get_t5(), "Untranslated string");
 assert!(instance.get_test());
 
-assert!(slint_set_language("fr"));
+assert!(slint::select_bundled_translation("fr").is_ok());
 assert_eq!(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fichiers dans mon Floup🍓\nIl y a 10 fichiers dans mon Bonjour Monde{}.");
 assert_eq!(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
+assert_eq!(instance.get_t5(), "Untranslated string");
 assert!(!instance.get_test());
 
 ```

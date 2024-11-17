@@ -305,24 +305,69 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
-pub fn set_language_internal(language: &str, languages: &[&str]) -> bool {
-    let idx = languages.iter().position(|x| *x == language);
-    if let Some(idx) = idx {
-        crate::context::GLOBAL_CONTEXT.with(|ctx| {
-            let Some(ctx) = ctx.get() else { return false };
+/// This function is called by the generated code to assign the list of bundled languages.
+/// Do nothing if the list is already assigned.
+pub fn set_bundled_languages(languages: &[&'static str]) {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return };
+        if ctx.0.translations_bundle_languages.borrow().is_none() {
+            ctx.0.translations_bundle_languages.replace(Some(languages.to_vec()));
+        }
+    });
+}
+
+/// Select the current translation language when using bundled translations.
+/// This function requires that the application's `.slint` file was compiled with bundled translations..
+/// It must be called after creating the first component.
+/// Returns `Ok` if the language was selected; [`SelectBundledTranslationError`] otherwise.
+pub fn select_bundled_translation(locale: &str) -> Result<(), SelectBundledTranslationError> {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else {
+            return Err(SelectBundledTranslationError::NoLanguageBundled);
+        };
+        let languages = ctx.0.translations_bundle_languages.borrow();
+        let Some(languages) = &*languages else {
+            return Err(SelectBundledTranslationError::NoLanguageBundled);
+        };
+        let idx = languages.iter().position(|x| *x == locale);
+        if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
-            true
-        })
-    } else if language == "en" {
-        crate::context::GLOBAL_CONTEXT.with(|ctx| {
-            let Some(ctx) = ctx.get() else { return false };
+            Ok(())
+        } else if locale == "" || locale == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
-            true
-        })
-    } else {
-        false
+            Ok(())
+        } else {
+            Err(SelectBundledTranslationError::LanguageNotFound {
+                available_languages: languages.iter().map(|x| (*x).into()).collect(),
+            })
+        }
+    })
+}
+
+/// Error type returned from the [`select_bundled_translation`] function.
+#[derive(Debug)]
+pub enum SelectBundledTranslationError {
+    /// The language was not found. The list of available languages is included in this error variant.
+    LanguageNotFound { available_languages: crate::SharedVector<SharedString> },
+    /// There are no bundled languages. Either [`select_bundled_translation`] was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option.
+    NoLanguageBundled,
+}
+
+impl core::fmt::Display for SelectBundledTranslationError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            SelectBundledTranslationError::LanguageNotFound { available_languages } => {
+                write!(f, "The specified language was not found. Available languages are: {available_languages:?}")
+            }
+            SelectBundledTranslationError::NoLanguageBundled => {
+                write!(f, "There are no bundled languages. Either select_bundled_translation was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option")
+            }
+        }
     }
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for SelectBundledTranslationError {}
 
 #[cfg(feature = "ffi")]
 mod ffi {
@@ -412,14 +457,17 @@ mod ffi {
     }
 
     #[no_mangle]
-    pub extern "C" fn slint_translate_set_language(
-        lang: Slice<u8>,
-        languages: Slice<Slice<u8>>,
-    ) -> bool {
+    pub extern "C" fn slint_translate_set_bundled_languages(languages: Slice<Slice<'static, u8>>) {
         let languages = languages
             .iter()
-            .map(|x| core::str::from_utf8(x).unwrap())
+            .map(|x| core::str::from_utf8(x.as_slice()).unwrap())
             .collect::<alloc::vec::Vec<_>>();
-        set_language_internal(core::str::from_utf8(&lang).unwrap(), &languages)
+        set_bundled_languages(&languages);
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_translate_select_bundled_translation(locale: Slice<u8>) -> bool {
+        let locale = core::str::from_utf8(&locale).unwrap();
+        return select_bundled_translation(locale).is_ok();
     }
 }
