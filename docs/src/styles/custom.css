@@ -20,20 +20,36 @@
     border-radius: 3px;
 }
 
+.no-underline {
+    text-decoration: none;
+}
+
+.default-value {
+    margin-left: 0.2rem;
+    font-size: 0.8em;
+}
+.plain-code {
+    background: none !important;
+}
+
 /* Dark mode colors. */
-:root {
-    --sl-color-text-accent: #4c91f2;
+    :root {
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
+    --sl-color-gray-6: #1b1c21;
+    --sl-color-hairline: #212329;
+    --sl-color-hairline-shade: var(--sl-color-hairline);
+    --badge-border-color: --sl-color-hairline;
     .screenshot-container {
         background-color: #cdcdcd;
     }
 }
 /* Light mode colors. */
-:root[data-theme="light"] {
-    --sl-color-accent: #3586f4;
+    :root[data-theme="light"] {
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
+    --badge-border-color: lightgrey;
+
     .screenshot-container {
         background-color: whitesmoke;
     }
