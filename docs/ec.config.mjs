@@ -1,21 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { ExpressiveCodeTheme } from "@astrojs/starlight/expressive-code";
 import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
 import fs from "node:fs";
 
-const lightJsoncString = fs.readFileSync(
-    new URL(`./src/misc/light-theme.jsonc`, import.meta.url),
-    "utf-8",
-);
-const lightTheme = ExpressiveCodeTheme.fromJSONString(lightJsoncString);
-
-const darkJsoncString = fs.readFileSync(
-    new URL(`./src/misc/dark-theme.jsonc`, import.meta.url),
-    "utf-8",
-);
-const darkTheme = ExpressiveCodeTheme.fromJSONString(darkJsoncString);
 
 function workersPlaygroundButton() {
     return definePlugin({
@@ -78,7 +66,7 @@ function workersPlaygroundButton() {
 
 export default {
     plugins: [workersPlaygroundButton()],
-    themes: ["slack-dark", "slack-ochin"],
+    themes: ["dark-plus", "light-plus"],
     styleOverrides: { borderRadius: "0.2rem" },
     shiki: {
         langs: [
