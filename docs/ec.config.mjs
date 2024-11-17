@@ -78,7 +78,7 @@ function workersPlaygroundButton() {
 
 export default {
     plugins: [workersPlaygroundButton()],
-    themes: [darkTheme, lightTheme],
+    themes: ["github-dark-default", "github-light-default"],
     styleOverrides: { borderRadius: "0.2rem" },
     shiki: {
         langs: [
