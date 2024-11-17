@@ -10,6 +10,8 @@ import {
     getTypeInfo,
 } from "../utils/utils.ts";
 
+import Type from "./Type.astro";
+
 interface Props {
     propName: string;
     typeName: KnownType;
@@ -49,21 +51,20 @@ if (!defaultValue_) {
 }
 ---
 
+
 <div class="sl-markdown-content">
   <p>
-    <strong>type:</strong>
-		{typeInfo.href === "" ? (
-      <code>{fullTypeName}</code>
-		) : (
-    <a href={typeInfo.href} dir="auto">
-      <code>{fullTypeName}</code>
-    </a>
-		)}
-		{propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
-    <br>
-    <strong>default:</strong> <code dir="auto">{defaultValue_}</code><br>
+    {typeInfo.href === "" ? (
+      <Type text={fullTypeName} />
+    ) : (
+      <a href={typeInfo.href} dir="auto" class="no-underline">
+        <Type text={fullTypeName} /> 
+      </a>
+    )}
+    {propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
+    <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span><br>
     {enumName && <Fragment set:html={enumContent}/>}
     {structContent && <Fragment set:html={structContent}/>}
   </p>
-  <slot/>
+   <slot/>
 </div>

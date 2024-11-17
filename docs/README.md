@@ -54,12 +54,9 @@ cargo xtask slintdocs
 This xtask also installs the npm dependencies and builds the docs. The equivalent of:
 
 ```bash
-pnpm i --ignore-scripts
+pnpm i
 pnpm run build
 ```
-
-`--ignore-scripts` is needed because this is a monorepo and `pnpm i` will install the dependencies of all
-the projects as well as run any install scripts. Currently the `api/node` project will attemtpt to compile
 
 This will build the site and place it in `dist/`.
 
@@ -70,7 +67,7 @@ To run the live hot reloading dev server run:
 pnpm start
 ```
 
-This will start the dev server at `localhost:4321`.
+This will start the dev server at [`localhost:4321/master/docs/slint`](http://localhost:4321/master/docs/slint).
 
 
 
@@ -80,7 +77,7 @@ All commands are run from the root of the project, from a terminal:
 
 | Command                   | Action                                           |
 | :------------------------ | :----------------------------------------------- |
-| `pnpm i --ignore-scripts` | Installs dependencies                            |
+| `pnpm i`                  | Installs dependencies                            |
 | `pnpm start`              | Starts local dev server at `localhost:4321`      |
 | `pnpm build`              | Build your production site to `./dist/`          |
 | `pnpm preview`            | Preview your build locally, before deploying     |
