@@ -6736,7 +6736,7 @@ snapshots:
   '@types/fs-extra@11.0.4':
     dependencies:
       '@types/jsonfile': 6.1.4
-      '@types/node': 18.11.9
+      '@types/node': 20.16.10
 
   '@types/geojson@7946.0.14': {}
 
@@ -6746,7 +6746,7 @@ snapshots:
 
   '@types/jsonfile@6.1.4':
     dependencies:
-      '@types/node': 18.11.9
+      '@types/node': 20.16.10
 
   '@types/mdast@4.0.4':
     dependencies:
