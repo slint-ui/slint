@@ -49,7 +49,7 @@
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
     --badge-border-color: lightgrey;
-
+    --sl-color-hairline: #edeef3;
     .screenshot-container {
         background-color: whitesmoke;
     }
