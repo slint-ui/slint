@@ -7,10 +7,10 @@ import { Badge } from "@astrojs/starlight/components";
 type Props = z.infer<typeof props>;
 
 const props = z
-	.object({
-		text: z.string(),
-	})
-	.strict();
+    .object({
+        text: z.string(),
+    })
+    .strict();
 
 const { text } = props.parse(Astro.props);
 ---

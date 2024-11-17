@@ -4,7 +4,6 @@ import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
 import fs from "node:fs";
 
-
 function workersPlaygroundButton() {
     return definePlugin({
         name: "Adds 'Run in Slintpad' button to slint codeblocks",
