@@ -173,6 +173,22 @@ impl CompilerConfiguration {
         config.const_scale_factor = factor as f64;
         Self { config }
     }
+
+    /// Configures the compiler to bundle translations when compiling Slint code.
+    ///
+    /// It expects the path to be the root directory of the translation files.
+    ///
+    /// The translation files should be in the gettext `.po` format and follow this pattern:
+    /// `<path>/<lang>/LC_MESSAGES/<crate>.po`
+    #[must_use]
+    pub fn with_bundled_translations(
+        self,
+        path: impl Into<std::path::PathBuf>,
+    ) -> CompilerConfiguration {
+        let mut config = self.config;
+        config.translation_path_bundle = Some(path.into());
+        Self { config }
+    }
 }
 
 /// Error returned by the `compile` function

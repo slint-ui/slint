@@ -23,7 +23,7 @@ name = "printerdemo_lib"
 slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-06"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
 
-[target.'cfg(not(target_os = "android"))'.dependencies]
+[target.'cfg(not(any(target_os = "android", target_arch = "wasm32")))'.dependencies]
 slint = { path = "../../../api/rs/slint", features=["gettext"] }
 
 [build-dependencies]
