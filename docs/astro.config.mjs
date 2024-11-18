@@ -80,10 +80,7 @@ export default defineConfig({
                                     label: "Types",
                                     slug: "guide/language/types",
                                 },
-                                {
-                                    label: "Font Handling",
-                                    slug: "guide/language/fonts",
-                                },
+
                                 {
                                     label: "Legacy Syntax",
                                     slug: "guide/language/legacy_syntax",
@@ -95,6 +92,7 @@ export default defineConfig({
                             items: [
                                 "guide/development/debugging_techniques",
                                 "guide/development/localization",
+                                "guide/development/fonts",
                             ],
                         },
                     ],
