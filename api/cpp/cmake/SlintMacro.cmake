@@ -57,8 +57,11 @@ function(SLINT_TARGET_SOURCES target)
         set(scale_factor_target_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_SCALE_FACTOR>>")
         set(scale_factor_arg "$<IF:$<STREQUAL:${scale_factor_target_prop},>,,--scale-factor=${scale_factor_target_prop}>")
 
+        set(bundle_translations_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_BUNDLE_TRANSLATIONS>>")
+        set(bundle_translations_arg "$<IF:$<STREQUAL:${bundle_translations_prop},>,,--bundle-translations=${bundle_translations_prop}>")
+
         if (compilation_units GREATER 0)
-            foreach(cpp_num RANGE 1 ${compilation_units})                
+            foreach(cpp_num RANGE 1 ${compilation_units})
                 list(APPEND cpp_files "${CMAKE_CURRENT_BINARY_DIR}/slint_generated_${_SLINT_BASE_NAME}_${cpp_num}.cpp")
             endforeach()
             list(TRANSFORM cpp_files PREPEND "--cpp-file=" OUTPUT_VARIABLE cpp_files_arg)
@@ -75,6 +78,7 @@ function(SLINT_TARGET_SOURCES target)
                 ${_SLINT_CPP_NAMESPACE_ARG}
                 ${_SLINT_CPP_LIBRARY_PATHS_ARG}
                 ${scale_factor_arg}
+                ${bundle_translations_arg}
                 ${cpp_files_arg}
             DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
             COMMENT "Generating ${_SLINT_BASE_NAME}.h"
