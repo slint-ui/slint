@@ -36,6 +36,11 @@
     background: none !important;
 }
 
+.sl-markdown-content table td:first-child {
+    min-width: 100px !important; /* adjust this value as needed */
+    /* white-space: nowrap; */
+}
+
 /* Dark mode colors. */
 :root {
     --sl-hue-blue: 222;
