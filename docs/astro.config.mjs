@@ -80,6 +80,10 @@ export default defineConfig({
                                     label: "Types",
                                     slug: "guide/language/types",
                                 },
+                                {
+                                    label: "Legacy Syntax",
+                                    slug: "guide/language/legacy_syntax",
+                                },
                             ],
                         },
                         {
