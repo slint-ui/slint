@@ -70,6 +70,14 @@ export struct Range {
     end: int,
 }
 
+export struct ColorData {
+    r: int,
+    g: int,
+    b: int,
+    a: int,
+    text: string,
+}
+
 export enum PropertyValueKind {
     boolean,
     brush,
@@ -184,7 +192,7 @@ export global Api {
     in-out property <ElementInformation> current-element;
     in-out property <[PropertyGroup]> properties: [
         {
-            group-name: "geometry",
+            group-name: "Geometry",
             properties: [
                 {
                     name: "width",
@@ -286,14 +294,79 @@ export global Api {
                 }
 
             ]
+        },        {
+            group-name: "Other",
+            properties: [
+                {
+                    name: "text",
+                    type-name: "string",
+                    value: {
+                        is-translatable: true,
+                        kind: PropertyValueKind.string,
+                    }
+                },
+                {
+                    name: "checkable",
+                    type-name: "bool",
+                    value: {
+                        kind: PropertyValueKind.boolean,
+                    }
+                },
+                {
+                    name: "icon",
+                    type-name: "image",
+                    value: {
+                        kind: PropertyValueKind.code,
+                    }
+                },
+                {
+                    name: "color",
+                    type-name: "brush",
+                    value: {
+                        kind: PropertyValueKind.brush,
+                        value-brush: Colors.magenta,
+                        value-string: "#ff00ff"
+                    },
+                },
+                {
+                    name: "a-really-long-named-attribute",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 10,
+                    }
+                },
+                {
+                    name: "bar",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: 10/2,
+                    }
+                },
+                {
+                    name: "baz",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: "",
+                    }
+                }
+
+            ]
         }
+
     ];
 
     // # Callbacks
 
     // ## Custom conversion functions:
-    callback string-is-color(string) -> bool;
-    callback string-to-color(string) -> color;
+    pure callback string-is-color(string) -> bool;
+    pure callback string-to-color(string) -> color;
+    pure callback color-to-data(color) -> ColorData;
+    pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
 
     // ## Style:
     callback style-changed();
