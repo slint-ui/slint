@@ -64,8 +64,8 @@ export global EditorSizeSettings {
 }
 
 export global EditorPalette {
-    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
-    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
+    out property <brush> state-pressed:Palette.background;
+    out property <brush> state-hovered: Palette.alternate-background;
     
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 
