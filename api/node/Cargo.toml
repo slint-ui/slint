@@ -44,7 +44,7 @@ testing = ["dep:i-slint-backend-testing"]
 [dependencies]
 napi = { version = "2.14.0", default-features = false, features = ["napi8"] }
 napi-derive = "2.14.0"
-i-slint-compiler = { workspace = true, features = ["default"] }
+i-slint-compiler = { workspace = true, features = ["default", "typescript"] }
 i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
 i-slint-backend-selector = { workspace = true }
 slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2"] }
