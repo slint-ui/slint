@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 fn main() {
-    slint_build::compile("../ui/printerdemo.slint").unwrap();
-    slint_build::print_rustc_flags().unwrap();
+    let mut config = slint_build::CompilerConfiguration::new();
+    if cfg!(any(target_os = "android", target_arch = "wasm32")) {
+        config = config.with_bundled_translations("../lang");
+    }
+    slint_build::compile_with_config("../ui/printerdemo.slint", config).unwrap();
 }
