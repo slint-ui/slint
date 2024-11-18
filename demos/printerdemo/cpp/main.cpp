@@ -82,6 +82,11 @@ int main()
         setenv("LANGUAGE", langs[l], true);
         slint::update_all_translations();
     });
+#else
+    printer_demo->global<PrinterSettings>().on_change_language([](int l) {
+        static const char *langs[] = { "", "fr" };
+        slint::select_bundled_translation(langs[l]);
+    });
 #endif
 
     printer_demo->run();

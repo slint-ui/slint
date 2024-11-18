@@ -67,6 +67,12 @@ struct Cli {
     #[arg(long = "translation-domain", action)]
     translation_domain: Option<String>,
 
+    /// Bundle translations from the specified path.
+    /// Translations files should be in the gettext .po format and should be found in
+    /// `<path>/<lang>/LC_MESSAGES/<domain>.po`
+    #[arg(long = "bundle-translations", name = "path", action)]
+    bundle_translations: Option<std::path::PathBuf>,
+
     /// C++ namespace
     #[arg(long = "cpp-namespace", name = "C++ namespace")]
     cpp_namespace: Option<String>,
@@ -141,6 +147,9 @@ fn main() -> std::io::Result<()> {
     }
     if let Some(constant_scale_factor) = args.scale_factor {
         compiler_config.const_scale_factor = constant_scale_factor;
+    }
+    if let Some(path) = args.bundle_translations {
+        compiler_config.translation_path_bundle = Some(path);
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =
