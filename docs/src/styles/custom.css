@@ -38,7 +38,8 @@
 }
 
 .sl-markdown-content table td:first-child {
-    min-width: 100px !important; /* Tweak the table so the first column is wider */
+    min-width: 100px !important; /* adjust this value as needed */
+    /* white-space: nowrap; */
 }
 
 /* Dark mode colors. */
