@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+contact_links:
+  - name: ❓ Ask a Question
+    url: https://github.com/slint-ui/slint/discussions
+    about: Have a question about Slint? Head over to the Discussions forum to ask questions, share knowledge, and connect with the community!

@@ -1,0 +1,72 @@
+name: 🐞 Bug Report
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+description: Report a bug or unexpected behavior in Slint
+labels: ["bug", "need triaging"]
+body:
+- type: markdown
+  attributes:
+    value: |
+      Thank you for reporting a bug! 🐛
+
+      Please use this template to provide the information we need to investigate the issue.
+
+      Before submitting, please search the [issue tracker](https://github.com/slint-ui/slint/issues) to ensure your bug hasn’t already been reported.
+
+      If you have questions or need help with Slint, visit our ["Discussions" tab](https://github.com/slint-ui/slint/discussions).
+
+- type: textarea
+  attributes:
+    label: Bug Description
+    description: |
+      Clearly describe the issue, including:
+      - What is the bug?
+      - What behavior did you expect, and what happened instead?
+      - Steps to reproduce the issue
+      - Any error messages or logs, if available.
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Reproducible Code (if applicable)
+    description: |
+      If possible, include a minimal code snippet that reproduces the problem.
+      This helps us debug faster!
+    placeholder: |
+      export component TestCase inherits Window {
+          /* Your reproducible Slint code here */
+      }
+    render: slint
+  validations:
+    required: false
+
+- type: textarea
+  attributes:
+    label: Environment Details
+    description: |
+      Provide information about your setup:
+      - Slint version (mention if this is a regression from a previous release).
+      - Operating system and its version (e.g., Windows 11, Ubuntu 22.04, Android, etc.).
+        If Linux, what Desktop Environment and whether you are using Wayland or X11.
+      - Programming language used (e.g., C++, Rust, JavaScript, Python, etc.).
+      - Backend/renderer being used (e.g., Qt, Skia, FemtoVG, Software, etc.).
+    value: |
+      - Slint Version:
+      - Platform/OS:
+      - Programming Language:
+      - Backend/Renderer:
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Product Impact
+    description: |
+      Tell us about your project:
+      - What are you building with Slint?
+      - How critical is this issue for your product (e.g., blocker, inconvenience)?
+      This helps us prioritize the issue effectively.
+  validations:
+    required: false
