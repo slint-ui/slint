@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: ❓ Ask a Question
+    url: https://github.com/slint-ui/slint/discussions
+    about: Have a question about Slint? Head over to the Discussions forum to ask questions, share knowledge, and connect with the community!
