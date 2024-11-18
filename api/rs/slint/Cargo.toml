@@ -213,5 +213,6 @@ rustdoc-args = [
   # "docs/src/utils/slint-docs-preview.html",
   "--html-in-header",
   "docs/src/utils/slint-docs-highlight.html",
+  "--cfg", "docsrs"
 ]
 features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "raw-window-handle-06"]
