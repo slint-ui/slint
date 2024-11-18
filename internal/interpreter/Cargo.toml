@@ -150,6 +150,3 @@ spin_on = { workspace = true }
 
 [package.metadata.docs.rs]
 features = ["display-diagnostics", "document-features", "raw-window-handle-06"]
-rustdoc-args = [
-  "--cfg", "docsrs"
-]
