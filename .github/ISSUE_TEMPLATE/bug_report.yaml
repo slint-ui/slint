@@ -35,7 +35,7 @@ body:
       If possible, include a minimal code snippet that reproduces the problem.
       This helps us debug faster!
     placeholder: |
-      component TestCase {
+      export component TestCase inherits Window {
           /* Your reproducible Slint code here */
       }
     render: slint
