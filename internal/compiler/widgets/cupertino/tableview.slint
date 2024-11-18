@@ -250,7 +250,7 @@ export component StandardTableView {
                             text: cell.text;
                             font-weight: CupertinoFontSettings.body.font-weight;
                             font-size: CupertinoFontSettings.body.font-size;
-                            color: CupertinoPalette.foreground;
+                            color: root.current-row == idx ? CupertinoPalette.accent-foreground : CupertinoPalette.foreground ;
                         }
                     }
                 }
