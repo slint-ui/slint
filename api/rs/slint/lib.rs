@@ -3,6 +3,8 @@
 
 // cSpell: ignore buildrs
 
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 /*!
 # Slint
 
