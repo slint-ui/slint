@@ -169,6 +169,22 @@ impl AsRef<std::ffi::CStr> for SharedString {
     }
 }
 
+#[cfg(feature = "std")]
+impl AsRef<std::path::Path> for SharedString {
+    #[inline]
+    fn as_ref(&self) -> &std::path::Path {
+        self.as_str().as_ref()
+    }
+}
+
+#[cfg(feature = "std")]
+impl AsRef<std::ffi::OsStr> for SharedString {
+    #[inline]
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        self.as_str().as_ref()
+    }
+}
+
 impl AsRef<[u8]> for SharedString {
     #[inline]
     fn as_ref(&self) -> &[u8] {
