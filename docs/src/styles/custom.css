@@ -24,8 +24,12 @@
     text-decoration: none;
 }
 
+.default-value code {
+    margin-left: -0.3rem;
+}
+
 .default-value {
-    margin-left: 0.2rem;
+    margin-left: 0.1rem;
     font-size: 0.8em;
 }
 .plain-code {
