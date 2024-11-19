@@ -5,6 +5,10 @@ description: Rectangle element api.
 ---
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+import CommonProperties from '../../../collections/properties/common.mdx';
+
+
+
 
 <CodeSnippetMD imagePath="/src/assets/generated/rectangle-example.png" imageAlt='rectangle example'>
 ```slint playground
@@ -56,6 +60,9 @@ By default, a `Rectangle` is just an empty item that shows nothing. By setting a
 it's then possible to draw a rectangle on the screen.
 
 When not part of a layout, its width and height default to 100% of the parent element.
+
+## Common Properties
+<CommonProperties />
 
 ### `background`
 <SlintProperty propName="background" typeName="brush" defaultValue="transparent">
@@ -222,4 +229,29 @@ To target specific corners with different values use the following properties:
 <SlintProperty propName="border-bottom-left-radius" typeName="length"/>
 
 ### `border-bottom-right-radius`
+
+
+## Drop Shadows
+
+To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
+an element, it's possible to set the following `drop-shadow` properties:
+
+### `drop-shadow-blur`
+<SlintProperty propName="drop-shadow-blur" typeName="length"/>
+The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur.
+
+### `drop-shadow-color`
+<SlintProperty propName="drop-shadow-color" typeName="color"/>
+The base color of the shadow to use. Typically that color is the starting color of a gradient that fades into transparency.
+
+### `drop-shadow-offset-x`
+<SlintProperty propName="drop-shadow-offset-x" typeName="length"/>
+The horizontal distance of the shadow from the element's frame.
+
+
+### `drop-shadow-offset-y`
+<SlintProperty propName="drop-shadow-offset-y" typeName="length"/>
+The vertical distance of the shadow from the element's frame.
+
+
 
