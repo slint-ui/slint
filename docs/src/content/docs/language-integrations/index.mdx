@@ -1,0 +1,25 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Language Integrations
+description: Connect the UI with business logic in your preferred language.
+---
+
+import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
+import IconLinkCard from "../../../components/IconLinkCard.astro";
+
+Slint provides first class integrations to various programming languages allowing you to implement the business logic of your Slint application in your preferred language.
+
+<CardGrid>
+  <IconLinkCard title="Rust" href="https://docs.slint.dev/latest/docs/rust/slint/" icon="seti:rust">
+    If you are a Rust developer, you can use Rust to write your business logic. Rust is a compiled language that is fast and safe.
+  </IconLinkCard>
+  <IconLinkCard title="C++" href="https://docs.slint.dev/latest/docs/cpp/" icon="seti:cpp">
+    If you are a C++ developer, you can use C++ to write your business logic.
+  </IconLinkCard>
+  <IconLinkCard title="TypeScript" href="https://docs.slint.dev/latest/docs/node/" icon="seti:javascript">
+    If you are a TypeScript developer, you can use TypeScript to write your business logic. We recommend using TypeScript as it better maps with the static typing of the Slint UI language. The code ends up running on runtime (not the browser) and Slint currently supports NodeJS, Deno and Bun.
+  </IconLinkCard>
+  <IconLinkCard title="Python (beta)" href="https://pypi.org/project/slint/" icon="seti:python">
+    If you are a Python developer, you can use Python to write your business logic. We are currently working on a Python version of Slint and if you want to experiment with the beta version follow the link.
+  </IconLinkCard>
+</CardGrid>
