@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
     compiler_config: &CompilerConfiguration,
-) -> CompilationUnit {
+) -> std::io::Result<CompilationUnit> {
     let mut state = LoweringState::default();
 
     #[cfg(feature = "bundle-translations")]
@@ -27,7 +27,7 @@ pub fn lower_to_item_tree(
                 path,
                 compiler_config.translation_domain.as_deref().unwrap_or(""),
             )
-            .unwrap_or_else(|e| todo!("TODO: handle error loading translations: {e}")),
+            .map_err(|e| std::io::Error::other(format!("Cannot load bundled translation: {e}")))?,
         ));
     }
 
@@ -79,7 +79,7 @@ pub fn lower_to_item_tree(
         translations: state.translation_builder.take().map(|x| x.into_inner().result()),
     };
     super::optim_passes::run_passes(&root);
-    root
+    Ok(root)
 }
 
 #[derive(Default)]

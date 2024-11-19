@@ -151,7 +151,10 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 }
 
 /// Generate the rust code for the given component.
-pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> TokenStream {
+pub fn generate(
+    doc: &Document,
+    compiler_config: &CompilerConfiguration,
+) -> std::io::Result<TokenStream> {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
         .used_types
         .borrow()
@@ -169,10 +172,10 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         })
         .unzip();
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
 
     if llr.public_components.is_empty() {
-        return Default::default();
+        return Ok(Default::default());
     }
 
     let sub_compos = llr
@@ -215,7 +218,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
     #[cfg(feature = "bundle-translations")]
     let translations = llr.translations.as_ref().map(|t| (generate_translations(t, &llr)));
 
-    quote! {
+    Ok(quote! {
         #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
         #[allow(clippy::all)]
@@ -236,7 +239,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
-    }
+    })
 }
 
 fn generate_public_component(
