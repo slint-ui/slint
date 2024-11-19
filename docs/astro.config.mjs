@@ -35,8 +35,8 @@ export default defineConfig({
         starlight({
             title: "Slint 1.9.0",
             logo: {
-                light: "./src/assets/slint-logo-simple-light.webp",
-                dark: "./src/assets/slint-logo-simple-dark.webp",
+                light: "./src/assets/slint-logo-small-light.svg",
+                dark: "./src/assets/slint-logo-small-dark.svg",
             },
             customCss: ["./src/styles/custom.css"],
             plugins: [
@@ -48,7 +48,10 @@ export default defineConfig({
             social: {
                 github: "https://github.com/slint-ui/slint",
                 "x.com": "https://x.com/slint_ui",
+                linkedin: "https://www.linkedin.com/company/slint-ui/",
+                mastodon: "https://fosstodon.org/@slint",            
             },
+            favicon: './src/assets/favicon.svg',
             sidebar: [
                 {
                     slug: "index",
@@ -207,25 +210,29 @@ export default defineConfig({
                     slug: "faq",
                 },
                 {
-                    label: "Native API",
+                    label: "Language Integrations",
                     collapsed: true,
                     items: [
                         {
                             label: "C++ ↗",
                             link: "https://docs.slint.dev/latest/docs/cpp/",
+                            attrs: { target: '_blank' },
                         },
                         {
                             label: "Python ↗",
                             badge: { text: "beta", variant: "caution" },
                             link: "https://pypi.org/project/slint/",
+                            attrs: { target: '_blank' },
                         },
                         {
                             label: "Rust ↗",
                             link: "https://docs.slint.dev/latest/docs/rust/slint/",
+                            attrs: { target: '_blank' },
                         },
                         {
                             label: "TypeScript ↗",
                             link: "https://docs.slint.dev/latest/docs/node/",
+                            attrs: { target: '_blank' },
                         },
                     ],
                 },
