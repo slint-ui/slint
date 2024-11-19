@@ -314,7 +314,9 @@ pub fn selection_stack_at(
         (known_components, selected)
     });
 
-    let result = collect_all_element_nodes_covering(position, component_instance)
+    let mut longest_path_prefix = PathBuf::new();
+
+    let mut result = collect_all_element_nodes_covering(position, component_instance)
         .iter()
         .filter(|sn| filter_nodes_for_selection(sn, true).is_some())
         .map(|sc| {
@@ -370,6 +372,21 @@ pub fn selection_stack_at(
                     (type_name, id, is_layout, is_selected, path, offset)
                 })
                 .unwrap_or_default();
+
+            if path.strip_prefix("/@").is_err() {
+                if path != PathBuf::new() {
+                    if longest_path_prefix == PathBuf::new() {
+                        longest_path_prefix = path.clone();
+                    } else {
+                        longest_path_prefix =
+                            std::iter::zip(longest_path_prefix.components(), path.components())
+                                .take_while(|(l, p)| l == p)
+                                .map(|(l, _)| l)
+                                .collect();
+                    }
+                }
+            }
+
             let width = (sc.geometry.size.width as f32 / root_geometry.size.width as f32) * 100.0;
             let height =
                 (sc.geometry.size.height as f32 / root_geometry.size.height as f32) * 100.0;
@@ -403,6 +420,26 @@ pub fn selection_stack_at(
             }
         })
         .collect::<Vec<_>>();
+
+    for frame in result.iter_mut() {
+        let file_name = PathBuf::from(frame.file_name.to_string());
+        let new_file_name = {
+            if let Some(library) = file_name.to_string_lossy().strip_prefix("/@") {
+                format!("@{library:?}")
+            } else {
+                if file_name == longest_path_prefix {
+                    file_name.file_name().unwrap_or_default().to_string_lossy().to_string()
+                } else {
+                    file_name
+                        .strip_prefix(&longest_path_prefix)
+                        .unwrap_or(&file_name)
+                        .to_string_lossy()
+                        .to_string()
+                }
+            }
+        };
+        frame.file_name = new_file_name.into();
+    }
 
     Rc::new(slint::VecModel::from(result)).into()
 }
