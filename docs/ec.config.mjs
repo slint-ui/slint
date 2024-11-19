@@ -6,7 +6,7 @@ import fs from "node:fs";
 
 function workersPlaygroundButton() {
     return definePlugin({
-        name: "Adds 'Run in Slintpad' button to slint codeblocks",
+        name: "Adds 'Run in SlintPad' button to slint codeblocks",
         baseStyles: `
         .run {
             display: flex;

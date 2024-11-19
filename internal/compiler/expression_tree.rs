@@ -278,7 +278,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorWithAlpha => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
             // we need to make sure that calls to this function stay within a binding, so that the property
-            // notification when updating kicks in. Only Slintpad (wasm-interpreter) loads images via the network,
+            // notification when updating kicks in. Only SlintPad (wasm-interpreter) loads images via the network,
             // which is when this code is targeting wasm.
             #[cfg(not(target_arch = "wasm32"))]
             BuiltinFunction::ImageSize => true,
