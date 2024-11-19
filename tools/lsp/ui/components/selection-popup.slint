@@ -116,7 +116,7 @@ component PopupInner inherits Rectangle {
     private property <float> aspect-ratio: preview-width / preview-height;
 
     private property <length> max-rect-size: 40px;
-    private property <length> frame-height: self.max-rect-size + EditorSpaceSettings.default-padding * 2;
+    private property <length> frame-height: self.max-rect-size + EditorSpaceSettings.default-padding * 2 + 1rem;
     private property <int> max-visible-frames: Math.floor(((self.max-popup-height / 1px) * 0.8) / (self.frame-height / 1px));
     private property <int> visible-frames: Math.min(self.max-visible-frames, root.selection-stack.length);
 
@@ -134,6 +134,7 @@ component PopupInner inherits Rectangle {
     list-view := ListView {
         for frame[index] in root.selection-stack: frame-rect := Rectangle {
             width: 100%;
+            height: root.frame-height;
 
             if frame.is-selected: Rectangle {
                 background: Palette.accent-background;
@@ -163,6 +164,13 @@ component PopupInner inherits Rectangle {
 
             VerticalLayout {
                 padding-top: EditorSpaceSettings.default-padding / 2;
+                if !frame.is-in-root-component: Text {
+                    x: EditorSpaceSettings.default-padding;
+                    text: frame.file-name;
+                    color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
+                    font-size: EditorFontSettings.label-sub.font-size - 3px;
+                    font-italic: true;
+                }
 
                 HorizontalLayout {
                     visible: (frame.type-name == "Window") ? false : true;
@@ -260,13 +268,6 @@ component PopupInner inherits Rectangle {
                         spacing: EditorSpaceSettings.default-spacing / 2;
                         alignment: center;
 
-                        if !frame.is-in-root-component: Text {
-                            x: EditorSpaceSettings.default-padding;
-                            text: frame.file-name;
-                            color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
-                            font-size: EditorFontSettings.label-sub.font-size - 3px;
-                            font-italic: true;
-                        }
 
                         if frame.id != "": Text {
                             text: frame.id;
