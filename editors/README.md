@@ -13,7 +13,7 @@ If you do test your editor with it, we would be happy to accept a pull request t
 
 ## Editors
 
-- [Visual Studion Code](#visual-studio-code)
+- [Visual Studio Code](#visual-studio-code)
 - [Kate](#kate)
 - [Qt Creator](#qtcreator)
 - [Helix](#helix)
