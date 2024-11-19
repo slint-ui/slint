@@ -9,13 +9,41 @@ head:
     content: Slint Documentation Overview
 ---
 
-import { LinkButton, LinkCard } from '@astrojs/starlight/components';
+import { LinkButton, LinkCard, Card, CardGrid } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
 import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
 import ThreeCardGrid from '../../components/ThreeCardGrid.astro';
 
-![banner image](../../assets/banner.webp)
+<ThreeCardGrid>
+<LinkCard
+  title="VS Code Quick Start"
+  href="/master/docs/slint/getting-started/intro"
+  description="Follow along with our VsCode extension and live code tooling."
+/>
+<LinkCard
+  title="Guide"
+  href="/master/docs/slint/guide/intro"
+  description="Learn the basics of Slint."
+/>
+<LinkCard
+  title="Tutorial"
+  href="/master/docs/slint/tutorial/quickstart"
+  description="Follow along with our tutorial."
+/>
+</ThreeCardGrid>
+
+<CardGrid >
+  <Card title="VS Code Quick Start" icon="rocket">
+    Follow along with our [VS Code extension](/master/docs/slint/getting-started/intro) and live code tooling.
+  </Card>
+  <Card title="Guide" icon="pencil">
+    [Learn the basics of Slint](/master/docs/slint/guide/intro).
+  </Card>
+  <Card title="Tutorial" icon="setting">
+    Follow along with our [tutorial](/master/docs/slint/tutorial/quickstart).
+  </Card>
+</CardGrid>
 
 <ThreeCardGrid>
 <LinkCard
