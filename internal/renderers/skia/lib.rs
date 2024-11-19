@@ -318,29 +318,6 @@ impl SkiaRenderer {
         let window_inner = WindowInner::from_pub(window);
 
         window_inner.draw_contents(|components| {
-            let window_background_brush =
-                window_inner.window_item().map(|w| w.as_pin_ref().background());
-
-            // Clear with window background if it is a solid color otherwise it will drawn as gradient
-            if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
-                skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
-            }
-
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
-                // the back buffer, in order to allow the callback to provide its own rendering of the background.
-                // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                if let Some(ctx) = gr_context.as_mut() {
-                    ctx.flush(None);
-                }
-
-                if let Some(surface) = surface {
-                    surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::BeforeRendering, &api)
-                    })
-                }
-            }
-
             let mut box_shadow_cache = Default::default();
 
             self.image_cache.clear_cache_if_scale_factor_changed(window);
@@ -355,8 +332,11 @@ impl SkiaRenderer {
             );
 
             // Draws the window background as gradient
-            match window_background_brush {
-                Some(Brush::SolidColor(..)) | None => {}
+            match window_inner.window_item().map(|w| w.as_pin_ref().background()) {
+                Some(Brush::SolidColor(clear_color)) => {
+                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+                }
+                None => {}
                 Some(brush @ _) => {
                     item_renderer.draw_rect(
                         i_slint_core::lengths::logical_size_from_api(
@@ -364,6 +344,21 @@ impl SkiaRenderer {
                         ),
                         brush,
                     );
+                }
+            }
+
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+                if let Some(ctx) = gr_context.as_mut() {
+                    ctx.flush(None);
+                }
+
+                if let Some(surface) = surface {
+                    surface.with_graphics_api(&mut |api| {
+                        callback.notify(RenderingState::BeforeRendering, &api)
+                    })
                 }
             }
 
