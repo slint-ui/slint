@@ -83,9 +83,10 @@ pub fn lower_expression(
         tree_Expression::BuiltinMacroReference(_, _) => panic!(),
         tree_Expression::ElementReference(e) => {
             // We map an element reference to a reference to the property "" inside that native item
-            llr_Expression::PropertyReference(
-                ctx.map_property_reference(&NamedReference::new(&e.upgrade().unwrap(), "")),
-            )
+            llr_Expression::PropertyReference(ctx.map_property_reference(&NamedReference::new(
+                &e.upgrade().unwrap(),
+                SmolStr::default(),
+            )))
         }
         tree_Expression::RepeaterIndexReference { element } => {
             repeater_special_property(element, ctx.component, 1)

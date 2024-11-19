@@ -118,7 +118,11 @@ impl CompiledGlobal {
 }
 
 pub trait GlobalComponent {
-    fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()>;
+    fn invoke_callback(
+        self: Pin<&Self>,
+        callback_name: &SmolStr,
+        args: &[Value],
+    ) -> Result<Value, ()>;
 
     fn set_callback_handler(
         self: Pin<&Self>,
@@ -133,7 +137,7 @@ pub trait GlobalComponent {
     ) -> Result<(), SetPropertyError>;
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Result<Value, ()>;
 
-    fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const ();
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const ();
 
     fn eval_function(self: Pin<&Self>, fn_name: &str, args: Vec<Value>) -> Result<Value, ()>;
 }
@@ -208,16 +212,20 @@ impl GlobalComponent for GlobalComponentInstance {
         comp.description().get_property(comp.borrow(), prop_name)
     }
 
-    fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const () {
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const () {
         generativity::make_guard!(guard);
         let comp = self.0.unerase(guard);
         crate::dynamic_item_tree::get_property_ptr(
-            &NamedReference::new(&comp.description().original.root_element, prop_name),
+            &NamedReference::new(&comp.description().original.root_element, prop_name.clone()),
             comp.borrow_instance(),
         )
     }
 
-    fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()> {
+    fn invoke_callback(
+        self: Pin<&Self>,
+        callback_name: &SmolStr,
+        args: &[Value],
+    ) -> Result<Value, ()> {
         generativity::make_guard!(guard);
         let comp = self.0.unerase(guard);
         comp.description().invoke(comp.borrow(), callback_name, args)
@@ -274,13 +282,17 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
         prop.get(self)
     }
 
-    fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const () {
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const () {
         let prop: &dyn rtti::PropertyInfo<Self, Value> =
             Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         unsafe { (self.get_ref() as *const Self as *const u8).add(prop.offset()) as *const () }
     }
 
-    fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()> {
+    fn invoke_callback(
+        self: Pin<&Self>,
+        callback_name: &SmolStr,
+        args: &[Value],
+    ) -> Result<Value, ()> {
         let cb = Self::callbacks().into_iter().find(|(k, _)| *k == callback_name).ok_or(())?.1;
         cb.call(self, args)
     }

@@ -9,7 +9,7 @@ use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
-use smol_str::{format_smolstr, ToSmolStr};
+use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 use std::rc::Rc;
 
 /// If any element in `component` declares a binding to `property_name`, then a new
@@ -21,7 +21,7 @@ pub(crate) fn lower_property_to_element(
     property_name: &'static str,
     extra_properties: impl Iterator<Item = &'static str> + Clone,
     default_value_for_extra_properties: Option<&dyn Fn(&ElementRc, &str) -> Expression>,
-    element_name: &str,
+    element_name: &SmolStr,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
@@ -36,7 +36,7 @@ pub(crate) fn lower_property_to_element(
     }
 
     object_tree::recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        if elem.borrow().base_type.to_smolstr() == element_name {
+        if elem.borrow().base_type.to_smolstr() == *element_name {
             return;
         }
 
@@ -67,7 +67,7 @@ pub(crate) fn lower_property_to_element(
                             property_name,
                             extra_properties.clone(),
                             default_value_for_extra_properties,
-                            element_name,
+                            &element_name,
                             type_register,
                         ),
                     )
@@ -78,7 +78,7 @@ pub(crate) fn lower_property_to_element(
                     property_name,
                     extra_properties.clone(),
                     default_value_for_extra_properties,
-                    element_name,
+                    &element_name,
                     type_register,
                 );
                 crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
@@ -96,17 +96,17 @@ fn create_property_element(
     property_name: &'static str,
     extra_properties: impl Iterator<Item = &'static str>,
     default_value_for_extra_properties: Option<&dyn Fn(&ElementRc, &str) -> Expression>,
-    element_name: &str,
+    element_name: &SmolStr,
     type_register: &TypeRegister,
 ) -> ElementRc {
     let bindings = core::iter::once(property_name)
         .chain(extra_properties)
         .map(|property_name| {
             let mut bind =
-                BindingExpression::new_two_way(NamedReference::new(child, property_name));
+                BindingExpression::new_two_way(NamedReference::new(child, property_name.into()));
             if let Some(default_value_for_extra_properties) = default_value_for_extra_properties {
                 if !child.borrow().bindings.contains_key(property_name) {
-                    bind.expression = default_value_for_extra_properties(child, property_name)
+                    bind.expression = default_value_for_extra_properties(child, &property_name)
                 }
             }
             (property_name.into(), bind.into())

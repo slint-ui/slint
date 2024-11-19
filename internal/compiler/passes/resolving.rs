@@ -16,7 +16,7 @@ use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
-use smol_str::SmolStr;
+use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -1448,15 +1448,17 @@ fn continue_lookup_within_element(
                 &second,
             );
         }
-        let prop =
-            Expression::PropertyReference(NamedReference::new(elem, &lookup_result.resolved_name));
+        let prop = Expression::PropertyReference(NamedReference::new(
+            elem,
+            lookup_result.resolved_name.to_smolstr(),
+        ));
         maybe_lookup_object(prop, it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
         Expression::CallbackReference(
-            NamedReference::new(elem, &lookup_result.resolved_name),
+            NamedReference::new(elem, lookup_result.resolved_name.to_smolstr()),
             Some(NodeOrToken::Token(second)),
         )
     } else if matches!(lookup_result.property_type, Type::Function { .. }) {
@@ -1489,7 +1491,7 @@ fn continue_lookup_within_element(
             }
         } else {
             Expression::FunctionReference(
-                NamedReference::new(elem, &lookup_result.resolved_name),
+                NamedReference::new(elem, lookup_result.resolved_name.to_smolstr()),
                 Some(NodeOrToken::Token(second)),
             )
         }
@@ -1545,7 +1547,7 @@ fn maybe_lookup_object(
             }
             _ => {
                 if let Some(minus_pos) = next.text().find('-') {
-                    if base.lookup(ctx, &next.text()[0..minus_pos]).is_some() {
+                    if base.lookup(ctx, &SmolStr::new(&next.text()[0..minus_pos])).is_some() {
                         ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a subtraction", next.text()), &next);
                         return Expression::Invalid;
                     }
@@ -1606,7 +1608,7 @@ fn resolve_two_way_bindings(
                                     .borrow()
                                     .property_analysis
                                     .borrow_mut()
-                                    .entry(nr.name().into())
+                                    .entry(nr.name().clone())
                                     .or_default()
                                     .is_linked = true;
 

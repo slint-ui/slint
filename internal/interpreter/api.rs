@@ -10,6 +10,7 @@ use i_slint_core::model::{Model, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
 use i_slint_core::{PathData, SharedVector};
+use smol_str::{SmolStr, StrExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::future::Future;
@@ -437,6 +438,14 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
 pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
     if ident.contains('_') {
         ident.replace('_', "-").into()
+    } else {
+        ident.into()
+    }
+}
+
+pub(crate) fn normalize_identifier_smolstr(ident: &str) -> SmolStr {
+    if ident.contains('_') {
+        ident.replace_smolstr("_", "-").into()
     } else {
         ident.into()
     }
@@ -1282,7 +1291,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .invoke(comp.borrow(), &normalize_identifier(name), args)
+            .invoke(comp.borrow(), &normalize_identifier_smolstr(name), args)
             .map_err(|()| InvokeError::NoSuchCallable)
     }
 
@@ -1407,7 +1416,7 @@ impl ComponentInstance {
             .description()
             .get_global(comp.borrow(), &normalize_identifier(global))
             .map_err(|()| InvokeError::NoSuchCallable)?; // FIXME: should there be a NoSuchGlobal error?
-        let callable_name = normalize_identifier(callable_name);
+        let callable_name = normalize_identifier_smolstr(callable_name);
         if matches!(
             comp.description()
                 .original

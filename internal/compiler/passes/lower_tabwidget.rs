@@ -92,7 +92,11 @@ fn process_tabwidget(
         set_geometry_prop(elem, child, "width", diag);
         set_geometry_prop(elem, child, "height", diag);
         let condition = Expression::BinaryExpression {
-            lhs: Expression::PropertyReference(NamedReference::new(elem, "current-index")).into(),
+            lhs: Expression::PropertyReference(NamedReference::new(
+                elem,
+                SmolStr::new_static("current-index"),
+            ))
+            .into(),
             rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
             op: '=',
         };
@@ -115,15 +119,27 @@ fn process_tabwidget(
         };
         tab.bindings.insert(
             SmolStr::new_static("title"),
-            BindingExpression::new_two_way(NamedReference::new(child, "title")).into(),
+            BindingExpression::new_two_way(NamedReference::new(
+                child,
+                SmolStr::new_static("title"),
+            ))
+            .into(),
         );
         tab.bindings.insert(
             SmolStr::new_static("current"),
-            BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
+            BindingExpression::new_two_way(NamedReference::new(
+                elem,
+                SmolStr::new_static("current-index"),
+            ))
+            .into(),
         );
         tab.bindings.insert(
             SmolStr::new_static("current-focused"),
-            BindingExpression::new_two_way(NamedReference::new(elem, "current-focused")).into(),
+            BindingExpression::new_two_way(NamedReference::new(
+                elem,
+                SmolStr::new_static("current-focused"),
+            ))
+            .into(),
         );
         tab.bindings.insert(
             SmolStr::new_static("tab-index"),
@@ -154,31 +170,51 @@ fn process_tabwidget(
     );
     tabbar.borrow_mut().bindings.insert(
         SmolStr::new_static("current"),
-        BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
+        BindingExpression::new_two_way(NamedReference::new(
+            elem,
+            SmolStr::new_static("current-index"),
+        ))
+        .into(),
     );
     elem.borrow_mut().bindings.insert(
         SmolStr::new_static("current-focused"),
-        BindingExpression::new_two_way(NamedReference::new(&tabbar, "current-focused")).into(),
+        BindingExpression::new_two_way(NamedReference::new(
+            &tabbar,
+            SmolStr::new_static("current-focused"),
+        ))
+        .into(),
     );
     elem.borrow_mut().bindings.insert(
         SmolStr::new_static("tabbar-preferred-width"),
-        BindingExpression::new_two_way(NamedReference::new(&tabbar, "preferred-width")).into(),
+        BindingExpression::new_two_way(NamedReference::new(
+            &tabbar,
+            SmolStr::new_static("preferred-width"),
+        ))
+        .into(),
     );
     elem.borrow_mut().bindings.insert(
         SmolStr::new_static("tabbar-preferred-height"),
-        BindingExpression::new_two_way(NamedReference::new(&tabbar, "preferred-height")).into(),
+        BindingExpression::new_two_way(NamedReference::new(
+            &tabbar,
+            SmolStr::new_static("preferred-height"),
+        ))
+        .into(),
     );
 
     if let Some(expr) = children
         .iter()
-        .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
+        .map(|x| {
+            Expression::PropertyReference(NamedReference::new(x, SmolStr::new_static("min-width")))
+        })
         .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
         elem.borrow_mut().bindings.insert("content-min-width".into(), RefCell::new(expr.into()));
     };
     if let Some(expr) = children
         .iter()
-        .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
+        .map(|x| {
+            Expression::PropertyReference(NamedReference::new(x, SmolStr::new_static("min-height")))
+        })
         .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
         elem.borrow_mut().bindings.insert("content-min-height".into(), RefCell::new(expr.into()));
@@ -198,7 +234,7 @@ fn set_geometry_prop(
         RefCell::new(
             Expression::PropertyReference(NamedReference::new(
                 tab_widget,
-                &format!("content-{}", prop),
+                format_smolstr!("content-{}", prop),
             ))
             .into(),
         ),
@@ -217,7 +253,7 @@ fn set_tabbar_geometry_prop(tab_widget: &ElementRc, tabbar: &ElementRc, prop: &s
         RefCell::new(
             Expression::PropertyReference(NamedReference::new(
                 tab_widget,
-                &format!("tabbar-{}", prop),
+                format_smolstr!("tabbar-{}", prop),
             ))
             .into(),
         ),

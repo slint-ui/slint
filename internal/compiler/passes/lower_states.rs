@@ -37,8 +37,10 @@ fn lower_state_in_element(
     }
     let has_transitions = !root_element.borrow().transitions.is_empty();
     let state_property_name = compute_state_property_name(root_element);
-    let state_property =
-        Expression::PropertyReference(NamedReference::new(root_element, &state_property_name));
+    let state_property = Expression::PropertyReference(NamedReference::new(
+        root_element,
+        state_property_name.clone(),
+    ));
     let state_property_ref = if has_transitions {
         Expression::StructFieldAccess {
             base: Box::new(state_property.clone()),
@@ -89,7 +91,7 @@ fn lower_state_in_element(
                 true_expr: Box::new(expr),
                 false_expr: Box::new(property_expr),
             };
-            match e.borrow_mut().bindings.entry(ne.name().into()) {
+            match e.borrow_mut().bindings.entry(ne.name().clone()) {
                 std::collections::btree_map::Entry::Occupied(mut e) => {
                     e.get_mut().get_mut().expression = new_expr
                 }
@@ -222,7 +224,7 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
                         | Expression::FunctionReference(nr, _) => {
                             let e = nr.element();
                             if Rc::ptr_eq(&e, &elem) {
-                                *nr = NamedReference::new(element, nr.name());
+                                *nr = NamedReference::new(element, nr.name().clone());
                             } else if Weak::ptr_eq(
                                 &e.borrow().enclosing_component,
                                 &elem.borrow().enclosing_component,

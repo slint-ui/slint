@@ -14,7 +14,7 @@ use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedRefer
 use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
-use smol_str::format_smolstr;
+use smol_str::{format_smolstr, SmolStr};
 use std::rc::Rc;
 
 pub fn is_flickable_element(element: &ElementRc) -> bool {
@@ -57,7 +57,7 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
             // bind the viewport's property to the flickable property, such as:  `width <=> parent.viewport-width`
             viewport.borrow_mut().bindings.insert(
                 vp_prop.into(),
-                BindingExpression::new_two_way(NamedReference::new(flickable, prop)).into(),
+                BindingExpression::new_two_way(NamedReference::new(flickable, prop.clone())).into(),
             );
         }
     }
@@ -89,7 +89,7 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
 }
 
 fn fixup_geometry(flickable_elem: &ElementRc) {
-    let forward_minmax_of = |prop: &str, op: MinMaxOp| {
+    let forward_minmax_of = |prop: &'static str, op: MinMaxOp| {
         set_binding_if_not_explicit(flickable_elem, prop, || {
             flickable_elem
                 .borrow()
@@ -98,7 +98,9 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .filter(|x| is_layout(&x.borrow().base_type))
                 // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (#407)
                 .filter(|x| x.borrow().repeated.is_none())
-                .map(|x| Expression::PropertyReference(NamedReference::new(x, prop)))
+                .map(|x| {
+                    Expression::PropertyReference(NamedReference::new(x, SmolStr::new_static(prop)))
+                })
                 .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, op))
         })
     };
@@ -120,9 +122,17 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .filter(|x| is_layout(&x.borrow().base_type))
                 // FIXME: (#407)
                 .filter(|x| x.borrow().repeated.is_none())
-                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
+                .map(|x| {
+                    Expression::PropertyReference(NamedReference::new(
+                        x,
+                        SmolStr::new_static("min-width"),
+                    ))
+                })
                 .fold(
-                    Expression::PropertyReference(NamedReference::new(flickable_elem, "width")),
+                    Expression::PropertyReference(NamedReference::new(
+                        flickable_elem,
+                        SmolStr::new_static("width"),
+                    )),
                     |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max),
                 ),
         )
@@ -136,9 +146,17 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .filter(|x| is_layout(&x.borrow().base_type))
                 // FIXME: (#407)
                 .filter(|x| x.borrow().repeated.is_none())
-                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
+                .map(|x| {
+                    Expression::PropertyReference(NamedReference::new(
+                        x,
+                        SmolStr::new_static("min-height"),
+                    ))
+                })
                 .fold(
-                    Expression::PropertyReference(NamedReference::new(flickable_elem, "height")),
+                    Expression::PropertyReference(NamedReference::new(
+                        flickable_elem,
+                        SmolStr::new_static("height"),
+                    )),
                     |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max),
                 ),
         )

@@ -8,6 +8,7 @@ Make sure that the Repeated expression are just components without any children
 use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::ElementType;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -71,7 +72,7 @@ fn create_repeater_components(component: &Rc<Component>) {
             if !comp.root_element.borrow().is_binding_set("height", false) {
                 let preferred = Expression::PropertyReference(NamedReference::new(
                     &comp.root_element,
-                    "preferred-height",
+                    SmolStr::new_static("preferred-height"),
                 ));
                 comp.root_element
                     .borrow_mut()
@@ -85,7 +86,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 );
             }
 
-            NamedReference::new(&comp.root_element, "y").mark_as_set();
+            NamedReference::new(&comp.root_element, SmolStr::new_static("y")).mark_as_set();
         }
 
         let weak = Rc::downgrade(&comp);
@@ -111,7 +112,7 @@ fn adjust_references(comp: &Rc<Component>) {
         let e = nr.element();
         if e.borrow().repeated.is_some() {
             if let ElementType::Component(c) = e.borrow().base_type.clone() {
-                *nr = NamedReference::new(&c.root_element, nr.name())
+                *nr = NamedReference::new(&c.root_element, nr.name().clone())
             };
         }
     });

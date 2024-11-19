@@ -8,7 +8,7 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::{ElementType, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
-use smol_str::format_smolstr;
+use smol_str::{format_smolstr, SmolStr};
 use std::rc::{Rc, Weak};
 
 pub fn lower_popups(
@@ -186,8 +186,8 @@ fn lower_popup_window(
 
     // Take a reference to the x/y coordinates, to be read when calling show_popup(), and
     // converted to absolute coordinates in the run-time library.
-    let coord_x = NamedReference::new(&popup_comp.root_element, "x");
-    let coord_y = NamedReference::new(&popup_comp.root_element, "y");
+    let coord_x = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("x"));
+    let coord_y = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("y"));
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
@@ -196,8 +196,8 @@ fn lower_popup_window(
         let name = format_smolstr!("popup-{}-dummy", popup_mut.id);
         popup_mut.property_declarations.insert(name.clone(), Type::LogicalLength.into());
         drop(popup_mut);
-        let dummy1 = NamedReference::new(&popup_comp.root_element, &name);
-        let dummy2 = NamedReference::new(&popup_comp.root_element, &name);
+        let dummy1 = NamedReference::new(&popup_comp.root_element, name.clone());
+        let dummy2 = NamedReference::new(&popup_comp.root_element, name.clone());
         let mut popup_mut = popup_comp.root_element.borrow_mut();
         popup_mut.geometry_props.as_mut().unwrap().x = dummy1;
         popup_mut.geometry_props.as_mut().unwrap().y = dummy2;

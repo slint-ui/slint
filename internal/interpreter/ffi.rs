@@ -313,7 +313,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke(
     let comp = inst.unerase(guard);
     match comp.description().invoke(
         comp.borrow(),
-        &normalize_identifier(std::str::from_utf8(&name).unwrap()),
+        &normalize_identifier_smolstr(std::str::from_utf8(&name).unwrap()),
         args.as_slice(),
     ) {
         Ok(val) => Box::into_raw(Box::new(val)),
@@ -467,7 +467,8 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global(
                     args.as_slice().iter().cloned().collect(),
                 )
             } else {
-                g.as_ref().invoke_callback(&normalize_identifier(callable_name), args.as_slice())
+                g.as_ref()
+                    .invoke_callback(&normalize_identifier_smolstr(callable_name), args.as_slice())
             }
         }) {
         Ok(val) => Box::into_raw(Box::new(val)),

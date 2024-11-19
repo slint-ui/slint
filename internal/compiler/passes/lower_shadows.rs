@@ -46,15 +46,13 @@ fn create_box_shadow_element(
     };
 
     // FIXME: remove the border-radius manual mapping.
-    if sibling_element.borrow().bindings.contains_key("border-radius") {
+    let border_radius = SmolStr::new_static("border-radius");
+    if sibling_element.borrow().bindings.contains_key(&border_radius) {
         element.bindings.insert(
-            "border-radius".into(),
+            border_radius.clone(),
             RefCell::new(
-                Expression::PropertyReference(NamedReference::new(
-                    sibling_element,
-                    "border-radius",
-                ))
-                .into(),
+                Expression::PropertyReference(NamedReference::new(sibling_element, border_radius))
+                    .into(),
             ),
         );
     }
