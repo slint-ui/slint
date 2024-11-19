@@ -7,27 +7,33 @@ sidebar:
 head:
   - tag: title
     content: Slint Documentation Overview
-hero:
-  tagline: Get started building your product with Slint.
-  image:
-    alt: Slint logo
-    dark: ../../assets/slint-logo-square-dark.webp
-    light: ../../assets/slint-logo-square-light.webp
 ---
 
-import { LinkButton } from '@astrojs/starlight/components';
+import { LinkButton, LinkCard } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
 import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
+import ThreeCardGrid from '../../components/ThreeCardGrid.astro';
 
+![banner image](../../assets/banner.webp)
 
-<LinkButton href="/master/docs/slint/getting-started/intro">Get started</LinkButton>
-<LinkButton href="/master/docs/slint/tutorial/quickstart" variant="secondary">
-  Tutorial
-</LinkButton>
-<LinkButton href="/master/docs/slint/reference/overview" variant="secondary">
-  Element Reference
-</LinkButton>
+<ThreeCardGrid>
+<LinkCard
+  title="VS Code Quick Start"
+  href="/master/docs/slint/getting-started/intro"
+  description="Follow along with our VsCode extension and live code tooling."
+/>
+<LinkCard
+  title="Guide"
+  href="/master/docs/slint/guide/intro"
+  description="Learn the basics of Slint."
+/>
+<LinkCard
+  title="Tutorial"
+  href="/master/docs/slint/tutorial/quickstart"
+  description="Follow along with our tutorial."
+/>
+</ThreeCardGrid>
 
 
 
