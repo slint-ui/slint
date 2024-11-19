@@ -8,7 +8,8 @@ import { Api, SelectionStackFrame } from "../api.slint";
 component PopupInner inherits Rectangle {
     in property <length> preview-width: 500px;
     in property <length> preview-height: 900px;
-    private property <float> aspect-ratio: preview-width / preview-height;
+
+    in property <length> max-popup-height: 900px;
     in property <length> selection-x: 0px;
     in property <length> selection-y: 0px;
     in property <[SelectionStackFrame]> selection-stack: [
@@ -112,12 +113,15 @@ component PopupInner inherits Rectangle {
             id: "",
         }
     ];
+    private property <float> aspect-ratio: preview-width / preview-height;
+
     private property <length> max-rect-size: 40px;
     private property <length> frame-height: self.max-rect-size + EditorSpaceSettings.default-padding * 2;
-
-    private property <int> max-visible-frames: Math.floor(((900px / 1px) * 0.8) / (self.frame-height / 1px));
+    private property <int> max-visible-frames: Math.floor(((self.max-popup-height / 1px) * 0.8) / (self.frame-height / 1px));
     private property <int> visible-frames: Math.min(self.max-visible-frames, root.selection-stack.length);
+
     border-radius: EditorSizeSettings.radius;
+
     border-width: 0.5px;
     background: Palette.background;
     drop-shadow-blur: 10px;
@@ -125,15 +129,7 @@ component PopupInner inherits Rectangle {
     border-color: lightgray;
 
     width: 250px;
-    height: visible-frames * frame-height;
-
-    function select-frame(index: int) {
-        if index >= 0 {
-            list-view.viewport-y = (index - (self.visible-frames / 2)) * self.frame-height;
-        } else {
-            list-view.viewport-x = 0px;
-        }
-    }
+    height: self.visible-frames * self.frame-height;
 
     list-view := ListView {
         for frame[index] in root.selection-stack: frame-rect := Rectangle {
@@ -141,9 +137,6 @@ component PopupInner inherits Rectangle {
 
             if frame.is-selected: Rectangle {
                 background: Palette.accent-background;
-                init() => {
-                    root.select-frame(index);
-                }
             }
 
             function frame-color(frame: SelectionStackFrame) -> brush {
@@ -167,15 +160,9 @@ component PopupInner inherits Rectangle {
             function calculate_size(p: length, percent: float) -> length {
                 return Math.max(Math.round((p / 1px) * percent), 2) * 1px;
             }
+
             VerticalLayout {
                 padding-top: EditorSpaceSettings.default-padding / 2;
-                if !frame.is-in-root-component: Text {
-                    x: EditorSpaceSettings.default-padding;
-                    text: frame.file-name;
-                    color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
-                    font-size: EditorFontSettings.label-sub.font-size - 3px;
-                    font-italic: true;
-                }
 
                 HorizontalLayout {
                     visible: (frame.type-name == "Window") ? false : true;
@@ -273,6 +260,14 @@ component PopupInner inherits Rectangle {
                         spacing: EditorSpaceSettings.default-spacing / 2;
                         alignment: center;
 
+                        if !frame.is-in-root-component: Text {
+                            x: EditorSpaceSettings.default-padding;
+                            text: frame.file-name;
+                            color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
+                            font-size: EditorFontSettings.label-sub.font-size - 3px;
+                            font-italic: true;
+                        }
+
                         if frame.id != "": Text {
                             text: frame.id;
                             color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
@@ -294,6 +289,7 @@ component PopupInner inherits Rectangle {
                     background: Palette.foreground.transparentize(0.9);
                 }
             }
+
             TouchArea {
                 clicked() => {
                     Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
@@ -323,6 +319,8 @@ export component SelectionPopup {
     in property <length> preview-width;
     in property <length> preview-height;
 
+    in property <length> max-popup-height;
+
     private property <[SelectionStackFrame]> selection-stack;
     private property <length> selection-x;
     private property <length> selection-y;
@@ -336,11 +334,15 @@ export component SelectionPopup {
         in property <[SelectionStackFrame]> selection-stack: root.selection-stack;
         in property <length> selection-x: root.selection-x;
         in property <length> selection-y: root.selection-y;
+        in property <length> max-popup-height: root.max-popup-height;
+        max-height: root.max-popup-height;
 
         VerticalLayout {
             inner := PopupInner {
                 preview-width <=> popup.preview-width;
                 preview-height <=> popup.preview-height;
+
+                max-popup-height <=> popup.max-popup-height;
                 selection-stack <=> popup.selection-stack;
                 selection-x <=> popup.selection-x;
                 selection-y <=> popup.selection-y;
