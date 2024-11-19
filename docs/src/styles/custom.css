@@ -55,7 +55,7 @@
     }
 
     --sl-color-accent-low: hsl(228, 70%, 30%);
-    --sl-color-accent: hsl(228, 100%, 70%); 
+    --sl-color-accent: hsl(228, 100%, 70%);
     --sl-color-accent-high: hsl(228, 90%, 85%);
 }
 /* Light mode colors. */
@@ -69,6 +69,6 @@
     }
 
     --sl-color-accent-high: hsl(222, 80%, 35%);
-	--sl-color-accent: hsl(222, 89%, 55%);
-	--sl-color-accent-low: hsl(222, 89%, 85%);
+    --sl-color-accent: hsl(222, 89%, 55%);
+    --sl-color-accent-low: hsl(222, 89%, 85%);
 }
