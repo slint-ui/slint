@@ -708,7 +708,7 @@ pub fn generate(
         }
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config)?;
 
     #[cfg(feature = "bundle-translations")]
     if let Some(translations) = &llr.translations {

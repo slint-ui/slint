@@ -459,7 +459,8 @@ pub fn compile_with_output(
     let output_file =
         std::fs::File::create(&output_rust_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter::new(BufWriter::new(output_file));
-    let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config);
+    let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
+        .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?;
 
     let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 
