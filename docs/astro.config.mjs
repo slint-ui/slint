@@ -175,23 +175,23 @@ export default defineConfig({
                         {
                             label: "C++ ↗",
                             link: "https://docs.slint.dev/latest/docs/cpp/",
-                            attrs: { target: "_blank" },
+                            attrs: { target: '_blank' },
                         },
                         {
                             label: "Python ↗",
                             badge: { text: "beta", variant: "caution" },
                             link: "https://pypi.org/project/slint/",
-                            attrs: { target: "_blank" },
+                            attrs: { target: '_blank' },
                         },
                         {
                             label: "Rust ↗",
                             link: "https://docs.slint.dev/latest/docs/rust/slint/",
-                            attrs: { target: "_blank" },
+                            attrs: { target: '_blank' },
                         },
                         {
                             label: "TypeScript ↗",
                             link: "https://docs.slint.dev/latest/docs/node/",
-                            attrs: { target: "_blank" },
+                            attrs: { target: '_blank' },
                         },
                     ],
                 },
