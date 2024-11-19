@@ -32,13 +32,13 @@
     margin-left: 0.1rem;
     font-size: 0.8em;
 }
+
 .plain-code {
     background: none !important;
 }
 
 .sl-markdown-content table td:first-child {
-    min-width: 100px !important; /* adjust this value as needed */
-    /* white-space: nowrap; */
+    min-width: 100px !important; /* Tweak the table so the first column is wider */
 }
 
 /* Dark mode colors. */
