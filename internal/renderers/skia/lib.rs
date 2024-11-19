@@ -306,8 +306,8 @@ impl SkiaRenderer {
         skia_canvas: &skia_safe::Canvas,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        mut gr_context: Option<&mut skia_safe::gpu::DirectContext>,
-        _back_buffer_age: u8,
+        gr_context: Option<&mut skia_safe::gpu::DirectContext>,
+        back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
@@ -318,71 +318,15 @@ impl SkiaRenderer {
         let window_inner = WindowInner::from_pub(window);
 
         window_inner.draw_contents(|components| {
-            let mut box_shadow_cache = Default::default();
-
-            self.image_cache.clear_cache_if_scale_factor_changed(window);
-            self.path_cache.clear_cache_if_scale_factor_changed(window);
-
-            let mut item_renderer = itemrenderer::SkiaItemRenderer::new(
+            self.render_components_to_canvas(
                 skia_canvas,
+                gr_context,
+                back_buffer_age,
+                surface,
                 window,
-                &self.image_cache,
-                &self.path_cache,
-                &mut box_shadow_cache,
+                post_render_cb,
+                components,
             );
-
-            // Draws the window background as gradient
-            match window_inner.window_item().map(|w| w.as_pin_ref().background()) {
-                Some(Brush::SolidColor(clear_color)) => {
-                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
-                }
-                None => {}
-                Some(brush @ _) => {
-                    item_renderer.draw_rect(
-                        i_slint_core::lengths::logical_size_from_api(
-                            window.size().to_logical(window_inner.scale_factor()),
-                        ),
-                        brush,
-                    );
-                }
-            }
-
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
-                // the back buffer, in order to allow the callback to provide its own rendering of the background.
-                // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                if let Some(ctx) = gr_context.as_mut() {
-                    ctx.flush(None);
-                }
-
-                if let Some(surface) = surface {
-                    surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::BeforeRendering, &api)
-                    })
-                }
-            }
-
-            for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
-                    component,
-                    &mut item_renderer,
-                    *origin,
-                );
-            }
-
-            if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref() {
-                collector.measure_frame_rendered(&mut item_renderer);
-            }
-
-            if let Some(cb) = post_render_cb.as_ref() {
-                cb(&mut item_renderer)
-            }
-
-            drop(item_renderer);
-
-            if let Some(ctx) = gr_context.as_mut() {
-                ctx.flush(None);
-            }
         });
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -391,6 +335,85 @@ impl SkiaRenderer {
                     callback.notify(RenderingState::AfterRendering, &api)
                 })
             }
+        }
+    }
+
+    fn render_components_to_canvas(
+        &self,
+        skia_canvas: &skia_safe::Canvas,
+        mut gr_context: Option<&mut skia_safe::gpu::DirectContext>,
+        _back_buffer_age: u8,
+        surface: Option<&dyn Surface>,
+        window: &i_slint_core::api::Window,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+        components: &[(&i_slint_core::item_tree::ItemTreeRc, LogicalPoint)],
+    ) {
+        let window_inner = WindowInner::from_pub(window);
+
+        let mut box_shadow_cache = Default::default();
+
+        self.image_cache.clear_cache_if_scale_factor_changed(window);
+        self.path_cache.clear_cache_if_scale_factor_changed(window);
+
+        let mut item_renderer = itemrenderer::SkiaItemRenderer::new(
+            skia_canvas,
+            window,
+            &self.image_cache,
+            &self.path_cache,
+            &mut box_shadow_cache,
+        );
+
+        // Draws the window background as gradient
+        match window_inner.window_item().map(|w| w.as_pin_ref().background()) {
+            Some(Brush::SolidColor(clear_color)) => {
+                skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+            }
+            None => {}
+            Some(brush @ _) => {
+                item_renderer.draw_rect(
+                    i_slint_core::lengths::logical_size_from_api(
+                        window.size().to_logical(window_inner.scale_factor()),
+                    ),
+                    brush,
+                );
+            }
+        }
+
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+            // the back buffer, in order to allow the callback to provide its own rendering of the background.
+            // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+            if let Some(ctx) = gr_context.as_mut() {
+                ctx.flush(None);
+            }
+
+            if let Some(surface) = surface {
+                surface.with_graphics_api(&mut |api| {
+                    callback.notify(RenderingState::BeforeRendering, &api)
+                })
+            }
+        }
+
+        for (component, origin) in components {
+            i_slint_core::item_rendering::render_component_items(
+                component,
+                &mut item_renderer,
+                *origin,
+            );
+        }
+
+        if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref() {
+            collector.measure_frame_rendered(&mut item_renderer);
+        }
+
+        if let Some(cb) = post_render_cb.as_ref() {
+            cb(&mut item_renderer)
+        }
+
+        drop(item_renderer);
+
+        if let Some(ctx) = gr_context.as_mut() {
+            ctx.flush(None);
         }
     }
 
