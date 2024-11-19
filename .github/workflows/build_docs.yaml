@@ -41,7 +41,9 @@ jobs:
                 node-version: 20
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
-              run: sudo apt-get install ttf-mscorefonts-installer -y
+              run: |
+                  echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
+                  sudo apt-get install ttf-mscorefonts-installer -y
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
