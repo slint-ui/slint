@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 use crate::display::RenderingRotation;
 use crate::drmoutput::DrmOutput;
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
-use i_slint_core::item_rendering::ItemRenderer;
+use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::item_rendering::{DirtyRegion, ItemRenderer};
 use i_slint_core::platform::PlatformError;
 use i_slint_renderer_skia::skia_safe;
 use i_slint_renderer_skia::SkiaRendererExt;
@@ -171,6 +171,7 @@ struct DrmDumbBufferAccess {
 impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAccess {
     fn with_buffer(
         &self,
+        _window: &Window,
         size: PhysicalWindowSize,
         render_callback: &mut dyn FnMut(
             std::num::NonZeroU32,
@@ -178,8 +179,10 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
             skia_safe::ColorType,
             u8,
             &mut [u8],
-        )
-            -> Result<(), i_slint_core::platform::PlatformError>,
+        ) -> Result<
+            Option<DirtyRegion>,
+            i_slint_core::platform::PlatformError,
+        >,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
         else {
@@ -203,7 +206,8 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                 },
                 age,
                 pixels.as_mut(),
-            )
+            )?;
+            Ok(())
         })
     }
 }
