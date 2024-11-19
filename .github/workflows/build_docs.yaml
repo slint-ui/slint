@@ -90,6 +90,11 @@ jobs:
               run: cargo run -p slint-docsnapper -- docs/src/content --overwrite
             - name: "Install Node dependencies for Slint and Node docs"
               run: pnpm install --frozen-lockfile
+            - name: Update URL for sitemap in astro.config.mjs
+              if: ${{ env.RELEASE_INPUT == 'true' }}
+              run: |
+                sed -i 's|"https://snapshots.slint.dev/master/docs/slint/"|"https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs/slint/"|' docs/astro.config.mjs
+                sed -i 's|"/master/docs/slint/"|"/${{ steps.version.outputs.VERSION }}/docs/slint/"|' docs/astro.config.mjs
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
             # Test docs
