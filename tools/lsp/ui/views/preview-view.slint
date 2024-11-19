@@ -89,7 +89,7 @@ component SelectionFrame {
 
         changed has-hover => {
             if self.has-hover {
-                StatusLineApi.help-text = @tr("<double-click> select behind element, <shift double-click> select before element, <{}> ignores component boundaries", Api.control-key-name);
+                StatusLineApi.help-text = @tr("<right-click> show popup, <double-click> select behind element, <{}> ignores component boundaries", Api.control-key-name);
             } else {
                 StatusLineApi.help-text = "";
             }
