@@ -136,10 +136,6 @@ component PopupInner inherits Rectangle {
             width: 100%;
             height: root.frame-height;
 
-            if frame.is-selected: Rectangle {
-                background: Palette.accent-background;
-            }
-
             function frame-color(frame: SelectionStackFrame) -> brush {
                 return EditorPalette.interactive-element-selection-secondary;
             }
@@ -154,7 +150,6 @@ component PopupInner inherits Rectangle {
                     return EditorPalette.general-element-selection-primary;
                 }
             }
-
             function calculate_pos(p: length, percent: float) -> length {
                 return Math.round((p / 1px) * percent) * 1px;
             }
@@ -181,6 +176,7 @@ component PopupInner inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         padding-bottom: EditorSpaceSettings.default-padding / 2;
+
                         Rectangle {
                             function calculate_aspect_ratio_box(aspect-ratio: float, max-rect-length: length) -> length {
                                 return Math.min(aspect-ratio, 1.0) * max-rect-length;
@@ -268,7 +264,6 @@ component PopupInner inherits Rectangle {
                         spacing: EditorSpaceSettings.default-spacing / 2;
                         alignment: center;
 
-
                         if frame.id != "": Text {
                             text: frame.id;
                             color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
@@ -287,15 +282,27 @@ component PopupInner inherits Rectangle {
 
                 Rectangle {
                     height: 1px;
-                    background: Palette.foreground.transparentize(0.9);
+                    background: Palette.border;
                 }
             }
 
-            TouchArea {
+            ta := TouchArea {
                 clicked() => {
                     Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
                 }
             }
+
+            states [
+                hover when ta.has-hover && !frame.is-selected: {
+                    background: Palette.accent-background.transparentize(0.9);
+                }
+                unhover when !ta.has-hover && !frame.is-selected: {
+                    background: Palette.background;
+                }
+                selected when frame.is-selected: {
+                    background: Palette.accent-background;
+                }
+            ]
         }
     }
 }
@@ -319,17 +326,12 @@ export component SelectionPopup {
 
     in property <length> preview-width;
     in property <length> preview-height;
-
     in property <length> max-popup-height;
-
     private property <[SelectionStackFrame]> selection-stack;
     private property <length> selection-x;
     private property <length> selection-y;
 
     popup := PopupWindow {
-        x: 20px;
-        y: 20px;
-
         in property <length> preview-width: root.preview-width;
         in property <length> preview-height: root.preview-height;
         in property <[SelectionStackFrame]> selection-stack: root.selection-stack;
@@ -337,6 +339,8 @@ export component SelectionPopup {
         in property <length> selection-y: root.selection-y;
         in property <length> max-popup-height: root.max-popup-height;
         max-height: root.max-popup-height;
+        x: root.selection-x + 10px;
+        y: root.selection-y + 10px;
 
         VerticalLayout {
             inner := PopupInner {

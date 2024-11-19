@@ -374,6 +374,14 @@ export component PreviewView {
                     }
                 }
 
+                selection-popup := SelectionPopup {
+                    preview-width: root.preview-area-width;
+                    preview-height: root.preview-area-height;
+                    x: 0px;
+                    y: 0px;
+                    max-popup-height: root.height * 0.9;
+                }
+
                 selection-display-area := Rectangle {
                     for s in root.selections: SelectionFrame {
                         interactive: root.mode == DrawAreaMode.selecting;
@@ -415,13 +423,6 @@ export component PreviewView {
                 }
             }
         }
-    }
-
-    selection-popup := SelectionPopup {
-        preview-width: root.preview-area-width;
-        preview-height: root.preview-area-height;
-
-        max-popup-height: root.height * 0.9;
     }
 
     // Diagnostics overlay:
