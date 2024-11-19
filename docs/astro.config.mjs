@@ -39,6 +39,10 @@ export default defineConfig({
                 dark: "./src/assets/slint-logo-small-dark.svg",
             },
             customCss: ["./src/styles/custom.css"],
+            lastUpdated: true,
+            components: {
+                Footer: './src/components/Footer.astro'
+            },
             plugins: [
                 starlightLinksValidator({
                     errorOnRelativeLinks: false,
