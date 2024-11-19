@@ -61,65 +61,70 @@ export default defineConfig({
                     slug: "getting-started/intro",
                 },
                 {
-                    label: "Guide",
+                    label: "Concepts",
                     collapsed: true,
                     items: [
-                        { label: "Introduction", slug: "guide/intro" },
+                        { label: "Introduction", slug: "concepts/intro" },
                         {
                             label: "Slint Language",
                             items: [
                                 {
                                     label: "Basics",
-                                    slug: "guide/language/basics",
+                                    slug: "concepts/language/basics",
                                 },
                                 {
                                     label: "Syntax",
-                                    slug: "guide/language/syntax",
+                                    slug: "concepts/language/syntax",
                                 },
                                 {
                                     label: "Types",
-                                    slug: "guide/language/types",
+                                    slug: "concepts/language/types",
                                 },
                             ],
                         },
                         {
                             label: "App Development",
                             items: [
-                                "guide/development/debugging_techniques",
-                                "guide/development/localization",
-                                "guide/development/fonts",
+                                "concepts/development/debugging_techniques",
+                                "concepts/development/localization",
+                                "concepts/development/fonts",
                             ],
                         },
                     ],
                 },
                 {
-                    label: "Reference",
+                    label: "Tutorial",
                     collapsed: true,
                     items: [
+                        { label: "Introduction", slug: "tutorial/quickstart" },
+
                         {
-                            label: "Overview",
-                            slug: "reference/overview",
+                            label: "Getting Started",
+                            slug: "tutorial/getting_started",
+                        },
+                        { label: "Memory Tile", slug: "tutorial/memory_tile" },
+                        {
+                            label: "Polishing The Tile",
+                            slug: "tutorial/polishing_the_tile",
                         },
                         {
-                            label: "Builtin reference",
-                            autogenerate: { directory: "reference/builtins" },
+                            label: "From One To Multiple Tiles",
+                            slug: "tutorial/from_one_to_multiple_tiles",
                         },
                         {
-                            label: "Elements",
-                            autogenerate: { directory: "reference/elements" },
+                            label: "Creating The Tiles From Code",
+                            slug: "tutorial/creating_the_tiles",
+                        },
+                        { label: "Game Logic", slug: "tutorial/game_logic" },
+                        {
+                            label: "Running In A Browser",
+                            slug: "tutorial/running_in_a_browser",
                         },
                         {
-                            label: "Gestures & Keyboard",
-                            autogenerate: { directory: "reference/gestures" },
+                            label: "Ideas For The Reader",
+                            slug: "tutorial/ideas_for_the_reader",
                         },
-                        {
-                            label: "Layouts",
-                            autogenerate: { directory: "reference/layouts" },
-                        },
-                        {
-                            label: "Window",
-                            autogenerate: { directory: "reference/window" },
-                        },
+                        { label: "Conclusion", slug: "tutorial/conclusion" },
                     ],
                 },
                 {
@@ -164,45 +169,6 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: "Tutorial",
-                    collapsed: true,
-                    items: [
-                        { label: "Introduction", slug: "tutorial/quickstart" },
-
-                        {
-                            label: "Getting Started",
-                            slug: "tutorial/getting_started",
-                        },
-                        { label: "Memory Tile", slug: "tutorial/memory_tile" },
-                        {
-                            label: "Polishing The Tile",
-                            slug: "tutorial/polishing_the_tile",
-                        },
-                        {
-                            label: "From One To Multiple Tiles",
-                            slug: "tutorial/from_one_to_multiple_tiles",
-                        },
-                        {
-                            label: "Creating The Tiles From Code",
-                            slug: "tutorial/creating_the_tiles",
-                        },
-                        { label: "Game Logic", slug: "tutorial/game_logic" },
-                        {
-                            label: "Running In A Browser",
-                            slug: "tutorial/running_in_a_browser",
-                        },
-                        {
-                            label: "Ideas For The Reader",
-                            slug: "tutorial/ideas_for_the_reader",
-                        },
-                        { label: "Conclusion", slug: "tutorial/conclusion" },
-                    ],
-                },
-                {
-                    label: "FAQ",
-                    slug: "faq",
-                },
-                {
                     label: "Language Integrations",
                     collapsed: true,
                     items: [
@@ -229,6 +195,50 @@ export default defineConfig({
                         },
                     ],
                 },
+                {
+                    label: "Reference",
+                    collapsed: true,
+                    items: [
+                        {
+                            label: "Overview",
+                            slug: "reference/overview",
+                        },
+                        {
+                            label: "Builtin reference",
+                            autogenerate: { directory: "reference/builtins" },
+                        },
+                        {
+                            label: "Elements",
+                            autogenerate: { directory: "reference/elements" },
+                        },
+                        {
+                            label: "Gestures & Keyboard",
+                            autogenerate: { directory: "reference/gestures" },
+                        },
+                        {
+                            label: "Layouts",
+                            autogenerate: { directory: "reference/layouts" },
+                        },
+                        {
+                            label: "Window",
+                            autogenerate: { directory: "reference/window" },
+                        },
+                    ],
+                },
+                {
+                    label: "FAQ",
+                    slug: "faq",
+                },
+                {
+                    label: "SlintPad ↗",
+                    link: "https://slintpad.com/",
+                    attrs: { target: '_blank' },
+                },
+                {
+                    label: "Slint Website ↗",
+                    link: "https://slint.dev",
+                    attrs: { target: '_blank' },
+                }
             ],
         }),
     ],

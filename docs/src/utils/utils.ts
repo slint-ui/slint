@@ -72,32 +72,32 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
     switch (typeName) {
         case "angle":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0deg",
             };
         case "bool":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "false",
             };
         case "brush":
             return {
-                href: "/master/docs/slint/guide/language/types/#colors-and-brushes",
+                href: "/master/docs/slint/concepts/language/types/#colors-and-brushes",
                 defaultValue: "a transparent brush",
             };
         case "color":
             return {
-                href: "/master/docs/slint/guide/language/types/#colors-and-brushes",
+                href: "/master/docs/slint/concepts/language/types/#colors-and-brushes",
                 defaultValue: "a transparent color",
             };
         case "duration":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0ms",
             };
         case "easing":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "linear",
             };
         case "enum":
@@ -107,52 +107,52 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "float":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0.0",
             };
         case "image":
             return {
-                href: "/master/docs/slint/guide/language/types/#images",
+                href: "/master/docs/slint/concepts/language/types/#images",
                 defaultValue: "the empty image",
             };
         case "int":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0",
             };
         case "length":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0px",
             };
         case "percent":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0%",
             };
         case "physical-length":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0phx",
             };
         case "Point":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "(0px, 0px)",
             };
         case "relative-font-size":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: "/master/docs/slint/concepts/language/types/",
                 defaultValue: "0rem",
             };
         case "string":
             return {
-                href: "/master/docs/slint/guide/language/types/#string",
+                href: "/master/docs/slint/concepts/language/types/#string",
                 defaultValue: '""',
             };
         case "struct":
             return {
-                href: "/master/docs/slint/guide/language/types/#structs",
+                href: "/master/docs/slint/concepts/language/types/#structs",
                 defaultValue: "a struct with all default values",
             };
         default: {
