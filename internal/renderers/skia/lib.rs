@@ -9,13 +9,13 @@ use std::rc::{Rc, Weak};
 
 use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
-    SetRenderingNotifierError,
+    SetRenderingNotifierError, Window,
 };
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::{BorderRadius, FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::RepaintBufferType;
-use i_slint_core::item_rendering::{ItemCache, ItemRenderer, PartialRenderingState};
+use i_slint_core::item_rendering::{DirtyRegion, ItemCache, ItemRenderer, PartialRenderingState};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -310,6 +310,7 @@ impl SkiaRenderer {
         let window = window_adapter.window();
 
         surface.render(
+            window,
             surface_size,
             &|skia_canvas, gr_context, back_buffer_age| {
                 self.render_to_canvas(
@@ -321,7 +322,7 @@ impl SkiaRenderer {
                     Some(surface.as_ref()),
                     window,
                     post_render_cb,
-                );
+                )
             },
             &self.pre_present_callback,
         )
@@ -337,23 +338,25 @@ impl SkiaRenderer {
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) {
+    ) -> Option<DirtyRegion> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
 
         let window_inner = WindowInner::from_pub(window);
 
-        window_inner.draw_contents(|components| {
-            self.render_components_to_canvas(
-                skia_canvas,
-                gr_context,
-                back_buffer_age,
-                surface,
-                window,
-                post_render_cb,
-                components,
-            );
-        });
+        let dirty_region = window_inner
+            .draw_contents(|components| {
+                self.render_components_to_canvas(
+                    skia_canvas,
+                    gr_context,
+                    back_buffer_age,
+                    surface,
+                    window,
+                    post_render_cb,
+                    components,
+                )
+            })
+            .unwrap_or_default();
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             if let Some(surface) = surface {
@@ -362,6 +365,8 @@ impl SkiaRenderer {
                 })
             }
         }
+
+        dirty_region
     }
 
     fn render_components_to_canvas(
@@ -373,7 +378,7 @@ impl SkiaRenderer {
         window: &i_slint_core::api::Window,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
         components: &[(&i_slint_core::item_tree::ItemTreeRc, LogicalPoint)],
-    ) {
+    ) -> Option<DirtyRegion> {
         let window_inner = WindowInner::from_pub(window);
 
         let mut box_shadow_cache = Default::default();
@@ -393,6 +398,8 @@ impl SkiaRenderer {
         let logical_window_size = i_slint_core::lengths::logical_size_from_api(
             window.size().to_logical(window_inner.scale_factor()),
         );
+
+        let mut dirty_region = None;
 
         {
             let mut item_renderer: &mut dyn ItemRenderer = &mut skia_item_renderer;
@@ -422,6 +429,8 @@ impl SkiaRenderer {
                     let physical_rect = (dirty_rect * scale_factor).to_rect().round_out();
                     clip_path.add_rect(&to_skia_rect(&physical_rect), None);
                 }
+
+                dirty_region = partial_renderer.dirty_region.clone().into();
 
                 skia_canvas.clip_path(&clip_path, None, false);
 
@@ -499,6 +508,8 @@ impl SkiaRenderer {
         if let Some(ctx) = gr_context.as_mut() {
             ctx.flush(None);
         }
+
+        dirty_region
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -799,12 +810,13 @@ pub trait Surface {
     /// rendering context.
     fn render(
         &self,
+        window: &Window,
         size: PhysicalWindowSize,
         render_callback: &dyn Fn(
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
             u8,
-        ),
+        ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.

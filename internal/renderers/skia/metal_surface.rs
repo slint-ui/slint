@@ -3,7 +3,8 @@
 
 use core_graphics_types::geometry::CGSize;
 use foreign_types::{ForeignType, ForeignTypeRef};
-use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize};
+use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::item_rendering::DirtyRegion;
 use metal::MTLPixelFormat;
 use objc::{msg_send, sel, sel_impl};
 use objc::{
@@ -103,8 +104,13 @@ impl super::Surface for MetalSurface {
 
     fn render(
         &self,
+        _window: &Window,
         _size: PhysicalWindowSize,
-        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>, u8),
+        callback: &dyn Fn(
+            &skia_safe::Canvas,
+            Option<&mut skia_safe::gpu::DirectContext>,
+            u8,
+        ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         autoreleasepool(|| {

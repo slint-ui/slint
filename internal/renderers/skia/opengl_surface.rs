@@ -12,11 +12,12 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, OpenGLAPI};
+use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::{
     api::{APIVersion, GraphicsAPI},
     platform::PlatformError,
 };
+use i_slint_core::{item_rendering::DirtyRegion, OpenGLAPI};
 
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
@@ -73,8 +74,13 @@ impl super::Surface for OpenGLSurface {
 
     fn render(
         &self,
+        _window: &Window,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>, u8),
+        callback: &dyn Fn(
+            &skia_safe::Canvas,
+            Option<&mut skia_safe::gpu::DirectContext>,
+            u8,
+        ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), PlatformError> {
         self.ensure_context_current()?;
