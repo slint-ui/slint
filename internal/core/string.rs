@@ -290,8 +290,8 @@ pub fn format(args: core::fmt::Arguments<'_>) -> SharedString {
 
 /// A trait for converting a value to a [`SharedString`].
 ///
-/// This trait is automatically implemented for any type which implements the Display trait as long as the trait is in scrope.
-/// As such, `ToSharedString` shouldn’t be implemented directly: `Display` should be implemented instead, and you get the `ToSharedString` implementation for free.
+/// This trait is automatically implemented for any type which implements the [`Display`](https://doc.rust-lang.org/std/fmt/trait.Display.html) trait as long as the trait is in scope.
+/// As such, `ToSharedString` shouldn’t be implemented directly: [`Display`](https://doc.rust-lang.org/std/fmt/trait.Display.html)should be implemented instead, and you get the `ToSharedString` implementation for free.
 pub trait ToSharedString {
     /// Converts the given value to a [`SharedString`].
     fn to_shared_string(&self) -> SharedString;
