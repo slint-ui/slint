@@ -90,6 +90,7 @@ fn min_max_macro(
         Type::Duration => Type::Duration,
         Type::Angle => Type::Angle,
         Type::Percent => Type::Float32,
+        Type::Rem => Type::Rem,
         _ => {
             diag.push_error("Invalid argument type".into(), &arg_node);
             return Expression::Invalid;
