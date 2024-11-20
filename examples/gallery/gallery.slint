@@ -8,10 +8,13 @@ import { SideBar } from "ui/side_bar.slint";
 
 export { TableViewPageAdapter }
 
+enum Blub {
+    hello
+}
 export component App inherits Window {
     preferred-width: 700px;
     preferred-height: 500px;
-    title: @tr("Slint Widgets Gallery");
+    title: @tr("Slint Widgets Gallery") + Blub.hello;
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
     HorizontalLayout {

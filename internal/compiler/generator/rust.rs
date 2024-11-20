@@ -2168,6 +2168,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Float32, Type::Int32) => {
                     quote!((#f as i32))
                 }
+                (Type::Enumeration(_), Type::String) => {
+                    quote!(sp::format!("{}", #f)
+                }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     quote!(sp::format!("{}", (#f) as f32))
                 }
@@ -2354,6 +2357,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_ty = lhs.ty(ctx);
+            let rhs_ty = rhs.ty(ctx);
             let lhs = compile_expression(lhs, ctx);
             let rhs = compile_expression(rhs, ctx);
 
@@ -2363,7 +2367,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             } else {
                 let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
                     OperatorClass::ArithmeticOp => match lhs_ty {
-                        Type::String => (None, Some(quote!(.as_str()))),
+                        Type::String => match rhs_ty {
+                            Type::Enumeration(_) => (None, Some(quote!(.to_string()))),
+                            _=> (None, Some(quote!(.as_str())))
+                        },
                         Type::Struct { .. } => (None, None),
                         _ => (Some(quote!(as f64)), Some(quote!(as f64))),
                     },

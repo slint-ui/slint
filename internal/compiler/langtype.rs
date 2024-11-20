@@ -265,6 +265,7 @@ impl Type {
             | (Type::Float32, Type::String)
             | (Type::Int32, Type::Float32)
             | (Type::Int32, Type::String)
+            | (Type::Enumeration(..), Type::String)
             | (Type::Float32, Type::Model)
             | (Type::Int32, Type::Model)
             | (Type::PhysicalLength, Type::LogicalLength)
