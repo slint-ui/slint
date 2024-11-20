@@ -94,8 +94,8 @@
         padding-top: 0;
     }
 
-    .hero>img,
-    .hero>.hero-html {
+    .hero > img,
+    .hero > .hero-html {
         order: 2;
         width: min(100%, 35rem);
     }
