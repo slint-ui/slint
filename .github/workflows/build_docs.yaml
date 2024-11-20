@@ -88,8 +88,18 @@ jobs:
 
             - name: "Generate Screenshots for Example Snippets"
               run: cargo run -p slint-docsnapper -- docs/src/content --overwrite
-            - name: "Install Node dependencies for Slint and Node docs"
-              run: pnpm install --frozen-lockfile
+            - name: "Install Node dependencies"
+              run: pnpm i --frozen-lockfile
+
+            - name: "Run lint checks"
+              working-directory: docs
+              continue-on-error: true
+              run: pnpm lint
+
+            - name: "Run format checks"
+              working-directory: docs
+              continue-on-error: true
+              run: pnpm format
             - name: Update URL for sitemap in astro.config.mjs
               if: ${{ env.RELEASE_INPUT == 'true' }}
               run: |
