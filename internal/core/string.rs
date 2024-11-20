@@ -288,6 +288,24 @@ pub fn format(args: core::fmt::Arguments<'_>) -> SharedString {
     output
 }
 
+/// A trait for converting a value to a [`SharedString`].
+///
+/// This trait is automatically implemented for any type which implements the [`Display`] trait as long as the trait is in scope.
+/// As such, `ToSharedString` shouldn’t be implemented directly: [`Display`] should be implemented instead, and you get the `ToSharedString` implementation for free.
+pub trait ToSharedString {
+    /// Converts the given value to a [`SharedString`].
+    fn to_shared_string(&self) -> SharedString;
+}
+
+impl<T> ToSharedString for T
+where
+    T: Display + ?Sized,
+{
+    fn to_shared_string(&self) -> SharedString {
+        format!("{}", self)
+    }
+}
+
 #[test]
 fn simple_test() {
     let x = SharedString::from("hello world!");
@@ -340,6 +358,14 @@ fn threading() {
     assert_eq!(shared_cst.clone(), "Hello there!");
     assert_eq!(shared_mtx.lock().unwrap().as_str(), "Shared:!!!!!!!!!!!!!!!!!!!!");
     // 20x"!"
+}
+
+#[test]
+fn to_shared_string() {
+    let i = 5.1;
+    let five = SharedString::from("5.1");
+
+    assert_eq!(five, i.to_shared_string());
 }
 
 #[cfg(feature = "ffi")]
