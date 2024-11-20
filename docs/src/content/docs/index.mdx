@@ -6,7 +6,7 @@ sidebar:
   order: 1
 hero:
   title: Welcome to Slint
-  tagline: Seamlessly build elegant, modern, stylish, native GUIs for Embedded, Desktop, and Mobile
+  tagline: Seamlessly build elegant GUIs for Embedded, Desktop, and Mobile
   image:
     file: ../../assets/banner.webp
 ---
@@ -16,6 +16,7 @@ import { Image } from 'astro:assets';
 import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
 import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
 import ThreeCardGrid from '../../components/ThreeCardGrid.astro';
+import FourCardGrid from '../../components/FourCardGrid.astro';
 
 <ThreeCardGrid>
 <LinkCard
@@ -37,17 +38,25 @@ import ThreeCardGrid from '../../components/ThreeCardGrid.astro';
 
 ## Get in touch
 
-<CardGrid>
-  <Card title="Mattermost Chat">
-    Join our [Mattermost](https://chat.slint.dev/) chat to ask questions and get help from other Slint users.
-  </Card>
-  <Card title="GitHub Discussions">
-    Start discussion on a new topic or provide your view on ongoing discussions in [GitHub](https://github.com/slint-ui/slint/discussions).
-  </Card>
-  <Card title="Report Bugs">
-   Report bugs via [GitHub Issues](https://github.com/slint-ui/slint/issues).
-  </Card>
-  <Card title="Email">
-   You can also email us at [info[at]slint.dev](mailto:info@slint.dev).
-  </Card>
-</CardGrid>
+<FourCardGrid>
+<LinkCard
+  title="Chat"
+  href="https://chat.slint.dev/"
+  target="_blank"
+/>
+<LinkCard
+  title="Discussions"
+  href="https://github.com/slint-ui/slint/discussions"
+  target="_blank"
+/>
+<LinkCard
+  title="Report Bugs"
+  href="https://github.com/slint-ui/slint/issues"
+  target="_blank"
+/>
+<LinkCard
+  title="Email"
+  href="mailto:info@slint.dev"
+  target="_blank"
+/>
+</FourCardGrid>
