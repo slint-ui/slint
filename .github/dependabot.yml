@@ -28,16 +28,12 @@ updates:
       - dependency-name: "@types/node"
       - dependency-name: "@types/vscode"
     groups:
-      vscode_major:
+      codingame:
         patterns:
-          - "*"
-        update-types:
-          - "major"
-      vscode_minor_patch:
+          - "@codingame*"
+      vscode:
         patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
+          - "vscode*"
+
      
     
