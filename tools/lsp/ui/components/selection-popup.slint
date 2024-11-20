@@ -10,9 +10,9 @@ component PopupInner inherits Rectangle {
     in property <length> preview-height: 900px;
 
     in property <length> max-popup-height: 900px;
-    in property <length> selection-x: 0px;
-    in property <length> selection-y: 0px;
-    in property <[SelectionStackFrame]> selection-stack: [
+    in-out property <length> selection-x: 0px;
+    in-out property <length> selection-y: 0px;
+    in-out property <[SelectionStackFrame]> selection-stack: [
         {
             width: 100%,
             height: 40%,
@@ -113,12 +113,21 @@ component PopupInner inherits Rectangle {
             id: "",
         }
     ];
+
+    private property <SelectionStackFrame> select-on-close: Api.find-selected-selection-stack-frame(self.selection-stack);
+
     private property <float> aspect-ratio: preview-width / preview-height;
 
     private property <length> max-rect-size: 40px;
     private property <length> frame-height: self.max-rect-size + EditorSpaceSettings.default-padding * 2 + 1rem;
     private property <int> max-visible-frames: Math.floor(((self.max-popup-height / 1px) * 0.8) / (self.frame-height / 1px));
     private property <int> visible-frames: Math.min(self.max-visible-frames, root.selection-stack.length);
+
+    function unselect-previewed-selection() {
+        if self.select-on-close.element-path != "" {
+            Api.select-element(self.select-on-close.element-path, self.select-on-close.element-offset, self.select-on-close.x * root.preview-width, self.select-on-close.y * root.preview-height);
+        }
+    }
 
     border-radius: EditorSizeSettings.radius;
 
@@ -304,10 +313,13 @@ component PopupInner inherits Rectangle {
                 ta := TouchArea {
                     clicked() => {
                         Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
+                        root.select-on-close = {};
                     }
                     changed has-hover => {
                         if self.has-hover {
                             Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
+                        } else {
+                            root.unselect-previewed-selection();
                         }
                     }
                 }
@@ -325,14 +337,6 @@ export component SelectionPopup {
         popup.show();
     }
 
-    public function close-selection-stack() {
-        self.selection-x = 0;
-        self.selection-y = 0;
-        self.selection-stack = [];
-
-        popup.close();
-    }
-
     in property <length> preview-width;
     in property <length> preview-height;
     in property <length> max-popup-height;
@@ -343,11 +347,13 @@ export component SelectionPopup {
     popup := PopupWindow {
         in property <length> preview-width: root.preview-width;
         in property <length> preview-height: root.preview-height;
-        in property <[SelectionStackFrame]> selection-stack: root.selection-stack;
-        in property <length> selection-x: root.selection-x;
-        in property <length> selection-y: root.selection-y;
+        in-out property <[SelectionStackFrame]> selection-stack: root.selection-stack;
+        in-out property <length> selection-x: root.selection-x;
+        in-out property <length> selection-y: root.selection-y;
         in property <length> max-popup-height: root.max-popup-height;
+
         max-height: root.max-popup-height;
+
         x: root.selection-x + 10px;
         y: root.selection-y + 10px;
 

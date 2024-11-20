@@ -72,6 +72,9 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
     api.on_selection_stack_at(super::element_selection::selection_stack_at);
+    api.on_find_selected_selection_stack_frame(|stack| {
+        stack.iter().find(|frame| frame.is_selected).unwrap_or_default()
+    });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
             PathBuf::from(path.to_string()),
