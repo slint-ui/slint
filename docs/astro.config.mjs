@@ -177,7 +177,7 @@ export default defineConfig({
                 },
                 {
                     label: "Language Integrations",
-                    collapsed: true,
+                    collapsed: false,
                     items: [
                         {
                             label: "C++ ↗",
@@ -229,8 +229,8 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: "FAQ",
-                    slug: "faq",
+                    label: "Platforms",
+                    autogenerate: { directory: 'platforms' },
                 },
                 {
                     label: "SlintPad ↗",
