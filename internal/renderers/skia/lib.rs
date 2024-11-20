@@ -85,14 +85,14 @@ fn create_default_surface(
     }
 }
 
-fn create_partial_renderer_state() -> (RefCell<Option<PartialRenderingState>>, bool) {
+fn create_partial_renderer_state() -> (Option<PartialRenderingState>, bool) {
     let visualize_dirty_region = match std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref() {
         Ok("debug") => true,
         Ok(_) => false,
-        _ => return (None.into(), false),
+        _ => return (None, false),
     };
 
-    (Some(PartialRenderingState::default()).into(), visualize_dirty_region)
+    (Some(PartialRenderingState::default()), visualize_dirty_region)
 }
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
@@ -112,7 +112,7 @@ pub struct SkiaRenderer {
         opengl_api: Option<OpenGLAPI>,
     ) -> Result<Box<dyn Surface>, PlatformError>,
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
-    partial_rendering_state: RefCell<Option<PartialRenderingState>>,
+    partial_rendering_state: Option<PartialRenderingState>,
     visualize_dirty_region: bool,
 }
 
@@ -406,8 +406,7 @@ impl SkiaRenderer {
             let mut partial_renderer;
             let mut dirty_region_to_visualize = None;
 
-            let partial_rendering_state = self.partial_rendering_state.borrow();
-            if let Some(partial_rendering_state) = partial_rendering_state.as_ref() {
+            if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
                 partial_rendering_state.set_repaint_buffer_type(match back_buffer_age {
                     1 => RepaintBufferType::ReusedBuffer,
                     2 => RepaintBufferType::SwappedBuffers,
@@ -494,7 +493,7 @@ impl SkiaRenderer {
                 if collector.refresh_mode()
                     == i_slint_core::graphics::rendering_metrics_collector::RefreshMode::FullSpeed
                 {
-                    if let Some(partial_rendering_state) = partial_rendering_state.as_ref() {
+                    if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
                         partial_rendering_state.force_screen_refresh();
                     }
                 }
@@ -675,7 +674,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         }) {
             return Err(SetRenderingNotifierError::Unsupported);
         }
-        if self.partial_rendering_state.borrow().is_some() {
+        if self.partial_rendering_state.is_some() {
             return Err(SetRenderingNotifierError::Unsupported);
         }
         let mut notifier = self.rendering_notifier.borrow_mut();
@@ -698,8 +697,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.image_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
 
-        let partial_rendering_state = self.partial_rendering_state.borrow();
-        if let Some(partial_rendering_state) = partial_rendering_state.as_ref() {
+        if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
             partial_rendering_state.free_graphics_resources(items);
         }
 
@@ -711,8 +709,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.image_cache.clear_all();
         self.path_cache.clear_all();
 
-        let mut partial_rendering_state = self.partial_rendering_state.borrow_mut();
-        if let Some(partial_rendering_state) = partial_rendering_state.as_mut() {
+        if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
             partial_rendering_state.clear_cache();
         }
     }
@@ -755,8 +752,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     }
 
     fn mark_dirty_region(&self, region: i_slint_core::item_rendering::DirtyRegion) {
-        let mut partial_rendering_state = self.partial_rendering_state.borrow_mut();
-        if let Some(partial_rendering_state) = partial_rendering_state.as_mut() {
+        if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
             partial_rendering_state.mark_dirty_region(region);
         }
     }
