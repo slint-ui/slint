@@ -230,6 +230,7 @@ export default defineConfig({
                 },
                 {
                     label: "Platforms",
+                    collapsed: true,
                     autogenerate: { directory: "platforms" },
                 },
                 {
