@@ -142,6 +142,7 @@ export component Test {
          root.fn_loc();
       }
       property <Eee> e: Eee.E2;
+      pointer-event(aaa) => {}
   }
   Rectangle {
     background: red;
@@ -215,6 +216,11 @@ export component Test {
             // Fixme: this uses LogicalPoint instead of Point because of implementation details
             "```slint\ncallback row-pointer-event(row-index: int, event: PointerEvent, mouse-position: LogicalPosition)\n```",
         );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("pointer-event", 5.into())),
+            "```slint\ncallback pointer-event(event: PointerEvent)\n```",
+        );
+        // functions
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 1.into())),
             "```slint\npure function fn-glob(abc: int)\n```",
