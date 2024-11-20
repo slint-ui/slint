@@ -20,6 +20,11 @@ fn quit_event_loop() -> Result<(), errors::PyEventLoopError> {
     slint_interpreter::quit_event_loop().map_err(|e| e.into())
 }
 
+#[pyfunction]
+fn set_xdg_app_id(app_id: String) -> Result<(), errors::PyPlatformError> {
+    slint_interpreter::set_xdg_app_id(app_id).map_err(|e| e.into())
+}
+
 use pyo3::prelude::*;
 
 #[pymodule]
@@ -44,6 +49,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<value::PyStruct>()?;
     m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(quit_event_loop, m)?)?;
+    m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
 
     Ok(())
 }

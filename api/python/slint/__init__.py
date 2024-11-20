@@ -317,3 +317,6 @@ Model = models.Model
 Timer = native.Timer
 TimerMode = native.TimerMode
 Struct = native.PyStruct
+
+def set_xdg_app_id(app_id: str):
+    native.set_xdg_app_id(app_id)

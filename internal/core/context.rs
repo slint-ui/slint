@@ -26,6 +26,8 @@ pub(crate) struct SlintContextInner {
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    #[cfg(all(unix, not(target_os = "macos")))]
+    xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -43,6 +45,8 @@ impl SlintContext {
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             translations_bundle_languages: Default::default(),
             window_shown_hook: Default::default(),
+            #[cfg(all(unix, not(target_os = "macos")))]
+            xdg_app_id: Default::default(),
         }))
     }
 
@@ -68,6 +72,23 @@ impl SlintContext {
 
     pub fn run_event_loop(&self) -> Result<(), PlatformError> {
         self.0.platform.run_event_loop()
+    }
+
+    pub fn set_xdg_app_id(&self, _app_id: crate::SharedString) {
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            self.0.xdg_app_id.replace(Some(_app_id));
+        }
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    pub fn xdg_app_id(&self) -> Option<crate::SharedString> {
+        self.0.xdg_app_id.borrow().clone()
+    }
+
+    #[cfg(not(all(unix, not(target_os = "macos"))))]
+    pub fn xdg_app_id(&self) -> Option<crate::SharedString> {
+        None
     }
 }
 

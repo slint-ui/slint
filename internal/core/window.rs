@@ -1249,6 +1249,11 @@ impl WindowInner {
         self.update_window_properties()
     }
 
+    /// Returns the (context global) xdg app id for use with wayland and x11.
+    pub fn xdg_app_id(&self) -> Option<SharedString> {
+        self.ctx.xdg_app_id()
+    }
+
     /// Returns the upgraded window adapter
     pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
         self.window_adapter_weak.upgrade().unwrap()
