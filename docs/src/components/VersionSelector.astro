@@ -1,0 +1,123 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import type { Props } from '@astrojs/starlight/props';
+import { Icon } from '@astrojs/starlight/components';
+---
+
+<script>
+  let versions = [];
+
+  // Fetch versions.json in the browser
+  fetch('https://releases.slint.dev/versions.json')
+    .then(response => response.json())
+    .then(data => {
+      versions = data;
+      // Populate the select dropdown
+      const select = document.getElementById('version-selector');
+      const currentUrl = window.location.href;
+      versions.forEach(version => {
+        const option = document.createElement('option');
+        option.value = version.url;
+        option.textContent = version.name ? `${version.version} - ${version.name}` : version.version;
+        if (currentUrl.includes(version.version)) {
+          option.selected = true;
+        } else if (currentUrl.includes('master')) {
+            if (version.name && version.name.includes('development snapshot')) {
+                option.selected = true;
+            }
+        }
+        if (version.preferred) {
+            option.textContent = `${version.version} - latest`;
+        }
+        select.appendChild(option);
+      });
+    })
+    .catch(error => console.error('Failed to load versions.json:', error));
+    class VersionSelect extends HTMLElement {
+		constructor() {
+			super();
+			const select = this.querySelector('select');
+			if (select) {
+				select.addEventListener('change', (e) => {
+					if (e.currentTarget instanceof HTMLSelectElement) {
+						window.location.href = e.currentTarget.value;
+					}
+				});
+			}
+		}
+	}
+	customElements.define('version-select', VersionSelect);
+</script>
+
+<div>
+  <version-select>
+  <label style={`--sl-select-width: ${Astro.props.width}`}>
+	<span class="sr-only">Version</span>
+    <Icon name="seti:clock" class="icon label-icon" />
+	<select id="version-selector"
+    aria-label="Select Documentation Version">
+	</select>
+	<Icon name="down-caret" class="icon caret" />
+  </label>
+  </version-select>
+</div>
+
+<style>
+  label {
+		--sl-label-icon-size: 0.875rem;
+		--sl-caret-size: 1.25rem;
+		--sl-inline-padding: 0.5rem;
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	label:hover {
+		color: var(--sl-color-gray-2);
+	}
+
+	.icon {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		pointer-events: none;
+	}
+
+	.label-icon {
+		font-size: var(--sl-label-icon-size);
+		inset-inline-start: 0;
+	}
+
+	.caret {
+		font-size: var(--sl-caret-size);
+		inset-inline-end: 0;
+	}
+
+	select {
+		border: 0;
+		padding-block: 0.625rem;
+		padding-inline: calc(var(--sl-label-icon-size) + var(--sl-inline-padding) + 0.25rem)
+			calc(var(--sl-caret-size) + var(--sl-inline-padding) + 0.25rem);
+		margin-inline: calc(var(--sl-inline-padding) * -1);
+		width: calc(var(--sl-select-width) + var(--sl-inline-padding) * 2);
+		background-color: transparent;
+		text-overflow: ellipsis;
+		color: inherit;
+		cursor: pointer;
+		appearance: none;
+	}
+
+	option {
+		background-color: var(--sl-color-bg-nav);
+		color: var(--sl-color-gray-1);
+	}
+
+	@media (min-width: 50rem) {
+		select {
+			font-size: var(--sl-text-sm);
+		}
+	}
+</style>

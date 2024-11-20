@@ -33,7 +33,7 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Docs 1.9.0",
+            title: "Docs",
             logo: {
                 light: "./src/assets/slint-logo-simple-light.webp",
                 dark: "./src/assets/slint-logo-simple-dark.webp",
@@ -41,7 +41,9 @@ export default defineConfig({
             customCss: ["./src/styles/custom.css"],
             lastUpdated: true,
             components: {
-                Footer: './src/components/Footer.astro'
+                Footer: './src/components/Footer.astro',
+                Header: './src/components/Header.astro',
+                Banner: './src/components/Banner.astro',
             },
             plugins: [
                 starlightLinksValidator({
@@ -58,6 +60,7 @@ export default defineConfig({
             favicon: "./src/assets/favicon.svg",
             sidebar: [
                 {
+                    label: "Home",
                     slug: "index",
                 },
                 {

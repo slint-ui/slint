@@ -1,0 +1,81 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import type { Props } from '@astrojs/starlight/props';
+import { Icon } from '@astrojs/starlight/components';
+---
+
+<script>
+  let versions = [];
+  let preferredVersion = null;
+
+  function compareVersions(version1, version2) {
+    const v1 = version1.split('.').map(Number);
+    const v2 = version2.split('.').map(Number);
+
+    while (v1.length < v2.length) v1.push(0);
+    while (v2.length < v1.length) v2.push(0);
+
+    for (let i = 0; i < v1.length; i++) {
+        if (v1[i] > v2[i]) return 1; // version1 is greater
+        if (v1[i] < v2[i]) return -1; // version2 is greater
+    }
+
+    return 0;
+  }
+
+  function extractVersion(url) {
+    // Regular expression to match versions like "1.0.0", "1.9.0", or "v1.0.0"
+    const regex = /(\d+\.\d+\.\d+|\d+\.\d+)(?=\/|$)/;
+    const match = url.match(regex);
+    if (match) {
+      return match[0]; // Return the first matching group (version)
+    }
+    return null; // Return null if no version found
+  }
+
+  // Fetch versions.json in the browser
+  fetch('https://releases.slint.dev/versions.json')
+    .then(response => response.json())
+    .then(data => {
+      versions = data;
+      preferredVersion = versions.find(version => version.preferred);
+      const currentUrl = window.location.href;
+      // Populate the select dropdown
+      const currentVersion = extractVersion(currentUrl);
+      if (currentVersion) {
+        const compareVersion = compareVersions(preferredVersion, selectedVersion);
+        if (compareVersion > 0)
+          document.getElementById('older-version').hidden = false;
+        if (compareVersion > 0)
+          document.getElementById('development-snapshot').hidden = false;
+      } else if (currentUrl.includes('master')) {
+        document.getElementById('development-snapshot').hidden = false;
+      }
+    })
+    .catch(error => console.error('Failed to load versions.json:', error));
+</script>
+
+<div id="development-snapshot" hidden>
+    You are viewing contents of an unstable development version. Switch to <a href="https://docs.slint.dev">the latest released version</a>.
+</div>
+
+<div id="older-version" hidden>
+    You are viewing contents of an older version. Switch to <a href="https://docs.slint.dev">the latest released version</a>.
+</div>
+
+<style>
+  div {
+    background-color: var(--sl-color-orange-low);
+    box-shadow: var(--sl-shadow-sm);
+    color: var(--sl-color-orange-high);
+    line-height: var(--sl-line-height-headings);
+    padding: var(--sl-nav-pad-y) var(--sl-nav-pad-x);
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  div a {
+    color: var(--sl-color-orange-high);
+  }
+</style>
