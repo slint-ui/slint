@@ -15,29 +15,27 @@ cargo install slint-tr-extractor
 ```
 :::
 
+You can choose between runtime translations using `gettext` or bundling translations directly into your executable for platforms where `gettext` is unavailable or impractical.
 
-Complete the following steps to translate your application:
+To translate your application, follow these steps:
 
+1. Identify all user-visible strings that need translation and annotate them with the `@tr()` macro.
+2. Extract annotated strings by running the `slint-tr-extractor` tool to generate `.pot` files.
+3. Use a third-party tool to translate the strings into `.po` files for each target language.
+4. **(For runtime `gettext` translations only)** Convert `.po` files into `.mo` files using [gettext's `msgfmt`](https://www.gnu.org/software/gettext/manual/gettext.html).
+5. **(For bundled translations only)** Configure bundling during the build process to embed translations into your application.
+6. Use Slint's API to select the appropriate translation based on the user's locale.
 
-1. Identify all user visible strings that need translation and annotate them with the `@tr()` macro.
-2. Extract annotated strings by running the `slint-tr-extractor` tool and generate `.pot` files.
-3. Use a third-party tool to translate the strings into a target language, as `.po` files.
-4. Use [gettext's `msgfmt`](https://www.gnu.org/software/gettext/manual/gettext.html) tool to convert `.po` files into run-time loadable `.mo` files.
-5. Use Slint's API to select and load `.mo` files at run-time, based on the user's locale settings.
-
-At this point, all strings marked for translation are automatically rendered in the target language.
-
-:::note[Note]
-Support for translations via gettext is currently not supported on Windows, see [Add support for translations on Windows #3307](https://github.com/slint-ui/slint/issues/3307).
-:::
+At this point, all strings marked for translation will be automatically rendered in the selected language.
 
 ## Annotating Translatable Strings
 
-Use the `@tr` macro in `.slint` files to mark that a string for translation. This macro
-takes care of both the translation and the formatting by replacing `{}` placeholders.
+Use the `@tr` macro in `.slint` files to mark strings for translation.
+This macro supports formatting and pluralization, and can include contextual information.
 
 The first argument must be a plain string literal, followed by the arguments:
 
+### Basic Example
 ```slint
 export component Example {
     property <string> name;
@@ -92,14 +90,13 @@ export component MenuItem {
 }
 ```
 
-## Extract Translatable Strings
+## Extracting Translatable Strings
 
-Use the `slint-tr-extractor` tool to generate a `.pot` file from `.slint` files.
-You can run it like so:
-
+Use `slint-tr-extractor` to generate a `.pot` file:
 ```sh
 find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
 ```
+This creates a `.pot` file with all strings marked for translation.
 
 This creates a file called `MY_PROJECT.pot`. Replace "MY_PROJECT" with your actual project name.
 To learn how the project name affects the lookup of translations, read the sections below.
@@ -108,7 +105,7 @@ To learn how the project name affects the lookup of translations, read the secti
 `.pot` files are [Gettext](https://www.gnu.org/software/gettext/) template files.
 :::
 
-## Translate the Strings
+## Translating Strings
 
 Start a new translation by creating a `.po` file from a `.pot` file. Both file formats are identical.
 You can either copy the file manually or use a tool like Gettext's `msginit` to start a new `.po` file.
@@ -135,9 +132,12 @@ files:
 msgfmt translation.po -o translation.mo
 ```
 
-## Select and Load `.mo` Files at Run-Time
+For bundled translations, no conversion is needed; `.po` files are embedded directly.
 
-Slint uses the [Gettext](https://www.gnu.org/software/gettext/) library to load translations at run-time.
+## Runtime Translations with Gettext
+
+Slint can uses the [Gettext](https://www.gnu.org/software/gettext/) library to load translations at run-time.
+
 Gettext expects translation files - called message catalogs - in following directory hierarchy:
 
 ```
@@ -222,16 +222,45 @@ int main()
 For example, if you're using the above and the user's locale is `fr`,
 Slint looks for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 
+## Bundled Translations
+
+Bundled translations embed the translated strings directly into your application binary.
+This approach is ideal for platforms like WASM or microcontrollers where `gettext` is unavailable.
+
+Configure the Slint compiler to bundle translations by giving it a path to the translations.
+Translation files should be organized as:
+
+```
+path/<lang>/LC_MESSAGES/<domain>.po
+```
+
+### Bundling with Rust
+
+```rust
+let config = slint_build::CompilerConfiguration::new();
+config.with_bundled_translations("path/to/translations");
+```
+
+The `<domain>` is the crate name.
+
+### Bundling with C++
+
+Set the `SLINT_BUNDLE_TRANSLATIONS` property in CMake:
+
+```cmake
+set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
+```
+
+the `<domain>` is the cmake target name.
+
+### Selecting a Translation
+
+If the `std` feature isenabled when building Slint, Slint will try to detect the language based on the locale.
+If one of the bundled language matches the selected locale, it will be used.
+
+Use the `slint::select_bundled_translation` to change thanslation at runtime.
+
 ## Previewing Translations with `slint-viewer`
 
-:::tip[Prerequisite]
-Use `slint-viewer` to preview translations when previewing `.slint` files:
-
-```sh
-cargo install slint-viewer
-```
-:::
-
-1. Enable the `gettext` feature when compiling `slint-viewer`.
-2. Use the `--translation-domain` and `translation-dir` command line options to
-   load translations and display them based on the current locale.
+Make sure the `gettext` feature was enabled when building slint-viewer.
+Use the `--translation-domain` and `--translation-dir` command line options to load translations for preview.
