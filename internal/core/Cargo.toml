@@ -24,7 +24,7 @@ libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
 # Use the standard library
-std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std", "chrono/std", "chrono/wasmbind", "chrono/clock"]
+std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std", "chrono/std", "chrono/wasmbind", "chrono/clock", "dep:sys-locale"]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
 # from a single core, and not in a interrupt or signal handler.
@@ -78,6 +78,7 @@ unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 integer-sqrt = { version = "0.1.5" }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
+sys-locale = { version = "0.3.2", optional = true }
 
 image = { workspace = true, optional = true, default-features = false }
 clru = { workspace = true, optional = true }
