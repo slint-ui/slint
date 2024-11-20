@@ -1552,5 +1552,23 @@ mod tests {
             res.iter().find(|ci| ci.label == "accessible-action-set-value").unwrap().insert_text,
             Some("accessible-action-set-value => {$1}".into())
         );
+        let source = r#"
+            import { StandardTableView } from "std-widgets.slint";
+            component MyTouchArea inherits TouchArea {}
+            component Foo {
+                MyTouchArea {
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "pointer-event").unwrap().insert_text,
+            Some("pointer-event(event) => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "clicked").unwrap().insert_text,
+            Some("clicked => {$1}".into())
+        );
     }
 }

@@ -126,16 +126,16 @@ export component TouchArea {
     callback clicked;
     callback double-clicked;
     callback moved;
-    callback pointer-event(PointerEvent);
-    callback scroll-event(PointerScrollEvent) -> EventResult;
+    callback pointer-event(event: PointerEvent);
+    callback scroll-event(event: PointerScrollEvent) -> EventResult;
     //-default_size_binding:expands_to_parent_geometry
 }
 
 export component FocusScope {
     in property <bool> enabled: true;
     out property <bool> has-focus;
-    callback key_pressed(KeyEvent) -> EventResult;
-    callback key_released(KeyEvent) -> EventResult;
+    callback key_pressed(event: KeyEvent) -> EventResult;
+    callback key_released(event: KeyEvent) -> EventResult;
     callback focus_changed_event();
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
@@ -189,8 +189,8 @@ component MenuBar {
     //-disallow_global_types_as_child_elements
     in property <[MenuEntry]> entries;
 
-    callback activated(MenuEntry);
-    callback sub-menu(MenuEntry) -> [MenuEntry];
+    callback activated(entry: MenuEntry);
+    callback sub-menu(entry: MenuEntry) -> [MenuEntry];
 
     // Currently experimental
     //-is_internal
@@ -200,8 +200,8 @@ component MenuBar {
 export component ContextMenu {
     function show() {}
     //in property <[MenuEntry]> entries;
-    callback activated(MenuEntry);
-    callback sub-menu(MenuEntry) -> [MenuEntry];
+    callback activated(entry: MenuEntry);
+    callback sub-menu(entry: MenuEntry) -> [MenuEntry];
     //-default_size_binding:expands_to_parent_geometry
 
     // Currently experimental
@@ -262,7 +262,7 @@ export component TextInput {
     callback accepted;
     callback rejected;
     callback edited;
-    callback cursor_position_changed(Point);
+    callback cursor_position_changed(position: Point);
     in property <bool> enabled: true;
     in property <bool> single-line: true;
     in property <bool> read-only: false;
