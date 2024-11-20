@@ -312,8 +312,28 @@ pub fn set_bundled_languages(languages: &[&'static str]) {
         let Some(ctx) = ctx.get() else { return };
         if ctx.0.translations_bundle_languages.borrow().is_none() {
             ctx.0.translations_bundle_languages.replace(Some(languages.to_vec()));
+            #[cfg(feature = "std")]
+            if let Some(idx) = index_for_locale(languages) {
+                ctx.0.translations_dirty.as_ref().set(idx);
+            }
         }
     });
+}
+
+/// attempt to select the right bundled translation based on the current locale
+#[cfg(feature = "std")]
+fn index_for_locale(languages: &[&'static str]) -> Option<usize> {
+    let locale = sys_locale::get_locale()?;
+    // first, try an exact match
+    let idx = languages.iter().position(|x| *x == locale);
+    // else, only match the language part
+    fn base<'a>(l: &'a str) -> &'a str {
+        l.find(['-', '_', '@']).map_or(l, |i| &l[..i])
+    }
+    idx.or_else(|| {
+        let locale = base(&locale);
+        languages.iter().position(|x| base(x) == locale)
+    })
 }
 
 /// Select the current translation language when using bundled translations.
