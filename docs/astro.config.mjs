@@ -41,9 +41,9 @@ export default defineConfig({
             customCss: ["./src/styles/custom.css"],
             lastUpdated: true,
             components: {
-                Footer: './src/components/Footer.astro',
-                Header: './src/components/Header.astro',
-                Banner: './src/components/Banner.astro',
+                Footer: "./src/components/Footer.astro",
+                Header: "./src/components/Header.astro",
+                Banner: "./src/components/Banner.astro",
             },
             plugins: [
                 starlightLinksValidator({
@@ -182,23 +182,23 @@ export default defineConfig({
                         {
                             label: "C++ ↗",
                             link: "https://docs.slint.dev/latest/docs/cpp/",
-                            attrs: { target: '_blank' },
+                            attrs: { target: "_blank" },
                         },
                         {
                             label: "Python ↗",
                             badge: { text: "beta", variant: "caution" },
                             link: "https://pypi.org/project/slint/",
-                            attrs: { target: '_blank' },
+                            attrs: { target: "_blank" },
                         },
                         {
                             label: "Rust ↗",
                             link: "https://docs.slint.dev/latest/docs/rust/slint/",
-                            attrs: { target: '_blank' },
+                            attrs: { target: "_blank" },
                         },
                         {
                             label: "TypeScript ↗",
                             link: "https://docs.slint.dev/latest/docs/node/",
-                            attrs: { target: '_blank' },
+                            attrs: { target: "_blank" },
                         },
                     ],
                 },
@@ -235,12 +235,12 @@ export default defineConfig({
                 {
                     label: "SlintPad ↗",
                     link: "https://slintpad.com/",
-                    attrs: { target: '_blank' },
+                    attrs: { target: "_blank" },
                 },
                 {
                     label: "Slint Website ↗",
                     link: "https://slint.dev",
-                    attrs: { target: '_blank' },
+                    attrs: { target: "_blank" },
                 }
             ],
         }),
