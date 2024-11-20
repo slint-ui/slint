@@ -1554,7 +1554,11 @@ mod tests {
         );
         let source = r#"
             import { StandardTableView } from "std-widgets.slint";
-            component MyTouchArea inherits TouchArea {}
+            component MyTouchArea inherits TouchArea {
+                callback cb1;
+                callback cb2(foo: int, bar_bar: string);
+                callback cb3(int, xx: string); // only one arg is named
+            }
             component Foo {
                 MyTouchArea {
                     🔺
@@ -1569,6 +1573,18 @@ mod tests {
         assert_eq!(
             res.iter().find(|ci| ci.label == "clicked").unwrap().insert_text,
             Some("clicked => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "cb1").unwrap().insert_text,
+            Some("cb1 => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "cb2").unwrap().insert_text,
+            Some("cb2(foo, bar-bar) => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "cb3").unwrap().insert_text,
+            Some("cb3 => {$1}".into())
         );
     }
 }
