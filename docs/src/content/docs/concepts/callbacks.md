@@ -50,6 +50,19 @@ export component Example inherits Rectangle {
 }
 ```
 
+Callback arguments can also have names.
+The names of argument have currently no semantic value, but they can be usefull in tooling or auto-completion.
+
+```slint
+export component Example inherits Rectangle {
+    // Declares a callback with named argument
+    callback hello(foo: int, bar: string);
+    // But the names can still be overriden with
+    // anything when setting a handler
+    hello(aa, bb) => { /* ... */ }
+}
+```
+
 ## Aliases
 
 It's possible to declare callback aliases in a similar way to two-way bindings:
