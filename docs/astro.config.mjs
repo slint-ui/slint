@@ -230,7 +230,7 @@ export default defineConfig({
                 },
                 {
                     label: "Platforms",
-                    autogenerate: { directory: 'platforms' },
+                    autogenerate: { directory: "platforms" },
                 },
                 {
                     label: "SlintPad ↗",
@@ -241,7 +241,7 @@ export default defineConfig({
                     label: "Slint Website ↗",
                     link: "https://slint.dev",
                     attrs: { target: "_blank" },
-                }
+                },
             ],
         }),
     ],
