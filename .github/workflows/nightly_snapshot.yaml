@@ -468,7 +468,7 @@ jobs:
               run: |
                   sed -i '/"name": "development snapshot"/,/"preferred": true,/c\
                           "name": "development snapshot",\
-                          "url": "https://snapshots.slint.dev/master/docs"\
+                          "url": "https://snapshots.slint.dev/master/docs/slint"\
                       },\
                       {\
                           "preferred": true,\

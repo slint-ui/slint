@@ -68,7 +68,7 @@ All notable changes to this project are documented in this file.
  - live-preview: delay updating the preview
  - live-preview: Reload when image resources change on disk
  - live-preview: macOS: Add support for reloading via cmd+r
- - Slintpad: updated monaco editor and other dependencies
+ - SlintPad: updated monaco editor and other dependencies
 
 ### Renderer
 
@@ -152,7 +152,7 @@ All notable changes to this project are documented in this file.
  - vscode extension: Added "Create New Project" command to start from one of our templates
  - vscode extension: Rename the output tab to from "Slint LSP" to "Slint", and make sure it is always there
  - slint-viewer: `--save-data`/`--load-data`: support for images with paths. (#6169)
- - Slintpad: Added "about" entry in the menu.
+ - SlintPad: Added "about" entry in the menu.
 
 ### Misc
 
@@ -446,7 +446,7 @@ All notable changes to this project are documented in this file.
 ## [1.4.1] - 2024-02-02
 
  - Skia: Update skia binding dependency.
- - Slintpad: Fixed initial rendering of the live-preview.
+ - SlintPad: Fixed initial rendering of the live-preview.
  - Qt backend: fix crash when closing popup on Wayland. (#4500)
  - Fixed rendering of linear gradient of 90deg. (#4495)
  - C++: Permit passing a value to VectorModel::set_vector by value (#4491)
