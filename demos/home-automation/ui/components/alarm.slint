@@ -128,7 +128,7 @@ export component Alarm inherits Control {
                             font-size: Style.H1-font-size;
                             text: root.indirect-passcode;
                             input-type: password;
-                            width: 145px;
+                            width: 145px;                            
                         }
 
                         mask := Rectangle {
@@ -157,6 +157,8 @@ export component Alarm inherits Control {
                             border-radius: 5px;
                             background: Palette.lineedit-background;
                         }
+                        // Cover the text input to stop it from receiving touch events
+                        TouchArea {}
                     }
 
                     TouchArea {
@@ -190,6 +192,7 @@ export component Alarm inherits Control {
                             }
                         }
                     }
+                    
                 }
             }
         }
