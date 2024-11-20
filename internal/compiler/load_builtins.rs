@@ -117,6 +117,10 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                                     register,
                                 )
                             }).unwrap_or(Type::Void),
+                            arg_names: s
+                                .CallbackDeclarationParameter()
+                                .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
+                                .collect()
                         }))),
                     )
                 }))

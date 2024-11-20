@@ -55,6 +55,7 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
                             property_type: Type::Function(Rc::new(Function {
                                 return_type: Type::Void.into(),
                                 args: vec![],
+                                arg_names: vec![],
                             })),
                             visibility: PropertyVisibility::Public,
                             ..Default::default()

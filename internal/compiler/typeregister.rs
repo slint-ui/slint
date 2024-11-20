@@ -131,10 +131,12 @@ impl BuiltinTypes {
             noarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
                 args: vec![],
+                arg_names: vec![],
             })),
             strarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
                 args: vec![Type::String],
+                arg_names: vec![],
             })),
             layout_info_type: layout_info_type.clone(),
             path_element_type: Type::Struct(Rc::new(Struct {

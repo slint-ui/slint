@@ -509,7 +509,7 @@ export component NativeSpinBox {
     in property <int> maximum: 100;
     in property <int> step-size: 1;
     in property <TextHorizontalAlignment> horizontal-alignment;
-    callback edited(int /* value */);
+    callback edited(value: int);
     //-is_internal
     //-accepts_focus
 }
@@ -521,8 +521,8 @@ export component NativeSlider {
     in property <float> minimum;
     in property <float> maximum: 100;
     in property <Orientation> orientation: Orientation.horizontal;
-    callback changed(float);
-    callback released(float);
+    callback changed(value: float);
+    callback released(value: float);
     //-is_internal
     //-accepts_focus
 }

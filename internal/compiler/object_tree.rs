@@ -1172,10 +1172,22 @@ impl Element {
                 .ReturnType()
                 .map(|ret_ty| type_from_node(ret_ty.Type(), diag, tr))
                 .unwrap_or(Type::Void);
+            let arg_names = sig_decl
+                .CallbackDeclarationParameter()
+                .map(|a| {
+                    a.DeclaredIdentifier()
+                        .and_then(|x| parser::identifier_text(&x))
+                        .unwrap_or_default()
+                })
+                .collect();
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Callback(Rc::new(Function { return_type, args })),
+                    property_type: Type::Callback(Rc::new(Function {
+                        return_type,
+                        args,
+                        arg_names,
+                    })),
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
                     pure,
@@ -1256,7 +1268,11 @@ impl Element {
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Function(Rc::new(Function { return_type, args })),
+                    property_type: Type::Function(Rc::new(Function {
+                        return_type,
+                        args,
+                        arg_names,
+                    })),
                     node: Some(func.into()),
                     visibility,
                     pure,

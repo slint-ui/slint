@@ -120,6 +120,7 @@ macro_rules! declare_builtin_function_types {
                     $($Name : Rc::new(Function{
                         args: vec![$($Arg),*],
                         return_type: $ReturnType,
+                        arg_names: vec![],
                     })),*
                 }
             }
