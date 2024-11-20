@@ -92,11 +92,10 @@ export component MenuItem {
 
 ## Extracting Translatable Strings
 
-Use `slint-tr-extractor` to generate a `.pot` file:
+Use `slint-tr-extractor` to generate a `.pot` file with all strings marked for translation:
 ```sh
 find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
 ```
-This creates a `.pot` file with all strings marked for translation.
 
 This creates a file called `MY_PROJECT.pot`. Replace "MY_PROJECT" with your actual project name.
 To learn how the project name affects the lookup of translations, read the sections below.
@@ -136,7 +135,7 @@ For bundled translations, no conversion is needed; `.po` files are embedded dire
 
 ## Runtime Translations with Gettext
 
-Slint can uses the [Gettext](https://www.gnu.org/software/gettext/) library to load translations at run-time.
+Slint can use the [Gettext](https://www.gnu.org/software/gettext/) library to load translations at run-time.
 
 Gettext expects translation files - called message catalogs - in following directory hierarchy:
 
@@ -227,8 +226,8 @@ Slint looks for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 Bundled translations embed the translated strings directly into your application binary.
 This approach is ideal for platforms like WASM or microcontrollers where `gettext` is unavailable.
 
-Configure the Slint compiler to bundle translations by giving it a path to the translations.
-Translation files should be organized as:
+Configure the Slint compiler to bundle translations by providing a path to the translations.
+Translation files should be organized in the following hierarchy:
 
 ```
 path/<lang>/LC_MESSAGES/<domain>.po
@@ -237,8 +236,8 @@ path/<lang>/LC_MESSAGES/<domain>.po
 ### Bundling with Rust
 
 ```rust
-let config = slint_build::CompilerConfiguration::new();
-config.with_bundled_translations("path/to/translations");
+let config = slint_build::CompilerConfiguration::new()
+    .with_bundled_translations("path/to/translations");
 ```
 
 The `<domain>` is the crate name.
@@ -255,10 +254,10 @@ the `<domain>` is the cmake target name.
 
 ### Selecting a Translation
 
-If the `std` feature isenabled when building Slint, Slint will try to detect the language based on the locale.
+If you enable the `std` feature with Slint, language for translations is detected based on the locale.
 If one of the bundled language matches the selected locale, it will be used.
 
-Use the `slint::select_bundled_translation` to change thanslation at runtime.
+Use the `slint::select_bundled_translation` function to change translations at runtime.
 
 ## Previewing Translations with `slint-viewer`
 
