@@ -94,6 +94,12 @@ pub fn init_translations(domain: String, dir_name: String) -> napi::Result<()> {
         .map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
+#[napi]
+pub fn set_xdg_app_id(app_id: String) -> napi::Result<()> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.set_xdg_app_id(app_id.into()))
+        .map_err(|e| napi::Error::from_reason(e.to_string()))
+}
+
 pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Arguments) {
     let Ok(global) = env.get_global() else {
         eprintln!("Unable to obtain global object");

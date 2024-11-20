@@ -1098,3 +1098,12 @@ impl std::error::Error for PlatformError {
 fn error_is_send() {
     let _: Box<dyn std::error::Error + Send + Sync + 'static> = PlatformError::NoPlatform.into();
 }
+
+/// Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
+/// compliant window managers. This must be set before the window is shown, and has only an effect on Wayland or X11.
+pub fn set_xdg_app_id(app_id: impl Into<SharedString>) -> Result<(), PlatformError> {
+    crate::context::with_global_context(
+        || Err(crate::platform::PlatformError::NoPlatform),
+        |ctx| ctx.set_xdg_app_id(app_id.into()),
+    )
+}

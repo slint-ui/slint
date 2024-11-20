@@ -953,6 +953,14 @@ export function initTranslations(domain: string, path: string | URL) {
 }
 
 /**
+ * Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
+ * compliant window managers. This must be set before the window is shown.
+ */
+export function setXdgAppId(app_id: string) {
+    napi.setXdgAppId(app_id);
+}
+
+/**
  * @hidden
  */
 export namespace private_api {

@@ -1799,6 +1799,15 @@ impl WindowAdapter for QtWindow {
     }
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
+        if let Some(xdg_app_id) = WindowInner::from_pub(&self.window)
+            .xdg_app_id()
+            .map(|s| qttypes::QString::from(s.as_str()))
+        {
+            cpp! {unsafe [xdg_app_id as "QString"] {
+                QGuiApplication::setDesktopFileName(xdg_app_id);
+            }};
+        }
+
         if visible {
             let widget_ptr = self.widget_ptr();
             cpp! {unsafe [widget_ptr as "QWidget*"] {

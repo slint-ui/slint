@@ -337,10 +337,28 @@ impl WinitWindowAdapter {
     }
 
     pub fn ensure_window(&self) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let window_attributes = match &*self.winit_window_or_none.borrow() {
+        #[allow(unused_mut)]
+        let mut window_attributes = match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => return Ok(window.clone()),
             WinitWindowOrNone::None(attributes) => attributes.borrow().clone(),
         };
+
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            if let Some(xdg_app_id) = WindowInner::from_pub(self.window()).xdg_app_id() {
+                #[cfg(feature = "wayland")]
+                {
+                    use winit::platform::wayland::WindowAttributesExtWayland;
+                    window_attributes = window_attributes.with_name(xdg_app_id.clone(), "");
+                }
+                #[cfg(feature = "x11")]
+                {
+                    use winit::platform::x11::WindowAttributesExtX11;
+                    window_attributes = window_attributes.with_name(xdg_app_id.clone(), "");
+                }
+            }
+        }
+
         let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
 
         let winit_window = self.renderer.resume(window_attributes, self.opengl_api.clone())?;
