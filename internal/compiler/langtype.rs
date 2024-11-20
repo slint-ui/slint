@@ -781,6 +781,9 @@ impl<'a> PropertyLookupResult<'a> {
 pub struct Function {
     pub return_type: Type,
     pub args: Vec<Type>,
+    /// The optional names of the arguments (empty string means not set).
+    /// The names are not technically part of the type, but it is good to have them available for auto-completion
+    pub arg_names: Vec<SmolStr>,
 }
 
 #[derive(Debug, Clone)]
