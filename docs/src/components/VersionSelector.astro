@@ -26,7 +26,7 @@ function populateVersions(versions: Version[]) {
       option.textContent = version.preferred
         ? `${version.version} - latest`
         : version.name
-        ? `${version.version} - ${version.name}`
+        ? `${version.version} - dev`
         : version.version;
 
       // Select the correct version based on the URL
