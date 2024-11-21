@@ -10,7 +10,7 @@ slint::include_modules!();
 
 use std::rc::Rc;
 
-use slint::{Model, ModelExt, ModelRc, StandardListViewItem, VecModel};
+use slint::{Model, ModelExt, ModelRc, SharedString, StandardListViewItem, VecModel};
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
@@ -36,51 +36,41 @@ pub fn main() {
     }
 
     app.global::<TableViewPageAdapter>().set_row_data(row_data.clone().into());
-
-    app.global::<TableViewPageAdapter>().on_filter_sort_data({
-        let app_weak = app.as_weak();
-        let row_data = row_data.clone();
-
-        move || {
-            filter_sort_data(&app_weak.unwrap(), &row_data);
-        }
-    });
+    app.global::<TableViewPageAdapter>().on_filter_sort_model(filter_sort_model);
 
     app.run().unwrap();
 }
 
-fn filter_sort_data(app: &App, row_data: &Rc<VecModel<slint::ModelRc<StandardListViewItem>>>) {
-    let mut model: ModelRc<ModelRc<StandardListViewItem>> = row_data.clone().into();
-    let table_view_page_adapter = TableViewPageAdapter::get(&app);
-
-    let filter = table_view_page_adapter.get_filter().to_lowercase();
+fn filter_sort_model(
+    source_model: ModelRc<ModelRc<StandardListViewItem>>,
+    filter: SharedString,
+    sort_index: i32,
+    sort_ascending: bool,
+) -> ModelRc<ModelRc<StandardListViewItem>> {
+    let mut model = source_model.clone();
 
     if !filter.is_empty() {
         // filter by first row
-        model = Rc::new(
-            row_data
-                .clone()
-                .filter(move |e| e.row_data(0).unwrap().text.to_lowercase().contains(&filter)),
-        )
-        .into();
+        model =
+            Rc::new(source_model.clone().filter(move |e| {
+                e.row_data(0).unwrap().text.to_lowercase().contains(filter.as_str())
+            }))
+            .into();
     }
 
-    let ascending = table_view_page_adapter.get_sort_ascending();
-    let index = table_view_page_adapter.get_sort_index();
-
-    if index >= 0 {
-        if ascending {
+    if sort_index >= 0 {
+        if sort_ascending {
             model = Rc::new(model.clone().sort_by(move |r_a, r_b| {
-                let c_a = r_a.row_data(index as usize).unwrap();
-                let c_b = r_b.row_data(index as usize).unwrap();
+                let c_a = r_a.row_data(sort_index as usize).unwrap();
+                let c_b = r_b.row_data(sort_index as usize).unwrap();
 
                 c_a.text.cmp(&c_b.text)
             }))
             .into();
         } else {
             model = Rc::new(model.clone().sort_by(move |r_a, r_b| {
-                let c_a = r_a.row_data(index as usize).unwrap();
-                let c_b = r_b.row_data(index as usize).unwrap();
+                let c_a = r_a.row_data(sort_index as usize).unwrap();
+                let c_b = r_b.row_data(sort_index as usize).unwrap();
 
                 c_b.text.cmp(&c_a.text)
             }))
@@ -88,5 +78,5 @@ fn filter_sort_data(app: &App, row_data: &Rc<VecModel<slint::ModelRc<StandardLis
         }
     }
 
-    table_view_page_adapter.set_row_data(model.into());
+    model
 }

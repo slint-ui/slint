@@ -14,14 +14,14 @@ export global TableViewPageAdapter  {
         [ { text: "Item 5.1" }, { text: "Item 5.2" }, { text: "Item 5.3" }, { text: "Item 5.4" }, ],
         [ { text: "Item 6.1" }, { text: "Item 6.2" }, { text: "Item 6.3" }, { text: "Item 6.4" }, ],
     ];
-    in-out property <string> filter;
-    in-out property <bool> sort-ascending;
-    in-out property <int> sort-index: -1;
     
-    callback filter_sort_data();
+    pure callback filter_sort_model([[StandardListViewItem]], string, int, bool) -> [[StandardListViewItem]];
 }
 
 export component TableViewPage inherits Page {
+    property <int> sort-index: -1;
+    property <bool> sort-acending;
+    
     title: @tr("TableView");
     show-enable-switch: false;
     description: @tr("StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"");
@@ -38,15 +38,13 @@ export component TableViewPage inherits Page {
                 
                 StandardTableView {
                     sort-ascending(index) => {
-                        TableViewPageAdapter.sort-index = index;
-                        TableViewPageAdapter.sort-ascending = true;
-                        TableViewPageAdapter.filter_sort_data();
+                        root.sort-index = index;
+                        root.sort-acending = true;
                     }
 
                     sort-descending(index) => {
-                        TableViewPageAdapter.sort-index = index;
-                        TableViewPageAdapter.sort-ascending = false;
-                        TableViewPageAdapter.filter_sort_data();
+                        root.sort-index = index;
+                        root.sort-acending = false;
                     }
 
                     columns: [
@@ -55,7 +53,7 @@ export component TableViewPage inherits Page {
                         { title: @tr("Header 3") },
                         { title: @tr("Header 4") },
                     ];
-                    rows: TableViewPageAdapter.row_data;
+                    rows: TableViewPageAdapter.filter_sort_model(TableViewPageAdapter.row_data, filter-edit.text, root.sort-index, root.sort-acending);
                 }
 
                 VerticalLayout {
@@ -63,13 +61,8 @@ export component TableViewPage inherits Page {
                         text: @tr("Filter by Header 1:");
                     }
 
-                    LineEdit {
+                    filter-edit := LineEdit {
                         placeholder-text: @tr("Enter filter text");
-
-                        edited => {
-                            TableViewPageAdapter.filter = self.text;
-                            TableViewPageAdapter.filter_sort_data();
-                        }
                     }
                 }   
             }
