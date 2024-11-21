@@ -357,10 +357,10 @@ impl ReuseComplianceCheck {
     pub fn check_reuse_compliance(&self) -> Result<()> {
         if !std::env::current_dir()
             .context("Can not access current work directory")?
-            .join(".reuse")
-            .is_dir()
+            .join("REUSE.toml")
+            .is_file()
         {
-            anyhow::bail!("No .reuse directory found in current directory");
+            anyhow::bail!("No REUSE.toml file found in current directory");
         }
 
         let sh = Shell::new()?;
