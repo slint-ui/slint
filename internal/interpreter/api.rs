@@ -6,10 +6,11 @@ use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::model::{Model, ModelExt, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
 use i_slint_core::{PathData, SharedVector};
+use smol_str::{SmolStr, StrExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::future::Future;
@@ -433,10 +434,44 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     }
 }
 
+impl<T: Into<Value> + 'static> From<ModelRc<T>> for Value {
+    fn from(m: ModelRc<T>) -> Self {
+        if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<Value>>(&m) {
+            Value::Model(v.clone())
+        } else {
+            Value::Model(ModelRc::new(m.map(|v| v.into())))
+        }
+    }
+}
+impl<T: TryFrom<Value> + Default + 'static> TryFrom<Value> for ModelRc<T> {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<ModelRc<T>, Self::Error> {
+        match v {
+            Value::Model(m) => {
+                if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<T>>(&m) {
+                    Ok(v.clone())
+                } else {
+                    Ok(ModelRc::new(m.map(|v| T::try_from(v).unwrap_or_default())))
+                }
+            }
+            _ => Err(v),
+        }
+    }
+}
+
 /// Normalize the identifier to use dashes
 pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
     if ident.contains('_') {
         ident.replace('_', "-").into()
+    } else {
+        ident.into()
+    }
+}
+
+pub(crate) fn normalize_identifier_smolstr(ident: &str) -> SmolStr {
+    if ident.contains('_') {
+        ident.replace_smolstr("_", "-").into()
     } else {
         ident.into()
     }
@@ -1282,7 +1317,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .invoke(comp.borrow(), &normalize_identifier(name), args)
+            .invoke(comp.borrow(), &normalize_identifier_smolstr(name), args)
             .map_err(|()| InvokeError::NoSuchCallable)
     }
 
@@ -1407,7 +1442,7 @@ impl ComponentInstance {
             .description()
             .get_global(comp.borrow(), &normalize_identifier(global))
             .map_err(|()| InvokeError::NoSuchCallable)?; // FIXME: should there be a NoSuchGlobal error?
-        let callable_name = normalize_identifier(callable_name);
+        let callable_name = normalize_identifier_smolstr(callable_name);
         if matches!(
             comp.description()
                 .original
@@ -2097,6 +2132,58 @@ fn test_multi_components() {
     assert!(result.component("Common").is_none());
     assert!(result.component("ExpGlo").is_none());
     assert!(result.component("xyz").is_none());
+}
+
+#[cfg(all(test, feature = "highlight"))]
+fn compile(code: &str) -> (ComponentInstance, PathBuf) {
+    i_slint_backend_testing::init_no_event_loop();
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let path = PathBuf::from("/tmp/test.slint");
+
+    let compile_result =
+        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+
+    for d in &compile_result.diagnostics {
+        eprintln!("{d}");
+    }
+
+    assert!(!compile_result.has_errors());
+
+    let definition = compile_result.components().next().unwrap();
+    let instance = definition.create().unwrap();
+
+    (instance, path)
+}
+
+#[cfg(feature = "highlight")]
+#[test]
+fn test_element_node_at_source_code_position() {
+    let code = r#"
+component Bar1 {}
+
+component Foo1 {
+}
+
+export component Foo2 inherits Window  {
+    Bar1 {}
+    Foo1   {}
+}"#;
+
+    let (handle, path) = compile(code);
+
+    for i in 0..code.as_bytes().len() as u32 {
+        let elements = handle.element_node_at_source_code_position(&path, i);
+        eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
+        match i {
+            16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
+            35 => assert_eq!(elements.len(), 1),       // Foo1 (def)
+            71..=78 => assert_eq!(elements.len(), 1),  // Window + WS (from Foo2)
+            85..=89 => assert_eq!(elements.len(), 1),  // Bar1 + WS (use)
+            97..=103 => assert_eq!(elements.len(), 1), // Foo1 + WS (use)
+            _ => assert!(elements.is_empty()),
+        }
+    }
 }
 
 #[cfg(feature = "ffi")]

@@ -7,6 +7,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BuiltinFunction, Expression, NamedReference};
 use crate::langtype::ElementType;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::rc::Rc;
 
 pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
@@ -61,9 +62,9 @@ fn lower_timer(
     parent_component.optimized_elements.borrow_mut().push(timer_element.clone());
 
     parent_component.timers.borrow_mut().push(Timer {
-        interval: NamedReference::new(timer_element, "interval"),
-        running: NamedReference::new(timer_element, "running"),
-        triggered: NamedReference::new(timer_element, "triggered"),
+        interval: NamedReference::new(timer_element, SmolStr::new_static("interval")),
+        running: NamedReference::new(timer_element, SmolStr::new_static("running")),
+        triggered: NamedReference::new(timer_element, SmolStr::new_static("triggered")),
     });
     let update_timers = Expression::FunctionCall {
         function: Expression::BuiltinFunctionReference(BuiltinFunction::UpdateTimers, None).into(),

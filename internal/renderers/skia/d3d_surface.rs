@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize};
+use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -118,7 +119,7 @@ impl SwapChain {
 
     fn render_and_present<T>(
         &mut self,
-        callback: impl FnOnce(&mut skia_safe::Surface, &mut skia_safe::gpu::DirectContext) -> T,
+        callback: impl FnOnce(&mut skia_safe::Surface, &mut skia_safe::gpu::DirectContext, u8) -> T,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<T, PlatformError> {
         let current_fence_value = self.fence_values[self.current_buffer_index];
@@ -130,7 +131,8 @@ impl SwapChain {
 
         let surface = &mut (*self.surfaces.as_mut().unwrap())[self.current_buffer_index];
 
-        let result = callback(surface, &mut self.gr_context);
+        // TODO: pass correct buffer age
+        let result = callback(surface, &mut self.gr_context, 0);
 
         let info = Default::default();
         self.gr_context.flush_surface_with_access(
@@ -396,12 +398,19 @@ impl super::Surface for D3DSurface {
 
     fn render(
         &self,
+        _window: &Window,
         _size: PhysicalWindowSize,
-        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        callback: &dyn Fn(
+            &skia_safe::Canvas,
+            Option<&mut skia_safe::gpu::DirectContext>,
+            u8,
+        ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.swap_chain.borrow_mut().render_and_present(
-            |surface, gr_context| callback(surface.canvas(), Some(gr_context)),
+            |surface, gr_context, buffer_age| {
+                callback(surface.canvas(), Some(gr_context), buffer_age);
+            },
             pre_present_callback,
         )
     }

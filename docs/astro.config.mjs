@@ -33,12 +33,18 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Slint 1.9.0",
+            title: "Docs",
             logo: {
                 light: "./src/assets/slint-logo-simple-light.webp",
                 dark: "./src/assets/slint-logo-simple-dark.webp",
             },
             customCss: ["./src/styles/custom.css"],
+            lastUpdated: true,
+            components: {
+                Footer: "./src/components/Footer.astro",
+                Header: "./src/components/Header.astro",
+                Banner: "./src/components/Banner.astro",
+            },
             plugins: [
                 starlightLinksValidator({
                     errorOnRelativeLinks: false,
@@ -48,9 +54,13 @@ export default defineConfig({
             social: {
                 github: "https://github.com/slint-ui/slint",
                 "x.com": "https://x.com/slint_ui",
+                linkedin: "https://www.linkedin.com/company/slint-ui/",
+                mastodon: "https://fosstodon.org/@slint",
             },
+            favicon: "./src/assets/favicon.svg",
             sidebar: [
                 {
+                    label: "Home",
                     slug: "index",
                 },
                 {
@@ -61,37 +71,30 @@ export default defineConfig({
                     label: "Guide",
                     collapsed: true,
                     items: [
-                        { label: "Introduction", slug: "guide/intro" },
+                        { label: "Introduction", slug: "concepts/intro" },
                         {
                             label: "Slint Language",
                             items: [
                                 {
                                     label: "Basics",
-                                    slug: "guide/language/basics",
+                                    slug: "concepts/language/basics",
                                 },
                                 {
                                     label: "Syntax",
-                                    slug: "guide/language/syntax",
+                                    slug: "concepts/language/syntax",
                                 },
                                 {
                                     label: "Types",
-                                    slug: "guide/language/types",
-                                },
-                                {
-                                    label: "Font Handling",
-                                    slug: "guide/language/fonts",
-                                },
-                                {
-                                    label: "Legacy Syntax",
-                                    slug: "guide/language/legacy_syntax",
+                                    slug: "concepts/language/types",
                                 },
                             ],
                         },
                         {
                             label: "App Development",
                             items: [
-                                "guide/development/debugging_techniques",
-                                "guide/development/localization",
+                                "concepts/development/debugging_techniques",
+                                "concepts/development/localization",
+                                "concepts/development/fonts",
                             ],
                         },
                     ],
@@ -101,11 +104,11 @@ export default defineConfig({
                     collapsed: true,
                     items: [
                         {
-                            label: "Overview",
+                            label: "Common details",
                             slug: "reference/overview",
                         },
                         {
-                            label: "Builtin reference",
+                            label: "Basics",
                             autogenerate: { directory: "reference/builtins" },
                         },
                         {
@@ -124,6 +127,41 @@ export default defineConfig({
                             label: "Window",
                             autogenerate: { directory: "reference/window" },
                         },
+                    ],
+                },
+                {
+                    label: "Tutorial",
+                    collapsed: true,
+                    items: [
+                        { label: "Introduction", slug: "tutorial/quickstart" },
+
+                        {
+                            label: "Getting Started",
+                            slug: "tutorial/getting_started",
+                        },
+                        { label: "Memory Tile", slug: "tutorial/memory_tile" },
+                        {
+                            label: "Polishing The Tile",
+                            slug: "tutorial/polishing_the_tile",
+                        },
+                        {
+                            label: "From One To Multiple Tiles",
+                            slug: "tutorial/from_one_to_multiple_tiles",
+                        },
+                        {
+                            label: "Creating The Tiles From Code",
+                            slug: "tutorial/creating_the_tiles",
+                        },
+                        { label: "Game Logic", slug: "tutorial/game_logic" },
+                        {
+                            label: "Running In A Browser",
+                            slug: "tutorial/running_in_a_browser",
+                        },
+                        {
+                            label: "Ideas For The Reader",
+                            slug: "tutorial/ideas_for_the_reader",
+                        },
+                        { label: "Conclusion", slug: "tutorial/conclusion" },
                     ],
                 },
                 {
@@ -168,64 +206,34 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: "Tutorial",
+                    label: "Platforms",
                     collapsed: true,
-                    items: [
-                        { label: "Introduction", slug: "tutorial/quickstart" },
-
-                        {
-                            label: "Getting Started",
-                            slug: "tutorial/getting_started",
-                        },
-                        { label: "Memory Tile", slug: "tutorial/memory_tile" },
-                        {
-                            label: "Polishing The Tile",
-                            slug: "tutorial/polishing_the_tile",
-                        },
-                        {
-                            label: "From One To Multiple Tiles",
-                            slug: "tutorial/from_one_to_multiple_tiles",
-                        },
-                        {
-                            label: "Creating The Tiles From Code",
-                            slug: "tutorial/creating_the_tiles",
-                        },
-                        { label: "Game Logic", slug: "tutorial/game_logic" },
-                        {
-                            label: "Running In A Browser",
-                            slug: "tutorial/running_in_a_browser",
-                        },
-                        {
-                            label: "Ideas For The Reader",
-                            slug: "tutorial/ideas_for_the_reader",
-                        },
-                        { label: "Conclusion", slug: "tutorial/conclusion" },
-                    ],
+                    autogenerate: { directory: "platforms" },
                 },
                 {
-                    label: "FAQ",
-                    slug: "faq",
-                },
-                {
-                    label: "Native API",
-                    collapsed: true,
+                    label: "Language Integrations",
+                    collapsed: false,
                     items: [
                         {
                             label: "C++ ↗",
                             link: "https://docs.slint.dev/latest/docs/cpp/",
+                            attrs: { target: "_blank" },
                         },
                         {
                             label: "Python ↗",
                             badge: { text: "beta", variant: "caution" },
                             link: "https://pypi.org/project/slint/",
+                            attrs: { target: "_blank" },
                         },
                         {
                             label: "Rust ↗",
                             link: "https://docs.slint.dev/latest/docs/rust/slint/",
+                            attrs: { target: "_blank" },
                         },
                         {
                             label: "TypeScript ↗",
                             link: "https://docs.slint.dev/latest/docs/node/",
+                            attrs: { target: "_blank" },
                         },
                     ],
                 },

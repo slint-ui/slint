@@ -56,8 +56,6 @@ export component Alarm inherits Control {
             }
         }
 
-        
-
         tile := InnerShadowRectangle {
             inner-color: Palette.glow-color.transparentize(0.5);
             inner-shadow-color: Palette.control-background;
@@ -87,7 +85,6 @@ export component Alarm inherits Control {
                             font-size: 1rem;
                         }
                     }
-                    
                 }
             }
 
@@ -157,11 +154,13 @@ export component Alarm inherits Control {
                             border-radius: 5px;
                             background: Palette.lineedit-background;
                         }
+                        // Cover the text input to stop it from receiving touch events
+                        TouchArea { }
                     }
 
                     TouchArea {
                         enabled: root.full-screen;
-                     }
+                    }
 
                     for row-model[r] in [
                         [1, 2, 3],

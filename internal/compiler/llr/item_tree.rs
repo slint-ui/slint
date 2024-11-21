@@ -276,6 +276,14 @@ pub struct PopupWindow {
 }
 
 #[derive(Debug)]
+pub struct PopupMenu {
+    pub item_tree: ItemTree,
+    pub sub_menu: PropertyReference,
+    pub activated: PropertyReference,
+    pub entries: PropertyReference,
+}
+
+#[derive(Debug)]
 pub struct Timer {
     pub interval: MutExpression,
     pub running: MutExpression,
@@ -348,7 +356,7 @@ impl std::fmt::Debug for SubComponentInstance {
 pub struct ItemTree {
     pub root: SubComponent,
     pub tree: TreeNode,
-    /// This tree has a parent. e.g: it is a Repeater or a PopupMenu whose property can access
+    /// This tree has a parent. e.g: it is a Repeater or a PopupWindow whose property can access
     /// the parent ItemTree.
     /// The String is the type of the parent ItemTree
     pub parent_context: Option<SmolStr>,
@@ -367,6 +375,7 @@ pub struct CompilationUnit {
     pub public_components: Vec<PublicComponent>,
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
+    pub popup_menu: Option<PopupMenu>,
     pub has_debug_info: bool,
     #[cfg(feature = "bundle-translations")]
     pub translations: Option<super::translations::Translations>,
@@ -406,6 +415,9 @@ impl CompilationUnit {
             visit_component(self, c, visitor, None);
         }
         for p in &self.public_components {
+            visit_component(self, &p.item_tree.root, visitor, None);
+        }
+        if let Some(p) = &self.popup_menu {
             visit_component(self, &p.item_tree.root, visitor, None);
         }
     }

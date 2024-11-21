@@ -415,7 +415,11 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         return diag.report_macro_diagnostic(&tokens);
     }
 
-    let mut result = generator::rust::generate(&root_component, &loader.compiler_config);
+    let mut result = generator::rust::generate(&root_component, &loader.compiler_config)
+        .unwrap_or_else(|e| {
+            let e_str = e.to_string();
+            quote!(compile_error!(#e_str))
+        });
 
     // Make sure to recompile if any of the external files changes
     let reload = diag

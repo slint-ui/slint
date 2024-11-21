@@ -8,7 +8,7 @@ use crate::expression_tree::*;
 use crate::langtype::{ElementType, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
 
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -69,7 +69,7 @@ impl LayoutItem {
             let PropertyLookupResult { resolved_name, property_type, .. } =
                 self.element.borrow().lookup_property(unresolved_name);
             if property_type == Type::LogicalLength {
-                Some(NamedReference::new(&self.element, resolved_name.as_ref()))
+                Some(NamedReference::new(&self.element, resolved_name.to_smolstr()))
             } else {
                 None
             }
@@ -93,7 +93,8 @@ pub struct LayoutRect {
 
 impl LayoutRect {
     pub fn install_on_element(element: &ElementRc) -> Self {
-        let install_prop = |name: &str| Some(NamedReference::new(element, name));
+        let install_prop =
+            |name: &'static str| Some(NamedReference::new(element, SmolStr::new_static(name)));
 
         Self {
             x_reference: install_prop("x"),
@@ -147,7 +148,7 @@ impl LayoutConstraints {
             fixed_height: false,
         };
         let mut apply_size_constraint =
-            |prop,
+            |prop: &'static str,
              binding: &BindingExpression,
              enclosing1: &Weak<Component>,
              depth,
@@ -173,7 +174,7 @@ impl LayoutConstraints {
                         },
                     );
                 }
-                *op = Some(NamedReference::new(element, prop))
+                *op = Some(NamedReference::new(element, SmolStr::new_static(prop)))
             };
         find_binding(element, "height", |s, enclosing, depth| {
             constraints.fixed_height = true;
@@ -420,8 +421,8 @@ fn find_binding<R>(
 }
 
 /// Return a named reference to a property if a binding is set on that property
-fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
-    find_binding(element, name, |_, _, _| NamedReference::new(element, name))
+fn binding_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
+    find_binding(element, name, |_, _, _| NamedReference::new(element, SmolStr::new_static(name)))
 }
 
 fn init_fake_property(
@@ -496,7 +497,7 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to
                         // use `elem` as an element for the PropertyReference, not `root` within the base of elem
                         debug_assert!(Rc::ptr_eq(&nr.element(), &base_comp.root_element));
-                        Expression::PropertyReference(NamedReference::new(elem, nr.name()))
+                        Expression::PropertyReference(NamedReference::new(elem, nr.name().clone()))
                     }
                     None => {
                         elem_it = base_comp.root_element.clone();
@@ -552,10 +553,10 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
 }
 
 /// Create a new property based on the name. (it might get a different name if that property exist)
-pub fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> NamedReference {
+pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> NamedReference {
     let mut e = elem.borrow_mut();
-    if !e.lookup_property(tentative_name).is_valid() {
-        e.property_declarations.insert(tentative_name.into(), ty.into());
+    if !e.lookup_property(&tentative_name).is_valid() {
+        e.property_declarations.insert(tentative_name.clone(), ty.into());
         drop(e);
         NamedReference::new(elem, tentative_name)
     } else {
@@ -566,7 +567,7 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> Name
             if !e.lookup_property(&name).is_valid() {
                 e.property_declarations.insert(name.clone(), ty.into());
                 drop(e);
-                return NamedReference::new(elem, &name);
+                return NamedReference::new(elem, name);
             }
         }
     }

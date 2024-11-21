@@ -79,12 +79,7 @@ impl AccessKitAdapter {
     ) {
         if matches!(event, winit::event::WindowEvent::Focused(_)) {
             self.global_property_tracker.set_dirty();
-            let win = self.window_adapter_weak.clone();
-            i_slint_core::timers::Timer::single_shot(Default::default(), move || {
-                if let Some(window_adapter) = win.upgrade() {
-                    window_adapter.accesskit_adapter.borrow_mut().rebuild_tree_of_dirty_nodes();
-                };
-            });
+            self.invoke_later(|self_cell, _| self_cell.borrow_mut().rebuild_tree_of_dirty_nodes());
         }
         self.inner.process_event(window, event);
     }
@@ -149,16 +144,14 @@ impl AccessKitAdapter {
             return;
         }
         self.pending_update = true;
-        let win = self.window_adapter_weak.clone();
-        i_slint_core::timers::Timer::single_shot(Default::default(), move || {
-            if let Some(window_adapter) = win.upgrade() {
-                let mut self_ = window_adapter.accesskit_adapter.borrow_mut();
-                let self_ = &mut *self_;
-                self_.pending_update = false;
-                self_.inner.update_if_active(|| {
-                    self_.nodes.build_new_tree(&win, self_.global_property_tracker.as_ref())
-                })
-            };
+
+        self.invoke_later(|self_cell, win| {
+            let mut self_ = self_cell.borrow_mut();
+            let self_ = &mut *self_;
+            self_.pending_update = false;
+            self_.inner.update_if_active(|| {
+                self_.nodes.build_new_tree(&win, self_.global_property_tracker.as_ref())
+            })
         });
     }
 
@@ -209,6 +202,19 @@ impl AccessKitAdapter {
                 }
             })
         })
+    }
+
+    fn invoke_later(
+        &self,
+        callback: impl FnOnce(&std::cell::RefCell<Self>, Weak<WinitWindowAdapter>) + 'static,
+    ) {
+        let win = self.window_adapter_weak.clone();
+        i_slint_core::timers::Timer::single_shot(Default::default(), move || {
+            WinitWindowAdapter::with_access_kit_adapter_from_weak_window_adapter(
+                win.clone(),
+                move |self_cell| callback(self_cell, win),
+            );
+        });
     }
 }
 
@@ -550,9 +556,12 @@ impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyT
     fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
-            if let Some(window_adapter) = win.upgrade() {
-                window_adapter.accesskit_adapter.borrow_mut().rebuild_tree_of_dirty_nodes();
-            };
+            WinitWindowAdapter::with_access_kit_adapter_from_weak_window_adapter(
+                win,
+                |self_cell| {
+                    self_cell.borrow_mut().rebuild_tree_of_dirty_nodes();
+                },
+            );
         })
     }
 }

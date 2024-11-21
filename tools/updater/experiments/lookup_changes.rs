@@ -70,7 +70,7 @@ pub(crate) fn fold_node(
             let prop_name = i_slint_compiler::parser::normalize_identifier(
                 node.child_token(SyntaxKind::Identifier).unwrap().text(),
             );
-            let nr = NamedReference::new(el, &prop_name);
+            let nr = NamedReference::new(el, prop_name);
             if let Some(new_name) = state.lookup_change.property_mappings.get(&nr).cloned() {
                 state.lookup_change.replace_self = Some(
                     state
@@ -96,7 +96,7 @@ pub(crate) fn fold_node(
             let prop_name = i_slint_compiler::parser::normalize_identifier(
                 &node.child_node(SyntaxKind::DeclaredIdentifier).unwrap().text().to_string(),
             );
-            let nr = NamedReference::new(el, &prop_name);
+            let nr = NamedReference::new(el, prop_name);
             if state.lookup_change.property_mappings.contains_key(&nr) {
                 return Ok(true);
             }
@@ -166,7 +166,7 @@ fn fully_qualify_property_access(
                     None => return Ok(false),
                 };
                 let prop_name = i_slint_compiler::parser::normalize_identifier(second.text());
-                let nr = NamedReference::new(&el.upgrade().unwrap(), &prop_name);
+                let nr = NamedReference::new(&el.upgrade().unwrap(), prop_name);
                 if let Some(new_name) = state.lookup_change.property_mappings.get(&nr) {
                     write!(file, "root.{new_name} ")?;
                     Ok(true)
@@ -284,7 +284,7 @@ pub(crate) fn collect_movable_properties(state: &mut crate::State) {
                 c.borrow()
                     .property_declarations
                     .iter()
-                    .map(|(name, _)| NamedReference::new(c, &name)),
+                    .map(|(name, _)| NamedReference::new(c, name.clone())),
             );
             collect_movable_properties_recursive(vec, &c);
         }

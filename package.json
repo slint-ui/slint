@@ -5,10 +5,15 @@
   "main": "index.js",
   "scripts": {
     "format": "pnpm --stream -r format",
-    "format:write": "pnpm -r format:write",
+    "format:fix": "pnpm -r format:fix",
     "lint": "pnpm --stream -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "type-check": "pnpm --stream -r type-check"
   },
-  "packageManager": "pnpm@9.11.0"
+  "packageManager": "pnpm@9.11.0",
+  "pnpm": {
+    "overrides": {
+      "dompurify": "3.2.1"
+    }
+  }
 }

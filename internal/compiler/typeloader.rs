@@ -261,6 +261,9 @@ impl Snapshotter {
         document.inner_components.iter().for_each(|ic| {
             let _ = self.create_component(ic);
         });
+        if let Some(popup_menu_impl) = &document.popup_menu_impl {
+            let _ = self.create_component(popup_menu_impl);
+        }
     }
 
     fn snapshot_document(&mut self, document: &object_tree::Document) -> object_tree::Document {
@@ -284,6 +287,10 @@ impl Snapshotter {
             exports,
             embedded_file_resources: document.embedded_file_resources.clone(),
             used_types: RefCell::new(self.snapshot_used_sub_types(&document.used_types.borrow())),
+            popup_menu_impl: document.popup_menu_impl.as_ref().map(|p| {
+                Weak::upgrade(&self.use_component(p))
+                    .expect("Components can get upgraded at this point")
+            }),
         }
     }
 

@@ -31,7 +31,7 @@
     "keywords": [],
     "author": "",
     "devDependencies": {
-        "@biomejs/biome": "1.9.3",
+        "@biomejs/biome": "1.9.4",
         "@codingame/monaco-vscode-configuration-service-override": "~8.0.4",
         "@codingame/monaco-vscode-files-service-override": "~8.0.4",
         "@codingame/monaco-vscode-keybindings-service-override": "~8.0.4",
@@ -47,7 +47,7 @@
         "path-browserify": "1.0.1",
         "rimraf": "6.0.1",
         "typescript": "5.6.2",
-        "vite": "5.4.8",
+        "vite": "5.4.11",
         "vscode": "npm:@codingame/monaco-vscode-api@~8.0.4",
         "vscode-languageclient": "9.0.1",
         "vscode-languageserver": "9.0.1",

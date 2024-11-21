@@ -4,16 +4,20 @@
     width: 100%;
     align-items: center;
 }
+
 .code-block {
-    width: 80%; /* Reduced from 300px to accommodate the gap */
+    width: 80%;
+    /* Reduced from 300px to accommodate the gap */
     overflow-x: auto;
 }
+
 .image-block {
     width: 20%;
     margin-top: 0 !important;
     margin-left: 20px;
     border-radius: 10px;
 }
+
 .image-block img {
     width: auto;
     height: auto;
@@ -24,33 +28,88 @@
     text-decoration: none;
 }
 
+.default-value code {
+    margin-left: -0.3rem;
+}
+
 .default-value {
-    margin-left: 0.2rem;
+    margin-left: 0.1rem;
     font-size: 0.8em;
 }
+
 .plain-code {
     background: none !important;
 }
 
+.sl-markdown-content table td:first-child {
+    min-width: 100px !important;
+    /* Tweak the table so the first column is wider */
+}
+
 /* Dark mode colors. */
 :root {
+    --sl-hue-blue: 222;
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
     --sl-color-gray-6: #1b1c21;
     --sl-color-hairline: #212329;
     --sl-color-hairline-shade: var(--sl-color-hairline);
     --badge-border-color: --sl-color-hairline;
+
     .screenshot-container {
         background-color: #cdcdcd;
     }
+
+    --sl-color-accent-low: hsl(228, 70%, 30%);
+    --sl-color-accent: hsl(228, 100%, 70%);
+    --sl-color-accent-high: hsl(228, 90%, 85%);
 }
+
 /* Light mode colors. */
 :root[data-theme="light"] {
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
     --badge-border-color: lightgrey;
     --sl-color-hairline: #edeef3;
+
     .screenshot-container {
         background-color: whitesmoke;
     }
+
+    --sl-color-accent-high: hsl(222, 80%, 35%);
+    --sl-color-accent: hsl(222, 89%, 55%);
+    --sl-color-accent-low: hsl(222, 89%, 85%);
+}
+
+.hero {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-direction: column;
+}
+
+@media (min-width: 50rem) {
+    .hero {
+        padding-bottom: 0;
+        padding-top: 0;
+    }
+
+    .hero > img,
+    .hero > .hero-html {
+        order: 2;
+        width: min(100%, 35rem);
+    }
+
+    .stack {
+        text-align: center;
+    }
+
+    .copy {
+        align-items: center;
+    }
+}
+
+.site-title {
+    font-size: 1rem;
+    text-transform: uppercase;
 }

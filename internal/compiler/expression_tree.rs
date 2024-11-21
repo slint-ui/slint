@@ -43,6 +43,7 @@ pub enum BuiltinFunction {
     ClearFocusItem,
     ShowPopupWindow,
     ClosePopupWindow,
+    ShowPopupMenu,
     SetSelectionOffsets,
     /// A function that belongs to an item (such as TextInput's select-all function).
     ItemMemberFunction(SmolStr),
@@ -119,6 +120,7 @@ macro_rules! declare_builtin_function_types {
                     $($Name : Rc::new(Function{
                         args: vec![$($Arg),*],
                         return_type: $ReturnType,
+                        arg_names: vec![],
                     })),*
                 }
             }
@@ -156,6 +158,7 @@ declare_builtin_function_types!(
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
     ClosePopupWindow: (Type::ElementReference) -> Type::Void,
+    ShowPopupMenu: (Type::ElementReference, Type::Model, crate::typeregister::logical_point_type()) -> Type::Void,
     ItemMemberFunction(..): (Type::ElementReference) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
     ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
@@ -264,7 +267,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::ShowPopupWindow
+            | BuiltinFunction::ClosePopupWindow
+            | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
@@ -278,7 +283,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorWithAlpha => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
             // we need to make sure that calls to this function stay within a binding, so that the property
-            // notification when updating kicks in. Only Slintpad (wasm-interpreter) loads images via the network,
+            // notification when updating kicks in. Only SlintPad (wasm-interpreter) loads images via the network,
             // which is when this code is targeting wasm.
             #[cfg(not(target_arch = "wasm32"))]
             BuiltinFunction::ImageSize => true,
@@ -331,7 +336,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::ShowPopupWindow
+            | BuiltinFunction::ClosePopupWindow
+            | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => true,

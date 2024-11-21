@@ -3,7 +3,7 @@
 
 use crate::common::DocumentCache;
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{Function, Type};
 use i_slint_compiler::lookup::{LookupObject as _, LookupResult};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
@@ -88,20 +88,16 @@ fn signature_info(
     match expression {
         Expression::FunctionReference(nr, _) => signature_from_nr(nr, active_parameter),
         Expression::CallbackReference(nr, _) => signature_from_nr(nr, active_parameter),
-        Expression::BuiltinFunctionReference(b, _) => Some(make_signature_info(
-            &format!("{b:?}"),
-            b.ty().args.iter().map(|x| x.to_string()).collect(),
-            active_parameter,
-        )),
+        Expression::BuiltinFunctionReference(b, _) => {
+            Some(signature_from_function_ty(&format!("{b:?}"), &b.ty(), 0, active_parameter))
+        }
         Expression::BuiltinMacroReference(b, _) => {
             Some(make_signature_info(&format!("{b:?}"), vec!["...".into()], active_parameter))
         }
         Expression::MemberFunction { member, .. } => match *member {
-            Expression::BuiltinFunctionReference(b, _) => Some(make_signature_info(
-                &format!("{b:?}"),
-                b.ty().args.iter().skip(1).map(|x| x.to_string()).collect(),
-                active_parameter,
-            )),
+            Expression::BuiltinFunctionReference(b, _) => {
+                Some(signature_from_function_ty(&format!("{b:?}"), &b.ty(), 1, active_parameter))
+            }
             Expression::BuiltinMacroReference(b, _) => {
                 Some(make_signature_info(&format!("{b:?}"), vec!["...".into()], active_parameter))
             }
@@ -115,65 +111,39 @@ fn signature_from_nr(
     nr: NamedReference,
     active_parameter: Option<u32>,
 ) -> Option<SignatureInformation> {
-    let mut element = nr.element();
-    loop {
-        if let Some(p) = element.borrow().property_declarations.get(nr.name()) {
-            let ty = &p.property_type;
-            if let Type::Callback(callback) = ty {
-                let args = if let Some(node) =
-                    p.node.clone().and_then(syntax_nodes::CallbackDeclaration::new)
-                {
-                    callback
-                        .args
-                        .iter()
-                        .zip(node.CallbackDeclarationParameter())
-                        .map(|(ty, n)| {
-                            if let Some(id) = n.DeclaredIdentifier() {
-                                format!("{}: {ty}", id.text())
-                            } else {
-                                ty.to_string()
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                } else {
-                    callback.args.iter().map(|x| x.to_string()).collect::<Vec<_>>()
-                };
-                return Some(make_signature_info(nr.name(), args, active_parameter));
-            } else if let Type::Function(function) = &ty {
-                let args = if let Some(node) = p.node.clone().and_then(syntax_nodes::Function::new)
-                {
-                    function
-                        .args
-                        .iter()
-                        .zip(node.ArgumentDeclaration())
-                        .map(|(ty, n)| format!("{}: {ty}", n.DeclaredIdentifier().text()))
-                        .collect::<Vec<_>>()
-                } else {
-                    function.args.iter().map(|x| x.to_string()).collect::<Vec<_>>()
-                };
-                return Some(make_signature_info(nr.name(), args, active_parameter));
-            }
+    match nr.ty() {
+        Type::Function(f) | Type::Callback(f) => {
+            Some(signature_from_function_ty(nr.name(), &f, 0, active_parameter))
         }
-        let base = element.borrow().base_type.clone();
-        if let ElementType::Component(c) = base {
-            element = c.root_element.clone();
-            continue;
-        }
-        match nr.ty() {
-            Type::Function(f) | Type::Callback(f) => {
-                return Some(make_signature_info(
-                    nr.name(),
-                    f.args
-                        .iter()
-                        .filter(|x| *x != &Type::ElementReference)
-                        .map(|x| x.to_string())
-                        .collect(),
-                    active_parameter,
-                ));
-            }
-            _ => return None,
-        }
+        _ => None,
     }
+}
+
+fn signature_from_function_ty(
+    name: &str,
+    f: &Function,
+    skip: usize,
+    active_parameter: Option<u32>,
+) -> SignatureInformation {
+    make_signature_info(
+        name,
+        f.args
+            .iter()
+            .zip(f.arg_names.iter().chain(std::iter::repeat(&Default::default())))
+            .skip(skip)
+            .filter(|(x, _)| *x != &Type::ElementReference)
+            .map(
+                |(ty, name)| {
+                    if !name.is_empty() {
+                        format!("{name}: {ty}")
+                    } else {
+                        ty.to_string()
+                    }
+                },
+            )
+            .collect(),
+        active_parameter,
+    )
 }
 
 fn make_signature_info(

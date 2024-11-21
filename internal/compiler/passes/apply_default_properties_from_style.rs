@@ -9,6 +9,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::Component;
+use smol_str::SmolStr;
 use std::rc::Rc;
 
 /// Ideally we would be able to write this in builtin.slint, but the StyleMetrics is not available there
@@ -28,13 +29,13 @@ pub fn apply_default_properties_from_style(
                     elem.set_binding_if_not_set("text-cursor-width".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
-                            "text-cursor-width",
+                            SmolStr::new_static("text-cursor-width"),
                         ))
                     });
                     elem.set_binding_if_not_set("color".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &palette.root_element,
-                            "foreground",
+                            SmolStr::new_static("foreground"),
                         ))
                         .into()
                     });
@@ -42,7 +43,7 @@ pub fn apply_default_properties_from_style(
                         Expression::Cast {
                             from: Expression::PropertyReference(NamedReference::new(
                                 &palette.root_element,
-                                "selection-background",
+                                SmolStr::new_static("selection-background"),
                             ))
                             .into(),
                             to: Type::Color,
@@ -52,7 +53,7 @@ pub fn apply_default_properties_from_style(
                         Expression::Cast {
                             from: Expression::PropertyReference(NamedReference::new(
                                 &palette.root_element,
-                                "selection-foreground",
+                                SmolStr::new_static("selection-foreground"),
                             ))
                             .into(),
                             to: Type::Color,
@@ -63,7 +64,7 @@ pub fn apply_default_properties_from_style(
                     elem.set_binding_if_not_set("color".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
                             &palette.root_element,
-                            "foreground",
+                            SmolStr::new_static("foreground"),
                         ))
                         .into(),
                         to: Type::Brush,
@@ -73,7 +74,7 @@ pub fn apply_default_properties_from_style(
                     elem.set_binding_if_not_set("background".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
                             &palette.root_element,
-                            "background",
+                            SmolStr::new_static("background"),
                         ))
                         .into(),
                         to: Type::Brush,
@@ -92,7 +93,7 @@ pub fn apply_default_properties_from_style(
                                 Expression::Cast {
                                     from: Expression::PropertyReference(NamedReference::new(
                                         &style_metrics.root_element,
-                                        property_name,
+                                        SmolStr::new_static(property_name),
                                     ))
                                     .into(),
                                     to: property_type,

@@ -3,4 +3,7 @@
 
 fn main() {
     napi_build::setup();
+
+    // workaround bug that the `#[napi]` macro generate some invalid `#[cfg(feature="...")]`
+    println!("cargo:rustc-check-cfg=cfg(feature,values(\"noop\", \"used_linker\"))");
 }

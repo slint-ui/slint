@@ -3,7 +3,8 @@
 
 fn main() {
     let mut config = slint_build::CompilerConfiguration::new();
-    if cfg!(any(target_os = "android", target_arch = "wasm32")) {
+    let target = std::env::var("TARGET").unwrap();
+    if target.contains("android") || target.contains("wasm32") {
         config = config.with_bundled_translations("../lang");
     }
     slint_build::compile_with_config("../ui/printerdemo.slint", config).unwrap();

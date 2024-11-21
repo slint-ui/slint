@@ -1,0 +1,210 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Reference Overview
+description: Reference Overview
+---
+
+import SlintProperty  from '../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
+
+The Slint elements have many common properties, callbacks and behavior. 
+This page describes these properties and their usage.
+
+## `init()`
+
+Every element implicitly declares an `init` callback. You can assign a code block to it that will be invoked when the
+element is instantiated and after all properties are initialized with the value of their final binding. The order of
+invocation is from inside to outside. The following example will print "first", then "second", and then "third":
+
+```slint
+component MyButton inherits Rectangle {
+    in-out property <string> text: "Initial";
+    init => {
+        // If `text` is queried here, it will have the value "Hello".
+        debug("first");
+    }
+}
+
+component MyCheckBox inherits Rectangle {
+    init => { debug("second"); }
+}
+
+export component MyWindow inherits Window {
+    MyButton {
+        text: "Hello";
+        init => { debug("third"); }
+    }
+    MyCheckBox {
+    }
+}
+```
+
+Don't use this callback to initialize properties, because this violates the declarative principle.
+
+Even though the `init` callback exists on all components, it cannot be set from application code,
+i.e. an `on_init` function does not exist in the generated code. This is because the callback is invoked during the creation of the component, before you could call `on_init` to actually set it.
+
+While the `init` callback can invoke other callbacks, e.g. one defined in a `global` section, and
+you _can_ bind these in the backend, this doesn't work for statically-created components, including
+the window itself, because you need an instance to set the globals binding. But it is possible
+to use this for dynamically created components (for example ones behind an `if`):
+
+```slint
+export global SystemService  {
+    // This callback can be implemented in native code using the Slint API
+    callback ensure_service_running();
+}
+
+component MySystemButton inherits Rectangle {
+    init => {
+        SystemService.ensure_service_running();
+    }
+    // ...
+}
+
+export component AppWindow inherits Window {
+    in property <bool> show-button: false;
+
+    // MySystemButton isn't initialized at first, only when show-button is set to true.
+    // At that point, its init callback will call ensure_service_running()
+    if show-button : MySystemButton {}
+}
+```
+
+
+## Geometry
+
+These properties are valid on all **visible** items:
+
+### `x`
+<SlintProperty propName="x" typeName="length" > 
+The position of the element relative to its parent.
+</SlintProperty>
+
+### `y`
+<SlintProperty propName="y" typeName="length" > 
+The position of the element relative to its parent.
+</SlintProperty>
+
+### `z`
+<SlintProperty propName="z" typeName="float" > 
+Allows to specify a different order to stack the items with its siblings.
+The value must be a compile time constant.
+
+:::caution[Caution]
+Currently the `z` value is a compile time constant and cannot be changed at runtime.
+:::
+
+</SlintProperty>
+
+### `absolute-position`
+<SlintProperty propName="absolute-position" typeName="struct" structName="Point" > 
+The position of the element within the contained window.
+
+</SlintProperty>
+
+### `width`
+<SlintProperty propName="width" typeName="length" > 
+The width of the element. When set, this overrides the default width.
+</SlintProperty>
+
+### `height`
+<SlintProperty propName="height" typeName="length" > 
+The height of the element. When set, this overrides the default height.
+</SlintProperty>
+
+### `opacity`
+<SlintProperty propName="opacity" typeName="float" defaultValue="1">
+A value between 0 and 1 (or a percentage) that is used to draw
+the element and its children with transparency.
+0 is fully transparent (invisible), and 1 is fully opaque.
+The opacity is applied to the tree of child elements as if they
+were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
+
+:::caution[Caution]
+When an element has 0 opacity it will still take up layout space and any gesture handling will continue
+to work. If the intent is to hide an element so it has no gesture handling or takes up layout space, 
+use the `visible` property instead.
+:::
+</SlintProperty>
+
+### `visible`
+<SlintProperty propName="visible" typeName="bool" defaultValue="true">
+When set to `false`, the element and all his children won't be drawn and not react to mouse input.
+
+The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you can't see the red rectangle through the green one.
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-opacity.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle opacity'>
+```slint
+Rectangle {
+    x: 10px;
+    y: 10px;
+    width: 180px;
+    height: 180px;
+    background: #315afd;
+    opacity: 0.5;
+}
+
+Rectangle {
+    x: 10px;
+    y: 210px;
+    width: 180px;
+    height: 180px;
+    background: green;
+    opacity: 0.5;
+}
+```
+</CodeSnippetMD>
+</SlintProperty>
+
+
+### Layout
+
+These properties are valid on all visible items and can be used to specify constraints when used in layouts:
+
+-   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in_ _int_): See [`GridLayout`](/master/docs/slint/reference/layouts/gridlayout).
+-   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements won't be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1.
+-   **`max-width`** and **`max-height`** (_in_ _length_): The maximum size of an element
+-   **`min-width`** and **`min-height`** (_in_ _length_): The minimum size of an element
+-   **`preferred-width`** and **`preferred-height`** (_in_ _length_): The preferred size of an element
+
+### Miscellaneous
+
+-   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default value: `false`)
+
+
+-   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
+
+
+
+
+## Accessibility
+
+Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
+`accessible-role` must be set in order to be able to set any other accessible property or callback.
+
+-   **`accessible-role`** (_in_ _enum [`AccessibleRole`](enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
+-   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
+-   **`accessible-checked`** (_in_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
+-   **`accessible-description`** (_in_ _string_): The description for the current element.
+-   **`accessible-enabled`** (_in_ _bool_): Whether the element is enabled or not. This maps to the "enabled" state of most widgets. (default value: `true`)
+-   **`accessible-label`** (_in_ _string_): The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
+-   **`accessible-value-maximum`** (_in_ _float_): The maximum value of the item. This is used for example by spin boxes.
+-   **`accessible-value-minimum`** (_in_ _float_): The minimum value of the item.
+-   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
+-   **`accessible-value`** (_in_ _string_): The current value of the item.
+-   **`accessible-placeholder-text`** (_in_ _string_): A placeholder text to use when the item's value is empty. Applies to text elements.
+-   **`accessible-selectable`** (_in_ _bool_): Whether the element can be selected or not.
+-   **`accessible-selected`** (_in_ _bool_): Whether the element is selected or not. This maps to the "is-selected" state of listview items.
+-   **`accessible-position-in-set`** (_in_ _int_): The index (starting from 0) of this element in a group of similar elements. Applies to list items, radio buttons and other elements.
+-   **`accessible-size-of-set`** (_in_ _int_): The total number of elements in a group. Applies to all elements of a group like list items, radio buttons and other elements, but not to their parent container like list views, radio button groups or other grouping elements.
+
+You can also use the following callbacks that are going to be called by the accessibility framework:
+
+-  **`accessible-action-default()`**: Invoked when the default action for this widget is requested (eg: pressed for a button).
+-  **`accessible-action-set-value(string)`**: Invoked when the user wants to change the accessible value.
+-  **`accessible-action-increment()`**: Invoked when the user requests to increment the value.
+-  **`accessible-action-decrement()`**: Invoked when the user requests to decrement the value.
+
+
+
+

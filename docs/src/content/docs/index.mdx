@@ -1,38 +1,62 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Welcome
+title: Overview
 type: overview
 sidebar:
   order: 1
-head:
-  - tag: title
-    content: Slint Documentation Overview
 hero:
-  tagline: Get started building your product with Slint.
+  title: Welcome to Slint
+  tagline: Seamlessly build elegant GUIs for Embedded, Desktop, and Mobile
   image:
-    alt: Slint logo
-    dark: ../../assets/slint-logo-square-dark.webp
-    light: ../../assets/slint-logo-square-light.webp
+    file: ../../assets/banner.webp
 ---
 
-import { LinkButton } from '@astrojs/starlight/components';
+import { LinkButton, LinkCard, Card, CardGrid } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
 import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
+import ThreeCardGrid from '../../components/ThreeCardGrid.astro';
+import FourCardGrid from '../../components/FourCardGrid.astro';
 
+<ThreeCardGrid>
+<LinkCard
+  title="Tutorial"
+  href="./tutorial/quickstart"
+  description="Follow our step-by-step tutorial to create your first Slint app"
+/>
+<LinkCard
+  title="Standard Widgets"
+  href="./std-widgets/overview"
+  description="Overview of standard widgets to build cross-platform apps"
+/>
+<LinkCard
+  title="Language Integration"
+  href="./language-integrations"
+  description="Connect the UI with business logic in your preferred language."
+/>
+</ThreeCardGrid>
 
-<LinkButton href="/master/docs/slint/getting-started/intro">Get started</LinkButton>
-<LinkButton href="/master/docs/slint/tutorial/quickstart" variant="secondary">
-  Tutorial
-</LinkButton>
-<LinkButton href="/master/docs/slint/reference/overview" variant="secondary">
-  Element Reference
-</LinkButton>
+## Get in touch
 
-
-
-## More resources
-
-<Image class="light:sl-hidden" src={mattermostLogoDark} loading="lazy" width="50" alt="Mattermost logo" />
-<Image class="dark:sl-hidden" src={mattermostLogoLight} loading="lazy" width="50" alt="Mattermost logo" />
-As a first step please join our community on [Mattermost](https://chat.slint.dev/). This is a great place to ask questions and get help from other Slint users.
+<FourCardGrid>
+<LinkCard
+  title="Chat"
+  href="https://chat.slint.dev/"
+  target="_blank"
+/>
+<LinkCard
+  title="Discussions"
+  href="https://github.com/slint-ui/slint/discussions"
+  target="_blank"
+/>
+<LinkCard
+  title="Report Bugs"
+  href="https://github.com/slint-ui/slint/issues"
+  target="_blank"
+/>
+<LinkCard
+  title="Email"
+  href="mailto:info@slint.dev"
+  target="_blank"
+/>
+</FourCardGrid>

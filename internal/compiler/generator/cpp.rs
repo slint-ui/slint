@@ -708,7 +708,7 @@ pub fn generate(
         }
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config)?;
 
     #[cfg(feature = "bundle-translations")]
     if let Some(translations) = &llr.translations {
@@ -818,6 +818,24 @@ pub fn generate(
         ));
     }
     file.declarations.push(Declaration::Struct(globals_struct));
+
+    if let Some(popup_menu) = &llr.popup_menu {
+        let component_id = ident(&popup_menu.item_tree.root.name);
+        let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
+        generate_item_tree(
+            &mut popup_struct,
+            &popup_menu.item_tree,
+            &llr,
+            None,
+            true,
+            component_id,
+            Access::Public,
+            &mut file,
+            &conditional_includes,
+        );
+        file.definitions.extend(popup_struct.extract_definitions().collect::<Vec<_>>());
+        file.declarations.push(Declaration::Struct(popup_struct));
+    };
 
     for p in &llr.public_components {
         generate_public_component(&mut file, &conditional_includes, p, &llr);
@@ -1199,6 +1217,7 @@ fn generate_public_component(
         &component.item_tree,
         unit,
         None,
+        false,
         component_id,
         Access::Private, // Hide properties and other fields from the C++ API
         file,
@@ -1289,6 +1308,7 @@ fn generate_item_tree(
     sub_tree: &llr::ItemTree,
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
+    is_popup_menu: bool,
     item_tree_class_name: SmolStr,
     field_access: Access,
     file: &mut File,
@@ -1708,21 +1728,24 @@ fn generate_item_tree(
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
     ];
 
-    #[cfg(feature = "bundle-translations")]
-    if let Some(translations) = &root.translations {
-        let lang_len = translations.languages.len();
-        create_code.push(format!(
-            "std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};",
-            translations
-                .languages
-                .iter()
-                .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
-                .join(", ")
-        ));
-        create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages({{ languages.data(), {lang_len} }});"));
-    }
+    if is_popup_menu {
+        create_code.push("self->globals = globals;".into());
+        create_parameters.push("const SharedGlobals *globals".into());
+    } else if parent_ctx.is_none() {
+        #[cfg(feature = "bundle-translations")]
+        if let Some(translations) = &root.translations {
+            let lang_len = translations.languages.len();
+            create_code.push(format!(
+                "std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};",
+                translations
+                    .languages
+                    .iter()
+                    .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
+                    .join(", ")
+            ));
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages({{ languages.data(), {lang_len} }});"));
+        }
 
-    if parent_ctx.is_none() {
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
         create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());
@@ -1865,6 +1888,7 @@ fn generate_sub_component(
             &popup.item_tree,
             root,
             Some(ParentCtx::new(&ctx, None)),
+            false,
             component_id,
             Access::Public,
             file,
@@ -2404,6 +2428,7 @@ fn generate_repeated_component(
         &repeated.sub_tree,
         root,
         Some(parent_ctx),
+        false,
         repeater_id.clone(),
         Access::Public,
         file,
@@ -3660,6 +3685,53 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ClosePopupWindow {:?}", arguments)
             }
+        }
+
+        BuiltinFunction::ShowPopupMenu => {
+            let [llr::Expression::PropertyReference(context_menu_ref), entries, position] = arguments
+            else {
+                panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
+            };
+
+            let context_menu = access_member(context_menu_ref, ctx);
+            let context_menu_rc = access_item_rc(context_menu_ref, ctx);
+            let position = compile_expression(position, ctx);
+            let entries = compile_expression(entries, ctx);
+            let popup = ctx
+                .compilation_unit
+                .popup_menu
+                .as_ref()
+                .expect("there should be a popup menu if we want to show it");
+            let popup_id = ident(&popup.item_tree.root.name);
+            let window = access_window_field(ctx);
+
+            let popup_ctx = EvaluationContext::new_sub_component(
+                ctx.compilation_unit,
+                &popup.item_tree.root,
+                CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
+                None,
+            );
+            let access_entries = access_member(&popup.entries, &popup_ctx);
+            let forward_callback = |pr, cb| {
+                let access = access_member(pr, &popup_ctx);
+                format!("{access}.set_handler(
+                    [context_menu](const auto &entry) {{
+                        return context_menu->{cb}.call(entry);
+                    }});")
+            };
+            let fw_sub_menu = forward_callback(&popup.sub_menu, "sub_menu");
+            let fw_activated = forward_callback(&popup.activated, "activated");
+            let init = format!(r"
+                auto entries = {entries};
+                const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
+                {{
+                    auto self = popup_menu;
+                    {access_entries}.set(std::move(entries));
+                    {fw_sub_menu}
+                    {fw_activated}
+                }}");
+
+            format!("{window}.show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{ {init} }})", globals = ctx.generator_state.global_access)
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {

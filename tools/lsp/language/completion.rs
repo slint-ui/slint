@@ -19,6 +19,7 @@ use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
 };
+use smol_str::SmolStr;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -472,7 +473,7 @@ fn resolve_element_scope(
     with_snippets: bool,
 ) -> Option<Vec<CompletionItem>> {
     let apply_property_ty =
-        |mut c: CompletionItem, ty: &Type, cb_args: Option<&[String]>| -> CompletionItem {
+        |mut c: CompletionItem, ty: &Type, cb_args: Option<&[SmolStr]>| -> CompletionItem {
             if matches!(ty, Type::InferredCallback | Type::Callback { .. }) {
                 c.kind = Some(CompletionItemKind::METHOD);
                 let ins_text = match cb_args {
@@ -506,29 +507,15 @@ fn resolve_element_scope(
             return lk.is_valid_for_assignment();
         })
         .map(|(k, ty)| {
-            let cb_args = if with_snippets && matches!(ty, Type::Callback { .. }) {
-                let mut base = element_type.clone();
-                loop {
-                    let ElementType::Component(c) = base else { break None };
-                    if let Some(p) = c.root_element.borrow().property_declarations.get(&k) {
-                        if let Some(node) =
-                            p.node.clone().and_then(syntax_nodes::CallbackDeclaration::new)
-                        {
-                            if !node
-                                .CallbackDeclarationParameter()
-                                .all(|x| x.DeclaredIdentifier().is_some())
-                            {
-                                break None;
-                            }
-                            let vec = node
-                                .CallbackDeclarationParameter()
-                                .map(|x| x.DeclaredIdentifier().unwrap().text().to_string())
-                                .collect::<Vec<_>>();
-                            break (!vec.is_empty()).then_some(vec);
-                        }
-                    }
-
-                    base = c.root_element.borrow().base_type.clone();
+            let cb_args = if let Type::Callback(f) = &ty {
+                if with_snippets
+                    && f.args.len() >= 1
+                    && f.args.len() == f.arg_names.len()
+                    && f.arg_names.iter().all(|x| !x.is_empty())
+                {
+                    Some(&f.arg_names[..])
+                } else {
+                    None
                 }
             } else {
                 None
@@ -536,7 +523,7 @@ fn resolve_element_scope(
             let k = de_normalize_property_name(&element_type, &k).into_owned();
             let mut c = CompletionItem::new_simple(k, ty.to_string());
             c.sort_text = Some(format!("#{}", c.label));
-            apply_property_ty(c, &ty, cb_args.as_deref())
+            apply_property_ty(c, &ty, cb_args)
         })
         .chain(element.PropertyDeclaration().filter_map(|pr| {
             let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
@@ -1564,6 +1551,40 @@ mod tests {
         assert_eq!(
             res.iter().find(|ci| ci.label == "accessible-action-set-value").unwrap().insert_text,
             Some("accessible-action-set-value => {$1}".into())
+        );
+        let source = r#"
+            import { StandardTableView } from "std-widgets.slint";
+            component MyTouchArea inherits TouchArea {
+                callback cb1;
+                callback cb2(foo: int, bar_bar: string);
+                callback cb3(int, xx: string); // only one arg is named
+            }
+            component Foo {
+                MyTouchArea {
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "pointer-event").unwrap().insert_text,
+            Some("pointer-event(event) => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "clicked").unwrap().insert_text,
+            Some("clicked => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "cb1").unwrap().insert_text,
+            Some("cb1 => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "cb2").unwrap().insert_text,
+            Some("cb2(foo, bar-bar) => {$1}".into())
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "cb3").unwrap().insert_text,
+            Some("cb3 => {$1}".into())
         );
     }
 }

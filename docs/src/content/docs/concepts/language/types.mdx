@@ -1,14 +1,14 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: Types
-description: All Slint UI types
+description: All Slint types
 ---
 
 
 All properties in Slint have a type. Slint knows these basic types:
 
-| Name                  | description                                                                       | Default value |
-| --------- | --------------------------------------------------------------------------------- | ------------- | 
+| Name  | description  | Default value |
+| -------------------------- | -------------------------------------- | ------------- | 
 | `angle`   | Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0 25turn`    | `0deg`        |
 | `bool`    | boolean whose value can be either `true` or `false`.                              | `false`       |                                                                                                                                          
 | `duration` | Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision.  | `0ms` |                                                                                                                                                                                  
@@ -20,7 +20,7 @@ All properties in Slint have a type. Slint knows these basic types:
 | `percent`            | Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix.    | `0%` | 
 | `physical-length`    | This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`. Or to convert from a length to a float, one can divide by `1phx`.   | `0phx` |                                                                                         
 | `relative-font-size` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`.  | 0rem |                                                                                                                                                         
-| `string`             | UTF-8 encoded, reference counted string.                               | `""`          |
+| `string`             | UTF-8 encoded, reference counted string.                               | `""`          | 
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 

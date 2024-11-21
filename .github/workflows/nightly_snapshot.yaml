@@ -352,10 +352,14 @@ jobs:
                   name: android-demo
                   path: android
 
-            - name: Extract Version
+            - uses: actions/checkout@v4
+              with:
+                path: "slint-src"
+                sparse-checkout: .
+            - name: Extract Version from Cargo.toml
               id: version
               run: |
-                version=$(grep -oP '(?<=<meta property="og:site_name" content="Slint )[0-9]+\.[0-9]+\.[0-9]+' docs/dist/index.html)
+                version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' slint-src/Cargo.toml)
                 if [[ -z "$version" ]]; then
                   echo "Version not found"
                   exit 1
@@ -468,7 +472,7 @@ jobs:
               run: |
                   sed -i '/"name": "development snapshot"/,/"preferred": true,/c\
                           "name": "development snapshot",\
-                          "url": "https://snapshots.slint.dev/master/docs"\
+                          "url": "https://snapshots.slint.dev/master/docs/slint"\
                       },\
                       {\
                           "preferred": true,\

@@ -11,6 +11,18 @@ the Language Server Protocol (LSP)
 (see its [README.md](../tools/lsp/README.md) for more info on how to install it).
 If you do test your editor with it, we would be happy to accept a pull request that adds instructions here.
 
+## Editors
+
+- [Visual Studio Code](#visual-studio-code)
+- [Kate](#kate)
+- [Qt Creator](#qtcreator)
+- [Helix](#helix)
+- [Vim](#vim)
+- [Neovim](#neovim)
+- [Sublime Text](#sublime-text)
+- [JetBrains IDE](#jetbrains-ide)
+- [Zed](#zed)
+
 ## Visual Studio Code
 
 For VSCode, we have an [extension in this repository](vscode), you can install it
