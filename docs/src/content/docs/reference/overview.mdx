@@ -7,10 +7,12 @@ description: Reference Overview
 import SlintProperty  from '../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../components/CodeSnippetMD.astro';
 
+The Slint elements have many common properties, callbacks and behavior. 
+This page describes these properties and their usage.
 
-### Geometry
+## Geometry
 
-These properties are valid on all visible items:
+These properties are valid on all **visible** items:
 
 ### `x`
 <SlintProperty propName="x" typeName="length" > 
@@ -113,7 +115,7 @@ These properties are valid on all visible items and can be used to specify const
 
 
 
-### Accessibility
+## Accessibility
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 `accessible-role` must be set in order to be able to set any other accessible property or callback.

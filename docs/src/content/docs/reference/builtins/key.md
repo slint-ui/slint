@@ -1,0 +1,63 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Key Namespace
+description: Key Namespace
+---
+
+Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](structs.md#keyevent)'s `text` property
+against the constants below.
+
+-   **`Backspace`**
+-   **`Tab`**
+-   **`Return`**
+-   **`Escape`**
+-   **`Backtab`**
+-   **`Delete`**
+-   **`Shift`**
+-   **`Control`**
+-   **`Alt`**
+-   **`AltGr`**
+-   **`CapsLock`**
+-   **`ShiftR`**
+-   **`ControlR`**
+-   **`Meta`**
+-   **`MetaR`**
+-   **`Space`**
+-   **`UpArrow`**
+-   **`DownArrow`**
+-   **`LeftArrow`**
+-   **`RightArrow`**
+-   **`F1`**
+-   **`F2`**
+-   **`F3`**
+-   **`F4`**
+-   **`F5`**
+-   **`F6`**
+-   **`F7`**
+-   **`F8`**
+-   **`F9`**
+-   **`F10`**
+-   **`F11`**
+-   **`F12`**
+-   **`F13`**
+-   **`F14`**
+-   **`F15`**
+-   **`F16`**
+-   **`F17`**
+-   **`F18`**
+-   **`F19`**
+-   **`F20`**
+-   **`F21`**
+-   **`F22`**
+-   **`F23`**
+-   **`F24`**
+-   **`Insert`**
+-   **`Home`**
+-   **`End`**
+-   **`PageUp`**
+-   **`PageDown`**
+-   **`ScrollLock`**
+-   **`Pause`**
+-   **`SysReq`**
+-   **`Stop`**
+-   **`Menu`**

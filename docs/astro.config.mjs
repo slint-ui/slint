@@ -104,6 +104,10 @@ export default defineConfig({
                     collapsed: true,
                     items: [
                         {
+                            label: "Common details",
+                            slug: "reference/overview",
+                        },
+                        {
                             label: "Basics",
                             autogenerate: { directory: "reference/builtins" },
                         },
