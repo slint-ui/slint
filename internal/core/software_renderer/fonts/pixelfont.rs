@@ -82,8 +82,10 @@ impl TextShaper for PixelFont {
             let x_advance = glyph_index.map_or_else(
                 || self.pixel_size,
                 |glyph_index| {
-                    (self.pixel_size.cast() * self.glyphs.glyph_data[glyph_index].x_advance as i32
+                    ((self.pixel_size.cast()
+                        * self.glyphs.glyph_data[glyph_index].x_advance as i32
                         / self.glyphs.pixel_size as i32
+                        + euclid::Length::new(32))
                         / 64)
                         .cast()
                 },
