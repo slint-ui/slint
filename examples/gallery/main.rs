@@ -50,6 +50,8 @@ fn filter_sort_model(
     let mut model = source_model.clone();
 
     if !filter.is_empty() {
+        let filter = filter.to_lowercase();
+
         // filter by first row
         model =
             Rc::new(source_model.clone().filter(move |e| {
