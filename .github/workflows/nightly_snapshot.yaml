@@ -352,10 +352,10 @@ jobs:
                   name: android-demo
                   path: android
 
-            - name: Extract Version
+            - name: Extract Version from Cargo.toml
               id: version
               run: |
-                version=$(grep -oP '(?<=<meta property="og:site_name" content="Slint )[0-9]+\.[0-9]+\.[0-9]+' docs/dist/index.html)
+                version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
                 if [[ -z "$version" ]]; then
                   echo "Version not found"
                   exit 1
