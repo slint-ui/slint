@@ -85,13 +85,14 @@
     display: flex;
     align-items: center;
     gap: 1.5rem;
-    flex-direction: column;
+    flex-direction: column-reverse;
 }
 
 @media (min-width: 50rem) {
     .hero {
         padding-bottom: 0;
         padding-top: 0;
+        flex-direction: column;
     }
 
     .hero > img,
