@@ -131,7 +131,7 @@ struct SharedString
     ///
     /// For example:
     /// \code
-    ///     auto str = slint::SharedString("Hello"); 
+    ///     auto str = slint::SharedString("Hello");
     ///     auto str2 = str.to_lowercase(); // creates "hello"
     /// \endcode
     SharedString to_lowercase() 
