@@ -4,7 +4,7 @@
 import test from "ava";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import Jimp = require("jimp");
+import { Jimp } from "jimp";
 import { captureStderr } from "capture-console";
 
 import {
