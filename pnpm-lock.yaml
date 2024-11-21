@@ -40,13 +40,13 @@ importers:
         version: 1.6.0
       ts-node:
         specifier: 10.9.2
-        version: 10.9.2(@types/node@20.16.10)(typescript@5.2.2)
+        version: 10.9.2(@types/node@20.16.10)(typescript@5.6.3)
       typedoc:
         specifier: 0.25.13
-        version: 0.25.13(typescript@5.2.2)
+        version: 0.25.13(typescript@5.6.3)
       typescript:
-        specifier: 5.2.2
-        version: 5.2.2
+        specifier: 5.6.3
+        version: 5.6.3
 
   demos/home-automation/node:
     dependencies:
@@ -143,8 +143,8 @@ importers:
         specifier: 0.3.4
         version: 0.3.4
       typescript:
-        specifier: 5.6.2
-        version: 5.6.2
+        specifier: 5.6.3
+        version: 5.6.3
       vscode-tmgrammar-test:
         specifier: 0.1.3
         version: 0.1.3
@@ -168,8 +168,8 @@ importers:
         specifier: 20.16.10
         version: 20.16.10
       typescript:
-        specifier: 5.6.2
-        version: 5.6.2
+        specifier: 5.6.3
+        version: 5.6.3
 
   examples/memory:
     dependencies:
@@ -231,8 +231,8 @@ importers:
         specifier: 6.0.1
         version: 6.0.1
       typescript:
-        specifier: 5.6.2
-        version: 5.6.2
+        specifier: 5.6.3
+        version: 5.6.3
       vite:
         specifier: 5.4.11
         version: 5.4.11(@types/node@22.8.2)(terser@5.34.1)
@@ -4213,16 +4213,6 @@ packages:
 
   typescript-auto-import-cache@0.3.5:
     resolution: {integrity: sha512-fAIveQKsoYj55CozUiBoj4b/7WpN0i4o74wiGY5JVUEoD0XiqDk1tJqTEjgzL2/AizKQrXxyRosSebyDzBZKjw==}
-
-  typescript@5.2.2:
-    resolution: {integrity: sha512-mI4WrpHsbCIcwT9cF4FZvr80QUeKvsUsUvKDoR+X/7XHQH98xYD8YHZg7ANtz2GtZt/CBq2QJ0thkGJMHfqc1w==}
-    engines: {node: '>=14.17'}
-    hasBin: true
-
-  typescript@5.6.2:
-    resolution: {integrity: sha512-NW8ByodCSNCwZeghjN3o+JX5OFH0Ojg6sadjEKY4huZ52TqbJTJnDo5+Tw98lSy63NZvi4n+ez5m2u5d4PkZyw==}
-    engines: {node: '>=14.17'}
-    hasBin: true
 
   typescript@5.6.3:
     resolution: {integrity: sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw==}
@@ -9372,7 +9362,7 @@ snapshots:
 
   ts-dedent@2.2.0: {}
 
-  ts-node@10.9.2(@types/node@20.16.10)(typescript@5.2.2):
+  ts-node@10.9.2(@types/node@20.16.10)(typescript@5.6.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.11
@@ -9386,7 +9376,7 @@ snapshots:
       create-require: 1.1.1
       diff: 4.0.2
       make-error: 1.3.6
-      typescript: 5.2.2
+      typescript: 5.6.3
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
 
@@ -9401,23 +9391,19 @@ snapshots:
 
   type-fest@4.27.0: {}
 
-  typedoc@0.25.13(typescript@5.2.2):
+  typedoc@0.25.13(typescript@5.6.3):
     dependencies:
       lunr: 2.3.9
       marked: 4.3.0
       minimatch: 9.0.5
       shiki: 0.14.7
-      typescript: 5.2.2
+      typescript: 5.6.3
 
   typesafe-path@0.2.2: {}
 
   typescript-auto-import-cache@0.3.5:
     dependencies:
       semver: 7.6.3
-
-  typescript@5.2.2: {}
-
-  typescript@5.6.2: {}
 
   typescript@5.6.3: {}
 
