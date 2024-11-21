@@ -58,7 +58,6 @@ SCENARIO("SharedString API")
         str = "Hello";
         REQUIRE(std::string_view(str.to_lowercase().data()) == "hello");
     }
-   
     SECTION("to_uppercase")
     {
         str = "Hello";
