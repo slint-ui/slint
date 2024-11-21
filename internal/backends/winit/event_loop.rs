@@ -310,7 +310,11 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             }
 
             #[cfg(enable_accesskit)]
-            window.accesskit_adapter.borrow_mut().process_event(&_winit_window, &event);
+            window
+                .accesskit_adapter()
+                .expect("internal error: accesskit adapter must exist when window exists")
+                .borrow_mut()
+                .process_event(&_winit_window, &event);
         } else {
             return;
         }
@@ -547,7 +551,11 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             #[cfg(enable_accesskit)]
             CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
                 if let Some(window) = window_by_id(window_id) {
-                    window.accesskit_adapter.borrow_mut().process_accesskit_event(window_event);
+                    window
+                        .accesskit_adapter()
+                        .expect("internal error: accesskit adapter must exist when window exists")
+                        .borrow_mut()
+                        .process_accesskit_event(window_event);
                 };
             }
             #[cfg(target_arch = "wasm32")]
