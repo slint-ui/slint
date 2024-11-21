@@ -290,7 +290,6 @@ impl WinitWindowAdapter {
         opengl_api: Option<OpenGLAPI>,
         #[cfg(enable_accesskit)] proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Result<Rc<Self>, PlatformError> {
-        let winit_window = renderer.resume(window_attributes, opengl_api.clone())?;
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             self_weak: self_weak.clone(),
@@ -302,17 +301,8 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
-            winit_window_or_none: RefCell::new(WinitWindowOrNone::HasWindow {
-                window: winit_window.clone(),
-                #[cfg(enable_accesskit)]
-                accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
-                    self_weak.clone(),
-                    &winit_window,
-                    proxy.clone(),
-                )
-                .into(),
-            }),
-            size: Cell::new(physical_size_to_slint(&winit_window.inner_size())),
+            winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
+            size: Cell::default(),
             pending_requested_size: Cell::new(None),
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
@@ -325,7 +315,9 @@ impl WinitWindowAdapter {
             window_event_filter: Cell::new(None),
         });
 
+        let winit_window = self_rc.ensure_window()?;
         debug_assert!(!self_rc.renderer.is_suspended());
+        self_rc.size.set(physical_size_to_slint(&winit_window.inner_size()));
 
         let id = winit_window.id();
         crate::event_loop::register_window(id, (self_rc.clone()) as _);
