@@ -477,10 +477,10 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_shared_string_to_lowercase(
-        out: *mut SharedString,
+        out: &mut SharedString,
         ss: &SharedString,
     ) {
-        core::ptr::write(out, SharedString::from(ss.to_lowercase()));
+        *out = SharedString::from(ss.to_lowercase());
     }
     #[test]
     fn test_slint_shared_string_to_lowercase() {
@@ -495,10 +495,10 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_shared_string_to_uppercase(
-        out: *mut SharedString,
+        out: &mut SharedString,
         ss: &SharedString,
     ) {
-        core::ptr::write(out, SharedString::from(ss.to_uppercase()));
+        *out = SharedString::from(ss.to_uppercase());
     }
     #[test]
     fn test_slint_shared_string_to_uppercase() {
