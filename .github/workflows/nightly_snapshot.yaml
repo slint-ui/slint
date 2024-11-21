@@ -352,10 +352,14 @@ jobs:
                   name: android-demo
                   path: android
 
+            - uses: actions/checkout@v4
+              with:
+                path: "slint-src"
+                sparse-checkout: .
             - name: Extract Version from Cargo.toml
               id: version
               run: |
-                version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
+                version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' slint-src/Cargo.toml)
                 if [[ -z "$version" ]]; then
                   echo "Version not found"
                   exit 1
