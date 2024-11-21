@@ -508,7 +508,6 @@ pub(crate) mod ffi {
         unsafe {
             slint_shared_string_to_uppercase(&mut out, &s);
         }
-      
         assert_eq!(out.as_str(), "HELLO");
     }
 }
