@@ -18,7 +18,7 @@ export global CupertinoFontSettings {
         font-weight: regular-font-weight
     };
 
-    
+
     out property <TextStyle> title: {
         font-size: 28 * 0.0769rem,
         font-weight: light-font-weight
@@ -30,7 +30,39 @@ export global CupertinoFontSettings {
         font-weight: semibold-font-weight
     };
 }
+export global CupertinoColors {
+    out property <color> systemGray: #8E8E93;
+    out property <color> systemGray2: #AEAEB2;
+    out property <color> systemGray3: #C7C7CC;
+    out property <color> systemGray4: #D1D1D6;
+    out property <color> systemGray5: #E7E7E7;
+    out property <color> systemGray55: #f0f0f0;
+    out property <color> systemGray6: #F2F2F7;
+    out property <color> white: #FFFFFF;
+    out property <color> systemGray2-dark: #636366;
+    out property <color> systemGray3-dark: #48484A;
+    out property <color> systemGray4-dark: #3A3A3C;
+    out property <color> systemGray5-dark: #2C2C2E;
+    out property <color> systemGray55-dark: #262626;
+    out property <color> systemGray6-dark: #1C1C1E;
+    out property <color> black: #000000;
 
+    out property <color> red: #FF3B30;
+    out property <color> orange: #FF9500;
+    out property <color> yellow: #FFCC00;
+    out property <color> green: #28CD41;
+    out property <color> mint: #00C7BE;
+    out property <color> teal: #59ADC4;
+    out property <color> cyan: #55BEF0;
+    out property <color> blue: #326CCF;
+    out property <color> indigo: #5856D6;
+    out property <color> purple: #AF52DE;
+    out property <color> pink: #FF2D55;
+    out property <color> brown: #A2845E;
+    out property <color> gray: #8E8E93;
+
+    out property <brush> selection-color: self.blue;
+}
 export global CupertinoPalette {
     in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
     property <bool> dark-color-scheme: {
@@ -41,45 +73,45 @@ export global CupertinoPalette {
     }
 
     // base palette
-    out property <brush> background: dark-color-scheme ? #282828 : #ffffff;
-    out property <brush> foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> alternate-background: dark-color-scheme ? #2c2c2c : #00000005;
-    out property <brush> alternate-foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> control-background: dark-color-scheme ? #616161 : #ffffff;
-    out property <brush> control-foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> accent-background: dark-color-scheme ? #0055d1 : #007AFF;
-    out property <brush> accent-foreground: #f0f0f0;
-    out property <brush> selection-background: dark-color-scheme ? #0055d14D : #007AFF4D;
-    out property <brush> selection-foreground: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> border: dark-color-scheme ? #ffffff26 : #00000026;
+    out property <brush> background: dark-color-scheme ? CupertinoColors.systemGray55-dark: CupertinoColors.systemGray55;
+    out property <brush> foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
+    out property <brush> alternate-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
+    out property <brush> alternate-foreground: dark-color-scheme ? CupertinoColors.systemGray5 : CupertinoColors.systemGray5-dark;
+    out property <brush> control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.systemGray6;
+    out property <brush> control-foreground: dark-color-scheme ? CupertinoColors.systemGray4 : CupertinoColors.systemGray5-dark;
+    out property <brush> accent-background: dark-color-scheme ? CupertinoColors.selection-color : CupertinoColors.selection-color;
+    out property <brush> accent-foreground: CupertinoColors.systemGray5;
+    out property <brush> selection-background: dark-color-scheme ? CupertinoColors.selection-color.transparentize(0.5) : CupertinoColors.selection-color.transparentize(0.5);
+    out property <brush> selection-foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
+    out property <brush> border: dark-color-scheme ? CupertinoColors.systemGray6.transparentize(0.9) : CupertinoColors.systemGray6-dark.transparentize(0.9);
 
     // additional palette
-    out property <brush> tertiary-background: dark-color-scheme ? #1e1e1e : #ffffff;
-    out property <brush> quaternary-background: dark-color-scheme ? #1c1c1c : #f0f0f0;
-    out property <brush> secondary-accent-background: dark-color-scheme ? #2076ee : #0063ea;
-    out property <brush> tertiary-accent-background: dark-color-scheme ? #487aff : #66A1E3;
-    out property <brush> foreground-neg: dark-color-scheme ? #000000 : #ffffff;
-    out property <brush> foreground-secondary: dark-color-scheme ? #ffffff40 : #00000040;
-    out property <brush> secondary-control-background: dark-color-scheme ? #7a7a7a : #f0f0f0;
-    out property <brush> tertiary-control-background: dark-color-scheme ? #616161B3 : #ffffffB3;
-    out property <brush> quaternary-control-background: dark-color-scheme ? #61616180 : #ffffff80;
-    out property <brush> alternate-control-background: dark-color-scheme ? #414141 : #dadada;
-    out property <brush> hover: dark-color-scheme ? #2e2e2e : #e3e3e3;
-    out property <brush> pressed: dark-color-scheme ? #b6b6b6 : #f0f0f0;
-    out property <brush> popup-border: dark-color-scheme ? #525252 :#0000000A;
-    out property <brush> decent-border: dark-color-scheme ? #ffffff14 : #00000014;
-    out property <brush> control-background-thumb: dark-color-scheme ? #cacaca : #ffffff;
-    out property <brush> separator: dark-color-scheme ? #000000 : #d9d9d9;
-    out property <brush> bar-background: dark-color-scheme ? #393939 : #ececec;
-    out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, #484848 0%, #434343 80%, #686868 100%) : #e2e2e2;
-    out property <brush> inner-border: dark-color-scheme ? #2e2e2e : #d7d7d7;
-    out property <brush> inner-shadow: dark-color-scheme ? #313131 : #ececed;
-    
-    out property <brush> state: dark-color-scheme ? #ffffff : #000000;
-    out property <brush> state-secondary: dark-color-scheme ? #000000 : #ffffff;
+    out property <brush> tertiary-background: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
+    out property <brush> quaternary-background: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
+    out property <brush> secondary-accent-background: dark-color-scheme ? CupertinoColors.blue : CupertinoColors.blue;
+    out property <brush> tertiary-accent-background: dark-color-scheme ? CupertinoColors.blue : CupertinoColors.blue;
+    out property <brush> foreground-neg: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
+    out property <brush> foreground-secondary: dark-color-scheme ? CupertinoColors.systemGray6.transparentize(0.4) : CupertinoColors.systemGray6-dark.transparentize(0.4);
+    out property <brush> secondary-control-background: dark-color-scheme ? CupertinoColors.systemGray : CupertinoColors.systemGray;
+    out property <brush> tertiary-control-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
+    out property <brush> quaternary-control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.systemGray6;
+    out property <brush> alternate-control-background: dark-color-scheme ? CupertinoColors.systemGray3-dark : CupertinoColors.systemGray3;
+    out property <brush> hover: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray4;
+    out property <brush> pressed: dark-color-scheme ? CupertinoColors.systemGray2 : CupertinoColors.systemGray6;
+    out property <brush> popup-border: dark-color-scheme ? CupertinoColors.systemGray3-dark : CupertinoColors.systemGray6-dark.transparentize(0.9);
+    out property <brush> decent-border: dark-color-scheme ? CupertinoColors.systemGray6-dark.transparentize(0.9) : CupertinoColors.systemGray6.transparentize(0.9);
+    out property <brush> control-background-thumb: dark-color-scheme ? CupertinoColors.systemGray3 : CupertinoColors.systemGray6;
+    out property <brush> separator: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray4;
+    out property <brush> bar-background: dark-color-scheme ? CupertinoColors.systemGray4-dark : CupertinoColors.systemGray4;
+    out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, CupertinoColors.systemGray4-dark 0%, CupertinoColors.systemGray3-dark 80%, CupertinoColors.systemGray2-dark 100%) : CupertinoColors.systemGray5;
+    out property <brush> inner-border: dark-color-scheme ? CupertinoColors.systemGray5-dark: CupertinoColors.systemGray4;
+    out property <brush> inner-shadow: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray6;
+
+    out property <brush> state: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
+    out property <brush> state-secondary: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
 
     // FIXME: dark color
-    out property <brush> dimmer: @linear-gradient(180deg, #FFFFFFFF 100%, #FFFFFF00 0%);
+    out property <brush> dimmer: @linear-gradient(180deg, CupertinoColors.white 100%, CupertinoColors.black 0%);
 }
 
 export global Icons {

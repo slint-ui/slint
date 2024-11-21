@@ -12,7 +12,7 @@ export global LayoutSpec {
     out property <length> layout-padding: 12px;
 }
 
-export global StyleMetrics  {
+export global StyleMetrics {
     out property <length> layout-spacing: LayoutSpec.layout-spacing;
     out property <length> layout-padding: LayoutSpec.layout-padding;
     out property <length> text-cursor-width: 1px;
@@ -39,4 +39,3 @@ export global Palette {
     out property <brush> border: CupertinoPalette.border;
     in-out property <ColorScheme> color-scheme <=> CupertinoPalette.color-scheme;
 }
-
