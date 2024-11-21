@@ -14,7 +14,8 @@
     "lint:fix": "biome lint --fix",
     "spellcheck": "cspell --no-progress --gitignore  ./**/*.{md,mdx}",
     "type-check": "astro check",
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
   },
   "dependencies": {
     "@astrojs/check": "0.9.4",

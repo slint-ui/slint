@@ -3,3 +3,5 @@ dev-dist/
 node_modules/
 pkg/
 .package-lock.json
+playwright-report/
+test-results/

@@ -212,6 +212,12 @@ importers:
       '@lumino/widgets':
         specifier: 2.5.0
         version: 2.5.0
+      '@playwright/test':
+        specifier: 1.48.2
+        version: 1.48.2
+      '@types/node':
+        specifier: 20.16.10
+        version: 20.16.10
       '@types/vscode':
         specifier: 1.92.0
         version: 1.92.0
@@ -235,7 +241,7 @@ importers:
         version: 5.6.2
       vite:
         specifier: 5.4.11
-        version: 5.4.11(@types/node@22.8.2)(terser@5.34.1)
+        version: 5.4.11(@types/node@20.16.10)(terser@5.34.1)
       vscode:
         specifier: npm:@codingame/monaco-vscode-api@~8.0.4
         version: '@codingame/monaco-vscode-api@8.0.4'
@@ -1773,9 +1779,6 @@ packages:
 
   '@types/node@20.16.10':
     resolution: {integrity: sha512-vQUKgWTjEIRFCvK6CyriPH3MZYiYlNy0fKiEYHWbcoWLEgs4opurGGKlebrTLqdSMIbXImH6XExNiIyNUv3WpA==}
-
-  '@types/node@22.8.2':
-    resolution: {integrity: sha512-NzaRNFV+FZkvK/KLCsNdTvID0SThyrs5SHB6tsD/lajr22FGC73N2QeDPM2wHtVde8mgcXuSsHQkH5cX1pbPLw==}
 
   '@types/picomatch@2.3.3':
     resolution: {integrity: sha512-Yll76ZHikRFCyz/pffKGjrCwe/le2CDwOP5F210KQo27kpRE46U2rDnzikNlVn6/ezH3Mhn46bJMTfeVTtcYMg==}
@@ -6213,7 +6216,7 @@ snapshots:
 
   '@types/jsonfile@6.1.4':
     dependencies:
-      '@types/node': 18.11.9
+      '@types/node': 20.16.10
 
   '@types/mdast@4.0.4':
     dependencies:
@@ -6236,11 +6239,6 @@ snapshots:
   '@types/node@20.16.10':
     dependencies:
       undici-types: 6.19.8
-
-  '@types/node@22.8.2':
-    dependencies:
-      undici-types: 6.19.8
-    optional: true
 
   '@types/picomatch@2.3.3': {}
 
@@ -9521,16 +9519,6 @@ snapshots:
       rollup: 4.27.3
     optionalDependencies:
       '@types/node': 20.16.10
-      fsevents: 2.3.3
-      terser: 5.34.1
-
-  vite@5.4.11(@types/node@22.8.2)(terser@5.34.1):
-    dependencies:
-      esbuild: 0.21.5
-      postcss: 8.4.49
-      rollup: 4.27.3
-    optionalDependencies:
-      '@types/node': 22.8.2
       fsevents: 2.3.3
       terser: 5.34.1
 

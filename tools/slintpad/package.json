@@ -20,7 +20,9 @@
         "start": "pnpm clean && pnpm build:wasm_lsp && vite",
         "preview": "vite preview --open --port=3000",
         "type-check": "tsc --noEmit",
-        "slintpad:prepublish": "pnpm clean && pnpm build:wasm_lsp-release && pnpm build:wasm_interpreter-release"
+        "slintpad:prepublish": "pnpm clean && pnpm build:wasm_lsp-release && pnpm build:wasm_interpreter-release",
+        "test": "playwright test",
+        "test:ui": "playwright test --ui"
     },
     "keywords": [],
     "author": "",
@@ -34,7 +36,9 @@
         "@codingame/monaco-vscode-storage-service-override": "~8.0.4",
         "@lumino/default-theme": "2.1.7",
         "@lumino/widgets": "2.5.0",
+        "@playwright/test": "1.48.2",
         "@types/vscode": "1.92.0",
+        "@types/node": "20.16.10",
         "monaco-editor": "npm:@codingame/monaco-vscode-editor-api@~8.0.4",
         "monaco-editor-wrapper": "~5.5.3",
         "monaco-languageclient": "~8.8.3",
