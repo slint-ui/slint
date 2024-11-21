@@ -31,7 +31,7 @@ Files: docs/src/utils/_templates/*.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: docs/src/assets/*.svg docs/src/assets/*.webp docs/src/assets/getting-started/*.webp docs/playwright.config.ts docs/*.mjs docs/*.json docs/public/*.svg docs/src/misc/*.json docs/src/misc/*.jsonc
+Files: docs/src/assets/*.svg docs/src/assets/*.webp docs/src/assets/getting-started/*.webp docs/playwright.config.ts docs/*.mjs docs/*.json docs/public/*.svg docs/src/misc/*.json docs/src/misc/*.jsonc docs/src/content/docs/reference/elements/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 

@@ -24,9 +24,9 @@ function populateVersions(versions: Version[]) {
 
       // Set the text content
       option.textContent = version.preferred
-        ? `${version.version} - latest`
+        ? `${version.version}`
         : version.name
-        ? `${version.version} - dev`
+        ? `next`
         : version.version;
 
       // Select the correct version based on the URL
@@ -84,7 +84,6 @@ customElements.define('version-select', VersionSelect);
   <version-select>
   <label style={`--sl-select-width: ${Astro.props.width}`}>
 	<span class="sr-only">Version</span>
-    <Icon name="seti:clock" class="icon label-icon" />
 	<select id="version-selector"
     aria-label="Select Documentation Version">
 	</select>
@@ -128,6 +127,7 @@ customElements.define('version-select', VersionSelect);
 
 	select {
 		border: 0;
+    outline: none;
 		padding-block: 0.625rem;
 		padding-inline: calc(var(--sl-label-icon-size) + var(--sl-inline-padding) + 0.25rem)
 			calc(var(--sl-caret-size) + var(--sl-inline-padding) + 0.25rem);

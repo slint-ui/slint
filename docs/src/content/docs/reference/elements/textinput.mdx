@@ -20,6 +20,8 @@ The `TextInput` is a lower-level item that shows text and allows entering text.
 
 When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 
+## Properties
+
 ### `color`
 <SlintProperty propName="color" typeName="brush" defaultValue="depends on the style">
 The color of the text.
@@ -150,3 +152,32 @@ Invoked when the text has changed because the user modified it.
 
 ### `rejected()`
 Invoked when the escape key is pressed.
+
+## `TextInputInterface`
+
+The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
+If you're implementing your own virtual keyboard, this property is an indicator whether the virtual keyboard should be shown or hidden.
+
+### Properties
+
+-   **`text-input-focused`** (_bool_): True if an `TextInput` element has the focus; false otherwise.
+
+### Example
+
+```slint
+import { LineEdit } from "std-widgets.slint";
+
+component VKB {
+    Rectangle { background: yellow; }
+}
+
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    VerticalLayout {
+        LineEdit {}
+        FocusScope {}
+        if TextInputInterface.text-input-focused: VKB {}
+    }
+}
+```

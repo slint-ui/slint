@@ -68,7 +68,7 @@ export default defineConfig({
                     slug: "getting-started/intro",
                 },
                 {
-                    label: "Concepts",
+                    label: "Guide",
                     collapsed: true,
                     items: [
                         { label: "Introduction", slug: "concepts/intro" },
@@ -96,6 +96,36 @@ export default defineConfig({
                                 "concepts/development/localization",
                                 "concepts/development/fonts",
                             ],
+                        },
+                    ],
+                },
+                {
+                    label: "Reference",
+                    collapsed: true,
+                    items: [
+                        {
+                            label: "Common details",
+                            slug: "reference/overview",
+                        },
+                        {
+                            label: "Basics",
+                            autogenerate: { directory: "reference/builtins" },
+                        },
+                        {
+                            label: "Elements",
+                            autogenerate: { directory: "reference/elements" },
+                        },
+                        {
+                            label: "Gestures & Keyboard",
+                            autogenerate: { directory: "reference/gestures" },
+                        },
+                        {
+                            label: "Layouts",
+                            autogenerate: { directory: "reference/layouts" },
+                        },
+                        {
+                            label: "Window",
+                            autogenerate: { directory: "reference/window" },
                         },
                     ],
                 },
@@ -176,6 +206,11 @@ export default defineConfig({
                     ],
                 },
                 {
+                    label: "Platforms",
+                    collapsed: true,
+                    autogenerate: { directory: "platforms" },
+                },
+                {
                     label: "Language Integrations",
                     collapsed: false,
                     items: [
@@ -201,47 +236,6 @@ export default defineConfig({
                             attrs: { target: "_blank" },
                         },
                     ],
-                },
-                {
-                    label: "Reference",
-                    collapsed: true,
-                    items: [
-                        {
-                            label: "Builtin reference",
-                            autogenerate: { directory: "reference/builtins" },
-                        },
-                        {
-                            label: "Elements",
-                            autogenerate: { directory: "reference/elements" },
-                        },
-                        {
-                            label: "Gestures & Keyboard",
-                            autogenerate: { directory: "reference/gestures" },
-                        },
-                        {
-                            label: "Layouts",
-                            autogenerate: { directory: "reference/layouts" },
-                        },
-                        {
-                            label: "Window",
-                            autogenerate: { directory: "reference/window" },
-                        },
-                    ],
-                },
-                {
-                    label: "Platforms",
-                    collapsed: true,
-                    autogenerate: { directory: "platforms" },
-                },
-                {
-                    label: "SlintPad ↗",
-                    link: "https://slintpad.com/",
-                    attrs: { target: "_blank" },
-                },
-                {
-                    label: "Slint Website ↗",
-                    link: "https://slint.dev",
-                    attrs: { target: "_blank" },
                 },
             ],
         }),

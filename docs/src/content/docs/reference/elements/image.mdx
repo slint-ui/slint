@@ -7,10 +7,10 @@ description: Image element api.
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="282" imageHeight="84"  imageAlt='image example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
 ```slint title="test-example.slint"
 Image {
-    source: @image-url("slint-logo-simple-dark.png");
+    source: @image-url("mini-banner.png");
 }
 ```
 </CodeSnippetMD>
@@ -27,21 +27,153 @@ An `Image` can be used to represent an image loaded from a file. Supported image
 ## Properties
 
 ### `colorize`
-<SlintProperty propName="colorize" typeName="brush">  
+<SlintProperty propName="colorize" typeName="brush"> 
 When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
+<CodeSnippetMD imagePath="/src/assets/generated/image-colorize.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
+```slint title="test-example.slint"
+Image {
+    source: @image-url("mini-banner.png");
+    colorize: gray;
+}
+```
+</CodeSnippetMD>
 </SlintProperty>
 
 ### `horizontal-alignment`
-<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="ImageHorizontalAlignment"/>
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="ImageHorizontalAlignment" defaultValue='center'/>
 
+## Image Tiling
 ### `horizontal-tiling` 
-<SlintProperty propName="horizontal-tiling" typeName="enum" enumName="ImageTiling"/>
+<SlintProperty propName="horizontal-tiling" typeName="enum" enumName="ImageTiling" defaultValue='none'>
+
+</SlintProperty>
+
+### `vertical-tiling` 
+<SlintProperty propName="vertical-tiling" typeName="enum" enumName="ImageTiling" defaultValue='none'>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling repeat example'>
+```slint
+Image {
+    width: 400px;
+    height: 400px;
+    source: @image-url("slint-logo.png");
+    horizontal-tiling: repeat;
+}
+```
+</CodeSnippetMD>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling round example'>
+```slint
+Image {
+    width: 400px;
+    height: 400px;
+    source: @image-url("slint-logo.png");
+    horizontal-tiling: round;
+}
+```
+</CodeSnippetMD>
+<CodeSnippetMD imagePath="/src/assets/generated/image-vertical-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical tiling repeat example'>
+```slint
+Image {
+    width: 400px;
+    height: 400px;
+    source: @image-url("slint-logo.png");
+    vertical-tiling: repeat;
+}
+```
+</CodeSnippetMD>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-vertical-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical tiling round example'>
+```slint
+Image {
+    width: 400px;
+    height: 400px;
+    source: @image-url("slint-logo.png");
+    vertical-tiling: round;
+}
+```
+</CodeSnippetMD>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-vertical-horizontal-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical and horizontal tiling round example'>
+```slint
+Image {
+    width: 400px;
+    height: 400px;
+    source: @image-url("slint-logo.png");
+    vertical-tiling: round;
+    horizontal-tiling: round;
+}
+```
+</CodeSnippetMD>
+</SlintProperty>
 
 ### `image-fit`
-<SlintProperty propName="image-fit" typeName="enum" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise" enumName="ImageFit"/>
+<SlintProperty propName="image-fit" typeName="enum" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise" enumName="ImageFit">
+<CodeSnippetMD imagePath="/src/assets/generated/image-fill.png"  imageWidth="300" imageHeight="200"  imageAlt='image fill example'>
+```slint
+Image {
+    width: 200px; height: 50px;
+    source: @image-url("mini-banner.png");
+    image-fit: fill;
+}
+```
+</CodeSnippetMD>
 
+<CodeSnippetMD imagePath="/src/assets/generated/image-contain.png"  imageWidth="300" imageHeight="200"  imageAlt='image contain example'>
+```slint 
+Image {
+    width: 250px; height: 40px;
+    source: @image-url("mini-banner.png");
+    image-fit: contain;
+}
+```
+</CodeSnippetMD>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-cover.png"  imageWidth="300" imageHeight="200"  imageAlt='image cover example'>
+```slint
+Image {
+    width: 250px; height: 250px;
+    source: @image-url("mini-banner.png");
+    image-fit: cover;
+}
+```
+</CodeSnippetMD>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-preserve.png"  imageWidth="400" imageHeight="400"  imageAlt='image preserve example'>
+```slint
+Image {
+    width: 400px; height: 400px;
+    source: @image-url("mini-banner.png");
+    image-fit: preserve;
+}
+```
+</CodeSnippetMD>
+
+</SlintProperty>
 ### `image-rendering`
-<SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering"/>  
+<SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering" defaultValue='smooth'>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-smooth.png"  imageWidth="300" imageHeight="300"  imageAlt='image smooth example'>
+```slint
+Image {
+    width: 800px;
+    source: @image-url("mini-banner.png");
+    image-rendering: smooth;
+}
+```
+</CodeSnippetMD>
+
+<CodeSnippetMD imagePath="/src/assets/generated/image-pixelated.png"  imageWidth="300" imageHeight="300"  imageAlt='image pixelated example'>
+```slint
+Image {
+    width: 800px; 
+    source: @image-url("mini-banner.png");
+    image-rendering: pixelated;
+}
+```
+</CodeSnippetMD>
+
+</SlintProperty>
 
 ## Rotation
 
@@ -120,5 +252,5 @@ Use the `@image-url("...")` macro to specify the location of the image.
 <SlintProperty propName="source-clip-height" typeName="int" defaultValue="source.height - source.clip-y"/>
 
 ### `vertical-alignment`
-<SlintProperty propName="vertical-alignment" typeName="enum" enumName="ImageVerticalAlignment"/>
+<SlintProperty propName="vertical-alignment" typeName="enum" enumName="ImageVerticalAlignment" defaultValue='center'/>
 
