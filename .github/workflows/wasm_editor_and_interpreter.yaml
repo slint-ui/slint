@@ -77,6 +77,7 @@ jobs:
               working-directory: tools/slintpad
             - name: Smoke-Test slintpad
               run: pnpm exec playwright test
+              working-directory: tools/slintpad
             - name: "Upload slintpad Artifacts"
               uses: actions/upload-artifact@v4
               with:
