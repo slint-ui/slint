@@ -148,7 +148,7 @@ struct SharedString
     ///     auto str = slint::SharedString("Hello");
     ///     auto str2 = str.to_uppercase(); // creates "HELLO"
     /// \endcode
-    SharedString to_uppercase() 
+    SharedString to_uppercase()
     {
         auto out = SharedString();
         cbindgen_private::slint_shared_string_to_uppercase(&out, this);
