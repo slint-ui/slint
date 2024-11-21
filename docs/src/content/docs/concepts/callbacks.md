@@ -51,13 +51,13 @@ export component Example inherits Rectangle {
 ```
 
 Callback arguments can also have names.
-The names of argument have currently no semantic value, but they can be usefull in tooling or auto-completion.
+The names of arguments have currently no semantic value, but they improve readability of your code.
 
 ```slint
 export component Example inherits Rectangle {
-    // Declares a callback with named argument
+    // Declare a callback with named argument
     callback hello(foo: int, bar: string);
-    // But the names can still be overriden with
+    // The names can be overridden with
     // anything when setting a handler
     hello(aa, bb) => { /* ... */ }
 }
