@@ -490,7 +490,6 @@ pub(crate) mod ffi {
         unsafe {
             slint_shared_string_to_lowercase(&mut out, &s);
         }
-      
         assert_eq!(out.as_str(), "hello");
     }
 
