@@ -474,6 +474,42 @@ pub(crate) mod ffi {
         append("!");
         assert_eq!(s.as_str(), "Hello, world!");
     }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_shared_string_to_lowercase(
+        out: &mut SharedString,
+        ss: &SharedString,
+    ) {
+        *out = SharedString::from(ss.to_lowercase());
+    }
+    #[test]
+    fn test_slint_shared_string_to_lowercase() {
+        let s = SharedString::from("Hello");
+        let mut out = SharedString::default();
+
+        unsafe {
+            slint_shared_string_to_lowercase(&mut out, &s);
+        }
+        assert_eq!(out.as_str(), "hello");
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_shared_string_to_uppercase(
+        out: &mut SharedString,
+        ss: &SharedString,
+    ) {
+        *out = SharedString::from(ss.to_uppercase());
+    }
+    #[test]
+    fn test_slint_shared_string_to_uppercase() {
+        let s = SharedString::from("Hello");
+        let mut out = SharedString::default();
+
+        unsafe {
+            slint_shared_string_to_uppercase(&mut out, &s);
+        }
+        assert_eq!(out.as_str(), "HELLO");
+    }
 }
 
 #[cfg(feature = "serde")]
