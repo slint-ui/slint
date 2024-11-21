@@ -145,7 +145,7 @@ struct SharedString
     ///
     /// For example:
     /// \code
-    ///     auto str = slint::SharedString("Hello"); 
+    ///     auto str = slint::SharedString("Hello");
     ///     auto str2 = str.to_uppercase(); // creates "HELLO"
     /// \endcode
     SharedString to_uppercase() 
