@@ -37,8 +37,7 @@ int main()
     demo->global<TableViewPageAdapter>().set_row_data(row_data);
 
     demo->global<TableViewPageAdapter>().on_filter_sort_model(
-            [](std::shared_ptr<
-                       auto source_model,
+            [](auto source_model,
                slint::SharedString filter, int sort_index, bool sort_ascending)
                     -> auto {
                 auto model = source_model;
