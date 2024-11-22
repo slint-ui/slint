@@ -407,6 +407,7 @@ export global Api {
 
     // ## Element selection:
     callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
+    pure callback find-selected-selection-stack-frame([SelectionStackFrame]) -> SelectionStackFrame;
     callback select-element(file: string, offset: int, x: length, y: length);
 
     callback select-at(x: length, y: length, enter-component: bool);
