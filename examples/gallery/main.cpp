@@ -51,8 +51,7 @@ int main()
                                     const std::shared_ptr<slint::Model<slint::StandardListViewItem>>
                                             e) -> bool {
                                 // filter first row
-                                std::string text = static_cast<std::string>(std::string_view(
-                                        e->row_data(0).value().text.to_lowercase()));
+                                std::string text(e->row_data(0).value().text.to_lowercase());
 
                                 return text.find(l_filter) != std::string::npos;
                             });
