@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { HorizontalBox, VerticalBox, StandardTableView, GroupBox} from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, StandardTableView, GroupBox, LayoutSpec, LineEdit } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -14,12 +14,14 @@ export global TableViewPageAdapter  {
         [ { text: "Item 5.1" }, { text: "Item 5.2" }, { text: "Item 5.3" }, { text: "Item 5.4" }, ],
         [ { text: "Item 6.1" }, { text: "Item 6.2" }, { text: "Item 6.3" }, { text: "Item 6.4" }, ],
     ];
-
-    callback sort_ascending(int);
-    callback sort_descending(int);
+    
+    pure callback filter_sort_model([[StandardListViewItem]], string, int, bool) -> [[StandardListViewItem]];
 }
 
 export component TableViewPage inherits Page {
+    property <int> sort-index: -1;
+    property <bool> sort-acending;
+    
     title: @tr("TableView");
     show-enable-switch: false;
     description: @tr("StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"");
@@ -31,23 +33,39 @@ export component TableViewPage inherits Page {
             title: @tr("StandardTableView");
             vertical-stretch: 0;
 
-            StandardTableView {
-                sort-ascending(index) => {
-                    TableViewPageAdapter.sort_ascending(index);
+            VerticalLayout {
+                spacing: LayoutSpec.layout-spacing;
+                
+                StandardTableView {
+                    sort-ascending(index) => {
+                        root.sort-index = index;
+                        root.sort-acending = true;
+                    }
+
+                    sort-descending(index) => {
+                        root.sort-index = index;
+                        root.sort-acending = false;
+                    }
+
+                    columns: [
+                        { title: @tr("Header 1") },
+                        { title: @tr("Header 2") },
+                        { title: @tr("Header 3") },
+                        { title: @tr("Header 4") },
+                    ];
+                    rows: TableViewPageAdapter.filter_sort_model(TableViewPageAdapter.row_data, filter-edit.text, root.sort-index, root.sort-acending);
                 }
 
-                sort-descending(index) => {
-                    TableViewPageAdapter.sort-descending(index);
-                }
+                VerticalLayout {
+                    Text {
+                        text: @tr("Filter by Header 1:");
+                    }
 
-                columns: [
-                    { title: @tr("Header 1") },
-                    { title: @tr("Header 2") },
-                    { title: @tr("Header 3") },
-                    { title: @tr("Header 4") },
-                ];
-                rows: TableViewPageAdapter.row_data;
+                    filter-edit := LineEdit {
+                        placeholder-text: @tr("Enter filter text");
+                    }
+                }   
             }
-        }
+       }
     }
 }

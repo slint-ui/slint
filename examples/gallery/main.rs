@@ -10,7 +10,7 @@ slint::include_modules!();
 
 use std::rc::Rc;
 
-use slint::{Model, StandardListViewItem, VecModel};
+use slint::{Model, ModelExt, ModelRc, SharedString, StandardListViewItem, VecModel};
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
@@ -36,39 +36,43 @@ pub fn main() {
     }
 
     app.global::<TableViewPageAdapter>().set_row_data(row_data.clone().into());
-
-    app.global::<TableViewPageAdapter>().on_sort_ascending({
-        let app_weak = app.as_weak();
-        let row_data = row_data.clone();
-        move |index| {
-            let row_data = row_data.clone();
-
-            let sort_model = Rc::new(row_data.sort_by(move |r_a, r_b| {
-                let c_a = r_a.row_data(index as usize).unwrap();
-                let c_b = r_b.row_data(index as usize).unwrap();
-
-                c_a.text.cmp(&c_b.text)
-            }));
-
-            app_weak.unwrap().global::<TableViewPageAdapter>().set_row_data(sort_model.into());
-        }
-    });
-
-    app.global::<TableViewPageAdapter>().on_sort_descending({
-        let app_weak = app.as_weak();
-        move |index| {
-            let row_data = row_data.clone();
-
-            let sort_model = Rc::new(row_data.sort_by(move |r_a, r_b| {
-                let c_a = r_a.row_data(index as usize).unwrap();
-                let c_b = r_b.row_data(index as usize).unwrap();
-
-                c_b.text.cmp(&c_a.text)
-            }));
-
-            app_weak.unwrap().global::<TableViewPageAdapter>().set_row_data(sort_model.into());
-        }
-    });
+    app.global::<TableViewPageAdapter>().on_filter_sort_model(filter_sort_model);
 
     app.run().unwrap();
+}
+
+fn filter_sort_model(
+    source_model: ModelRc<ModelRc<StandardListViewItem>>,
+    filter: SharedString,
+    sort_index: i32,
+    sort_ascending: bool,
+) -> ModelRc<ModelRc<StandardListViewItem>> {
+    let mut model = source_model.clone();
+
+    if !filter.is_empty() {
+        let filter = filter.to_lowercase();
+
+        // filter by first row
+        model =
+            Rc::new(source_model.clone().filter(move |e| {
+                e.row_data(0).unwrap().text.to_lowercase().contains(filter.as_str())
+            }))
+            .into();
+    }
+
+    if sort_index >= 0 {
+        model = Rc::new(model.clone().sort_by(move |r_a, r_b| {
+            let c_a = r_a.row_data(sort_index as usize).unwrap();
+            let c_b = r_b.row_data(sort_index as usize).unwrap();
+
+            if sort_ascending {
+                c_a.text.cmp(&c_b.text)
+            } else {
+                c_b.text.cmp(&c_a.text)
+            }
+        }))
+        .into();
+    }
+
+    model
 }

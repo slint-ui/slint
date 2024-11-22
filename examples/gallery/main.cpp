@@ -36,39 +36,39 @@ int main()
 
     demo->global<TableViewPageAdapter>().set_row_data(row_data);
 
-    demo->global<TableViewPageAdapter>().on_sort_ascending([row_data,
-                                                            demo = slint::ComponentWeakHandle(
-                                                                    demo)](int index) {
-        auto demo_lock = demo.lock();
-        (*demo_lock)
-                ->global<TableViewPageAdapter>()
-                .set_row_data(std::make_shared<slint::SortModel<
-                                      std::shared_ptr<slint::Model<slint::StandardListViewItem>>>>(
-                        row_data, [index](auto lhs, auto rhs) {
-                            auto c_lhs = lhs->row_data(index);
-                            auto c_rhs = rhs->row_data(index);
+    demo->global<TableViewPageAdapter>().on_filter_sort_model([](auto source_model,
+                                                                 slint::SharedString filter,
+                                                                 int sort_index,
+                                                                 bool sort_ascending) -> auto {
+        auto model = source_model;
 
-                            return c_lhs->text < c_rhs->text;
-                        }));
-    });
+        if (!filter.empty()) {
+            auto l_filter = filter.to_lowercase();
+            model = std::make_shared<
+                    slint::FilterModel<std::shared_ptr<slint::Model<slint::StandardListViewItem>>>>(
+                    source_model,
+                    [l_filter](const std::shared_ptr<slint::Model<slint::StandardListViewItem>> e)
+                            -> bool {
+                        // filter first row
+                        std::string text(e->row_data(0).value().text.to_lowercase());
 
-    demo->global<TableViewPageAdapter>().on_sort_descending([row_data,
-                                                             demo = slint::ComponentWeakHandle(
-                                                                     demo)](int index) {
-        auto demo_lock = demo.lock();
-        (*demo_lock)->global<TableViewPageAdapter>().set_row_data(row_data);
+                        return text.find(l_filter) != std::string::npos;
+                    });
+        }
 
-        (*demo_lock)
-                ->global<TableViewPageAdapter>()
-                .set_row_data(std::make_shared<slint::SortModel<
-                                      std::shared_ptr<slint::Model<slint::StandardListViewItem>>>>(
-                        (*demo_lock)->global<TableViewPageAdapter>().get_row_data(),
-                        [index](auto lhs, auto rhs) {
-                            auto c_lhs = lhs->row_data(index);
-                            auto c_rhs = rhs->row_data(index);
+        if (sort_index >= 0) {
+            model = std::make_shared<
+                    slint::SortModel<std::shared_ptr<slint::Model<slint::StandardListViewItem>>>>(
+                    model, [sort_index, sort_ascending](auto lhs, auto rhs) {
+                        auto c_lhs = lhs->row_data(sort_index);
+                        auto c_rhs = rhs->row_data(sort_index);
 
-                            return c_rhs->text < c_lhs->text;
-                        }));
+                        return sort_ascending ? c_lhs->text < c_rhs->text
+                                              : c_rhs->text < c_lhs->text;
+                    });
+        }
+
+        return model;
     });
 
     demo->run();
