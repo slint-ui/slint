@@ -40,8 +40,7 @@ int main()
             [](std::shared_ptr<
                        auto source_model,
                slint::SharedString filter, int sort_index, bool sort_ascending)
-                    -> std::shared_ptr<slint::Model<
-                            std::shared_ptr<slint::Model<slint::StandardListViewItem>>>> {
+                    -> auto {
                 auto model = source_model;
 
                 if (!filter.empty()) {
