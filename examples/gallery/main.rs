@@ -61,23 +61,17 @@ fn filter_sort_model(
     }
 
     if sort_index >= 0 {
-        if sort_ascending {
-            model = Rc::new(model.clone().sort_by(move |r_a, r_b| {
-                let c_a = r_a.row_data(sort_index as usize).unwrap();
-                let c_b = r_b.row_data(sort_index as usize).unwrap();
+        model = Rc::new(model.clone().sort_by(move |r_a, r_b| {
+            let c_a = r_a.row_data(sort_index as usize).unwrap();
+            let c_b = r_b.row_data(sort_index as usize).unwrap();
 
+            if sort_ascending {
                 c_a.text.cmp(&c_b.text)
-            }))
-            .into();
-        } else {
-            model = Rc::new(model.clone().sort_by(move |r_a, r_b| {
-                let c_a = r_a.row_data(sort_index as usize).unwrap();
-                let c_b = r_b.row_data(sort_index as usize).unwrap();
-
+            } else {
                 c_b.text.cmp(&c_a.text)
-            }))
-            .into();
-        }
+            }
+        }))
+        .into();
     }
 
     model
