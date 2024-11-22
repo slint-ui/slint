@@ -43,8 +43,7 @@ int main()
                 auto model = source_model;
 
                 if (!filter.empty()) {
-                    auto l_filter =
-                            static_cast<std::string>(std::string_view(filter.to_lowercase()));
+                    auto l_filter = filter.to_lowercase();
                     model = std::make_shared<slint::FilterModel<
                             std::shared_ptr<slint::Model<slint::StandardListViewItem>>>>(
                             source_model,
