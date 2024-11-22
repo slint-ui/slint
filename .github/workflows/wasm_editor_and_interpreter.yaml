@@ -79,6 +79,7 @@ jobs:
               run: pnpm exec playwright test
               working-directory: tools/slintpad
             - name: Publish Test Summary Results
+              if: ${{ always() }}
               working-directory: tools/slintpad
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
             - name: "Upload slintpad Artifacts"
