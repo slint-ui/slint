@@ -79,7 +79,6 @@ path = [
   "docs/**/**.html",
   "docs/**/book.toml",
   "docs/**/package.json",
-  "docs/playwright.config.ts",
   "docs/public/**.svg",
   "docs/src/assets/**.svg",
   "docs/src/assets/**.webp",
