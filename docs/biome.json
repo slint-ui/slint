@@ -1,9 +1,22 @@
 {
     "extends": ["../biome.json"],
     "formatter": {
-        "ignore": ["**/.astro/**", "archive/**"]
+        "ignore": ["archive/**"]
     },
     "linter": {
-        "ignore": ["**/.astro/**", "archive/**"]
-    }
+        "ignore": ["archive/**"]
+    },
+    "overrides": [
+        {
+            "include": ["*.astro"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useConst": "off",
+                        "useImportType": "off"
+                    }
+                }
+            }
+        }
+    ]
 }
