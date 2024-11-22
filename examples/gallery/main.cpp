@@ -38,8 +38,7 @@ int main()
 
     demo->global<TableViewPageAdapter>().on_filter_sort_model(
             [](std::shared_ptr<
-                       slint::Model<std::shared_ptr<slint::Model<slint::StandardListViewItem>>>>
-                       source_model,
+                       auto source_model,
                slint::SharedString filter, int sort_index, bool sort_ascending)
                     -> std::shared_ptr<slint::Model<
                             std::shared_ptr<slint::Model<slint::StandardListViewItem>>>> {
