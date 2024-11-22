@@ -78,6 +78,9 @@ jobs:
             - name: Smoke-Test slintpad
               run: pnpm exec playwright test
               working-directory: tools/slintpad
+            - name: Publish Test Summary Results
+              working-directory: tools/slintpad
+              run: npx github-actions-ctrf playwright-report/ctrf-report.json
             - name: "Upload slintpad Artifacts"
               uses: actions/upload-artifact@v4
               with:

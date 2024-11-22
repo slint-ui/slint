@@ -233,6 +233,9 @@ importers:
       path-browserify:
         specifier: 1.0.1
         version: 1.0.1
+      playwright-ctrf-json-reporter:
+        specifier: 0.0.18
+        version: 0.0.18
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
