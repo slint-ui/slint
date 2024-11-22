@@ -1,7 +1,7 @@
 {
     "extends": ["../../biome.json"],
     "formatter": {
-        "ignore": ["dist/**"]
+        "ignore": ["dist/**", "**/playwright-report/**", "**/test-results/**"]
     },
     "linter": {
         "ignore": [
@@ -9,7 +9,9 @@
             "webviews/**",
             "**/.vscode/**",
             "**/build/**",
-            "**/out/**"
+            "**/out/**",
+            "**/playwright-report/**",
+            "**/test-results/**"
         ]
     }
 }
