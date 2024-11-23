@@ -1,6 +1,7 @@
 ---
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// biome-ignore lint/style/useImportType: <explanation>
 import { Icon } from "@astrojs/starlight/components";
 import type { HTMLAttributes } from "astro/types";
 
@@ -9,7 +10,7 @@ interface Props extends Omit<HTMLAttributes<"a">, "title"> {
     title: string;
 }
 
-const { icon, title, ...attributes } = Astro.props;
+const { icon, title, ...attributes } = Astro.props as Props;
 ---
 
 <article class="icon-link-card sl-flex">

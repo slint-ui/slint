@@ -22,14 +22,16 @@ if (!images[imagePath]) {
         `"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`,
     );
 }
+const imageSrc = images[imagePath]();
+const imageCSS = `image-block ${needsBackground ? "screenshot-container" : ""}`;
 ---
 
 {!skip && <div class="code-image-container">
     <div class="code-block">
         <slot/>
     </div>
-    <div class={`image-block ${needsBackground ? 'screenshot-container' : ''}`}>
-        <Image src={images[imagePath]()} alt={imageAlt} />
+    <div class={imageCSS}>
+        <Image src={imageSrc} alt={imageAlt} />
     </div>
 </div>}
 

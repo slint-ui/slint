@@ -47,7 +47,7 @@
 }
 
 /* Dark mode colors. */
-:root {
+    :root {
     --sl-hue-blue: 222;
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
@@ -66,7 +66,7 @@
 }
 
 /* Light mode colors. */
-:root[data-theme="light"] {
+    :root[data-theme="light"] {
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
     --badge-border-color: lightgrey;
@@ -113,4 +113,18 @@
 .site-title {
     font-size: 1rem;
     text-transform: uppercase;
+}
+
+.version-banner {
+    background-color: var(--sl-color-orange-low);
+    box-shadow: var(--sl-shadow-sm);
+    color: var(--sl-color-orange-high);
+    line-height: var(--sl-line-height-headings);
+    padding: var(--sl-nav-pad-y) var(--sl-nav-pad-x);
+    text-align: center;
+    text-wrap: balance;
+}
+
+.version-banner a {
+    color: var(--sl-color-orange-high);
 }
