@@ -19,13 +19,13 @@ In our written communication we aim to be:
 
  1. Use contractions:
    Avoid: "We are proud to announce ..."
-   Use: "We're pround to announce ..."
+   Use: "We're proud to announce ..."
    Rationale: Makes for a conversational, human tone.
 
  2. Offer direct advice:
    - Avoid: "Please install XYZ ..."
    - Use: "Install XYZ"
-   - Rational: The user is reading this to get instrunctions, there's no need to beat around the bush.
+   - Rational: The user is reading this to get instructions, there's no need to beat around the bush.
    
  3. Write actionable:
    - Avoid: "Element XYZ makes it possible to set the background color."
