@@ -7,6 +7,8 @@ export interface Version {
 
 let versionsCache: Version[] | null = null;
 
+// This function is used by the docs at build time. It downloads the versions.json file
+// and caches the result.
 export async function getVersions(): Promise<Version[]> {
     if (versionsCache) {
         return versionsCache;
