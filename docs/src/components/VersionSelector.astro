@@ -6,22 +6,27 @@ import { Icon } from "@astrojs/starlight/components";
 import { getVersions } from "../utils/versions.ts";
 
 interface Version {
-  version: string;
-  name?: string;
-  url: string;
-  preferred?: boolean;
+    version: string;
+    name?: string;
+    url: string;
+    preferred?: boolean;
 }
 
 const versions = await getVersions();
 
 const currentUrl = Astro.url.href;
 
-const processedVersions = versions.map(version => ({
-  ...version,
-  selected: currentUrl.includes(version.version) || 
-    (currentUrl.includes('master') && version.name?.includes('development snapshot')),
-  label: version.preferred ? version.version : 
-         version.name ? 'next' : version.version
+const processedVersions = versions.map((version) => ({
+    ...version,
+    selected:
+        currentUrl.includes(version.version) ||
+        (currentUrl.includes("master") &&
+            version.name?.includes("development snapshot")),
+    label: version.preferred
+        ? version.version
+        : version.name
+          ? "next"
+          : version.version,
 }));
 ---
 
