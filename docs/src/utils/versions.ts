@@ -1,3 +1,5 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
 export interface Version {
     version: string;
     name?: string;
