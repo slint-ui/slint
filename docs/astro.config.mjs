@@ -109,7 +109,11 @@ export default defineConfig({
                         },
                         {
                             label: "Basics",
-                            autogenerate: { directory: "reference/builtins" },
+                            items: [
+                                 "reference/builtins/builtinfunctions",
+                                 "reference/builtins/colors",
+                                 "reference/builtins/math",
+                            ]
                         },
                         {
                             label: "Elements",
