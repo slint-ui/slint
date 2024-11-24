@@ -46,6 +46,10 @@
     /* Tweak the table so the first column is wider */
 }
 
+.sl-markdown-content h3 {
+    margin-bottom: -0.8rem; /* Adjust this value as needed */
+}
+
 /* Dark mode colors. */
     :root {
     --sl-hue-blue: 222;
