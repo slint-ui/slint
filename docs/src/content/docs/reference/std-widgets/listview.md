@@ -41,9 +41,9 @@ Elements are only instantiated if they are visible
 
 ### Properties
 
-Same as [`ScrollView`](/master/docs/slint/std-widgets/scrollview/)
+Same as [`ScrollView`](/master/docs/slint/reference/std-widgets/scrollview/)
 
 
 ### Callbacks
 
-Same as [`ScrollView`](/master/docs/slint/std-widgets/scrollview/)
+Same as [`ScrollView`](/master/docs/slint/reference/std-widgets/scrollview/)

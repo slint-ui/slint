@@ -15,7 +15,7 @@ export component Example inherits Window {
 ```
 
 The `Spinner` informs the user about the status of an on-going operation, such as loading data from the network. It provides the same properties as
-[`ProgressIndicator`](/master/docs/slint/std-widgets/progressindicator/) but differs in shape.
+[`ProgressIndicator`](/master/docs/slint/reference/std-widgets/progressindicator/) but differs in shape.
 
 ### Properties
 

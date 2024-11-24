@@ -6,20 +6,20 @@ description: Math Namespace
 
 The **Math** namespace contains functions that are available both in the global scope and in the `Math` namespace.
 
-```slint
+```slint no-test
 // Using the Math namespace
 x: Math.abs(-10); // sets x to 10
 
 ```
 
-```slint
+```slint no-test
 // Using the functions via global scope. No need for 'Math' prefix.
 x: abs(-10); // sets x to 10
 
 ```
 
 Some of the math functions can be used in a postfix style which can make the code more readable.
-```slint
+```slint no-test
 // Using the postfix style.
 x: -10.abs(); // sets x to 10
 ```  
@@ -31,7 +31,7 @@ Many of the math functions can be used with any numeric type such as `angle`, `d
 ### abs(T) -> T
 
 Return the absolute value, where T is a numeric type.
-```slint
+```slint no-test
 Math.abs(-10); // returns 10
 abs(-10); // returns 10
 -10.abs(); // returns 10
@@ -39,14 +39,14 @@ abs(-10); // returns 10
 
 ### ceil(float) -> int 
 Returns the value rounded up to the nearest integer.
-```slint
+```slint no-test
 Math.ceil(4); // returns 4
 Math.ceil(2.3); // returns 3
 Math.ceil(-1.5); // returns -1
 ```
 ### floor(float) -> int
 Returns the value rounded down to the nearest integer.
-```slint
+```slint no-test
 Math.floor(4); // returns 4
 Math.floor(2.3); // returns 2
 Math.floor(-1.5); // returns -2
@@ -54,7 +54,7 @@ Math.floor(-1.5); // returns -2
 
 ### round(float) -> int
 Return the value rounded to the nearest integer
-```slint
+```slint no-test
 Math.round(4.5); // returns 5
 Math.round(4.4); // returns 4
 Math.round(-1.2); // returns -1
@@ -73,7 +73,7 @@ Return the log of the first value with a base of the second value
 ### max(T, T) -> T
 
 Return the arguments with the minimum (or maximum) value. All arguments must be of the same numeric type.
-```slint
+```slint no-test
 Math.min(1, 2); // returns 1
 Math.min(2, 1); // returns 1
 Math.max(1, 2); // returns 2

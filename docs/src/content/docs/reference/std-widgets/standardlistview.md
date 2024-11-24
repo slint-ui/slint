@@ -9,7 +9,7 @@ Like ListView, but with a default delegate, and a `model` property which is a mo
 
 ### Properties
 
-Same as [`ListView`](/master/docs/slint/std-widgets/listview/), and in addition:
+Same as [`ListView`](/master/docs/slint/reference/std-widgets/listview/), and in addition:
 
 -   **`current-item`** (_in-out_ _int_): The index of the currently active item. -1 mean none is selected, which is the default
 -   **`model`** (_in_ _[`StandardListViewItem`](../builtins/structs.md#standardlistviewitem)_): The model
