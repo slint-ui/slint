@@ -369,6 +369,8 @@ jobs:
                 include:
                     - feature: pico-st7789
                       target: thumbv6m-none-eabi
+                    - feature: pico2-st7789
+                      target: thumbv8m.main-none-eabihf
                     - feature: stm32h735g
                       target: thumbv7em-none-eabihf
         steps:

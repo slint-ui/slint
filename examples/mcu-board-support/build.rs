@@ -8,6 +8,8 @@ fn main() -> std::io::Result<()> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "pico-st7789")] {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico_st7789", "board_config.toml"].iter().collect());
+        } else if #[cfg(feature = "pico2-st7789")] {
+            board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico2_st7789", "board_config.toml"].iter().collect());
         } else if #[cfg(feature = "stm32h735g")] {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "stm32h735g", "board_config.toml"].iter().collect());
         }
