@@ -71,30 +71,30 @@ export default defineConfig({
                     label: "Guide",
                     collapsed: true,
                     items: [
-                        { label: "Introduction", slug: "concepts/intro" },
+                        { label: "Introduction", slug: "guide/intro" },
                         {
                             label: "Slint Language",
                             items: [
                                 {
                                     label: "Basics",
-                                    slug: "concepts/language/basics",
+                                    slug: "guide/language/basics",
                                 },
                                 {
                                     label: "Syntax",
-                                    slug: "concepts/language/syntax",
+                                    slug: "guide/language/syntax",
                                 },
                                 {
                                     label: "Types",
-                                    slug: "concepts/language/types",
+                                    slug: "guide/language/types",
                                 },
                             ],
                         },
                         {
                             label: "App Development",
                             items: [
-                                "concepts/development/debugging_techniques",
-                                "concepts/development/localization",
-                                "concepts/development/fonts",
+                                "guide/development/debugging_techniques",
+                                "guide/development/localization",
+                                "guide/development/fonts",
                             ],
                         },
                     ],

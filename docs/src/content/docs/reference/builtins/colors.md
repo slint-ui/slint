@@ -8,8 +8,16 @@ Use the colors namespace to select colors by their name. For example you can use
 The entire list of names is very long. You can find a complete list in the [CSS Specification](https://www.w3.org/TR/css-color-3/#svg-color).
 
 These functions are available both in the global scope, and in the `Colors` namespace.
+```slint
+// Using the Colors namespace
+background: Colors.aquamarine;
 
--   **`rgb(int, int, int) -> color`**, **`rgba(int, int, int, float) -> color`**
+// Using the functions via global scope.
+background: aquamarine;
+```
+
+### rgb(int, int, int) -> color 
+### rgba(int, int, int, float) -> color
 
 Return the color as in CSS. Like in CSS, these two functions are actually aliases that can take
 three or four parameters.
