@@ -71,30 +71,30 @@ export default defineConfig({
                     label: "Guide",
                     collapsed: true,
                     items: [
-                        { label: "Introduction", slug: "concepts/intro" },
+                        { label: "Introduction", slug: "guide/intro" },
                         {
                             label: "Slint Language",
                             items: [
                                 {
                                     label: "Basics",
-                                    slug: "concepts/language/basics",
+                                    slug: "guide/language/basics",
                                 },
                                 {
                                     label: "Syntax",
-                                    slug: "concepts/language/syntax",
+                                    slug: "guide/language/syntax",
                                 },
                                 {
                                     label: "Types",
-                                    slug: "concepts/language/types",
+                                    slug: "guide/language/types",
                                 },
                             ],
                         },
                         {
                             label: "App Development",
                             items: [
-                                "concepts/development/debugging_techniques",
-                                "concepts/development/localization",
-                                "concepts/development/fonts",
+                                "guide/development/debugging_techniques",
+                                "guide/development/localization",
+                                "guide/development/fonts",
                             ],
                         },
                     ],
@@ -109,7 +109,11 @@ export default defineConfig({
                         },
                         {
                             label: "Basics",
-                            autogenerate: { directory: "reference/builtins" },
+                            items: [
+                                "reference/builtins/builtinfunctions",
+                                "reference/builtins/colors",
+                                "reference/builtins/math",
+                            ],
                         },
                         {
                             label: "Elements",
@@ -126,6 +130,47 @@ export default defineConfig({
                         {
                             label: "Window",
                             autogenerate: { directory: "reference/window" },
+                        },
+                        {
+                            label: "Std-Widgets",
+                            collapsed: true,
+                            items: [
+                                "reference/std-widgets/overview",
+                                "reference/std-widgets/style",
+                                {
+                                    label: "UI Widgets",
+                                    items: [
+                                        "reference/std-widgets/aboutslint",
+                                        "reference/std-widgets/button",
+                                        "reference/std-widgets/checkbox",
+                                        "reference/std-widgets/combobox",
+                                        "reference/std-widgets/datepicker",
+                                        "reference/std-widgets/lineedit",
+                                        "reference/std-widgets/listview",
+                                        "reference/std-widgets/progressindicator",
+                                        "reference/std-widgets/scrollview",
+                                        "reference/std-widgets/slider",
+                                        "reference/std-widgets/spinbox",
+                                        "reference/std-widgets/spinner",
+                                        "reference/std-widgets/standardbutton",
+                                        "reference/std-widgets/standardlistview",
+                                        "reference/std-widgets/standardtableview",
+                                        "reference/std-widgets/switch",
+                                        "reference/std-widgets/tabwidget",
+                                        "reference/std-widgets/textedit",
+                                        "reference/std-widgets/timepicker",
+                                    ],
+                                },
+                                {
+                                    label: "Layout Widgets",
+                                    items: [
+                                        "reference/std-widgets/gridbox",
+                                        "reference/std-widgets/groupbox",
+                                        "reference/std-widgets/horizontalbox",
+                                        "reference/std-widgets/verticalbox",
+                                    ],
+                                },
+                            ],
                         },
                     ],
                 },
@@ -164,47 +209,7 @@ export default defineConfig({
                         { label: "Conclusion", slug: "tutorial/conclusion" },
                     ],
                 },
-                {
-                    label: "Std-Widgets",
-                    collapsed: true,
-                    items: [
-                        "std-widgets/overview",
-                        "std-widgets/style",
-                        {
-                            label: "UI Widgets",
-                            items: [
-                                "std-widgets/aboutslint",
-                                "std-widgets/button",
-                                "std-widgets/checkbox",
-                                "std-widgets/combobox",
-                                "std-widgets/datepicker",
-                                "std-widgets/lineedit",
-                                "std-widgets/listview",
-                                "std-widgets/progressindicator",
-                                "std-widgets/scrollview",
-                                "std-widgets/slider",
-                                "std-widgets/spinbox",
-                                "std-widgets/spinner",
-                                "std-widgets/standardbutton",
-                                "std-widgets/standardlistview",
-                                "std-widgets/standardtableview",
-                                "std-widgets/switch",
-                                "std-widgets/tabwidget",
-                                "std-widgets/textedit",
-                                "std-widgets/timepicker",
-                            ],
-                        },
-                        {
-                            label: "Layout Widgets",
-                            items: [
-                                "std-widgets/gridbox",
-                                "std-widgets/groupbox",
-                                "std-widgets/horizontalbox",
-                                "std-widgets/verticalbox",
-                            ],
-                        },
-                    ],
-                },
+
                 {
                     label: "Platforms",
                     collapsed: true,

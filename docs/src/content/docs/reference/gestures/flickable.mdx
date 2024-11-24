@@ -23,7 +23,7 @@ export component Example inherits Window {
 ```
 
 The `Flickable` is a low-level element that is the base for scrollable
-widgets, such as the [`ScrollView`](/master/docs/slint/std-widgets/scrollview). When the `viewport-width` or the
+widgets, such as the [`ScrollView`](/master/docs/slint/reference/std-widgets/scrollview). When the `viewport-width` or the
 `viewport-height` is greater than the parent's `width` or `height`
 respectively, the element becomes scrollable. Note that the `Flickable`
 doesn't create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
@@ -61,7 +61,7 @@ interacting with `TouchArea` elements:
 
 ## Properties
 
-### `interactive`
+### interactive
 <SlintProperty propName="interactive" typeName="bool" defaultValue="true">
 <CodeSnippetMD imagePath="/src/assets/generated/flickable-interactive.png"  imageWidth="200" imageHeight="200"  imageAlt='flickable interactive'>
 ```slint
@@ -74,29 +74,29 @@ When true, the viewport can be scrolled by clicking on it and dragging it with t
 
 </SlintProperty>
 
-### `viewport-width`
+### viewport-width
 <SlintProperty propName="viewport-width" typeName="length">
 The total width of the scrollable element.
 </SlintProperty>
 
-### `viewport-height`
+### viewport-height
 <SlintProperty propName="viewport-height" typeName="length">
 The total height of the scrollable element.
 </SlintProperty>
 
 
-### `viewport-x`
+### viewport-x
 <SlintProperty propName="viewport-x" typeName="length">
 The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
 </SlintProperty>
 
 
-### `viewport-y`
+### viewport-y
 <SlintProperty propName="viewport-y" typeName="length">
 The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
 </SlintProperty>
 
 ## Callbacks
 
-### `flicked()`
+### flicked()
 Invoked when `viewport-x` or `viewport-y` is changed by a user action (dragging, scrolling).

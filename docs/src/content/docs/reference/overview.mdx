@@ -76,17 +76,17 @@ export component AppWindow inherits Window {
 
 These properties are valid on all **visible** items:
 
-### `x`
+### x
 <SlintProperty propName="x" typeName="length" > 
 The position of the element relative to its parent.
 </SlintProperty>
 
-### `y`
+### y
 <SlintProperty propName="y" typeName="length" > 
 The position of the element relative to its parent.
 </SlintProperty>
 
-### `z`
+### z
 <SlintProperty propName="z" typeName="float" > 
 Allows to specify a different order to stack the items with its siblings.
 The value must be a compile time constant.
@@ -97,23 +97,23 @@ Currently the `z` value is a compile time constant and cannot be changed at runt
 
 </SlintProperty>
 
-### `absolute-position`
+### absolute-position
 <SlintProperty propName="absolute-position" typeName="struct" structName="Point" > 
 The position of the element within the contained window.
 
 </SlintProperty>
 
-### `width`
+### width
 <SlintProperty propName="width" typeName="length" > 
 The width of the element. When set, this overrides the default width.
 </SlintProperty>
 
-### `height`
+### height
 <SlintProperty propName="height" typeName="length" > 
 The height of the element. When set, this overrides the default height.
 </SlintProperty>
 
-### `opacity`
+### opacity
 <SlintProperty propName="opacity" typeName="float" defaultValue="1">
 A value between 0 and 1 (or a percentage) that is used to draw
 the element and its children with transparency.
@@ -128,7 +128,7 @@ use the `visible` property instead.
 :::
 </SlintProperty>
 
-### `visible`
+### visible
 <SlintProperty propName="visible" typeName="bool" defaultValue="true">
 When set to `false`, the element and all his children won't be drawn and not react to mouse input.
 

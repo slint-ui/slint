@@ -24,8 +24,9 @@ function workersPlaygroundButton() {
             width: 2rem;
             height: 2rem;
             border-radius: 50%;
+            opacity: 0;
             font-size: 0;
-            transition: background-color 0.3s;
+            transition: opacity 0.3s, background-color 0.3s;
 
             &:hover {
                 background-color: color-mix(in srgb, var(--sl-color-accent) 90%, transparent);
@@ -40,6 +41,10 @@ function workersPlaygroundButton() {
                 border-color: transparent transparent transparent white;
             }
         }
+        div.expressive-code:hover .run,
+            .expressive-code:hover .run {
+                opacity: 1;
+            }
         `,
         hooks: {
             postprocessRenderedBlock: async (context) => {
@@ -50,9 +55,15 @@ function workersPlaygroundButton() {
                 const content = context.codeBlock.code;
                 const url = `https://slintpad.com?snippet=${encodeURIComponent(content)}`;
 
-                const runButton = h("a.run", { href: url, target: "__blank" }, [
-                    // h("span", "Live-Code"),
-                ]);
+                const runButton = h(
+                    "a.run",
+                    {
+                        href: url,
+                        target: "__blank",
+                        title: "Open in SlintPad",
+                    },
+                    [],
+                );
 
                 const ast = context.renderData.blockAst;
                 ast.children.push(runButton);

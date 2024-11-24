@@ -41,37 +41,37 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 ## Properties
 
-### `has-hover`
+### has-hover
 <SlintProperty propName="has-hover" typeName="bool" propertyVisibility="out">
 Set to true when the mouse is over the `TouchArea` area.
 </SlintProperty>
 
-### `mouse-cursor`
+### mouse-cursor
 <SlintProperty propName="mouse-cursor" typeName="enum" enumName="MouseCursor">
 The mouse cursor type when the mouse is hovering the `TouchArea`.
 </SlintProperty>
 
-### `mouse-x`
+### mouse-x
 <SlintProperty propName="mouse-x" typeName="length" propertyVisibility="out">
 Set by the `TouchArea` to the position of the mouse within it.
 </SlintProperty>
 
-### `mouse-y`
+### mouse-y
 <SlintProperty propName="mouse-y" typeName="length" propertyVisibility="out">
 Set by the `TouchArea` to the position of the mouse within it.
 </SlintProperty>
 
-### `pressed-x`
+### pressed-x
 <SlintProperty propName="pressed-x" typeName="length" propertyVisibility="out">
 Set by the `TouchArea` to the position of the mouse at the moment it was last pressed.
 </SlintProperty>
 
-### `pressed-y`
+### pressed-y
 <SlintProperty propName="pressed-y" typeName="length" propertyVisibility="out">
 Set by the `TouchArea` to the position of the mouse at the moment it was last pressed.
 </SlintProperty>
 
-### `pressed`
+### pressed
 <SlintProperty propName="pressed" typeName="bool" propertyVisibility="out">
 Set to `true` by the `TouchArea` when the mouse is pressed over it.
 </SlintProperty>
@@ -79,22 +79,22 @@ Set to `true` by the `TouchArea` when the mouse is pressed over it.
 
 ### Callbacks
 
-### `clicked()`
+### clicked()
 Invoked when clicked: A finger or the left mouse button is pressed, then released on this element.
 
-### `double-clicked()`
+### double-clicked()
 Invoked when double-clicked. The left mouse button is pressed and released twice on this element in a short
 period of time, or the same is done with a finger. The `clicked()` callbacks will be triggered before the `double-clicked()` callback is triggered.
 
-### `moved()`
+### moved()
 The mouse or finger has been moved. This will only be called if the mouse is also pressed or the finger continues to touch
 the display. See also **pointer-event(PointerEvent)**.
 
-### `pointer-event(PointerEvent)`
+### pointer-event(PointerEvent)
 <PointerEvent />
 
 
-### `scroll-event(PointerScrollEvent) -> EventResult`
+### scroll-event(PointerScrollEvent) -> EventResult
 Invoked when the mouse wheel was rotated or another scroll gesture was made.
 The `PointerScrollEvent` argument contains information about how much to scroll in what direction.
 <PointerScrollEvent />

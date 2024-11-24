@@ -4,7 +4,7 @@ title: Builtin Functions
 description: Builtin Functions
 ---
 
-## `animation-tick() -> duration`
+## animation-tick() -> duration
 
 This function returns a monotonically increasing time, which can be used for animations.
 Calling this function from a binding will constantly re-evaluate the binding.
@@ -31,6 +31,6 @@ export component Example inherits Window {
 }
 ```
 
-## `debug(...)`
+## debug(...)
 
 The debug function can take one or multiple values as arguments, prints them, and returns nothing.
