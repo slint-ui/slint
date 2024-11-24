@@ -22,145 +22,146 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ## Properties
 
-### `color`
+### color
 <SlintProperty propName="color" typeName="brush" defaultValue="depends on the style">
 The color of the text.
 </SlintProperty>
 
-### `font-family`
+### font-family
 <SlintProperty propName="font-family" typeName="string">
 The name of the font family selected for rendering the text.
 </SlintProperty>
 
-### `font-size`
+### font-size
 <SlintProperty propName="font-size" typeName="length">
 The font size of the text.
 </SlintProperty>
 
-### `font-weight`
+### font-weight
 <SlintProperty propName="font-weight" typeName="int">
 The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 </SlintProperty>
 
-### `font-italic`
+### font-italic
 <SlintProperty propName="font-italic" typeName="bool" defaultValue="false">
 Whether or not the font face should be drawn italicized or not.
 </SlintProperty>
 
-### `font-metrics`
+### font-metrics
 <SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics">
 The design metrics of the font scaled to the font pixel size used by the element.
 </SlintProperty>
 
-### `has-focus`
+### has-focus
 <SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
 `TextInput` sets this to `true` when it's focused. Only then it receives [`KeyEvent`](../language/builtins/structs.md#keyevent)s.
 </SlintProperty>
 
-### `horizontal-alignment`
+### horizontal-alignment
 <SlintProperty propName="horizontal-alignment" typeName="enum" enumName="TextHorizontalAlignment">
 The horizontal alignment of the text.
 </SlintProperty>
 
-### `input-type`
+### input-type
 <SlintProperty propName="input-type" typeName="enum" enumName="InputType" defaultValue="text">
  Use this to configure `TextInput` for editing special input, such as password fields.
 </SlintProperty>
 
-### `letter-spacing`
+### letter-spacing
 <SlintProperty propName="letter-spacing" typeName="length" defaultValue="0">
 The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
 </SlintProperty>
 
-### `read-only`
+### read-only
 <SlintProperty propName="read-only" typeName="bool" defaultValue="false">
 When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
 </SlintProperty>
 
-### `selection-background-color`
+### selection-background-color
 <SlintProperty propName="selection-background-color" typeName="color">
 The background color of the selection.
 </SlintProperty>
 
-### `selection-foreground-color`
+### selection-foreground-color
 <SlintProperty propName="selection-foreground-color" typeName="color">
 The foreground color of the selection.
 </SlintProperty>
 
-### `single-line`
+### single-line
 <SlintProperty propName="single-line" typeName="bool" defaultValue="true">
 When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
 </SlintProperty>
 
-### `text-cursor-width`
+### text-cursor-width
 <SlintProperty propName="text-cursor-width" typeName="length" defaultValue="provided at run-time by the selected widget style">
 The width of the text cursor.
 </SlintProperty>
 
-### `text`
+### text
 <SlintProperty propName="text" typeName="string" defaultValue='""'>
 The text rendered and editable by the user.
 </SlintProperty>
 
-### `vertical-alignment`
+### vertical-alignment
 <SlintProperty propName="vertical-alignment" typeName="enum" enumName="TextVerticalAlignment">
 The vertical alignment of the text.
 </SlintProperty>
 
-### `wrap`
+### wrap
 <SlintProperty propName="wrap" typeName="enum" enumName="TextWrap" defaultValue="no-wrap">
 The way the text input wraps. Only makes sense when `single-line` is false.
 </SlintProperty>
 
 ## Functions
 
-### `focus()`
+### focus()
 Call this function to focus the text input and make it receive future keyboard events.
 
-### `clear-focus()`
+### clear-focus()
 Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also [](../concepts/focus.md).
 
-### `set-selection-offsets(int, int)`
+### set-selection-offsets(int, int)
 Selects the text between two UTF-8 offsets.
 
-### `select-all()`
+### select-all()
 Selects all text.
 
-### `clear-selection()`
+### clear-selection()
 Clears the selection.
 
-### `copy()`
+### copy()
 Copies the selected text to the clipboard.
 
-### `cut()`
+### cut()
 Copies the selected text to the clipboard and removes it from the editable area.
 
-### `paste()`
+### paste()
 Pastes the text content of the clipboard at the cursor position.
 
 ## Callbacks
 
-### `accepted()`
+### accepted()
 Invoked when the enter key is pressed.
 
-### `cursor-position-changed(Point)`
+### cursor-position-changed(Point)
 The cursor was moved to the new (x, y) position
 described by the [_`Point`_](../language/builtins/structs.md#point) argument.
 
-### `edited()` 
+### edited()
 Invoked when the text has changed because the user modified it.
 
-### `rejected()`
+### rejected()
 Invoked when the escape key is pressed.
 
-## `TextInputInterface`
+## TextInputInterface
 
 The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
 If you're implementing your own virtual keyboard, this property is an indicator whether the virtual keyboard should be shown or hidden.
 
-### Properties
-
--   **`text-input-focused`** (_bool_): True if an `TextInput` element has the focus; false otherwise.
+### text-input-focused
+<SlintProperty propName="text-input-focused" typeName="bool"> 
+True if an `TextInput` element has the focus; false otherwise.
+</SlintProperty>
 
 ### Example
 

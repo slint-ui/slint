@@ -34,12 +34,12 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 ## Properties
 
-### `has-focus`
+### has-focus
 <SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
 Is `true` when the element has keyboard focus.
 </SlintProperty>
 
-### `enabled`
+### enabled
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
  When true, the `FocusScope` will make itself the focused element when clicked. Set this to false if you don't want the click-to-focus
     behavior. Similarly, a disabled `FocusScope` does not accept the focus via tab focus traversal. A parent `FocusScope` will still receive key events from
@@ -48,21 +48,21 @@ Is `true` when the element has keyboard focus.
 
 ## Functions
 
-### `focus()`
+### focus()
 Call this function to transfer keyboard focus to this `FocusScope`, to receive future [`KeyEvent`](structs.md#keyevent)s.  
 
-### `clear-focus()`
+### clear-focus()
 Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also [](../concepts/focus.md).
 
 ## Callbacks
 
-### `key-pressed(KeyEvent) -> EventResult`
+### key-pressed(KeyEvent) -> EventResult
 Invoked when a key is pressed, the argument is a [`KeyEvent`](structs.md#keyevent) struct. The returned [`EventResult`](enums.md#eventresult) 
 indicates whether to accept or ignore the event. Ignored events are forwarded to the parent element.
 
-### `key-released(KeyEvent) -> EventResult`
+### key-released(KeyEvent) -> EventResult
 Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct. The returned [`EventResult`](enums.md#eventresult) 
 indicates whether to accept or ignore the event. Ignored events are forwarded to the parent element.
 
-### `focus-changed-event()`
+### focus-changed-event()
 Invoked when the focus on the `FocusScope` has changed.
