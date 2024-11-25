@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@astrojs/check": "0.9.4",
-    "@astrojs/starlight": "0.29.0",
+    "@astrojs/starlight": "0.29.2",
     "@types/node": "20.16.10",
     "astro": "4.16.12",
     "playwright": "1.48.2",
