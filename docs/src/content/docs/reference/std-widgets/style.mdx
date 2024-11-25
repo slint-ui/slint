@@ -1,9 +1,10 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Style
+title: Widget Styles
 description: std-widgets Style.
 ---
-# Selecting a Widget Style
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 You can modify the look of these widgets by choosing a style.
 
@@ -25,24 +26,24 @@ The widget style is determined at your project's compile time. The method to sel
 
 If no style is selected, `native` is the default.
 
-
-## Selecting a Widget Style with Rust:
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
 
 You can select the style before starting your compilation by setting the `SLINT_STYLE` environment variable to the name of your chosen style.
 
 When using the `slint_build` API, call the [`slint_build::compile_with_config()`](https://docs.rs/slint-build/newest/slint_build/fn.compile_with_config.html) function.
 
 When using the `slint_interpeter` API, call the [`slint_interpreter::ComponentCompiler::set_style()`](https://docs.rs/slint-interpreter/newest/slint_interpreter/struct.ComponentCompiler.html#method.set_style) function.
-
-## Selecting a Widget Style when using C++:
+</TabItem>
+<TabItem label="C++">
 
 Define a `SLINT_STYLE` CMake cache variable to contain the style name as a string. This can be done, for instance, on the command line:
 
 ```sh
 cmake -DSLINT_STYLE="material" /path/to/source
 ```
-
-## Selecting a Widget Style when using Node.js:
+</TabItem>
+<TabItem label="Node.js">
 
 You can select the style by setting the `style` property in [`LoadFileOptions`](slint-node:interfaces/LoadFileOptions) passed to [`loadFile`](slint-node:functions/loadFile):
 
@@ -52,6 +53,8 @@ let ui = slint.loadFile("main.slint", { style: "fluent" });
 let main = new ui.Main();
 main.greeting = "Hello friends";
 ```
+</TabItem>
+</Tabs>
 
 
 ## Previewing Designs With `slint-viewer`
@@ -64,8 +67,17 @@ slint-viewer --style material /path/to/design.slint
 
 To select the style, first open the Visual Studio Code settings editor:
 
--   On Windows/Linux - File > Preferences > Settings
--   On macOS - Code > Preferences > Settings
+<Tabs syncKey="dev-platform">
+<TabItem label="macOS" icon="apple">
+Code > Preferences > Settings
+</TabItem>
+<TabItem label="Linux" icon="linux">
+File > Preferences > Settings
+</TabItem>
+<TabItem label="Windows" icon="seti:windows">
+File > Preferences > Settings
+</TabItem>
+</Tabs>
 
 Then enter the style name in Extensions > Slint > Preview:Style
 

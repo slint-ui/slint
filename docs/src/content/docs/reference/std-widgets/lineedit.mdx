@@ -1,0 +1,109 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: LineEdit
+description: LineEdit api.
+---
+
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-lineedit-example.png"  imageWidth="200" imageHeight="200"  imageAlt='lineedit example'>
+```slint
+import { LineEdit } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 25px;
+    LineEdit {
+        font-size: 14px;
+        width: parent.width;
+        height: parent.height;
+        placeholder-text: "Enter text here";
+    }
+}
+```
+</CodeSnippetMD>
+
+A widget used to enter a single line of text. See [`TextEdit`](master/docs/slint/reference/std-widgets/textedit) for
+a widget able to handle several lines of text.
+
+## Properties
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When false, nothing can be entered selecting text is still enabled as well as editing text programmatically.
+</SlintProperty>
+
+### font-size
+<SlintProperty propName="font-size" typeName="length">
+The size of the font of the input text
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
+Set to true when the line edit currently has the focus
+</SlintProperty>
+
+### horizontal-alignment
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' defaultValue="left">
+The horizontal alignment of the text.
+</SlintProperty>
+
+### input-type
+<SlintProperty propName="input-type" typeName="enum" enumName="InputType" defaultValue="text">
+The way to allow special input viewing properties such as password fields.
+</SlintProperty>
+
+### placeholder-text
+<SlintProperty propName="placeholder-text" typeName="string">
+A placeholder text being shown when there is no text in the edit field
+</SlintProperty>
+
+### read-only
+<SlintProperty propName="read-only" typeName="bool" defaultValue="false">
+When set to true, text editing via keyboard and mouse is disabled but selecting text is still 
+enabled as well as editing text programmatically.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string" defaultValue='""' propertyVisibility="in-out">
+The text being edited
+</SlintProperty>
+
+## Functions
+
+### focus()
+Call this function to focus the LineEdit and make it receive future keyboard events.
+
+### clear-focus()
+Call this function to remove keyboard focus from this `LineEdit` if it currently has the focus. See also [Focus Handling](../concepts/focus.md).
+
+### set-selection-offsets(int, int)
+Selects the text between two UTF-8 offsets.
+
+### select-all()
+Selects all text.
+
+### clear-selection()
+Clears the selection.
+
+### copy()
+Copies the selected text to the clipboard.
+
+### cut()
+Copies the selected text to the clipboard and removes it from the editable area.
+
+### paste()
+Pastes the text content of the clipboard at the cursor position.
+
+
+## Callbacks
+
+### accepted(string)
+Invoked when the enter key is pressed.
+
+### rejected(string)
+Invoked when the escape key is pressed.
+
+### edited(string)
+Emitted when the text has changed because the user modified it
+

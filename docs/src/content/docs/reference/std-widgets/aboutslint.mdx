@@ -4,9 +4,12 @@ title: AboutSlint
 description: AboutSlint api.
 ---
 
+import CodeSnippetMD from "../../../../../src/components/CodeSnippetMD.astro";
+
 This element displays a "Made with Slint" badge.
 
-```slint
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-aboutslint.png" imageWidth="200" imageHeight="200" imageAlt='Aboud Slint component'>
+```slint playground
 import { AboutSlint } from "std-widgets.slint";
 export component Example inherits Window {
     height: 175px;
@@ -14,3 +17,4 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
