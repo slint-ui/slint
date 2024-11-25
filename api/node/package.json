@@ -64,6 +64,6 @@
     "workerThreads": false
   },
   "dependencies": {
-    "@napi-rs/cli": "2.16.5"
+    "@napi-rs/cli": "2.18.4"
   }
 }

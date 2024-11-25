@@ -14,8 +14,8 @@ importers:
   api/node:
     dependencies:
       '@napi-rs/cli':
-        specifier: 2.16.5
-        version: 2.16.5
+        specifier: 2.18.4
+        version: 2.18.4
     devDependencies:
       '@ava/typescript':
         specifier: 5.0.0
@@ -1438,8 +1438,8 @@ packages:
   '@mermaid-js/parser@0.3.0':
     resolution: {integrity: sha512-HsvL6zgE5sUPGgkIDlmAWR1HTNHz2Iy11BAWPTa4Jjabkpguy4Ze2gzfLrg6pdRuBvFwgUYyxiaNqZwrEEXepA==}
 
-  '@napi-rs/cli@2.16.5':
-    resolution: {integrity: sha512-mFEzwrg4IOLngGd2/P6yeqIWgwQNn59Z08n1rndu6kLDq1gg954NH9cM1O9Da0RJuybt46p43lqgSsnAY2mxqA==}
+  '@napi-rs/cli@2.18.4':
+    resolution: {integrity: sha512-SgJeA4df9DE2iAEpr3M2H0OKl/yjtg1BnRI5/JyowS71tUWhrfSu2LT0V3vlHET+g1hBVlrO60PmEXwUEKp8Mg==}
     engines: {node: '>= 10'}
     hasBin: true
 
@@ -5987,7 +5987,7 @@ snapshots:
     dependencies:
       langium: 3.0.0
 
-  '@napi-rs/cli@2.16.5': {}
+  '@napi-rs/cli@2.18.4': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
