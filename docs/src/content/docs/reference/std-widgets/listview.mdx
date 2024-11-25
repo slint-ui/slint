@@ -4,6 +4,9 @@ title: ListView
 description: ListView api.
 ---
 
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-listview-example.png"  imageWidth="200" imageHeight="200"  imageAlt='listview example'>
 ```slint playground
 import { ListView } from "std-widgets.slint";
 export component Example inherits Window {
@@ -34,16 +37,17 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 A ListView is like a Scrollview but it should have a `for` element, and the content are
 automatically laid out in a list.
 Elements are only instantiated if they are visible
 
-### Properties
+## Properties
 
 Same as [`ScrollView`](/master/docs/slint/reference/std-widgets/scrollview/)
 
 
-### Callbacks
+## Callbacks
 
 Same as [`ScrollView`](/master/docs/slint/reference/std-widgets/scrollview/)
