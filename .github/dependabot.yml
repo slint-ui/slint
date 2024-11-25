@@ -38,6 +38,7 @@ updates:
         patterns:
           - "astro"
           - "@astro*"
-
-     
-    
+      playwright:
+        patterns:
+          - "playwright*"
+          - "@playwright*"
