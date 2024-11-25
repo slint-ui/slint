@@ -4,21 +4,33 @@ title: DataPickerPopup
 description: DataPickerPopup api.
 ---
 
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
 Use a date picker to let the user select a date.
 
-### Properties
+## Properties
 
--   **`title`** (_in_ _string_): The text that is displayed at the top of the picker.
--   **`date`**: (_in_ _struct [`Date`](#struct-date)_): Set the initial displayed date.
+### title
+<SlintProperty propName="title" typeName="string">
+The text that is displayed at the top of the picker.
+</SlintProperty>
 
-### Callbacks
+### date
+<SlintProperty propName="date" typeName="struct" structName="Date">
+Set the initial displayed date.
+</SlintProperty>
 
--   **`canceled()`**: The cancel button was clicked.
--   **`accepted(Date)`** The ok button was clicked.
+## Callbacks
 
-### Example
+### canceled()
+Invoked when the cancel button is clicked.
 
-```slint
+### accepted(Date)
+Invoked when the ok button is clicked.
+
+
+```slint playground
 import { DatePickerPopup, Button } from "std-widgets.slint";
 export component Example inherits Window {
     width: 600px;
