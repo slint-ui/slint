@@ -61,7 +61,7 @@ jobs:
                       napi-rs-target: linux-x64-gnu
                     - os: ubicloud-standard-2-arm
                       rust-target: aarch64-unknown-linux-gnu
-                      napi-rs-target: linux-aarch64-gnu
+                      napi-rs-target: linux-arm64-gnu
                     - os: macos-13
                       rust-target: x86_64-apple-darwin
                       napi-rs-target: darwin-x64
@@ -203,7 +203,7 @@ jobs:
             - name: Add binary dependencies
               working-directory: api/node
               run: |
-                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-aarch64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-ia32-msvc; do
+                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-ia32-msvc; do
                       jq --arg pkg "$package" --arg version "$PKG_VERSION" '.optionalDependencies[$pkg]=$version' package.json > new.json
                       mv new.json package.json
                   done
@@ -226,7 +226,7 @@ jobs:
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
                   npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-aarch64-gnu-$PKG_VERSION.tgz
+                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
                   npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
                   npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
                   npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
