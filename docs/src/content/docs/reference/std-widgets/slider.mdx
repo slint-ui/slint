@@ -4,22 +4,10 @@ title: Slider
 description: Slider api.
 ---
 
-### Properties
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
--   **`enabled`**: (_in_ _bool_): Defaults to true. You can't interact with the slider if enabled is false.
--   **`has-focus`**: (_out_ _bool_): Set to true when the slider currently has the focus
--   **`value`** (_in-out_ _float_): The value. Defaults to the minimum.
--   **`minimum`** (_in_ _float_): The minimum value (default: 0)
--   **`maximum`** (_in_ _float_): The maximum value (default: 100)
--   **`orientation`** (_in_ _enum [`Orientation`](../builtins/enums.md#orientation)_): If set to true the Slider is displayed vertical (default: horizontal).
-
-### Callbacks
-
--   **`changed(float)`**: The value was changed
--   **`released(float)`**: Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.
-
-### Example
-
+<CodeSnippetMD imagePath="/src/assets/generated/slider-example.png"  imageWidth="200" imageHeight="200"  imageAlt='slider example'>
 ```slint
 import { Slider } from "std-widgets.slint";
 export component Example inherits Window {
@@ -32,3 +20,44 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
+
+## Properties
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+You can't interact with the slider if enabled is false.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
+Set to true when the slider currently has the focus
+</SlintProperty>
+
+### value
+<SlintProperty propName="value" typeName="float" defaultValue="0" propertyVisibility="in-out">
+The value. Defaults to the minimum.
+</SlintProperty>
+
+### minimum
+<SlintProperty propName="minimum" typeName="float" defaultValue="0">
+The minimum value.
+</SlintProperty>
+
+### maximum
+<SlintProperty propName="maximum" typeName="float" defaultValue="100">
+The maximum value.
+</SlintProperty>
+
+### orientation
+<SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="horizontal">
+If set to true the Slider is displayed vertical.
+</SlintProperty>
+
+## Callbacks
+
+### changed(float)
+The value was changed
+
+### released(float)
+Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.

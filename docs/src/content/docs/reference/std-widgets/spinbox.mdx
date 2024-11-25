@@ -4,22 +4,10 @@ title: SpinBox
 description: SpinBox api.
 ---
 
-### Properties
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
--   **`enabled`**: (_in_ _bool_): Defaults to true. You can't interact with the spinbox if enabled is false.
--   **`has-focus`**: (_out_ _bool_): Set to true when the spinbox currently has the focus
--   **`value`** (_in-out_ _int_): The value. Defaults to the minimum.
--   **`minimum`** (_in_ _int_): The minimum value (default: 0).
--   **`maximum`** (_in_ _int_): The maximum value (default: 100).
--   **`step-size`** (_in_ _int_): The size that is used on increment or decrement of `value` (default: 1).
--   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](../builtins/enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
-
-### Callbacks
-
-- **`edited(int)`**: Emitted when the value has changed because the user modified it
-
-### Example
-
+<CodeSnippetMD imagePath="/src/assets/generated/spinbox-example.png"  imageWidth="200" imageHeight="200"  imageAlt='spinbox example'>
 ```slint
 import { SpinBox } from "std-widgets.slint";
 export component Example inherits Window {
@@ -32,3 +20,46 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
+
+## Properties
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+You can't interact with the spinbox if enabled is false.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
+Set to true when the spinbox currently has the focus.
+</SlintProperty>
+
+### value
+<SlintProperty propName="value" typeName="int" defaultValue="0" propertyVisibility="in-out">
+The value. Defaults to the minimum.
+</SlintProperty>
+
+### minimum
+<SlintProperty propName="minimum" typeName="int" defaultValue="0">
+The minimum value.
+</SlintProperty>
+
+### maximum
+<SlintProperty propName="maximum" typeName="int" defaultValue="100">
+The maximum value.
+</SlintProperty>
+
+### step-size
+<SlintProperty propName="step-size" typeName="int" defaultValue="1">
+The size that is used on increment or decrement of `value`.
+</SlintProperty>
+
+### horizontal-alignment
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="TextHorizontalAlignment" defaultValue="left">
+The horizontal alignment of the text.
+</SlintProperty>
+
+## Callbacks
+
+### changed(int)
+Emitted when the value has changed because the user modified it
