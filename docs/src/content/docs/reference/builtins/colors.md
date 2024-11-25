@@ -38,6 +38,7 @@ Use the colors namespace to select colors by their name. For example you can use
 The entire list of names is very long. You can find a complete list in the [CSS Specification](https://www.w3.org/TR/css-color-3/#svg-color).
 
 These color names are available both in the global scope, and in the `Colors` namespace.
+
 ```slint no-test
 // Using the Colors namespace
 background: Colors.aquamarine;
@@ -70,38 +71,38 @@ All colors and brushes define the following methods:
 
 ### brighter(factor: float) -> brush
 
-    Returns a new color derived from this color but has its brightness increased by the specified factor.
-    This is done by converting the color to the HSV color space and multiplying the brightness (value) with (1 + factor).
-    For example if the factor is 0.5 (or for example 50%) the returned color is 50% brighter. Negative factors
-    decrease the brightness.
+Returns a new color derived from this color but has its brightness increased by the specified factor.
+This is done by converting the color to the HSV color space and multiplying the brightness (value) with (1 + factor).
+For example if the factor is 0.5 (or for example 50%) the returned color is 50% brighter. Negative factors
+decrease the brightness.
 
 ### darker(factor: float) -> brush
 
-    Returns a new color derived from this color but has its brightness decreased by the specified factor.
-    This is done by converting the color to the HSV color space and dividing the brightness (value) by (1 + factor).
-    For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
-    increase the brightness.
+Returns a new color derived from this color but has its brightness decreased by the specified factor.
+This is done by converting the color to the HSV color space and dividing the brightness (value) by (1 + factor).
+For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
+increase the brightness.
 
 ### mix(other: brush, factor: float) -> brush
 
-    Returns a new color that is a mix of this color and `other`. The specified factor is
-    clamped to be between `0.0` and `1.0` and then applied to this color, while `1.0 - factor`
-    is applied to `other`. For example `red.mix(green, 70%)` will have a stronger tone of red, while
-    `red.mix(green, 30%)` will have a stronger tone of green.
+Returns a new color that is a mix of this color and `other`. The specified factor is
+clamped to be between `0.0` and `1.0` and then applied to this color, while `1.0 - factor`
+is applied to `other`. For example `red.mix(green, 70%)` will have a stronger tone of red, while
+`red.mix(green, 30%)` will have a stronger tone of green.
 
 ### transparentize(factor: float) -> brush
 
-    Returns a new color with the opacity decreased by `factor`.
-    The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+Returns a new color with the opacity decreased by `factor`.
+The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
 
 ### with-alpha(alpha: float) -> brush
 
-    Returns a new color with the alpha value set to `alpha` (between 0 and 1)
+Returns a new color with the alpha value set to `alpha` (between 0 and 1)
 
 ### to-hsv()->{hue: float, saturation: float, value: float, alpha: float}
 
-    Converts this color to the HSV color space and returns a struct with the `hue`, `saturation`, `value`,
-    and `alpha` fields. `hue` is between 0 and 360 while `saturation`, `value`, and `alpha` are between 0 and 1.
+Converts this color to the HSV color space and returns a struct with the `hue`, `saturation`, `value`,
+and `alpha` fields. `hue` is between 0 and 360 while `saturation`, `value`, and `alpha` are between 0 and 1.
 
 ### Linear Gradients
 
