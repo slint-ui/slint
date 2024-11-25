@@ -45,7 +45,7 @@
         "path-browserify": "1.0.1",
         "playwright-ctrf-json-reporter": "0.0.18",
         "rimraf": "6.0.1",
-        "typescript": "5.6.2",
+        "typescript": "5.7.2",
         "vite": "5.4.11",
         "vscode": "npm:@codingame/monaco-vscode-api@~8.0.4",
         "vscode-languageclient": "9.0.1",
