@@ -456,7 +456,9 @@ fn filter_nodes_for_selection(
         return None;
     }
 
-    selection_candidate.as_element_node()
+    selection_candidate.as_element_node().filter(|en| {
+        en.with_element_node(|n| n.parent().map_or(true, |p| p.kind() != SyntaxKind::Component))
+    })
 }
 
 pub fn select_element_behind_impl(
@@ -685,15 +687,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         )
         .unwrap();
         assert_eq!(&next.path_and_offset(), covers_center.get(4).unwrap());
-        let next = super::select_element_behind_impl(
-            &component_instance,
-            &next,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            false,
-        )
-        .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(5).unwrap());
 
         assert!(super::select_element_behind_impl(
             &component_instance,
@@ -708,16 +701,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let prev = super::select_element_behind_impl(
             &component_instance,
             &next,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            true,
-        )
-        .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(4).unwrap());
-
-        let prev = super::select_element_behind_impl(
-            &component_instance,
-            &prev,
             LogicalPoint::new(100.0, 100.0),
             false,
             true,
@@ -762,15 +745,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(1).unwrap());
-        let next = super::select_element_behind_impl(
-            &component_instance,
-            &next,
-            LogicalPoint::new(100.0, 100.0),
-            true,
-            false,
-        )
-        .unwrap();
         assert_eq!(&next.path_and_offset(), covers_center.get(2).unwrap());
         let next = super::select_element_behind_impl(
             &component_instance,
@@ -790,15 +764,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         )
         .unwrap();
         assert_eq!(&next.path_and_offset(), covers_center.get(4).unwrap());
-        let next = super::select_element_behind_impl(
-            &component_instance,
-            &next,
-            LogicalPoint::new(100.0, 100.0),
-            true,
-            false,
-        )
-        .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(5).unwrap());
 
         assert!(super::select_element_behind_impl(
             &component_instance,
@@ -818,15 +783,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(4).unwrap());
-        let prev = super::select_element_behind_impl(
-            &component_instance,
-            &prev,
-            LogicalPoint::new(100.0, 100.0),
-            true,
-            true,
-        )
-        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(3).unwrap());
         let prev = super::select_element_behind_impl(
             &component_instance,
@@ -837,15 +793,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         )
         .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(2).unwrap());
-        let prev = super::select_element_behind_impl(
-            &component_instance,
-            &prev,
-            LogicalPoint::new(100.0, 100.0),
-            true,
-            true,
-        )
-        .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(1).unwrap());
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
