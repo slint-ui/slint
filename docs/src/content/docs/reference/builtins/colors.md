@@ -20,7 +20,7 @@ In addition to plain colors, many elements have properties that are of type `bru
 A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
 draw the outline.
 
-CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, you can access
+CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, access
 colors from the `Colors` namespace.
 
 ## Color Properties
@@ -37,7 +37,7 @@ These properties are in the range 0-255.
 Use the colors namespace to select colors by their name. For example you can use `Colors.aquamarine` or `Colors.bisque`.
 The entire list of names is very long. You can find a complete list in the [CSS Specification](https://www.w3.org/TR/css-color-3/#svg-color).
 
-These color names are available both in the global scope, and in the `Colors` namespace.
+These color names are available in scope of `color` and `brush` expressions, as well as in the `Colors` namespace.
 
 ```slint no-test
 // Using the Colors namespace
