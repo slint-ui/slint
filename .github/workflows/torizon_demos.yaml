@@ -21,18 +21,19 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - target: armhf
-                      image_arch: linux/arm/v7
-                      rust_toolchain_arch: armv7-unknown-linux-gnueabihf
-                      base_image_suffix: ""
+# Disabled armhf, as armv7 seems to have vanished from https://hub.docker.com/r/torizon/wayland-base-vivante/tags
+#                    - target: armhf
+#                      image_arch: linux/arm/v7
+#                      rust_toolchain_arch: armv7-unknown-linux-gnueabihf
+#                      base_image_suffix: ""
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
                       base_image_suffix: ""
-                    - target: armhf
-                      image_arch: linux/arm/v7
-                      rust_toolchain_arch: armv7-unknown-linux-gnueabihf
-                      base_image_suffix: "-vivante"
+#                    - target: armhf
+#                      image_arch: linux/arm/v7
+#                      rust_toolchain_arch: armv7-unknown-linux-gnueabihf
+#                      base_image_suffix: "-vivante"
                     - target: arm64
                       image_arch: linux/arm64
                       rust_toolchain_arch: aarch64-unknown-linux-gnu
