@@ -252,7 +252,7 @@ fn add_new_component() {
             drop_data.path,
             drop_data.selection_offset,
             None,
-            true,
+            SelectionNotification::AfterUpdate,
         );
 
         {
@@ -668,7 +668,7 @@ fn drop_component(component_index: i32, x: f32, y: f32) {
             drop_data.path,
             drop_data.selection_offset,
             None,
-            true,
+            SelectionNotification::AfterUpdate,
         );
 
         send_workspace_edit(format!("Add element {}", component_name), edit, false);
@@ -860,7 +860,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
             drop_data.path,
             drop_data.selection_offset,
             None,
-            true,
+            SelectionNotification::AfterUpdate,
         );
 
         send_workspace_edit("Move element".to_string(), edit, false);
@@ -1167,7 +1167,7 @@ async fn reload_timer_function() {
             se.path.clone(),
             se.offset,
             None,
-            false,
+            SelectionNotification::Never,
         );
 
         if notify_editor {
@@ -1411,7 +1411,12 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
                 // Already selected!
                 return;
             }
-            element_selection::select_element_at_source_code_position(path, offset, None, false);
+            element_selection::select_element_at_source_code_position(
+                path,
+                offset,
+                None,
+                SelectionNotification::Never,
+            );
         });
     }
 }
@@ -1528,10 +1533,17 @@ fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
     })
 }
 
+#[derive(Debug, PartialEq)]
+pub enum SelectionNotification {
+    Never,
+    Now,
+    AfterUpdate,
+}
+
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
     positions: &[i_slint_core::lengths::LogicalRect],
-    notify_editor_about_selection_after_update: bool,
+    editor_notification: SelectionNotification,
 ) {
     let (layout_kind, parent_layout_kind, type_name) = {
         let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
@@ -1553,6 +1565,9 @@ fn set_selected_element(
 
     set_drop_mark(&None);
 
+    let element_node = selection.as_ref().and_then(|s| s.as_element_node());
+    let notify_editor_about_selection_after_update =
+        editor_notification == SelectionNotification::AfterUpdate;
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
@@ -1633,7 +1648,24 @@ fn set_selected_element(
         preview_state.selected = selection;
         preview_state.notify_editor_about_selection_after_update =
             notify_editor_about_selection_after_update;
-    })
+    });
+
+    if editor_notification == SelectionNotification::Now {
+        if let Some(element_node) = element_node {
+            let (path, pos) = element_node.with_element_node(|node| {
+                let sf = &node.source_file;
+                (
+                    sf.path().to_owned(),
+                    util::text_size_to_lsp_position(sf, node.text_range().start()),
+                )
+            });
+            ask_editor_to_show_document(
+                &path.to_string_lossy(),
+                lsp_types::Range::new(pos, pos),
+                false,
+            );
+        }
+    }
 }
 
 fn selected_element() -> Option<ElementSelection> {

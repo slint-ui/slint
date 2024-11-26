@@ -13,7 +13,7 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::properties;
+use crate::preview::{properties, SelectionNotification};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -80,7 +80,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
             PathBuf::from(path.to_string()),
             crate::preview::TextSize::from(offset as u32),
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
-            true,
+            SelectionNotification::Now,
         );
     });
     api.on_select_behind(super::element_selection::select_element_behind);
