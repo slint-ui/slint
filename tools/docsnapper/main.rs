@@ -94,7 +94,7 @@ fn main() -> Result<()> {
 
 fn wrap_code(code: &str, size: Option<(usize, usize)>) -> String {
     let sizing_lines = if let Some((w, h)) = size {
-        format!("width: {w}px;\nheight: {h}px;\n")
+        format!("width: {w}px;\nheight: {h}px;\n    ")
     } else {
         String::new()
     };
@@ -392,7 +392,7 @@ fn find_project_root(docs_folder: &Path) -> Result<PathBuf> {
 
 fn build_and_snapshot(
     args: &Cli,
-    _size: Option<(usize, usize)>,
+    size: Option<(usize, usize)>,
     doc_file_path: &Path,
     source: String,
     screenshot_path: &Path,
@@ -416,6 +416,12 @@ fn build_and_snapshot(
     };
 
     let component = c.create()?;
+
+    if let Some((x, y)) = size {
+        component.window().set_size(i_slint_core::api::LogicalSize::new(x as f32, y as f32));
+    } else {
+        component.window().set_size(i_slint_core::api::LogicalSize::new(200.0, 200.0));
+    }
 
     component.show()?;
     let screen_dump = component.window().take_snapshot()?;
