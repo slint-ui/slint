@@ -187,3 +187,30 @@ export function removeLeadingSpaces(input: string, spaces: number = 4): string {
     });
     return modifiedLines.join("\n");
 }
+
+export const linkMap = {
+    Image: {
+        href: "/reference/elements/image/",
+    },
+    Path: {
+        href: "/reference/elements/path/",
+    },
+    Rectangle: {
+        href: "/reference/elements/rectangle/",
+    },
+    Text: {
+        href: "/reference/elements/text/",
+    },
+    TextInput: {
+        href: "/reference/elements/textinput/",
+    },
+    Timer: {
+        href: "/reference/elements/timer/",
+    },
+    Scrollview: {
+        href: "/docs/scrollview",
+    },
+    StandardButton: {
+        href: "/reference/std-widgets/standardbutton",
+    },
+} as const;
