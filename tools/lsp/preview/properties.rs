@@ -91,6 +91,7 @@ pub struct QueryPropertyResponse {
     pub source_version: i32,
 }
 
+const HIGH_PRIORITY: u32 = 100;
 const DEFAULT_PRIORITY: u32 = 1000;
 
 // This gets defined accessibility properties...
@@ -381,9 +382,24 @@ pub(super) fn get_properties(
                         return None;
                     }
 
+                    let mut priority = DEFAULT_PRIORITY;
+
+                    if b.name == "Text" && k == "text" {
+                        priority = HIGH_PRIORITY;
+                    }
+                    if b.name == "TextInput"
+                        && [SmolStr::new_static("text"), SmolStr::new_static("placeholder")]
+                            .contains(k)
+                    {
+                        priority = HIGH_PRIORITY;
+                    }
+                    if b.name == "Image" && k == "source" {
+                        priority = HIGH_PRIORITY;
+                    }
+
                     Some(PropertyInformation {
                         name: k.clone(),
-                        priority: DEFAULT_PRIORITY,
+                        priority,
                         ty: t.ty.clone(),
                         declared_at: None,
                         defined_at: None,
