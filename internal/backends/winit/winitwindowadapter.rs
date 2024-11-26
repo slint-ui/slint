@@ -813,9 +813,7 @@ impl WindowAdapter for WinitWindowAdapter {
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
         #[cfg(target_family = "windows")]
-        winit_window_or_none.set_skip_taskbar(
-            window_item.skip_taskbar()
-        );
+        winit_window_or_none.set_skip_taskbar(window_item.skip_taskbar());
         let new_window_level = if window_item.always_on_top() {
             winit::window::WindowLevel::AlwaysOnTop
         } else {
