@@ -28,7 +28,7 @@ use std::rc::{Rc, Weak};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::ControlFlow;
-use winit::window::ResizeDirection;
+use winit::window::{CustomCursor, ResizeDirection};
 pub(crate) struct NotRunningEventLoop {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) clipboard: Rc<std::cell::RefCell<crate::clipboard::ClipboardPair>>,
@@ -320,6 +320,8 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
+        self.maybe_set_custom_cursor(&runtime_window, &window, &event_loop);
+
         match event {
             WindowEvent::RedrawRequested => {
                 self.loop_error = window.draw().err();
@@ -348,7 +350,6 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                     );
                 }
             }
-
             WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
                 let key_code = event.logical_key;
                 // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
@@ -717,6 +718,38 @@ impl EventLoopState {
                 .map_err(|e| format!("Error running winit event loop: {e}"))?;
             // This can't really happen, as run() doesn't return
             Ok(Self::default())
+        }
+    }
+
+    pub fn maybe_set_custom_cursor(
+        &self,
+        runtime_window: &WindowInner,
+        window: &WinitWindowAdapter,
+        event_loop: &ActiveEventLoop,
+    ) {
+        let window_item = runtime_window.window_item();
+        let window_ref = window_item.as_ref().unwrap().as_pin_ref();
+        let cursor = window_ref.cursor();
+        runtime_window.set_is_custom_cursor(false);
+
+        // TODO: Only change the cursor if the cursor value becomes dirty
+        if cursor.size().width > 0 && cursor.size().height > 0 {
+            let hotspot_x = window_ref.cursor_hotspot_x().get();
+            let hotspot_y = window_ref.cursor_hotspot_y().get();
+            let rgba_vec = cursor.to_rgba8().unwrap().make_mut_slice().to_vec();
+            let rgba =
+                rgba_vec.iter().map(|c| vec![c.r, c.g, c.b, c.a]).flatten().collect::<Vec<u8>>();
+            let size = cursor.size();
+            let source = CustomCursor::from_rgba(
+                rgba,
+                size.width as u16,
+                size.height as u16,
+                hotspot_x as u16,
+                hotspot_y as u16,
+            );
+            let custom_cursor = event_loop.create_custom_cursor(source.unwrap());
+            window.winit_window().unwrap().set_cursor(custom_cursor.clone());
+            runtime_window.set_is_custom_cursor(true);
         }
     }
 

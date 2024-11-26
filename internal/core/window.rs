@@ -42,6 +42,23 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
 }
 
+#[derive(Clone)]
+/// This struct represents a cursor that can be used in a window.
+pub struct WindowCursor {
+    /// The name of the cursor.
+    pub name: String,
+    /// The rgba image data of the cursor.
+    pub rgba: Vec<u8>,
+    /// The width of the cursor.
+    pub width: u16,
+    /// The height of the cursor.
+    pub height: u16,
+    /// The x coordinate of the cursor hotspot.
+    pub hotspot_x: u16,
+    /// The y coordinate of the cursor hotspot.
+    pub hotspot_y: u16,
+}
+
 /// This trait represents the adaptation layer between the [`Window`] API and then
 /// windowing specific window representation, such as a Win32 `HWND` handle or a `wayland_surface_t`.
 ///
@@ -434,6 +451,9 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
+    /// Whether the window has a custom cursor set
+    has_custom_cursor: Cell<bool>,
+
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
@@ -503,6 +523,7 @@ impl WindowInner {
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
+            has_custom_cursor: Cell::new(false),
             // The ctx is lazy so that a Window can be initialized before the backend.
             // (for example in test_empty_window)
             ctx: once_cell::unsync::Lazy::new(|| {
@@ -1262,6 +1283,14 @@ impl WindowInner {
     /// Private access to the WindowInner for a given window.
     pub fn from_pub(window: &crate::api::Window) -> &Self {
         &window.0
+    }
+
+    pub fn set_is_custom_cursor(&self, is_custom_cursor: bool) {
+        self.has_custom_cursor.set(is_custom_cursor);
+    }
+
+    pub fn get_is_custom_cursor(&self) -> bool {
+        self.has_custom_cursor.get()
     }
 }
 
