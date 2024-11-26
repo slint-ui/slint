@@ -5,6 +5,7 @@ description: Flickable element api.
 ---
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+import Link from '../../../../components/Link.astro';
 
 ```slint playground
 export component Example inherits Window {
@@ -23,7 +24,7 @@ export component Example inherits Window {
 ```
 
 The `Flickable` is a low-level element that is the base for scrollable
-widgets, such as the [`ScrollView`](/master/docs/slint/reference/std-widgets/scrollview). When the `viewport-width` or the
+widgets, such as the <Link type="ScrollView"/>. When the `viewport-width` or the
 `viewport-height` is greater than the parent's `width` or `height`
 respectively, the element becomes scrollable. Note that the `Flickable`
 doesn't create a scrollbar. When unset, the `viewport-width` and `viewport-height` are

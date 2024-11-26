@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { h } from "@astrojs/starlight/expressive-code/hast";
+
 export async function getEnumContent(enumName: string | undefined) {
     if (enumName) {
         try {
@@ -187,3 +189,75 @@ export function removeLeadingSpaces(input: string, spaces: number = 4): string {
     });
     return modifiedLines.join("\n");
 }
+
+export const linkMap = {
+    AnimationRef: {
+        href: "/reference/builtins/animations",
+    },
+    BorderRadiusRectangle: {
+        href: "/reference/elements/rectangle#border-radius-properties",
+    },
+    ColorsRef: {
+        href: "/reference/builtins/colors",
+    },
+    CommonProperties: {
+        href: "/reference/overview",
+    },
+    DebugFn: {
+        href: "/reference/builtins/builtinfunctions#debug",
+    },
+    FocusHandling: {
+        href: "/guide/focus",
+    },
+    GridLayout: {
+        href: "/reference/layouts/gridlayout",
+    },
+    HorizontalBox: {
+        href: "/reference/std-widgets/horizontalbox",
+    },
+    HorizontalLayout: {
+        href: "/reference/layouts/horizontallayout",
+    },
+    Image: {
+        href: "/reference/elements/image",
+    },
+    ListView: {
+        href: "/reference/std-widgets/listview",
+    },
+    LineEdit: {
+        href: "/reference/std-widgets/lineedit",
+    },
+    Path: {
+        href: "/reference/elements/path",
+    },
+    ProgressIndicator: {
+        href: "/reference/std-widgets/progressindicator",
+    },
+    Rectangle: {
+        href: "/reference/elements/rectangle",
+    },
+    ScrollView: {
+        href: "/reference/std-widgets/scrollview",
+    },
+    StandardButton: {
+        href: "/reference/std-widgets/standardbutton",
+    },
+    StyleWidgets: {
+        href: "/reference/std-widgets/style",
+    },
+    Text: {
+        href: "/reference/elements/text/",
+    },
+    TextInput: {
+        href: "/reference/elements/textinput/",
+    },
+    Timer: {
+        href: "/reference/elements/timer/",
+    },
+    VerticalBox: {
+        href: "/reference/std-widgets/verticalbox",
+    },
+    VerticalLayout: {
+        href: "/reference/layouts/verticallayout",
+    },
+} as const;

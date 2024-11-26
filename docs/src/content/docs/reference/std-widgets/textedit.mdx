@@ -7,6 +7,7 @@ description: TextEdit api.
 
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+import Link from '../../../../components/Link.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-textedit.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets textedit example'>
 ```slint playground
@@ -25,7 +26,7 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-Similar to [`LineEdit`](/master/docs/slint/reference/std-widgets/lineedit), but can be used to enter several lines of text
+Similar to <Link type="LineEdit" />, but can be used to enter several lines of text
 
 ## Properties
 
@@ -68,7 +69,7 @@ The horizontal alignment of the text.
 ## Functions
 
 -   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
--   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also [focus handling](/master/docs/slint/guide/focus).
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also <Link type="FocusHandling" label="focus handling" />.
 -   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.
