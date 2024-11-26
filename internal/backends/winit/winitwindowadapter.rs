@@ -231,6 +231,14 @@ impl WinitWindowOrNone {
             }
         }
     }
+
+    #[cfg(target_family = "windows")]
+    fn set_skip_taskbar(&self, skip: bool) {
+        match self {
+            Self::HasWindow { window, .. } => window.set_skip_task_bar(skip),
+            Self::None(attributes) => attributes.borrow_mut().skip_task_bar = skip
+        }
+    }
 }
 
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
@@ -803,6 +811,10 @@ impl WindowAdapter for WinitWindowAdapter {
         winit_window_or_none.set_title(&properties.title());
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
+        );
+        #[cfg(target_family = "windows")]
+        winit_window_or_none.set_skip_taskbar(
+            window_item.skip_taskbar()
         );
         let new_window_level = if window_item.always_on_top() {
             winit::window::WindowLevel::AlwaysOnTop
