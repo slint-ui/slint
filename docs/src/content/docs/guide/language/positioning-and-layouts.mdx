@@ -1,8 +1,10 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Positioning and Layout of Elements
-description: Positioning and Layout of ElementsContainer Components
+title: Positioning and Layouts
+description: Positioning and Layouting of Elements in Container Components
 ---
+
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
 All visual elements are shown in a window. The `x` and `y` properties store
 the elements coordinates relative to their parent element. Slint determines the
@@ -28,6 +30,7 @@ Layout elements express geometric relationships between elements.
 The following example places two rectangles into a window, a blue one and
 a green one. The green rectangle is a child of the blue:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-explicit-placement.png"  imageWidth="200" imageHeight="200" imageAlt='Explicit Placement'>
 ```slint
 // Explicit positioning
 export component Example inherits Window {
@@ -49,6 +52,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 The positions of both rectangles and the size of the inner green one are fixed.
 The outer blue rectangle has a size that's automatically calculated using binding
@@ -74,8 +78,8 @@ of the parent's `width`.
 The default values for `x` and `y` properties center elements within their
 parent.
 
-The default values for `width` and `height` depend on the type of element. Some elements are sized
-automatically based on their content, such as `Image`, `Text`, and most widgets. The following elements
+The default values for `width` and `height` depend on the type of element. Elements such as `Image`,
+`Text`, as well as most widgets are sized automatically based on their content. The following elements
 don't have content and default to fill their parent element when they do not have children:
 
 -   `Rectangle`
@@ -84,7 +88,7 @@ don't have content and default to fill their parent element when they do not hav
 -   `Flickable`
 
 Layouts are also defaulting to fill the parent, regardless of their own preferred size.
-<!-- Without base? -->
+{/* Without base? */}
 Other elements (including custom ones without base) default to using their preferred size.
 
 ### Preferred size
@@ -165,6 +169,7 @@ can adjust the element's alignment as needed.
 The following example places the blue and yellow rectangle in a row and evenly stretched
 across the 200 logical pixels of `width`:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-hlayout.png"  imageWidth="200" imageHeight="200" imageAlt='Horizontal Layout'>
 ```slint
 // Stretch by default
 export component Example inherits Window {
@@ -176,11 +181,13 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 The example below, on the other hand, specifies that the rectangles align
 to the start of the layout (the visual left). That results in no stretching but instead
 the rectangles retain their specified minimum width:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-hlayout-align.png"  imageWidth="200" imageHeight="200" imageAlt='Horizontal Layout with Alignment'>
 ```slint
 // Unless an alignment is specified
 export component Example inherits Window {
@@ -193,9 +200,11 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 The example below nests two layouts for a more complex scene:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-nested.png"  imageWidth="200" imageHeight="200" imageAlt='Nested Layouts'>
 ```slint
 export component Example inherits Window {
     width: 200px;
@@ -227,6 +236,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 ### Alignment
 
@@ -239,6 +249,7 @@ is bigger than the minimum size only if the `alignment` property of the layout i
 
 This example show the different alignment possibilities:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-alignment.png"  imageWidth="300" imageHeight="200" imageAlt='Layouts with different alignments'>
 ```slint
 export component Example inherits Window {
     width: 300px;
@@ -289,6 +300,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 ### Stretch algorithm
 
@@ -302,6 +314,7 @@ factor of 0 or reached their maximum size.
 
 Examples:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-stretch.png"  imageWidth="200" imageHeight="200" imageAlt='Explicit Placement'>
 ```slint
 export component Example inherits Window {
     width: 300px;
@@ -333,11 +346,13 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 ### `for`
 
 The VerticalLayout and HorizontalLayout can also contain `for` or `if` expressions:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-for-loop.png"  imageWidth="200" imageHeight="200" imageAlt='Explicit Placement'>
 ```slint
 export component Example inherits Window {
     width: 200px;
@@ -351,6 +366,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 ## GridLayout
 
@@ -363,6 +379,7 @@ isn't allowed in a grid layout.
 
 This example use the `Row` element
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-grid.png"  imageWidth="200" imageHeight="200" imageAlt='Explicit Placement'>
 ```slint
 export component Foo inherits Window {
     width: 200px;
@@ -380,9 +397,11 @@ export component Foo inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 This example use the `col` and `row` property:
 
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-grid-col-row.png"  imageWidth="200" imageHeight="200" imageAlt='Explicit Placement'>
 ```slint
 export component Foo inherits Window {
     width: 200px;
@@ -397,3 +416,4 @@ export component Foo inherits Window {
     }
 }
 ```
+</CodeSnippetMD>

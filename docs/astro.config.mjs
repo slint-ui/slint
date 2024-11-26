@@ -87,6 +87,10 @@ export default defineConfig({
                                     label: "Types",
                                     slug: "guide/language/types",
                                 },
+                                {
+                                    label: "Positioning & Layouts",
+                                    slug: "guide/language/positioning-and-layouts",
+                                },
                             ],
                         },
                         {
