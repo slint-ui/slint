@@ -434,7 +434,6 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
-    /// Whether the window has a custom cursor set
     has_custom_cursor: Cell<bool>,
 
     /// Stack of currently active popups
@@ -1269,12 +1268,12 @@ impl WindowInner {
     }
 
     /// Sets whether the window has a custom cursor set.
-    pub fn set_is_custom_cursor(&self, is_custom_cursor: bool) {
+    pub fn set_has_custom_cursor(&self, is_custom_cursor: bool) {
         self.has_custom_cursor.set(is_custom_cursor);
     }
 
     /// Returns whether the window has a custom cursor set.
-    pub fn get_is_custom_cursor(&self) -> bool {
+    pub fn get_has_custom_cursor(&self) -> bool {
         self.has_custom_cursor.get()
     }
 }

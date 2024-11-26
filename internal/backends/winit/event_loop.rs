@@ -730,7 +730,7 @@ impl EventLoopState {
         let window_item = runtime_window.window_item();
         let window_ref = window_item.as_ref().unwrap().as_pin_ref();
         let cursor = window_ref.cursor();
-        runtime_window.set_is_custom_cursor(false);
+        runtime_window.set_has_custom_cursor(false);
 
         // TODO: Only change the cursor if the cursor value becomes dirty
         // `window_ref.cursor.is_dirty()` doesn't seem to work.
@@ -750,7 +750,7 @@ impl EventLoopState {
             );
             let custom_cursor = event_loop.create_custom_cursor(source.unwrap());
             window.winit_window().unwrap().set_cursor(custom_cursor.clone());
-            runtime_window.set_is_custom_cursor(true);
+            runtime_window.set_has_custom_cursor(true);
         }
     }
 
