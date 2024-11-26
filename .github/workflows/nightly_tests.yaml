@@ -69,6 +69,8 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
+            - name: Downgrade cc crate to work around https://github.com/slint-ui/slint/issues/6875
+              run: cargo update -p cc --precise 1.1.31
             - name: Fetch Yocto SDK
               run: |
                   # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
