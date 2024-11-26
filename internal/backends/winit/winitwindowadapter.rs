@@ -236,7 +236,7 @@ impl WinitWindowOrNone {
     fn set_skip_taskbar(&self, skip: bool) {
         match self {
             Self::HasWindow { window, .. } => window.set_skip_task_bar(skip),
-            Self::None(attributes) => attributes.borrow_mut().skip_task_bar = skip
+            Self::None(attributes) => attributes.borrow_mut().skip_task_bar = skip,
         }
     }
 }
