@@ -1,0 +1,37 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Spinner
+description: Spinner api.
+---
+
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-spinner.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets spinner example'>
+
+```slint playground
+import { Spinner } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 200px;
+    Spinner {
+        progress: 50%;
+    }
+}
+```
+</CodeSnippetMD>
+
+The `Spinner` informs the user about the status of an on-going operation, such as loading data from the network. It provides the same properties as
+[`ProgressIndicator`](/master/docs/slint/reference/std-widgets/progressindicator/) but differs in shape.
+
+## Properties
+
+## indeterminate
+<SlintProperty typeName="bool" propName="indeterminate" default="false" >
+Set to true if the progress of the operation cannot be determined by value.
+</SlintProperty>
+
+## progress
+<SlintProperty typeName="float" propName="progress" default="0" >
+Percentage of completion, as value between 0 and 1. Values less than 0 or greater than 1 are capped.
+</SlintProperty>

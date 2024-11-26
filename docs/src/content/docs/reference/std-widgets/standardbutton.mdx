@@ -1,0 +1,52 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: StandardButton
+description: StandardButton api.
+---
+
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-standardbutton.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets standardbutton example'>
+```slint
+import { StandardButton, VerticalBox } from "std-widgets.slint";
+export component Example inherits Window {
+  VerticalBox {
+    StandardButton { kind: ok; }
+    StandardButton { kind: apply; }
+    StandardButton { kind: cancel; }
+  }
+}
+```
+</CodeSnippetMD>
+
+The StandardButton looks like a button, but instead of customizing with `text` and `icon`,
+it can used one of the pre-defined `kind` and the text and icon will depend on the style.
+
+## Properties
+
+### enabled
+<SlintProperty typeName="bool" propName="enabled" default="true" >
+Defaults to true. When false, the button can't be pressed
+</SlintProperty>
+
+### has-focus
+<SlintProperty typeName="bool" propName="has-focus" default="false" propertyVisibility="out">
+Set to true when the button currently has the focus
+</SlintProperty>
+
+### kind
+<SlintProperty typeName="enum" propName="kind" default="ok" enumName="StandardButtonKind" >
+The kind of button, one of `ok` `cancel`, `apply`, `close`, `reset`, `help`, `yes`, `no,` `abort`, `retry` or `ignore`
+</SlintProperty>
+
+### pressed
+<SlintProperty typeName="bool" propName="pressed" default="false" propertyVisibility="out">
+Set to true when the button is pressed.
+</SlintProperty>
+
+
+## Callbacks
+
+### clicked()
+
