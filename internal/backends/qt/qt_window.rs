@@ -16,7 +16,6 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage, RenderText,
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
-use i_slint_core::items::WindowItem_field_offsets::skip_taskbar;
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, PopupClosePolicy, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
