@@ -130,9 +130,9 @@ impl WindowAdapter for HeadlessWindow {
 
     fn set_size(&self, size: i_slint_core::api::WindowSize) {
         self.window.dispatch_event(i_slint_core::platform::WindowEvent::Resized {
-            size: size.to_logical(1.),
+            size: size.to_logical(self.window().scale_factor()),
         });
-        self.size.set(size.to_physical(1.))
+        self.size.set(size.to_physical(self.window().scale_factor()))
     }
 
     fn renderer(&self) -> &dyn Renderer {
@@ -182,4 +182,10 @@ impl i_slint_core::platform::EventLoopProxy for Queue {
 pub fn init() {
     i_slint_core::platform::set_platform(Box::new(HeadlessBackend::default()))
         .expect("platform already initialized");
+}
+
+pub fn set_window_scale_factor(window: &slint_interpreter::Window, factor: f32) {
+    window.dispatch_event(i_slint_core::platform::WindowEvent::ScaleFactorChanged {
+        scale_factor: factor,
+    });
 }

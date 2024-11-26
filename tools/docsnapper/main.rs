@@ -345,9 +345,11 @@ fn process_tag(
 
     let size = width.and_then(|w| height.map(|h| (w, h)));
 
+    let scale_factor = attr.get("scale").and_then(|s| s.parse::<f32>().ok()).unwrap_or(1.0);
+
     let code = extract_code_from_text(text, size)?;
 
-    build_and_snapshot(args, size, file_path, code.to_string(), &screenshot_path)
+    build_and_snapshot(args, size, scale_factor, file_path, code.to_string(), &screenshot_path)
 }
 
 fn process_doc_file(file: &Path, project_root: &Path, args: &Cli) -> Result<()> {
@@ -400,6 +402,7 @@ fn find_project_root(docs_folder: &Path) -> Result<PathBuf> {
 fn build_and_snapshot(
     args: &Cli,
     size: Option<(usize, usize)>,
+    scale_factor: f32,
     doc_file_path: &Path,
     source: String,
     screenshot_path: &Path,
@@ -424,6 +427,9 @@ fn build_and_snapshot(
 
     let component = c.create()?;
 
+    // FIXME: The scale factor needs to be set before the size is set!
+    headless::set_window_scale_factor(&component.window(), scale_factor);
+
     if let Some((x, y)) = size {
         component.window().set_size(i_slint_core::api::LogicalSize::new(x as f32, y as f32));
     } else {
@@ -431,6 +437,7 @@ fn build_and_snapshot(
     }
 
     component.show()?;
+
     let screen_dump = component.window().take_snapshot()?;
 
     {
@@ -448,8 +455,15 @@ fn build_and_snapshot(
         ""
     };
 
+    let scale_factor = component.window().scale_factor();
+    let scale_str = if scale_factor >= 0.99 && scale_factor <= 1.01 {
+        String::new()
+    } else {
+        format!("@{scale_factor}x")
+    };
+
     eprintln!(
-        "    Saving image with {}x{} pixels to {screenshot_path:?}{overwrite_tag}",
+        "    Saving image with {}x{}{scale_str} pixels to {screenshot_path:?}{overwrite_tag}",
         screen_dump.width(),
         screen_dump.height()
     );
