@@ -5,7 +5,8 @@
 
 use lsp_types::{Diagnostic, Url};
 
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 
 use crate::common;
 use crate::language::reload_document_impl;
@@ -140,9 +141,19 @@ fn accurate_diagnostics_in_dependencies() {
     //assert_eq!(diag[&bar_url], vec![]);
     assert!(diag[&foo_url][0].message.contains("hello"));
 
+    let ctx = Some(std::rc::Rc::new(crate::language::Context {
+        document_cache: empty_document_cache().into(),
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        to_show: Default::default(),
+        open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
+    }));
+
     let bar_ctn = r#" export component Bar { in property <int> hello; } "#;
     let diag = spin_on::spin_on(reload_document_impl(
-        None,
+        ctx.as_ref(),
         bar_ctn.into(),
         bar_url.clone(),
         Some(1),
@@ -158,9 +169,16 @@ fn accurate_diagnostics_in_dependencies() {
         ])
     );
 
+    let sym = crate::language::get_document_symbols(
+        &mut dc,
+        &lsp_types::TextDocumentIdentifier { uri: foo_url.clone() },
+    )
+    .expect("foo.slint should still be loaded");
+    assert!(matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if result.len() >= 1));
+
     let foo_ctn = r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hi: 45; } }"#;
     let diag = spin_on::spin_on(reload_document_impl(
-        None,
+        ctx.as_ref(),
         foo_ctn.into(),
         foo_url.clone(),
         Some(1),
@@ -170,7 +188,7 @@ fn accurate_diagnostics_in_dependencies() {
 
     let foo_ctn = r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 12; } }"#;
     let diag = spin_on::spin_on(reload_document_impl(
-        None,
+        ctx.as_ref(),
         foo_ctn.into(),
         foo_url.clone(),
         Some(1),
