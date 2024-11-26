@@ -9,14 +9,17 @@ import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/slider-example.png"  imageWidth="200" imageHeight="200"  imageAlt='slider example'>
 ```slint
-import { Slider } from "std-widgets.slint";
+import { Slider,  VerticalBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
-    height: 25px;
-    Slider {
-        width: parent.width;
-        height: parent.height;
-        value: 42;
+    height: 40px;
+
+    VerticalBox {   
+        alignment: center;
+             
+        Slider {
+            value: 42;
+        }
     }
 }
 ```
