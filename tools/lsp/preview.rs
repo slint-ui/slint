@@ -67,7 +67,6 @@ struct ContentCache {
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
-    highlight: Option<(Url, TextSize)>,
     ui_is_visible: bool,
 }
 
@@ -1364,14 +1363,6 @@ fn set_preview_factory(
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
 
-        if let Some((url, offset)) =
-            CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
-        {
-            highlight(Some(url), offset);
-        } else {
-            highlight(None, 0.into());
-        }
-
         callback(instance.clone_strong());
 
         Some(instance)
@@ -1385,22 +1376,21 @@ fn set_preview_factory(
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
 pub fn highlight(url: Option<Url>, offset: TextSize) {
-    let highlight = url.clone().map(|u| (u, offset));
-    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-
-    if cache.highlight == highlight {
+    let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(&u).ok()) else {
         return;
-    }
-    cache.highlight = highlight;
+    };
 
     let selected = selected_element();
 
-    if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependencies.contains(url)) {
-        let _ = run_in_ui_thread(move || async move {
-            let Some(path) = url.and_then(|u| Url::to_file_path(&u).ok()) else {
-                return;
-            };
+    if let Some(selected) = &selected {
+        if selected.path == path && selected.offset == offset {
+            return;
+        }
+    }
 
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    if url.as_ref().map_or(true, |url| cache.dependencies.contains(url)) {
+        let _ = run_in_ui_thread(move || async move {
             if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
                 // Already selected!
                 return;
