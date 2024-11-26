@@ -604,6 +604,12 @@ pub(crate) async fn reload_document_impl(
     let mut diag = BuildDiagnostics::default();
     let _ = document_cache.load_url(&url, version, content, &mut diag).await; // ignore url conversion errors
 
+    for dep in &dependencies {
+        if ctx.is_some_and(|ctx| ctx.open_urls.borrow().contains(dep)) {
+            document_cache.reload_cached_file(dep, &mut diag).await;
+        }
+    }
+
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> =
         core::iter::once(Url::from_file_path(&path).unwrap())

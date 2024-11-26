@@ -170,6 +170,17 @@ impl ServerNotifier {
     pub fn send_message_to_lsp(&self, message: common::PreviewToLspMessage) {
         let _ = self.preview_to_lsp_sender.send(message);
     }
+
+    #[cfg(test)]
+    pub fn dummy() -> Self {
+        Self {
+            sender: crossbeam_channel::unbounded().0,
+            queue: Default::default(),
+            use_external_preview: Default::default(),
+            #[cfg(feature = "preview-engine")]
+            preview_to_lsp_sender: crossbeam_channel::unbounded().0,
+        }
+    }
 }
 
 impl RequestHandler {

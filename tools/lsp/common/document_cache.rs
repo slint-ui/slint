@@ -282,6 +282,11 @@ impl DocumentCache {
         Ok(())
     }
 
+    pub async fn reload_cached_file(&mut self, url: &Url, diag: &mut BuildDiagnostics) {
+        let Some(path) = uri_to_file(url) else { return };
+        self.type_loader.reload_cached_file(&path, diag).await;
+    }
+
     pub fn drop_document(&mut self, url: &Url) -> Result<()> {
         let path = uri_to_file(url).ok_or("Failed to convert path")?;
         Ok(self.type_loader.drop_document(&path)?)

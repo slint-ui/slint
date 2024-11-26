@@ -1304,6 +1304,21 @@ impl TypeLoader {
         Self::load_file_impl(&state, path, doc_node, is_builtin, &Default::default()).await;
     }
 
+    /// Reload a cached file
+    ///
+    /// The path must be canonical
+    pub async fn reload_cached_file(&mut self, path: &Path, diag: &mut BuildDiagnostics) {
+        let doc_node = {
+            let Some(LoadedDocument::Invalidated(doc_node)) = self.all_documents.docs.get(path)
+            else {
+                return;
+            };
+            doc_node.clone()
+        };
+        let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
+        Self::load_file_impl(&state, path, doc_node, false, &Default::default()).await;
+    }
+
     /// Load a file, and its dependency, running the full set of passes.
     ///
     /// the path must be the canonical path
