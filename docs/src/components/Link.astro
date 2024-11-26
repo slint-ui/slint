@@ -16,14 +16,13 @@ const displayLabel = label || type;
 
 if (!(type in linkMap)) {
     throw new Error(
-        `Invalid link type: ${type}. Maybe you forgot to add it to the linkMap?`
+        `Invalid link type: ${type}. Maybe you forgot to add it to the linkMap?`,
     );
 }
 
 // The base is set in astro.config.mjs
 const base = import.meta.env.BASE_URL;
 const fullHref = `${base}${linkMap[type].href}`;
-
 ---
 
 <a href={fullHref}><span>{displayLabel}</span></a>
