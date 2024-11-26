@@ -12,7 +12,7 @@ use slint_interpreter::ComponentInstance;
 
 use crate::common;
 
-use super::{ext::ElementRcNodeExt, ui};
+use crate::preview::{ext::ElementRcNodeExt, ui, SelectionNotification};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -89,14 +89,14 @@ fn element_covers_point(
 }
 
 pub fn unselect_element() {
-    super::set_selected_element(None, &[], false);
+    super::set_selected_element(None, &[], SelectionNotification::Never);
 }
 
 pub fn select_element_at_source_code_position(
     path: PathBuf,
     offset: TextSize,
     position: Option<LogicalPoint>,
-    notify_editor_about_selection_after_update: bool,
+    editor_notification: crate::preview::SelectionNotification,
 ) {
     let Some(component_instance) = super::component_instance() else {
         return;
@@ -106,7 +106,7 @@ pub fn select_element_at_source_code_position(
         path,
         offset,
         position,
-        notify_editor_about_selection_after_update,
+        editor_notification,
     )
 }
 
@@ -115,7 +115,7 @@ fn select_element_at_source_code_position_impl(
     path: PathBuf,
     offset: TextSize,
     position: Option<LogicalPoint>,
-    notify_editor_about_selection_after_update: bool,
+    editor_notification: SelectionNotification,
 ) {
     let positions = component_instance.component_positions(&path, offset.into());
 
@@ -126,7 +126,7 @@ fn select_element_at_source_code_position_impl(
     super::set_selected_element(
         Some(ElementSelection { path, offset, instance_index }),
         &positions,
-        notify_editor_about_selection_after_update,
+        editor_notification,
     );
 }
 
@@ -142,7 +142,7 @@ fn select_element_node(
         path,
         offset,
         position,
-        false, // We update directly;-)
+        SelectionNotification::Never, // We update directly;-)
     );
 
     if let Some(document_position) = lsp_element_node_position(selected_element) {
@@ -525,7 +525,7 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
 // Called from UI thread!
 pub fn reselect_element() {
     let Some(selected) = super::selected_element() else {
-        super::set_selected_element(None, &[], false);
+        super::set_selected_element(None, &[], SelectionNotification::Never);
         return;
     };
     let Some(component_instance) = super::component_instance() else {
@@ -533,7 +533,7 @@ pub fn reselect_element() {
     };
     let positions = component_instance.component_positions(&selected.path, selected.offset.into());
 
-    super::set_selected_element(Some(selected), &positions, false);
+    super::set_selected_element(Some(selected), &positions, SelectionNotification::Never);
 }
 
 #[cfg(test)]
