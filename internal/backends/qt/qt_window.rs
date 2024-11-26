@@ -105,7 +105,7 @@ cpp! {{
         void paintEvent(QPaintEvent *) override {
             if (!rust_window)
                 return;
-            auto painter = std::unique_ptr<QPainter>(new QPainter(this));
+           auto painter = std::unique_ptr<QPainter>(new QPainter(this));
             painter->setClipRect(rect());
             painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
             QPainterPtr *painter_ptr = &painter;
@@ -1952,7 +1952,7 @@ impl WindowAdapter for QtWindow {
 
             widget_ptr->setWindowFlag(Qt::FramelessWindowHint, no_frame);
             widget_ptr->setWindowFlag(Qt::WindowStaysOnTopHint, always_on_top);
-            widget_ptr->setWindowFlag(Qt::Tool, skip_taskbar);
+            widget_ptr->setWindowFlag(Qt::Dialog, skip_taskbar);
 
             {
                 // Depending on the request, we either set or clear the bits.
