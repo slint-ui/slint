@@ -1273,7 +1273,7 @@ impl WindowInner {
     }
 
     /// Returns whether the window has a custom cursor set.
-    pub fn get_has_custom_cursor(&self) -> bool {
+    pub fn has_custom_cursor(&self) -> bool {
         self.has_custom_cursor.get()
     }
 }
