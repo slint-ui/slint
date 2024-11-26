@@ -90,7 +90,7 @@ export default defineConfig({
                                 {
                                     label: "Positioning & Layouts",
                                     slug: "guide/language/positioning-and-layouts",
-                                }
+                                },
                             ],
                         },
                         {
