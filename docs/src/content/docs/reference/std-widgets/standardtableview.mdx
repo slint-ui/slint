@@ -4,32 +4,10 @@ title: StandardTableView
 description: StandardTableView api.
 ---
 
-The `StandardTableView` represents a table of data with columns and rows. Cells
-are organized in a model where each row is a model of
-\[[`StandardListViewItem`](../builtins/structs.md#standardlistviewitem)\].
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
-### Properties
-
-Same as [`ListView`](/master/docs/slint/reference/std-widgets/listview/), and in addition:
-
--   **`current-sort-column`** (_out_ _int_): Indicates the sorted column. -1 mean no column is sorted.
--   **`columns`** (_in-out_ _\[[`TableColumn`](../builtins/structs.md#tablecolumn)\]_): Defines the model of the table columns.
--   **`rows`** (_\[\[[`StandardListViewItem`](../builtins/structs.md#standardlistviewitem)\]\]_): Defines the model of table rows.
--   **`current-row`** (_in-out_ _int_): The index of the currently active row. -1 mean none is selected, which is the default.
-
-### Callbacks
-
--   **`sort-ascending(int)`**: Emitted if the model should be sorted by the given column in ascending order.
--   **`sort-descending(int)`**: Emitted if the model should be sorted by the given column in descending order.
--   **`row-pointer-event(int, PointerEvent, Point)`**: Emitted on any mouse pointer event similar to `TouchArea`. Arguments are row index associated with the event, the `PointerEvent` itself and the mouse position within the tableview.
--   **`current-row-changed(int)`**: Emitted when the current row has changed because the user modified it
-
-### Functions
-
--   **`set-current-row(int)`**: Sets the current row by index and brings it into view.
-
-### Example
-
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-standardtableview.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets standardtableview example'>
 ```slint
 import { StandardTableView } from "std-widgets.slint";
 export component Example inherits Window {
@@ -56,3 +34,52 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
+
+The `StandardTableView` represents a table of data with columns and rows. Cells
+are organized in a model where each row is a model of
+<SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" default="[]" >
+</SlintProperty>
+
+## Properties
+
+Same as [`ListView`](/master/docs/slint/reference/std-widgets/listview/), and in addition:
+
+### current-sort-column
+<SlintProperty typeName="int" propName="current-sort-column" default="-1" propertyVisibility="out">
+Indicates the sorted column. -1 mean no column is sorted.
+</SlintProperty>
+
+### columns
+<SlintProperty typeName="[struct]" structName="TableColumn" propName="columns" default="[]" propertyVisibility="in-out">
+Defines the model of the table columns.
+</SlintProperty>
+
+### rows
+<SlintProperty typeName="[[struct]]" structName="StandardListViewItem" propName="rows" default="[]" propertyVisibility="in-out">
+Defines the model of table rows.
+</SlintProperty>
+
+### current-row
+<SlintProperty typeName="int" propName="current-row" default="-1" propertyVisibility="in-out">
+The index of the currently active row. -1 mean none is selected, which is the default.
+</SlintProperty>
+
+## Callbacks
+
+### sort-ascending(int)
+Emitted if the model should be sorted by the given column in ascending order.
+
+### sort-descending(int)
+Emitted if the model should be sorted by the given column in descending order.
+
+### row-pointer-event(int, PointerEvent, Point)
+Emitted on any mouse pointer event similar to `TouchArea`. Arguments are row index associated with the event, the `PointerEvent` itself and the mouse position within the tableview.
+
+### current-row-changed(int)
+Emitted when the current row has changed because the user modified it
+
+## Functions
+
+### set-current-row(int)
+Sets the current row by index and brings it into view.
