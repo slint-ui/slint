@@ -412,6 +412,7 @@ lazy_static! {
         ("^editors/tree-sitter-slint/test-to-corpus\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^Cargo\\.lock$", LicenseLocation::NoLicense),
         ("^demos/printerdemo/zephyr/VERSION$", LicenseLocation::NoLicense),
+        ("^examples/mcu-board-support/pico2_st7789/rp_pico2.rs$", LicenseLocation::NoLicense), // third-party file
 
         // filename based matches:
         ("(^|/)CMakeLists\\.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
