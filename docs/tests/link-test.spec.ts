@@ -1,4 +1,6 @@
-import { test, expect } from '@playwright/test';
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { test, expect } from "@playwright/test";
 import { linkMap } from "../src/utils/utils";
 
 test("Test all links", async ({ page }) => {
@@ -9,9 +11,13 @@ test("Test all links", async ({ page }) => {
 
         try {
             const response = await page.request.get(fullUrl);
-            expect.soft(response.ok(), `${fullUrl} has no green status code`).toBeTruthy();
+            expect
+                .soft(response.ok(), `${fullUrl} has no green status code`)
+                .toBeTruthy();
         } catch {
-            expect.soft(null, `${fullUrl} has no green status code`).toBeTruthy();
+            expect
+                .soft(null, `${fullUrl} has no green status code`)
+                .toBeTruthy();
         }
     }
 });

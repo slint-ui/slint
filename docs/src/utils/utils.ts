@@ -207,7 +207,7 @@ export const linkMap = {
         href: "/reference/builtins/builtinfunctions#debug",
     },
     FocusHandling: {
-        href: "/guide/focus"
+        href: "/guide/focus",
     },
     GridLayout: {
         href: "/reference/layouts/gridlayout",
@@ -225,7 +225,7 @@ export const linkMap = {
         href: "/reference/std-widgets/listview",
     },
     LineEdit: {
-        href: "/reference/std-widgets/lineedit"
+        href: "/reference/std-widgets/lineedit",
     },
     Path: {
         href: "/reference/elements/path",
