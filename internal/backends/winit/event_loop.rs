@@ -733,6 +733,7 @@ impl EventLoopState {
         runtime_window.set_is_custom_cursor(false);
 
         // TODO: Only change the cursor if the cursor value becomes dirty
+        // `window_ref.cursor.is_dirty()` doesn't seem to work.
         if cursor.size().width > 0 && cursor.size().height > 0 {
             let hotspot_x = window_ref.cursor_hotspot_x().get();
             let hotspot_y = window_ref.cursor_hotspot_y().get();

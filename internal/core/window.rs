@@ -1285,10 +1285,12 @@ impl WindowInner {
         &window.0
     }
 
+    /// Sets whether the window has a custom cursor set.
     pub fn set_is_custom_cursor(&self, is_custom_cursor: bool) {
         self.has_custom_cursor.set(is_custom_cursor);
     }
 
+    /// Returns whether the window has a custom cursor set.
     pub fn get_is_custom_cursor(&self) -> bool {
         self.has_custom_cursor.get()
     }
