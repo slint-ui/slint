@@ -76,16 +76,23 @@ fn main() -> Result<()> {
 
     let mut error_count = 0;
 
-    for entry in walkdir::WalkDir::new(args.docs_folder.clone()).into_iter().filter(|e| {
-        let Ok(e) = e else {
-            return false;
-        };
-        let ext = e.path().extension();
-        ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx"))
-    }) {
-        if let Err(e) = process_doc_file(entry.unwrap().path(), &project_root, &args) {
-            eprintln!("    Error: {e:?}");
-            error_count += 1;
+    for entry in walkdir::WalkDir::new(args.docs_folder.clone()).sort_by_file_name().into_iter() {
+        match &entry {
+            Err(err) => {
+                eprintln!("    File Error: {err:?}");
+                error_count += 1;
+            }
+            Ok(entry) => {
+                let path = entry.path();
+                let ext = path.extension();
+
+                if ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx")) {
+                    if let Err(e) = process_doc_file(path, &project_root, &args) {
+                        eprintln!("    Error: {e:?}");
+                        error_count += 1;
+                    }
+                }
+            }
         }
     }
 
