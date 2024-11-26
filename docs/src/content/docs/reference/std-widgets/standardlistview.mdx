@@ -9,17 +9,18 @@ import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-standardlistview.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets standardlistview example'>
 ```slint
-import { StandardListView } from "std-widgets.slint";
+import { StandardListView, VerticalBox } from "std-widgets.slint";
 export component Example inherits Window {
-    width: 150px;
-    height: 150px;
-    StandardListView {
-        width: 150px;
-        height: 150px;
-        model: [ { text: "Blue"}, { text: "Red" }, { text: "Green" },
-            { text: "Yellow" }, { text: "Black"}, { text: "White"},
-            { text: "Magenta" }, { text: "Cyan" },
-        ];
+    width: 200px;
+    height: 200px;
+
+    VerticalBox {
+        StandardListView {
+            model: [ { text: "Blue"}, { text: "Red" }, { text: "Green" },
+                { text: "Yellow" }, { text: "Black"}, { text: "White"},
+                { text: "Magenta" }, { text: "Cyan" },
+            ];
+        }
     }
 }
 ```

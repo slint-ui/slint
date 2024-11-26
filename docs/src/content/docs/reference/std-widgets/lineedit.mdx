@@ -8,16 +8,16 @@ import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-lineedit-example.png"  imageWidth="200" imageHeight="200"  imageAlt='lineedit example'>
-```slint
-import { LineEdit } from "std-widgets.slint";
+```slint playground
+import { LineEdit, VerticalBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
-    height: 25px;
-    LineEdit {
-        font-size: 14px;
-        width: parent.width;
-        height: parent.height;
-        placeholder-text: "Enter text here";
+    height: 60px;
+
+    VerticalBox {
+        LineEdit {
+            placeholder-text: "Enter text here";
+        }
     }
 }
 ```

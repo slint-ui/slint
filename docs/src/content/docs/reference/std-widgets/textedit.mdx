@@ -10,15 +10,16 @@ import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-textedit.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets textedit example'>
 ```slint playground
-import { TextEdit } from "std-widgets.slint";
+import { TextEdit, VerticalBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
     height: 200px;
-    TextEdit {
-        font-size: 14px;
-        width: parent.width;
-        height: parent.height;
-        text: "Lorem ipsum dolor sit amet,\n consectetur adipisici elit";
+
+    VerticalBox {
+        TextEdit {
+            font-size: 14px;
+            text: "Lorem ipsum dolor sit amet,\n consectetur adipisici elit";
+        }
     }
 }
 ```

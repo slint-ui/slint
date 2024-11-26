@@ -8,16 +8,19 @@ import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/spinbox-example.png"  imageWidth="200" imageHeight="200"  imageAlt='spinbox example'>
-```slint
-import { SpinBox } from "std-widgets.slint";
+```slint playground
+import { SpinBox, VerticalBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
-    height: 25px;
-    SpinBox {
-        width: parent.width;
-        height: parent.height;
-        value: 42;
-    }
+    height: 50px;
+
+    VerticalBox {
+        alignment: center;
+
+        SpinBox {
+            value: 42;
+        }
+    }  
 }
 ```
 </CodeSnippetMD>
