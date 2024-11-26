@@ -31,6 +31,13 @@ A simple button. Common types of buttons can also be created with [`StandardButt
 ### checkable
 <SlintProperty propName="checkable" typeName="bool" defaultValue="false">
 Shows whether the button can be checked or not. This enables the `checked` property to possibly become true.
+
+```slint no-test "checkable: true;"
+Button {
+    text: "Checkable Button";
+    checkable: true;
+}
+```
 </SlintProperty>
 
 ### checked
@@ -61,6 +68,12 @@ Set to true when the button is pressed.
 ### text
 <SlintProperty propName="text" typeName="string">
 The text written in the button.
+
+```slint no-test `text: "Button with text";'
+Button {
+    text: "Button with text";
+}
+```
 </SlintProperty>
 
 ### primary
@@ -73,9 +86,17 @@ If set to true the button is displayed with the primary accent color.
 If set to true, the icon will be colorized to the same color as the Button's text color.
 </SlintProperty>
 
-
 ## Callbacks
 
 ### clicked()
 
 Invoked when clicked: A finger or the left mouse button is pressed, then released on this element.
+
+```slint no-test {3-5}
+Button {
+    text: "Click me";
+    clicked() => {
+        debug("Button clicked");
+    }
+}
+```

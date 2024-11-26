@@ -40,16 +40,33 @@ Set to true when the slider currently has the focus
 ### value
 <SlintProperty propName="value" typeName="float" defaultValue="0" propertyVisibility="in-out">
 The value. Defaults to the minimum.
+```slint no-test "value: 50;"
+Slider {
+    value: 50;
+}
+```
 </SlintProperty>
 
 ### minimum
 <SlintProperty propName="minimum" typeName="float" defaultValue="0">
 The minimum value.
+```slint no-test "minimum: 10;"
+Slider {
+    minimum: 10;
+    value: 11;
+}
+```
 </SlintProperty>
 
 ### maximum
 <SlintProperty propName="maximum" typeName="float" defaultValue="100">
 The maximum value.
+```slint no-test "maximum: 10;"
+Slider {
+    maximum: 10;
+    value: 9;
+}
+```
 </SlintProperty>
 
 ### orientation
@@ -62,5 +79,21 @@ If set to true the Slider is displayed vertical.
 ### changed(float)
 The value was changed
 
+```slint no-test {1-4}
+Slider {
+    changed(value) => {
+        debug("New value: ", value);
+    }
+}
+```
+
 ### released(float)
 Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.
+
+```slint no-test {1-4}
+Slider {
+    released(position) => {
+        debug("Released at position: ", position);
+    }
+}
+```

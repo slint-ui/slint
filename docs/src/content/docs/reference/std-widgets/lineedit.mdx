@@ -51,6 +51,11 @@ The horizontal alignment of the text.
 ### input-type
 <SlintProperty propName="input-type" typeName="enum" enumName="InputType" defaultValue="text">
 The way to allow special input viewing properties such as password fields.
+```slint no-test "input-type: password;"
+LineEdit {
+    input-type: password;
+}
+```
 </SlintProperty>
 
 ### placeholder-text
@@ -67,6 +72,11 @@ enabled as well as editing text programmatically.
 ### text
 <SlintProperty propName="text" typeName="string" defaultValue='""' propertyVisibility="in-out">
 The text being edited
+```slint no-test 'text: "Initinal text";'
+LineEdit {
+    text: "Initinal text";
+}
+```
 </SlintProperty>
 
 ## Functions
@@ -95,15 +105,37 @@ Copies the selected text to the clipboard and removes it from the editable area.
 ### paste()
 Pastes the text content of the clipboard at the cursor position.
 
-
 ## Callbacks
 
 ### accepted(string)
 Invoked when the enter key is pressed.
 
+```slint no-test {2-4}
+LineEdit {
+    accepted(text) => {
+        debug("Accepted: ", text);
+    }
+}
+```
+
 ### rejected(string)
 Invoked when the escape key is pressed.
+
+```slint no-test {2-4}
+LineEdit {
+    rejected(text) => {
+        debug("Rejected: ", text);
+    }
+}
+```
 
 ### edited(string)
 Emitted when the text has changed because the user modified it
 
+```slint no-test {2-4}
+LineEdit {
+    edited(text) => {
+        debug("Text edited: ", text);
+    }
+}
+```
