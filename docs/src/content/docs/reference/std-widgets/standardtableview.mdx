@@ -6,6 +6,7 @@ description: StandardTableView api.
 
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+import Link from '../../../../components/Link.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-standardtableview.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets standardtableview example'>
 ```slint playground
@@ -44,7 +45,7 @@ are organized in a model where each row is a model of
 
 ## Properties
 
-Same as [`ListView`](/master/docs/slint/reference/std-widgets/listview/), and in addition:
+Same as <Link type="ListView" />, and in addition:
 
 ### current-sort-column
 <SlintProperty typeName="int" propName="current-sort-column" default="-1" propertyVisibility="out">

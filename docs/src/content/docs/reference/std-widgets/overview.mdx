@@ -6,6 +6,7 @@ description: Widgets Overview.
 
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 import SlintProperty  from '../../../../components/SlintProperty.astro';
+import Link from '../../../../components/Link.astro';
 
 ```slint playground
 import { Palette, HorizontalBox } from "std-widgets.slint";
@@ -29,10 +30,10 @@ export component MyCustomWidget {
 Slint provides a series of built-in widgets that can be imported from `"std-widgets.slint"`.
 
 The widget appearance depends on the selected style.
-See [Selecting a Widget Style](/master/docs/slint/reference/std-widgets/style) for details how to select the style. If no style is selected, `native` is the default. If `native` isn't available, `fluent` is the default.
+See <Link type="StyleWidgets" label="Selecting a Widget Style"/> for details how to select the style. If no style is selected, `native` is the default. If `native` isn't available, `fluent` is the default.
 
 
-All widgets support all [properties common to builtin elements](/master/docs/slint/reference/overview).
+All widgets support all <Link type="CommonProperties" label="properties common to builtin elements"/>.
 
 ## Palette Properties
 
