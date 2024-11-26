@@ -10,12 +10,15 @@ export { Switch } from "switch.slint";
 export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
 
-
-export global StyleMetrics  {
+export global LayoutSpec {
     out property <length> layout-spacing: 16px;
     out property <length> layout-padding: 16px;
-    out property <length> text-cursor-width: 2px;
+}
 
+export global StyleMetrics  {
+    out property <length> layout-spacing: LayoutSpec.layout-spacing;
+    out property <length> layout-padding: LayoutSpec.layout-padding;
+    out property <length> text-cursor-width: 2px;
     out property <color> default-text-color: MaterialPalette.foreground;
     out property <color> textedit-background: transparent;
     out property <color> textedit-text-color: MaterialPalette.foreground;
@@ -40,3 +43,4 @@ export global Palette {
     out property <brush> border: MaterialPalette.border;
     in-out property <ColorScheme> color-scheme <=> MaterialPalette.color-scheme;
 }
+

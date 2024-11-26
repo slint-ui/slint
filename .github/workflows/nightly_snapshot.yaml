@@ -291,7 +291,7 @@ jobs:
               shell: bash
             - name: "pnpm install"
               working-directory: editors/vscode
-              run: pnpm install --frozen-lockfile --ignore-scripts
+              run: pnpm install --frozen-lockfile
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Build package and optionally publish to Visual Studio Marketplace
@@ -352,10 +352,14 @@ jobs:
                   name: android-demo
                   path: android
 
-            - name: Extract Version
+            - uses: actions/checkout@v4
+              with:
+                path: "slint-src"
+                sparse-checkout: .
+            - name: Extract Version from Cargo.toml
               id: version
               run: |
-                version=$(grep -oP '(?<=<p class="title logo__title">Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
+                version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' slint-src/Cargo.toml)
                 if [[ -z "$version" ]]; then
                   echo "Version not found"
                   exit 1
@@ -443,7 +447,7 @@ jobs:
                 mkdir -p $output_path/docs/node
                 cp -a ../api/node/docs/* $output_path/docs/node/
                 mkdir -p $output_path/docs/slint
-                cp -a ../target/slintdocs/html/* $output_path/docs/slint/
+                cp -a ../docs/dist/* $output_path/docs/slint/
 
             - name: Adjust redirections
               if: github.event.inputs.release == 'true'
@@ -468,7 +472,7 @@ jobs:
               run: |
                   sed -i '/"name": "development snapshot"/,/"preferred": true,/c\
                           "name": "development snapshot",\
-                          "url": "https://snapshots.slint.dev/master/docs"\
+                          "url": "https://snapshots.slint.dev/master/docs/slint"\
                       },\
                       {\
                           "preferred": true,\
@@ -572,11 +576,11 @@ jobs:
                    RELEASE_INPUT: ${{ github.event.inputs.release }}
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                    notes_file=slint-src/docs/_templates/nightly-release-notes.md
+                    notes_file=slint-src/docs/src/utils/_templates/nightly-release-notes.md
                     version=nightly
                     download_version=$version
                   else
-                    notes_file=slint-src/docs/_templates/release-notes.md
+                    notes_file=slint-src/docs/src/utils/_templates/release-notes.md
                     version=$(echo artifacts/Slint-cpp-*-win64-MSVC.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
                     if [[ -z "$version" ]]; then
                       echo "Version not found"
@@ -587,7 +591,7 @@ jobs:
                     download_version=v$version
                   fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
-                  cat $notes_file slint-src/docs/_templates/release-artifacts.md > release-notes.md
+                  cat $notes_file slint-src/docs/src/utils/_templates/release-artifacts.md > release-notes.md
                   sed -i -e "s,{version},$version,g" release-notes.md
                   sed -i -e "s,{download_version},$download_version,g" release-notes.md
                   sed -i -e "s,{major_version},$major_version,g" release-notes.md

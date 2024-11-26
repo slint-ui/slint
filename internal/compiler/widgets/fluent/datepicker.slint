@@ -1,34 +1,34 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { VerticalBox } from "./layouts.slint";
+import { VerticalBox } from "../common/layout.slint";
 import { Button } from "./button.slint";
 import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
 import { MenuBorder } from "./components.slint";
 import { StandardButton } from "../common/standardbutton.slint";
 
 import { Date, DatePickerBase } from "../common/datepicker_base.slint";
-export { Date } 
+export { Date }
 
 export component DatePickerPopup inherits PopupWindow {
     in property <string> title: "Select date";
     in property <Date> date <=> base.date;
 
     callback canceled();
-    callback accepted(/* current-date */ Date);
+    callback accepted(current-date: Date);
 
     width: 368px;
     height: 524px;
     close-policy: PopupClosePolicy.no-auto-close;
 
-    background-layer := MenuBorder {       
+    background-layer := MenuBorder {
         width: dialog.width;
         height: dialog.height;
     }
 
-    dialog := Dialog {   
+    dialog := Dialog {
         padding: 8px;
-                
+
         base := DatePickerBase {
             title: root.title;
             style: {
@@ -58,12 +58,12 @@ export component DatePickerPopup inherits PopupWindow {
                   current-day-style: {
                       font-size: FluentFontSettings.title.font-size,
                       font-weight: FluentFontSettings.title.font-weight,
-                      foreground: FluentPalette.foreground,  
+                      foreground: FluentPalette.foreground,
                   },
                   title-style: {
                       font-size: FluentFontSettings.body.font-size,
                       font-weight: FluentFontSettings.body.font-weight,
-                      foreground: FluentPalette.foreground,  
+                      foreground: FluentPalette.foreground,
                   },
                   previous-icon: Icons.arrow-back,
                   next-icon: Icons.arrow-forward,
@@ -79,7 +79,7 @@ export component DatePickerPopup inherits PopupWindow {
                   }
             };
         }
-        
+
         StandardButton {
             kind: cancel;
 

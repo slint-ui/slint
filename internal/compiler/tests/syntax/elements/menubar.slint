@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component A inherits Window {
+    mb := MenuBar {
+    }
+    MenuBar {
+//  ^error{Only one MenuBar is allowed in a Window}
+    }
+
+    Rectangle {
+        x: 45px;
+    }
+    Rectangle {
+        x: mb.absolute-position.x;
+//            ^error{Element 'MenuBar' does not have a property 'absolute-position'}
+        y: mb.height;
+//            ^error{Element 'MenuBar' does not have a property 'height'}
+        init => {
+            mb.focus();
+//             ^error{Element 'MenuBar' does not have a property 'focus'}
+        }
+    }
+}
+
+
+
+
+
+// TESTS TODO
+// - test that setting the window height sets it to the window height plus that of the menubar

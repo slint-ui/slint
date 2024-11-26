@@ -1,0 +1,91 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that the init callback is invoked in the correct order
+
+
+import { ListView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    in-out property <string> result;
+    lv := ListView {
+        for idx in 30 : Rectangle {
+            height: 100px;
+            init => { result += "(" + idx + ")"; }
+        }
+    }
+    in-out property scroll <=> lv.viewport-y;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result(), "(0)(1)(2)");
+instance.set_result("".into());
+instance.set_scroll(-150.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result(), "(3)(4)");
+instance.set_result("".into());
+instance.set_scroll(-1000.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result(), "(10)(11)(12)");
+instance.set_result("".into());
+instance.set_scroll(-850.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result(), "(8)(9)");
+
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+
+// FIXME: In C++ ensure_updated_listview doesn't do the smart way to only instentiate visible items
+assert_eq(instance.get_result(), "(0)(1)(2)(3)(4)(5)(6)(7)(8)(9)(10)(11)(12)(13)(14)(15)(16)(17)(18)(19)(20)(21)(22)(23)(24)(25)(26)(27)(28)(29)");
+if(false) {
+
+assert_eq(instance.get_result(), "(0)(1)(2)");
+instance.set_result("");
+instance.set_scroll(-150.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_result(), "(3)(4)");
+instance.set_result("");
+instance.set_scroll(-1000.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_result(), "(10)(11)(12)");
+instance.set_result("");
+instance.set_scroll(-850.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_result(), "(8)(9)");
+
+}
+```
+
+
+```js
+var instance = new slint.TestCase({});
+
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.result, "(0)(1)(2)");
+instance.result = "";
+instance.scroll = -150.;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.result, "(3)(4)");
+instance.result = "";
+instance.scroll = -1000.;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.result, "(10)(11)(12)");
+instance.result = "";
+instance.scroll = -850.;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.result, "(8)(9)");
+```
+
+
+*/

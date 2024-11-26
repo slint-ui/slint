@@ -926,29 +926,32 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         model: &ModelRc<C::Data>,
         count: usize,
     ) -> bool {
+        let mut indices_to_init = Vec::new();
         let mut inner = self.0.inner.borrow_mut();
         inner.instances.resize_with(count, || (RepeatedInstanceState::Dirty, None));
         let offset = inner.offset;
         let mut any_items_created = false;
         for (i, c) in inner.instances.iter_mut().enumerate() {
             if c.0 == RepeatedInstanceState::Dirty {
-                let created = if c.1.is_none() {
+                if c.1.is_none() {
                     any_items_created = true;
                     c.1 = Some(init());
-                    true
-                } else {
-                    false
+                    indices_to_init.push(i);
                 };
                 if let Some(data) = model.row_data(i + offset) {
                     c.1.as_ref().unwrap().update(i + offset, data);
-                }
-                if created {
-                    c.1.as_ref().unwrap().init();
                 }
                 c.0 = RepeatedInstanceState::Clean;
             }
         }
         self.data().is_dirty.set(false);
+
+        drop(inner);
+        let inner = self.0.inner.borrow();
+        for item in indices_to_init.into_iter().filter_map(|index| inner.instances.get(index)) {
+            item.1.as_ref().unwrap().init();
+        }
+
         any_items_created
     }
 
@@ -1029,6 +1032,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let first_item_y = inner.anchor_y;
         let last_item_bottom = first_item_y + element_height * inner.instances.len() as Coord;
 
+        let mut indices_to_init = Vec::new();
+
         let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
             || last_item_bottom + element_height < -vp_y
         {
@@ -1041,10 +1046,11 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             let mut it_y = first_item_y;
             let mut new_offset = inner.offset;
             debug_assert!(it_y <= -vp_y); // we scrolled down, the anchor should be hidden
-            for c in inner.instances.iter_mut() {
+            for (i, c) in inner.instances.iter_mut().enumerate() {
                 if c.0 == RepeatedInstanceState::Dirty {
                     if c.1.is_none() {
                         c.1 = Some(init());
+                        indices_to_init.push(i);
                     }
                     if let Some(data) = model.row_data(new_offset) {
                         c.1.as_ref().unwrap().update(new_offset, data);
@@ -1090,6 +1096,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                 new_instances.push(new_instance);
             }
             if !new_instances.is_empty() {
+                for x in &mut indices_to_init {
+                    *x += new_instances.len();
+                }
+                indices_to_init.extend(0..new_instances.len());
                 inner.instances.splice(
                     0..0,
                     new_instances
@@ -1114,6 +1124,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                 if c.0 == RepeatedInstanceState::Dirty {
                     if c.1.is_none() {
                         c.1 = Some(init());
+                        indices_to_init.push(instances_begin + idx - new_offset)
                     }
                     if let Some(data) = model.row_data(idx) {
                         c.1.as_ref().unwrap().update(idx, data);
@@ -1136,6 +1147,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     new_instance.update(idx, data);
                 }
                 new_instance.as_pin_ref().listview_layout(&mut y, viewport_width);
+                indices_to_init.push(inner.instances.len());
                 inner.instances.push((RepeatedInstanceState::Clean, Some(new_instance)));
                 idx += 1;
             }
@@ -1150,10 +1162,19 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             if new_offset != inner.offset {
                 let instances_begin = new_offset - inner.offset;
                 inner.instances.splice(0..instances_begin, core::iter::empty());
+                indices_to_init.retain_mut(|idx| {
+                    if *idx < instances_begin {
+                        false
+                    } else {
+                        *idx -= instances_begin;
+                        true
+                    }
+                });
                 inner.offset = new_offset;
             }
             if inner.instances.len() != idx - new_offset {
                 inner.instances.splice(idx - new_offset.., core::iter::empty());
+                indices_to_init.retain(|x| *x < idx - new_offset);
             }
 
             if inner.instances.is_empty() {
@@ -1168,6 +1189,11 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             viewport_y.set(new_viewport_y);
             inner.previous_viewport_y = new_viewport_y;
             break;
+        }
+        drop(inner);
+        let inner = self.0.inner.borrow();
+        for item in indices_to_init.into_iter().filter_map(|index| inner.instances.get(index)) {
+            item.1.as_ref().unwrap().init();
         }
     }
 

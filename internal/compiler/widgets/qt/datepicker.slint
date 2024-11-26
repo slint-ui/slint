@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { VerticalBox } from "./layouts.slint";
+import { VerticalBox } from "../common/layout.slint";
 import { Button } from "./button.slint";
 import { Palette } from "./std-widgets-impl.slint";
 import { StandardButton } from "../common/standardbutton.slint";
@@ -17,7 +17,7 @@ export component DatePickerPopup inherits PopupWindow  {
     property <brush> state-secondary: Palette.color-scheme == ColorScheme.dark ? #000000 : #ffffff;
 
     callback canceled();
-    callback accepted(/* current-date */ Date);
+    callback accepted(current-date: Date);
 
     width: 360px;
     height: 524px;

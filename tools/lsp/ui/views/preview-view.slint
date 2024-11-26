@@ -3,12 +3,14 @@
 
 // cSpell: ignore resizer
 
-import { Button, ComboBox, HorizontalBox, LineEdit, ListView, ScrollView, Palette, VerticalBox } from "std-widgets.slint";
+import { Button, ComboBox, HorizontalBox, LineEdit, ListView, Palette, ScrollView, VerticalBox } from "std-widgets.slint";
 import { Api, ComponentItem, Diagnostics, DropMark, LayoutKind, Selection } from "../api.slint";
 import { DiagnosticsOverlay } from "../components/diagnostics-overlay.slint";
 import { Resizer } from "../components/resizer.slint";
 import { Group, GroupHeader } from "../components/group.slint";
+import { SelectionPopup } from "../components/selection-popup.slint";
 import { StatusLineApi } from "../components/status-line.slint";
+import { EditorPalette } from "../components/styling.slint";
 
 global PreviewState {
     out property <length> minimum-preview-size: 16px;
@@ -23,7 +25,6 @@ enum SelectionKind {
 export enum DrawAreaMode {
     uninitialized,
     viewing,
-    designing,
     selecting,
     error,
 }
@@ -32,23 +33,29 @@ component SelectionFrame {
     in property <Selection> selection;
     in property <bool> interactive: true;
 
-    function pick-selection-color(layout-kind: LayoutKind, is-primary: bool) -> color {
-        if layout-kind == LayoutKind.None {
-            if is-primary {
-                return #2379f4ff;
+    function pick-selection-color(selection: Selection) -> color {
+        if selection.layout-data != LayoutKind.None {
+            if selection.is-primary {
+                return EditorPalette.layout-element-selection-primary;
             } else {
-                return #2379f480;
+                return EditorPalette.layout-element-selection-secondary;
+            }
+        } else if selection.is-interactive {
+            if selection.is-primary {
+                return EditorPalette.interactive-element-selection-primary;
+            } else {
+                return EditorPalette.interactive-element-selection-secondary;
             }
         } else {
-            if is-primary {
-                return #ff0000ff;
+            if selection.is-primary {
+                return EditorPalette.general-element-selection-primary;
             } else {
-                return #ff000080;
+                return EditorPalette.general-element-selection-secondary;
             }
         }
     }
 
-    private property <color> selection-color: pick-selection-color(root.selection.layout-data, root.selection.is-primary);
+    private property <color> selection-color: pick-selection-color(root.selection);
 
     x: root.selection.geometry.x;
     y: root.selection.geometry.y;
@@ -60,7 +67,8 @@ component SelectionFrame {
     callback resize(x: length, y: length, width: length, height: length);
     callback can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
     callback move-to(x: length, y: length, mouse-x: length, mouse-y: length);
-    callback select-behind(x: length, y: length, enter-component: bool, same-file: bool);
+    callback select-through(x: length, y: length, enter-component: bool, reverse: bool);
+    callback selection-stack-at(x: length, y: length);
     callback selected-element-delete();
 
     if !root.interactive || !selection.is-primary: Rectangle {
@@ -76,14 +84,20 @@ component SelectionFrame {
         }
 
         double-clicked(x, y, modifiers) => {
-            root.select-behind(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
+            root.select-through(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
         }
 
         changed has-hover => {
             if self.has-hover {
-                StatusLineApi.help-text = @tr("<double-click> select behind element, <shift double-click> select before element, <{}> ignores component boundaries", Api.control-key-name);
+                StatusLineApi.help-text = @tr("<right-click> show popup, <double-click> select behind element, <{}> ignores component boundaries", Api.control-key-name);
             } else {
                 StatusLineApi.help-text = "";
+            }
+        }
+
+        pointer-event(x, y, event) => {
+            if event.button == PointerEventButton.right && event.kind == PointerEventKind.down {
+                root.selection-stack-at(root.selection.geometry.x + x, root.selection.geometry.y + y);
             }
         }
 
@@ -180,7 +194,6 @@ export component PreviewView {
     in property <ComponentItem> visible-component;
     property <DropMark> drop-mark <=> Api.drop-mark;
     property <component-factory> preview-area <=> Api.preview-area;
-    out property <bool> design-mode <=> Api.design-mode;
     in-out property <bool> select-mode: false;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
@@ -193,7 +206,6 @@ export component PreviewView {
 
     preferred-height: max(max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border, 10 * scroll-view.border);
     preferred-width: max(max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border, 10 * scroll-view.border);
-
 
     scroll-view := ScrollView {
         out property <length> border: 30px;
@@ -219,9 +231,8 @@ export component PreviewView {
             unselect-area := TouchArea {
                 clicked => {
                     Api.unselect();
-                    root.select-mode = false;
                 }
-                mouse-cursor: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
+                mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
 
                 changed has-hover => {
                     StatusLineApi.help-text = "<click> unselect";
@@ -242,8 +253,8 @@ export component PreviewView {
                 private property <length> target-width;
                 private property <length> target-height;
 
-                color: root.design-mode ? Colors.black : Colors.transparent;
-                fill-color: root.design-mode ? Colors.white : Colors.transparent;
+                color: root.select-mode ? Colors.black : Colors.transparent;
+                fill-color: root.select-mode ? Colors.white : Colors.transparent;
 
                 is-moveable: false;
                 is-resizable <=> preview-area-container.is-resizable;
@@ -333,18 +344,26 @@ export component PreviewView {
 
                     pointer-event(event) => {
                         // This needs to fire AFTER clicked and double-clicked to work :-/
-                        if (event.kind == PointerEventKind.up) {
+                        if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
                             if (self.selection-kind == SelectionKind.select_up_or_down) {
                                 Api.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
                             } else if (self.selection-kind == SelectionKind.select-at) {
                                 Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
                             }
-                            root.select-mode = false;
+                        } else if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                            self.selection-x = self.mouse-x;
+                            self.selection-y = self.mouse-y;
+                            self.selection-kind = SelectionKind.select-at;
+
+                            selection-popup.show-selection-stack(self.selection-x, self.selection-y);
+                        } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.right) {
+                            self.selection-kind = SelectionKind.none;
                         }
                         self.selection-kind = SelectionKind.none;
                     }
+
                     mouse-cursor: crosshair;
-                    enabled: root.mode == DrawAreaMode.designing || root.mode == DrawAreaMode.selecting;
+                    enabled: root.mode == DrawAreaMode.selecting;
 
                     changed has-hover => {
                         if self.has-hover && self.enabled {
@@ -355,9 +374,17 @@ export component PreviewView {
                     }
                 }
 
+                selection-popup := SelectionPopup {
+                    preview-width: root.preview-area-width;
+                    preview-height: root.preview-area-height;
+                    x: 0px;
+                    y: 0px;
+                    max-popup-height: root.height * 0.9;
+                }
+
                 selection-display-area := Rectangle {
                     for s in root.selections: SelectionFrame {
-                        interactive: root.mode == DrawAreaMode.designing;
+                        interactive: root.mode == DrawAreaMode.selecting;
                         selection: s;
                         resize(x, y, w, h) => {
                             Api.selected-element-resize(x, y, w, h);
@@ -375,8 +402,12 @@ export component PreviewView {
                             Api.selected-element-delete();
                         }
 
-                        select-behind(x, y, c, f) => {
+                        select-through(x, y, c, f) => {
                             Api.select-behind(x, y, c, f);
+                        }
+
+                        selection-stack-at(x, y) => {
+                            selection-popup.show-selection-stack(x, y);
                         }
                     }
                 }
@@ -387,8 +418,8 @@ export component PreviewView {
                     width: drop-mark.x2 - drop-mark.x1;
                     height: drop-mark.y2 - drop-mark.y1;
 
-                    border-color: #00ff00;
-                    background: #00ff0080;
+                    border-color: EditorPalette.drop-mark-foreground;
+                    background: EditorPalette.drop-mark-background;
                 }
             }
         }
@@ -412,13 +443,10 @@ export component PreviewView {
         error when diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.error;
         }
-        designing when root.design-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
-            root.mode: DrawAreaMode.designing;
-        }
         selecting when root.select-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.selecting;
         }
-        viewing when !root.design-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
+        viewing when !root.select-mode && !diagnostics.diagnostics-open && preview-area-container.has-component: {
             root.mode: DrawAreaMode.viewing;
         }
     ]

@@ -7,8 +7,8 @@
 # https://github.com/cypress-io/cypress-realworld-app/blob/develop/.github/workflows/main.yml
 
 ---
-name: Test Slintpad (cypress)
-description: Test Slintpad using cypress
+name: Test SlintPad (cypress)
+description: Test SlintPad using cypress
 
 inputs:
     browser:
@@ -20,7 +20,7 @@ inputs:
         required: true
         default: wasm
     slintpad-artifact:
-        description: "The Slintpad artifacts"
+        description: "The SlintPad artifacts"
         required: true
         default: slintpad
 
@@ -57,7 +57,7 @@ runs:
           uses: pnpm/action-setup@v4.0.0
           with:
             version: 9.11.0
-          run: pnpm install --frozen-lockfile --ignore-scripts
+          run: pnpm install --frozen-lockfile
           shell: bash
           working-directory: tools/slintpad
 

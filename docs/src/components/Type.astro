@@ -1,0 +1,28 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { z } from "astro:schema";
+import { Badge } from "@astrojs/starlight/components";
+
+type Props = z.infer<typeof props>;
+
+const props = z
+    .object({
+        text: z.string(),
+    })
+    .strict();
+
+const { text } = props.parse(Astro.props);
+---
+
+<Badge
+	text={text}
+	size="large"
+	style={{
+		color: "var(--sl-text-white)",
+		backgroundColor: "transparent",
+		borderColor: "var(--badge-border-color)",
+		fontSize: "0.7rem",
+		fontWeight: "bold",
+	}}
+/>

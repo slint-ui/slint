@@ -50,6 +50,7 @@ struct SelectionRectangle {
 export struct Selection {
     geometry: SelectionRectangle,
     layout-data: LayoutKind,
+    is-interactive: bool,
     is-primary: bool,
     is-moveable: bool,
     is-resizable: bool,
@@ -63,10 +64,34 @@ export struct DropMark {
     y2: length,
 }
 
+export struct SelectionStackFrame {
+    width: percent,
+    height: percent,
+    x: percent,
+    y: percent,
+    is-in-root-component: bool,
+    is-layout: bool,
+    is-interactive: bool,
+    is-selected: bool,
+    type-name: string,
+    file-name: string,
+    element-path: string,
+    element-offset: int,
+    id: string,
+}
+
 /// A Range in a source
 export struct Range {
     start: int,
     end: int,
+}
+
+export struct ColorData {
+    r: int,
+    g: int,
+    b: int,
+    a: int,
+    text: string,
 }
 
 export enum PropertyValueKind {
@@ -146,8 +171,6 @@ export global Api {
     in property <bool> experimental: false;
     // enable editing mode
     in property <bool> show-preview-ui: true;
-    // Design-mode engaged!
-    in-out property <bool> design-mode;
     // std-widgets are used (=> show style dropdown)
     in-out property <bool> uses-widgets;
 
@@ -185,7 +208,7 @@ export global Api {
     in-out property <ElementInformation> current-element;
     in-out property <[PropertyGroup]> properties: [
         {
-            group-name: "geometry",
+            group-name: "Geometry",
             properties: [
                 {
                     name: "width",
@@ -287,14 +310,79 @@ export global Api {
                 }
 
             ]
+        },        {
+            group-name: "Other",
+            properties: [
+                {
+                    name: "text",
+                    type-name: "string",
+                    value: {
+                        is-translatable: true,
+                        kind: PropertyValueKind.string,
+                    }
+                },
+                {
+                    name: "checkable",
+                    type-name: "bool",
+                    value: {
+                        kind: PropertyValueKind.boolean,
+                    }
+                },
+                {
+                    name: "icon",
+                    type-name: "image",
+                    value: {
+                        kind: PropertyValueKind.code,
+                    }
+                },
+                {
+                    name: "color",
+                    type-name: "brush",
+                    value: {
+                        kind: PropertyValueKind.brush,
+                        value-brush: Colors.magenta,
+                        value-string: "#ff00ff"
+                    },
+                },
+                {
+                    name: "a-really-long-named-attribute",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.float,
+                        value-float: 10,
+                    }
+                },
+                {
+                    name: "bar",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: 10/2,
+                    }
+                },
+                {
+                    name: "baz",
+                    type-name: "float",
+                    value: {
+                        kind: PropertyValueKind.code,
+                        value-float: 10.5,
+                        code: "",
+                    }
+                }
+
+            ]
         }
+
     ];
 
     // # Callbacks
 
     // ## Custom conversion functions:
-    callback string-is-color(string) -> bool;
-    callback string-to-color(string) -> color;
+    pure callback string-is-color(string) -> bool;
+    pure callback string-to-color(string) -> color;
+    pure callback color-to-data(color) -> ColorData;
+    pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
 
     // ## Style:
     callback style-changed();
@@ -318,6 +406,10 @@ export global Api {
     callback selected-element-delete();
 
     // ## Element selection:
+    callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
+    pure callback find-selected-selection-stack-frame([SelectionStackFrame]) -> SelectionStackFrame;
+    callback select-element(file: string, offset: int, x: length, y: length);
+
     callback select-at(x: length, y: length, enter-component: bool);
     callback select-behind(x: length, y: length, enter-component: bool, reverse: bool);
     callback reselect();

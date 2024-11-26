@@ -412,6 +412,7 @@ lazy_static! {
         ("^editors/tree-sitter-slint/test-to-corpus\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^Cargo\\.lock$", LicenseLocation::NoLicense),
         ("^demos/printerdemo/zephyr/VERSION$", LicenseLocation::NoLicense),
+        ("^examples/mcu-board-support/pico2_st7789/rp_pico2.rs$", LicenseLocation::NoLicense), // third-party file
 
         // filename based matches:
         ("(^|/)CMakeLists\\.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
@@ -435,7 +436,7 @@ lazy_static! {
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
         ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
         ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
-        ("^docs/_templates/", LicenseLocation::NoLicense),
+        ("^docs/src/utils/_templates/", LicenseLocation::NoLicense),
         ("^docs/quickstart/theme/", LicenseLocation::NoLicense),
         ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
 
@@ -445,6 +446,7 @@ lazy_static! {
         // Extension matches:
         ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.astro$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
@@ -462,8 +464,10 @@ lazy_static! {
         ("\\.jpg$", LicenseLocation::NoLicense),
         ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.json$", LicenseLocation::NoLicense),
+        ("\\.jsonc$", LicenseLocation::NoLicense),
         ("\\.license$", LicenseLocation::NoLicense),
         ("\\.md$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
+        ("\\.mdx$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
         ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.mts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.overlay$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
@@ -487,6 +491,7 @@ lazy_static! {
         ("\\.ttf$", LicenseLocation::NoLicense),
         ("\\.txt$", LicenseLocation::NoLicense),
         ("\\.ui$", LicenseLocation::NoLicense),
+        ("\\.webp$", LicenseLocation::NoLicense),
         ("\\.xml$", LicenseLocation::NoLicense),
         ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),

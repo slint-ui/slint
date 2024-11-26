@@ -74,6 +74,28 @@ udisksctl mount -b /dev/sda1
 elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 ```
 
+### On the Raspberry Pi Pico2
+
+Build the demo with:
+
+```sh
+cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --target=thumbv8m.main-none-eabihf --release
+```
+
+The resulting file can be flashed conveniently with [picotool](https://github.com/raspberrypi/picotool). You should build it from source.
+
+Then upload the demo to the Raspberry Pi Pico: push the "bootsel" white button on the device while connecting the
+micro-usb cable to the device, this connects some USB storage on your workstation where you can store the binary.
+
+Or from the command on linux (connect the device while pressing the "bootsel" button):
+
+```sh
+# If you're on Linux: mount the device
+udisksctl mount -b /dev/sda1
+# upload
+picotool load -u -v -x -t elf target/thumbv8m.main-none-eabihf/release/printerdemo_mcu
+```
+
 #### Using probe-rs
 
 This requires [probe-rs](https://probe.rs) and to connect the pico via a probe

@@ -9,6 +9,7 @@ There is one sub module for every language
 
 // cSpell: ignore deque subcomponent
 
+use smol_str::SmolStr;
 use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
@@ -79,7 +80,7 @@ pub fn generate(
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
-            let output = rust::generate(doc, compiler_config);
+            let output = rust::generate(doc, compiler_config)?;
             write!(destination, "{}", output)?;
         }
         OutputFormat::Interpreter => {
@@ -89,7 +90,7 @@ pub fn generate(
             )); // Perhaps byte code in the future?
         }
         OutputFormat::Llr => {
-            let root = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+            let root = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
             let mut output = String::new();
             crate::llr::pretty_print::pretty_print(&root, &mut output).unwrap();
             write!(destination, "{output}")?;
@@ -391,20 +392,20 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
 /// constant properties, these are already initialized
 pub fn handle_property_bindings_init(
     component: &Rc<Component>,
-    mut handle_property: impl FnMut(&ElementRc, &str, &BindingExpression),
+    mut handle_property: impl FnMut(&ElementRc, &SmolStr, &BindingExpression),
 ) {
     fn handle_property_inner(
         component: &Weak<Component>,
         elem: &ElementRc,
-        prop_name: &str,
+        prop_name: &SmolStr,
         binding_expression: &BindingExpression,
-        handle_property: &mut impl FnMut(&ElementRc, &str, &BindingExpression),
+        handle_property: &mut impl FnMut(&ElementRc, &SmolStr, &BindingExpression),
         processed: &mut HashSet<NamedReference>,
     ) {
         if elem.borrow().is_component_placeholder {
             return; // This element does not really exist!
         }
-        let nr = NamedReference::new(elem, prop_name);
+        let nr = NamedReference::new(elem, prop_name.clone());
         if processed.contains(&nr) {
             return;
         }
@@ -450,7 +451,10 @@ pub fn handle_property_bindings_init(
 
 /// Call the given function for each constant property in the Component so one can set
 /// `set_constant` on it.
-pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&ElementRc, &str)) {
+pub fn for_each_const_properties(
+    component: &Rc<Component>,
+    mut f: impl FnMut(&ElementRc, &SmolStr),
+) {
     crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
         if elem.borrow().repeated.is_some() || elem.borrow().is_component_placeholder {
             return;
@@ -499,7 +503,7 @@ pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&E
             }
         }
         for c in all_prop {
-            if NamedReference::new(elem, &c).is_constant() {
+            if NamedReference::new(elem, c.clone()).is_constant() {
                 f(elem, &c);
             }
         }

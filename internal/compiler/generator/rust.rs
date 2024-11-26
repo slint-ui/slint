@@ -151,7 +151,10 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 }
 
 /// Generate the rust code for the given component.
-pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> TokenStream {
+pub fn generate(
+    doc: &Document,
+    compiler_config: &CompilerConfiguration,
+) -> std::io::Result<TokenStream> {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
         .used_types
         .borrow()
@@ -169,10 +172,10 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         })
         .unzip();
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
 
     if llr.public_components.is_empty() {
-        return Default::default();
+        return Ok(Default::default());
     }
 
     let sub_compos = llr
@@ -182,6 +185,9 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         .collect::<Vec<_>>();
     let public_components =
         llr.public_components.iter().map(|p| generate_public_component(p, &llr));
+
+    let popup_menu =
+        llr.popup_menu.as_ref().map(|p| generate_item_tree(&p.item_tree, &llr, None, None, true));
 
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
@@ -211,15 +217,11 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         .unwrap_or_else(|| format_ident!("slint_generated"));
 
     #[cfg(not(feature = "bundle-translations"))]
-    let (translations, exported_tr) = (quote!(), quote!());
+    let translations = quote!();
     #[cfg(feature = "bundle-translations")]
-    let (translations, exported_tr) = llr
-        .translations
-        .as_ref()
-        .map(|t| (generate_translations(t, &llr), quote!(slint_set_language,)))
-        .unzip();
+    let translations = llr.translations.as_ref().map(|t| (generate_translations(t, &llr)));
 
-    quote! {
+    Ok(quote! {
         #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
         #[allow(clippy::all)]
@@ -230,6 +232,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
             #(#structs_and_enum_def)*
             #(#globals)*
             #(#sub_compos)*
+            #popup_menu
             #(#public_components)*
             #shared_globals
             #(#resource_symbols)*
@@ -237,10 +240,10 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
-        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #exported_tr};
+        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
-    }
+    })
 }
 
 fn generate_public_component(
@@ -250,7 +253,7 @@ fn generate_public_component(
     let public_component_id = ident(&llr.name);
     let inner_component_id = inner_component_id(&llr.item_tree.root);
 
-    let component = generate_item_tree(&llr.item_tree, unit, None, None);
+    let component = generate_item_tree(&llr.item_tree, unit, None, None, false);
 
     let ctx = EvaluationContext {
         compilation_unit: unit,
@@ -270,6 +273,14 @@ fn generate_public_component(
         &ctx,
     );
 
+    #[cfg(feature = "bundle-translations")]
+    let init_bundle_translations = unit
+        .translations
+        .as_ref()
+        .map(|_| quote!(sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES);));
+    #[cfg(not(feature = "bundle-translations"))]
+    let init_bundle_translations = quote!();
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
@@ -277,6 +288,7 @@ fn generate_public_component(
         impl #public_component_id {
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
+                #init_bundle_translations
                 inner.globals.get().unwrap().init();
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 core::result::Result::Ok(Self(inner))
@@ -672,7 +684,13 @@ fn generate_sub_component(
         .popup_windows
         .iter()
         .map(|popup| {
-            generate_item_tree(&popup.item_tree, root, Some(ParentCtx::new(&ctx, None)), None)
+            generate_item_tree(
+                &popup.item_tree,
+                root,
+                Some(ParentCtx::new(&ctx, None)),
+                None,
+                false,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -1001,6 +1019,9 @@ fn generate_sub_component(
         sub_component_types.push(sub_component_id);
     }
 
+    let popup_id_names =
+        component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
+
     for (prop1, prop2) in &component.two_way_bindings {
         let p1 = access_member(prop1, &ctx);
         let p2 = access_member(prop2, &ctx);
@@ -1116,6 +1137,7 @@ fn generate_sub_component(
         struct #inner_component_id {
             #(#item_names : sp::#item_types,)*
             #(#sub_component_names : #sub_component_types,)*
+            #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sp::Repeater<#repeated_element_components>,)*
@@ -1467,6 +1489,7 @@ fn generate_item_tree(
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     index_property: Option<llr::PropertyIndex>,
+    is_popup_menu: bool,
 ) -> TokenStream {
     let sub_comp = generate_sub_component(&sub_tree.root, root, parent_ctx, index_property, true);
     let inner_component_id = self::inner_component_id(&sub_tree.root);
@@ -1479,11 +1502,14 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
-    let globals = if parent_ctx.is_some() {
+    let globals = if is_popup_menu {
+        quote!(globals)
+    } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(sp::Rc::new(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc))))
     };
+    let globals_arg = is_popup_menu.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
     let embedding_function = if parent_ctx.is_some() {
         quote!(todo!("Components written in Rust can not get embedded yet."))
@@ -1565,7 +1591,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            pub fn new(#(parent: #parent_component_type)*) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            fn new(#(parent: #parent_component_type,)* #globals_arg) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 slint::private_unstable_api::ensure_backend()?;
                 let mut _self = Self::default();
@@ -1724,7 +1750,7 @@ fn generate_repeated_component(
     parent_ctx: ParentCtx,
 ) -> TokenStream {
     let component =
-        generate_item_tree(&repeated.sub_tree, unit, Some(parent_ctx), repeated.index_prop);
+        generate_item_tree(&repeated.sub_tree, unit, Some(parent_ctx), repeated.index_prop, false);
 
     let ctx = EvaluationContext {
         compilation_unit: unit,
@@ -1817,6 +1843,12 @@ fn generate_repeated_component(
 /// Return an identifier suitable for this component for internal use
 fn inner_component_id(component: &llr::SubComponent) -> proc_macro2::Ident {
     format_ident!("Inner{}", ident(&component.name))
+}
+
+fn internal_popup_id(index: usize) -> proc_macro2::Ident {
+    let mut name = index.to_string();
+    name.insert_str(0, "popup_id_");
+    ident(&name)
 }
 
 fn global_inner_name(g: &llr::GlobalComponent) -> TokenStream {
@@ -1998,6 +2030,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
 /// Helper to access a member property/callback of a component.
 ///
 /// Because the parent can be deleted (issue #3464), this might be an option when accessing the parent
+#[derive(Clone)]
 enum MemberAccess {
     /// The token stream is just an expression to the member
     Direct(TokenStream),
@@ -2660,27 +2693,113 @@ fn compile_builtin_function_call(
 
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
+                let popup_id_name = internal_popup_id(*popup_index as usize);
                 quote!({
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     #popup_window_id::user_init(popup_instance_vrc.clone());
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
-                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                        &sp::VRc::into_dyn(popup_instance.into()),
-                        position,
-                        #close_policy,
-                        #parent_component
-                    )
+                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                    }
+                    #component_access_tokens.#popup_id_name.set(Some(
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                            &sp::VRc::into_dyn(popup_instance.into()),
+                            position,
+                            #close_policy,
+                            #parent_component
+                        ))
+                    );
                 })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
             }
         }
         BuiltinFunction::ClosePopupWindow => {
+            if let [Expression::NumberLiteral(popup_index), Expression::PropertyReference(parent_ref)] =
+                arguments
+            {
+                let mut parent_ctx = ctx;
+                let mut component_access_tokens = quote!(_self);
+                if let llr::PropertyReference::InParent { level, .. } = parent_ref {
+                    for _ in 0..level.get() {
+                        component_access_tokens =
+                            quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
+                        parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
+                    }
+                }
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let popup_id_name = internal_popup_id(*popup_index as usize);
+                quote!(
+                    if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                    }
+                )
+            } else {
+                panic!("internal error: invalid args to ClosePopupWindow {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ShowPopupMenu => {
+            let [Expression::PropertyReference(context_menu_ref), entries, position] = arguments
+            else {
+                panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
+            };
+
+            let context_menu = access_member(context_menu_ref, ctx);
+            let context_menu_rc = access_item_rc(context_menu_ref, ctx);
+            let position = compile_expression(position, ctx);
+            let entries = compile_expression(entries, ctx);
+            let popup = ctx
+                .compilation_unit
+                .popup_menu
+                .as_ref()
+                .expect("there should be a popup menu if we want to show it");
+            let popup_id = inner_component_id(&popup.item_tree.root);
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(
-                sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup()
-            )
+
+            let popup_ctx = EvaluationContext::new_sub_component(
+                ctx.compilation_unit,
+                &popup.item_tree.root,
+                RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                None,
+            );
+            let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
+            let forward_callback = |pr, cb| {
+                let access = access_member(pr, &popup_ctx).unwrap();
+                let call = context_menu
+                    .clone()
+                    .map_or_default(|context_menu| quote!(#context_menu.#cb.call(entry)));
+                quote!(
+                    let self_weak = parent_weak.clone();
+                    #access.set_handler(move |entry| {
+                        let self_rc = self_weak.upgrade().unwrap();
+                        let _self = self_rc.as_pin_ref();
+                        #call
+                    }
+                ))
+            };
+            let fw_sub_menu = forward_callback(&popup.sub_menu, quote!(sub_menu));
+            let fw_activated = forward_callback(&popup.activated, quote!(activated));
+            quote!({
+                let entries = #entries;
+                let position = #position;
+                let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
+                let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
+                let parent_weak = _self.self_weak.get().unwrap().clone();
+                {
+                    let _self = popup_instance_vrc.as_pin_ref();
+                    #access_entries.set(entries);
+                    #fw_sub_menu;
+                    #fw_activated;
+                };
+                #popup_id::user_init(popup_instance_vrc.clone());
+                sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                    &sp::VRc::into_dyn(popup_instance.into()),
+                    position,
+                    sp::PopupClosePolicy::CloseOnClickOutside,
+                    #context_menu_rc,
+                );
+            })
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
@@ -3215,8 +3334,6 @@ fn generate_translations(
         const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
         #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
-        pub fn slint_set_language(lang: &str) -> bool {
-            sp::set_language_internal(lang, &[#(#lang),*])
-        }
+        const _SLINT_BUNDLED_LANGUAGES: &[&str] = &[#(#lang),*];
     )
 }

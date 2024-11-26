@@ -451,6 +451,12 @@ pub trait ItemRenderer {
 
     fn draw_image_direct(&mut self, image: crate::graphics::Image);
 
+    /// Fills a rectangle at (0,0) with the given size. This is used for example by the Skia renderer to
+    /// handle window backgrounds with a brush (gradient).
+    fn draw_rect(&mut self, _size: LogicalSize, _brush: Brush) {
+        unimplemented!()
+    }
+
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
@@ -588,6 +594,25 @@ impl From<LogicalRect> for DirtyRegion {
         s.add_rect(value);
         s
     }
+}
+
+/// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer) may be re-used to speed up painting.
+// FIXME: #[non_exhaustive] #3023
+#[derive(PartialEq, Eq, Debug, Clone, Default, Copy)]
+pub enum RepaintBufferType {
+    #[default]
+    /// The full window is always redrawn. No attempt at partial rendering will be made.
+    NewBuffer,
+    /// Only redraw the parts that have changed since the previous call to render().
+    ///
+    /// This variant assumes that the same buffer is passed on every call to render() and
+    /// that it still contains the previously rendered frame.
+    ReusedBuffer,
+
+    /// Redraw the part that have changed since the last two frames were drawn.
+    ///
+    /// This is used when using double buffering and swapping of the buffers.
+    SwappedBuffers,
 }
 
 /// Put this structure in the renderer to help with partial rendering
@@ -885,11 +910,110 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         self.actual_renderer.draw_image_direct(image)
     }
 
+    fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
+        self.actual_renderer.draw_rect(size, brush);
+    }
+
     fn window(&self) -> &crate::window::WindowInner {
         self.actual_renderer.window()
     }
 
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {
         self.actual_renderer.as_any()
+    }
+}
+
+/// This struct holds the state of the partial renderer between different frames, in particular the cache of the bounding rect
+/// of each item. This permits a more fine-grained computation of the region that needs to be repainted.
+#[derive(Default)]
+pub struct PartialRenderingState {
+    partial_cache: RefCell<PartialRenderingCache>,
+    /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
+    force_dirty: RefCell<DirtyRegion>,
+    repaint_buffer_type: Cell<RepaintBufferType>,
+    /// This is the area which was dirty on the previous frame.
+    /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
+    prev_frame_dirty: Cell<DirtyRegion>,
+    /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
+    force_screen_refresh: Cell<bool>,
+}
+
+impl PartialRenderingState {
+    /// Sets the repaint type of the back buffer used for the next rendering. This helps to compute the partial
+    /// rendering region correctly, for example when using swapped buffers, the region will include the dirty region
+    /// of the previous frame.
+    pub fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
+        if self.repaint_buffer_type.replace(repaint_buffer_type) != repaint_buffer_type {
+            self.partial_cache.borrow_mut().clear();
+        }
+    }
+
+    /// Returns the current repaint buffer type.
+    pub fn repaint_buffer_type(&self) -> RepaintBufferType {
+        self.repaint_buffer_type.get()
+    }
+
+    /// Creates a partial renderer that's initialized with the partial rendering caches maintained in this state structure.
+    /// Call [`Self::apply_dirty_region`] after this function to compute the correct partial rendering region.
+    pub fn create_partial_renderer<'a, T: ItemRenderer>(
+        &'a self,
+        renderer: T,
+    ) -> PartialRenderer<'a, T> {
+        PartialRenderer::new(&self.partial_cache, self.force_dirty.take(), renderer)
+    }
+
+    /// Compute the correct partial rendering region based on the components to be drawn, the bounding rectangles of
+    /// changes items within, and the current repaint buffer type.
+    pub fn apply_dirty_region<T: ItemRenderer>(
+        &self,
+        partial_renderer: &mut PartialRenderer<'_, T>,
+        components: &[(&ItemTreeRc, LogicalPoint)],
+        logical_window_size: LogicalSize,
+    ) {
+        for (component, origin) in components {
+            partial_renderer.compute_dirty_regions(component, *origin, logical_window_size);
+        }
+
+        let screen_region = LogicalRect::from_size(logical_window_size);
+
+        if self.force_screen_refresh.take() {
+            partial_renderer.dirty_region = screen_region.into();
+        }
+
+        partial_renderer.dirty_region = match self.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => screen_region.into(),
+            RepaintBufferType::ReusedBuffer => partial_renderer.dirty_region.clone(),
+            RepaintBufferType::SwappedBuffers => partial_renderer
+                .dirty_region
+                .union(&self.prev_frame_dirty.replace(partial_renderer.dirty_region.clone())),
+        }
+        .intersection(screen_region);
+    }
+
+    /// Add the specified region to the list of regions to include in the next rendering.
+    pub fn mark_dirty_region(&self, region: DirtyRegion) {
+        self.force_dirty.replace_with(|r| r.union(&region));
+    }
+
+    /// Call this from your renderer's `free_graphics_resources` function to ensure that the cached item geometries
+    /// are cleared for the destroyed items in the item tree.
+    pub fn free_graphics_resources(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>) {
+        for item in items {
+            item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
+        }
+
+        // We don't have a way to determine the screen region of the delete items, what's in the cache is relative. So
+        // as a last resort, refresh everything.
+        self.force_screen_refresh.set(true)
+    }
+
+    /// Clears the partial rendering cache. Use this for example when the entire undering window surface changes.
+    pub fn clear_cache(&self) {
+        self.partial_cache.borrow_mut().clear();
+    }
+
+    /// Force re-rendering of the entire window region the next time a partial renderer is created.
+    pub fn force_screen_refresh(&self) {
+        self.force_screen_refresh.set(true);
     }
 }

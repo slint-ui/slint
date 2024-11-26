@@ -8,7 +8,7 @@ use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
-use smol_str::SmolStr;
+use smol_str::{format_smolstr, SmolStr};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -43,6 +43,7 @@ pub enum BuiltinFunction {
     ClearFocusItem,
     ShowPopupWindow,
     ClosePopupWindow,
+    ShowPopupMenu,
     SetSelectionOffsets,
     /// A function that belongs to an item (such as TextInput's select-all function).
     ItemMemberFunction(SmolStr),
@@ -111,19 +112,20 @@ macro_rules! declare_builtin_function_types {
     ($( $Name:ident $(($Pattern:tt))? : ($( $Arg:expr ),*) -> $ReturnType:expr $(,)? )*) => {
         #[allow(non_snake_case)]
         pub struct BuiltinFunctionTypes {
-            $(pub $Name : Type),*
+            $(pub $Name : Rc<Function>),*
         }
         impl BuiltinFunctionTypes {
             pub fn new() -> Self {
                 Self {
-                    $($Name : Type::Function(Rc::new(Function{
+                    $($Name : Rc::new(Function{
                         args: vec![$($Arg),*],
                         return_type: $ReturnType,
-                    }))),*
+                        arg_names: vec![],
+                    })),*
                 }
             }
 
-            pub fn ty(&self, function: &BuiltinFunction) -> Type {
+            pub fn ty(&self, function: &BuiltinFunction) -> Rc<Function> {
                 match function {
                     $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
                 }
@@ -156,6 +158,7 @@ declare_builtin_function_types!(
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
     ClosePopupWindow: (Type::ElementReference) -> Type::Void,
+    ShowPopupMenu: (Type::ElementReference, Type::Model, crate::typeregister::logical_point_type()) -> Type::Void,
     ItemMemberFunction(..): (Type::ElementReference) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
     ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
@@ -226,7 +229,7 @@ declare_builtin_function_types!(
 );
 
 impl BuiltinFunction {
-    pub fn ty(&self) -> Type {
+    pub fn ty(&self) -> Rc<Function> {
         thread_local! {
             static TYPES: BuiltinFunctionTypes = BuiltinFunctionTypes::new();
         }
@@ -264,7 +267,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::ShowPopupWindow
+            | BuiltinFunction::ClosePopupWindow
+            | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
@@ -278,7 +283,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorWithAlpha => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
             // we need to make sure that calls to this function stay within a binding, so that the property
-            // notification when updating kicks in. Only Slintpad (wasm-interpreter) loads images via the network,
+            // notification when updating kicks in. Only SlintPad (wasm-interpreter) loads images via the network,
             // which is when this code is targeting wasm.
             #[cfg(not(target_arch = "wasm32"))]
             BuiltinFunction::ImageSize => true,
@@ -331,7 +336,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2 => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::ShowPopupWindow
+            | BuiltinFunction::ClosePopupWindow
+            | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => true,
@@ -682,7 +689,7 @@ impl Expression {
             Expression::CallbackReference(nr, _) => nr.ty(),
             Expression::FunctionReference(nr, _) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
-            Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
+            Expression::BuiltinFunctionReference(funcref, _) => Type::Function(funcref.ty()),
             Expression::MemberFunction { member, .. } => member.ty(),
             Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
             Expression::ElementReference(_) => Type::ElementReference,
@@ -1119,13 +1126,18 @@ impl Expression {
                         }
                         return Expression::Struct { values: new_values, ty: target_type };
                     }
-                    let var_name = "tmpobj";
+                    static COUNT: std::sync::atomic::AtomicUsize =
+                        std::sync::atomic::AtomicUsize::new(0);
+                    let var_name = format_smolstr!(
+                        "tmpobj_conv_{}",
+                        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                    );
                     let mut new_values = HashMap::new();
                     for (key, ty) in &right.fields {
                         let expression = if left.fields.contains_key(key) {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
-                                    name: var_name.into(),
+                                    name: var_name.clone(),
                                     ty: from_ty.clone(),
                                 }),
                                 name: key.clone(),
@@ -1137,10 +1149,7 @@ impl Expression {
                         new_values.insert(key.clone(), expression);
                     }
                     return Expression::CodeBlock(vec![
-                        Expression::StoreLocalVariable {
-                            name: var_name.into(),
-                            value: Box::new(self),
-                        },
+                        Expression::StoreLocalVariable { name: var_name, value: Box::new(self) },
                         Expression::Struct { values: new_values, ty: target_type },
                     ]);
                 }

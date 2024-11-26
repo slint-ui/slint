@@ -23,7 +23,7 @@ pnpm start                   # Run in development mode
 
 ## Run this to refresh slintpad (build mode!)
 pnpm build                   # Build the web UI code
-pnpm start:vite              # Start a server serving the slintpad UI
+pnpm preview              # Start a server serving the slintpad UI
 ```
 
 ## Documentation

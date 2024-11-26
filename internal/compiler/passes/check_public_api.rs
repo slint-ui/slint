@@ -24,7 +24,7 @@ pub fn check_public_api(
             .as_ref()
             .and_then(|n| {
                 let import_node = n.ImportSpecifier().last()?;
-                let import = crate::typeloader::ImportedName::extract_imported_names(&import_node).last()?;
+                let import = crate::typeloader::ImportedName::extract_imported_names(&import_node.ImportIdentifierList()?).last()?;
                 let ElementType::Component(c) = doc.local_registry.lookup_element(&import.internal_name).ok()? else { return None };
                 diag.push_warning(format!("No component is exported. The last imported component '{}' will be used. This is deprecated", import.internal_name), &import_node);
                 let exported_name = ExportedName{ name: import.internal_name, name_ident: import_node.into() };

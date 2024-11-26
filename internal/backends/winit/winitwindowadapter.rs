@@ -123,21 +123,25 @@ fn window_is_resizable(
 }
 
 enum WinitWindowOrNone {
-    HasWindow(Rc<winit::window::Window>),
+    HasWindow {
+        window: Rc<winit::window::Window>,
+        #[cfg(enable_accesskit)]
+        accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
+    },
     None(RefCell<WindowAttributes>),
 }
 
 impl WinitWindowOrNone {
     fn as_window(&self) -> Option<Rc<winit::window::Window>> {
         match self {
-            Self::HasWindow(window) => Some(window.clone()),
+            Self::HasWindow { window, .. } => Some(window.clone()),
             Self::None { .. } => None,
         }
     }
 
     fn set_window_icon(&self, icon: Option<winit::window::Icon>) {
         match self {
-            Self::HasWindow(window) => {
+            Self::HasWindow { window, .. } => {
                 #[cfg(target_family = "windows")]
                 window.set_taskbar_icon(icon.as_ref().cloned());
                 window.set_window_icon(icon);
@@ -148,56 +152,56 @@ impl WinitWindowOrNone {
 
     fn set_title(&self, title: &str) {
         match self {
-            Self::HasWindow(window) => window.set_title(title),
+            Self::HasWindow { window, .. } => window.set_title(title),
             Self::None(attributes) => attributes.borrow_mut().title = title.into(),
         }
     }
 
     fn set_decorations(&self, decorations: bool) {
         match self {
-            Self::HasWindow(window) => window.set_decorations(decorations),
+            Self::HasWindow { window, .. } => window.set_decorations(decorations),
             Self::None(attributes) => attributes.borrow_mut().decorations = decorations,
         }
     }
 
     fn fullscreen(&self) -> Option<winit::window::Fullscreen> {
         match self {
-            Self::HasWindow(window) => window.fullscreen(),
+            Self::HasWindow { window, .. } => window.fullscreen(),
             Self::None(attributes) => attributes.borrow().fullscreen.clone(),
         }
     }
 
     fn set_fullscreen(&self, fullscreen: Option<winit::window::Fullscreen>) {
         match self {
-            Self::HasWindow(window) => window.set_fullscreen(fullscreen),
+            Self::HasWindow { window, .. } => window.set_fullscreen(fullscreen),
             Self::None(attributes) => attributes.borrow_mut().fullscreen = fullscreen,
         }
     }
 
     fn set_window_level(&self, level: winit::window::WindowLevel) {
         match self {
-            Self::HasWindow(window) => window.set_window_level(level),
+            Self::HasWindow { window, .. } => window.set_window_level(level),
             Self::None(attributes) => attributes.borrow_mut().window_level = level,
         }
     }
 
     fn set_visible(&self, visible: bool) {
         match self {
-            Self::HasWindow(window) => window.set_visible(visible),
+            Self::HasWindow { window, .. } => window.set_visible(visible),
             Self::None(attributes) => attributes.borrow_mut().visible = visible,
         }
     }
 
     fn set_maximized(&self, maximized: bool) {
         match self {
-            Self::HasWindow(window) => window.set_maximized(maximized),
+            Self::HasWindow { window, .. } => window.set_maximized(maximized),
             Self::None(attributes) => attributes.borrow_mut().maximized = maximized,
         }
     }
 
     fn set_minimized(&self, minimized: bool) {
         match self {
-            Self::HasWindow(window) => window.set_minimized(minimized),
+            Self::HasWindow { window, .. } => window.set_minimized(minimized),
             Self::None(..) => { /* TODO: winit is missing attributes.borrow_mut().minimized = minimized*/
             }
         }
@@ -205,14 +209,14 @@ impl WinitWindowOrNone {
 
     fn set_resizable(&self, resizable: bool) {
         match self {
-            Self::HasWindow(window) => window.set_resizable(resizable),
+            Self::HasWindow { window, .. } => window.set_resizable(resizable),
             Self::None(attributes) => attributes.borrow_mut().resizable = resizable,
         }
     }
 
     fn set_min_inner_size<S: Into<winit::dpi::Size>>(&self, min_inner_size: Option<S>) {
         match self {
-            Self::HasWindow(window) => window.set_min_inner_size(min_inner_size),
+            Self::HasWindow { window, .. } => window.set_min_inner_size(min_inner_size),
             Self::None(attributes) => {
                 attributes.borrow_mut().min_inner_size = min_inner_size.map(|s| s.into());
             }
@@ -221,7 +225,7 @@ impl WinitWindowOrNone {
 
     fn set_max_inner_size<S: Into<winit::dpi::Size>>(&self, max_inner_size: Option<S>) {
         match self {
-            Self::HasWindow(window) => window.set_max_inner_size(max_inner_size),
+            Self::HasWindow { window, .. } => window.set_max_inner_size(max_inner_size),
             Self::None(attributes) => {
                 attributes.borrow_mut().max_inner_size = max_inner_size.map(|s| s.into())
             }
@@ -262,7 +266,7 @@ pub struct WinitWindowAdapter {
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
     #[cfg(enable_accesskit)]
-    pub accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
+    event_loop_proxy: EventLoopProxy<SlintUserEvent>,
 
     pub(crate) window_event_filter: Cell<
         Option<
@@ -286,7 +290,6 @@ impl WinitWindowAdapter {
         opengl_api: Option<OpenGLAPI>,
         #[cfg(enable_accesskit)] proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Result<Rc<Self>, PlatformError> {
-        let winit_window = renderer.resume(window_attributes, opengl_api.clone())?;
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             self_weak: self_weak.clone(),
@@ -298,8 +301,8 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
-            winit_window_or_none: RefCell::new(WinitWindowOrNone::HasWindow(winit_window.clone())),
-            size: Cell::new(physical_size_to_slint(&winit_window.inner_size())),
+            winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
+            size: Cell::default(),
             pending_requested_size: Cell::new(None),
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
@@ -308,16 +311,13 @@ impl WinitWindowAdapter {
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
             #[cfg(enable_accesskit)]
-            accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
-                self_weak.clone(),
-                &winit_window,
-                proxy,
-            )
-            .into(),
+            event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
         });
 
+        let winit_window = self_rc.ensure_window()?;
         debug_assert!(!self_rc.renderer.is_suspended());
+        self_rc.size.set(physical_size_to_slint(&winit_window.inner_size()));
 
         let id = winit_window.id();
         crate::event_loop::register_window(id, (self_rc.clone()) as _);
@@ -337,15 +337,42 @@ impl WinitWindowAdapter {
     }
 
     pub fn ensure_window(&self) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let window_attributes = match &*self.winit_window_or_none.borrow() {
-            WinitWindowOrNone::HasWindow(window_rc) => return Ok(window_rc.clone()),
+        #[allow(unused_mut)]
+        let mut window_attributes = match &*self.winit_window_or_none.borrow() {
+            WinitWindowOrNone::HasWindow { window, .. } => return Ok(window.clone()),
             WinitWindowOrNone::None(attributes) => attributes.borrow().clone(),
         };
+
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            if let Some(xdg_app_id) = WindowInner::from_pub(self.window()).xdg_app_id() {
+                #[cfg(feature = "wayland")]
+                {
+                    use winit::platform::wayland::WindowAttributesExtWayland;
+                    window_attributes = window_attributes.with_name(xdg_app_id.clone(), "");
+                }
+                #[cfg(feature = "x11")]
+                {
+                    use winit::platform::x11::WindowAttributesExtX11;
+                    window_attributes = window_attributes.with_name(xdg_app_id.clone(), "");
+                }
+            }
+        }
+
         let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
 
         let winit_window = self.renderer.resume(window_attributes, self.opengl_api.clone())?;
 
-        *winit_window_or_none = WinitWindowOrNone::HasWindow(winit_window.clone());
+        *winit_window_or_none = WinitWindowOrNone::HasWindow {
+            window: winit_window.clone(),
+            #[cfg(enable_accesskit)]
+            accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
+                self.self_weak.clone(),
+                &winit_window,
+                self.event_loop_proxy.clone(),
+            )
+            .into(),
+        };
 
         crate::event_loop::register_window(
             winit_window.id(),
@@ -358,7 +385,7 @@ impl WinitWindowAdapter {
     fn suspend(&self) -> Result<(), PlatformError> {
         let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
         match *winit_window_or_none {
-            WinitWindowOrNone::HasWindow(ref window) => {
+            WinitWindowOrNone::HasWindow { ref window, .. } => {
                 self.renderer().suspend()?;
 
                 let last_window_rc = window.clone();
@@ -476,8 +503,8 @@ impl WinitWindowAdapter {
     // or if it will be resized later (false).
     fn resize_window(&self, size: winit::dpi::Size) -> Result<bool, PlatformError> {
         match &*self.winit_window_or_none.borrow() {
-            WinitWindowOrNone::HasWindow(winit_window) => {
-                if let Some(size) = winit_window.request_inner_size(size) {
+            WinitWindowOrNone::HasWindow { window, .. } => {
+                if let Some(size) = window.request_inner_size(size) {
                     // On wayland we might not get a WindowEvent::Resized, so resize the EGL surface right away.
                     self.resize_event(size)?;
                     Ok(true)
@@ -560,6 +587,32 @@ impl WinitWindowAdapter {
         let fullscreen = winit_window.fullscreen().is_some();
         if fullscreen != self.window().is_fullscreen() {
             self.window().set_fullscreen(fullscreen);
+        }
+    }
+
+    #[cfg(enable_accesskit)]
+    pub(crate) fn accesskit_adapter(
+        &self,
+    ) -> Option<std::cell::Ref<'_, RefCell<crate::accesskit::AccessKitAdapter>>> {
+        std::cell::Ref::filter_map(self.winit_window_or_none.borrow(), |wor: &WinitWindowOrNone| {
+            match wor {
+                WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => Some(accesskit_adapter),
+                WinitWindowOrNone::None(..) => None,
+            }
+        })
+        .ok()
+    }
+
+    #[cfg(enable_accesskit)]
+    pub(crate) fn with_access_kit_adapter_from_weak_window_adapter(
+        self_weak: Weak<Self>,
+        callback: impl FnOnce(&RefCell<crate::accesskit::AccessKitAdapter>),
+    ) {
+        let Some(self_) = self_weak.upgrade() else { return };
+        let winit_window_or_none = self_.winit_window_or_none.borrow();
+        match &*winit_window_or_none {
+            WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => callback(&accesskit_adapter),
+            WinitWindowOrNone::None(..) => {}
         }
     }
 }
@@ -679,7 +732,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn position(&self) -> Option<corelib::api::PhysicalPosition> {
         match &*self.winit_window_or_none.borrow() {
-            WinitWindowOrNone::HasWindow(winit_window) => match winit_window.outer_position() {
+            WinitWindowOrNone::HasWindow { window, .. } => match window.outer_position() {
                 Ok(outer_position) => {
                     Some(corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y))
                 }
@@ -710,9 +763,7 @@ impl WindowAdapter for WinitWindowAdapter {
     fn set_position(&self, position: corelib::api::WindowPosition) {
         let winit_pos = position_to_winit(&position);
         match &*self.winit_window_or_none.borrow() {
-            WinitWindowOrNone::HasWindow(winit_window) => {
-                winit_window.set_outer_position(winit_pos)
-            }
+            WinitWindowOrNone::HasWindow { window, .. } => window.set_outer_position(winit_pos),
             WinitWindowOrNone::None(attributes) => {
                 attributes.borrow_mut().position = Some(winit_pos);
             }
@@ -996,13 +1047,15 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     #[cfg(enable_accesskit)]
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
-        self.accesskit_adapter.borrow_mut().handle_focus_item_change();
+        let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
+        accesskit_adapter_cell.borrow_mut().handle_focus_item_change();
     }
 
     #[cfg(enable_accesskit)]
     fn register_item_tree(&self) {
+        let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
         // If the accesskit_adapter is already borrowed, this means the new items were created when the tree was built and there is no need to re-visit them
-        if let Ok(mut a) = self.accesskit_adapter.try_borrow_mut() {
+        if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {
             a.reload_tree();
         };
     }
@@ -1013,9 +1066,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         component: ItemTreeRef,
         _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
-        if let Ok(mut a) = self.accesskit_adapter.try_borrow_mut() {
+        let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
+        if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {
             a.unregister_item_tree(component);
-        }
+        };
     }
 
     #[cfg(feature = "raw-window-handle-06")]

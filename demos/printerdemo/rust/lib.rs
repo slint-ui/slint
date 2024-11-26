@@ -102,8 +102,7 @@ pub fn main() {
         },
     );
 
-    // Disable gettext on macOS due to https://github.com/Koka/gettext-rs/issues/114
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
     {
         slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/../lang/"));
         main_window.global::<PrinterSettings>().on_change_language(|l| {
@@ -116,6 +115,15 @@ pub fn main() {
             slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/../lang/"));
         })
     }
+    #[cfg(any(target_os = "android", target_arch = "wasm32"))]
+    main_window.global::<PrinterSettings>().on_change_language(|l| {
+        let lang = match l {
+            0 => "en",
+            1 => "fr",
+            _ => return,
+        };
+        slint::select_bundled_translation(lang).unwrap();
+    });
 
     main_window.run().unwrap();
 }

@@ -30,6 +30,7 @@ mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
 mod lower_layout;
+mod lower_menus;
 mod lower_popups;
 mod lower_property_to_element;
 mod lower_shadows;
@@ -53,6 +54,7 @@ mod z_order;
 
 use crate::expression_tree::Expression;
 use crate::namedreference::NamedReference;
+use smol_str::SmolStr;
 
 pub async fn run_passes(
     doc: &mut crate::object_tree::Document,
@@ -95,6 +97,7 @@ pub async fn run_passes(
         );
     });
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
+    lower_menus::lower_menus(doc, type_loader, diag).await;
     collect_subcomponents::collect_subcomponents(doc);
 
     doc.visit_all_used_components(|component| {
@@ -133,7 +136,7 @@ pub async fn run_passes(
             "opacity",
             core::iter::empty(),
             None,
-            "Opacity",
+            &SmolStr::new_static("Opacity"),
             &global_type_registry.borrow(),
             diag,
         );
@@ -142,7 +145,7 @@ pub async fn run_passes(
             "cache-rendering-hint",
             core::iter::empty(),
             None,
-            "Layer",
+            &SmolStr::new_static("Layer"),
             &global_type_registry.borrow(),
             diag,
         );
@@ -158,8 +161,8 @@ pub async fn run_passes(
                 lhs: Expression::PropertyReference(NamedReference::new(
                     e,
                     match prop {
-                        "rotation-origin-x" => "width",
-                        "rotation-origin-y" => "height",
+                        "rotation-origin-x" => SmolStr::new_static("width"),
+                        "rotation-origin-y" => SmolStr::new_static("height"),
                         "rotation-angle" => return Expression::Invalid,
                         _ => unreachable!(),
                     },
@@ -168,7 +171,7 @@ pub async fn run_passes(
                 op: '/',
                 rhs: Expression::NumberLiteral(2., Default::default()).into(),
             }),
-            "Rotate",
+            &SmolStr::new_static("Rotate"),
             &global_type_registry.borrow(),
             diag,
         );

@@ -54,7 +54,7 @@ export component Clock {
     in-out property <int> current-item;
     in property <int> current-value;
 
-    callback current-item-changed(/* index */ int);
+    callback current-item-changed(index: int);
 
     property <length> radius: max(root.width, root.height) / 2;
     property <length> picker-ditameter: 48px;

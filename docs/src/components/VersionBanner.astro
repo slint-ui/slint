@@ -1,0 +1,68 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import type { Props } from "@astrojs/starlight/props";
+import { getVersions } from "../utils/versions.ts";
+
+// Define types
+interface Version {
+    version: string;
+    name?: string;
+    url: string;
+    preferred?: boolean;
+}
+
+// Compare two versions
+function compareVersions(v1: string, v2: string): number {
+    const [major1, minor1, patch1] = v1.split(".").map(Number);
+    const [major2, minor2, patch2] = v2.split(".").map(Number);
+
+    if (major1 !== major2) {
+        return major1 - major2;
+    }
+    if (minor1 !== minor2) {
+        return minor1 - minor2;
+    }
+    return patch1 - patch2;
+}
+
+// Extract version from URL path
+function extractVersion(path: string): string | null {
+    const match = path.match(/(\d+\.\d+\.\d+|\d+\.\d+)(?=\/|$)/);
+    return match ? match[0] : null;
+}
+
+// Fetch versions at build time
+const versions = await getVersions();
+const preferredVersion = versions.find(
+    (version: Version) => version.preferred,
+)?.version;
+
+// Get current version from URL
+const currentVersion = extractVersion(Astro.url.pathname);
+
+// Determine which banner to show
+const showOlderVersion =
+    currentVersion &&
+    preferredVersion &&
+    compareVersions(preferredVersion, currentVersion) > 0;
+const showDevVersion = currentVersion
+    ? preferredVersion && compareVersions(preferredVersion, currentVersion) < 0
+    : Astro.url.pathname.includes("master");
+---
+
+{showDevVersion && (
+  <div class="version-banner">
+    This is the unreleased documentation for the <strong>next</strong> version of Slint.
+    <br />
+    For up-to-date documentation, see <a href="https://docs.slint.dev">here</a>.
+  </div>
+)}
+
+{showOlderVersion && (
+  <div class="version-banner">
+    You are viewing contents of an older version.
+    <br />
+    For up-to-date documentation, see <a href="https://docs.slint.dev">here</a>.
+  </div>
+)}

@@ -5,8 +5,10 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-25 03:10+0000\n"
+"POT-Creation-Date: 2024-11-18 03:16+0000\n"
 "PO-Revision-Date: 2023-06-09 07:56+0200\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: fr_FR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -112,17 +114,17 @@ msgstr "Brouillon"
 #: ui/settings_page.slint:72
 msgctxt "SettingsPage"
 msgid "Language"
-msgstr ""
+msgstr "Langue"
 
 #: ui/settings_page.slint:74 ui/settings_page.slint:75
 msgctxt "SettingsPage"
 msgid "English"
-msgstr ""
+msgstr "Anglais"
 
 #: ui/settings_page.slint:75
 msgctxt "SettingsPage"
 msgid "French"
-msgstr ""
+msgstr "Français"
 
 #: ui/settings_page.slint:80
 msgctxt "SettingsPage"
@@ -167,7 +169,7 @@ msgstr "ATTENTE"
 #: ui/printer_queue.slint:29
 msgctxt "PrinterQueue"
 msgid "Unknown job status"
-msgstr ""
+msgstr "Status inconnu"
 
 #: ui/printer_queue.slint:60
 msgctxt "PrintDetails"

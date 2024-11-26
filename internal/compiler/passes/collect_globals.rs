@@ -24,12 +24,10 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
             }
         }
     }
-    for component in doc.exported_roots() {
-        collect_in_component(&component, &mut set, &mut sorted_globals);
-    }
-    for component in &doc.used_types.borrow().sub_components {
-        collect_in_component(component, &mut set, &mut sorted_globals);
-    }
+    doc.visit_all_used_components(|component| {
+        collect_in_component(component, &mut set, &mut sorted_globals)
+    });
+
     doc.used_types.borrow_mut().globals = sorted_globals;
 }
 

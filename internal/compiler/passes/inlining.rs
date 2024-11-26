@@ -59,11 +59,11 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
     }
     let mut roots = HashSet::new();
     if inline_selection == InlineSelection::InlineOnlyRequiredComponents {
-        for component in doc.exported_roots() {
+        for component in doc.exported_roots().chain(doc.popup_menu_impl.iter().cloned()) {
             roots.insert(ByAddress(component.clone()));
         }
     }
-    for component in doc.exported_roots() {
+    for component in doc.exported_roots().chain(doc.popup_menu_impl.iter().cloned()) {
         inline_components_recursively(&component, &roots, inline_selection, diag);
         let mut init_code = component.init_code.borrow_mut();
         let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
@@ -511,7 +511,7 @@ fn duplicate_property_animation(
 
 fn fixup_reference(nr: &mut NamedReference, mapping: &Mapping) {
     if let Some(e) = mapping.get(&element_key(nr.element())) {
-        *nr = NamedReference::new(e, nr.name());
+        *nr = NamedReference::new(e, nr.name().clone());
     }
 }
 

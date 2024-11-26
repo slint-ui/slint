@@ -1,0 +1,63 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Overview
+type: overview
+sidebar:
+  order: 1
+hero:
+  title: Welcome to Slint
+  tagline: Seamlessly build elegant GUIs for Embedded,&nbsp;Desktop,&nbsp;and&nbsp;Mobile
+---
+
+import { LinkButton, LinkCard, Card, CardGrid } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
+import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
+import ThreeCardGrid from '../../components/ThreeCardGrid.astro';
+import FourCardGrid from '../../components/FourCardGrid.astro';
+import BannerImage from '../../assets/banner.webp';
+
+<Image src={BannerImage} width="1200px" alt="Slint examples running on a range of devices"/>
+
+<ThreeCardGrid>
+<LinkCard
+  title="Tutorial"
+  href="./tutorial/quickstart"
+  description="Follow our step-by-step tutorial to create your first Slint app"
+/>
+<LinkCard
+  title="Standard Widgets"
+  href="./reference/std-widgets/overview"
+  description="Overview of standard widgets to build cross-platform apps"
+/>
+<LinkCard
+  title="Language Integration"
+  href="./language-integrations"
+  description="Connect the UI with business logic in your preferred language."
+/>
+</ThreeCardGrid>
+
+## Get in touch
+
+<FourCardGrid>
+<LinkCard
+  title="Chat"
+  href="https://chat.slint.dev/"
+  target="_blank"
+/>
+<LinkCard
+  title="Discussions"
+  href="https://github.com/slint-ui/slint/discussions"
+  target="_blank"
+/>
+<LinkCard
+  title="Report Bugs"
+  href="https://github.com/slint-ui/slint/issues"
+  target="_blank"
+/>
+<LinkCard
+  title="Email"
+  href="mailto:info@slint.dev"
+  target="_blank"
+/>
+</FourCardGrid>

@@ -5,7 +5,7 @@
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::Document;
-use i_slint_compiler::parser::TextSize;
+use i_slint_compiler::parser::{syntax_nodes, TextSize};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::Url;
@@ -20,6 +20,7 @@ use std::{
 };
 
 use crate::common::{file_to_uri, uri_to_file, ElementRcNode, Result};
+use std::collections::HashSet;
 
 pub type SourceFileVersion = Option<i32>;
 
@@ -218,7 +219,7 @@ impl DocumentCache {
         doc.node.as_ref()?.text_range().contains_inclusive(o).then_some((doc, o))
     }
 
-    pub fn all_url_documents(&self) -> impl Iterator<Item = (Url, &Document)> + '_ {
+    pub fn all_url_documents(&self) -> impl Iterator<Item = (Url, &syntax_nodes::Document)> + '_ {
         self.type_loader.all_file_documents().filter_map(|(p, d)| Some((file_to_uri(p)?, d)))
     }
 
@@ -281,9 +282,25 @@ impl DocumentCache {
         Ok(())
     }
 
+    pub async fn reload_cached_file(&mut self, url: &Url, diag: &mut BuildDiagnostics) {
+        let Some(path) = uri_to_file(url) else { return };
+        self.type_loader.reload_cached_file(&path, diag).await;
+    }
+
     pub fn drop_document(&mut self, url: &Url) -> Result<()> {
         let path = uri_to_file(url).ok_or("Failed to convert path")?;
         Ok(self.type_loader.drop_document(&path)?)
+    }
+
+    /// Invalidate a document and all its dependencies.
+    /// return the list of dependencies that were invalidated.
+    pub fn invalidate_url(&mut self, url: &Url) -> HashSet<Url> {
+        let Some(path) = uri_to_file(url) else { return HashSet::new() };
+        self.type_loader
+            .invalidate_document(&path)
+            .into_iter()
+            .filter_map(|x| file_to_uri(&x))
+            .collect()
     }
 
     pub fn compiler_configuration(&self) -> CompilerConfiguration {

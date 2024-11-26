@@ -67,7 +67,7 @@ pub fn embed_glyphs<'a>(
         ('a'..='z')
             .chain('A'..='Z')
             .chain('0'..='9')
-            .chain(" '!\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars())
+            .chain(" '!\"#$%&()*+,-./:;<=>?@\\[]{}^_|~".chars())
             .chain(std::iter::once('●'))
             .chain(std::iter::once('…')),
     );

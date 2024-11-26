@@ -317,9 +317,6 @@ pub async fn compile_syntax_node(
         // Don't run all the passes in case of errors because because some invariants are not met.
         passes::run_import_passes(&doc, &loader, &mut diagnostics);
     }
-
-    diagnostics.all_loaded_files = loader.all_files().cloned().collect();
-
     (doc, diagnostics, loader)
 }
 

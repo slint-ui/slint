@@ -22,6 +22,8 @@ pub enum TokenInfo {
     FileName(std::path::PathBuf),
     LocalProperty(syntax_nodes::PropertyDeclaration),
     LocalCallback(syntax_nodes::CallbackDeclaration),
+    /// This is like a NamedReference, but the element doesn't have an ElementRc because
+    /// its enclosing component might not have been properly parsed
     IncompleteNamedReference(ElementType, SmolStr),
 }
 

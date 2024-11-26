@@ -221,6 +221,10 @@ fn default_config() -> cbindgen::Config {
             ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
             ("IntArg".into(), "int".into()),
+            ("MenuEntryArg".into(), "MenuEntry".into()),
+            // Note: these types are not the same, but they are only used in callback return types that are only used in C++ (set and called)
+            // therefore it is ok to reinterpret_cast
+            ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
         ]
         .iter()
@@ -293,6 +297,7 @@ fn gen_corelib(
         "Rotate",
         "Opacity",
         "Layer",
+        "ContextMenu",
     ];
 
     config.export.include = [
@@ -370,6 +375,8 @@ fn gen_corelib(
         "PointerScrollEventArg",
         "PointArg",
         "Point",
+        "MenuEntryModel",
+        "MenuEntryArg",
         "slint_color_brighter",
         "slint_color_darker",
         "slint_color_transparentize",
@@ -500,7 +507,7 @@ fn gen_corelib(
                 "slint_image_set_nine_slice_edges",
                 "slint_image_to_rgb8",
                 "slint_image_to_rgba8",
-                "slint_image_to_rgba8_premultiplied",                
+                "slint_image_to_rgba8_premultiplied",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
@@ -573,6 +580,7 @@ fn gen_corelib(
             "slint_windowrc_is_fullscreen",
             "slint_windowrc_is_minimized",
             "slint_windowrc_is_maximized",
+            "slint_windowrc_take_snapshot",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -589,7 +597,7 @@ fn gen_corelib(
             "slint_image_set_nine_slice_edges",
             "slint_image_to_rgb8",
             "slint_image_to_rgba8",
-            "slint_image_to_rgba8_premultiplied",            
+            "slint_image_to_rgba8_premultiplied",
             "slint_image_from_embedded_textures",
             "slint_image_compare_equal",
         ]
@@ -643,7 +651,7 @@ fn gen_corelib(
     public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
     // Previously included types are now excluded (to avoid duplicates)
     public_config.export.exclude = private_exported_types.into_iter().collect();
-    public_config.export.exclude.push("Point".into());
+    public_config.export.exclude.push("LogicalPosition".into());
     public_config.export.include = public_exported_types.into_iter().map(str::to_string).collect();
     public_config.export.body.insert(
         "Rgb8Pixel".to_owned(),
@@ -759,6 +767,7 @@ namespace slint {
         struct ItemVTable;
         using types::IntRect;
     }
+    template<typename ModelData> class Model;
 }",
         )
         .with_trailer(gen_item_declarations(&items))

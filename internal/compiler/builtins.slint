@@ -126,16 +126,16 @@ export component TouchArea {
     callback clicked;
     callback double-clicked;
     callback moved;
-    callback pointer-event(PointerEvent);
-    callback scroll-event(PointerScrollEvent) -> EventResult;
+    callback pointer-event(event: PointerEvent);
+    callback scroll-event(event: PointerScrollEvent) -> EventResult;
     //-default_size_binding:expands_to_parent_geometry
 }
 
 export component FocusScope {
     in property <bool> enabled: true;
     out property <bool> has-focus;
-    callback key_pressed(KeyEvent) -> EventResult;
-    callback key_released(KeyEvent) -> EventResult;
+    callback key_pressed(event: KeyEvent) -> EventResult;
+    callback key_released(event: KeyEvent) -> EventResult;
     callback focus_changed_event();
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
@@ -183,6 +183,31 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+// Lowered to MenuBarImpl from the style
+component MenuBar {
+    //-is_non_item_type
+    //-disallow_global_types_as_child_elements
+    in property <[MenuEntry]> entries;
+
+    callback activated(entry: MenuEntry);
+    callback sub-menu(entry: MenuEntry) -> [MenuEntry];
+
+    // Currently experimental
+    //-is_internal
+}
+
+// Lowered to a call that generate a ContextMenuImpl
+export component ContextMenu {
+    function show() {}
+    //in property <[MenuEntry]> entries;
+    callback activated(entry: MenuEntry);
+    callback sub-menu(entry: MenuEntry) -> [MenuEntry];
+    //-default_size_binding:expands_to_parent_geometry
+
+    // Currently experimental
+    //-is_internal
+}
+
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
@@ -198,7 +223,9 @@ component WindowItem {
     in property <image> icon;
 }
 
-export component Window inherits WindowItem { }
+export component Window inherits WindowItem {
+    MenuBar {}
+}
 
 export component BoxShadow inherits Empty {
     in property <length> border_radius;
@@ -235,7 +262,7 @@ export component TextInput {
     callback accepted;
     callback rejected;
     callback edited;
-    callback cursor_position_changed(Point);
+    callback cursor_position_changed(position: Point);
     in property <bool> enabled: true;
     in property <bool> single-line: true;
     in property <bool> read-only: false;
@@ -418,7 +445,7 @@ export component PopupWindow {
     in property <length> anchor_y;
     in property <length> anchor_height;
     in property <length> anchor_width;*/
-    in property <bool> close-on-click;      
+    in property <bool> close-on-click;
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
     //show() is hardcoded in typeregister.rs
 }
@@ -481,7 +508,8 @@ export component NativeSpinBox {
     in property <int> minimum;
     in property <int> maximum: 100;
     in property <int> step-size: 1;
-    callback edited(int /* value */);
+    in property <TextHorizontalAlignment> horizontal-alignment;
+    callback edited(value: int);
     //-is_internal
     //-accepts_focus
 }
@@ -493,8 +521,8 @@ export component NativeSlider {
     in property <float> minimum;
     in property <float> maximum: 100;
     in property <Orientation> orientation: Orientation.horizontal;
-    callback changed(float);
-    callback released(float);
+    callback changed(value: float);
+    callback released(value: float);
     //-is_internal
     //-accepts_focus
 }

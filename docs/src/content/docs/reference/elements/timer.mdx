@@ -1,0 +1,107 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Timer
+description: Timer element api.
+---
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+
+:::note[Note]
+Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
+:::
+
+This example shows a timer that counts down from 10 to 0 every second:
+
+```slint playground
+import { Button } from "std-widgets.slint";
+export component Example inherits Window {
+    property <int> value: 10;
+    timer := Timer {
+        interval: 1s;
+        running: true;
+        triggered() => {
+            value -= 1;
+            if (value == 0) {
+                self.running = false;
+            }
+        }
+    }
+    HorizontalLayout {
+        Text { text: value; }
+        Button {
+            text: "Reset";
+            clicked() => { value = 10; timer.running = true; }
+        }
+    }
+}
+```
+
+
+
+Use the Timer pseudo-element to schedule a callback at a given interval.
+The timer is only running when the `running` property is set to `true`. To stop or start the timer, set that property to `true` or `false`.
+It can be also set to a binding expression.
+When already running, the timer will be restarted if the `interval` property is changed.
+
+:::caution[Caution]
+By default the `Timer` is always running `running: true`. This can result in constant CPU usage and
+power usage so ensure that you set `running` to `false` when you don't want the timer to run.
+:::
+
+```slint
+property <int> count: 0;
+Timer {
+    interval: 8s; // every 8 seconds the timer will activate (tick)
+    triggered() => { // The triggered callback activates every time the timer ticks
+        if count >= 5 {
+            self.running = false; // stop the timer after 5 ticks
+        }
+        count += 1;
+    }
+}
+```
+
+## Properties
+
+### interval
+<SlintProperty propName="interval" typeName="duration">
+The interval between timer ticks. This property is mandatory.
+```slint no-test "interval: 250ms;"
+Timer {
+    property <int> count: 0;
+    interval: 250ms;
+    triggered() => {
+        debug("count is:", count);
+        count += 1;
+    }
+}
+```
+</SlintProperty>
+
+### running
+<SlintProperty propName="running" typeName="bool" defaultValue="true">
+`true` if the timer is running.
+```slint no-test "running: false; // timer is not running"
+Timer {
+    property <int> count: 0;
+    interval: 250ms;
+    running: false; // timer is not running
+    triggered() => {
+        debug("count is:", count);
+    }
+}
+```
+</SlintProperty>
+
+## Callbacks
+
+### triggered()
+Invoked every time the timer ticks (every `interval`).
+```slint no-test {4-6}
+Timer {
+    property <int> count: 0;
+    interval: 250ms;
+    triggered() => {
+        debug("count is:", count);
+    }
+}
+```

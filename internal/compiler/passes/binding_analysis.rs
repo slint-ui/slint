@@ -17,7 +17,7 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{find_parent_element, Document, ElementRc, PropertyAnimation};
 use derive_more as dm;
 
-use smol_str::ToSmolStr;
+use smol_str::{SmolStr, ToSmolStr};
 
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
 /// So if binding for property A has B in its BindingExpression::two_way_binding, then
@@ -97,7 +97,7 @@ impl PropertyPath {
         }
         if second.elements.is_empty() {
             debug_assert!(elements.last().map_or(true, |x| *x != ByAddress(second.prop.element())));
-            Self { elements, prop: NamedReference::new(&element, second.prop.name()) }
+            Self { elements, prop: NamedReference::new(&element, second.prop.name().clone()) }
         } else {
             elements.push(ByAddress(element));
             elements.extend(second.elements.iter().skip(1).cloned());
@@ -144,7 +144,7 @@ fn analyze_element(
             continue;
         }
         analyze_binding(
-            &PropertyPath::from(NamedReference::new(elem, name)),
+            &PropertyPath::from(NamedReference::new(elem, name.clone())),
             context,
             reverse_aliases,
             diag,
@@ -291,7 +291,7 @@ fn analyze_binding(
     if is_const && matches!(b.expression, Expression::Invalid) {
         // check the base
         if let Some(base) = element.borrow().sub_component() {
-            is_const = NamedReference::new(&base.root_element, name).is_constant();
+            is_const = NamedReference::new(&base.root_element, name.clone()).is_constant();
         }
     }
     drop(b);
@@ -342,7 +342,7 @@ fn process_property(
         .borrow()
         .property_analysis
         .borrow_mut()
-        .entry(prop.prop.name().into())
+        .entry(prop.prop.name().clone())
         .or_default()
     {
         a => {
@@ -371,11 +371,11 @@ fn process_property(
         next.borrow()
             .property_analysis
             .borrow_mut()
-            .entry(prop.prop.name().into())
+            .entry(prop.prop.name().clone())
             .or_default()
             .is_read_externally = true;
         prop.elements.push(element.into());
-        prop.prop = NamedReference::new(&next, prop.prop.name());
+        prop.prop = NamedReference::new(&next, prop.prop.name().clone());
     }
     depends_on_external
 }
@@ -429,8 +429,14 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, Rea
                     let mut item = item.upgrade().unwrap();
                     while let Some(parent) = find_parent_element(&item) {
                         item = parent;
-                        vis(&NamedReference::new(&item, "x").into(), ReadType::NativeRead);
-                        vis(&NamedReference::new(&item, "y").into(), ReadType::NativeRead);
+                        vis(
+                            &NamedReference::new(&item, SmolStr::new_static("x")).into(),
+                            ReadType::NativeRead,
+                        );
+                        vis(
+                            &NamedReference::new(&item, SmolStr::new_static("y")).into(),
+                            ReadType::NativeRead,
+                        );
                     }
                 }
             }
@@ -484,18 +490,18 @@ fn visit_implicit_layout_info_dependencies(
     const N: ReadType = ReadType::NativeRead;
     match base_type.as_str() {
         "Image" => {
-            vis(&NamedReference::new(item, "source").into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
             if orientation == Orientation::Vertical {
-                vis(&NamedReference::new(item, "width").into(), N);
+                vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
         }
         "Text" | "TextInput" => {
-            vis(&NamedReference::new(item, "text").into(), N);
-            vis(&NamedReference::new(item, "font-family").into(), N);
-            vis(&NamedReference::new(item, "font-size").into(), N);
-            vis(&NamedReference::new(item, "font-weight").into(), N);
-            vis(&NamedReference::new(item, "letter-spacing").into(), N);
-            vis(&NamedReference::new(item, "wrap").into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("text")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("font-family")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("font-size")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("font-weight")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("letter-spacing")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
             let wrap_set = item.borrow().is_binding_set("wrap", false)
                 || item
                     .borrow()
@@ -504,12 +510,12 @@ fn visit_implicit_layout_info_dependencies(
                     .get("wrap")
                     .map_or(false, |a| a.is_set || a.is_set_externally);
             if wrap_set && orientation == Orientation::Vertical {
-                vis(&NamedReference::new(item, "width").into(), N);
+                vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
             if base_type.as_str() == "TextInput" {
-                vis(&NamedReference::new(item, "single-line").into(), N);
+                vis(&NamedReference::new(item, SmolStr::new_static("single-line")).into(), N);
             } else {
-                vis(&NamedReference::new(item, "overflow").into(), N);
+                vis(&NamedReference::new(item, SmolStr::new_static("overflow")).into(), N);
             }
         }
 
@@ -542,7 +548,7 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
             if !binding.borrow().two_way_bindings.is_empty() {
                 check_alias(e, name, &binding.borrow());
 
-                let nr = NamedReference::new(e, name);
+                let nr = NamedReference::new(e, name.clone());
                 for a in &binding.borrow().two_way_bindings {
                     if a != &nr
                         && !a.element().borrow().enclosing_component.upgrade().unwrap().is_global()
@@ -559,11 +565,11 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
         }
     }
 
-    fn check_alias(e: &ElementRc, name: &str, binding: &BindingExpression) {
+    fn check_alias(e: &ElementRc, name: &SmolStr, binding: &BindingExpression) {
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
         let is_binding_constant =
             binding.is_constant() && binding.two_way_bindings.iter().all(|n| n.is_constant());
-        if is_binding_constant && !NamedReference::new(e, name).is_externally_modified() {
+        if is_binding_constant && !NamedReference::new(e, name.clone()).is_externally_modified() {
             for alias in &binding.two_way_bindings {
                 crate::namedreference::mark_property_set_derived_in_base(
                     alias.element(),

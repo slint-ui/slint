@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//! This file contains a generic implementation of the MenuBar and ContextMenu
+
+import { Palette } from "std-widgets-impl.slint";
+
+export component PopupMenuImpl inherits Window {
+    property <length> px: 1rem / 14;
+    in property <[MenuEntry]> entries: [];
+    callback sub-menu(MenuEntry) -> [MenuEntry];
+    callback activated(MenuEntry);
+
+    Rectangle {
+        border-radius: 7*px;
+        border-color: Palette.border;
+        background: Palette.background;
+        drop-shadow-blur: 2px;
+        drop-shadow-color: Palette.foreground.transparentize(0.5);
+        min-width: 10rem;
+        VerticalLayout {
+            padding: 5px;
+            for entry in entries: Rectangle {
+                background: ita.has-hover || ita.pressed ? Palette.alternate-background : transparent;
+                border-radius: 3*px;
+                border-width: 1px;
+                HorizontalLayout {
+                    spacing: 7*px;
+                    padding: 11*px;
+                    padding-top: 4*px;
+                    padding-bottom: 6*px;
+                    Text {
+                        text: entry.title;
+                        horizontal-stretch: 1;
+                    }
+                    if entry.has-sub-menu : Text {
+                        text: "▶";
+                        horizontal-stretch: 0;
+                    }
+                }
+                ita := TouchArea {
+                    clicked => {
+                        if entry.has-sub-menu {
+                            subMenu.show(sub-menu(entry), {
+                                x: root.width,
+                                y: self.absolute-position.y - subMenu.absolute-position.y,
+                            });
+                        } else {
+                            activated(entry);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    subMenu := ContextMenu {
+        x: 0; y: 0; width: 0; height: 0;
+        sub-menu(entry) => { root.sub-menu(entry); }
+        activated(entry) => { root.activated(entry); }
+    }
+}
+
+export component MenuBarImpl {
+    callback activated(MenuEntry);
+    callback sub-menu(MenuEntry) -> [MenuEntry];
+
+    property <[MenuEntry]> entries;
+
+    property <length> px: 1rem / 14;
+
+    preferred-width: 100%;
+    height: l.preferred-height;
+    l := HorizontalLayout {
+        padding: 5*px;
+        alignment: start;
+        spacing: 1*px;
+        for entry in entries: e := Rectangle {
+            background: ta.has-hover || ta.pressed ? Palette.alternate-background : transparent;
+            border-radius: 3*px;
+            HorizontalLayout {
+                padding: 11*px;
+                padding-top: 4*px;
+                padding-bottom: 6*px;
+                Text {
+                    text: entry.title;
+                }
+            }
+            ta := TouchArea {
+                clicked => {
+                    cm.show(sub-menu(entry), { x: e.x, y: root.height });
+                }
+            }
+        }
+
+        // For the default size when there is no entries
+        Rectangle {
+            HorizontalLayout {
+                padding-top: 0.4rem;
+                padding-bottom: 0.6rem;
+                Text { text: ""; }
+            }
+        }
+    }
+
+
+    cm := ContextMenu {
+        activated(entry) => { root.activated(entry); }
+        sub-menu(entry) => { root.sub-menu(entry); }
+    }
+}
+

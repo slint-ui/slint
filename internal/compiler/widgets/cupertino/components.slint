@@ -13,7 +13,7 @@ export component FocusBorder inherits Rectangle {
 
     states [
         focused when root.has-focus : {
-            opacity: 1;
+            opacity: 0.5;
         }
      ]
 }
@@ -72,8 +72,8 @@ export component ListItem {
         }
         hover when root.has-hover : {
             i-background.background: CupertinoPalette.accent-background;
-            i-text.color: CupertinoPalette.control-foreground;
-            i-icon.colorize: CupertinoPalette.control-foreground;
+            i-text.color: CupertinoPalette.accent-foreground;
+            i-icon.colorize: CupertinoPalette.accent-foreground;
         }
     ]
 

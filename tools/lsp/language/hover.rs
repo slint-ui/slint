@@ -3,7 +3,8 @@
 
 use super::token_info::TokenInfo;
 use crate::common::DocumentCache;
-use i_slint_compiler::langtype::{ElementType, PropertyLookupResult, Type};
+use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::SyntaxToken;
 use itertools::Itertools as _;
 use lsp_types::{Hover, HoverContents, MarkupContent};
@@ -34,44 +35,65 @@ pub fn get_tooltip(document_cache: &mut DocumentCache, token: SyntaxToken) -> Op
                 from_slint_code(&format!("{} := {} {{ /*...*/ }}", e.id, e.base_type))
             }
         }
-        TokenInfo::NamedReference(nr) => {
-            let prop_info = nr.element().borrow().lookup_property(nr.name());
-            from_prop_result(prop_info)?
-        }
+        TokenInfo::NamedReference(nr) => from_property_in_element(&nr.element(), nr.name())?,
         TokenInfo::EnumerationValue(v) => from_slint_code(&format!("{}.{}", v.enumeration.name, v)),
         TokenInfo::FileName(_) => return None,
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) => return None,
-        TokenInfo::IncompleteNamedReference(el, name) => {
-            let prop_info = el.lookup_property(&name);
-            from_prop_result(prop_info)?
-        }
+        TokenInfo::IncompleteNamedReference(el, name) => from_property_in_type(&el, &name)?,
     };
 
     Some(Hover { contents: HoverContents::Markup(contents), range: None })
 }
 
-fn from_prop_result(prop_info: PropertyLookupResult) -> Option<MarkupContent> {
-    let ret_ty =
-        |ty: &Type| if matches!(ty, Type::Void) { String::new() } else { format!(" -> {}", ty) };
+fn from_property_in_element(element: &ElementRc, name: &str) -> Option<MarkupContent> {
+    if let Some(decl) = element.borrow().property_declarations.get(name) {
+        return property_tooltip(&decl.property_type, name, decl.pure.unwrap_or(false));
+    }
+    from_property_in_type(&element.borrow().base_type, name)
+}
 
-    let pure = if prop_info.declared_pure.is_some_and(|x| x) { "pure " } else { "" };
-    if let Type::Callback(callback) = &prop_info.property_type {
-        let ret = ret_ty(&callback.return_type);
-        let args = callback.args.iter().map(|x| x.to_string()).join(", ");
-        Some(from_slint_code(&format!("{pure}callback {}({args}){ret}", prop_info.resolved_name)))
-    } else if let Type::Function(function) = &prop_info.property_type {
-        let ret = ret_ty(&function.return_type);
-        let args = function.args.iter().map(|x| x.to_string()).join(", ");
-        Some(from_slint_code(&format!("{pure}function {}({args}){ret}", prop_info.resolved_name)))
-    } else if prop_info.property_type.is_property_type() {
-        Some(from_slint_code(&format!(
-            "property <{}> {}",
-            prop_info.property_type, prop_info.resolved_name
-        )))
+fn from_property_in_type(base: &ElementType, name: &str) -> Option<MarkupContent> {
+    match base {
+        ElementType::Component(c) => from_property_in_element(&c.root_element, name),
+        ElementType::Builtin(b) => {
+            let resolved_name = b.native_class.lookup_alias(name).unwrap_or(name);
+            let info = b.properties.get(resolved_name)?;
+            property_tooltip(&info.ty, name, false)
+        }
+        _ => None,
+    }
+}
+
+fn property_tooltip(ty: &Type, name: &str, pure: bool) -> Option<MarkupContent> {
+    let pure = if pure { "pure " } else { "" };
+    if let Type::Callback(callback) = ty {
+        let sig = signature_from_function_ty(&callback);
+        Some(from_slint_code(&format!("{pure}callback {name}{sig}")))
+    } else if let Type::Function(function) = &ty {
+        let sig = signature_from_function_ty(&function);
+        Some(from_slint_code(&format!("{pure}function {name}{sig}")))
+    } else if ty.is_property_type() {
+        Some(from_slint_code(&format!("property <{ty}> {name}")))
     } else {
         None
     }
+}
+
+fn signature_from_function_ty(f: &i_slint_compiler::langtype::Function) -> String {
+    let ret = if matches!(f.return_type, Type::Void) {
+        String::new()
+    } else {
+        format!(" -> {}", f.return_type)
+    };
+    let args = f
+        .args
+        .iter()
+        .zip(f.arg_names.iter().chain(std::iter::repeat(&Default::default())))
+        .filter(|(x, _)| *x != &Type::ElementReference)
+        .map(|(ty, name)| if !name.is_empty() { format!("{name}: {ty}") } else { ty.to_string() })
+        .join(", ");
+    format!("({args}){ret}")
 }
 
 fn from_plain_text(value: String) -> MarkupContent {
@@ -94,6 +116,7 @@ mod tests {
     #[test]
     fn test_tooltip() {
         let source = r#"
+import { StandardTableView } from "std-widgets.slint";
 global Glob {
   in-out property <{a:int,b:float}> hello_world;
   callback cb(string, int) -> [int];
@@ -119,10 +142,14 @@ export component Test {
          root.fn_loc();
       }
       property <Eee> e: Eee.E2;
+      pointer-event(aaa) => {}
   }
   Rectangle {
     background: red;
     border-color: self.background;
+  }
+  StandardTableView {
+    row-pointer-event => { }
   }
 }"#;
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
@@ -185,8 +212,18 @@ export component Test {
             "```slint\ncallback cb(string, int) -> [int]\n```",
         );
         assert_tooltip(
+            get_tooltip(&mut dc, find_tk("row-pointer-event", 0.into())),
+            // Fixme: this uses LogicalPoint instead of Point because of implementation details
+            "```slint\ncallback row-pointer-event(row-index: int, event: PointerEvent, mouse-position: LogicalPosition)\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("pointer-event", 5.into())),
+            "```slint\ncallback pointer-event(event: PointerEvent)\n```",
+        );
+        // functions
+        assert_tooltip(
             get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 1.into())),
-            "```slint\npure function fn-glob(int)\n```",
+            "```slint\npure function fn-glob(abc: int)\n```",
         );
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("root.fn_loc", 8.into())),

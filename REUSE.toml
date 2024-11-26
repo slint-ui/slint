@@ -1,0 +1,229 @@
+version = 1
+SPDX-PackageName = "slint"
+SPDX-PackageSupplier = "Slint Developers <info@slint.dev>"
+SPDX-PackageDownloadLocation = "https://slint.dev/"
+
+[[annotations]]
+path = [
+  "**/MadeWithSlint-**.pdf",
+  "**/MadeWithSlint-**.png",
+  "**/MadeWithSlint-**.svg",
+  "**/slint-icon-**.pdf",
+  "**/slint-icon-**.png",
+  "**/slint-icon-**.svg",
+  "**/slint-logo-**.pdf",
+  "**/slint-logo-**.png",
+  "**/slint-logo-**.svg",
+  "docs/src/content/docs/reference/elements/slint-logo.png",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "CC-BY-ND-4.0"
+
+[[annotations]]
+path = [
+  "**/.eslintrc.yml",
+  "**/.gitignore",
+  "**/.npmignore",
+  ".dockerignore",
+  ".gitattributes",
+  ".gitignore",
+  ".mailmap",
+  ".vscode/**",
+  "Cargo.lock",
+  "REUSE.toml",
+  "biome.json",
+  "cspell.json",
+  "docs/search/scraper-config.json",
+  "package.json",
+  "pnpm-lock.yaml",
+  "rustfmt.toml",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = [
+  ".github/issue_template.md",
+  ".github/pull_request_template.md",
+
+  "api/cpp/docs/**/**.css",
+  "api/cpp/docs/**/**.html",
+  "api/cpp/tests/redpixel.png",
+
+  "demos/**.json",
+  "demos/**/LC_MESSAGES/**.mo",
+  "demos/**/README",
+  "demos/**/esp-idf/partitions.csv",
+  "demos/**/sdkconfig**",
+  "demos/energy-monitor/ui/assets/arrow-left.svg",
+  "demos/energy-monitor/ui/assets/arrow-right.svg",
+  "demos/energy-monitor/ui/assets/check.svg",
+  "demos/energy-monitor/ui/assets/cloud.svg",
+  "demos/energy-monitor/ui/assets/cloudy.svg",
+  "demos/energy-monitor/ui/assets/dashboard.svg",
+  "demos/energy-monitor/ui/assets/information.svg",
+  "demos/energy-monitor/ui/assets/settings.svg",
+  "demos/energy-monitor/ui/assets/sunny.svg",
+  "demos/home-automation/ui/images/**.jpg",
+  "demos/home-automation/ui/images/**.png",
+  "demos/home-automation/ui/images/**.svg",
+  "demos/printerdemo/zephyr/VERSION",
+  "demos/weather-demo/docs/**.png",
+  "demos/weather-demo/index.html",
+
+  "docs/**.json",
+  "docs/**.mjs",
+  "docs/**/**.css",
+  "docs/**/**.html",
+  "docs/**/book.toml",
+  "docs/**/package.json",
+  "docs/public/**.svg",
+  "docs/src/assets/**.svg",
+  "docs/src/assets/**.webp",
+  "docs/src/assets/getting-started/**.webp",
+  "docs/src/content/docs/reference/elements/mini-banner.png",
+  "docs/src/misc/**.json",
+  "docs/src/misc/**.jsonc",
+  "docs/src/utils/_templates/**.md",
+
+  "examples/**.json",
+  "examples/**/LC_MESSAGES/**.mo",
+  "examples/**/README",
+  "examples/**/README.txt",
+  "examples/**/esp-idf/**/partitions.csv",
+  "examples/**/esp-idf/partitions.csv",
+  "examples/**/sdkconfig**",
+  "examples/cpp/qt_viewer/interface.ui",
+  "examples/dial/images/**.png",
+  "examples/fancy-switches/images/**.png",
+  "examples/fancy-switches/images/**.svg",
+  "examples/orbit-animation/images/**.png",
+  "examples/orbit-animation/images/**.svg",
+  "examples/sprite-sheet/images/**.png",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "api/**/**.json",
+  "api/node/__test__/resources/**.png",
+
+  "editors/sublime/LSP.sublime-settings",
+  "editors/tree-sitter-slint/corpus/**.txt",
+  "editors/vscode/**.json",
+  "editors/vscode/css/**.css",
+  "editors/vscode/tests/grammar/**.slint",
+
+  "tests/screenshots/**/**.png",
+
+  "tools/slintpad/**.html",
+  "tools/slintpad/**.json",
+  "tools/slintpad/styles/**.css",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = [
+  "demos/weather-demo/ui/assets/icons/**.svg",
+  "examples/memory/icons/**.png",
+  "examples/memory/icons/**.svg",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Fontawesome project <https://fontawesome.com/license/free>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "demos/printerdemo/ui/images/**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "CoreyGinnivan <https://github.com/CoreyGinnivan/system-uicons>"
+SPDX-License-Identifier = "Unlicense"
+
+[[annotations]]
+path = [
+  "examples/iot-dashboard/images/**.svg",
+  "examples/iot-dashboard/images/**.png",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Uwe Rathmann <https://github.com/uwerat/qskinny/tree/master/examples/iotdashboard/images>"
+SPDX-License-Identifier = "LicenseRef-qskinny"
+
+[[annotations]]
+path = [
+  "tools/lsp/ui/assets/chevron-down.svg",
+  "tools/lsp/ui/assets/inspect.svg",
+  "tools/lsp/ui/assets/layout-sidebar**.svg",
+  "tools/lsp/ui/assets/sync.svg",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "examples/carousel/fonts/**.ttf"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Roboto <https://fonts.google.com/specimen/Roboto/about>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "internal/compiler/widgets/fluent/_**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © Microsoft Corporation <https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "internal/compiler/widgets/material/_**.svg",
+  "examples/carousel/icons/**.svg",
+  "internal/compiler/widgets/cupertino/_**.svg",
+  "internal/compiler/widgets/qt/_**.svg",
+  "examples/todo-mvc/assets/**.svg",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "internal/compiler/widgets/cosmic/_**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "\"Cosmic Icons\" by System76 <https://github.com/pop-os/cosmic-icons>"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+[[annotations]]
+path = [
+  "internal/backends/linuxkms/mouse-pointer.svg",
+  "examples/virtual_keyboard/ui/assets/**.svg",
+  "examples/ffmpeg/pause.svg",
+  "examples/ffmpeg/play.svg",
+  "examples/gstreamer-player/**.svg",
+  "examples/uefi-demo/resource/cursor.png",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © 2018 Dave Gandy & Fork Awesome"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "demos/energy-monitor/ui/assets/spyrosoft-logo.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © Spyrosoft Solutions GmbH <office@spyro-soft.com>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "demos/weather-demo/ui/assets/weathericons-font.ttf"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Weather Icons <http://erikflowers.github.io/weather-icons/>"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = [
+  "demos/weather-demo/android-res/**/ic_launcher.png",
+  "demos/weather-demo/ui/assets/felgo-logo.svg",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © Felgo GmbH <contact@felgo.com>"
+SPDX-License-Identifier = "CC-BY-ND-4.0"

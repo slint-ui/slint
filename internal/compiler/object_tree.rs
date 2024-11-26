@@ -18,7 +18,7 @@ use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
-use crate::typeloader::ImportedTypes;
+use crate::typeloader::{ImportKind, ImportedTypes};
 use crate::typeregister::TypeRegister;
 use itertools::Either;
 use once_cell::unsync::OnceCell;
@@ -53,6 +53,7 @@ pub struct Document {
     /// startup for custom font use.
     pub custom_fonts: Vec<(SmolStr, crate::parser::SyntaxToken)>,
     pub exports: Exports,
+    pub imports: Vec<ImportedTypes>,
 
     /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
     /// disk on the build system
@@ -61,12 +62,15 @@ pub struct Document {
 
     /// The list of used extra types used recursively.
     pub used_types: RefCell<UsedSubTypes>,
+
+    /// The popup_menu_impl
+    pub popup_menu_impl: Option<Rc<Component>>,
 }
 
 impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
-        foreign_imports: Vec<ImportedTypes>,
+        imports: Vec<ImportedTypes>,
         reexports: Exports,
         diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
@@ -168,8 +172,9 @@ impl Document {
         let mut exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
         exports.add_reexports(reexports, diag);
 
-        let custom_fonts = foreign_imports
-            .into_iter()
+        let custom_fonts = imports
+            .iter()
+            .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
                 if import.file.ends_with(".ttc")
                     || import.file.ends_with(".ttf")
@@ -186,7 +191,7 @@ impl Document {
                         || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
                             .is_some()
                     {
-                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token))
+                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token.clone()))
                     } else {
                         diag.push_error(
                             format!("File \"{}\" not found", import.file),
@@ -194,6 +199,9 @@ impl Document {
                         );
                         None
                     }
+                } else if import.file.ends_with(".slint") {
+                    diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token.parent());
+                    None
                 } else {
                     diag.push_error(
                         format!("Unsupported foreign import \"{}\"", import.file),
@@ -234,9 +242,11 @@ impl Document {
             inner_types,
             local_registry,
             custom_fonts,
+            imports,
             exports,
             embedded_file_resources: Default::default(),
             used_types: Default::default(),
+            popup_menu_impl: None,
         }
     }
 
@@ -264,6 +274,9 @@ impl Document {
             v(&c);
         }
         for c in &used_types.globals {
+            v(c);
+        }
+        if let Some(c) = &self.popup_menu_impl {
             v(c);
         }
     }
@@ -590,10 +603,10 @@ pub struct GeometryProps {
 impl GeometryProps {
     pub fn new(element: &ElementRc) -> Self {
         Self {
-            x: NamedReference::new(element, "x"),
-            y: NamedReference::new(element, "y"),
-            width: NamedReference::new(element, "width"),
-            height: NamedReference::new(element, "height"),
+            x: NamedReference::new(element, SmolStr::new_static("x")),
+            y: NamedReference::new(element, SmolStr::new_static("y")),
+            width: NamedReference::new(element, SmolStr::new_static("width")),
+            height: NamedReference::new(element, SmolStr::new_static("height")),
         }
     }
 }
@@ -1147,22 +1160,28 @@ impl Element {
 
             let args = sig_decl
                 .CallbackDeclarationParameter()
-                .map(|p| {
-                    if let Some(n) = p.DeclaredIdentifier() {
-                        if !diag.enable_experimental && !tr.expose_internal_types {
-                            diag.push_error("Callback named parameters are experimental and not yet supported in this version of Slint".into(), &n);
-                        }
-                    }
-                    type_from_node(p.Type(), diag, tr)})
+                .map(|p| type_from_node(p.Type(), diag, tr))
                 .collect();
             let return_type = sig_decl
                 .ReturnType()
                 .map(|ret_ty| type_from_node(ret_ty.Type(), diag, tr))
                 .unwrap_or(Type::Void);
+            let arg_names = sig_decl
+                .CallbackDeclarationParameter()
+                .map(|a| {
+                    a.DeclaredIdentifier()
+                        .and_then(|x| parser::identifier_text(&x))
+                        .unwrap_or_default()
+                })
+                .collect();
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Callback(Rc::new(Function { return_type, args })),
+                    property_type: Type::Callback(Rc::new(Function {
+                        return_type,
+                        args,
+                        arg_names,
+                    })),
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
                     pure,
@@ -1243,7 +1262,11 @@ impl Element {
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
-                    property_type: Type::Function(Rc::new(Function { return_type, args })),
+                    property_type: Type::Function(Rc::new(Function {
+                        return_type,
+                        args,
+                        arg_names,
+                    })),
                     node: Some(func.into()),
                     visibility,
                     pure,
@@ -1569,11 +1592,14 @@ impl Element {
     ) -> ElementRc {
         let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
             Some(ListViewInfo {
-                viewport_y: NamedReference::new(parent, "viewport-y"),
-                viewport_height: NamedReference::new(parent, "viewport-height"),
-                viewport_width: NamedReference::new(parent, "viewport-width"),
-                listview_height: NamedReference::new(parent, "visible-height"),
-                listview_width: NamedReference::new(parent, "visible-width"),
+                viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
+                viewport_height: NamedReference::new(
+                    parent,
+                    SmolStr::new_static("viewport-height"),
+                ),
+                viewport_width: NamedReference::new(parent, SmolStr::new_static("viewport-width")),
+                listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
+                listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
             })
         } else {
             None
@@ -1993,7 +2019,7 @@ fn lookup_property_from_qualified_name_for_state(
                 );
             }
             Some((
-                NamedReference::new(r, &lookup_result.resolved_name),
+                NamedReference::new(r, lookup_result.resolved_name.to_smolstr()),
                 lookup_result.property_type,
             ))
         }
@@ -2015,7 +2041,7 @@ fn lookup_property_from_qualified_name_for_state(
                     );
                 }
                 Some((
-                    NamedReference::new(&element, &lookup_result.resolved_name),
+                    NamedReference::new(&element, lookup_result.resolved_name.to_smolstr()),
                     lookup_result.property_type,
                 ))
             } else {
@@ -2245,7 +2271,8 @@ pub fn visit_named_references_in_expression(
         Expression::RepeaterModelReference { element }
         | Expression::RepeaterIndexReference { element } => {
             // FIXME: this is questionable
-            let mut nc = NamedReference::new(&element.upgrade().unwrap(), "$model");
+            let mut nc =
+                NamedReference::new(&element.upgrade().unwrap(), SmolStr::new_static("$model"));
             vis(&mut nc);
             debug_assert!(nc.element().borrow().repeated.is_some());
             *element = Rc::downgrade(&nc.element());
@@ -2703,22 +2730,22 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         // generate the layout_info_prop that forward to the implicit layout for that item
         let li_v = crate::layout::create_new_prop(
             &new_root,
-            "layoutinfo-v",
+            SmolStr::new_static("layoutinfo-v"),
             crate::typeregister::layout_info_type(),
         );
         let li_h = crate::layout::create_new_prop(
             &new_root,
-            "layoutinfo-h",
+            SmolStr::new_static("layoutinfo-h"),
             crate::typeregister::layout_info_type(),
         );
         let expr_h = crate::layout::implicit_layout_info_call(old_root, Orientation::Horizontal);
         let expr_v = crate::layout::implicit_layout_info_call(old_root, Orientation::Vertical);
         let expr_v =
             BindingExpression::new_with_span(expr_v, old_root.borrow().to_source_location());
-        li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v.into());
+        li_v.element().borrow_mut().bindings.insert(li_v.name().clone(), expr_v.into());
         let expr_h =
             BindingExpression::new_with_span(expr_h, old_root.borrow().to_source_location());
-        li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h.into());
+        li_h.element().borrow_mut().bindings.insert(li_h.name().clone(), expr_h.into());
         Some((li_h.clone(), li_v.clone()))
     });
     new_root.borrow_mut().layout_info_prop = layout_info_prop;
@@ -2748,7 +2775,10 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     let mut injected_parent_mut = injected_parent.borrow_mut();
     injected_parent_mut.bindings.insert(
         "z".into(),
-        RefCell::new(BindingExpression::new_two_way(NamedReference::new(old_elem, "z"))),
+        RefCell::new(BindingExpression::new_two_way(NamedReference::new(
+            old_elem,
+            SmolStr::new_static("z"),
+        ))),
     );
     // (should be removed by const propagation in the llr)
     injected_parent_mut.property_declarations.insert(
@@ -2759,6 +2789,8 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);
     injected_parent_mut.geometry_props.clone_from(&old_elem_mut.geometry_props);
     drop(injected_parent_mut);
-    old_elem_mut.geometry_props.as_mut().unwrap().x = NamedReference::new(injected_parent, "dummy");
-    old_elem_mut.geometry_props.as_mut().unwrap().y = NamedReference::new(injected_parent, "dummy");
+    old_elem_mut.geometry_props.as_mut().unwrap().x =
+        NamedReference::new(injected_parent, SmolStr::new_static("dummy"));
+    old_elem_mut.geometry_props.as_mut().unwrap().y =
+        NamedReference::new(injected_parent, SmolStr::new_static("dummy"));
 }

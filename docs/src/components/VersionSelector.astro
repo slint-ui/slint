@@ -1,0 +1,112 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import type { Props } from "@astrojs/starlight/props";
+import { Icon } from "@astrojs/starlight/components";
+import { getVersions } from "../utils/versions.ts";
+
+interface Version {
+    version: string;
+    name?: string;
+    url: string;
+    preferred?: boolean;
+}
+
+const versions = await getVersions();
+
+const currentUrl = Astro.url.href;
+
+const processedVersions = versions.map((version) => ({
+    ...version,
+    selected:
+        currentUrl.includes(version.version) ||
+        (currentUrl.includes("master") &&
+            version.name?.includes("development snapshot")),
+    label: version.preferred
+        ? version.version
+        : version.name
+          ? "next"
+          : version.version,
+}));
+---
+
+<div>
+  <label style={`--sl-select-width: ${Astro.props.width}`}>
+    <span class="sr-only">Version</span>
+    <select 
+      id="version-selector" 
+      aria-label="Select Documentation Version"
+      onchange="window.location.href=this.value"
+    >
+      {processedVersions.map(version => (
+        <option 
+          value={version.url} 
+          selected={version.selected}
+        >
+          {version.label}
+        </option>
+      ))}
+    </select>
+    <Icon name="down-caret" class="icon caret" />
+  </label>
+</div>
+
+<style>
+  label {
+		--sl-label-icon-size: 0.875rem;
+		--sl-caret-size: 1.25rem;
+		--sl-inline-padding: 0.5rem;
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	label:hover {
+		color: var(--sl-color-gray-2);
+	}
+
+	.icon {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		pointer-events: none;
+	}
+
+	.label-icon {
+		font-size: var(--sl-label-icon-size);
+		inset-inline-start: 0;
+	}
+
+	.caret {
+		font-size: var(--sl-caret-size);
+		inset-inline-end: 0;
+	}
+
+	select {
+		border: 0;
+    outline: none;
+		padding-block: 0.625rem;
+		padding-inline: calc(var(--sl-label-icon-size) + var(--sl-inline-padding) + 0.25rem)
+			calc(var(--sl-caret-size) + var(--sl-inline-padding) + 0.25rem);
+		margin-inline: calc(var(--sl-inline-padding) * -1);
+		width: calc(var(--sl-select-width) + var(--sl-inline-padding) * 2);
+		background-color: transparent;
+		text-overflow: ellipsis;
+		color: inherit;
+		cursor: pointer;
+		appearance: none;
+	}
+
+	option {
+		background-color: var(--sl-color-bg-nav);
+		color: var(--sl-color-gray-1);
+	}
+
+	@media (min-width: 50rem) {
+		select {
+			font-size: var(--sl-text-sm);
+		}
+	}
+</style>

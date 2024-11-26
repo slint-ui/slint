@@ -1,0 +1,79 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: TimePickerPopup
+description: TimePickerPopup api.
+---
+
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-timepicker.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets timepicker example'>
+```slint
+import { TimePickerPopup, Button } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 600px;
+
+    time-picker-button := Button {
+        text: @tr("Open TimePicker");
+
+        clicked => {
+            time-picker.show();
+        }
+    }
+
+    time-picker := TimePickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height ) / 2;
+        width: 360px;
+        height: 524px;
+        canceled => {
+            time-picker.close();
+        }
+
+        accepted(time) => {
+            debug(time);
+            time-picker.close();
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/PM). 
+
+## Properties
+
+### use-24-hour-format
+<SlintProperty propName="use-24-hour-format" typeName="bool" defaultValue="system default" >
+If set to `true` 24 hours are displayed otherwise it is displayed in AM/PM mode. (default: system default, if cannot be determined then `true`) 
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string" >
+The text that is displayed at the top of the picker.
+</SlintProperty>
+
+### time
+<SlintProperty propName="time" typeName="struct" structName="Time" >
+Set the initial displayed time.
+</SlintProperty>
+
+## Callbacks
+
+### canceled()
+The cancel button was clicked.
+
+### accepted(Time)
+The ok button was clicked.
+
+
+### Struct `Time`
+
+Defines a time with hours, minutes, and seconds.
+
+#### Fields
+
+-   **`hour`(int)**: The hour value (range from 0 to 23).
+-   **`minute`(int)**: The minute value (range from 1 to 59).
+-   **`second`(int)**: The second value (range form 1 to 59).

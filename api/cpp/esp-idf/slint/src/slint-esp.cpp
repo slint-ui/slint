@@ -213,6 +213,12 @@ void EspPlatform::run_event_loop()
                         || rotation
                                 == slint::platform::SoftwareRenderer::RenderingRotation::Rotate270;
                 if (buffer1) {
+#if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+                    if (buffer2) {
+                        xSemaphoreGive(sem_gui_ready);
+                        xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
+                    }
+#endif
                     auto region = m_window->m_renderer.render(buffer1.value(),
                                                               rotated ? size.height : size.width);
 
@@ -232,11 +238,6 @@ void EspPlatform::run_event_loop()
                     if (buffer2) {
                         auto s = region.bounding_box_size();
                         if (s.width > 0 && s.height > 0) {
-#if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-                            xSemaphoreGive(sem_gui_ready);
-                            xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
-#endif
-
                             // Assuming that using double buffer means that the buffer comes from
                             // the driver and we need to pass the exact pointer.
                             // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681

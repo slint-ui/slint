@@ -4,16 +4,16 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
-        "slint-ui": "../../../api/node",
+        "slint-ui": "workspace:*",
         "jimp": "1.6.0"
     },
     "devDependencies": {
         "@types/node": "20.16.10",
-        "typescript": "5.6.2"
+        "typescript": "5.7.2"
     },
     "scripts": {
         "start": "tsc --build && node ./main.js",
+        "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
         "type-check": "tsc --noEmit"
-
     }
 }

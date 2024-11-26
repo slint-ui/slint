@@ -159,11 +159,14 @@ cpp! {{
 
             void *parent_of_popup_to_close = nullptr;
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
+                while (auto pp = dynamic_cast<const SlintWidget*>(p->parent())) {
+                    p = pp;
+                }
                 void *parent_window = p->rust_window;
-                bool close_on_click = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*"] -> bool as "bool" {
-                    let close_policy = parent_window.close_policy();
-
-                    close_policy == PopupClosePolicy::CloseOnClick || close_policy == PopupClosePolicy::CloseOnClickOutside
+                bool inside = rect().contains(event->pos());
+                bool close_on_click = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", inside: bool as "bool"] -> bool as "bool" {
+                    let close_policy = parent_window.top_close_policy();
+                    close_policy == PopupClosePolicy::CloseOnClick || (close_policy == PopupClosePolicy::CloseOnClickOutside && !inside)
                 });
                 if (close_on_click) {
                     parent_of_popup_to_close = parent_window;
@@ -179,7 +182,7 @@ cpp! {{
             });
             if (parent_of_popup_to_close) {
                 rust!(Slint_mouseReleaseEventClosePopup [parent_of_popup_to_close: &QtWindow as "void*"] {
-                    parent_of_popup_to_close.close_popup();
+                    parent_of_popup_to_close.close_top_popup();
                 });
             }
         }
@@ -1743,12 +1746,12 @@ impl QtWindow {
         timer_event();
     }
 
-    fn close_popup(&self) {
-        WindowInner::from_pub(&self.window).close_popup();
+    fn close_top_popup(&self) {
+        WindowInner::from_pub(&self.window).close_top_popup();
     }
 
-    fn close_policy(&self) -> PopupClosePolicy {
-        WindowInner::from_pub(&self.window).close_policy()
+    fn top_close_policy(&self) -> PopupClosePolicy {
+        WindowInner::from_pub(&self.window).top_close_policy()
     }
 
     fn window_state_event(&self) {
@@ -1796,6 +1799,15 @@ impl WindowAdapter for QtWindow {
     }
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
+        if let Some(xdg_app_id) = WindowInner::from_pub(&self.window)
+            .xdg_app_id()
+            .map(|s| qttypes::QString::from(s.as_str()))
+        {
+            cpp! {unsafe [xdg_app_id as "QString"] {
+                QGuiApplication::setDesktopFileName(xdg_app_id);
+            }};
+        }
+
         if visible {
             let widget_ptr = self.widget_ptr();
             cpp! {unsafe [widget_ptr as "QWidget*"] {

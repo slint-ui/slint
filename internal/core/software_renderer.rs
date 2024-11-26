@@ -21,7 +21,9 @@ use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetrics
 use crate::graphics::{
     BorderRadius, PixelFormat, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
 };
-use crate::item_rendering::{CachedRenderingData, DirtyRegion, RenderBorderRectangle, RenderImage};
+use crate::item_rendering::{
+    CachedRenderingData, DirtyRegion, PartialRenderingState, RenderBorderRectangle, RenderImage,
+};
 use crate::items::{ItemRc, TextOverflow, TextWrap};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -50,24 +52,7 @@ type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
 
-/// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may be re-used to speed up painting.
-// FIXME: #[non_exhaustive] #3023
-#[derive(PartialEq, Eq, Debug, Clone, Default, Copy)]
-pub enum RepaintBufferType {
-    #[default]
-    /// The full window is always redrawn. No attempt at partial rendering will be made.
-    NewBuffer,
-    /// Only redraw the parts that have changed since the previous call to render().
-    ///
-    /// This variant assumes that the same buffer is passed on every call to render() and
-    /// that it still contains the previously rendered frame.
-    ReusedBuffer,
-
-    /// Redraw the part that have changed since the last two frames were drawn.
-    ///
-    /// This is used when using double buffering and swapping of the buffers.
-    SwappedBuffers,
-}
+pub use crate::item_rendering::RepaintBufferType;
 
 /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
 ///
@@ -392,15 +377,7 @@ fn region_line_ranges(
 ///     is only useful if the device does not have enough memory to render the whole window
 ///     in one single buffer
 pub struct SoftwareRenderer {
-    partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
-    repaint_buffer_type: Cell<RepaintBufferType>,
-    /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
-    force_dirty: RefCell<DirtyRegion>,
-    /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
-    force_screen_refresh: Cell<bool>,
-    /// This is the area which was dirty on the previous frame.
-    /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
-    prev_frame_dirty: Cell<DirtyRegion>,
+    partial_rendering_state: PartialRenderingState,
     maybe_window_adapter: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
     rotation: Cell<RenderingRotation>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
@@ -409,11 +386,7 @@ pub struct SoftwareRenderer {
 impl Default for SoftwareRenderer {
     fn default() -> Self {
         Self {
-            partial_cache: Default::default(),
-            repaint_buffer_type: Default::default(),
-            force_dirty: Default::default(),
-            force_screen_refresh: Default::default(),
-            prev_frame_dirty: Default::default(),
+            partial_rendering_state: Default::default(),
             maybe_window_adapter: Default::default(),
             rotation: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new("software"),
@@ -431,21 +404,21 @@ impl SoftwareRenderer {
     ///
     /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
     pub fn new_with_repaint_buffer_type(repaint_buffer_type: RepaintBufferType) -> Self {
-        Self { repaint_buffer_type: repaint_buffer_type.into(), ..Default::default() }
+        let self_ = Self::default();
+        self_.partial_rendering_state.set_repaint_buffer_type(repaint_buffer_type);
+        self_
     }
 
     /// Change the what kind of buffer is being passed to [`Self::render`]
     ///
     /// This may clear the internal caches
     pub fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
-        if self.repaint_buffer_type.replace(repaint_buffer_type) != repaint_buffer_type {
-            self.partial_cache.borrow_mut().clear();
-        }
+        self.partial_rendering_state.set_repaint_buffer_type(repaint_buffer_type);
     }
 
     /// Returns the kind of buffer that must be passed to  [`Self::render`]
     pub fn repaint_buffer_type(&self) -> RepaintBufferType {
-        self.repaint_buffer_type.get()
+        self.partial_rendering_state.repaint_buffer_type()
     }
 
     /// Set how the window need to be rotated in the buffer.
@@ -458,25 +431,6 @@ impl SoftwareRenderer {
     /// Return the current rotation. See [`Self::set_rendering_rotation()`]
     pub fn rendering_rotation(&self) -> RenderingRotation {
         self.rotation.get()
-    }
-
-    /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
-    /// Returns the region to actually draw.
-    fn apply_dirty_region(&self, dirty_region: &mut DirtyRegion, screen_size: LogicalSize) {
-        let screen_region = LogicalRect::from_size(screen_size);
-
-        if self.force_screen_refresh.take() {
-            *dirty_region = screen_region.into();
-        }
-
-        *dirty_region = match self.repaint_buffer_type() {
-            RepaintBufferType::NewBuffer => screen_region.into(),
-            RepaintBufferType::ReusedBuffer => dirty_region.clone(),
-            RepaintBufferType::SwappedBuffers => {
-                dirty_region.union(&self.prev_frame_dirty.replace(dirty_region.clone()))
-            }
-        }
-        .intersection(screen_region)
     }
 
     /// Render the window to the given frame buffer.
@@ -538,19 +492,16 @@ impl SoftwareRenderer {
             },
             rotation,
         );
-        let mut renderer = crate::item_rendering::PartialRenderer::new(
-            &self.partial_cache,
-            self.force_dirty.take(),
-            buffer_renderer,
-        );
+        let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
 
         window_inner
             .draw_contents(|components| {
                 let logical_size = (size.cast() / factor).cast();
-                for (component, origin) in components {
-                    renderer.compute_dirty_regions(component, *origin, logical_size);
-                }
-                self.apply_dirty_region(&mut renderer.dirty_region, logical_size);
+                self.partial_rendering_state.apply_dirty_region(
+                    &mut renderer,
+                    components,
+                    logical_size,
+                );
                 let rotation = RotationInfo { orientation: rotation, screen_size: size };
                 let mut i = renderer.dirty_region.iter().map(|r| {
                     (r.cast() * factor).to_rect().round_out().cast().transformed(rotation)
@@ -593,7 +544,7 @@ impl SoftwareRenderer {
                 if let Some(metrics) = &self.rendering_metrics_collector {
                     metrics.measure_frame_rendered(&mut renderer);
                     if metrics.refresh_mode() == RefreshMode::FullSpeed {
-                        self.force_screen_refresh.set(true);
+                        self.partial_rendering_state.force_screen_refresh();
                     }
                 }
 
@@ -814,17 +765,12 @@ impl RendererSealed for SoftwareRenderer {
         _component: crate::item_tree::ItemTreeRef,
         items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) -> Result<(), crate::platform::PlatformError> {
-        for item in items {
-            item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
-        }
-        // We don't have a way to determine the screen region of the delete items, what's in the cache is relative. So
-        // as a last resort, refresh everything.
-        self.force_screen_refresh.set(true);
+        self.partial_rendering_state.free_graphics_resources(items);
         Ok(())
     }
 
     fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {
-        self.force_dirty.replace_with(|r| r.union(&region));
+        self.partial_rendering_state.mark_dirty_region(region);
     }
 
     fn register_bitmap_font(&self, font_data: &'static crate::graphics::BitmapFont) {
@@ -853,7 +799,7 @@ impl RendererSealed for SoftwareRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
-        self.partial_cache.borrow_mut().clear();
+        self.partial_rendering_state.clear_cache();
     }
 
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
@@ -1014,20 +960,17 @@ fn prepare_scene(
         PrepareScene::default(),
         software_renderer.rotation.get(),
     );
-    let mut renderer = crate::item_rendering::PartialRenderer::new(
-        &software_renderer.partial_cache,
-        software_renderer.force_dirty.take(),
-        prepare_scene,
-    );
+    let mut renderer =
+        software_renderer.partial_rendering_state.create_partial_renderer(prepare_scene);
 
     let mut dirty_region = PhysicalRegion::default();
     window.draw_contents(|components| {
         let logical_size = (size.cast() / factor).cast();
-        for (component, origin) in components {
-            renderer.compute_dirty_regions(component, *origin, logical_size);
-        }
-
-        software_renderer.apply_dirty_region(&mut renderer.dirty_region, logical_size);
+        software_renderer.partial_rendering_state.apply_dirty_region(
+            &mut renderer,
+            components,
+            logical_size,
+        );
         let rotation =
             RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
         let mut i = renderer
@@ -1048,7 +991,7 @@ fn prepare_scene(
     if let Some(metrics) = &software_renderer.rendering_metrics_collector {
         metrics.measure_frame_rendered(&mut renderer);
         if metrics.refresh_mode() == RefreshMode::FullSpeed {
-            software_renderer.force_screen_refresh.set(true);
+            software_renderer.partial_rendering_state.force_screen_refresh();
         }
     }
 
@@ -1583,6 +1526,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     .process_texture(geometry.transformed(self.rotation), texture);
                             }
                             fonts::GlyphAlphaMap::Shared(data) => {
+                                let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                                 self.processor.process_shared_image_buffer(
                                     geometry.transformed(self.rotation),
                                     SharedBufferCommand {
@@ -1590,7 +1534,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             data: data.clone(),
                                             width: pixel_stride,
                                         },
-                                        source_rect: PhysicalRect::from_size(source_size),
+                                        source_rect,
                                         extra: SceneTextureExtra {
                                             colorize: color,
                                             // color already is mixed with global alpha
@@ -1634,7 +1578,7 @@ struct SelectionInfo {
     selection: core::ops::Range<usize>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct RenderState {
     alpha: f32,
     offset: LogicalPoint,
@@ -1873,19 +1817,29 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             if border_color.alpha > 0 {
                 let mut add_border = |r: LogicalRect| {
                     if let Some(r) = r.intersection(&self.current_state.clip) {
-                        let geometry = (r.translate(self.current_state.offset.to_vector()).cast()
-                            * self.scale_factor)
-                            .round()
-                            .cast()
-                            .transformed(self.rotation);
+                        let geometry =
+                            (r.translate(self.current_state.offset.to_vector()).try_cast()?
+                                * self.scale_factor)
+                                .round()
+                                .try_cast()?
+                                .transformed(self.rotation);
                         self.processor.process_rectangle(geometry, border_color);
                     }
+                    Some(())
                 };
                 let b = border.get();
-                add_border(euclid::rect(0 as _, 0 as _, geom.width(), b));
-                add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b));
-                add_border(euclid::rect(0 as _, b, b, geom.height() - b - b));
-                add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b));
+                let err = || {
+                    panic!(
+                        "invalid border rectangle {geom:?} border={b} state={:?}",
+                        self.current_state
+                    )
+                };
+                add_border(euclid::rect(0 as _, 0 as _, geom.width(), b)).unwrap_or_else(err);
+                add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b))
+                    .unwrap_or_else(err);
+                add_border(euclid::rect(0 as _, b, b, geom.height() - b - b)).unwrap_or_else(err);
+                add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b))
+                    .unwrap_or_else(err);
             }
         }
     }

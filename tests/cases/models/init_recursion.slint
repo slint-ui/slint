@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Rectangle {
+    property <length> test-height: layout.preferred-height;
+    property <bool> test: self.test-height != 0;
+
+    layout := VerticalLayout {
+        if true: TextInput {
+            // Trigger a call into the layout
+            init => { debug(self.y); }
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert(instance.get_test_height() != 0.);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert!(instance.get_test_height() != 0.);
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert(instance.test_height != 0.);
+```
+*/

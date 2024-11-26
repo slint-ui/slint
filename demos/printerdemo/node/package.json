@@ -4,9 +4,10 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
-        "slint-ui": "../../../api/node"
+        "slint-ui": "workspace:*"
     },
     "scripts": {
-        "start": "node ."
+        "start": "node .",
+        "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile"
     }
 }

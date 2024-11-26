@@ -18,11 +18,11 @@ component SpinBoxButton {
     horizontal-stretch: 0;
 
     states [
-        disabled when !touch-area.enabled : {
+        disabled when !touch-area.enabled: {
             opacity: 0.5;
             icon-color: CupertinoPalette.foreground-secondary;
         }
-        pressed when touch-area.pressed : {
+        pressed when touch-area.pressed: {
             root.background: CupertinoPalette.secondary-accent-background;
         }
     ]
@@ -34,37 +34,17 @@ component SpinBoxButton {
 
         animate background { duration: 150ms; }
 
-        if (root.enabled) : Rectangle {
+        if (root.enabled): Rectangle {
             width: 100%;
             height: 100%;
             border-radius: 4px;
             background: root.background;
-            drop-shadow-blur: 3px;
-            drop-shadow-color: #00000066;
-            drop-shadow-offset-y: 0.5px;
-
-            Rectangle {
-                drop-shadow-blur: 2px;
-                drop-shadow-color: #00000026;
-                drop-shadow-offset-y: 1px;
-                border-radius: parent.border-radius;
-                background: root.background;
-            }
-
-            Rectangle {
-                drop-shadow-blur: 1px;
-                drop-shadow-color: #00000026;
-                drop-shadow-offset-y: 0.5px;
-                border-radius: parent.border-radius;
-                background: root.background;
-            }
 
             Rectangle {
                 border-radius: parent.border-radius;
                 background: CupertinoPalette.dimmer;
                 opacity: 0.17;
             }
-
         }
 
         icon := Image {
@@ -76,7 +56,7 @@ component SpinBoxButton {
         }
     }
 
-    touch-area := TouchArea {}
+    touch-area := TouchArea { }
 }
 
 export component SpinBox {
@@ -84,6 +64,7 @@ export component SpinBox {
     in property <int> maximum <=> base.maximum;
     in property <bool> enabled <=> base.enabled;
     in property <int> step-size <=> base.step-size;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     out property <bool> has-focus <=> base.has-focus;
     in-out property <int> value <=> base.value;
 
@@ -91,7 +72,7 @@ export component SpinBox {
 
     private property <brush> background: CupertinoPalette.control-background;
 
-    min-width: 128px;
+    min-width: max(128px, layout.min-width);
     min-height: max(22px, layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
@@ -103,13 +84,21 @@ export component SpinBox {
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
-    accessible-action-set-value(v) => { if v.is-float() { base.update-value(v.to-float()); } }
-    accessible-action-increment => { base.increment(); }
-    accessible-action-decrement => { base.decrement(); }
+    accessible-action-set-value(v) => {
+        if v.is-float() {
+            base.update-value(v.to-float());
+        }
+    }
+    accessible-action-increment => {
+        base.increment();
+    }
+    accessible-action-decrement => {
+        base.decrement();
+    }
 
     states [
-        disabled when !root.enabled : {
-            base.color: CupertinoPalette.foreground-secondary;
+        disabled when !root.enabled: {
+            base.color: CupertinoPalette.foreground;
             root.background: CupertinoPalette.tertiary-control-background;
         }
     ]
@@ -124,20 +113,14 @@ export component SpinBox {
     }
 
     Rectangle {
-        drop-shadow-blur: 0.25px;
-        drop-shadow-color: #00000066;
-        drop-shadow-offset-y: 0.25px;
         border-radius: 5px;
         background: root.background;
 
         Rectangle {
-            drop-shadow-blur: 1px;
-            drop-shadow-color: #00000026;
-            drop-shadow-offset-y: 1px;
             border-radius: parent.border-radius;
             background: root.background;
             border-width: 1px;
-            border-color: CupertinoPalette.decent-border;
+            border-color: CupertinoPalette.border;
             opacity: root.enabled ? 1 : 0.5;
         }
     }
@@ -152,6 +135,7 @@ export component SpinBox {
             horizontal-stretch: 1;
 
             base := SpinBoxBase {
+                opacity: root.enabled ? 1 : 0.5;
                 width: 100%;
                 color: CupertinoPalette.foreground;
                 font-size: CupertinoFontSettings.body.font-size;

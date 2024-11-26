@@ -127,6 +127,34 @@ struct SharedString
     /// \endcode
     static SharedString from_number(double n) { return SharedString(n); }
 
+    /// Returns the lowercase equivalent of this string, as a new SharedString.
+    ///
+    /// For example:
+    /// \code
+    ///     auto str = slint::SharedString("Hello");
+    ///     auto str2 = str.to_lowercase(); // creates "hello"
+    /// \endcode
+    SharedString to_lowercase() const
+    {
+        auto out = SharedString();
+        cbindgen_private::slint_shared_string_to_lowercase(&out, this);
+        return out;
+    }
+
+    /// Returns the uppercase equivalent of this string, as a new SharedString.
+    ///
+    /// For example:
+    /// \code
+    ///     auto str = slint::SharedString("Hello");
+    ///     auto str2 = str.to_uppercase(); // creates "HELLO"
+    /// \endcode
+    SharedString to_uppercase() const
+    {
+        auto out = SharedString();
+        cbindgen_private::slint_shared_string_to_uppercase(&out, this);
+        return out;
+    }
+
     /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const SharedString &a, const SharedString &b)
     {

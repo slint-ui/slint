@@ -7,6 +7,7 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
+    open-pull-requests-limit: 20
     directory: /
     schedule:
       interval: weekly
@@ -20,6 +21,7 @@ updates:
     
 
   - package-ecosystem: "npm" # See documentation for possible values
+    open-pull-requests-limit: 20
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
@@ -28,16 +30,17 @@ updates:
       - dependency-name: "@types/node"
       - dependency-name: "@types/vscode"
     groups:
-      vscode_major:
+      codingame:
         patterns:
-          - "*"
-        update-types:
-          - "major"
-      vscode_minor_patch:
+          - "@codingame*"
+      vscode:
         patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-     
-    
+          - "vscode*"
+      astro:
+        patterns:
+          - "astro"
+          - "@astro*"
+      playwright:
+        patterns:
+          - "playwright*"
+          - "@playwright*"

@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/1.9.3/schema.json",
+    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
     "formatter": {
         "enabled": true,
         "formatWithErrors": false,
@@ -11,6 +11,7 @@
             "./node_modules",
             "**/.vscode/**",
             "*.json",
+            "**/dist/**",
             "!biome.json",
             "editors/vscode/out/**"
         ]
@@ -18,7 +19,7 @@
     "organizeImports": { "enabled": false },
     "linter": {
         "enabled": true,
-        "ignore": ["api/node/docs/assets/**"],
+        "ignore": ["api/node/docs/assets/**", "**/dist/**"],
         "rules": {
             "recommended": false,
             "complexity": {

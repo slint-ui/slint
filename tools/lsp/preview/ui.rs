@@ -71,6 +71,18 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
+    api.on_selection_stack_at(super::element_selection::selection_stack_at);
+    api.on_find_selected_selection_stack_frame(|stack| {
+        stack.iter().find(|frame| frame.is_selected).unwrap_or_default()
+    });
+    api.on_select_element(|path, offset, x, y| {
+        super::element_selection::select_element_at_source_code_position(
+            PathBuf::from(path.to_string()),
+            crate::preview::TextSize::from(offset as u32),
+            Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
+            true,
+        );
+    });
     api.on_select_behind(super::element_selection::select_element_behind);
     api.on_can_drop(super::can_drop_component);
     api.on_drop(super::drop_component);
@@ -88,6 +100,33 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
 
     api.on_string_to_color(|s| string_to_color(&s.to_string()).unwrap_or_default());
     api.on_string_is_color(|s| string_to_color(&s.to_string()).is_some());
+    api.on_color_to_data(|c| {
+        let encoded = c.as_argb_encoded();
+
+        let a = ((encoded & 0xff000000) >> 24) as u8;
+        let r = ((encoded & 0x00ff0000) >> 16) as u8;
+        let g = ((encoded & 0x0000ff00) >> 8) as u8;
+        let b = (encoded & 0x000000ff) as u8;
+
+        ColorData {
+            a: a as i32,
+            r: r as i32,
+            g: g as i32,
+            b: b as i32,
+            text: format!(
+                "#{:08x}",
+                ((r as u32) << 24) + ((g as u32) << 16) + ((b as u32) << 8) + (a as u32)
+            )
+            .into(),
+        }
+    });
+    api.on_rgba_to_color(|r, g, b, a| {
+        if r >= 0 && r < 256 && g >= 0 && g < 256 && b >= 0 && b < 256 && a >= 0 && a < 256 {
+            slint::Color::from_argb_u8(a as u8, r as u8, g as u8, b as u8)
+        } else {
+            slint::Color::default()
+        }
+    });
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());

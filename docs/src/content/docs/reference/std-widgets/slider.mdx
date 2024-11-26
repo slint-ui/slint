@@ -1,0 +1,66 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Slider
+description: Slider api.
+---
+
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/slider-example.png"  imageWidth="200" imageHeight="200"  imageAlt='slider example'>
+```slint
+import { Slider,  VerticalBox } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 40px;
+
+    VerticalBox {   
+        alignment: center;
+             
+        Slider {
+            value: 42;
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+## Properties
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+You can't interact with the slider if enabled is false.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
+Set to true when the slider currently has the focus
+</SlintProperty>
+
+### value
+<SlintProperty propName="value" typeName="float" defaultValue="0" propertyVisibility="in-out">
+The value. Defaults to the minimum.
+</SlintProperty>
+
+### minimum
+<SlintProperty propName="minimum" typeName="float" defaultValue="0">
+The minimum value.
+</SlintProperty>
+
+### maximum
+<SlintProperty propName="maximum" typeName="float" defaultValue="100">
+The maximum value.
+</SlintProperty>
+
+### orientation
+<SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="horizontal">
+If set to true the Slider is displayed vertical.
+</SlintProperty>
+
+## Callbacks
+
+### changed(float)
+The value was changed
+
+### released(float)
+Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.

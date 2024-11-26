@@ -157,7 +157,12 @@ impl Display for Type {
             Type::Array(t) => write!(f, "[{}]", t),
             Type::Struct(t) => {
                 if let Some(name) = &t.name {
-                    write!(f, "{}", name)
+                    if let Some(separator_pos) = name.rfind("::") {
+                        // write the slint type and not the native type
+                        write!(f, "{}", &name[separator_pos + 2..])
+                    } else {
+                        write!(f, "{}", name)
+                    }
                 } else {
                     write!(f, "{{ ")?;
                     for (k, v) in &t.fields {
@@ -260,7 +265,6 @@ impl Type {
             | (Type::Float32, Type::String)
             | (Type::Int32, Type::Float32)
             | (Type::Int32, Type::String)
-            | (Type::Array(_), Type::Model)
             | (Type::Float32, Type::Model)
             | (Type::Int32, Type::Model)
             | (Type::PhysicalLength, Type::LogicalLength)
@@ -273,6 +277,7 @@ impl Type {
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
+            (Type::Array(a), Type::Model) if a.is_property_type() => true,
             (Type::Struct(a), Type::Struct(b)) => can_convert_struct(&a.fields, &b.fields),
             (Type::UnitProduct(u), o) => match o.as_unit_product() {
                 Some(o) => unit_product_length_conversion(u.as_slice(), o.as_slice()).is_some(),
@@ -376,7 +381,7 @@ impl BuiltinPropertyInfo {
 }
 
 /// The base of an element
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, derive_more::From)]
 pub enum ElementType {
     /// The element is based of a component
     Component(Rc<Component>),
@@ -413,11 +418,7 @@ impl ElementType {
                     } else {
                         Cow::Borrowed(name)
                     };
-                match b
-                    .properties
-                    .get(resolved_name.as_ref())
-                    .or_else(|| b.reserved_properties.get(resolved_name.as_ref()))
-                {
+                match b.properties.get(resolved_name.as_ref()) {
                     None => {
                         if b.is_non_item_type {
                             PropertyLookupResult {
@@ -484,12 +485,9 @@ impl ElementType {
                 );
                 r
             }
-            Self::Builtin(b) => b
-                .properties
-                .iter()
-                .chain(b.reserved_properties.iter())
-                .map(|(k, t)| (k.clone(), t.ty.clone()))
-                .collect(),
+            Self::Builtin(b) => {
+                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
             Self::Native(n) => {
                 n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
             }
@@ -734,7 +732,6 @@ pub struct BuiltinElement {
     pub name: SmolStr,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
-    pub reserved_properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     pub additional_accepted_child_types: HashMap<SmolStr, ElementType>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
@@ -785,6 +782,9 @@ impl<'a> PropertyLookupResult<'a> {
 pub struct Function {
     pub return_type: Type,
     pub args: Vec<Type>,
+    /// The optional names of the arguments (empty string means not set).
+    /// The names are not technically part of the type, but it is good to have them available for auto-completion
+    pub arg_names: Vec<SmolStr>,
 }
 
 #[derive(Debug, Clone)]

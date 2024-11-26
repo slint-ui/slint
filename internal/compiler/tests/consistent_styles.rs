@@ -23,7 +23,13 @@ struct PropertyInfo {
 
 impl Display for PropertyInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}{:?}", self.ty, if self.pure { "pure-" } else { "" }, self.vis)
+        write!(f, "{}/{}{:?}", self.ty, if self.pure { "pure-" } else { "" }, self.vis)?;
+        if let Type::Callback(cb) = &self.ty {
+            if !cb.arg_names.is_empty() {
+                write!(f, "{:?}", cb.arg_names)?
+            }
+        }
+        Ok(())
     }
 }
 
@@ -101,6 +107,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                             ty: Type::Function(Rc::new(Function {
                                 return_type: Type::Void.into(),
                                 args: vec![],
+                                arg_names: vec![],
                             })),
                             vis: PropertyVisibility::Public,
                             pure: false,
@@ -112,6 +119,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                             ty: Type::Function(Rc::new(Function {
                                 return_type: Type::Void.into(),
                                 args: vec![],
+                                arg_names: vec![],
                             })),
                             vis: PropertyVisibility::Public,
                             pure: false,

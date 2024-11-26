@@ -187,6 +187,7 @@ pub mod re_exports {
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
     pub use i_slint_core::animations::{animation_tick, EasingCurve};
+    pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::graphics::*;
@@ -214,7 +215,7 @@ pub mod re_exports {
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::translations::{
-        set_language_internal, translate_from_bundle, translate_from_bundle_with_plural,
+        set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,

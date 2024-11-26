@@ -4,11 +4,12 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
-        "@biomejs/biome": "1.9.3",
-        "slint-ui": "../../../api/node"
+        "@biomejs/biome": "1.9.4",
+        "slint-ui": "workspace:*"
     },
     "scripts": {
         "start": "node .",
+        "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
         "check": "biome check",
         "format": "biome format",
         "format:fix": "biome format --write",

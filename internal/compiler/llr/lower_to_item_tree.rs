@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
     compiler_config: &CompilerConfiguration,
-) -> CompilationUnit {
+) -> std::io::Result<CompilationUnit> {
     let mut state = LoweringState::default();
 
     #[cfg(feature = "bundle-translations")]
@@ -27,7 +27,7 @@ pub fn lower_to_item_tree(
                 path,
                 compiler_config.translation_domain.as_deref().unwrap_or(""),
             )
-            .unwrap_or_else(|e| todo!("TODO: handle error loading translations: {e}")),
+            .map_err(|e| std::io::Error::other(format!("Cannot load bundled translation: {e}")))?,
         ));
     }
 
@@ -62,6 +62,30 @@ pub fn lower_to_item_tree(
         })
         .collect();
 
+    let popup_menu = document.popup_menu_impl.as_ref().map(|c| {
+        let sc = lower_sub_component(&c, &state, None, compiler_config);
+        let item_tree = ItemTree {
+            tree: make_tree(&state, &c.root_element, &sc, &[]),
+            root: Rc::try_unwrap(sc.sub_component).unwrap(),
+            parent_context: None,
+        };
+        PopupMenu {
+            item_tree,
+            sub_menu: sc.mapping.map_property_reference(
+                &NamedReference::new(&c.root_element, SmolStr::new_static("sub-menu")),
+                &state,
+            ),
+            activated: sc.mapping.map_property_reference(
+                &NamedReference::new(&c.root_element, SmolStr::new_static("activated")),
+                &state,
+            ),
+            entries: sc.mapping.map_property_reference(
+                &NamedReference::new(&c.root_element, SmolStr::new_static("entries")),
+                &state,
+            ),
+        }
+    });
+
     let root = CompilationUnit {
         public_components,
         globals,
@@ -75,11 +99,12 @@ pub fn lower_to_item_tree(
             })
             .collect(),
         has_debug_info: compiler_config.debug_info,
+        popup_menu,
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.take().map(|x| x.into_inner().result()),
     };
     super::optim_passes::run_passes(&root);
-    root
+    Ok(root)
 }
 
 #[derive(Default)]
@@ -133,7 +158,7 @@ impl LoweredSubComponentMapping {
                     return property_reference_within_sub_component(
                         state.map_property_reference(&NamedReference::new(
                             &base.root_element,
-                            from.name(),
+                            from.name().clone(),
                         )),
                         *sub_component_index,
                     );
@@ -144,7 +169,7 @@ impl LoweredSubComponentMapping {
                 return PropertyReference::InNativeItem {
                     sub_component_path: vec![],
                     item_index: *item_index,
-                    prop_name: from.name().into(),
+                    prop_name: from.name().to_string(),
                 };
             }
             LoweredElement::Repeated { .. } => unreachable!(),
@@ -273,7 +298,7 @@ fn lower_sub_component(
             if let Type::Function(function) = &x.property_type {
                 let function_index = sub_component.functions.len();
                 mapping.property_mapping.insert(
-                    NamedReference::new(element, p),
+                    NamedReference::new(element, p.clone()),
                     PropertyReference::Function { sub_component_path: vec![], function_index },
                 );
                 // TODO: Function could wrap the Rc<langtype::Function>
@@ -289,7 +314,7 @@ fn lower_sub_component(
             }
             let property_index = sub_component.properties.len();
             mapping.property_mapping.insert(
-                NamedReference::new(element, p),
+                NamedReference::new(element, p.clone()),
                 PropertyReference::Local { sub_component_path: vec![], property_index },
             );
             sub_component.properties.push(Property {
@@ -358,7 +383,8 @@ fn lower_sub_component(
         }
 
         for (prop, expr) in &elem.change_callbacks {
-            change_callbacks.push((NamedReference::new(element, prop), expr.borrow().clone()));
+            change_callbacks
+                .push((NamedReference::new(element, prop.clone()), expr.borrow().clone()));
         }
 
         if compiler_config.debug_info {
@@ -372,7 +398,7 @@ fn lower_sub_component(
     });
     let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
-        let nr = NamedReference::new(e, p);
+        let nr = NamedReference::new(e, p.clone());
         let prop = ctx.map_property_reference(&nr);
 
         if let Type::Function { .. } = nr.ty() {
@@ -468,7 +494,7 @@ fn lower_sub_component(
     sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
-        let x = ctx.map_property_reference(&NamedReference::new(elem, n));
+        let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
         // ensure that all const properties have analysis
         sub_component.prop_analysis.entry(x.clone()).or_insert_with(|| PropAnalysis {
             property_init: None,
@@ -690,7 +716,7 @@ fn lower_popup_component(
 
     use super::Expression::PropertyReference as PR;
     let position = super::lower_expression::make_struct(
-        "Point",
+        "LogicalPosition",
         [
             ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
             ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
@@ -731,7 +757,7 @@ fn lower_global(
             continue;
         }
         let property_index = properties.len();
-        let nr = NamedReference::new(&global.root_element, p);
+        let nr = NamedReference::new(&global.root_element, p.clone());
 
         if let Type::Function(function) = &x.property_type {
             let function_index = functions.len();
@@ -793,7 +819,7 @@ fn lower_global(
         let expression =
             super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
 
-        let nr = NamedReference::new(&global.root_element, prop);
+        let nr = NamedReference::new(&global.root_element, prop.clone());
         let property_index = match mapping.property_mapping[&nr] {
             PropertyReference::Local { property_index, .. } => property_index,
             PropertyReference::Function { ref sub_component_path, function_index } => {
@@ -815,7 +841,7 @@ fn lower_global(
 
     let mut change_callbacks = BTreeMap::new();
     for (prop, expr) in &global.root_element.borrow().change_callbacks {
-        let nr = NamedReference::new(&global.root_element, prop);
+        let nr = NamedReference::new(&global.root_element, prop.clone());
         let property_index = match mapping.property_mapping[&nr] {
             PropertyReference::Local { property_index, .. } => property_index,
             _ => unreachable!(),
@@ -832,7 +858,7 @@ fn lower_global(
         for (p, x) in &builtin.properties {
             let property_index = properties.len();
             properties.push(Property { name: p.clone(), ty: x.ty.clone(), ..Property::default() });
-            let nr = NamedReference::new(&global.root_element, p);
+            let nr = NamedReference::new(&global.root_element, p.clone());
             state
                 .global_properties
                 .insert(nr, PropertyReference::Global { global_index, property_index });
@@ -937,8 +963,10 @@ fn public_properties(
         .iter()
         .filter(|(_, c)| c.expose_in_public_api)
         .map(|(p, c)| {
-            let property_reference = mapping
-                .map_property_reference(&NamedReference::new(&component.root_element, p), state);
+            let property_reference = mapping.map_property_reference(
+                &NamedReference::new(&component.root_element, p.clone()),
+                state,
+            );
             PublicProperty {
                 name: p.clone(),
                 ty: c.property_type.clone(),

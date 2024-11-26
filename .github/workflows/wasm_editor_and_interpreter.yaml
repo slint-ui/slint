@@ -67,13 +67,21 @@ jobs:
               with:
                   name: wasm
             - name: Install NPM dependencies
-              run: pnpm install --frozen-lockfile --ignore-scripts
+              run: pnpm install --frozen-lockfile
               working-directory: tools/slintpad
-
+            - name: Install playwright dependencies
+              run: pnpm exec playwright install --with-deps
+              working-directory: tools/slintpad
             - name: Compile slintpad
               run: pnpm build
               working-directory: tools/slintpad
-
+            - name: Smoke-Test slintpad
+              run: pnpm exec playwright test
+              working-directory: tools/slintpad
+            - name: Publish Test Summary Results
+              if: ${{ always() }}
+              working-directory: tools/slintpad
+              run: npx github-actions-ctrf playwright-report/ctrf-report.json
             - name: "Upload slintpad Artifacts"
               uses: actions/upload-artifact@v4
               with:

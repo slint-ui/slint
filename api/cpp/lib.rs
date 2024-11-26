@@ -214,3 +214,10 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 }
 #[cfg(feature = "esp-backtrace")]
 use esp_backtrace as _;
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
+    #[cfg(feature = "i-slint-backend-selector")]
+    i_slint_backend_selector::with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone()))
+        .unwrap();
+}

@@ -8,6 +8,7 @@ mod formatting;
 mod goto;
 mod hover;
 mod semantic_tokens;
+mod signature_help;
 #[cfg(test)]
 pub mod test;
 pub mod token_info;
@@ -25,7 +26,7 @@ use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
-    HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest,
+    HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest, SignatureHelpRequest,
 };
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
@@ -37,6 +38,7 @@ use lsp_types::{
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -68,17 +70,16 @@ fn create_show_preview_command(
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
     let document_cache = ctx.document_cache.borrow();
 
-    for (url, d) in document_cache.all_url_documents() {
+    for (url, node) in document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
         }
         let version = document_cache.document_version(&url);
-        if let Some(node) = &d.node {
-            ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-                url: common::VersionedUrl::new(url, version),
-                contents: node.text().to_string(),
-            })
-        }
+
+        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
+            url: common::VersionedUrl::new(url, version),
+            contents: node.text().to_string(),
+        })
     }
     ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
         config: ctx.preview_config.borrow().clone(),
@@ -130,7 +131,8 @@ pub struct Context {
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub to_show: RefCell<Option<common::PreviewComponent>>,
-    pub open_urls: RefCell<std::collections::HashSet<lsp_types::Url>>,
+    /// File currently open in the editor
+    pub open_urls: RefCell<HashSet<lsp_types::Url>>,
 }
 
 /// An error from a LSP request
@@ -207,7 +209,19 @@ impl RequestHandler {
 pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeResult {
     InitializeResult {
         capabilities: ServerCapabilities {
+            // Note: we only support UTF8 at the moment (which is a bug, as the spec says that support for utf-16 is mandatory)
+            position_encoding: client_cap
+                .general
+                .as_ref()
+                .and_then(|x| x.position_encodings.as_ref())
+                .and_then(|x| x.iter().find(|x| *x == &lsp_types::PositionEncodingKind::UTF8))
+                .cloned(),
             hover_provider: Some(true.into()),
+            signature_help_provider: Some(lsp_types::SignatureHelpOptions {
+                trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
+                retrigger_characters: None,
+                work_done_progress_options: WorkDoneProgressOptions::default(),
+            }),
             completion_provider: Some(CompletionOptions {
                 resolve_provider: None,
                 trigger_characters: Some(vec![".".to_owned()]),
@@ -309,6 +323,16 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         )
         .and_then(|(token, _)| hover::get_tooltip(document_cache, token));
 
+        Ok(result)
+    });
+    rh.register::<SignatureHelpRequest, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+        let result = token_descr(
+            document_cache,
+            &params.text_document_position_params.text_document.uri,
+            &params.text_document_position_params.position,
+        )
+        .and_then(|(token, _)| signature_help::get_signature_help(document_cache, token));
         Ok(result)
     });
     rh.register::<CodeActionRequest, _>(|params, ctx| async move {
@@ -576,17 +600,23 @@ pub(crate) async fn reload_document_impl(
             contents: content.clone(),
         });
     }
+    let dependencies = document_cache.invalidate_url(&url);
     let mut diag = BuildDiagnostics::default();
     let _ = document_cache.load_url(&url, version, content, &mut diag).await; // ignore url conversion errors
 
+    for dep in &dependencies {
+        if ctx.is_some_and(|ctx| ctx.open_urls.borrow().contains(dep)) {
+            document_cache.reload_cached_file(dep, &mut diag).await;
+        }
+    }
+
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
-    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
-        .chain(diag.all_loaded_files.iter())
-        .map(|path| {
-            let uri = Url::from_file_path(path).unwrap();
-            (uri, Default::default())
-        })
-        .collect();
+    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> =
+        core::iter::once(Url::from_file_path(&path).unwrap())
+            .chain(dependencies.iter().cloned())
+            .chain(diag.all_loaded_files.iter().filter_map(|p| Url::from_file_path(&p).ok()))
+            .map(|uri| (uri, Default::default()))
+            .collect();
 
     for d in diag.into_iter() {
         #[cfg(not(target_arch = "wasm32"))]

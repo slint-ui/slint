@@ -1,8 +1,3 @@
 Run with
-
-# pushd ../../../api/node
 # pnpm install
-# pnpm run compile
-# popd
-# pnpm install --ignore-scripts
 # pnpm start

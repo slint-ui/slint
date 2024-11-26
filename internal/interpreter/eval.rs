@@ -614,6 +614,8 @@ fn call_builtin_function(
                 .expect("Invalid internal enumeration representation for close policy");
 
                 crate::dynamic_item_tree::show_popup(
+                    popup_window,
+                    component,
                     popup,
                     |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
@@ -621,7 +623,7 @@ fn call_builtin_function(
                             load_property_helper(comp, &popup.x.element(), popup.x.name()).unwrap();
                         let y =
                             load_property_helper(comp, &popup.y.element(), popup.y.name()).unwrap();
-                        i_slint_core::graphics::Point::new(
+                        corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
                             y.try_into().unwrap(),
                         )
@@ -633,7 +635,7 @@ fn call_builtin_function(
                 );
                 Value::Void
             } else {
-                panic!("internal error: argument to SetFocusItem must be an element")
+                panic!("internal error: argument to ShowPopupWindow must be an element")
             }
         }
         BuiltinFunction::ClosePopupWindow => {
@@ -644,8 +646,104 @@ fn call_builtin_function(
                 }
             };
 
-            component.access_window(|window| window.close_popup());
+            if let Expression::ElementReference(popup_window) = &arguments[0] {
+                let popup_window = popup_window.upgrade().unwrap();
+                crate::dynamic_item_tree::close_popup(
+                    popup_window,
+                    component,
+                    component.window_adapter(),
+                );
 
+                Value::Void
+            } else {
+                panic!("internal error: argument to ClosePopupWindow must be an element")
+            }
+        }
+        BuiltinFunction::ShowPopupMenu => {
+            let [Expression::ElementReference(element), entries, position] = arguments else {
+                panic!("internal error: incorrect argument count to ShowPopupMenu")
+            };
+            let position = eval_expression(position, local_context)
+                .try_into()
+                .expect("internal error: popup menu position argument should be a point");
+
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!("Cannot show popup from a global component")
+                }
+            };
+            let elem = element.upgrade().unwrap();
+            generativity::make_guard!(guard);
+            let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+            let description = enclosing_component.description;
+            let item_info = &description.items[elem.borrow().id.as_str()];
+            let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_rc = corelib::items::ItemRc::new(
+                vtable::VRc::into_dyn(item_comp),
+                item_info.item_index(),
+            );
+
+            if component.access_window(|window| window.show_native_popup_menu(&item_rc, position)) {
+                return Value::Void;
+            }
+
+            generativity::make_guard!(guard);
+            let compiled = enclosing_component.description.popup_menu_description.unerase(guard);
+            let inst = crate::dynamic_item_tree::instantiate(
+                compiled.clone(),
+                Some(enclosing_component.self_weak().get().unwrap().clone()),
+                None,
+                Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
+                    component.window_adapter(),
+                )),
+                Default::default(),
+            );
+            inst.run_setup_code();
+
+            generativity::make_guard!(guard);
+            let inst_ref = inst.unerase(guard);
+            let entries = eval_expression(entries, local_context);
+            compiled.set_property(inst_ref.borrow(), "entries", entries).unwrap();
+            let item_rc_ = item_rc.clone();
+            compiled
+                .set_callback_handler(
+                    inst_ref.borrow(),
+                    "sub-menu",
+                    Box::new(move |args: &[Value]| -> Value {
+                        item_rc_
+                            .downcast::<corelib::items::ContextMenu>()
+                            .unwrap()
+                            .sub_menu
+                            .call(&(args[0].clone().try_into().unwrap(),))
+                            .into()
+                    }),
+                )
+                .unwrap();
+            let item_rc_ = item_rc.clone();
+            compiled
+                .set_callback_handler(
+                    inst_ref.borrow(),
+                    "activated",
+                    Box::new(move |args: &[Value]| -> Value {
+                        item_rc_
+                            .downcast::<corelib::items::ContextMenu>()
+                            .unwrap()
+                            .activated
+                            .call(&(args[0].clone().try_into().unwrap(),))
+                            .into()
+                    }),
+                )
+                .unwrap();
+
+            component.access_window(|window| {
+                window.show_popup(
+                    &vtable::VRc::into_dyn(inst),
+                    position,
+                    corelib::items::PopupClosePolicy::CloseOnClickOutside,
+                    &item_rc,
+                )
+            });
             Value::Void
         }
         BuiltinFunction::SetSelectionOffsets => {
@@ -1228,7 +1326,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                         &enclosing_component.description.items[element.borrow().id.as_str()];
                     let item =
                         unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                    let p = &item_info.rtti.properties[nr.name()];
+                    let p = &item_info.rtti.properties[nr.name().as_str()];
                     p.set(item, eval(p.get(item)), None).unwrap();
                 }
                 ComponentInstance::GlobalComponent(global) => {
@@ -1459,7 +1557,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
 pub(crate) fn invoke_callback(
     component_instance: ComponentInstance,
     element: &ElementRc,
-    callback_name: &str,
+    callback_name: &SmolStr,
     args: &[Value],
 ) -> Option<Value> {
     generativity::make_guard!(guard);
@@ -1495,7 +1593,11 @@ pub(crate) fn invoke_callback(
             };
             let item_info = &description.items[element.id.as_str()];
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            item_info.rtti.callbacks.get(callback_name).map(|callback| callback.call(item, args))
+            item_info
+                .rtti
+                .callbacks
+                .get(callback_name.as_str())
+                .map(|callback| callback.call(item, args))
         }
         ComponentInstance::GlobalComponent(global) => {
             Some(global.as_ref().invoke_callback(callback_name, args).unwrap())

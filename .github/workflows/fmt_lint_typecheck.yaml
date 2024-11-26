@@ -39,7 +39,7 @@ jobs:
               run: biome format biome.json
             - name: Format, Lint on npm projects
               run: |
-                  pnpm install --frozen-lockfile --ignore-scripts
+                  pnpm install --frozen-lockfile
                   pnpm format
                   pnpm lint
             - name: Suggest format changes

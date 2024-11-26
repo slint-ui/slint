@@ -39,13 +39,13 @@ impl std::fmt::Debug for NamedReference {
 }
 
 impl NamedReference {
-    pub fn new(element: &ElementRc, name: &str) -> Self {
+    pub fn new(element: &ElementRc, name: SmolStr) -> Self {
         Self(NamedReferenceInner::from_name(element, name))
     }
     pub(crate) fn snapshot(&self, snapshotter: &mut crate::typeloader::Snapshotter) -> Self {
         NamedReference(Rc::new(self.0.snapshot(snapshotter)))
     }
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &SmolStr {
         &self.0.name
     }
     #[track_caller]
@@ -130,7 +130,7 @@ impl NamedReference {
             .borrow()
             .property_analysis
             .borrow_mut()
-            .entry(self.name().into())
+            .entry(self.name().clone())
             .or_default()
             .is_set = true;
         mark_property_set_derived_in_base(element, self.name())
@@ -168,14 +168,14 @@ impl NamedReferenceInner {
         ))
     }
 
-    pub fn from_name(element: &ElementRc, name: &str) -> Rc<Self> {
+    pub fn from_name(element: &ElementRc, name: SmolStr) -> Rc<Self> {
         let elem = element.borrow();
         let mut named_references = elem.named_references.0.borrow_mut();
-        let result = if let Some(r) = named_references.get(name) {
+        let result = if let Some(r) = named_references.get(&name) {
             r.clone()
         } else {
-            let r = Rc::new(Self { element: Rc::downgrade(element), name: name.into() });
-            named_references.insert(name.into(), r.clone());
+            let r = Rc::new(Self { element: Rc::downgrade(element), name });
+            named_references.insert(r.name.clone(), r.clone());
             r
         };
         drop(named_references);

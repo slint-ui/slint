@@ -117,6 +117,10 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                                     register,
                                 )
                             }).unwrap_or(Type::Void),
+                            arg_names: s
+                                .CallbackDeclarationParameter()
+                                .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
+                                .collect()
                         }))),
                     )
                 }))
@@ -162,9 +166,9 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             })
             .collect::<Vec<_>>();
         n.properties.extend(
-            member_functions
-                .iter()
-                .map(|(name, fun)| (name.clone(), BuiltinPropertyInfo::new(fun.ty()))),
+            member_functions.iter().map(|(name, fun)| {
+                (name.clone(), BuiltinPropertyInfo::new(Type::Function(fun.ty())))
+            }),
         );
 
         let mut builtin = BuiltinElement::new(Rc::new(n));

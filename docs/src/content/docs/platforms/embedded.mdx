@@ -1,0 +1,28 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Embedded 
+description: Embedded Platforms on which Slint has been tested
+---
+
+Slint runs on many embedded platforms.
+
+The platform descriptions below cover what has been tested for deployment. For the development environment,
+we recommend using a recent desktop operating system and compiler version.
+
+## Embedded Linux
+
+Slint runs on a variety of embedded Linux platforms. Generally speaking, Slint requires a modern Linux userspace
+with working OpenGL ES 2.0 (or newer) or Vulkan drivers. We've had success running Slint on
+
+-   Yocto based distributions. For C++ applications see [meta-slint](https://github.com/slint-ui/meta-slint) for recipes. Rust application work out of the box with Yocto's rust support.
+-   BuildRoot based distributions.
+-   [TorizonCore](https://www.torizon.io/torizoncore-os).
+
+## Microcontrollers
+
+Slint's platform abstraction allows for integration into any Rust or C++ based Microcontroller development
+environment. Developers need to implement functionality to feed input events such as touch or keyboard, as
+well as displaying the pixels rendered by Slint into a frame- or linebuffer.
+
+## What about other platforms?
+[Contact us](https://slint.dev/contact) if you need to support specific or older versions.

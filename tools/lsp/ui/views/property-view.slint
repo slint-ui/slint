@@ -3,7 +3,7 @@
 
 import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button, HorizontalBox, SpinBox, Slider } from "std-widgets.slint";
 
-import { Api, ElementInformation, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ColorData, ElementInformation, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
 import { GroupHeader } from "../components/group.slint";
 import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
@@ -28,7 +28,9 @@ component CodeButton inherits Button {
 component ResetButton inherits Button {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     text: @tr("Reset");
+
     clicked => {
         Api.set-code-binding(
             element-information.source-uri,
@@ -43,7 +45,9 @@ component ResetButton inherits Button {
 component NameLabel inherits HorizontalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+
     horizontal-stretch: 0;
+
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
 
@@ -67,7 +71,7 @@ component ResettingLineEdit {
     in property <TextHorizontalAlignment> horizontal-alignment <=> le.horizontal-alignment;
     in property <string> placeholder-text <=> le.placeholder-text;
     out property <bool> has-focus <=> le.has-focus;
-    out property <string> text <=> le.text;
+    in-out property <string> text <=> le.text;
 
     callback accepted <=> le.accepted;
     callback edited <=> le.edited;
@@ -115,6 +119,115 @@ component ResettingLineEdit {
     }
 }
 
+component CodeWidget inherits VerticalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    padding-bottom: EditorSpaceSettings.default-spacing;
+
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    if property-information.value.code == "": Rectangle {
+        min-height: 2rem;
+        width: 100%;
+        background: Palette.alternate-background;
+        Text {
+            x: EditorSpaceSettings.default-padding;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            text: @tr("Not Set");
+            font-italic: true;
+        }
+    }
+    if property-information.value.code != "": HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        ResetButton {
+            element-information <=> element-information;
+            property-information: property-information;
+        }
+
+        CodeButton {
+            element-information <=> element-information;
+            property-information: property-information;
+        }
+    }
+}
+
+component ChildIndicator {
+    out property <bool> open: false;
+
+    x: -1.0 * EditorSpaceSettings.group-indent * 2;
+
+
+
+    Rectangle {
+        width: 100%;
+        height: 1cm;
+
+        expand := TouchArea {
+            clicked => {
+                root.open = !root.open;
+            }
+
+            indicator := Image {
+                colorize: Palette.foreground;
+                visible: expand.has-hover;
+                source: Icons.chevron-down;
+                width: 16px;
+                height: 16px;
+                rotation-angle: root.open ? 0deg : -90deg;
+            }
+        }
+    }
+}
+
+component SecondaryContent inherits Rectangle {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    in property <bool> open: false;
+
+    callback reset();
+
+    background: Palette.background;
+    clip: true;
+    height: open ? content.preferred-height : 0px;
+
+    animate height { duration: EditorAnimationSettings.roation-duration; }
+
+    content := HorizontalLayout {
+        Rectangle {
+            height: 100%;
+            width: 1px;
+            background: Palette.border;
+        }
+
+        VerticalLayout {
+            padding: EditorSpaceSettings.default-padding;
+            spacing: EditorSpaceSettings.default-padding;
+
+            @children
+
+            HorizontalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                ResetButton {
+                    element-information <=> element-information;
+                    property-information: property-information;
+                    clicked() => { root.reset(); }
+                }
+
+                CodeButton {
+                    element-information <=> element-information;
+                    property-information: property-information;
+                }
+            }
+        }
+    }
+}
+
 component FloatWidget inherits VerticalLayout {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -153,6 +266,7 @@ component FloatWidget inherits VerticalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         alignment: stretch;
         height: 2rem;
+
         number := ResettingLineEdit {
             horizontal-alignment: right;
             min-width: EditorSizeSettings.float-size;
@@ -197,52 +311,306 @@ component FloatWidget inherits VerticalLayout {
     }
 }
 
-component ColorWidget inherits VerticalLayout {
+component StringWidget {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
-    padding-bottom: EditorSpaceSettings.property-spacing;
-    width: 100%;
-    NameLabel {
-        property-information: root.property-information;
-        element-information: root.element-information;
+
+    property <bool> open: false;
+
+    childIndicator := ChildIndicator {
+        y: content.y + EditorSpaceSettings.default-spacing/2;
     }
 
-    HorizontalLayout {
-        spacing: EditorSpaceSettings.default-spacing;
-        alignment: stretch;
+    VerticalLayout {
+        NameLabel {
+            element-information: element-information;
+            property-information: property-information;
+        }
 
-        ResettingLineEdit {
-            default-text: property-information.value.value-string;
-
-            edited(text) => {
-                if text == "" {
-                    // allow empty text -- which will delete the property
-                    self.can-compile = true;
-                    color-preview.background = Colors.transparent;
-                } else {
-                    self.can-compile = Api.string-is-color(text);
-                    if self.can-compile {
-                        color-preview.background = Api.string-to-color(text);
-                    }
+        content := HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            height: 2rem;
+            ResettingLineEdit {
+                default-text: property-information.value.value-string;
+                edited(text) => {
+                    self.can-compile = Api.test-string-binding(
+                 root.element-information.source-uri,
+                 root.element-information.source-version,
+                 root.element-information.range.start,
+                 property-information.name,
+                 text,
+                 property-information.value.is-translatable,
+                 property-information.value.tr-context,
+                 property-information.value.tr-plural,
+                 property-information.value.tr-plural-expression,
+             );
+                }
+                accepted(text) => {
+                    Api.set-string-binding(
+                 root.element-information.source-uri,
+                 root.element-information.source-version,
+                 root.element-information.range.start,
+                 property-information.name,
+                 text,
+                 property-information.value.is-translatable,
+                 property-information.value.tr-context,
+                 property-information.value.tr-plural,
+                 property-information.value.tr-plural-expression,
+             );
                 }
             }
+        }
 
-            accepted(text) => {
-                Api.set-code-binding(
+        sub := SecondaryContent {
+            element-information: element-information;
+            property-information: property-information;
+            open: childIndicator.open;
+            CheckBox {
+                text: "Translatable";
+            }
+
+            CheckBox {
+                text: "Disambiguate";
+            }
+        }
+    }
+}
+
+component ColorLineEdit inherits HorizontalLayout {
+    in property <string> channel: "R";
+    in-out property <int> value;
+
+    alignment: stretch;
+    spacing: EditorSpaceSettings.default-spacing;
+
+    Text {
+        text: channel;
+        vertical-alignment: center;
+        color: Palette.foreground;
+    }
+
+    slide-value := Slider {
+        minimum: 0;
+        maximum: 255;
+        value: root.value;
+
+        changed value => {
+            root.value = Math.floor(self.value);
+        }
+    }
+
+    num-value := ResettingLineEdit {
+        input-type: number;
+        width: 5rem;
+        default-text: root.value;
+
+        edited() => {
+            root.value = self.text.to-float();
+        }
+    }
+}
+
+component ColorWidget inherits Rectangle {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    private property <bool> open: false;
+    private property <color> current-color: property-information.value.value-brush;
+    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
+
+    childIndicator := ChildIndicator {
+        y: content.y + EditorSpaceSettings.default-spacing/2;
+    }
+
+    all := VerticalLayout {
+        padding-bottom: EditorSpaceSettings.default-spacing;
+        width: 100%;
+        NameLabel {
+            property-information: root.property-information;
+            element-information: root.element-information;
+        }
+
+        content := HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            alignment: stretch;
+
+            ResettingLineEdit {
+                default-text: root.current-color-data.text;
+
+                edited(text) => {
+                    if text == "" {
+                    // allow empty text -- which will delete the property
+                    self.can-compile = true;
+                        color-preview.background = Colors.transparent;
+                    } else {
+                        self.can-compile = Api.string-is-color(text);
+                        if self.can-compile {
+                            color-preview.background = Api.string-to-color(text);
+                        }
+                    }
+                }
+
+                accepted(text) => {
+                    Api.set-code-binding(
                     root.element-information.source-uri,
                     root.element-information.source-version,
                     root.element-information.range.start,
                     root.property-information.name,
                     text,
                 );
+                }
+            }
+
+            color-preview := Rectangle {
+                height: 2rem;
+                background: root.current-color;
+                border-width: 1px;
+                border-color: Palette.foreground;
             }
         }
 
-        color-preview := Rectangle {
-            height: 1.8rem;
-            background: property-information.value.value-brush;
-            border-width: 1px;
-            border-color: Palette.foreground;
+        sub := SecondaryContent {
+            out property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+
+            changed slider-color => {
+                root.current-color = slider-color;
+            }
+            
+            open: childIndicator.open;
+
+
+            r := ColorLineEdit {
+                value: root.current-color-data.r;
+                channel: "R";
+            }
+
+            g := ColorLineEdit {
+                value: root.current-color-data.g;
+                channel: "G";
+            }
+
+            b := ColorLineEdit {
+                value: root.current-color-data.b;
+                channel: "B";
+            }
+
+            a := ColorLineEdit {
+                value: root.current-color-data.a;
+                channel: "A";
+            }
+
+            reset => {
+                root.current-color = root.property-information.value.value-brush;
+            }
+        }
+    }
+}
+
+component IntegerWidget inherits VerticalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    HorizontalLayout {
+        height: 2rem;
+        spacing: EditorSpaceSettings.default-spacing;
+        ResettingLineEdit {
+            horizontal-alignment: right;
+            input-type: number;
+
+            default-text: property-information.value.value-int;
+
+            edited(text) => {
+                self.can-compile = Api.test-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            text,
+        );
+            }
+
+            accepted(text) => {
+                Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            text,
+        );
+            }
+        }
+    }
+}
+
+component EnumWidget inherits VerticalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    HorizontalLayout {
+        ComboBox {
+            current-index: property-information.value.value-int;
+
+            model: property-information.value.visual-items;
+
+            selected(value) => {
+                Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            property-information.value.value_string + "." + value,
+        )
+            }
+        }
+    }
+}
+
+component BooleanWidget inherits VerticalLayout {
+    in property <ElementInformation> element-information;
+    in property <PropertyInformation> property-information;
+
+    NameLabel {
+        property-information: property-information;
+        element-information: element-information;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        height: 2rem;
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: Palette.alternate-background;
+            HorizontalLayout {
+                alignment: start;
+                padding-left: EditorSpaceSettings.default-padding;
+                spacing: EditorSpaceSettings.default-spacing;
+                checkbox:=CheckBox {
+                    checked: property-information.value.value_bool;
+                    text: self.checked ? "True" : "False";
+
+                    toggled() => {
+                        Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            self.checked ? "true" : "false",
+        );
+                    }
+                }
+
+            }
         }
     }
 }
@@ -329,14 +697,12 @@ component ExpandableGroup {
     in property <ElementInformation> element-information;
     in property <string> text;
     in property <[PropertyInformation]> properties;
+    in property <length> panel-width;
 
     property <bool> open: true;
     group-layer := Rectangle {
 
         content-layer := VerticalLayout {
-            // header
-            padding-left: 0;
-            padding-right: EditorSpaceSettings.default-padding;
 
             if text != "": Rectangle {
                 touch-area := TouchArea {
@@ -346,18 +712,19 @@ component ExpandableGroup {
                 }
 
                 state-layer := StateLayer {
-                    width: group-layer.width - EditorSpaceSettings.default-padding;
+                    width: panel-width;
                     height: group-layer.height;
-                    x: 0;
                     y: group-layer.y;
                     has-hover: touch-area.has-hover;
                     pressed: touch-area.pressed;
                 }
 
                 HorizontalLayout {
+                    padding-left: -EditorSpaceSettings.group-indent;
+                    spacing: EditorSpaceSettings.default-spacing/2;
                     icon-image := Image {
                         width: EditorSizeSettings.default-icon-width;
-                        colorize: Palette.foreground;
+                        colorize: Palette.alternate-foreground.transparentize(0.7);
                         source: Icons.chevron-down;
                         height: 2rem;
                         rotation-origin-x: self.width / 2;
@@ -378,198 +745,45 @@ component ExpandableGroup {
             }
 
             if root.open: Rectangle {
-                background: Palette.alternate-background;
+                // background: Palette.alternate-background;
                 VerticalLayout {
                     spacing: EditorSpaceSettings.property-spacing;
                     padding-left: EditorSpaceSettings.group-indent;
                     padding-right: EditorSpaceSettings.group-indent;
                     padding-top: EditorSpaceSettings.default-padding;
                     padding-bottom: EditorSpaceSettings.default-padding;
+
                     for property in root.properties: HorizontalLayout {
                         alignment: stretch;
 
-                        if property.value.kind == PropertyValueKind.boolean: VerticalLayout {
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                alignment: start;
-                                height: 2rem;
-                                Rectangle {
-                                    width: 100%;
-                                    height: 100%;
-                                    background: Palette.alternate-background;
-                                    HorizontalLayout {
-                                        alignment: start;
-                                        padding-left: 0;
-                                        CheckBox {
-                                            checked: property.value.value_bool;
-
-                                            toggled() => {
-                                                Api.set-code-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    self.checked ? "true" : "false",
-                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        if property.value.kind == PropertyValueKind.boolean: BooleanWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
                         }
                         if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
                             element-information <=> root.element-information;
                             property-information: property;
                         }
 
-                        if property.value.kind == PropertyValueKind.code: VerticalLayout {
-                            padding-top: 2px;
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            spacing: EditorSpaceSettings.default-spacing;
-                            if property.value.code == "": Rectangle {
-                                min-height: 2rem;
-                                width: 100%;
-                                background: Palette.alternate-background;
-                                Text {
-                                    x: EditorSpaceSettings.default-padding;
-                                    horizontal-alignment: left;
-                                    vertical-alignment: center;
-                                    text: @tr("Not Set");
-                                    font-italic: true;
-                                }
-                            }
-                            if property.value.code != "": HorizontalLayout {
-                                spacing: EditorSpaceSettings.default-spacing;
-                                ResetButton {
-                                    element-information <=> root.element-information;
-                                    property-information: property;
-                                }
-
-                                CodeButton {
-                                    element-information <=> root.element-information;
-                                    property-information: property;
-                                }
-                            }
-                        }
-                        if property.value.kind == PropertyValueKind.enum: VerticalLayout {
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                ComboBox {
-                                    current-index: property.value.value-int;
-
-                                    model: property.value.visual-items;
-
-                                    selected(value) => {
-                                        Api.set-code-binding(
-                                        root.element-information.source-uri,
-                                        root.element-information.source-version,
-                                        root.element-information.range.start,
-                                        property.name,
-                                        property.value.value_string + "." + value,
-                                    )
-                                    }
-                                }
-                            }
-                        }
-                        if property.value.kind == PropertyValueKind.float:  FloatWidget {
+                        if property.value.kind == PropertyValueKind.code: CodeWidget {
                             element-information <=> root.element-information;
                             property-information: property;
                         }
-                        if property.value.kind == PropertyValueKind.integer: VerticalLayout {
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                height: 2rem;
-                                spacing: EditorSpaceSettings.default-spacing;
-                                ResettingLineEdit {
-                                    horizontal-alignment: right;
-                                    input-type: number;
-
-                                    default-text: property.value.value-int;
-
-                                    edited(text) => {
-                                        self.can-compile = Api.test-code-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                );
-                                    }
-
-                                    accepted(text) => {
-                                        Api.set-code-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                );
-                                    }
-                                }
-                            }
+                        if property.value.kind == PropertyValueKind.enum:  EnumWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
                         }
-                        if property.value.kind == PropertyValueKind.string: VerticalLayout {
-
-                            NameLabel {
-                                property-information: property;
-                                element-information: root.element-information;
-                            }
-
-                            HorizontalLayout {
-                                spacing: EditorSpaceSettings.default-spacing;
-                                height: 2rem;
-
-                                ResettingLineEdit {
-                                    default-text: property.value.value-string;
-
-                                    edited(text) => {
-                                        self.can-compile = Api.test-string-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                    property.value.is-translatable,
-                                    property.value.tr-context,
-                                    property.value.tr-plural,
-                                    property.value.tr-plural-expression,
-                                );
-                                    }
-
-                                    accepted(text) => {
-                                        Api.set-string-binding(
-                                    root.element-information.source-uri,
-                                    root.element-information.source-version,
-                                    root.element-information.range.start,
-                                    property.name,
-                                    text,
-                                    property.value.is-translatable,
-                                    property.value.tr-context,
-                                    property.value.tr-plural,
-                                    property.value.tr-plural-expression,
-                                );
-                                    }
-                                }
-                            }
+                        if property.value.kind == PropertyValueKind.integer: IntegerWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
+                        }
+                        if property.value.kind == PropertyValueKind.string: StringWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
+                        }
+                        if property.value.kind == PropertyValueKind.float: FloatWidget {
+                            element-information <=> root.element-information;
+                            property-information: property;
                         }
                     }
                 }
@@ -607,7 +821,7 @@ export component PropertyView {
 
                 for group in root.properties: ExpandableGroup {
                     text: group.group-name;
-
+                    panel-width: content-layer.width;
                     element-information <=> root.current-element;
                     properties: group.properties;
                 }

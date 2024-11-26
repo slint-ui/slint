@@ -10,15 +10,13 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
     WindowPosition, WindowSize,
 };
-use crate::graphics::Point;
 use crate::input::{
     key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, MouseEvent,
     MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
-use crate::items::PopupClosePolicy;
-use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor};
+use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -26,7 +24,10 @@ use crate::{Callback, Coord, SharedString};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
+use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
 use vtable::VRcMapped;
@@ -383,6 +384,8 @@ enum PopupWindowLocation {
 /// This structure defines a graphical element that is designed to pop up from the surrounding
 /// UI content, for example to show a context menu.
 struct PopupWindow {
+    /// The ID of the associated popup.
+    popup_id: NonZeroU32,
     /// The location defines where the pop up is rendered.
     location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
@@ -431,7 +434,9 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
-    active_popup: RefCell<Option<PopupWindow>>,
+    /// Stack of currently active popups
+    active_popups: RefCell<Vec<PopupWindow>>,
+    next_popup_id: Cell<NonZeroU32>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
@@ -492,7 +497,8 @@ impl WindowInner {
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
-            active_popup: Default::default(),
+            active_popups: Default::default(),
+            next_popup_id: Cell::new(NonZeroU32::MIN),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
@@ -508,7 +514,7 @@ impl WindowInner {
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
     /// done with that component.
     pub fn set_component(&self, component: &ItemTreeRc) {
-        self.close_popup();
+        self.close_all_popups();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.modifiers.replace(Default::default());
@@ -575,10 +581,10 @@ impl WindowInner {
         }
 
         if pressed_event {
-            self.had_popup_on_press.set(self.active_popup.borrow().is_some());
+            self.had_popup_on_press.set(!self.active_popups.borrow().is_empty());
         }
 
-        let close_policy = self.close_policy();
+        let close_policy = self.top_close_policy();
         let mut mouse_inside_popup = false;
 
         mouse_input_state = if let Some(mut event) =
@@ -588,7 +594,7 @@ impl WindowInner {
                 location: PopupWindowLocation::ChildWindow(coordinates),
                 component,
                 ..
-            }) = self.active_popup.borrow().as_ref()
+            }) = self.active_popups.borrow().last()
             {
                 let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(0);
 
@@ -642,12 +648,12 @@ impl WindowInner {
                 if (mouse_inside_popup && released_event && self.had_popup_on_press.get())
                     || (!mouse_inside_popup && pressed_event)
                 {
-                    self.close_popup();
+                    self.close_top_popup();
                 }
             }
             PopupClosePolicy::CloseOnClickOutside => {
                 if !mouse_inside_popup && pressed_event {
-                    self.close_popup();
+                    self.close_top_popup();
                 }
             }
             PopupClosePolicy::NoAutoClose => {}
@@ -800,7 +806,7 @@ impl WindowInner {
 
     fn move_focus(&self, start_item: ItemRc, forward: impl Fn(ItemRc) -> ItemRc) -> Option<ItemRc> {
         let mut current_item = start_item;
-        let mut visited = alloc::vec::Vec::new();
+        let mut visited = Vec::new();
 
         loop {
             if current_item.is_visible()
@@ -899,32 +905,29 @@ impl WindowInner {
         &self,
         render_components: impl FnOnce(&[(&ItemTreeRc, LogicalPoint)]) -> T,
     ) -> Option<T> {
-        let draw_fn = || {
-            let component_rc = self.try_component()?;
-
-            let popup_component =
-                self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
-                    PopupWindowLocation::TopLevel(..) => None,
-                    PopupWindowLocation::ChildWindow(coordinates) => {
-                        Some((popup.component.clone(), coordinates))
+        let component_rc = self.try_component()?;
+        Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
+            || {
+                if !self
+                    .active_popups
+                    .borrow()
+                    .iter()
+                    .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
+                {
+                    render_components(&[(&component_rc, LogicalPoint::default())])
+                } else {
+                    let borrow = self.active_popups.borrow();
+                    let mut cmps = Vec::with_capacity(borrow.len() + 1);
+                    cmps.push((&component_rc, LogicalPoint::default()));
+                    for popup in borrow.iter() {
+                        if let PopupWindowLocation::ChildWindow(location) = &popup.location {
+                            cmps.push((&popup.component, *location));
+                        }
                     }
-                });
-
-            Some(if let Some((popup_component, popup_coordinates)) = popup_component {
-                render_components(&[
-                    (&component_rc, LogicalPoint::default()),
-                    (&popup_component, popup_coordinates),
-                ])
-            } else {
-                render_components(&[(&component_rc, LogicalPoint::default())])
-            })
-        };
-
-        self.pinned_fields
-            .as_ref()
-            .project_ref()
-            .redraw_tracker
-            .evaluate_as_dependency_root(draw_fn)
+                    render_components(&cmps)
+                }
+            },
+        ))
     }
 
     /// Registers the window with the windowing system, in order to render the component's items and react
@@ -972,17 +975,45 @@ impl WindowInner {
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
-    /// Show a popup at the given position relative to the item
+    /// Show a popup at the given position relative to the item and returns its ID.
+    /// The returned ID will always be non-zero.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
-        position: Point,
+        position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-    ) {
-        let position = parent_item.map_to_window(
-            parent_item.geometry().origin + LogicalPoint::from_untyped(position).to_vector(),
-        );
+    ) -> NonZeroU32 {
+        let position = parent_item
+            .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
+        let root_of = |mut item_tree: ItemTreeRc| loop {
+            if ItemRc::new(item_tree.clone(), 0).downcast::<crate::items::WindowItem>().is_some() {
+                return item_tree;
+            }
+            let mut r = crate::item_tree::ItemWeak::default();
+            ItemTreeRc::borrow_pin(&item_tree).as_ref().parent_node(&mut r);
+            match r.upgrade() {
+                None => return item_tree,
+                Some(x) => item_tree = x.item_tree().clone(),
+            }
+        };
+        let parent_root_item_tree = root_of(parent_item.item_tree().clone());
+        let (parent_window_adapter, position) = if let Some(parent_popup) = self
+            .active_popups
+            .borrow()
+            .iter()
+            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
+        {
+            match &parent_popup.location {
+                PopupWindowLocation::TopLevel(wa) => (wa.clone(), position),
+                PopupWindowLocation::ChildWindow(offset) => {
+                    (self.window_adapter(), position + offset.to_vector())
+                }
+            }
+        } else {
+            (self.window_adapter(), position)
+        };
+
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -1019,8 +1050,10 @@ impl WindowInner {
             height_property.set(size.height_length());
         };
 
-        let location = match self
-            .window_adapter()
+        let popup_id = self.next_popup_id.get();
+        self.next_popup_id.set(self.next_popup_id.get().checked_add(1).unwrap());
+
+        let location = match parent_window_adapter
             .internal(crate::InternalToken)
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
         {
@@ -1042,44 +1075,83 @@ impl WindowInner {
             }
         };
 
-        self.active_popup.replace(Some(PopupWindow {
+        self.active_popups.borrow_mut().push(PopupWindow {
+            popup_id,
             location,
             component: popup_componentrc.clone(),
             close_policy,
-        }));
+        });
+
+        popup_id
     }
 
-    /// Removes any active popup.
-    /// TODO: this function should take a component ref as parameter, to close a specific popup - i.e. when popup menus create a hierarchy of popups.
-    pub fn close_popup(&self) {
-        if let Some(current_popup) = self.active_popup.replace(None) {
-            match current_popup.location {
-                PopupWindowLocation::ChildWindow(offset) => {
-                    // Refresh the area that was previously covered by the popup.
-                    let popup_region = crate::properties::evaluate_no_tracking(|| {
-                        let popup_component = ItemTreeRc::borrow_pin(&current_popup.component);
-                        popup_component.as_ref().item_geometry(0)
-                    })
-                    .translate(offset.to_vector());
+    /// Attempt to show a native popup menu
+    ///
+    /// context_menu_item is an instance of a ContextMenu
+    ///
+    /// Returns false if the native platform doesn't support it
+    pub fn show_native_popup_menu(
+        &self,
+        _context_menu_item: &ItemRc,
+        _position: LogicalPosition,
+    ) -> bool {
+        // TODO
+        false
+    }
 
-                    if !popup_region.is_empty() {
-                        let window_adapter = self.window_adapter();
-                        window_adapter.renderer().mark_dirty_region(popup_region.into());
-                        window_adapter.request_redraw();
-                    }
+    // Close the popup associated with the given popup window.
+    fn close_popup_impl(&self, current_popup: &PopupWindow) {
+        match &current_popup.location {
+            PopupWindowLocation::ChildWindow(offset) => {
+                // Refresh the area that was previously covered by the popup.
+                let popup_region = crate::properties::evaluate_no_tracking(|| {
+                    let popup_component = ItemTreeRc::borrow_pin(&current_popup.component);
+                    popup_component.as_ref().item_geometry(0)
+                })
+                .translate(offset.to_vector());
+
+                if !popup_region.is_empty() {
+                    let window_adapter = self.window_adapter();
+                    window_adapter.renderer().mark_dirty_region(popup_region.into());
+                    window_adapter.request_redraw();
                 }
-                PopupWindowLocation::TopLevel(adapter) => {
-                    let _ = adapter.set_visible(false);
-                }
+            }
+            PopupWindowLocation::TopLevel(adapter) => {
+                let _ = adapter.set_visible(false);
             }
         }
     }
 
-    /// Returns the close policy of the active popup. PopupClosePolicy::NoAutoClose if there is no active popup.
-    pub fn close_policy(&self) -> PopupClosePolicy {
-        self.active_popup
+    /// Removes the popup matching the given ID.
+    pub fn close_popup(&self, popup_id: NonZeroU32) {
+        let mut active_popups = self.active_popups.borrow_mut();
+        let maybe_index = active_popups.iter().position(|popup| popup.popup_id == popup_id);
+
+        if let Some(popup_index) = maybe_index {
+            self.close_popup_impl(&active_popups[popup_index]);
+            active_popups.remove(popup_index);
+        }
+    }
+
+    /// Close all active popups.
+    pub fn close_all_popups(&self) {
+        for popup in self.active_popups.take() {
+            self.close_popup_impl(&popup);
+        }
+    }
+
+    /// Close the top-most popup.
+    pub fn close_top_popup(&self) {
+        if let Some(popup) = self.active_popups.borrow_mut().pop() {
+            self.close_popup_impl(&popup);
+        }
+    }
+
+    /// Returns the close policy of the top-most popup. PopupClosePolicy::NoAutoClose if there is no active popup.
+    pub fn top_close_policy(&self) -> PopupClosePolicy {
+        self.active_popups
             .borrow()
-            .as_ref()
+            .last()
             .map_or(PopupClosePolicy::NoAutoClose, |popup| popup.close_policy)
     }
 
@@ -1177,6 +1249,11 @@ impl WindowInner {
         self.update_window_properties()
     }
 
+    /// Returns the (context global) xdg app id for use with wayland and x11.
+    pub fn xdg_app_id(&self) -> Option<SharedString> {
+        self.ctx.xdg_app_id()
+    }
+
     /// Returns the upgraded window adapter
     pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
         self.window_adapter_weak.upgrade().unwrap()
@@ -1201,8 +1278,9 @@ pub mod ffi {
 
     use super::*;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
-    use crate::graphics::IntSize;
     use crate::graphics::Size;
+    use crate::graphics::{IntSize, Rgba8Pixel};
+    use crate::SharedVector;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -1335,28 +1413,32 @@ pub mod ffi {
         WindowInner::from_pub(window_adapter.window()).set_component(component)
     }
 
-    /// Show a popup.
+    /// Show a popup and return its ID. The returned ID will always be non-zero.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
-        position: crate::graphics::Point,
+        position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-    ) {
+    ) -> NonZeroU32 {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).show_popup(
+        return WindowInner::from_pub(window_adapter.window()).show_popup(
             popup,
             position,
             close_policy,
             parent_item,
         );
     }
-    /// Close the current popup
+
+    /// Close the popup by the given ID.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const WindowAdapterRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_close_popup(
+        handle: *const WindowAdapterRcOpaque,
+        popup_id: NonZeroU32,
+    ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).close_popup();
+        WindowInner::from_pub(window_adapter.window()).close_popup(popup_id);
     }
 
     /// C binding to the set_rendering_notifier() API of Window
@@ -1622,6 +1704,25 @@ pub mod ffi {
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.window().set_maximized(value)
+    }
+
+    /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_take_snapshot(
+        handle: *const WindowAdapterRcOpaque,
+        data: &mut SharedVector<Rgba8Pixel>,
+        width: &mut u32,
+        height: &mut u32,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        if let Ok(snapshot) = window_adapter.window().take_snapshot() {
+            *data = snapshot.data.clone();
+            *width = snapshot.width();
+            *height = snapshot.height();
+            true
+        } else {
+            false
+        }
     }
 }
 

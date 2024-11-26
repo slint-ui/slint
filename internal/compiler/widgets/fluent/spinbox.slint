@@ -38,13 +38,14 @@ export component SpinBox {
     in property <int> maximum <=> base.maximum;
     in property <bool> enabled <=> base.enabled;
     in property <int> step-size <=> base.step-size;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     out property <bool> has-focus <=> base.has-focus;
     in-out property <int> value <=> base.value;
 
     callback edited <=> base.edited;
 
-    min-width: 128px;
-    min-height: 30px;
+    min-width: max(128px, layout.min-width);
+    min-height: max(30px, layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
     forward-focus: base;

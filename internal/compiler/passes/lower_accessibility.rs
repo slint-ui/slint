@@ -8,6 +8,7 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::EnumerationValue;
 use crate::object_tree::{Component, ElementRc};
 
+use smol_str::SmolStr;
 use std::rc::Rc;
 
 pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
@@ -45,7 +46,7 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
             {
                 if accessible_role_set {
                     if elem.borrow().is_binding_set(prop_name, false) {
-                        let nr = NamedReference::new(elem, prop_name);
+                        let nr = NamedReference::new(elem, SmolStr::new_static(prop_name));
                         elem.borrow_mut().accessibility_props.0.insert(prop_name.into(), nr);
                     }
                 } else if let Some(b) = elem.borrow().bindings.get(prop_name) {
@@ -69,7 +70,7 @@ fn apply_builtin(e: &ElementRc) {
                 enumeration: enum_ty,
             })
         });
-        let text_prop = NamedReference::new(e, "text");
+        let text_prop = NamedReference::new(e, SmolStr::new_static("text"));
         e.borrow_mut().set_binding_if_not_set("accessible-label".into(), || {
             Expression::PropertyReference(text_prop)
         });

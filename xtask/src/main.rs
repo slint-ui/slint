@@ -43,10 +43,7 @@ pub struct CppDocsCommand {
 }
 
 #[derive(Debug, clap::Parser)]
-pub struct SlintDocsCommand {
-    #[arg(long, action)]
-    show_warnings: bool,
-}
+pub struct SlintDocsCommand {}
 
 /// The root dir of the git repository
 fn root_dir() -> PathBuf {
@@ -94,7 +91,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings, cmd.experimental)?,
-        TaskCommand::SlintDocs(cmd) => slintdocs::generate(cmd.show_warnings)?,
+        TaskCommand::SlintDocs(_) => slintdocs::generate()?,
         TaskCommand::NodePackage(cmd) => nodepackage::generate(cmd.sha1)?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };

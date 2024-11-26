@@ -39,12 +39,6 @@ component ResizeHandle inherits Rectangle {
         moved() => {
             root.resize(x-offset, y-offset, false);
         }
-
-        pointer-event(event) => {
-            if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
-                root.resize(x-offset, y-offset, true);
-            }
-        }
     }
 }
 
@@ -66,6 +60,8 @@ export component Resizer {
     callback move-to(x: length, y: length, mouse_x: length, mouse_y: length);
     callback clicked(x: length, y: length, modifiers: KeyboardModifiers);
     callback double-clicked(x: length, y: length, modifiers: KeyboardModifiers);
+    callback pointer-event(x: length, y: length, event: PointerEvent);
+    callback scroll-event(event: PointerScrollEvent) -> EventResult;
 
     // Private!
     in-out property <length> top: self.y-position;
@@ -83,11 +79,13 @@ export component Resizer {
 
         ta := TouchArea {
             enabled: root.is-moveable;
+
             private property <length> x-offset: self.mouse-x - self.pressed-x;
             private property <length> y-offset: self.mouse-y - self.pressed-y;
             private property <KeyboardModifiers> modifiers;
-            private property <bool> has-moved;
-            private property <bool> can-move-to;
+            private property <bool> has-moved: false;
+            private property <bool> process-moves: false;
+            private property <bool> can-move-to: false;
 
             mouse-cursor: MouseCursor.move;
 
@@ -100,17 +98,28 @@ export component Resizer {
             }
 
             moved() => {
-                self.can-move-to = root.can-move-to(root.x-position + x-offset, root.y-position + y-offset, root.x-position + self.mouse-x, root.y-position + self.mouse-y);
-                self.has-moved = true;
+                if self.process-moves {
+                    self.can-move-to = root.can-move-to(root.x-position + x-offset, root.y-position + y-offset, root.x-position + self.mouse-x, root.y-position + self.mouse-y);
+                    self.has-moved = true;
+                }
             }
 
             pointer-event(event) => {
                 resize-area.moving = self.pressed;
                 self.modifiers = event.modifiers;
-                if self.has-moved && event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                    self.process-moves = true;
+                } else if self.has-moved && event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
                     root.move-to(root.x-position + x-offset, root.y-position + y-offset, root.x-position + self.mouse-x, root.y-position + self.mouse-y);
                     self.has-moved = false;
+                    self.process-moves = false;
+                } else {
+                    root.pointer-event(self.mouse-x, self.mouse-y, event);
                 }
+            }
+
+            scroll-event(event) => {
+                return root.scroll-event(event);
             }
 
             states [

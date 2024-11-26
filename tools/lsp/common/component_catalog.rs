@@ -13,6 +13,8 @@ use i_slint_compiler::langtype::ElementType;
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str) -> ComponentInformation {
     let is_layout = matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout");
+    let is_interactive =
+        matches!(name, "Flickable" | "FocusScope" | "SwipeGestureHandler" | "TouchArea");
 
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
@@ -27,6 +29,7 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
         is_builtin: true,
         is_std_widget: false,
         is_layout,
+        is_interactive,
         is_exported: true,
         defined_at: None,
         default_properties,
@@ -59,6 +62,7 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         is_builtin: false,
         is_std_widget: true,
         is_layout,
+        is_interactive: false,
         is_exported: true,
         defined_at: None,
         default_properties,
@@ -77,6 +81,7 @@ fn exported_project_component_info(
         is_builtin: false,
         is_std_widget: false,
         is_layout: false,
+        is_interactive: false,
         is_exported: true,
         defined_at: Some(position),
         default_properties: vec![],
@@ -96,6 +101,7 @@ fn file_local_component_info(
         is_builtin: false,
         is_std_widget: false,
         is_layout: false,
+        is_interactive: false,
         is_exported: false,
         defined_at: Some(position),
         default_properties: vec![],
@@ -235,7 +241,12 @@ mod tests {
         assert!(result.iter().all(|ci| ci.is_exported));
         assert!(result.iter().all(|ci| ci.is_builtin));
         assert!(result.iter().all(|ci| !ci.is_global));
-        assert!(result.iter().any(|ci| &ci.name == "TouchArea"));
+        assert!(result.iter().any(|ci| &ci.name == "TouchArea"
+            && ci.is_interactive == true
+            && ci.is_layout == false));
+        assert!(result.iter().any(|ci| &ci.name == "HorizontalLayout"
+            && ci.is_interactive == false
+            && ci.is_layout == true));
         assert!(!result.iter().any(|ci| &ci.name == "AboutSlint"));
         assert!(!result.iter().any(|ci| &ci.name == "ProgressIndicator"));
         assert!(!result.iter().any(|ci| &ci.name == "Timer"));

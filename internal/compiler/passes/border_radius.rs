@@ -28,7 +28,7 @@ pub fn handle_border_radius(root_component: &Rc<Component>, _diag: &mut BuildDia
                     .iter()
                     .any(|property_name| elem.borrow().is_binding_set(property_name, true))
             {
-                let border_radius = NamedReference::new(elem, "border-radius");
+                let border_radius = NamedReference::new(elem, SmolStr::new_static("border-radius"));
                 for property_name in BORDER_RADIUS_PROPERTIES.iter() {
                     elem.borrow_mut().set_binding_if_not_set(SmolStr::new(property_name), || {
                         Expression::PropertyReference(border_radius.clone())

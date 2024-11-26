@@ -64,6 +64,7 @@ struct SharedPixelBuffer
 
 private:
     friend struct Image;
+    friend class Window;
     uint32_t m_width;
     uint32_t m_height;
     SharedVector<Pixel> m_data;

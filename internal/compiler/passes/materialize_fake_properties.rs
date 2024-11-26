@@ -32,7 +32,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
-            let nr = NamedReference::new(elem, prop);
+            let nr = NamedReference::new(elem, prop.clone());
             if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
                 let elem = elem.borrow();
                 if let Some(ty) =
@@ -48,7 +48,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
         let elem = nr.element();
 
         elem.borrow_mut().property_declarations.insert(
-            nr.name().into(),
+            nr.name().clone(),
             PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
         );
 
@@ -61,7 +61,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
         if let Some(init_expr) = initialize(&elem, nr.name()) {
             let mut elem_mut = elem.borrow_mut();
             let span = elem_mut.to_source_location();
-            match elem_mut.bindings.entry(nr.name().into()) {
+            match elem_mut.bindings.entry(nr.name().clone()) {
                 std::collections::btree_map::Entry::Vacant(e) => {
                     let mut binding = BindingExpression::new_with_span(init_expr, span);
                     binding.priority = i32::MAX;
@@ -95,10 +95,14 @@ fn should_materialize(
     let has_declared_property = match base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => {
-            if let Some(info) = b.reserved_properties.get(prop) {
-                return Some(info.ty.clone());
+            if let Some(p) = b.properties.get(prop) {
+                if b.native_class.lookup_property(prop).is_none() {
+                    return Some(p.ty.clone());
+                }
+                true
+            } else {
+                false
             }
-            b.properties.contains_key(prop)
         }
         ElementType::Native(n) => {
             n.lookup_property(prop).map_or(false, |prop_type| prop_type.is_property_type())
@@ -140,9 +144,7 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 /// Initialize a sensible default binding for the now materialized property
 pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
     if let ElementType::Builtin(b) = &elem.borrow().base_type {
-        if let Some(expr) =
-            b.reserved_properties.get(name).and_then(|prop| prop.default_value.expr(elem))
-        {
+        if let Some(expr) = b.properties.get(name).and_then(|prop| prop.default_value.expr(elem)) {
             return Some(expr);
         }
     }

@@ -52,6 +52,17 @@ SCENARIO("SharedString API")
         str = "Hello";
         REQUIRE(str.size() == 5);
     }
+
+    SECTION("to_lowercase")
+    {
+        str = "Hello";
+        REQUIRE(std::string_view(str.to_lowercase().data()) == "hello");
+    }
+    SECTION("to_uppercase")
+    {
+        str = "Hello";
+        REQUIRE(std::string_view(str.to_uppercase().data()) == "HELLO");
+    }
 }
 
 TEST_CASE("Basic SharedVector API", "[vector]")

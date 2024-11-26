@@ -5,10 +5,12 @@ import { Control} from "control.slint";
 import { AppState } from "../appState.slint";
 import { HaText } from "general/haText.slint";
 import { LineEdit } from "std-widgets.slint";
+import { InnerShadowRectangle } from "general/innerShadowRectangle.slint";
 
 export component ArmButton inherits Rectangle {
     callback clicked <=> ta.clicked;
     in property <int> label;
+    in property <bool> enabled;
     background: ta.pressed ? Palette.control-alternate-background.transparentize(0.5) : Palette.control-alternate-background;
     border-radius: 5px;
     width: 65px;
@@ -21,7 +23,7 @@ export component ArmButton inherits Rectangle {
     }
 
     ta := TouchArea {
-        enabled: root.label != -1;
+        enabled: root.label != -1 && root.enabled;
     }
 }
 
@@ -48,25 +50,15 @@ export component Alarm inherits Control {
         TouchArea {
             clicked => {
                 AppState.showFullScreen(root.index);
+                if root.full-screen {
+                    root.full-screen = false;
+                }
             }
         }
 
-        HaText {
-            visible: root.full-screen;
-            text: "Enter Code";
-            horizontal-alignment: center;
-            font-size: Style.H2-font-size;
-            color: Palette.hvac-knob-foreground;
-            font-weight: 300;
-            x: parent.width / 2 - self.width / 2;
-            y: 50px;
-        }
-
-        Rectangle {
-            drop-shadow-blur: Measurements.tile-shadow-blur * 10;
-            drop-shadow-color: Palette.glow-color;
-            width: 70%;
-            height: 70%;
+        tile := InnerShadowRectangle {
+            inner-color: Palette.glow-color.transparentize(0.5);
+            inner-shadow-color: Palette.control-background;
             VerticalLayout {
                 visible: !root.full-screen;
                 alignment: center;
@@ -81,20 +73,22 @@ export component Alarm inherits Control {
                 }
 
                 Rectangle {
-                    width: 100%;
                     height: 25px;
-                    border-radius: self.height / 2;
-                    background: Palette.alternate-background;
+                    Rectangle {
+                        width: 70%;
+                        border-radius: self.height / 2;
+                        background: Palette.alternate-background;
 
-                    HaText {
-                        text: "Arm Alarm";
-                        color: Palette.foreground;
-                        font-size: 1rem;
+                        HaText {
+                            text: "Arm Alarm";
+                            color: Palette.foreground;
+                            font-size: 1rem;
+                        }
                     }
                 }
             }
 
-            Rectangle {
+            pad := Rectangle {
                 width: 200px;
                 states [
                     isVisible when root.full-screen: {
@@ -121,8 +115,6 @@ export component Alarm inherits Control {
                     y: parent.height * 0.2;
                     width: 65px * 3 + 2 * 5px;
                     height: (95px * 5) + (4 * 10px);
-                    visible: root.full-screen;
-
                     container := Rectangle {
                         y: 0;
                         border-radius: 10px;
@@ -162,9 +154,13 @@ export component Alarm inherits Control {
                             border-radius: 5px;
                             background: Palette.lineedit-background;
                         }
+                        // Cover the text input to stop it from receiving touch events
+                        TouchArea { }
                     }
 
-                    TouchArea { }
+                    TouchArea {
+                        enabled: root.full-screen;
+                    }
 
                     for row-model[r] in [
                         [1, 2, 3],
@@ -180,6 +176,7 @@ export component Alarm inherits Control {
                             spacing: 5px;
                             for num[c] in row-model: ArmButton {
                                 label: num;
+                                enabled: root.full-screen;
                                 clicked => {
                                     if num >= 0 && root.passcode == -1 {
                                         root.passcode = num;
@@ -194,6 +191,17 @@ export component Alarm inherits Control {
                     }
                 }
             }
+        }
+
+        HaText {
+            visible: root.full-screen;
+            text: "Enter Code";
+            horizontal-alignment: center;
+            font-size: Style.H2-font-size;
+            color: Palette.hvac-knob-foreground;
+            font-weight: 300;
+            x: parent.width / 2 - self.width / 2;
+            y: 50px;
         }
 
         x: 0;

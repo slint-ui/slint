@@ -4,6 +4,7 @@
 //! This pass creates bindings to "absolute-y" and "absolute-y" properties
 //! that can be used to compute the window-absolute coordinates of elements.
 
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -25,10 +26,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
         });
     });
 
-    let point_type = match BuiltinFunction::ItemAbsolutePosition.ty() {
-        crate::langtype::Type::Function(sig) => sig.return_type.clone(),
-        _ => unreachable!(),
-    };
+    let point_type = BuiltinFunction::ItemAbsolutePosition.ty().return_type.clone();
 
     for nr in to_materialize {
         let elem = nr.element();
@@ -67,7 +65,8 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
                                 }
                                 .into(),
                                 rhs: Expression::PropertyReference(NamedReference::new(
-                                    &elem, coord,
+                                    &elem,
+                                    SmolStr::new_static(coord),
                                 ))
                                 .into(),
                                 op: '+',
@@ -78,6 +77,6 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
             },
         ]);
 
-        elem.borrow_mut().bindings.insert(nr.name().into(), RefCell::new(binding.into()));
+        elem.borrow_mut().bindings.insert(nr.name().clone(), RefCell::new(binding.into()));
     }
 }

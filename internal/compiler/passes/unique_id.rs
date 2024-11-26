@@ -13,13 +13,11 @@ use std::rc::Rc;
 /// It currently does so by adding a number to the existing id
 pub fn assign_unique_id(doc: &Document) {
     let mut count = 0;
-    for component in doc.exported_roots() {
-        assign_unique_id_in_component(&component, &mut count);
-    }
-    for c in &doc.used_types.borrow().sub_components {
-        assign_unique_id_in_component(c, &mut count);
-    }
-
+    doc.visit_all_used_components(|component| {
+        if !component.is_global() {
+            assign_unique_id_in_component(component, &mut count)
+        }
+    });
     rename_globals(doc, count);
 }
 

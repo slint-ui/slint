@@ -19,8 +19,8 @@ export component SliderBase {
     out property <bool> handle-pressed;
     in-out property <float> value: minimum;
 
-    callback changed(/* value */ float);
-    callback released(/* value */ float);
+    callback changed(value: float);
+    callback released(value: float);
 
     private property <length> ref-size: !root.vertical ? root.handle-width : root.handle-height;
 
@@ -49,10 +49,10 @@ export component SliderBase {
             if (!root.handle-has-hover) {
                 root.set-value((!root.vertical ? root.size-to-value(touch-area.mouse-x, root.width) :
                     root.size-to-value(touch-area.mouse-y, root.height)) + root.minimum);
-            } 
-     
+            }
+
             self.pressed-value = value;
-            root.handle-pressed = true;        
+            root.handle-pressed = true;
         }
 
         moved => {

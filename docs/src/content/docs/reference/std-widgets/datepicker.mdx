@@ -1,0 +1,69 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: DataPickerPopup
+description: DataPickerPopup api.
+---
+
+import SlintProperty  from '../../../../components/SlintProperty.astro';
+import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
+
+```slint playground
+import { DatePickerPopup, Button } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 600px;
+
+    date-picker-button := Button {
+        text: @tr("Open Date Picker");
+
+        clicked => {
+            date-picker.show();
+        }
+    }
+
+    date-picker := DatePickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height ) / 2;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        accepted(date) => {
+            date-picker.close();
+        }
+        canceled => {
+            date-picker.close();
+        }
+    }
+}
+```
+
+Use a date picker to let the user select a date.
+
+## Properties
+
+### title
+<SlintProperty propName="title" typeName="string">
+The text that is displayed at the top of the picker.
+</SlintProperty>
+
+### date
+<SlintProperty propName="date" typeName="struct" structName="Date">
+Set the initial displayed date.
+</SlintProperty>
+
+## Callbacks
+
+### canceled()
+Invoked when the cancel button is clicked.
+
+### accepted(Date)
+Invoked when the ok button is clicked.
+
+### Struct `Date`
+
+Defines a date with day, month, and year.
+
+#### Fields
+
+-   **`day`(int)**: The day value (range from 1 to 31).
+-   **`month`(int)**: The month value (range from 1 to 12).
+-   **`year`(int)**: The year value.

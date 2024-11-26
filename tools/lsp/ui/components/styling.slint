@@ -21,9 +21,9 @@ export struct TextStyle {
 }
 
 export global EditorFontSettings {
-    out property <int> light-font-weight: 300;
+    out property <int> light-font-weight: 100;
     out property <int> regular-font-weight: 400;
-    out property <int> semibold-font-weight: 600;
+    out property <int> semibold-font-weight: 700;
     out property <int> bold-font-weight: 900;
     
     out property <TextStyle> header: {
@@ -35,6 +35,15 @@ export global EditorFontSettings {
         font-size: 14 * 0.0769rem,
         font-weight: root.regular-font-weight
     };
+    out property <TextStyle> label: {
+        font-size: 14 * 0.0769rem,
+        font-weight: root.regular-font-weight
+    };
+    out property <TextStyle> label-sub: {
+        font-size: 14 * 0.0769rem,
+        font-weight: root.light-font-weight
+    };
+
     
     out property <TextStyle> body-strong: {
         font-size: 16 * 0.0769rem,
@@ -43,31 +52,44 @@ export global EditorFontSettings {
 }
 
 export global EditorSpaceSettings {
-    in property <length> default-spacing: 8px;
     in property <length> default-padding: 8px;
-    in property <length> property-spacing: 5px;
+    in property <length> default-spacing: 8px;
     in property <length> group-indent: 10px;
+    in property <length> property-spacing: 5px;
 
 }
 
 export global EditorSizeSettings {
-    in property <length> header-height: 32px;
-    in property <length> item-height: 24px;
-    in property <length> side-bar-width: 280px;
-    in property <length> property-bar-width: 360px;
     in property <length> default-icon-width: 20px;
-    in property <length> min-prefix-text-width: 120px;
     in property <length> eightbit-int-size: 40px;
-    in property <length> hex-size: 80px;
     in property <length> float-size: 100px;
+    in property <length> header-height: 32px;
+    in property <length> hex-size: 80px;
+    in property <length> item-height: 24px;
     in property <length> length-combo: 70px;
+    in property <length> min-prefix-text-width: 120px;
+    in property <length> property-bar-width: 360px;
+    in property <length> radius: 5px;
+    in property <length> side-bar-width: 280px;
 }
 
 export global EditorPalette {
-    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
-    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
     
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+
+    out property <brush> drop-mark-background: #00ff0080;
+    out property <brush> drop-mark-foreground: #00ff00ff;
+
+    out property <brush> general-element-selection-primary: #3884ed;
+    out property <brush> general-element-selection-secondary: #86b5fc;
+    out property <brush> general-element-selection-selected: Palette.accent-foreground;
+    out property <brush> interactive-element-selection-primary: #8fff79;
+    out property <brush> interactive-element-selection-secondary: #48dc2a;
+    out property <brush> layout-element-selection-primary: #FFC5FC;
+    out property <brush> layout-element-selection-secondary: #ff8af9;
+
+    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
+    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
 }
 
 export global EditorAnimationSettings {

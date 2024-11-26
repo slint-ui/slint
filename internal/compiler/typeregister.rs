@@ -131,10 +131,12 @@ impl BuiltinTypes {
             noarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
                 args: vec![],
+                arg_names: vec![],
             })),
             strarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
                 args: vec![Type::String],
+                arg_names: vec![],
             })),
             layout_info_type: layout_info_type.clone(),
             path_element_type: Type::Struct(Rc::new(Struct {
@@ -230,8 +232,16 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(IntoIterator::into_iter([
             ("absolute-position", logical_point_type(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
-            ("focus", BuiltinFunction::SetFocusItem.ty(), PropertyVisibility::Public),
-            ("clear-focus", BuiltinFunction::ClearFocusItem.ty(), PropertyVisibility::Public),
+            (
+                "focus",
+                Type::Function(BuiltinFunction::SetFocusItem.ty()),
+                PropertyVisibility::Public,
+            ),
+            (
+                "clear-focus",
+                Type::Function(BuiltinFunction::ClearFocusItem.ty()),
+                PropertyVisibility::Public,
+            ),
             (
                 "dialog-button-role",
                 Type::Enumeration(BUILTIN.with(|e| e.enums.DialogButtonRole.clone())),
@@ -391,6 +401,7 @@ impl TypeRegister {
             ($pub_type:ident, i32) => { Type::Int32 };
             ($pub_type:ident, f32) => { Type::Float32 };
             ($pub_type:ident, SharedString) => { Type::String };
+            ($pub_type:ident, Image) => { Type::Image };
             ($pub_type:ident, Coord) => { Type::LogicalLength };
             ($pub_type:ident, KeyboardModifiers) => { $pub_type.clone() };
             ($pub_type:ident, $_:ident) => {
@@ -442,13 +453,15 @@ impl TypeRegister {
                 let popup = Rc::get_mut(b).unwrap();
                 popup.properties.insert(
                     "show".into(),
-                    BuiltinPropertyInfo::new(BuiltinFunction::ShowPopupWindow.ty()),
+                    BuiltinPropertyInfo::new(Type::Function(BuiltinFunction::ShowPopupWindow.ty())),
                 );
                 popup.member_functions.insert("show".into(), BuiltinFunction::ShowPopupWindow);
 
                 popup.properties.insert(
                     "close".into(),
-                    BuiltinPropertyInfo::new(BuiltinFunction::ClosePopupWindow.ty()),
+                    BuiltinPropertyInfo::new(Type::Function(
+                        BuiltinFunction::ClosePopupWindow.ty(),
+                    )),
                 );
                 popup.member_functions.insert("close".into(), BuiltinFunction::ClosePopupWindow);
 
@@ -457,6 +470,19 @@ impl TypeRegister {
 
                 popup.properties.get_mut("close-policy").unwrap().property_visibility =
                     PropertyVisibility::Constexpr;
+            }
+
+            _ => unreachable!(),
+        };
+
+        match &mut register.elements.get_mut("ContextMenu").unwrap() {
+            ElementType::Builtin(ref mut b) => {
+                let b = Rc::get_mut(b).unwrap();
+                b.properties.insert(
+                    "show".into(),
+                    BuiltinPropertyInfo::new(Type::Function(BuiltinFunction::ShowPopupMenu.ty())),
+                );
+                b.member_functions.insert("show".into(), BuiltinFunction::ShowPopupMenu);
             }
 
             _ => unreachable!(),
@@ -486,14 +512,14 @@ impl TypeRegister {
                 let text_input = Rc::get_mut(b).unwrap();
                 text_input.properties.insert(
                     "set-selection-offsets".into(),
-                    BuiltinPropertyInfo::new(BuiltinFunction::SetSelectionOffsets.ty()),
+                    BuiltinPropertyInfo::new(Type::Function(
+                        BuiltinFunction::SetSelectionOffsets.ty(),
+                    )),
                 );
                 text_input
                     .member_functions
                     .insert("set-selection-offsets".into(), BuiltinFunction::SetSelectionOffsets);
-                text_input
-                    .reserved_properties
-                    .insert("font-metrics".into(), font_metrics_prop.clone());
+                text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
             }
 
             _ => unreachable!(),
@@ -502,7 +528,7 @@ impl TypeRegister {
         match &mut register.elements.get_mut("Text").unwrap() {
             ElementType::Builtin(ref mut b) => {
                 let text = Rc::get_mut(b).unwrap();
-                text.reserved_properties.insert("font-metrics".into(), font_metrics_prop);
+                text.properties.insert("font-metrics".into(), font_metrics_prop);
             }
 
             _ => unreachable!(),

@@ -77,8 +77,8 @@ export component TextEdit {
     in-out property <length> viewport-height <=> scroll-view.viewport-height;
     in property <string> placeholder-text;
 
-    callback edited(/* text */ string);
-    callback rejected(/* text */ string);
+    callback edited(text: string);
+    callback rejected(text: string);
 
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;

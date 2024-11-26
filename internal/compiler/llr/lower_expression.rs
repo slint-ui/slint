@@ -83,9 +83,10 @@ pub fn lower_expression(
         tree_Expression::BuiltinMacroReference(_, _) => panic!(),
         tree_Expression::ElementReference(e) => {
             // We map an element reference to a reference to the property "" inside that native item
-            llr_Expression::PropertyReference(
-                ctx.map_property_reference(&NamedReference::new(&e.upgrade().unwrap(), "")),
-            )
+            llr_Expression::PropertyReference(ctx.map_property_reference(&NamedReference::new(
+                &e.upgrade().unwrap(),
+                SmolStr::default(),
+            )))
         }
         tree_Expression::RepeaterIndexReference { element } => {
             repeater_special_property(element, ctx.component, 1)
@@ -122,11 +123,7 @@ pub fn lower_expression(
                 lower_show_popup(arguments, ctx)
             }
             tree_Expression::BuiltinFunctionReference(BuiltinFunction::ClosePopupWindow, _) => {
-                // FIXME: right now, `popup.close()` will close any visible popup, as the popup argument is ignored
-                llr_Expression::BuiltinFunctionCall {
-                    function: BuiltinFunction::ClosePopupWindow,
-                    arguments: vec![],
-                }
+                lower_close_popup(arguments, ctx)
             }
             tree_Expression::BuiltinFunctionReference(f, _) => {
                 let mut arguments =
@@ -393,6 +390,38 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
                 llr_Expression::EnumerationValue(popup.close_policy.clone()),
                 item_ref,
             ],
+        }
+    } else {
+        panic!("invalid arguments to ShowPopupWindow");
+    }
+}
+
+fn lower_close_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Expression {
+    if let [tree_Expression::ElementReference(e)] = args {
+        let popup_window = e.upgrade().unwrap();
+        let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
+        let parent_component = pop_comp
+            .parent_element
+            .upgrade()
+            .unwrap()
+            .borrow()
+            .enclosing_component
+            .upgrade()
+            .unwrap();
+        let popup_list = parent_component.popup_windows.borrow();
+        let (popup_index, popup) = popup_list
+            .iter()
+            .enumerate()
+            .find(|(_, p)| Rc::ptr_eq(&p.component, &pop_comp))
+            .unwrap();
+        let item_ref = lower_expression(
+            &tree_Expression::ElementReference(Rc::downgrade(&popup.parent_element)),
+            ctx,
+        );
+
+        llr_Expression::BuiltinFunctionCall {
+            function: BuiltinFunction::ClosePopupWindow,
+            arguments: vec![llr_Expression::NumberLiteral(popup_index as _), item_ref],
         }
     } else {
         panic!("invalid arguments to ShowPopupWindow");

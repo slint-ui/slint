@@ -169,6 +169,22 @@ impl AsRef<std::ffi::CStr> for SharedString {
     }
 }
 
+#[cfg(feature = "std")]
+impl AsRef<std::path::Path> for SharedString {
+    #[inline]
+    fn as_ref(&self) -> &std::path::Path {
+        self.as_str().as_ref()
+    }
+}
+
+#[cfg(feature = "std")]
+impl AsRef<std::ffi::OsStr> for SharedString {
+    #[inline]
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        self.as_str().as_ref()
+    }
+}
+
 impl AsRef<[u8]> for SharedString {
     #[inline]
     fn as_ref(&self) -> &[u8] {
@@ -272,6 +288,24 @@ pub fn format(args: core::fmt::Arguments<'_>) -> SharedString {
     output
 }
 
+/// A trait for converting a value to a [`SharedString`].
+///
+/// This trait is automatically implemented for any type which implements the [`Display`] trait as long as the trait is in scope.
+/// As such, `ToSharedString` shouldn’t be implemented directly: [`Display`] should be implemented instead, and you get the `ToSharedString` implementation for free.
+pub trait ToSharedString {
+    /// Converts the given value to a [`SharedString`].
+    fn to_shared_string(&self) -> SharedString;
+}
+
+impl<T> ToSharedString for T
+where
+    T: Display + ?Sized,
+{
+    fn to_shared_string(&self) -> SharedString {
+        format!("{}", self)
+    }
+}
+
 #[test]
 fn simple_test() {
     let x = SharedString::from("hello world!");
@@ -324,6 +358,14 @@ fn threading() {
     assert_eq!(shared_cst.clone(), "Hello there!");
     assert_eq!(shared_mtx.lock().unwrap().as_str(), "Shared:!!!!!!!!!!!!!!!!!!!!");
     // 20x"!"
+}
+
+#[test]
+fn to_shared_string() {
+    let i = 5.1;
+    let five = SharedString::from("5.1");
+
+    assert_eq!(five, i.to_shared_string());
 }
 
 #[cfg(feature = "ffi")]
@@ -431,6 +473,42 @@ pub(crate) mod ffi {
         append("");
         append("!");
         assert_eq!(s.as_str(), "Hello, world!");
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_shared_string_to_lowercase(
+        out: &mut SharedString,
+        ss: &SharedString,
+    ) {
+        *out = SharedString::from(ss.to_lowercase());
+    }
+    #[test]
+    fn test_slint_shared_string_to_lowercase() {
+        let s = SharedString::from("Hello");
+        let mut out = SharedString::default();
+
+        unsafe {
+            slint_shared_string_to_lowercase(&mut out, &s);
+        }
+        assert_eq!(out.as_str(), "hello");
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_shared_string_to_uppercase(
+        out: &mut SharedString,
+        ss: &SharedString,
+    ) {
+        *out = SharedString::from(ss.to_uppercase());
+    }
+    #[test]
+    fn test_slint_shared_string_to_uppercase() {
+        let s = SharedString::from("Hello");
+        let mut out = SharedString::default();
+
+        unsafe {
+            slint_shared_string_to_uppercase(&mut out, &s);
+        }
+        assert_eq!(out.as_str(), "HELLO");
     }
 }
 
