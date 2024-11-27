@@ -1233,7 +1233,7 @@ impl TypeLoader {
                 Ok(source) => syntax_nodes::Document::new(crate::parser::parse(
                     source,
                     Some(&path_canon),
-                    &mut state.borrow_mut().diag,
+                    state.borrow_mut().diag,
                 )),
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                     state.borrow_mut().diag.push_error(

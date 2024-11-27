@@ -353,7 +353,7 @@ fn insert_position_at_end(
         };
 
         let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
-        let (version, _) = preview::get_url_from_cache(&url)?;
+        let (version, _) = preview::get_url_from_cache(&url);
 
         Some(InsertInformation {
             insertion_position: common::VersionedPosition::new(
@@ -411,7 +411,7 @@ fn insert_position_before_child(
             };
 
             let url = lsp_types::Url::from_file_path(child_node.source_file.path()).ok()?;
-            let (version, _) = preview::get_url_from_cache(&url)?;
+            let (version, _) = preview::get_url_from_cache(&url);
 
             return Some(InsertInformation {
                 insertion_position: common::VersionedPosition::new(
