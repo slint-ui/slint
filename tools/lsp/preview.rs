@@ -144,6 +144,25 @@ fn invalidate_contents(url: &lsp_types::Url) {
     }
 }
 
+fn delete_document(url: &lsp_types::Url) {
+    let (current, url_is_used, ui_is_visible) = {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.source_code.remove(url);
+        (
+            cache.current_previewed_component.clone(),
+            cache.dependencies.contains(url),
+            cache.ui_is_visible,
+        )
+    };
+
+    if let Some(current) = current {
+        if (&current.url == url || url_is_used) && ui_is_visible {
+            // Trigger a compile error now!
+            load_preview(current, LoadBehavior::Reload);
+        }
+    }
+}
+
 fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let old = cache.source_code.insert(
@@ -1316,11 +1335,6 @@ async fn reload_preview_impl(
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
     let (version, source) = get_url_from_cache(&component.url);
 
-    if source.is_empty() {
-        // We have no data yet! Wait for the LSP to report back with more...
-        return Ok(());
-    }
-
     let (diagnostics, compiled, open_import_fallback, source_file_versions) = parse_source(
         config.include_paths,
         config.library_paths,
@@ -1819,6 +1833,7 @@ pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
     use crate::common::LspToPreviewMessage as M;
     match message {
         M::InvalidateContents { url } => invalidate_contents(&url),
+        M::FileLost { url } => delete_document(&url),
         M::SetContents { url, contents } => {
             set_contents(&url, contents);
         }
