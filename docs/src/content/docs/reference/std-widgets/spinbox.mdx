@@ -40,16 +40,33 @@ Set to true when the spinbox currently has the focus.
 ### value
 <SlintProperty propName="value" typeName="int" defaultValue="0" propertyVisibility="in-out">
 The value. Defaults to the minimum.
+```slint no-test "value: 50;"
+SpinBox {
+    value: 50;
+}
+```
 </SlintProperty>
 
 ### minimum
 <SlintProperty propName="minimum" typeName="int" defaultValue="0">
 The minimum value.
+```slint no-test "minimum: 10;"
+SpinBox {
+    minimum: 10;
+    value: 11;
+}
+```
 </SlintProperty>
 
 ### maximum
 <SlintProperty propName="maximum" typeName="int" defaultValue="100">
 The maximum value.
+```slint no-test "maximum: 10;"
+SpinBox {
+    maximum: 10;
+    value: 9;
+}
+```
 </SlintProperty>
 
 ### step-size
@@ -66,3 +83,11 @@ The horizontal alignment of the text.
 
 ### changed(int)
 Emitted when the value has changed because the user modified it
+
+```slint no-test {2-4}
+SpinBox {
+    changed(value) => {
+        debug("New value: ", value);
+    }
+}
+```

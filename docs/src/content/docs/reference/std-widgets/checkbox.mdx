@@ -29,6 +29,12 @@ Use a `CheckBox` to let the user select or deselect values, for example in a lis
 ### checked
 <SlintProperty propName="checked" typeName="bool" defaultValue="false" propertyVisibility="in-out">
 Whether the checkbox is checked or not.
+```slint no-test "checked: true;"
+CheckBox {
+    text: self.checked ? "Checked" : "Not checked";
+    checked: true;
+}
+```
 </SlintProperty>
 
 ### enabled
@@ -44,6 +50,11 @@ Set to true when the checkbox has keyboard focus.
 ### text
 <SlintProperty propName="text" typeName="string">
 The text written next to the checkbox.
+```slint no-test 'text: "CheckBox with text";'
+CheckBox {
+    text: "CheckBox with text";
+}
+```
 </SlintProperty>
 
 ## Callbacks
@@ -51,3 +62,11 @@ The text written next to the checkbox.
 ### toggled()
 The checkbox value changed
 
+```slint no-test {3-5}
+CheckBox {
+    text: "CheckBox";
+    toggled() => {
+        debug("CheckBox checked: ", self.checked);
+    }
+}
+```
