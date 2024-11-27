@@ -79,7 +79,7 @@ If set to true the Slider is displayed vertical.
 ### changed(float)
 The value was changed
 
-```slint no-test {1-4}
+```slint no-test {2-4}
 Slider {
     changed(value) => {
         debug("New value: ", value);
@@ -90,7 +90,7 @@ Slider {
 ### released(float)
 Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.
 
-```slint no-test {1-4}
+```slint no-test {2-4}
 Slider {
     released(position) => {
         debug("Released at position: ", position);

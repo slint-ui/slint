@@ -60,7 +60,7 @@ DatePickerPopup {
 ### canceled()
 Invoked when the cancel button is clicked.
 
-```slint no-test {1-3}
+```slint no-test {2-4}
 date-picker := DatePickerPopup {
     canceled() => {
         date-picker.close();
@@ -71,7 +71,7 @@ date-picker := DatePickerPopup {
 ### accepted(Date)
 Invoked when the ok button is clicked.
 
-```slint no-test {1-4}
+```slint no-test {2-5}
 date-picker := DatePickerPopup {
     accepted(date) => {
         debug("Selected date: ", date);
