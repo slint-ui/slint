@@ -134,20 +134,14 @@ pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     }
 }
 
+// Just mark the cache as "read from disk" by setting the version to None.
+// Do not reset the code: We can check once the LSP has re-read it from disk
+// whether we need to refresh the preview or not.
 fn invalidate_contents(url: &lsp_types::Url) {
-    let component = {
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
-        cache.source_code.remove(url);
-
-        ((cache.dependencies.contains(url) || cache.resources.contains(url)) && cache.ui_is_visible)
-            .then_some(cache.current_component())
-            .flatten()
-    };
-
-    // No need to bother with the document_cache: It follows the preview state at all times!
-    if let Some(component) = component {
-        load_preview(component, LoadBehavior::Reload);
+    if let Some(cache_entry) = cache.source_code.get_mut(url) {
+        cache_entry.version = None;
     }
 }
 
@@ -1068,17 +1062,23 @@ fn config_changed(config: PreviewConfig) {
 }
 
 /// If the file is in the cache, returns it.
+///
+/// If the file is not known, the return an empty string marked as "from disk". This is fine:
+/// The LSP side will load the file and inform us about it soon.
+///
 /// In any way, register it as a dependency
-fn get_url_from_cache(url: &Url) -> Option<(SourceFileVersion, String)> {
+fn get_url_from_cache(url: &Url) -> (SourceFileVersion, String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let r = &cache.source_code.get(url).map(|r| (r.version, r.code.clone()));
     cache.dependencies.insert(url.to_owned());
-    r.clone()
+
+    cache.source_code.get(url).map(|r| (r.version, r.code.clone())).unwrap_or_default().clone()
 }
 
-fn get_path_from_cache(path: &Path) -> Option<(SourceFileVersion, String)> {
-    let url = Url::from_file_path(path).ok()?;
-    get_url_from_cache(&url)
+fn get_path_from_cache(path: &Path) -> std::io::Result<(SourceFileVersion, String)> {
+    let url = Url::from_file_path(path).map_err(|()| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, "Failed to convert path to URL")
+    })?;
+    Ok(get_url_from_cache(&url))
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -1315,13 +1315,12 @@ async fn reload_preview_impl(
     start_parsing();
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|| {
-        if cfg!(not(target_arch = "wasm32")) {
-            (None, std::fs::read_to_string(&path).unwrap_or_default())
-        } else {
-            (None, String::new())
-        }
-    });
+    let (version, source) = get_url_from_cache(&component.url);
+
+    if source.is_empty() {
+        // We have no data yet! Wait for the LSP to report back with more...
+        return Ok(());
+    }
 
     let (diagnostics, compiled, open_import_fallback, source_file_versions) = parse_source(
         config.include_paths,
@@ -1335,7 +1334,9 @@ async fn reload_preview_impl(
             let path = path.to_owned();
             Box::pin(async move {
                 let path = PathBuf::from(&path);
-                get_path_from_cache(&path).map(Result::Ok)
+                // Always return Some to stop the compiler from trying to load itself...
+                // All loading is done by the LSP for us!
+                Some(get_path_from_cache(&path))
             })
         },
     )
