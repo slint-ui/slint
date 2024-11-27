@@ -56,7 +56,13 @@ enum PreviewFutureState {
     NeedsReload,
 }
 
-type SourceCodeCache = HashMap<Url, (SourceFileVersion, String)>;
+#[derive(Clone, Debug)]
+struct SourceCodeCacheEntry {
+    // None when read from disk!
+    version: SourceFileVersion,
+    code: String,
+}
+type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 #[derive(Default)]
 struct ContentCache {
@@ -147,12 +153,13 @@ fn invalidate_contents(url: &lsp_types::Url) {
 
 fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let old = cache.source_code.insert(url.url().clone(), (*url.version(), content.clone()));
+    let old = cache.source_code.insert(
+        url.url().clone(),
+        SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
+    );
 
-    if let Some((old_version, old)) = old {
-        if content == old && old_version == *url.version() {
-            return;
-        }
+    if Some(content) == old.map(|o| o.code) {
+        return;
     }
 
     if cache.dependencies.contains(url.url()) {
@@ -698,7 +705,7 @@ fn delete_selected_element() {
     };
 
     let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let Some((version, _)) = cache.source_code.get(&url).cloned() else {
+    let Some(cache_entry) = cache.source_code.get(&url) else {
         return;
     };
 
@@ -711,8 +718,11 @@ fn delete_selected_element() {
     // Insert a placeholder node into layouts if those end up empty:
     let new_text = placeholder_node_text(&selected_node);
 
-    let edit =
-        common::create_workspace_edit(url, version, vec![lsp_types::TextEdit { range, new_text }]);
+    let edit = common::create_workspace_edit(
+        url,
+        cache_entry.version,
+        vec![lsp_types::TextEdit { range, new_text }],
+    );
 
     send_workspace_edit("Delete element".to_string(), edit, true);
 }
@@ -964,10 +974,15 @@ fn finish_parsing(preview_url: &Url, ok: bool) {
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
 
-        for (url, (version, contents)) in &source_code {
+        for (url, cache_entry) in &source_code {
             let mut diag = diagnostics::BuildDiagnostics::default();
             if document_cache.get_document(url).is_none() {
-                poll_once(document_cache.load_url(url, *version, contents.clone(), &mut diag));
+                poll_once(document_cache.load_url(
+                    url,
+                    cache_entry.version,
+                    cache_entry.code.clone(),
+                    &mut diag,
+                ));
             }
         }
 
@@ -1056,9 +1071,9 @@ fn config_changed(config: PreviewConfig) {
 /// In any way, register it as a dependency
 fn get_url_from_cache(url: &Url) -> Option<(SourceFileVersion, String)> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let r = cache.source_code.get(url).cloned();
+    let r = &cache.source_code.get(url).map(|r| (r.version, r.code.clone()));
     cache.dependencies.insert(url.to_owned());
-    r
+    r.clone()
 }
 
 fn get_path_from_cache(path: &Path) -> Option<(SourceFileVersion, String)> {
@@ -1446,7 +1461,7 @@ fn convert_diagnostics(
                 continue;
             }
             let uri = path_to_url(d.source_file().unwrap());
-            let new_version = cache.source_code.get(&uri).and_then(|(v, _)| *v);
+            let new_version = cache.source_code.get(&uri).and_then(|e| e.version);
             if let Some(data) = result.get_mut(&uri) {
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
                     continue;
