@@ -55,10 +55,12 @@
     --sl-hue-blue: 222;
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
-    --sl-color-gray-6: #1b1c21;
+    --sl-color-bg: #1b1b1f;
+    --sl-color-gray-6: #161618;
     --sl-color-hairline: #212329;
     --sl-color-hairline-shade: var(--sl-color-hairline);
     --badge-border-color: --sl-color-hairline;
+    --slint-code-background: #151517;
 
     .screenshot-container {
         background-color: #cdcdcd;
@@ -73,8 +75,10 @@
 :root[data-theme="light"] {
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
+    --sl-color-bg: #ffffff;
     --badge-border-color: lightgrey;
     --sl-color-hairline: #edeef3;
+    --slint-code-background: #f6f6f7;
 
     .screenshot-container {
         background-color: whitesmoke;

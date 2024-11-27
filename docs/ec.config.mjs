@@ -4,6 +4,43 @@ import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
 import fs from "node:fs";
 
+function sideBorder() {
+    return definePlugin({
+        name: "Adds side border to slint code blocks",
+        baseStyles: `
+
+        .sideBar {
+            position: absolute;
+            top: calc(var(--button-spacing) - 4px);
+            bottom: 0;
+            left: 0;
+            width: 2px;
+            background: #2479f4;
+            border-top-left-radius: 1.4rem;
+            border-bottom-left-radius: 1.4rem;    
+        }
+        `,
+        hooks: {
+            postprocessRenderedBlock: async (context) => {
+                if (
+                    context.renderData.blockAst.children[1].properties
+                        .dataLanguage !== "slint"
+                ) {
+                    return;
+                }
+                const content = context.codeBlock.code;
+
+                const side = h("div.sideBar");
+
+                const ast = context.renderData.blockAst;
+                ast.children.push(side);
+
+                context.renderData.blockAst = ast;
+            },
+        },
+    });
+}
+
 function workersPlaygroundButton() {
     return definePlugin({
         name: "Adds 'Run in SlintPad' button to slint codeblocks",
@@ -75,9 +112,14 @@ function workersPlaygroundButton() {
 }
 
 export default {
-    plugins: [workersPlaygroundButton()],
+    plugins: [workersPlaygroundButton(), sideBorder()],
     themes: ["dark-plus", "light-plus"],
-    styleOverrides: { borderRadius: "0.2rem" },
+    styleOverrides: {
+        borderRadius: "0.4rem",
+        borderColor: "var(--slint-code-background)",
+        frames: { shadowColor: "transparent" },
+        codeBackground: "var(--slint-code-background)",
+    },
     shiki: {
         langs: [
             JSON.parse(
