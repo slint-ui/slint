@@ -29,6 +29,13 @@ pub enum TokenInfo {
 
 pub fn token_info(document_cache: &mut DocumentCache, token: SyntaxToken) -> Option<TokenInfo> {
     let mut node = token.parent();
+    if node.kind() == SyntaxKind::AtImageUrl && token.kind() == SyntaxKind::StringLiteral {
+        let path = i_slint_compiler::literals::unescape_string(token.text())?;
+        let path = token.source_file.path().parent().map(|p| p.to_path_buf())?.join(path);
+
+        return Some(TokenInfo::FileName(path));
+    }
+
     loop {
         if let Some(n) = syntax_nodes::QualifiedName::new(node.clone()) {
             let parent = n.parent()?;

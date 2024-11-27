@@ -3,6 +3,7 @@
 
 use super::token_info::TokenInfo;
 use crate::common::DocumentCache;
+use crate::util;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::SyntaxToken;
@@ -10,7 +11,7 @@ use itertools::Itertools as _;
 use lsp_types::{Hover, HoverContents, MarkupContent};
 
 pub fn get_tooltip(document_cache: &mut DocumentCache, token: SyntaxToken) -> Option<Hover> {
-    let token_info = crate::language::token_info::token_info(document_cache, token)?;
+    let token_info = crate::language::token_info::token_info(document_cache, token.clone())?;
     let contents = match token_info {
         TokenInfo::Type(ty) => from_plain_text(ty.to_string()),
         TokenInfo::ElementType(e) => match e {
@@ -37,13 +38,19 @@ pub fn get_tooltip(document_cache: &mut DocumentCache, token: SyntaxToken) -> Op
         }
         TokenInfo::NamedReference(nr) => from_property_in_element(&nr.element(), nr.name())?,
         TokenInfo::EnumerationValue(v) => from_slint_code(&format!("{}.{}", v.enumeration.name, v)),
-        TokenInfo::FileName(_) => return None,
+        TokenInfo::FileName(path) => MarkupContent {
+            kind: lsp_types::MarkupKind::Markdown,
+            value: format!("`{}`", path.to_string_lossy()),
+        },
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) => return None,
         TokenInfo::IncompleteNamedReference(el, name) => from_property_in_type(&el, &name)?,
     };
 
-    Some(Hover { contents: HoverContents::Markup(contents), range: None })
+    Some(Hover {
+        contents: HoverContents::Markup(contents),
+        range: Some(util::token_to_lsp_range(&token)),
+    })
 }
 
 fn from_property_in_element(element: &ElementRc, name: &str) -> Option<MarkupContent> {
@@ -151,6 +158,9 @@ export component Test {
   StandardTableView {
     row-pointer-event => { }
   }
+  Image {
+      source: @image-url("test.png")
+  }
 }"#;
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
         let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
@@ -252,6 +262,12 @@ export component Test {
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("the-ta := TA {", 11.into())),
             "```slint\ncomponent TA\n```",
+        );
+        let target_path =
+            uri.join("test.png").unwrap().to_file_path().unwrap().to_string_lossy().to_string();
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("@image-url(", 15.into())),
+            &format!("`{target_path}`"),
         );
 
         // enums
