@@ -6,7 +6,7 @@
 //! If an expression does a single property access or less, it can be inlined
 //! in the calling expression
 
-use crate::expression_tree::BuiltinFunction;
+use crate::expression_tree::{BuiltinFunction, ImageReference};
 use crate::llr::{CompilationUnit, EvaluationContext, Expression};
 
 const PROPERTY_ACCESS_COST: isize = 1000;
@@ -41,7 +41,13 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::ArrayIndexAssignment { .. } => return isize::MAX,
         Expression::BinaryExpression { .. } => 1,
         Expression::UnaryOp { .. } => 1,
-        Expression::ImageReference { .. } => 1,
+        // Avoid inlining calls to load the image from the cache, as in the worst case the image isn't cached
+        // and repeated calls will load the image over and over again. It's better to keep the image cached in the
+        // `property<image>` of the `Image` element, with the exception of embedded textures.
+        Expression::ImageReference {
+            resource_ref: ImageReference::EmbeddedTexture { .. }, ..
+        } => 1,
+        Expression::ImageReference { .. } => return isize::MAX,
         Expression::Condition { condition, true_expr, false_expr } => {
             return expression_cost(condition, ctx)
                 .saturating_add(
