@@ -42,6 +42,10 @@ pub fn get_tooltip(document_cache: &mut DocumentCache, token: SyntaxToken) -> Op
             kind: lsp_types::MarkupKind::Markdown,
             value: format!("`{}`", path.to_string_lossy()),
         },
+        TokenInfo::Image(path) => MarkupContent {
+            kind: lsp_types::MarkupKind::Markdown,
+            value: format!("![Image]({})", path.to_string_lossy()),
+        },
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) => return None,
         TokenInfo::IncompleteNamedReference(el, name) => from_property_in_type(&el, &name)?,
@@ -269,7 +273,7 @@ export component Test {
             uri.join("test.png").unwrap().to_file_path().unwrap().to_string_lossy().to_string();
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("@image-url(", 15.into())),
-            &format!("`{target_path}`"),
+            &format!("![Image]({target_path})"),
         );
 
         // enums

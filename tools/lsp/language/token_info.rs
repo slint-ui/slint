@@ -20,6 +20,7 @@ pub enum TokenInfo {
     NamedReference(NamedReference),
     EnumerationValue(EnumerationValue),
     FileName(std::path::PathBuf),
+    Image(std::path::PathBuf),
     LocalProperty(syntax_nodes::PropertyDeclaration),
     LocalCallback(syntax_nodes::CallbackDeclaration),
     /// This is like a NamedReference, but the element doesn't have an ElementRc because
@@ -33,7 +34,7 @@ pub fn token_info(document_cache: &mut DocumentCache, token: SyntaxToken) -> Opt
         let path = i_slint_compiler::literals::unescape_string(token.text())?;
         let path = token.source_file.path().parent().map(|p| p.to_path_buf())?.join(path);
 
-        return Some(TokenInfo::FileName(path));
+        return Some(TokenInfo::Image(path));
     }
 
     loop {

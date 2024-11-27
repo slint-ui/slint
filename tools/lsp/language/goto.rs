@@ -44,7 +44,7 @@ pub fn goto_definition(
             // FIXME: this goes to the enum definition instead of the value definition.
             goto_node(&*v.enumeration.node.as_ref()?)
         }
-        TokenInfo::FileName(f) => {
+        TokenInfo::FileName(f) | TokenInfo::Image(f) => {
             if let Some(doc) = document_cache.get_document_by_path(&f) {
                 let doc_node = doc.node.clone()?;
                 goto_node(&doc_node)
@@ -192,6 +192,7 @@ export component Test {
     // Jump to test.png image url
     let offset: TextSize = (source.find("\"test.png\"").unwrap() as u32).into();
     let token = crate::language::token_at_offset(&doc, offset + TextSize::new(1)).unwrap();
+
     assert_eq!(token.text(), "\"test.png\"");
     let def = goto_definition(&mut dc, token).unwrap();
     let link = first_link(&def);
