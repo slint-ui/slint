@@ -28,6 +28,13 @@ A `Switch` is a representation of a physical switch that allows users to turn th
 ### checked
 <SlintProperty typeName="bool" propName="checked" default="false" propertyVisibility="in-out">
 Whether the switch is checked or not.
+
+```slint no-test "checked: true;"
+Switch {
+    text: self.checked ? "Checked" : "Not checked";
+    checked: true;
+}
+```
 </SlintProperty>
 
 ### enabled
@@ -43,9 +50,24 @@ Set to true when the switch has keyboard focus
 ### text
 <SlintProperty typeName="string" propName="text" >
 The text written next to the switch.
+
+```slint no-test 'text: "CheckBox with text";'
+Switch {
+    text: "Switch with text";
+}
+```
 </SlintProperty>
 
 ## Callbacks
 
 ### toggled()
 The switch value changed
+
+```slint no-test {3-5}
+Switch {
+    text: "Switch";
+    toggled() => {
+        debug("CheckBox checked: ", self.checked);
+    }
+}
+```
