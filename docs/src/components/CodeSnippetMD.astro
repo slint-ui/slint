@@ -12,6 +12,7 @@ interface Props {
     imageHeight: number;
     needsBackground?: boolean;
     skip?: boolean;
+    scale?: number;
 }
 const { imagePath, imageAlt, skip, needsBackground } = Astro.props as Props;
 const images = import.meta.glob<{ default: ImageMetadata }>(
