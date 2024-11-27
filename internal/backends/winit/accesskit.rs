@@ -10,6 +10,7 @@ use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeUp
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
+use i_slint_core::api::Window;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::lengths::ScaleFactor;
@@ -81,7 +82,10 @@ impl AccessKitAdapter {
         self.inner.process_event(window, event);
     }
 
-    pub fn process_accesskit_event(&mut self, window_event: accesskit_winit::WindowEvent) {
+    pub fn process_accesskit_event(
+        &mut self,
+        window_event: accesskit_winit::WindowEvent,
+    ) -> Option<DeferredAccessKitAction> {
         match window_event {
             accesskit_winit::WindowEvent::InitialTreeRequested => {
                 self.inner.update_if_active(|| {
@@ -90,9 +94,10 @@ impl AccessKitAdapter {
                         self.global_property_tracker.as_ref(),
                     )
                 });
+                None
             }
             accesskit_winit::WindowEvent::ActionRequested(r) => self.handle_request(r),
-            accesskit_winit::WindowEvent::AccessibilityDeactivated => (),
+            accesskit_winit::WindowEvent::AccessibilityDeactivated => None,
         }
     }
 
@@ -104,20 +109,19 @@ impl AccessKitAdapter {
         })
     }
 
-    fn handle_request(&self, request: ActionRequest) {
-        let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return };
+    fn handle_request(&self, request: ActionRequest) -> Option<DeferredAccessKitAction> {
         let a = match request.action {
             Action::Click => AccessibilityAction::Default,
             Action::Focus => {
-                if let Some(item) = self.nodes.item_rc_for_node_id(request.target) {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(&item, true);
-                }
-                return;
+                return self
+                    .nodes
+                    .item_rc_for_node_id(request.target)
+                    .map(DeferredAccessKitAction::SetFocus);
             }
             Action::Decrement => AccessibilityAction::Decrement,
             Action::Increment => AccessibilityAction::Increment,
             Action::ReplaceSelectedText => {
-                let Some(accesskit::ActionData::Value(v)) = request.data else { return };
+                let Some(accesskit::ActionData::Value(v)) = request.data else { return None };
                 AccessibilityAction::ReplaceSelectedText(SharedString::from(&*v))
             }
             Action::SetValue => match request.data.unwrap() {
@@ -127,13 +131,13 @@ impl AccessKitAdapter {
                 accesskit::ActionData::NumericValue(v) => {
                     AccessibilityAction::SetValue(i_slint_core::format!("{v}"))
                 }
-                _ => return,
+                _ => return None,
             },
-            _ => return,
+            _ => return None,
         };
-        if let Some(item) = self.nodes.item_rc_for_node_id(request.target) {
-            item.accessible_action(&a);
-        }
+        self.nodes
+            .item_rc_for_node_id(request.target)
+            .map(|item| DeferredAccessKitAction::InvokeAccessibleAction(item, a))
     }
 
     pub fn reload_tree(&mut self) {
@@ -553,5 +557,23 @@ struct CachedNode {
 impl From<accesskit_winit::Event> for SlintUserEvent {
     fn from(value: accesskit_winit::Event) -> Self {
         SlintUserEvent(crate::event_loop::CustomEvent::Accesskit(value))
+    }
+}
+
+pub enum DeferredAccessKitAction {
+    SetFocus(ItemRc),
+    InvokeAccessibleAction(ItemRc, AccessibilityAction),
+}
+
+impl DeferredAccessKitAction {
+    pub fn invoke(&self, window: &Window) {
+        match self {
+            DeferredAccessKitAction::SetFocus(item) => {
+                WindowInner::from_pub(window).set_focus_item(item, true);
+            }
+            DeferredAccessKitAction::InvokeAccessibleAction(item, accessibility_action) => {
+                item.accessible_action(accessibility_action);
+            }
+        }
     }
 }

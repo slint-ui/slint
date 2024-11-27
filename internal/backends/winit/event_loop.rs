@@ -551,12 +551,16 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             #[cfg(enable_accesskit)]
             CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
                 if let Some(window) = window_by_id(window_id) {
-                    window
+                    let deferred_action = window
                         .accesskit_adapter()
                         .expect("internal error: accesskit adapter must exist when window exists")
                         .borrow_mut()
                         .process_accesskit_event(window_event);
-                };
+                    // access kit adapter not borrowed anymore, now invoke the deferred action
+                    if let Some(deferred_action) = deferred_action {
+                        deferred_action.invoke(&window.window());
+                    }
+                }
             }
             #[cfg(target_arch = "wasm32")]
             CustomEvent::WakeEventLoopWorkaround => {
