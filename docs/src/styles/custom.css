@@ -72,7 +72,7 @@
 }
 
 /* Light mode colors. */
-    :root[data-theme="light"] {
+:root[data-theme="light"] {
     --sl-text-h3: var(--sl-text-2xl);
     --sl-content-width: 50rem;
     --sl-color-bg: #ffffff;
