@@ -35,6 +35,19 @@ a time.
 ### current-index
 <SlintProperty typeName="int" propName="current-index" default="0">
 The index of the currently visible tab.
+
+```slint no-test "current-index: 1;"
+TabWidget {
+    current-index: 1;
+    
+    Tab {
+        title: "First";
+    }
+    Tab {
+        title: "Second";
+    }
+}
+```
 </SlintProperty>
 
 ## Properties of the `Tab` element
@@ -42,4 +55,12 @@ The index of the currently visible tab.
 ### title
 <SlintProperty typeName="string" propName="title">
 The text written on the tab.
+
+```slint no-test 'title: "First";'
+TabWidget {
+    Tab {
+        title: "First";
+    }
+}
+```
 </SlintProperty>

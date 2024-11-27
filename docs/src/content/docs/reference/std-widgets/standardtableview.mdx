@@ -55,11 +55,25 @@ Indicates the sorted column. -1 mean no column is sorted.
 ### columns
 <SlintProperty typeName="[struct]" structName="TableColumn" propName="columns" default="[]" propertyVisibility="in-out">
 Defines the model of the table columns.
+
+```slint no-test 'columns: [{ title: "Header 1" }, { title: "Header 2" }];'
+StandardTableView {
+    columns: [{ title: "Header 1" }, { title: "Header 2" }];
+    rows: [{ text: "Item 1" }, { text: "Item 2" }];
+}
+```
 </SlintProperty>
 
 ### rows
 <SlintProperty typeName="[[struct]]" structName="StandardListViewItem" propName="rows" default="[]" propertyVisibility="in-out">
 Defines the model of table rows.
+
+```slint no-test 'rows: [{ text: "Item 1" }, { text: "Item 2" }];'
+StandardTableView {
+    columns: [{ title: "Header 1" }, { title: "Header 2" }];
+    rows: [{ text: "Item 1" }, { text: "Item 2" }];
+}
+```
 </SlintProperty>
 
 ### current-row
@@ -80,6 +94,17 @@ Emitted on any mouse pointer event similar to `TouchArea`. Arguments are row ind
 
 ### current-row-changed(int)
 Emitted when the current row has changed because the user modified it
+
+```slint no-test {5-7}
+StandardTableView {
+    columns: [{ title: "Header 1" }, { title: "Header 2" }];
+    rows: [{ text: "Item 1" }, { text: "Item 2" }];
+
+    current-row-changed(index) {
+        debug("Current row: ", index);
+    }
+}
+```
 
 ## Functions
 
