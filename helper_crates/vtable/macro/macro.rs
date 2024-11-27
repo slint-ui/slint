@@ -274,7 +274,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             };
 
             let mut sig_extern = sig.clone();
-            sig_extern.abi = Some(parse_str("extern \"C\"").unwrap());
             sig_extern.generics = parse_str(&format!("<T : {trait_name}>")).unwrap();
 
             // check parameters
@@ -387,12 +386,18 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             // Add extern "C" if it isn't there
             if let Some(a) = &f.abi {
-                if !a.name.as_ref().map(|s| s.value() == "C").unwrap_or(false) {
+                if !a
+                    .name
+                    .as_ref()
+                    .map(|s| matches!(s.value().as_str(), "C" | "C-unwind"))
+                    .unwrap_or(false)
+                {
                     return Error::new(a.span(), "invalid ABI").to_compile_error().into();
                 }
             } else {
-                f.abi.clone_from(&sig_extern.abi);
+                f.abi = Some(parse_str("extern \"C\"").unwrap());
             }
+            sig_extern.abi.clone_from(&f.abi);
 
             let mut wrap_trait_call = None;
             if !has_self {

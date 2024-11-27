@@ -118,7 +118,7 @@ pub struct ItemVTable {
     /// This function is called by the run-time after the memory for the item
     /// has been allocated and initialized. It will be called before any user specified
     /// bindings are set.
-    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, my_item: &ItemRc),
+    pub init: extern "C-unwind" fn(core::pin::Pin<VRef<ItemVTable>>, my_item: &ItemRc),
 
     /// offset in bytes from the *const ItemImpl.
     /// isize::MAX  means None
@@ -127,7 +127,7 @@ pub struct ItemVTable {
     pub cached_rendering_data_offset: usize,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layout_info: extern "C" fn(
+    pub layout_info: extern "C-unwind" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
         window_adapter: &WindowAdapterRc,
@@ -138,7 +138,7 @@ pub struct ItemVTable {
     /// Then, depending on the return value, it is called for the children, and their children, then
     /// [`Self::input_event`] is called on the children, and finally [`Self::input_event`] is called
     /// on this item again.
-    pub input_event_filter_before_children: extern "C" fn(
+    pub input_event_filter_before_children: extern "C-unwind" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
         window_adapter: &WindowAdapterRc,
@@ -146,28 +146,28 @@ pub struct ItemVTable {
     ) -> InputEventFilterResult,
 
     /// Handle input event for mouse and touch event
-    pub input_event: extern "C" fn(
+    pub input_event: extern "C-unwind" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> InputEventResult,
 
-    pub focus_event: extern "C" fn(
+    pub focus_event: extern "C-unwind" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         &FocusEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> FocusEventResult,
 
-    pub key_event: extern "C" fn(
+    pub key_event: extern "C-unwind" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         &KeyEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> KeyEventResult,
 
-    pub render: extern "C" fn(
+    pub render: extern "C-unwind" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
