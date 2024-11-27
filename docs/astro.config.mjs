@@ -84,10 +84,6 @@ export default defineConfig({
                                     slug: "guide/language/syntax",
                                 },
                                 {
-                                    label: "Types",
-                                    slug: "guide/language/types",
-                                },
-                                {
                                     label: "Positioning & Layouts",
                                     slug: "guide/language/positioning-and-layouts",
                                 },
@@ -114,6 +110,8 @@ export default defineConfig({
                         {
                             label: "Basics",
                             items: [
+                                "reference/builtins/types",
+                                "reference/builtins/type-conversions",
                                 "reference/builtins/builtinfunctions",
                                 "reference/builtins/colors",
                                 "reference/builtins/math",

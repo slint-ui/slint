@@ -7,13 +7,16 @@ description: ComboBox api.
 import SlintProperty  from '../../../../components/SlintProperty.astro';
 import CodeSnippetMD from '../../../../components/CodeSnippetMD.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/std-widget-combobox-example.png"  imageWidth="200" imageHeight="200"  imageAlt='combobox example'>
+<CodeSnippetMD imagePath="/src/assets/generated/std-widget-combobox-example.png" scale="3" imageWidth="110" imageHeight="35"  imageAlt='combobox example'>
 ```slint
 import { ComboBox } from "std-widgets.slint";
 export component Example inherits Window {
-    width: 200px;
-    height: 130px;
+    width: 100px;
+    height: 100px;
+    background: transparent;
     ComboBox {
+        x: 5px; y: 5px;
+        width: 100px;
         model: ["first", "second", "third"];
         current-value: "first";
     }
