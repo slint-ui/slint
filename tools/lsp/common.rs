@@ -482,6 +482,7 @@ pub struct PreviewComponent {
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum LspToPreviewMessage {
     InvalidateContents { url: lsp_types::Url },
+    FileLost { url: lsp_types::Url },
     SetContents { url: VersionedUrl, contents: String },
     SetConfiguration { config: PreviewConfig },
     ShowPreview(PreviewComponent),

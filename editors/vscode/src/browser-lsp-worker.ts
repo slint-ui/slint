@@ -60,7 +60,7 @@ slint_init(slint_wasm_data).then((_) => {
     );
     connection.onDidChangeWatchedFiles(async (param) => {
         for (const event of param.changes) {
-            await the_lsp.trigger_file_watcher(event.uri);
+            await the_lsp.trigger_file_watcher(event.uri, event.type);
         }
     });
 

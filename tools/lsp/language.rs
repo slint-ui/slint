@@ -677,9 +677,25 @@ pub async fn invalidate_document(ctx: &Rc<Context>, url: lsp_types::Url) -> comm
     ctx.document_cache.borrow_mut().drop_document(&url)
 }
 
-pub async fn trigger_file_watcher(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+    // The preview cares about resources and slint files, so forward everything
+    ctx.server_notifier
+        .send_message_to_preview(common::LspToPreviewMessage::FileLost { url: url.clone() });
+
+    ctx.document_cache.borrow_mut().drop_document(&url)
+}
+
+pub async fn trigger_file_watcher(
+    ctx: &Rc<Context>,
+    url: lsp_types::Url,
+    typ: lsp_types::FileChangeType,
+) -> common::Result<()> {
     if !ctx.open_urls.borrow().contains(&url) {
-        invalidate_document(ctx, url).await?;
+        if typ == lsp_types::FileChangeType::DELETED {
+            delete_document(ctx, url).await?;
+        } else {
+            invalidate_document(ctx, url).await?;
+        }
     }
     Ok(())
 }

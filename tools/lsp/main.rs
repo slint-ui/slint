@@ -339,14 +339,17 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             let server_notifier = server_notifier_.clone();
             Box::pin(async move {
                 let contents = std::fs::read_to_string(&path);
-                if let Ok(contents) = &contents {
-                    if let Ok(url) = Url::from_file_path(&path) {
+                if let Ok(url) = Url::from_file_path(&path) {
+                    if let Ok(contents) = &contents {
                         server_notifier.send_message_to_preview(
                             common::LspToPreviewMessage::SetContents {
                                 url: common::VersionedUrl::new(url, None),
                                 contents: contents.clone(),
                             },
                         )
+                    } else {
+                        server_notifier
+                            .send_message_to_preview(common::LspToPreviewMessage::FileLost { url })
                     }
                 }
                 Some(contents.map(|c| (None, c)))
@@ -469,7 +472,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         DidChangeWatchedFiles::METHOD => {
             let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
             for fe in params.changes {
-                trigger_file_watcher(ctx, fe.uri).await?;
+                trigger_file_watcher(ctx, fe.uri, fe.typ).await?;
             }
             Ok(())
         }

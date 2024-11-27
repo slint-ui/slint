@@ -331,14 +331,15 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub fn trigger_file_watcher(&self, url: JsValue) -> js_sys::Promise {
+    pub fn trigger_file_watcher(&self, url: JsValue, typ: JsValue) -> js_sys::Promise {
         let ctx = self.ctx.clone();
         let guard = self.reentry_guard.clone();
 
         wasm_bindgen_futures::future_to_promise(async move {
             let _lock = ReentryGuard::lock(guard).await;
             let url: lsp_types::Url = serde_wasm_bindgen::from_value(url)?;
-            language::trigger_file_watcher(&ctx, url)
+            let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
+            language::trigger_file_watcher(&ctx, url, typ)
                 .await
                 .map_err(|e| JsError::new(&e.to_string()))?;
             Ok(JsValue::UNDEFINED)
