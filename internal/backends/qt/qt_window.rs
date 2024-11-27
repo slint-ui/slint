@@ -105,7 +105,7 @@ cpp! {{
         void paintEvent(QPaintEvent *) override {
             if (!rust_window)
                 return;
-            auto painter = std::unique_ptr<QPainter>(new QPainter(this));
+           auto painter = std::unique_ptr<QPainter>(new QPainter(this));
             painter->setClipRect(rect());
             painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
             QPainterPtr *painter_ptr = &painter;
@@ -1904,6 +1904,7 @@ impl WindowAdapter for QtWindow {
         let Some(window_item) = WindowInner::from_pub(&self.window).window_item() else { return };
         let window_item = window_item.as_pin_ref();
         let no_frame = window_item.no_frame();
+        let skip_taskbar = window_item.skip_taskbar();
         let always_on_top = window_item.always_on_top();
         let mut size = qttypes::QSize {
             width: window_item.width().get().ceil() as _,
@@ -1943,7 +1944,7 @@ impl WindowAdapter for QtWindow {
         let maximized: bool = properties.is_maximized();
 
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QBrush", no_frame as "bool", always_on_top as "bool",
-                      fullscreen as "bool", minimized as "bool", maximized as "bool"] {
+                      fullscreen as "bool", minimized as "bool", maximized as "bool", skip_taskbar as "bool"] {
 
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));
@@ -1951,6 +1952,7 @@ impl WindowAdapter for QtWindow {
 
             widget_ptr->setWindowFlag(Qt::FramelessWindowHint, no_frame);
             widget_ptr->setWindowFlag(Qt::WindowStaysOnTopHint, always_on_top);
+            widget_ptr->setWindowFlag(Qt::Dialog, skip_taskbar);
 
             {
                 // Depending on the request, we either set or clear the bits.

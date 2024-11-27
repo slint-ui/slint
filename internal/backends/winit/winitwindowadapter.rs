@@ -13,6 +13,8 @@ use std::rc::Weak;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
+use winit::platform::windows::WindowAttributesExtWindows;
+#[cfg(target_family = "windows")]
 use winit::platform::windows::WindowExtWindows;
 
 use crate::renderer::WinitCompatibleRenderer;
@@ -228,6 +230,17 @@ impl WinitWindowOrNone {
             Self::HasWindow { window, .. } => window.set_max_inner_size(max_inner_size),
             Self::None(attributes) => {
                 attributes.borrow_mut().max_inner_size = max_inner_size.map(|s| s.into())
+            }
+        }
+    }
+
+    #[cfg(target_family = "windows")]
+    fn set_skip_taskbar(&self, skip: bool) {
+        match self {
+            Self::HasWindow { window, .. } => window.set_skip_taskbar(skip),
+            Self::None(attributes) => {
+                let att = attributes.borrow().clone().with_skip_taskbar(skip);
+                *attributes.borrow_mut() = att;
             }
         }
     }
@@ -804,6 +817,9 @@ impl WindowAdapter for WinitWindowAdapter {
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
         );
+        #[cfg(target_family = "windows")]
+        winit_window_or_none.set_skip_taskbar(window_item.skip_taskbar());
+
         let new_window_level = if window_item.always_on_top() {
             winit::window::WindowLevel::AlwaysOnTop
         } else {
