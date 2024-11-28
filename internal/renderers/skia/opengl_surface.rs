@@ -385,10 +385,11 @@ impl OpenGLSurface {
             ..
         }) = _window_handle.as_raw()
         {
-            use cocoa::appkit::NSView;
-            let view_id: cocoa::base::id = ns_view.as_ptr() as *const _ as *mut _;
+            let ns_view: &objc2_app_kit::NSView = unsafe { ns_view.cast().as_ref() };
             unsafe {
-                NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
+                ns_view.setLayerContentsPlacement(
+                    objc2_app_kit::NSViewLayerContentsPlacement::TopLeft,
+                );
             }
         }
 
