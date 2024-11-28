@@ -21,12 +21,12 @@ are supported by their vendors at the time of a Slint version release.
 
 When you run an application built by slint, a console window would show, by default ( see [/SUBSYSTEM (Specify Subsystem)](https://learn.microsoft.com/en-us/cpp/build/reference/subsystem-specify-subsystem?view=msvc-170)).
 
-You could disable the console by specify window subsystem.
+You could disable the console by specify `WINDOWS` subsystem.
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust">
 
-Add the code to the top of .rs file which contains `fn main()`.
+Add the code to the top of .rs file which contains `fn main()`:
 
 ```rust
 #![windows_subsystem = "windows"]
@@ -40,13 +40,13 @@ Or if you want to keep console output in debug mode:
 </TabItem>
 <TabItem label="C++">
 
-Add link flag `/SUBSYSTEM:WINDOWS`. If you are using Visual Studio, follow the steps:
 
-1. Open the project's Property Pages dialog box. For details, see Set C++ compiler and build properties in Visual Studio.
+Select the `WINDOWS` subsystem by setting the [`WIN32_EXECUTABLE`](https://cmake.org/cmake/help/latest/prop_tgt/WIN32_EXECUTABLE.html#prop_tgt:WIN32_EXECUTABLE) target property on your executable target:
 
-2. Select the Configuration Properties > Linker > System property page.
-
-3. Modify the SubSystem property, select "Window(/SUBSYSTEM:WINDOWS)".
+```cmake
+add_executable(my_program ...)
+set_property(TARGET my_program APPEND PROPERTY WIN32_EXECUTABLE TRUE)
+```
 
 </TabItem>
 <TabItem label="Node.js">
