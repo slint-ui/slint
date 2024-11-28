@@ -4,6 +4,8 @@ title: Desktop
 description: Desktop platforms on which Slint has been tested
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 Generally, Slint runs on Windows, macOS, and popular Linux distributions. The following tables
 cover versions that we specifically test. The general objective is to support the operating systems that
 are supported by their vendors at the time of a Slint version release.
@@ -14,6 +16,85 @@ are supported by their vendors at the time of a Slint version release.
 | ---------------- | ------------ |
 | Windows 10       | x86-64       |
 | Windows 11       | x86-64       |
+
+### Handle the console window
+
+When you run an application built by slint, a console window would show, by default ( see [/SUBSYSTEM (Specify Subsystem)](https://learn.microsoft.com/en-us/cpp/build/reference/subsystem-specify-subsystem?view=msvc-170)).
+
+You could disable the console by specify `WINDOWS` subsystem.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
+
+Add the code to the top of .rs file which contains `fn main()`:
+
+```rust
+#![windows_subsystem = "windows"]
+```
+
+Or if you want to keep console output in debug mode:
+
+```rust
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+```
+</TabItem>
+<TabItem label="C++">
+
+
+Select the `WINDOWS` subsystem by setting the [`WIN32_EXECUTABLE`](https://cmake.org/cmake/help/latest/prop_tgt/WIN32_EXECUTABLE.html#prop_tgt:WIN32_EXECUTABLE) target property on your executable target:
+
+```cmake
+add_executable(my_program ...)
+set_property(TARGET my_program APPEND PROPERTY WIN32_EXECUTABLE TRUE)
+```
+
+</TabItem>
+<TabItem label="Node.js">
+
+TODO: Add node.js
+</TabItem>
+</Tabs>
+
+When running the application from the command line, if the subsystem is set to windows it will no longer output stdout. To get it back consider using `FreeConsole()`.
+
+Here is a Rust example. It checks if the parent process is "explorer.exe" to ensure the console window is closed when opening the app via the normal windows GUI.
+
+```rust
+fn get_parent_process_name() -> Option<String> {
+    use sysinfo::{ProcessExt, System, SystemExt};
+
+    let current_pid = sysinfo::get_current_pid().unwrap();
+    let mut sys = System::new();
+    if sys.refresh_process(current_pid) {
+        if let Some(process) = sys.process(current_pid) {
+            if let Some(parent_pid) = process.parent() {
+                sys.refresh_process(parent_pid);
+                if let Some(parent_process) = sys.process(parent_pid) {
+                    return Some(parent_process.name().to_lowercase());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn main() {
+    let parent_process = get_parent_process_name();
+    let run_without_console = match &parent_process {
+        Some(s) if s == "explorer.exe" => true,
+        _ => false,
+    };
+
+    if run_without_console {
+        unsafe {
+            winapi::um::wincon::FreeConsole();
+        }
+    }
+}
+```
+
+See more details at [#3235](https://github.com/slint-ui/slint/issues/3235)
 
 ## macOS
 
