@@ -192,7 +192,6 @@ export component Test {
     // Jump to test.png image url
     let offset: TextSize = (source.find("\"test.png\"").unwrap() as u32).into();
     let token = crate::language::token_at_offset(&doc, offset + TextSize::new(1)).unwrap();
-
     assert_eq!(token.text(), "\"test.png\"");
     let def = goto_definition(&mut dc, token).unwrap();
     let link = first_link(&def);
