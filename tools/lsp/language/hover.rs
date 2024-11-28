@@ -263,6 +263,8 @@ export component Test {
             get_tooltip(&mut dc, find_tk("the-ta := TA {", 11.into())),
             "```slint\ncomponent TA\n```",
         );
+
+        // @image-url
         let target_path =
             uri.join("test.png").unwrap().to_file_path().unwrap().to_string_lossy().to_string();
         assert_tooltip(
