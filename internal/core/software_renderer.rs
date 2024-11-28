@@ -503,8 +503,15 @@ impl SoftwareRenderer {
                     logical_size,
                 );
                 let rotation = RotationInfo { orientation: rotation, screen_size: size };
-                let mut i = renderer.dirty_region.iter().map(|r| {
-                    (r.cast() * factor).to_rect().round_out().cast().transformed(rotation)
+                let screen_rect = PhysicalRect::from_size(size);
+                let mut i = renderer.dirty_region.iter().filter_map(|r| {
+                    (r.cast() * factor)
+                        .to_rect()
+                        .round_out()
+                        .cast()
+                        .intersection(&screen_rect)?
+                        .transformed(rotation)
+                        .into()
                 });
                 let dirty_region = PhysicalRegion {
                     rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
@@ -973,10 +980,16 @@ fn prepare_scene(
         );
         let rotation =
             RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
-        let mut i = renderer
-            .dirty_region
-            .iter()
-            .map(|r| (r.cast() * factor).to_rect().round_out().cast().transformed(rotation));
+        let screen_rect = PhysicalRect::from_size(size);
+        let mut i = renderer.dirty_region.iter().filter_map(|r| {
+            (r.cast() * factor)
+                .to_rect()
+                .round_out()
+                .cast()
+                .intersection(&screen_rect)?
+                .transformed(rotation)
+                .into()
+        });
         dirty_region = PhysicalRegion {
             rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
             count: renderer.dirty_region.iter().count(),
