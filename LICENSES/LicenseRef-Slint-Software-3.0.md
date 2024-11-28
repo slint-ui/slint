@@ -30,7 +30,7 @@ The grant of rights in section 1 are conditional, provided that You do all of th
 
 ## 3. Limitations
 
-The License does not permit to distribute or make the Software publicly available alone and without integration into an Application or into an Embedded System. For this purpose you may either use the Software under the GNU General Public License, version 3.
+The License does not permit to distribute or make the Software publicly available alone and without integration into an Application or into an Embedded System. For this purpose you may use the Software under the GNU General Public License, version 3.
 
 The License is limited to only the versions of Software that were made available to you under the purchased Pricing Plan. For all other versions, you may use the Software under either the GNU General Public License, version 3 or the Slint Royalty-free Desktop, Mobile, and Web Applications License.
 
