@@ -262,3 +262,22 @@ fn list_view() {
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
+
+#[test]
+/// test for #6932
+fn scale_factor() {
+    slint::slint! {
+        export component Ui inherits Window {
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(500, 500));
+    window.dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged { scale_factor: 1.33 });
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 500, 500);
+    }));
+}
