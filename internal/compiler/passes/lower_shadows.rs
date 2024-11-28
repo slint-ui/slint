@@ -56,6 +56,16 @@ fn create_box_shadow_element(
             ),
         );
     }
+    let background = SmolStr::new_static("background");
+    if sibling_element.borrow().bindings.contains_key(&background) {
+        element.bindings.insert(
+            SmolStr::new_static("shadowed-element-background"),
+            RefCell::new(
+                Expression::PropertyReference(NamedReference::new(sibling_element, background))
+                    .into(),
+            ),
+        );
+    }
 
     Some(element)
 }

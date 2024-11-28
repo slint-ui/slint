@@ -809,6 +809,39 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         };
 
         let blur = box_shadow.blur() * self.scale_factor;
+
+        let _restored_canvas = if box_shadow.shadowed_element_background().is_opaque() {
+            i_slint_core::graphics::boxshadowcache::BoxShadowOptions::new(
+                self_rc,
+                box_shadow,
+                self.scale_factor,
+            )
+            .map(|shadow_options| {
+                let shadowed_element_rect = skia_safe::RRect::new_rect_xy(
+                    skia_safe::Rect::from_xywh(
+                        0.,
+                        0.,
+                        shadow_options.width.get(),
+                        shadow_options.height.get(),
+                    ),
+                    shadow_options.radius.get(),
+                    shadow_options.radius.get(),
+                );
+
+                let restore_point = skia_safe::AutoCanvasRestore::guard(&self.canvas, true);
+
+                self.canvas.clip_rrect(
+                    shadowed_element_rect,
+                    Some(skia_safe::ClipOp::Difference),
+                    false,
+                );
+
+                restore_point
+            })
+        } else {
+            None
+        };
+
         self.canvas.draw_image(
             cached_shadow_image,
             to_skia_point(offset - PhysicalPoint::from_lengths(blur, blur).to_vector()),

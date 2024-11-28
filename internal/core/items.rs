@@ -1148,6 +1148,7 @@ pub struct BoxShadow {
     pub offset_y: Property<LogicalLength>,
     pub color: Property<Color>,
     pub blur: Property<LogicalLength>,
+    pub shadowed_element_background: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
