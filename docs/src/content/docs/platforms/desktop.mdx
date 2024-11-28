@@ -4,6 +4,8 @@ title: Desktop
 description: Desktop platforms on which Slint has been tested
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 Generally, Slint runs on Windows, macOS, and popular Linux distributions. The following tables
 cover versions that we specifically test. The general objective is to support the operating systems that
 are supported by their vendors at the time of a Slint version release.
@@ -14,6 +16,85 @@ are supported by their vendors at the time of a Slint version release.
 | ---------------- | ------------ |
 | Windows 10       | x86-64       |
 | Windows 11       | x86-64       |
+
+### Handle the console window
+
+When you run an application built by slint, a console window would show, by default ( see [/SUBSYSTEM (Specify Subsystem)](https://learn.microsoft.com/en-us/cpp/build/reference/subsystem-specify-subsystem?view=msvc-170)).
+
+You could disable the console by specify window subsystem.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
+
+Add the code to the top of .rs file which contains `fn main()`.
+
+```rust
+#![windows_subsystem = "windows"]
+```
+
+Or if you want to keep console output in debug mode:
+
+```rust
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+```
+</TabItem>
+<TabItem label="C++">
+
+Add link flag `/SUBSYSTEM:WINDOWS`. If you are using Visual Studio, follow the steps:
+
+1. Open the project's Property Pages dialog box. For details, see Set C++ compiler and build properties in Visual Studio.
+
+2. Select the Configuration Properties > Linker > System property page.
+
+3. Modify the SubSystem property, select "Window(/SUBSYSTEM:WINDOWS)".
+
+</TabItem>
+<TabItem label="Node.js">
+
+TODO: Add node.js
+</TabItem>
+</Tabs>
+
+Set subsystem to "windows" would lost stdout if you run the application from command line. If you want to deal with CLI, consider use `FreeConsole()` instead of flag subsystem.
+
+Here is a Rust example. The parent process should be "explorer.exe" if you run the application from desktop, or folder window, so we could free the console as we dont want to see it.
+
+```rust
+fn get_parent_process_name() -> Option<String> {
+    use sysinfo::{ProcessExt, System, SystemExt};
+
+    let current_pid = sysinfo::get_current_pid().unwrap();
+    let mut sys = System::new();
+    if sys.refresh_process(current_pid) {
+        if let Some(process) = sys.process(current_pid) {
+            if let Some(parent_pid) = process.parent() {
+                sys.refresh_process(parent_pid);
+                if let Some(parent_process) = sys.process(parent_pid) {
+                    return Some(parent_process.name().to_lowercase());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn main() {
+    let parent_process = get_parent_process_name();
+    let run_without_console = match &parent_process {
+        Some(s) if s == "explorer.exe" => true,
+        _ => false,
+    };
+
+    if run_without_console {
+        unsafe {
+            winapi::um::wincon::FreeConsole();
+        }
+    }
+}
+```
+
+See more details at [#3235](https://github.com/slint-ui/slint/issues/3235)
 
 ## macOS
 
