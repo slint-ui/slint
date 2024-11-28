@@ -11,13 +11,15 @@ function sideBorder() {
 
         .sideBar {
             position: absolute;
-            top: calc(var(--button-spacing) - 4px);
+            top: calc(var(--button-spacing) - 6px);
             bottom: 0;
             left: 0;
-            width: 2px;
-            background: #2479f4;
-            border-top-left-radius: 1.4rem;
-            border-bottom-left-radius: 1.4rem;    
+            width: 100px;
+            border-left-width: 2px;
+            border-left-style: solid;
+            border-color: #2479f4;
+            border-top-left-radius: 0.4rem;
+            border-bottom-left-radius: 0.4rem; 
         }
         `,
         hooks: {
