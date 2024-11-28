@@ -55,9 +55,9 @@ TODO: Add node.js
 </TabItem>
 </Tabs>
 
-Set subsystem to "windows" would lost stdout if you run the application from command line. If you want to deal with CLI, consider use `FreeConsole()` instead of flag subsystem.
+When running the application from the command line, if the subsystem is set to windows it will no longer output stdout. To get it back consider using `FreeConsole()`.
 
-Here is a Rust example. The parent process should be "explorer.exe" if you run the application from desktop, or folder window, so we could free the console as we dont want to see it.
+Here is a Rust example. It checks if the parent process is "explorer.exe" to ensure the console window is closed when opening the app via the normal windows GUI.
 
 ```rust
 fn get_parent_process_name() -> Option<String> {
