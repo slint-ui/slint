@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { h } from "@astrojs/starlight/expressive-code/hast";
-
 export async function getEnumContent(enumName: string | undefined) {
     if (enumName) {
         try {
@@ -74,32 +72,32 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
     switch (typeName) {
         case "angle":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0deg",
             };
         case "bool":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "false",
             };
         case "brush":
             return {
-                href: "/master/docs/slint/guide/language/types/#colors-and-brushes",
+                href: linkMap.ColorsRef.href,
                 defaultValue: "a transparent brush",
             };
         case "color":
             return {
-                href: "/master/docs/slint/guide/language/types/#colors-and-brushes",
+                href: linkMap.ColorsRef.href,
                 defaultValue: "a transparent color",
             };
         case "duration":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0ms",
             };
         case "easing":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "linear",
             };
         case "enum":
@@ -109,52 +107,52 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "float":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0.0",
             };
         case "image":
             return {
-                href: "/master/docs/slint/guide/language/types/#images",
+                href: linkMap.ImageType.href,
                 defaultValue: "the empty image",
             };
         case "int":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0",
             };
         case "length":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0px",
             };
         case "percent":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0%",
             };
         case "physical-length":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0phx",
             };
         case "Point":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "(0px, 0px)",
             };
         case "relative-font-size":
             return {
-                href: "/master/docs/slint/guide/language/types/",
+                href: linkMap.Types.href,
                 defaultValue: "0rem",
             };
         case "string":
             return {
-                href: "/master/docs/slint/guide/language/types/#string",
+                href: linkMap.StringType.href,
                 defaultValue: '""',
             };
         case "struct":
             return {
-                href: "/master/docs/slint/guide/language/types/#structs",
+                href: linkMap.StructType.href,
                 defaultValue: "a struct with all default values",
             };
         default: {
@@ -206,6 +204,9 @@ export const linkMap = {
     DebugFn: {
         href: "/reference/builtins/builtinfunctions#debug",
     },
+    EnumType: {
+        href: "/reference/builtins/types/#enums",
+    },
     FocusHandling: {
         href: "/guide/focus",
     },
@@ -220,6 +221,9 @@ export const linkMap = {
     },
     Image: {
         href: "/reference/elements/image",
+    },
+    ImageType: {
+        href: "/reference/builtins/types/#images",
     },
     ListView: {
         href: "/reference/std-widgets/listview",
@@ -242,6 +246,12 @@ export const linkMap = {
     StandardButton: {
         href: "/reference/std-widgets/standardbutton",
     },
+    StringType: {
+        href: "/reference/builtins/types/#images",
+    },
+    StructType: {
+        href: "/reference/builtins/types/#structs",
+    },
     StyleWidgets: {
         href: "/reference/std-widgets/style",
     },
@@ -253,6 +263,9 @@ export const linkMap = {
     },
     Timer: {
         href: "/reference/elements/timer/",
+    },
+    Types: {
+        href: "/reference/builtins/types",
     },
     VerticalBox: {
         href: "/reference/std-widgets/verticalbox",

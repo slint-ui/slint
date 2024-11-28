@@ -41,6 +41,11 @@ if (typeName === "enum") {
 }
 
 const typeInfo = getTypeInfo(typeName);
+if (typeInfo.href !== "") {
+    const base = import.meta.env.BASE_URL;
+    typeInfo.href = `${base}${typeInfo.href}`;
+    console.log(typeInfo.href);
+}
 const enumContent = await getEnumContent(enumName);
 const structContent = await getStructContent(typeName);
 
