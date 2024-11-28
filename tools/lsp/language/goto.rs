@@ -3,15 +3,19 @@
 
 use crate::common;
 use crate::language::token_info::{token_info, TokenInfo};
+use crate::util;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
-use lsp_types::{GotoDefinitionResponse, LocationLink, Range};
+use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 
 pub fn goto_definition(
     document_cache: &mut common::DocumentCache,
     token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
-    let token_info = token_info(document_cache, token)?;
+    let token_info = token_info(document_cache, token.clone())?;
     match token_info {
         TokenInfo::Type(ty) => goto_type(&ty),
         TokenInfo::ElementType(el) => {
@@ -41,9 +45,20 @@ pub fn goto_definition(
             goto_node(&*v.enumeration.node.as_ref()?)
         }
         TokenInfo::FileName(f) => {
-            let doc = document_cache.get_document_by_path(&f)?;
-            let doc_node = doc.node.clone()?;
-            goto_node(&doc_node)
+            if let Some(doc) = document_cache.get_document_by_path(&f) {
+                let doc_node = doc.node.clone()?;
+                goto_node(&doc_node)
+            } else if f.is_file() || cfg!(test) {
+                // WASM will never get here, but that is fine: Slintpad can not open images anyway;-)
+                return Some(GotoDefinitionResponse::Link(vec![LocationLink {
+                    origin_selection_range: Some(util::token_to_lsp_range(&token)),
+                    target_uri: lsp_types::Url::from_file_path(&f).ok()?,
+                    target_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                    target_selection_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                }]));
+            } else {
+                None
+            }
         }
         TokenInfo::LocalProperty(x) => goto_node(&x),
         TokenInfo::LocalCallback(x) => goto_node(&x),
@@ -104,6 +119,10 @@ export component Test {
         text: abc.hello;
     }
     rec := Rectangle { }
+
+    img := Image {
+        source: @image-url("test.png")
+    }
 }"#;
 
     let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
@@ -169,6 +188,16 @@ export component Test {
     let link = first_link(&def);
     assert_eq!(link.target_uri, uri);
     assert_eq!(link.target_range.start.line, 3);
+
+    // Jump to test.png image url
+    let offset: TextSize = (source.find("\"test.png\"").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(1)).unwrap();
+    assert_eq!(token.text(), "\"test.png\"");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri.join("test.png").unwrap());
+    assert_eq!(link.target_range.start.line, 0);
+    assert_eq!(link.target_range.start.character, 0);
 }
 
 #[test]
