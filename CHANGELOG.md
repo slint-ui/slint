@@ -8,10 +8,12 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Minumum Supported Rust Version (MSRC) is 1.77
- - femtovg: Avoid artifacts of texture sampling with accidental wrap-around on texture boundaries
+ - Added functions to set the XDG app id on Wayland/X11. (#1332)
+ - Added ability to bundle translations in the binary
 
 ### Slint language
 
+ - Named callback arguments
  - Added animation `direction` property. (#6260)
  - TextInput: fix selection colors not used from style (#6326)
  - TextInput: added `rejected` callback
@@ -25,6 +27,8 @@ All notable changes to this project are documented in this file.
  - Emit a warning when the case of the import file differ from the case of the file that was imported (#4265)
  - Support property changed callbacks in globals (#6599)
  - PopupWindow: added `close-policy` property, deprecated `close-on-click` (#6614)
+ - Added `Window::skip-taskbar` (#6911)
+ - Fixed `min(..)` and `max(..)` functions with `rem` units
 
 ### Widgets
 
@@ -32,6 +36,8 @@ All notable changes to this project are documented in this file.
  - CheckBox: remove margin in fluent and cupertino style (#6639)
  - LineEdit: fix cursor draws out of bounds (#6243)
  - TabWidget: Fix tabs overflow behavior (#6517)
+ - SpinBox: Added `horizontal-alignment`
+ - Added `LayoutSpec` global
 
 ### Rust API
 
@@ -40,6 +46,8 @@ All notable changes to this project are documented in this file.
  - Derive serde traits for `PhysicalPosition`, `LogicalPosition`, `PhysicalSize` and `LogicalSize` (#6534)
  - Use `approx_eq` to compare float in the generated code
  - Added `PlatformBuilder` to select OpenGL API and renderer
+ - Added `ToSharedString` trait (#6845)
+ - Implements `AsRef<Path>`, `AsRef<OsStr>` for `SharedString`
 
 ### C++ API
 
@@ -49,6 +57,8 @@ All notable changes to this project are documented in this file.
  - Adds `_` to the end of identifier that would otherwise be keywords (#5613)
  - Improve float comparison in the generated code
  - esp-idf: Fix vsync locking
+ - Added `to_lowercase` and `to_uppercase` to `slint::SharedString` (#6869)
+ - Added `slint::Window::take_snapshot()`
 
 ### Node API
 
@@ -59,6 +69,10 @@ All notable changes to this project are documented in this file.
 
  - LSP: auto-completion of changed callbacks
  - LSP: preserve `_` when auto-completing element identifiers (#6479)
+ - LSP: show image in tooltip for `@image-url`
+ - LSP: fix reloading files that import a changed file
+ - LSP: Implemented Signature Help
+ - live-preview: New selection popup
  - live-preview: Bring the window to the front and focus when clicking on "Show preview" in the editor. (#196)
  - live-preview: On MacOS, Renamed "Quit" to "Closed" and uses cmd+w to close the window
  - live-preview: don't panic if run_event_loop returns an error, show an error in the editor instead
@@ -72,8 +86,10 @@ All notable changes to this project are documented in this file.
 
 ### Renderer
 
+ - femtovg: Avoid artifacts of texture sampling with accidental wrap-around on texture boundaries
  - Software renderer: fixed `char-wrap` not braking between lines
  - Software renderer: fix artifact with partial drawing and rotation
+ - Software renderer: fix panic with fractional scale factor (#6932)
  - Skia: Fixed opacity not being applied to box shadows correctly (#6359)
 
 ### Misc
@@ -86,6 +102,7 @@ All notable changes to this project are documented in this file.
  - Fixed support older android (9.0)
  - Android: handle properly the Destroy event (#6626)
  - Support multiple PopupWindow at the same time (#4356)
+ - Fix init and changed callback not always being called in ListView (#6836)
 
 ## 1.8.0 - 2024-09-23
 
