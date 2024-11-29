@@ -64,6 +64,10 @@ impl<
         })
     }
 
+    pub fn from_fraction(numerator: T, denominator: T) -> Self {
+        Self((numerator << SHIFT) / denominator)
+    }
+
     pub(crate) fn from_f32(value: f32) -> Option<Self>
     where
         T: num_traits::FromPrimitive,

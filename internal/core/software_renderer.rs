@@ -1460,10 +1460,12 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             continue;
                         };
 
+                        let gl_x = PhysicalLength::new((-glyph.x).truncate() as i16);
+                        let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
                         let target_rect = PhysicalRect::new(
                             PhysicalPoint::from_lengths(
-                                line_x + positioned_glyph.x + glyph.x,
-                                baseline_y - glyph.y - glyph.height,
+                                line_x + positioned_glyph.x - gl_x,
+                                baseline_y - gl_y - glyph.height,
                             ),
                             glyph.size(),
                         )
@@ -1515,21 +1517,21 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                         },
                                     }
                                 } else {
-                                    debug_assert_eq!((data.len() - 1) % pixel_stride as usize, 0);
                                     let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
-                                    let fract_x = Fixed::from_integer(pixel_stride as i32)
-                                        - delta32 * glyph.width.get() as i32;
-                                    let fract_y = Fixed::from_integer(
-                                        ((data.len() - 1) / pixel_stride as usize) as i32,
-                                    ) - delta32 * glyph.height.get() as i32;
-                                    debug_assert!(
-                                        fract_x < Fixed::from_integer(1) && fract_x >= Fixed(0)
+                                    let normalize = |x: Fixed<i32, 8>| {
+                                        if x < Fixed::from_integer(0) {
+                                            x + Fixed::from_integer(1)
+                                        } else {
+                                            x
+                                        }
+                                    };
+                                    let fract_x = normalize(
+                                        (-glyph.x) - Fixed::from_integer(gl_x.get() as _),
                                     );
-                                    debug_assert!(
-                                        fract_y < Fixed::from_integer(1) && fract_y >= Fixed(0)
-                                    );
-                                    let off_x = delta32 * off_x as i32 + fract_x / 2;
-                                    let off_y = delta32 * off_y as i32 + fract_y / 2;
+                                    let off_x = delta32 * off_x as i32 + fract_x;
+                                    let fract_y =
+                                        normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
+                                    let off_y = delta32 * off_y as i32 + fract_y;
                                     SceneTexture {
                                         data,
                                         pixel_stride,
