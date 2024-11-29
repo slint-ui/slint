@@ -716,31 +716,64 @@ pub async fn populate_command(
 
 pub(crate) async fn reload_document_impl(
     ctx: Option<&Rc<Context>>,
-    mut content: String,
+    content: String,
     url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
+    enum FileAction {
+        ProcessContent(String),
+        IgnoreFile,
+        InvalidateFile,
+    }
+
     let Some(path) = common::uri_to_file(&url) else { return Default::default() };
     // Normalize the URL
     let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
-    if path.extension().map_or(false, |e| e == "rs") {
-        content = match i_slint_compiler::lexer::extract_rust_macro(content) {
-            Some(content) => content,
-            // A rust file without a rust macro, just ignore it
-            None => return [(url, vec![])].into_iter().collect(),
-        };
-    }
 
-    if let Some(ctx) = ctx {
-        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url.clone(), version),
-            contents: content.clone(),
-        });
-    }
-    let dependencies = document_cache.invalidate_url(&url);
+    let action = if path.extension().is_some_and(|e| e == "rs") {
+        match i_slint_compiler::lexer::extract_rust_macro(content) {
+            Some(content) => FileAction::ProcessContent(content),
+            // A rust file without a rust macro, just ignore it
+            None => {
+                if document_cache.get_document(&url).is_some() {
+                    // This had contents before: Continue so we can invalidate it!
+                    FileAction::InvalidateFile
+                } else {
+                    FileAction::IgnoreFile
+                }
+            }
+        }
+    } else {
+        FileAction::ProcessContent(content)
+    };
+
     let mut diag = BuildDiagnostics::default();
-    let _ = document_cache.load_url(&url, version, content, &mut diag).await; // ignore url conversion errors
+
+    let dependencies = match action {
+        FileAction::ProcessContent(content) => {
+            if let Some(ctx) = ctx {
+                ctx.server_notifier.send_message_to_preview(
+                    common::LspToPreviewMessage::SetContents {
+                        url: common::VersionedUrl::new(url.clone(), version),
+                        contents: content.clone(),
+                    },
+                );
+            }
+            let dependencies = document_cache.invalidate_url(&url);
+            let _ = document_cache.load_url(&url, version, content, &mut diag).await;
+            dependencies
+        }
+        FileAction::IgnoreFile => return Default::default(),
+        FileAction::InvalidateFile => {
+            if let Some(ctx) = ctx {
+                ctx.server_notifier.send_message_to_preview(
+                    common::LspToPreviewMessage::ForgetFile { url: url.clone() },
+                );
+            }
+            document_cache.invalidate_url(&url)
+        }
+    };
 
     for dep in &dependencies {
         if ctx.is_some_and(|ctx| ctx.open_urls.borrow().contains(dep)) {
