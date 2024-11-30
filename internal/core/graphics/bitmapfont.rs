@@ -8,14 +8,17 @@ use crate::slice::Slice;
 /// A pre-rendered glyph with the alpha map and associated metrics
 pub struct BitmapGlyph {
     /// The starting x-coordinate for the glyph, relative to the base line
+    /// This is a fixed point number that is shifted by 6 bits
     pub x: i16,
     /// The starting y-coordinate for the glyph, relative to the base line
+    /// This is a fixed point number that is shifted by 6 bits
     pub y: i16,
     /// The width of the glyph in pixels
     pub width: i16,
     /// The height of the glyph in pixels
     pub height: i16,
     /// The horizontal distance to the next glyph
+    /// This is a fixed point number that is shifted by 6 bits
     pub x_advance: i16,
     /// The 8-bit alpha map that's to be blended with the current text color
     /// or 8-bit signed distance field depending on `BitmapFont::sdf`

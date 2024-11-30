@@ -4,6 +4,7 @@
 use alloc::rc::Rc;
 
 use crate::lengths::PhysicalPx;
+use crate::software_renderer::fixed::Fixed;
 use crate::software_renderer::PhysicalLength;
 use crate::textlayout::{Glyph, TextShaper};
 use i_slint_common::sharedfontdb::{self, fontdb};
@@ -206,8 +207,8 @@ impl super::GlyphRenderer for VectorFont {
                 let alpha_map: Rc<[u8]> = alpha_map.into();
 
                 let glyph = super::RenderableGlyph {
-                    x: PhysicalLength::new(metrics.xmin.try_into().unwrap()),
-                    y: PhysicalLength::new(metrics.ymin.try_into().unwrap()),
+                    x: Fixed::from_integer(metrics.xmin.try_into().unwrap()),
+                    y: Fixed::from_integer(metrics.ymin.try_into().unwrap()),
                     width: PhysicalLength::new(metrics.width.try_into().unwrap()),
                     height: PhysicalLength::new(metrics.height.try_into().unwrap()),
                     alpha_map: alpha_map.into(),

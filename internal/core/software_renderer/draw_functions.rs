@@ -281,7 +281,7 @@ pub(super) fn draw_texture_line(
             }
             PixelFormat::SignedDistanceField => {
                 const RANGE: i32 = 6;
-                let factor = (256 * 256 / delta.0) * RANGE;
+                let factor = (362 * 256 / delta.0) * RANGE; // 362 ≃ 255 * sqrt(2)
                 for pix in line_buffer {
                     let (pos, col_f, row_f) = pos(1);
                     let (col_f, row_f) = (col_f as i32, row_f as i32);

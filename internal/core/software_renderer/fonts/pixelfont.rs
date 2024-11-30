@@ -1,11 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{
-    graphics::{BitmapFont, BitmapGlyphs},
-    software_renderer::PhysicalLength,
-    textlayout::{FontMetrics, Glyph, TextShaper},
-};
+use crate::graphics::{BitmapFont, BitmapGlyphs};
+use crate::software_renderer::fixed::Fixed;
+use crate::software_renderer::PhysicalLength;
+use crate::textlayout::{FontMetrics, Glyph, TextShaper};
 
 use super::{GlyphRenderer, RenderableGlyph};
 
@@ -30,11 +29,6 @@ impl PixelFont {
     pub fn glyph_id_to_glyph_index(id: core::num::NonZeroU16) -> usize {
         id.get() as usize - 1
     }
-
-    /// Convert from the glyph coordinate to the target coordinate
-    pub fn scale_glyph_length(&self, v: i16) -> PhysicalLength {
-        self.pixel_size * v / self.glyphs.pixel_size
-    }
 }
 
 impl GlyphRenderer for PixelFont {
@@ -45,13 +39,27 @@ impl GlyphRenderer for PixelFont {
             // For example, ' ' has no glyph data
             return None;
         }
-        let width = self.scale_glyph_length(bitmap_glyph.width - 1) + PhysicalLength::new(1);
-        let height = self.scale_glyph_length(bitmap_glyph.height - 1) + PhysicalLength::new(1);
+        // t represent the target coordinate system, and s the source glyph coordinate system.
+        // We want to align the glyph such that Δ(hₜ+yₜ)+offset = hₛ+yₛ
+        // where hₜ is the integer height of the glyph in the target coordinate system
+        // and offset is smaller than Δ
+        // We also want that Δ(hₜ-1)+offset ≤ hₛ-1
+        // Similar for x but that's easier since x is not subtracted from the width
+        let delta = Fixed::<i32, 8>::from_fixed(self.scale_delta());
+        let src_x = Fixed::<i32, 8>::from_fixed(Fixed::<_, 6>(bitmap_glyph.x));
+        let src_y = Fixed::<i32, 8>::from_fixed(Fixed::<_, 6>(bitmap_glyph.y));
+        let h_plus_y = Fixed::<i32, 8>::from_integer(bitmap_glyph.height as i32) + src_y;
+        let h_plus_y = Fixed::<i32, 8>::from_fraction(h_plus_y.0, delta.0);
+        let off_y = Fixed::<i32, 8>(h_plus_y.0 & 0xff);
+        let height = (Fixed::from_integer(bitmap_glyph.height as i32 - 1) - off_y) / delta + 1;
+        let x = Fixed::from_fraction(src_x.0, delta.0);
+        let off_x = Fixed::<i32, 8>(-x.0 & 0xff);
+        let width = (Fixed::from_integer(bitmap_glyph.width as i32 - 1) - off_x) / delta + 1;
         Some(RenderableGlyph {
-            x: self.scale_glyph_length(bitmap_glyph.x),
-            y: self.scale_glyph_length(bitmap_glyph.y + bitmap_glyph.height) - height,
-            width,
-            height,
+            x,
+            y: h_plus_y - Fixed::from_integer(height),
+            width: PhysicalLength::new(width as i16),
+            height: PhysicalLength::new(height as i16),
             alpha_map: bitmap_glyph.data.as_slice().into(),
             pixel_stride: bitmap_glyph.width as u16,
             sdf: self.bitmap_font.sdf,
@@ -82,8 +90,12 @@ impl TextShaper for PixelFont {
             let x_advance = glyph_index.map_or_else(
                 || self.pixel_size,
                 |glyph_index| {
-                    self.pixel_size * self.glyphs.glyph_data[glyph_index].x_advance
-                        / self.glyphs.pixel_size
+                    ((self.pixel_size.cast()
+                        * self.glyphs.glyph_data[glyph_index].x_advance as i32
+                        / self.glyphs.pixel_size as i32
+                        + euclid::Length::new(32))
+                        / 64)
+                        .cast()
                 },
             );
             Glyph {
@@ -105,7 +117,11 @@ impl TextShaper for PixelFont {
                 let glyph_index =
                     self.bitmap_font.character_map[char_map_index].glyph_index as usize;
                 let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
-                let x_advance = PhysicalLength::new(bitmap_glyph.x_advance);
+                let x_advance = ((self.pixel_size.cast() * bitmap_glyph.x_advance as i32
+                    / self.glyphs.pixel_size as i32
+                    + euclid::Length::new(32))
+                    / 64)
+                    .cast();
                 Glyph {
                     glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
                     advance: x_advance,

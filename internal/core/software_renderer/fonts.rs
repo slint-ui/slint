@@ -28,8 +28,8 @@ pub enum GlyphAlphaMap {
 
 #[derive(Clone)]
 pub struct RenderableGlyph {
-    pub x: PhysicalLength,
-    pub y: PhysicalLength,
+    pub x: Fixed<i32, 8>,
+    pub y: Fixed<i32, 8>,
     pub width: PhysicalLength,
     pub height: PhysicalLength,
     pub alpha_map: GlyphAlphaMap,
