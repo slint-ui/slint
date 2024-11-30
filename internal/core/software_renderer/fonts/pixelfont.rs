@@ -117,7 +117,11 @@ impl TextShaper for PixelFont {
                 let glyph_index =
                     self.bitmap_font.character_map[char_map_index].glyph_index as usize;
                 let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
-                let x_advance = PhysicalLength::new(bitmap_glyph.x_advance);
+                let x_advance = ((self.pixel_size.cast() * bitmap_glyph.x_advance as i32
+                    / self.glyphs.pixel_size as i32
+                    + euclid::Length::new(32))
+                    / 64)
+                    .cast();
                 Glyph {
                     glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
                     advance: x_advance,
