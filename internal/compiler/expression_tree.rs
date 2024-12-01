@@ -1107,6 +1107,14 @@ impl Expression {
             self
         } else if ty.can_convert(&target_type) {
             let from = match (ty, &target_type) {
+                (Type::Brush, Type::Color) => match self {
+                    Expression::LinearGradient { .. } | Expression::RadialGradient { .. } => {
+                        let message = format!("Narrowing conversion from {0} to {1}. This can lead to unexpected behavior because the {0} is a gradient", Type::Brush, Type::Color);
+                        diag.push_warning(message, node);
+                        self
+                    }
+                    _ => self,
+                },
                 (Type::Percent, Type::Float32) => Expression::BinaryExpression {
                     lhs: Box::new(self),
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),

@@ -29,4 +29,6 @@ export X := Rectangle {
 //                                                             ^error{Unknown unqualified identifier 'r'}
     property <brush> g15: @linear-gradient(90deg, brown o, green); // #3241
 //                                                      ^error{Unknown unqualified identifier 'o'}
+    property<color> g16: @linear-gradient(0deg, red, green, blue); // #6819
+//                       ^warning{Narrowing conversion from brush to color. This can lead to unexpected behavior because the brush is a gradient}
 }
