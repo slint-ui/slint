@@ -208,7 +208,7 @@ export const linkMap = {
         href: "/reference/builtins/types/#enums",
     },
     FocusHandling: {
-        href: "/guide/focus",
+        href: "/guide/unfinished/focus",
     },
     GridLayout: {
         href: "/reference/layouts/gridlayout",
