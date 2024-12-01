@@ -45,6 +45,7 @@ pub struct AccessKitAdapter {
     nodes: NodeCollection,
     global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
     pending_update: bool,
+    initial_tree_sent: bool,
 }
 
 impl AccessKitAdapter {
@@ -67,6 +68,7 @@ impl AccessKitAdapter {
                 AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
             )),
             pending_update: false,
+            initial_tree_sent: false,
         }
     }
 
@@ -94,6 +96,7 @@ impl AccessKitAdapter {
                         self.global_property_tracker.as_ref(),
                     )
                 });
+                self.initial_tree_sent = true;
                 None
             }
             accesskit_winit::WindowEvent::ActionRequested(r) => self.handle_request(r),
@@ -102,6 +105,10 @@ impl AccessKitAdapter {
     }
 
     pub fn handle_focus_item_change(&mut self) {
+        // Ignore focus changes until an initial tree was sent, to avoid sending `tree: None`.
+        if !self.initial_tree_sent {
+            return;
+        }
         self.inner.update_if_active(|| TreeUpdate {
             nodes: vec![],
             tree: None,
