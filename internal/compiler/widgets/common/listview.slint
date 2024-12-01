@@ -24,6 +24,7 @@ component StandardListViewBase inherits ListView {
 
         current-item = index;
         focus-item = index;
+        first-selection = true;
         current-item-changed(current-item);
     }
 
@@ -32,6 +33,7 @@ component StandardListViewBase inherits ListView {
     private property <length> into-view-item-y: root.item-y(root.into-view-item);
     private property <length> current-item-y: root.item-y(root.focus-item);
     private property <int> focus-item: 0;
+    private property <bool> first-selection: false;
 
     accessible-delegate-focus: root.focus-item;
     accessible-item-count: root.model.length;
@@ -64,8 +66,20 @@ component StandardListViewBase inherits ListView {
         root.set-focus-item(root.focus-item - 1);
     }
 
+    protected function focus-first() {
+        root.set-focus-item(0);
+    }
+
     protected function focus-down() {
-       root.set-focus-item(root.focus-item + 1);
+        if (root.first-selection) {
+            root.set-focus-item(root.focus-item + 1);
+        } else {
+            root.select-focus-item();
+        }
+    }
+
+    protected function focus-last() {
+        root.set-focus-item(root.model.length - 1);
     }
 
     protected function select-focus-item() {
@@ -78,6 +92,14 @@ component StandardListViewBase inherits ListView {
         if (root.current-item-y + root.item-height < 0
             || root.current-item-y > root.height) {
                 root.focus-item = root.first-visible-item();
+        }
+    }
+
+    protected function toggle-focus-item-selection() {
+        if (root.current-item == root.focus-item) {
+            root.current-item = -1;
+        } else {
+            root.select-focus-item();
         }
     }
 
@@ -127,12 +149,34 @@ export component StandardListView inherits StandardListViewBase {
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.focus-up();
+                if (!event.modifiers.control) {
+                    root.select-focus-item();
+                }
+                return accept;
+            } else if (event.text == Key.Home) {
+                root.focus-first();
+                if (!event.modifiers.control) {
+                    root.select-focus-item();
+                }
                 return accept;
             } else if (event.text == Key.DownArrow) {
                 root.focus-down();
+                if (!event.modifiers.control) {
+                    root.select-focus-item();
+                }
                 return accept;
-            }else if (event.text == Key.Return) {
-                root.select-focus-item();
+            } else if (event.text == Key.End) {
+                root.focus-last();
+                if (!event.modifiers.control) {
+                    root.select-focus-item();
+                }
+                return accept;
+            } else if (event.text == Key.Space) {
+                if (event.modifiers.control) {
+                    root.toggle-focus-item-selection();
+                } else {
+                    root.select-focus-item();
+                }
                 return accept;
             }
             reject
