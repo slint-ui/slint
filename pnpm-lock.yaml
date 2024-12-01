@@ -95,6 +95,9 @@ importers:
       starlight-links-validator:
         specifier: 0.13.2
         version: 0.13.2(@astrojs/starlight@0.29.2(astro@4.16.14(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)))(astro@4.16.14(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2))
+      starlight-sidebar-topics:
+        specifier: 0.2.1
+        version: 0.2.1(@astrojs/starlight@0.29.2(astro@4.16.14(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)))
       typescript:
         specifier: 5.7.2
         version: 5.7.2
@@ -4108,6 +4111,12 @@ packages:
     peerDependencies:
       '@astrojs/starlight': '>=0.15.0'
       astro: '>=4.0.0'
+
+  starlight-sidebar-topics@0.2.1:
+    resolution: {integrity: sha512-ILbfKLhgvt/X1kkMaVmWyS5Yq36hza4i/LABORBDHyQHtcJb6egqpU9wvycyZHUdPKOTarkASZv6Hgu9Kgs46A==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@astrojs/starlight': '>=0.28.0'
 
   stdin-discarder@0.2.2:
     resolution: {integrity: sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ==}
@@ -9387,6 +9396,10 @@ snapshots:
       mdast-util-to-string: 4.0.0
       picomatch: 4.0.2
       unist-util-visit: 5.0.0
+
+  starlight-sidebar-topics@0.2.1(@astrojs/starlight@0.29.2(astro@4.16.14(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2))):
+    dependencies:
+      '@astrojs/starlight': 0.29.2(astro@4.16.14(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2))
 
   stdin-discarder@0.2.2: {}
 
