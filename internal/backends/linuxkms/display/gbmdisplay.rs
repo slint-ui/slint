@@ -44,6 +44,8 @@ impl GbmDisplay {
             )
             .map_err(|e| format!("Error creating gbm surface: {e}"))?;
 
+        drm_output.set_renderer_is_triple_buffered(true);
+
         Ok(GbmDisplay { drm_output, gbm_surface, gbm_device, surface_format })
     }
 

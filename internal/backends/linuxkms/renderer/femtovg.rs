@@ -26,10 +26,11 @@ pub struct FemtoVGRendererAdapter {
 struct GlContextWrapper {
     glutin_context: glutin::context::PossiblyCurrentContext,
     glutin_surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
+    gbm_display: Rc<GbmDisplay>,
 }
 
 impl GlContextWrapper {
-    fn new(gbm_display: &GbmDisplay) -> Result<Self, PlatformError> {
+    fn new(gbm_display: &Rc<GbmDisplay>) -> Result<Self, PlatformError> {
         let (width, height) = gbm_display.drm_output.size();
         let width: std::num::NonZeroU32 = width.try_into().map_err(|_| {
             format!("Attempting to create window surface with an invalid width: {}", width)
@@ -105,7 +106,11 @@ impl GlContextWrapper {
             .into()
     })?;
 
-        Ok(Self { glutin_context: context, glutin_surface: surface })
+        Ok(Self {
+            glutin_context: context,
+            glutin_surface: surface,
+            gbm_display: gbm_display.clone(),
+        })
     }
 }
 
@@ -122,6 +127,9 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for GlContextWrapper {
     }
 
     fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Make sure the in-flight font-buffer from the previous swap_buffers call has been
+        // posted to the screen.
+        self.gbm_display.drm_output.wait_for_page_flip();
         self.glutin_surface.swap_buffers(&self.glutin_context).map_err(
             |glutin_error| -> PlatformError {
                 format!("FemtoVG: Error swapping buffers: {glutin_error}").into()

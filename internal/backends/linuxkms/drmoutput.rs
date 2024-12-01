@@ -30,7 +30,7 @@ enum PageFlipState {
     InitialBufferPosted,
     WaitingForPageFlip {
         _buffer_to_keep_alive_until_flip: Box<dyn Buffer>,
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
+        ready_for_next_animation_frame: Option<Box<dyn FnOnce()>>,
     },
     ReadyForNextBuffer,
 }
@@ -43,6 +43,7 @@ pub struct DrmOutput {
     last_buffer: Cell<Option<Box<dyn Buffer>>>,
     page_flip_state: Rc<RefCell<PageFlipState>>,
     page_flip_event_source_registered: Cell<bool>,
+    renderer_is_triple_buffered: Cell<bool>,
 }
 
 impl DrmOutput {
@@ -199,6 +200,7 @@ impl DrmOutput {
             last_buffer: Cell::default(),
             page_flip_state: Default::default(),
             page_flip_event_source_registered: Cell::new(false),
+            renderer_is_triple_buffered: Cell::new(false),
         })
     }
 
@@ -215,7 +217,17 @@ impl DrmOutput {
 
             *self.page_flip_state.borrow_mut() = PageFlipState::WaitingForPageFlip {
                 _buffer_to_keep_alive_until_flip: last_buffer,
-                ready_for_next_animation_frame,
+                ready_for_next_animation_frame: if self.renderer_is_triple_buffered.get() {
+                    i_slint_core::timers::Timer::single_shot(
+                        std::time::Duration::default(),
+                        move || {
+                            ready_for_next_animation_frame();
+                        },
+                    );
+                    None
+                } else {
+                    Some(ready_for_next_animation_frame)
+                },
             };
         } else {
             self.drm_device
@@ -260,18 +272,7 @@ impl DrmOutput {
                 let page_flip_state = self.page_flip_state.clone();
 
                 move |_, _, _| {
-                    if drm_device
-                        .receive_events()?
-                        .any(|event| matches!(event, drm::control::Event::PageFlip(..)))
-                    {
-                        if let PageFlipState::WaitingForPageFlip {
-                            ready_for_next_animation_frame,
-                            ..
-                        } = page_flip_state.replace(PageFlipState::ReadyForNextBuffer)
-                        {
-                            ready_for_next_animation_frame();
-                        }
-                    }
+                    Self::internal_wait_for_page_flip(&drm_device, &page_flip_state);
                     Ok(calloop::PostAction::Continue)
                 }
             })
@@ -282,16 +283,60 @@ impl DrmOutput {
     }
 
     pub fn is_ready_to_present(&self) -> bool {
-        matches!(
-            *self.page_flip_state.borrow(),
+        if self.renderer_is_triple_buffered.get() {
+            true
+        } else {
+            matches!(
+                *self.page_flip_state.borrow(),
+                PageFlipState::NoFrameBufferPosted
+                    | PageFlipState::InitialBufferPosted
+                    | PageFlipState::ReadyForNextBuffer
+            )
+        }
+    }
+
+    fn internal_wait_for_page_flip(
+        drm_device: &SharedFd,
+        page_flip_state: &Rc<RefCell<PageFlipState>>,
+    ) {
+        if matches!(
+            *page_flip_state.borrow(),
             PageFlipState::NoFrameBufferPosted
                 | PageFlipState::InitialBufferPosted
                 | PageFlipState::ReadyForNextBuffer
-        )
+        ) {
+            return;
+        }
+
+        loop {
+            let Ok(mut event_it) = drm_device.receive_events() else {
+                return;
+            };
+
+            if event_it.any(|event| matches!(event, drm::control::Event::PageFlip(..))) {
+                if let PageFlipState::WaitingForPageFlip {
+                    ready_for_next_animation_frame, ..
+                } = page_flip_state.replace(PageFlipState::ReadyForNextBuffer)
+                {
+                    if let Some(callback) = ready_for_next_animation_frame {
+                        callback();
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    pub fn wait_for_page_flip(&self) {
+        Self::internal_wait_for_page_flip(&self.drm_device, &self.page_flip_state);
     }
 
     pub fn size(&self) -> (u32, u32) {
         let (width, height) = self.mode.size();
         (width as u32, height as u32)
+    }
+
+    pub fn set_renderer_is_triple_buffered(&self, triple_buffered: bool) {
+        self.renderer_is_triple_buffered.set(triple_buffered);
     }
 }
