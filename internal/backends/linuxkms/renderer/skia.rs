@@ -70,9 +70,17 @@ impl SkiaRendererAdapter {
             renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
                 skia_gl_surface,
             )),
-            presenter: display,
+            presenter: display.clone(),
             size,
         });
+
+        renderer.renderer.set_pre_present_callback(Some(Box::new({
+            move || {
+                // Make sure the in-flight font-buffer from the previous swap_buffers call has been
+                // posted to the screen.
+                display.drm_output.wait_for_page_flip();
+            }
+        })));
 
         eprintln!("Using Skia OpenGL renderer");
 
