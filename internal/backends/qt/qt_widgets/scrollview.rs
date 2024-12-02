@@ -23,8 +23,8 @@ pub struct NativeScrollView {
     pub native_padding_bottom: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
-    pub vertical_bar_policy: Property<ScrollBarPolicy>,
-    pub horizontal_bar_policy: Property<ScrollBarPolicy>,
+    pub vertical_scrollbar_policy: Property<ScrollBarPolicy>,
+    pub horizontal_scrollbar_policy: Property<ScrollBarPolicy>,
     data: Property<NativeSliderData>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
@@ -295,8 +295,8 @@ impl Item for NativeScrollView {
         };
         let enabled: bool = this.enabled();
         let has_focus: bool = this.has_focus();
-        let vertical_bar_visible = (this.vertical_bar_policy() == ScrollBarPolicy::AlwaysOn) || ((this.vertical_bar_policy() == ScrollBarPolicy::AsNeeded) && (this.vertical_max().get() > 0.0));
-        let horizontal_bar_visible = (this.horizontal_bar_policy() == ScrollBarPolicy::AlwaysOn) || ((this.horizontal_bar_policy() == ScrollBarPolicy::AsNeeded) && (this.horizontal_max().get() > 0.0));
+        let vertical_bar_visible = (this.vertical_scrollbar_policy() == ScrollBarPolicy::AlwaysOn) || ((this.vertical_scrollbar_policy() == ScrollBarPolicy::AsNeeded) && (this.vertical_max().get() > 0.0));
+        let horizontal_bar_visible = (this.horizontal_scrollbar_policy() == ScrollBarPolicy::AlwaysOn) || ((this.horizontal_scrollbar_policy() == ScrollBarPolicy::AsNeeded) && (this.horizontal_max().get() > 0.0));
         let scrollbar_bar_visible = vertical_bar_visible || horizontal_bar_visible;
         let frame_around_contents = cpp!(unsafe [
             painter as "QPainterPtr*",
