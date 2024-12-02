@@ -559,6 +559,16 @@ impl TypeRegister {
 
         register.elements.remove("ComponentContainer");
         register.types.remove("component-factory");
+        match register.elements.get_mut("Window").unwrap() {
+            &mut ElementType::Builtin(ref mut b) => {
+                Rc::get_mut(b)
+                    .unwrap()
+                    .additional_accepted_child_types
+                    .remove("MenuBar")
+                    .expect("MenuBar is an experimental type");
+            }
+            _ => panic!("Window is a builtin type"),
+        };
 
         Rc::new(RefCell::new(register))
     }
