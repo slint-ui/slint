@@ -188,7 +188,6 @@ export function removeLeadingSpaces(input: string, spaces: number = 4): string {
     return modifiedLines.join("\n");
 }
 
-
 type LinkMapType = {
     [K: string]: {
         href: string;
