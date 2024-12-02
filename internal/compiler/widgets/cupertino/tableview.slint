@@ -90,7 +90,7 @@ component TableViewRow inherits Rectangle {
     in property <bool> even;
 
     callback clicked <=> i-touch-area.clicked;
-    callback pointer-event(event: PointerEvent, absolute-mouse-position: Point);
+    callback pointer-event(event: PointerEvent, position: Point);
 
     min-width: i-layout.min-width;
     min-height: max(20px, i-layout.min-height);
