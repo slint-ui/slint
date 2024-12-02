@@ -497,26 +497,34 @@ impl NodeCollection {
         }
 
         if item
-            .accessible_string_property(AccessibleStringProperty::Selectable)
+            .accessible_string_property(AccessibleStringProperty::ItemSelectable)
             .is_some_and(|x| x == "true")
         {
             node.set_selected(
-                item.accessible_string_property(AccessibleStringProperty::Selected)
+                item.accessible_string_property(AccessibleStringProperty::ItemSelected)
                     .is_some_and(|x| x == "true"),
             );
         }
 
         if let Some(position_in_set) = item
-            .accessible_string_property(AccessibleStringProperty::PositionInSet)
+            .accessible_string_property(AccessibleStringProperty::ItemIndex)
             .and_then(|s| s.parse::<usize>().ok())
         {
             node.set_position_in_set(position_in_set);
-        }
-        if let Some(size_of_set) = item
-            .accessible_string_property(AccessibleStringProperty::SizeOfSet)
-            .and_then(|s| s.parse::<usize>().ok())
-        {
-            node.set_size_of_set(size_of_set);
+            let mut item = item.clone();
+            while let Some(parent) = item.parent_item() {
+                if !parent.is_accessible() {
+                    item = parent;
+                    continue;
+                }
+                if let Some(size_of_set) = parent
+                    .accessible_string_property(AccessibleStringProperty::ItemCount)
+                    .and_then(|s| s.parse::<usize>().ok())
+                {
+                    node.set_size_of_set(size_of_set);
+                }
+                break;
+            }
         }
 
         let supported = item.supported_accessibility_actions();

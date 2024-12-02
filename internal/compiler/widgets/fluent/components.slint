@@ -39,7 +39,6 @@ export component ListItem {
     in property <bool> has-hover;
     in property <bool> pressed;
     in property <int> index;
-    in property <int> total-items;
     in property <length> pressed-x;
     in property <length> pressed-y;
 
@@ -49,10 +48,9 @@ export component ListItem {
     horizontal-stretch: 1;
     accessible-role: list-item;
     accessible-label: root.item.text;
-    accessible-selectable: true;
-    accessible-selected: root.is-selected;
-    accessible-position-in-set: root.index;
-    accessible-size-of-set: root.total-items;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.is-selected;
+    accessible-item-index: root.index;
 
     states [
         pressed when root.pressed : {

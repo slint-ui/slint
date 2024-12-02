@@ -206,10 +206,10 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-action-increment", noarg_callback_type()),
         ("accessible-action-decrement", noarg_callback_type()),
         ("accessible-action-set-value", strarg_callback_type()),
-        ("accessible-selectable", Type::Bool),
-        ("accessible-selected", Type::Bool),
-        ("accessible-position-in-set", Type::Int32),
-        ("accessible-size-of-set", Type::Int32),
+        ("accessible-item-selectable", Type::Bool),
+        ("accessible-item-selected", Type::Bool),
+        ("accessible-item-index", Type::Int32),
+        ("accessible-item-count", Type::Int32),
     ]
     .into_iter()
 }
