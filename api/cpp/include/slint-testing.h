@@ -357,7 +357,7 @@ public:
     }
 
     /// Returns the accessible-item-index of that element, if any.
-    std::optional<uintptr_t> accessible_item_index() const
+    std::optional<size_t> accessible_item_index() const
     {
         if (auto result = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::ItemIndex)) {
@@ -370,7 +370,7 @@ public:
     }
 
     /// Returns the accessible-item-count of that element, if any.
-    std::optional<uintptr_t> accessible_item_count() const
+    std::optional<size_t> accessible_item_count() const
     {
         if (auto result = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::ItemCount)) {
