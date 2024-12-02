@@ -17,10 +17,11 @@ interface Props {
     typeName: KnownType;
     defaultValue?: string;
     enumName?: string;
+    structName?: string;
     propertyVisibility?: PropertyVisibility;
 }
-const { propName, typeName, defaultValue, enumName, propertyVisibility } =
-    Astro.props;
+const { propName, typeName, defaultValue, enumName, structName, propertyVisibility } =
+    Astro.props as Props;
 
 if (propName === "") {
     console.error("No propName!!");
@@ -34,6 +35,12 @@ if (typeName === "enum") {
     } else {
         fullTypeName = typeName.toString() + " " + enumName!.toString();
     }
+} else if (typeName === "struct") {
+    if (structName === undefined || structName === "") {
+        console.error("struct type without a structName:", propName);
+    } else {
+        fullTypeName = typeName.toString() + " " + structName!.toString();
+    }
 } else {
     if (enumName && enumName !== "") {
         console.error("Non-enum type with an enumName set:", propName);
@@ -46,7 +53,7 @@ if (typeInfo.href !== "") {
     typeInfo.href = `${base}${typeInfo.href}`;
 }
 const enumContent = await getEnumContent(enumName);
-const structContent = await getStructContent(typeName);
+const structContent = await getStructContent(structName);
 
 const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
 
