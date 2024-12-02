@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Page, PushButton } from "./common.slint";
+import { DemoPalette, Page, PushButton, ScreenProfile } from "./common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrinterQueueView } from "./printer_queue.slint";
@@ -49,23 +49,32 @@ component ActionButton inherits Rectangle {
 export component HomePage inherits Page {
     in-out property <length> header-row-height: 40px / 2;
     in-out property <length> button-spacing: 8px;
-    in-out property <length> button-width: 160px / 2;
+    in-out property <length> button-width: 127px / 2;
     in-out property <length> button-height: root.button-width + 20px;
     in-out property <int> current-subpage: 0;
+    in property <ScreenProfile> screen-profile;
 
     header: "Printer";
 
-    for action[idx] in [
+    property <[{name: string, icon: image}]> tiny-icons: [
+        { name: "Print", icon: @image-url("images/print.svg") },
+        { name: "Scan", icon: @image-url("images/scan.svg") },
+    ];
+    property <[{name: string, icon: image}]> small-icons: [
         { name: "Print", icon: @image-url("images/print.svg") },
         { name: "Scan", icon: @image-url("images/scan.svg") },
         { name: "Copy", icon: @image-url("images/copy.svg") },
         { name: "USB", icon: @image-url("images/usb.svg") },
-    ]: ActionButton {
+    ];
+
+    property <int> grid-divisor: screen-profile == ScreenProfile.Tiny ? 1 : 2;
+
+    for action[idx] in screen-profile == ScreenProfile.Tiny ? tiny-icons : small-icons: ActionButton {
         clicked => {
             root.current-subpage = idx + 1;
         }
-        x: mod(idx, 2) * (root.button-width + root.button-spacing) + root.button-spacing / 2;
-        y: floor(idx / 2) * (root.button-height + root.button-spacing) + root.header-row-height + /* top-padding of printer queue */ 18px; // align with the first item of the printer queue
+        x: mod(idx, grid-divisor) * (root.button-width + root.button-spacing) + root.button-spacing / 2;
+        y: floor(idx / grid-divisor) * (root.button-height + root.button-spacing) + root.header-row-height + /* top-padding of printer queue */ 18px; // align with the first item of the printer queue
         width: root.button-width;
         height: root.button-height;
         icon: action.icon;
@@ -73,7 +82,7 @@ export component HomePage inherits Page {
     }
 
     queue-view := PrinterQueueView {
-        x: root.button-width * 2 + root.button-spacing * 3;
+        x: root.button-width * grid-divisor + root.button-spacing * 3;
         width: parent.width - self.x;
     }
 

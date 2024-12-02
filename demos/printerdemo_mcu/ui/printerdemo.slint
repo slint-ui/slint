@@ -3,7 +3,7 @@
 
 // cSpell: ignore noto subpage
 
-import { DemoPalette, Page } from "common.slint";
+import { DemoPalette, Page, ScreenProfile } from "common.slint";
 import { HomePage } from "./home_page.slint";
 import { InkLevel, InkPage } from "./ink_page.slint";
 import { SettingsPage } from "./settings_page.slint";
@@ -33,8 +33,10 @@ component SideBarIcon inherits Rectangle {
 }
 
 export component MainWindow inherits Window {
-    width: 480px;
-    height: 272px;
+    //width: 480px;
+    //height: 272px;
+    //width: 320px;
+    //height: 240px;
     title: "Slint printer demo";
     background: DemoPalette.main-background;
     default-font-family: "Noto Sans";
@@ -73,6 +75,7 @@ export component MainWindow inherits Window {
             home-page := HomePage {
                 y: root.active-page == 0 ? 0 : root.active-page > 0 ? - self.height - 1px : parent.height + 1px;
                 //animate y { duration: 125ms; easing: ease; }
+                screen-profile: root.width <= 320px ? ScreenProfile.Tiny : ScreenProfile.Small;
             }
 
             SettingsPage {
