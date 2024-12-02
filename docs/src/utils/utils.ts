@@ -16,7 +16,6 @@ export async function getEnumContent(enumName: string | undefined) {
     return "";
 }
 
-const KnownStructs = ["Point"];
 export async function getStructContent(
     structName: string | undefined,
 ): Promise<string> {
@@ -24,20 +23,19 @@ export async function getStructContent(
         return "";
     }
     const baseStruct = structName.replace(/[\[\]]/g, "");
-    if (KnownStructs.includes(baseStruct)) {
-        if (structName) {
-            try {
-                const module = await import(
-                    `../content/collections/structs/${structName}.md`
-                );
-                return module.compiledContent();
-            } catch (error) {
-                console.error(
-                    `Failed to load enum file for ${structName}:`,
-                    error,
-                );
-                return "";
-            }
+
+    if (baseStruct) {
+        try {
+            const module = await import(
+                `../content/collections/structs/${baseStruct}.md`
+            );
+            return module.compiledContent();
+        } catch (error) {
+            console.error(
+                `Failed to load struct file for ${baseStruct}:`,
+                error,
+            );
+            return "";
         }
     }
     return "";
