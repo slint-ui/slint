@@ -15,7 +15,7 @@ export component DatePickerPopup inherits PopupWindow {
     in property <Date> date <=> base.date;
 
     callback canceled();
-    callback accepted(current-date: Date);
+    callback accepted(date: Date);
 
     width: 368px;
     height: 524px;

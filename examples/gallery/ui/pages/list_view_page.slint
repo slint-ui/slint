@@ -30,7 +30,7 @@ export component ListViewPage inherits Page {
                 Text {
                     text: @tr("Vertical:");
                 }
-                vertical-bar-policy := ComboBox {
+                vertical-scrollbar-policy := ComboBox {
                     in-out property<ScrollBarPolicy> current-policy: policy-from-index(self.current-index);
 
                     model: [@tr("As Needed"), @tr("Always On"), @tr("Always Off")];
@@ -40,7 +40,7 @@ export component ListViewPage inherits Page {
                 Text {
                     text: @tr("Horizontal:");
                 }
-                horizontal-bar-policy := ComboBox {
+                horizontal-scrollbar-policy := ComboBox {
                     in-out property<ScrollBarPolicy> current-policy: policy-from-index(self.current-index);
 
                     model: [@tr("As Needed"), @tr("Always On"), @tr("Always Off")];
@@ -55,8 +55,8 @@ export component ListViewPage inherits Page {
             title: @tr("ListView");
 
             ListView {
-                vertical-bar-policy: vertical-bar-policy.current-policy;
-                horizontal-bar-policy: horizontal-bar-policy.current-policy;
+                vertical-scrollbar-policy: vertical-scrollbar-policy.current-policy;
+                horizontal-scrollbar-policy: horizontal-scrollbar-policy.current-policy;
                 vertical-stretch: 0;
                 for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] : HorizontalBox {
                    Image {
@@ -75,8 +75,8 @@ export component ListViewPage inherits Page {
             vertical-stretch: 0;
 
             StandardListView {
-                vertical-bar-policy: vertical-bar-policy.current-policy;
-                horizontal-bar-policy: horizontal-bar-policy.current-policy;
+                vertical-scrollbar-policy: vertical-scrollbar-policy.current-policy;
+                horizontal-scrollbar-policy: horizontal-scrollbar-policy.current-policy;
                 model: [
                     {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
                     {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},

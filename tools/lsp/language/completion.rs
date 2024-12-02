@@ -1545,7 +1545,7 @@ mod tests {
         let res = get_completions(source).unwrap();
         assert_eq!(
             res.iter().find(|ci| ci.label == "row-pointer-event").unwrap().insert_text,
-            Some("row-pointer-event(row-index, event, mouse-position) => {$1}".into())
+            Some("row-pointer-event(row, event, position) => {$1}".into())
         );
         // builtin callback don't have named argument yet
         assert_eq!(
