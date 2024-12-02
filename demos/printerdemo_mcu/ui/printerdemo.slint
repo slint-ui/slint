@@ -33,8 +33,8 @@ component SideBarIcon inherits Rectangle {
 }
 
 export component MainWindow inherits Window {
-    width: 320px;
-    height: 240px;
+    width: 480px;
+    height: 272px;
     title: "Slint printer demo";
     background: DemoPalette.main-background;
     default-font-family: "Noto Sans";
@@ -43,11 +43,11 @@ export component MainWindow inherits Window {
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
     in-out property <[InkLevel]> ink-levels: [
-                {color: #0ff, level: 60%},
-                {color: #ff0, level: 80%},
-                {color: #f0f, level: 70%},
-                {color: #000, level: 30%},
-            ];
+        { color: #0ff, level: 60% },
+        { color: #ff0, level: 80% },
+        { color: #f0f, level: 70% },
+        { color: #000, level: 30% },
+    ];
 
     in-out property <int> active-page: 0;
 
@@ -89,41 +89,37 @@ export component MainWindow inherits Window {
         }
     }
 
-
     sidebar := Rectangle {
         function icon-y(index: int) -> length {
             return 34px // top padding
                 + index * 50px;
         }
 
-
         width: 48px;
         x: 5px;
 
         Image {
-            x:0;
+            x: 0;
             source: @image-url("images/page_selection.svg");
             y: sidebar.icon-y(root.active-page) - 23px;
             width: 49px;
             height: 86px;
             colorize: DemoPalette.page-background-color;
 
-            animate y {
-                duration: 125ms;
-            }
+            animate y { duration: 125ms; }
         }
 
         for page-icon[idx] in [
             @image-url("images/home.svg"),
             @image-url("images/settings.svg"),
             @image-url("images/ink.svg"),
-        ] : SideBarIcon {
+        ]: SideBarIcon {
             activate => {
                 home-page.current-subpage = 0;
                 root.active-page = idx;
             }
 
-            y: sidebar.icon-y(idx)+3px;
+            y: sidebar.icon-y(idx) + 3px;
             x: (parent.width - self.width) / 2;
             height: 30px;
             width: 30px;
@@ -135,14 +131,12 @@ export component MainWindow inherits Window {
                 width: 100%;
                 height: 100%;
 
-                animate colorize {
-                    duration: 125ms;
-                }
+                animate colorize { duration: 125ms; }
             }
         }
 
         Rectangle {
-            y: sidebar.icon-y(3) ;
+            y: sidebar.icon-y(3);
             x: (parent.width - self.width) / 2;
             background: #6284FF;
             height: 2px;
@@ -155,7 +149,7 @@ export component MainWindow inherits Window {
             }
 
             //y: sidebar.icon-y(3) + 10px;
-            y: parent.height - self.height - main-view.margin * 2;
+            y: parent.height - self.height - main-view.margin * 4;
             x: (parent.width - self.width) / 2;
             height: 27px;
             width: 27px;
