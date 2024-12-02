@@ -7,9 +7,9 @@ export component StandardTableView {
     private property <length> item-height: scroll-view.viewport-height / rows.length;
     private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
 
-    callback sort-ascending(column-index: int);
-    callback sort-descending(column-index: int);
-    callback row-pointer-event(row-index: int, event: PointerEvent, mouse-position: Point);
+    callback sort-ascending(column: int);
+    callback sort-descending(column: int);
+    callback row-pointer-event(row: int, event: PointerEvent, position: Point);
     callback current-row-changed(current-row: int);
     accessible-role: table;
 
