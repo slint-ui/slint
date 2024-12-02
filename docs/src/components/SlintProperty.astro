@@ -20,8 +20,14 @@ interface Props {
     structName?: string;
     propertyVisibility?: PropertyVisibility;
 }
-const { propName, typeName, defaultValue, enumName, structName, propertyVisibility } =
-    Astro.props as Props;
+const {
+    propName,
+    typeName,
+    defaultValue,
+    enumName,
+    structName,
+    propertyVisibility,
+} = Astro.props as Props;
 
 if (propName === "") {
     console.error("No propName!!");
