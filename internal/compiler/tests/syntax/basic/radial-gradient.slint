@@ -25,4 +25,7 @@ export X := Rectangle {
     property<brush> g11: @radial-gradient(circle,);
 
     property<brush> g12: @radial-gradient(circle);
+
+    property<color> g13: @radial-gradient(circle, red, green, blue); // #6819
+//                       ^warning{Narrowing conversion from brush to color. This can lead to unexpected behavior because the brush is a gradient}
 }
