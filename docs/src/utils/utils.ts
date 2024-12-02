@@ -18,21 +18,22 @@ export async function getEnumContent(enumName: string | undefined) {
 
 const KnownStructs = ["Point"];
 export async function getStructContent(
-    typeName: KnownType | undefined,
+    structName: string | undefined,
 ): Promise<string> {
-    if (typeName === undefined) {
+    if (structName === undefined) {
         return "";
     }
-    if (KnownStructs.includes(typeName)) {
-        if (typeName) {
+    const baseStruct = structName.replace(/[\[\]]/g, "");
+    if (KnownStructs.includes(baseStruct)) {
+        if (structName) {
             try {
                 const module = await import(
-                    `../content/collections/structs/${typeName}.md`
+                    `../content/collections/structs/${structName}.md`
                 );
                 return module.compiledContent();
             } catch (error) {
                 console.error(
-                    `Failed to load enum file for ${typeName}:`,
+                    `Failed to load enum file for ${structName}:`,
                     error,
                 );
                 return "";
@@ -69,7 +70,8 @@ export interface TypeInfo {
 }
 
 export function getTypeInfo(typeName: KnownType): TypeInfo {
-    switch (typeName) {
+    const baseType = typeName.replace(/[\[\]]/g, "") as KnownType;
+    switch (baseType) {
         case "angle":
             return {
                 href: linkMap.Types.href,
