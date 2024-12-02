@@ -149,3 +149,19 @@ issues we're aware of and how to resolve them.
   ```
   sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
   ```
+
+ * Compilation error when cross-compiling with Yocto:
+
+  The build fails and towards the end of the log message you see this message:
+
+  ```
+      error occurred: unknown target `arm-org-linux-gnueabi`
+  ```
+
+  This is caused by an unfortunate combination of updates of the `cc` crate and the way the Skia Rust bindings
+  use it. We anticipate solving this in a future release. In the meantime, you can work around this by downgrading
+  the `cc` crate in your `Cargo.lock` file:
+
+  ```
+  cargo update -p cc --precise 1.1.31
+  ```
