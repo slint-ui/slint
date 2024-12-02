@@ -188,89 +188,11 @@ export function removeLeadingSpaces(input: string, spaces: number = 4): string {
     return modifiedLines.join("\n");
 }
 
-export const linkMap = {
-    AnimationRef: {
-        href: "/reference/builtins/animations",
-    },
-    BorderRadiusRectangle: {
-        href: "/reference/elements/rectangle#border-radius-properties",
-    },
-    ColorsRef: {
-        href: "/reference/builtins/colors",
-    },
-    CommonProperties: {
-        href: "/reference/overview",
-    },
-    DebugFn: {
-        href: "/reference/builtins/builtinfunctions#debug",
-    },
-    EnumType: {
-        href: "/reference/builtins/types/#enums",
-    },
-    FocusHandling: {
-        href: "/guide/unfinished/focus",
-    },
-    GridLayout: {
-        href: "/reference/layouts/gridlayout",
-    },
-    HorizontalBox: {
-        href: "/reference/std-widgets/horizontalbox",
-    },
-    HorizontalLayout: {
-        href: "/reference/layouts/horizontallayout",
-    },
-    Image: {
-        href: "/reference/elements/image",
-    },
-    ImageType: {
-        href: "/reference/builtins/types/#images",
-    },
-    ListView: {
-        href: "/reference/std-widgets/listview",
-    },
-    LineEdit: {
-        href: "/reference/std-widgets/lineedit",
-    },
-    Path: {
-        href: "/reference/elements/path",
-    },
-    ProgressIndicator: {
-        href: "/reference/std-widgets/progressindicator",
-    },
-    Rectangle: {
-        href: "/reference/elements/rectangle",
-    },
-    ScrollView: {
-        href: "/reference/std-widgets/scrollview",
-    },
-    StandardButton: {
-        href: "/reference/std-widgets/standardbutton",
-    },
-    StringType: {
-        href: "/reference/builtins/types/#images",
-    },
-    StructType: {
-        href: "/reference/builtins/types/#structs",
-    },
-    StyleWidgets: {
-        href: "/reference/std-widgets/style",
-    },
-    Text: {
-        href: "/reference/elements/text/",
-    },
-    TextInput: {
-        href: "/reference/elements/textinput/",
-    },
-    Timer: {
-        href: "/reference/elements/timer/",
-    },
-    Types: {
-        href: "/reference/builtins/types",
-    },
-    VerticalBox: {
-        href: "/reference/std-widgets/verticalbox",
-    },
-    VerticalLayout: {
-        href: "/reference/layouts/verticallayout",
-    },
-} as const;
+type LinkMapType = {
+    [K: string]: {
+        href: string;
+    };
+};
+
+import linkMapData from "./link-data.json" assert { type: "json" };
+export const linkMap: Readonly<LinkMapType> = linkMapData;
