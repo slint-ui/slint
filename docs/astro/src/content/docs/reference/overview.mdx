@@ -8,7 +8,7 @@ import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import Link from '/src/components/Link.astro';
 
-The Slint elements have many common properties, callbacks and behavior. 
+The Slint elements have many common properties, callbacks and behavior.
 This page describes these properties and their usage.
 
 ## `init()`
@@ -78,17 +78,17 @@ export component AppWindow inherits Window {
 These properties are valid on all **visible** items:
 
 ### x
-<SlintProperty propName="x" typeName="length" > 
+<SlintProperty propName="x" typeName="length" >
 The position of the element relative to its parent.
 </SlintProperty>
 
 ### y
-<SlintProperty propName="y" typeName="length" > 
+<SlintProperty propName="y" typeName="length" >
 The position of the element relative to its parent.
 </SlintProperty>
 
 ### z
-<SlintProperty propName="z" typeName="float" > 
+<SlintProperty propName="z" typeName="float" >
 Allows to specify a different order to stack the items with its siblings.
 The value must be a compile time constant.
 
@@ -99,18 +99,18 @@ Currently the `z` value is a compile time constant and cannot be changed at runt
 </SlintProperty>
 
 ### absolute-position
-<SlintProperty propName="absolute-position" typeName="struct" structName="Point" > 
+<SlintProperty propName="absolute-position" typeName="struct" structName="Point" >
 The position of the element within the contained window.
 
 </SlintProperty>
 
 ### width
-<SlintProperty propName="width" typeName="length" > 
+<SlintProperty propName="width" typeName="length" >
 The width of the element. When set, this overrides the default width.
 </SlintProperty>
 
 ### height
-<SlintProperty propName="height" typeName="length" > 
+<SlintProperty propName="height" typeName="length" >
 The height of the element. When set, this overrides the default height.
 </SlintProperty>
 
@@ -124,7 +124,7 @@ were first drawn into an intermediate layer, and then the whole layer is rendere
 
 :::caution[Caution]
 When an element has 0 opacity it will still take up layout space and any gesture handling will continue
-to work. If the intent is to hide an element so it has no gesture handling or takes up layout space, 
+to work. If the intent is to hide an element so it has no gesture handling or takes up layout space,
 use the `visible` property instead.
 :::
 </SlintProperty>
@@ -202,10 +202,10 @@ Use the following `accessible-` properties to make your items interact well with
 -   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 -   **`accessible-value`** (_in_ _string_): The current value of the item.
 -   **`accessible-placeholder-text`** (_in_ _string_): A placeholder text to use when the item's value is empty. Applies to text elements.
--   **`accessible-selectable`** (_in_ _bool_): Whether the element can be selected or not.
--   **`accessible-selected`** (_in_ _bool_): Whether the element is selected or not. This maps to the "is-selected" state of listview items.
--   **`accessible-position-in-set`** (_in_ _int_): The index (starting from 0) of this element in a group of similar elements. Applies to list items, radio buttons and other elements.
--   **`accessible-size-of-set`** (_in_ _int_): The total number of elements in a group. Applies to all elements of a group like list items, radio buttons and other elements, but not to their parent container like list views, radio button groups or other grouping elements.
+-   **`accessible-item-selectable`** (_in_ _bool_): Whether the element can be selected or not.
+-   **`accessible-item-selected`** (_in_ _bool_): Whether the element is selected or not. This maps to the "is-selected" state of listview items.
+-   **`accessible-item-index`** (_in_ _int_): The index (starting from 0) of this element in a group of similar elements. Applies to list items, radio buttons and other elements.
+-   **`accessible-item-count`** (_in_ _int_): The total number of elements in a group. Applies to the parent container of a group of element such as list views, radio button groups or other grouping elements.
 
 You can also use the following callbacks that are going to be called by the accessibility framework:
 

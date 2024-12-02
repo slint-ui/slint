@@ -599,46 +599,50 @@ impl ElementHandle {
             .and_then(|item| item.parse().ok())
     }
 
-    /// Returns the value of the `accessible-selected` property, if present
-    pub fn accessible_selected(&self) -> Option<bool> {
+    /// Returns the value of the `accessible-item-selected` property, if present
+    pub fn accessible_item_selected(&self) -> Option<bool> {
         if self.element_index != 0 {
             return None;
         }
         self.item
             .upgrade()
-            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Selected))
+            .and_then(|item| {
+                item.accessible_string_property(AccessibleStringProperty::ItemSelected)
+            })
             .and_then(|item| item.parse().ok())
     }
 
-    /// Returns the value of the `accessible-selectable` property, if present
-    pub fn accessible_selectable(&self) -> Option<bool> {
+    /// Returns the value of the `accessible-item-selectable` property, if present
+    pub fn accessible_item_selectable(&self) -> Option<bool> {
         if self.element_index != 0 {
             return None;
         }
         self.item
             .upgrade()
-            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Selectable))
+            .and_then(|item| {
+                item.accessible_string_property(AccessibleStringProperty::ItemSelectable)
+            })
             .and_then(|item| item.parse().ok())
     }
 
-    /// Returns the value of the element's `accessible-position-in-set` property, if present.
-    pub fn accessible_position_in_set(&self) -> Option<usize> {
+    /// Returns the value of the element's `accessible-item-index` property, if present.
+    pub fn accessible_item_index(&self) -> Option<usize> {
         if self.element_index != 0 {
             return None;
         }
         self.item.upgrade().and_then(|item| {
-            item.accessible_string_property(AccessibleStringProperty::PositionInSet)
+            item.accessible_string_property(AccessibleStringProperty::ItemIndex)
                 .and_then(|s| s.parse().ok())
         })
     }
 
-    /// Returns the value of the element's `accessible-size-of-set` property, if present.
-    pub fn accessible_size_of_set(&self) -> Option<usize> {
+    /// Returns the value of the element's `accessible-item-count` property, if present.
+    pub fn accessible_item_count(&self) -> Option<usize> {
         if self.element_index != 0 {
             return None;
         }
         self.item.upgrade().and_then(|item| {
-            item.accessible_string_property(AccessibleStringProperty::SizeOfSet)
+            item.accessible_string_property(AccessibleStringProperty::ItemCount)
                 .and_then(|s| s.parse().ok())
         })
     }

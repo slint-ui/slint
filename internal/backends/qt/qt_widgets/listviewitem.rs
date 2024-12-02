@@ -11,7 +11,6 @@ use super::*;
 pub struct NativeStandardListViewItem {
     pub item: Property<i_slint_core::model::StandardListViewItem>,
     pub index: Property<i32>,
-    pub total_items: Property<i32>,
     pub is_selected: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
     pub has_hover: Property<bool>,

@@ -330,11 +330,11 @@ public:
         return std::nullopt;
     }
 
-    /// Returns the accessible-selected of that element, if any.
-    std::optional<bool> accessible_selected() const
+    /// Returns the accessible-item-selected of that element, if any.
+    std::optional<bool> accessible_item_selected() const
     {
         if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Selected)) {
+                    cbindgen_private::AccessibleStringProperty::ItemSelected)) {
             if (*result == "true")
                 return true;
             else if (*result == "false")
@@ -343,11 +343,11 @@ public:
         return std::nullopt;
     }
 
-    /// Returns the accessible-selectable of that element, if any.
-    std::optional<bool> accessible_selectable() const
+    /// Returns the accessible-item-selectable of that element, if any.
+    std::optional<bool> accessible_item_selectable() const
     {
         if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Selectable)) {
+                    cbindgen_private::AccessibleStringProperty::ItemSelectable)) {
             if (*result == "true")
                 return true;
             else if (*result == "false")
@@ -356,11 +356,11 @@ public:
         return std::nullopt;
     }
 
-    /// Returns the accessible-position-in-set of that element, if any.
-    std::optional<uintptr_t> accessible_position_in_set() const
+    /// Returns the accessible-item-index of that element, if any.
+    std::optional<uintptr_t> accessible_item_index() const
     {
         if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::PositionInSet)) {
+                    cbindgen_private::AccessibleStringProperty::ItemIndex)) {
             uintptr_t value = 0;
             if (cbindgen_private::slint_string_to_usize(&*result, &value)) {
                 return value;
@@ -369,11 +369,11 @@ public:
         return std::nullopt;
     }
 
-    /// Returns the accessible-size-of-set of that element, if any.
-    std::optional<uintptr_t> accessible_size_of_set() const
+    /// Returns the accessible-item-count of that element, if any.
+    std::optional<uintptr_t> accessible_item_count() const
     {
         if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::SizeOfSet)) {
+                    cbindgen_private::AccessibleStringProperty::ItemCount)) {
             uintptr_t value = 0;
             if (cbindgen_private::slint_string_to_usize(&*result, &value)) {
                 return value;

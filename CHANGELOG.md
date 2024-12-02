@@ -23,7 +23,7 @@ All notable changes to this project are documented in this file.
  - Deprecated two way binding between `in` and `in-out` property (#6400)
  - TouchArea: Send cancel event and update `pressed` and `has-hover` property when `enabled` is set to false while pressed. (#6422)
  - Added `font-metrics` property to `Text` and `TextInput`. (#6047)
- - Added `accessible-selectable`, `accessible-selected`, `accessible-enabled`, `accessible-position-in-set`, and `accessible-delegate-focus` properties
+ - Added `accessible-item-selectable`, `accessible-item-selected`, `accessible-enabled`, `accessible-item-index`, and `accessible-delegate-focus` properties
  - Emit a warning when the case of the import file differ from the case of the file that was imported (#4265)
  - Support property changed callbacks in globals (#6599)
  - PopupWindow: added `close-policy` property, deprecated `close-on-click` (#6614)
