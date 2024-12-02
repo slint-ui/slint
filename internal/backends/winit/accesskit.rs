@@ -100,7 +100,10 @@ impl AccessKitAdapter {
                 None
             }
             accesskit_winit::WindowEvent::ActionRequested(r) => self.handle_request(r),
-            accesskit_winit::WindowEvent::AccessibilityDeactivated => None,
+            accesskit_winit::WindowEvent::AccessibilityDeactivated => {
+                self.initial_tree_sent = false;
+                None
+            }
         }
     }
 
