@@ -101,7 +101,7 @@ issues we're aware of and how to resolve them.
   which contains spaces if the login name contains spaces. To resolve this issue, set the `CARGO_HOME`
   environment variable to a path without spaces, such as `c:\cargo_home`.
 
-* Compilation error when compiling for ARMv7 with hardware floating-pointer support
+* Compilation error when compiling for ARMv7 with hardware floating-point support
 
   You may see compiler errors that contain this message:
 
