@@ -34,7 +34,7 @@ embed-glyphs-as-sdf = ["dep:fdsm", "dep:ttf-parser-fdsm", "dep:nalgebra", "dep:i
 # Translation bundler
 bundle-translations = ["dep:polib"]
 
-default = []
+default = ["embed-glyphs-as-sdf", "bundle-translations"]
 
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
