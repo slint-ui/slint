@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component SubElement {
+    forward_focus: input;
+    input := TextInput { }
+}
+
+export component TestCase {
+    pure callback focus_input2();
+    focus_input2 => {
+        input2.focus();
+//             ^error{Call of impure function}
+    }
+    input2 := SubElement { }
+}
