@@ -4,6 +4,8 @@ title: Localization (l10n)
 description: Localization
 ---
 
+<!-- cSpell: ignore msgfmt msgctx msginit poedit Lokalize Transifex  -->
+
 Slint's translation infrastructure makes your application available in different languages.
 
 ## Overview

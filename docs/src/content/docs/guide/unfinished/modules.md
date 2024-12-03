@@ -4,6 +4,8 @@ title: Modules
 description: Modules
 ---
 
+<!-- cSpell:ignore mylibrary otherlibrary Lmylibrary -->
+
 Components declared in a `.slint` file can be used as elements in other
 `.slint` files, by means of exporting and importing them.
 

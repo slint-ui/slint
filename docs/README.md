@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+<!-- cSpell: ignore docsnapper -->
 # Slint Documentation
 
 

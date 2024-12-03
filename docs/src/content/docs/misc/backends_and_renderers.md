@@ -4,6 +4,7 @@ title: Backends & Renderers
 description: Backends & Renderers
 ---
 
+<!-- cSpell: ignore linuxkms mfloat BINDGEN OECORE CCARGS xcrun gnueabi -->
 
 In Slint, a backend is the module that encapsulates the interaction with the operating system,
 in particular the windowing sub-system. Multiple backends can be compiled into Slint and one

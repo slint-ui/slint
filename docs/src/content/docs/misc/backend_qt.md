@@ -4,6 +4,8 @@ title: Qt Backend
 description: Qt Backend
 ---
 
+<!-- cSpell: ignore qttype qttypes -->
+
 The Qt backend uses the [Qt](https://www.qt.io) library to interact with the windowing system, for
 rendering, as well as widget style for a native look and feel.
 
