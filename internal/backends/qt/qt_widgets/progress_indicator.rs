@@ -30,6 +30,7 @@ impl Item for NativeProgressIndicator {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let indeterminate = self.indeterminate();
         let progress =

@@ -170,6 +170,16 @@ inline float layout_cache_access(const SharedVector<float> &cache, int offset, i
     size_t idx = size_t(cache[offset]) + repeater_index * 2;
     return idx < cache.size() ? cache[idx] : 0;
 }
+
+template<typename VT, typename ItemType>
+inline cbindgen_private::LayoutInfo
+item_layout_info(VT *itemvtable, ItemType *item_ptr, cbindgen_private::Orientation orientation,
+                 WindowAdapterRc *window_adapter, const ItemTreeRc &component_rc,
+                 uint32_t item_index)
+{
+    cbindgen_private::ItemRc item_rc { component_rc, item_index };
+    return itemvtable->layout_info({ itemvtable, item_ptr }, orientation, window_adapter, &item_rc);
+}
 } // namespace private_api
 
 namespace private_api {

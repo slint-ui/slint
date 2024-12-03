@@ -37,6 +37,7 @@ impl Item for NativeStandardListViewItem {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let index: i32 = self.index();
         let item = self.item();

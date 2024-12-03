@@ -78,6 +78,7 @@ impl Item for NativeSlider {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let enabled = self.enabled();
         // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges

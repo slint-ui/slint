@@ -23,7 +23,6 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     RectLengths, ScaleFactor, SizeLengths,
 };
-use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
 use super::images::{Texture, TextureCacheKey};
@@ -310,7 +309,7 @@ impl ItemRenderer for GLItemRenderer<'_> {
     fn draw_text(
         &mut self,
         text: Pin<&dyn RenderText>,
-        _: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
@@ -328,11 +327,7 @@ impl ItemRenderer for GLItemRenderer<'_> {
         let string = text.text();
         let string = string.as_str();
         let font = fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(
-                text.font_request(WindowInner::from_pub(self.window)),
-                self.scale_factor,
-                &text.text(),
-            )
+            cache.borrow_mut().font(text.font_request(self_rc), self.scale_factor, &text.text())
         });
 
         let text_path = rect_to_path((size * self.scale_factor).into());
@@ -396,7 +391,7 @@ impl ItemRenderer for GLItemRenderer<'_> {
     fn draw_text_input(
         &mut self,
         text_input: Pin<&items::TextInput>,
-        _: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let width = size.width_length() * self.scale_factor;
@@ -411,7 +406,7 @@ impl ItemRenderer for GLItemRenderer<'_> {
 
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&WindowInner::from_pub(self.window).window_adapter()),
+                text_input.font_request(self_rc),
                 self.scale_factor,
                 &text_input.text(),
             )

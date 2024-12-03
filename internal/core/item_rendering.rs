@@ -315,7 +315,7 @@ pub trait RenderImage {
 pub trait RenderText {
     fn target_size(self: Pin<&Self>) -> LogicalSize;
     fn text(self: Pin<&Self>) -> SharedString;
-    fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest;
+    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest;
     fn color(self: Pin<&Self>) -> Brush;
     fn alignment(self: Pin<&Self>) -> (TextHorizontalAlignment, TextVerticalAlignment);
     fn wrap(self: Pin<&Self>) -> TextWrap;
@@ -325,12 +325,13 @@ pub trait RenderText {
 
     fn text_bounding_rect(
         self: Pin<&Self>,
+        self_rc: &ItemRc,
         window_adapter: &Rc<dyn WindowAdapter>,
         mut geometry: euclid::Rect<f32, crate::lengths::LogicalPx>,
     ) -> euclid::Rect<f32, crate::lengths::LogicalPx> {
         let window_inner = WindowInner::from_pub(window_adapter.window());
         let text_string = self.text();
-        let font_request = self.font_request(window_inner);
+        let font_request = self.font_request(self_rc);
         let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
         let max_width = geometry.size.width_length();
         geometry.size = geometry.size.max(

@@ -2909,10 +2909,11 @@ fn compile_builtin_function_call(
         BuiltinFunction::ItemFontMetrics => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item = access_member(pr, ctx);
+                let item_rc = access_item_rc(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 item.then(|item| {
                     quote!(
-                        #item.font_metrics(#window_adapter_tokens)
+                        #item.font_metrics(#window_adapter_tokens, #item_rc)
                     )
                 })
             } else {
@@ -2924,8 +2925,9 @@ fn compile_builtin_function_call(
                 let item = access_member(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 item.then(|item| {
+                    let item_rc = access_item_rc(pr, ctx);
                     quote!(
-                        sp::Item::layout_info(#item, #orient, #window_adapter_tokens)
+                        sp::Item::layout_info(#item, #orient, #window_adapter_tokens, &#item_rc)
                     )
                 })
             } else {

@@ -60,6 +60,7 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -272,6 +273,7 @@ impl Item for FocusScope {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -408,6 +410,7 @@ impl Item for SwipeGestureHandler {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
