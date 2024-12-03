@@ -702,6 +702,7 @@ impl Window {
 
 pub use crate::SharedString;
 
+#[i_slint_core_macros::slint_doc]
 /// This trait is used to obtain references to global singletons exported in `.slint`
 /// markup. Alternatively, you can use [`ComponentHandle::global`] to obtain access.
 ///
@@ -734,7 +735,7 @@ pub use crate::SharedString;
 /// Palette::get(&app).set_foreground_color(slint::Color::from_rgb_u8(255, 255, 255));
 /// ```
 ///
-#[doc = concat!("See also the [language documentation for global singletons](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/reference/globals.html) for more information.")]
+/// See also the [language documentation for global singletons](slint:globals) for more information.
 ///
 /// **Note:** Only globals that are exported or re-exported from the main .slint file will
 /// be exposed in the API

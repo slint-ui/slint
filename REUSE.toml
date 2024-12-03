@@ -36,6 +36,7 @@ path = [
   "biome.json",
   "cspell.json",
   "docs/search/scraper-config.json",
+  "internal/core-macros/link-data.json",
   "package.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",

@@ -194,5 +194,7 @@ type LinkMapType = {
     };
 };
 
-import linkMapData from "./link-data.json" assert { type: "json" };
+import linkMapData from "../../../../internal/core-macros/link-data.json" assert {
+    type: "json",
+};
 export const linkMap: Readonly<LinkMapType> = linkMapData;

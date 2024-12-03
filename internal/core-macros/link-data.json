@@ -167,5 +167,24 @@
     },
     "WinitBackend": {
         "href": "/guide/backends-and-renderers/backend_winit/"
+    },
+    "translations": {
+        "href": "/guide/development/translations"
+    },
+    "backends_and_renderers": {
+        "href": "/guide/backends-and-renderers/backends_and_renderers/"
+    },
+    "globals": {
+        "href": "/guide/language/coding/globals/"
+    },
+    "quickstart": {
+        "href": "/tutorial/quickstart/"
+    },
+    "modules": {
+        "href": "/guide/language/coding/file/#modules"
+    },
+    "index": {
+        "href": "/"
     }
+
 }

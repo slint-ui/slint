@@ -173,6 +173,7 @@ backend-android-activity-05 = ["i-slint-backend-android-activity/native-activity
 i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true }
+i-slint-core-macros = { workspace = true }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }

@@ -336,10 +336,13 @@ fn index_for_locale(languages: &[&'static str]) -> Option<usize> {
     })
 }
 
+#[i_slint_core_macros::slint_doc]
 /// Select the current translation language when using bundled translations.
 /// This function requires that the application's `.slint` file was compiled with bundled translations..
 /// It must be called after creating the first component.
 /// Returns `Ok` if the language was selected; [`SelectBundledTranslationError`] otherwise.
+///
+/// See also the [Translation documentation](slint:translations).
 pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTranslationError> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else {

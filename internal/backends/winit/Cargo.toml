@@ -80,4 +80,4 @@ cfg_aliases = { workspace = true }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06"] }
 
 [package.metadata.docs.rs]
-features = ["wayland", "renderer-software"]
+features = ["wayland", "renderer-software", "raw-window-handle-06"]
