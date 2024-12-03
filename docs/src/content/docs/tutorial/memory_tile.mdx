@@ -22,7 +22,7 @@ Copy the following code into `ui/app-window.slint` file, replacing the current c
 
 import memoryTile from '../../code/memory_tile.slint?raw'
 
-<Code code={extractLines(memoryTile, 5, 19)} lang="slint" title="memory-tile.slint" />
+<Code code={extractLines(memoryTile, 5, 19)} lang="slint" />
 
 This exports the <span class="hljs-title">MainWindow</span> component so that the game logic code can access it later.
 
@@ -35,7 +35,7 @@ You need to install this icon and others you use later first. You can download a
 If you are on Linux or macOS, download and extract it with the following commands:
 
 <Tabs syncKey="dev-platform">
-<TabItem label="Windows">
+<TabItem label="Windows" icon="seti:windows">
 
 If you are on Windows, use the following commands:
 
@@ -47,7 +47,7 @@ cd ..
 ```
 This unpacks an `icons` directory containing several icons.
 </TabItem>
-<TabItem label="macOS">
+<TabItem label="macOS" icon="apple">
 ```sh title="Terminal"
 cd ui
 curl -O https://slint.dev/blog/memory-game-tutorial/icons.zip
@@ -75,12 +75,12 @@ This unpacks an `icons` directory containing several icons.
 Compiling the program with `cmake --build build` and running with the `./build/my_application` opens a window that shows the icon of a bus on a blue background.
 
 </TabItem>
-<TabItem label="NodeJS" icon="seti:javascript">
+<TabItem label="NodeJS">
 
 Running the program with `npm start` opens a window that shows the icon of a bus on a blue background.
 
 </TabItem>
-<TabItem label="Rust" icon="seti:rust">
+<TabItem label="Rust">
 
 Running the program with `cargo run` opens a window that shows the icon of a bus on a blue background.
 
