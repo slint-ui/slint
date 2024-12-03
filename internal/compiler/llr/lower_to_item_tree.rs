@@ -36,6 +36,10 @@ pub fn lower_to_item_tree(
         let count = globals.len();
         globals.push(lower_global(g, count, &mut state));
     }
+    for (g, l) in document.used_types.borrow().globals.iter().zip(&mut globals) {
+        lower_global_expressions(g, &mut state, l);
+    }
+
     for c in &document.used_types.borrow().sub_components {
         let sc = lower_sub_component(c, &state, None, compiler_config);
         state.sub_components.insert(ByAddress(c.clone()), sc);
@@ -741,12 +745,12 @@ fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionContext) -> Timer {
     }
 }
 
+/// Lower the globals (but not their expressions as we first need to lower all the global to get proper mapping in the state)
 fn lower_global(
     global: &Rc<Component>,
     global_index: usize,
     state: &mut LoweringState,
 ) -> GlobalComponent {
-    let mut mapping = LoweredSubComponentMapping::default();
     let mut properties = vec![];
     let mut const_properties = vec![];
     let mut prop_analysis = vec![];
@@ -761,10 +765,6 @@ fn lower_global(
 
         if let Type::Function(function) = &x.property_type {
             let function_index = functions.len();
-            mapping.property_mapping.insert(
-                nr.clone(),
-                PropertyReference::Function { sub_component_path: vec![], function_index },
-            );
             state.global_properties.insert(
                 nr.clone(),
                 PropertyReference::GlobalFunction { global_index, function_index },
@@ -779,11 +779,6 @@ fn lower_global(
             });
             continue;
         }
-
-        mapping.property_mapping.insert(
-            nr.clone(),
-            PropertyReference::Local { sub_component_path: vec![], property_index },
-        );
 
         properties.push(Property {
             name: p.clone(),
@@ -808,49 +803,6 @@ fn lower_global(
         state
             .global_properties
             .insert(nr.clone(), PropertyReference::Global { global_index, property_index });
-    }
-
-    let mut init_values = vec![None; properties.len()];
-
-    let ctx = ExpressionContext { mapping: &mapping, state, parent: None, component: global };
-    for (prop, binding) in &global.root_element.borrow().bindings {
-        assert!(binding.borrow().two_way_bindings.is_empty());
-        assert!(binding.borrow().animation.is_none());
-        let expression =
-            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
-
-        let nr = NamedReference::new(&global.root_element, prop.clone());
-        let property_index = match mapping.property_mapping[&nr] {
-            PropertyReference::Local { property_index, .. } => property_index,
-            PropertyReference::Function { ref sub_component_path, function_index } => {
-                assert!(sub_component_path.is_empty());
-                functions[function_index].code = expression;
-                continue;
-            }
-            _ => unreachable!(),
-        };
-        let is_constant = binding.borrow().analysis.as_ref().map_or(false, |a| a.is_const);
-        init_values[property_index] = Some(BindingExpression {
-            expression: expression.into(),
-            animation: None,
-            is_constant,
-            is_state_info: false,
-            use_count: 0.into(),
-        });
-    }
-
-    let mut change_callbacks = BTreeMap::new();
-    for (prop, expr) in &global.root_element.borrow().change_callbacks {
-        let nr = NamedReference::new(&global.root_element, prop.clone());
-        let property_index = match mapping.property_mapping[&nr] {
-            PropertyReference::Local { property_index, .. } => property_index,
-            _ => unreachable!(),
-        };
-        let expression = super::lower_expression::lower_expression(
-            &tree_Expression::CodeBlock(expr.borrow().clone()),
-            &ctx,
-        );
-        change_callbacks.insert(property_index, expression.into());
     }
 
     let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
@@ -880,21 +832,70 @@ fn lower_global(
         false
     };
 
-    let public_properties = public_properties(global, &mapping, state);
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
+        init_values: vec![None; properties.len()],
         properties,
         functions,
-        init_values,
-        change_callbacks,
+        change_callbacks: BTreeMap::new(),
         const_properties,
-        public_properties,
+        public_properties: Default::default(),
         private_properties: global.private_properties.borrow().clone(),
         exported: !global.exported_global_names.borrow().is_empty(),
         aliases: global.global_aliases(),
         is_builtin,
         prop_analysis,
     }
+}
+
+fn lower_global_expressions(
+    global: &Rc<Component>,
+    state: &mut LoweringState,
+    lowered: &mut GlobalComponent,
+) {
+    // Note that this mapping doesn't contain anything usefull, everything is in the state
+    let mapping = LoweredSubComponentMapping::default();
+    let ctx = ExpressionContext { mapping: &mapping, state, parent: None, component: global };
+
+    for (prop, binding) in &global.root_element.borrow().bindings {
+        assert!(binding.borrow().two_way_bindings.is_empty());
+        assert!(binding.borrow().animation.is_none());
+        let expression =
+            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
+
+        let nr = NamedReference::new(&global.root_element, prop.clone());
+        let property_index = match state.global_properties[&nr] {
+            PropertyReference::Global { property_index, .. } => property_index,
+            PropertyReference::GlobalFunction { function_index, .. } => {
+                lowered.functions[function_index].code = expression;
+                continue;
+            }
+            _ => unreachable!(),
+        };
+        let is_constant = binding.borrow().analysis.as_ref().map_or(false, |a| a.is_const);
+        lowered.init_values[property_index] = Some(BindingExpression {
+            expression: expression.into(),
+            animation: None,
+            is_constant,
+            is_state_info: false,
+            use_count: 0.into(),
+        });
+    }
+
+    for (prop, expr) in &global.root_element.borrow().change_callbacks {
+        let nr = NamedReference::new(&global.root_element, prop.clone());
+        let property_index = match state.global_properties[&nr] {
+            PropertyReference::Global { property_index, .. } => property_index,
+            _ => unreachable!(),
+        };
+        let expression = super::lower_expression::lower_expression(
+            &tree_Expression::CodeBlock(expr.borrow().clone()),
+            &ctx,
+        );
+        lowered.change_callbacks.insert(property_index, expression.into());
+    }
+
+    lowered.public_properties = public_properties(global, &mapping, state);
 }
 
 fn make_tree(
