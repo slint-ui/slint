@@ -289,9 +289,9 @@ pub fn run_import_passes(
 ) {
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
+    purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
-    purity_check::purity_check(doc, diag);
     check_rotation::check_rotation(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }

@@ -58,6 +58,7 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
                                 arg_names: vec![],
                             })),
                             visibility: PropertyVisibility::Public,
+                            pure: Some(false),
                             ..Default::default()
                         },
                     );
