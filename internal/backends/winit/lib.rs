@@ -318,7 +318,9 @@ impl BackendBuilder {
     }
 }
 
-#[doc = concat!("This struct implements the Slint Platform trait. Use this in conjunction with [`slint::platform::set_platform`](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/platform/fn.set_platform.html) to initialize.")]
+#[i_slint_core_macros::slint_doc]
+/// This struct implements the Slint Platform trait.
+/// Use this in conjunction with [`slint::platform::set_platform`](slint:rust:slint/platform/fn.set_platform.html) to initialize.
 /// Slint to use winit for all windowing system interaction.
 ///
 /// ```rust,no_run
@@ -352,14 +354,19 @@ pub struct Backend {
 }
 
 impl Backend {
-    #[doc = concat!("Creates a new winit backend with the default renderer that's compiled in. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
-    /// details on how to select the default renderer.
+    #[i_slint_core_macros::slint_doc]
+    /// Creates a new winit backend with the default renderer that's compiled in.
+    ///
+    /// See the [backend documentation](slint:backends_and_renderers) for details on how to select the default renderer.
     pub fn new() -> Result<Self, PlatformError> {
         Self::builder().build()
     }
 
-    #[doc = concat!("Creates a new winit backend with the renderer specified by name. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
-    /// details on how to select the default renderer.
+    #[i_slint_core_macros::slint_doc]
+    /// Creates a new winit backend with the renderer specified by name.
+    ///
+    /// See the [backend documentation](slint:backends_and_renderers) for details on how to select the default renderer.
+    ///
     /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
         let mut builder = Self::builder();
@@ -523,7 +530,9 @@ mod private {
     pub trait WinitWindowAccessorSealed {}
 }
 
-#[doc = concat!("This helper trait can be used to obtain access to the [`winit::window::Window`] for a given [`slint::Window`](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/struct.window).")]
+#[i_slint_core_macros::slint_doc]
+/// This helper trait can be used to obtain access to the [`winit::window::Window`] for a given
+/// [`slint::Window`](slint:rust:slint/struct.window).")]
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend.

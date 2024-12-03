@@ -11,13 +11,13 @@
 This crate is the main entry point for embedding user interfaces designed with
 [Slint](https://slint.rs/) in Rust programs.
 */
-#![doc = concat!("If you are new to Slint, start with the [Walk-through **tutorial**](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/quickstart)")]
+#![doc = i_slint_core_macros::slint_doc_str!("If you are new to Slint, start with the [Walk-through **tutorial**](slint:quickstart)")]
 /*! If you are already familiar with Slint, the following topics provide related information.
 
 ## Topics
 
 */
-#![doc = concat!("- [The Slint Language Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
+#![doc = i_slint_core_macros::slint_doc_str!("- [The Slint Language Documentation](slint:index)")]
 /*! - [Type mappings between .slint and Rust](docs::type_mappings)
  - [Feature flags and backend selection](docs::cargo_features)
  - [Slint on Microcontrollers](docs::mcu)
@@ -30,7 +30,7 @@ of including them in Rust:
  - The `.slint` code is [inline in a macro](#the-slint-code-in-a-macro).
  - The `.slint` code in [external files compiled with `build.rs`](#the-slint-code-in-external-files-is-compiled-with-buildrs)
 */
-#![doc = concat!(" - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint_interpreter/).")]
+#![doc = i_slint_core_macros::slint_doc_str!(" - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](slint:rust:slint_interpreter/).")]
 /*!
 
 With the first two methods, the markup code is translated to Rust code and each component is turned into a Rust
@@ -59,8 +59,9 @@ fn main() {
 
 ### The .slint code in external files is compiled with `build.rs`
 
-When your design becomes bigger in terms of markup code, you may want move it to a dedicated*/
-#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/language/syntax/modules.html).")]
+When your design becomes bigger in terms of markup code, you may want move it to a dedicated
+`.slint` file. */
+#![doc = i_slint_core_macros::slint_doc_str!("It's also possible to split a `.slint` file into multiple files using [modules](slint:modules).")]
 /*!Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
@@ -173,7 +174,7 @@ To run an async function or a future, use [`spawn_local()`].
 ## Exported Global singletons
 
 */
-#![doc = concat!("When you export a [global singleton](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/language/syntax/globals.html) from the main file,")]
+#![doc = i_slint_core_macros::slint_doc_str!("When you export a [global singleton](slint:globals) from the main file,")]
 /*! it is also generated with the exported name. Like the main component, the generated struct have
 inherent method to access the properties and callback:
 
@@ -358,6 +359,7 @@ macro_rules! include_modules {
     };
 }
 
+#[i_slint_core_macros::slint_doc]
 /// Initialize translations when using the `gettext` feature.
 ///
 /// Call this in your main function with the path where translations are located.
@@ -370,6 +372,8 @@ macro_rules! include_modules {
 /// where `dirname` is the directory passed as an argument to this macro,
 /// `locale` is a locale name (e.g., `en`, `en_GB`, `fr`), and
 /// `crate` is the package name obtained from the `CARGO_PKG_NAME` environment variable.
+///
+/// See also the [Translation documentation](slint:translations).
 ///
 /// ### Example
 /// ```rust
