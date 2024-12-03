@@ -182,7 +182,7 @@ But there are also differences:
 - The syntax for defining a callback is different
 - Callbacks can be declared without assigning a block of code to them
 - Callbacks have a special syntax for declaring aliases using the two-way binding operator `<=>`
-- Callback visiblity is always similar to `public` functions
+- Callback visibility is always similar to `public` functions
 
 In general, the biggest reason to use callbacks is to be able to handle them from the backend code. Use
 a function if that is not needed.

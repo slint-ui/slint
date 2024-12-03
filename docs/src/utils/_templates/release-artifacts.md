@@ -2,7 +2,7 @@
 
 ## C++ SDK
 
-For C++ developers, this release contains the follwing pre-packed builds of Slint:
+For C++ developers, this release contains the following pre-packed builds of Slint:
 
 | Desktop Operating System | Compiler | Architecture | Download |
 |--------------------------|----------|--------------|----------|

@@ -871,7 +871,7 @@ export component SideBar inherits Rectangle {
     width: 160px;
 
     container := Rectangle {
-        private property <bool> expaned;
+        private property <bool> expanded;
 
         width: parent.width;
         background: Palette.background.darker(0.2);
@@ -884,11 +884,11 @@ export component SideBar inherits Rectangle {
                 alignment: start;
 
                 if (root.collapsed) : Button {
-                    checked: container.expaned;
+                    checked: container.expanded;
                     text: root.expand-button-text;
 
                     clicked => {
-                        container.expaned = !container.expaned;
+                        container.expanded = !container.expanded;
                     }
                 }
             }
@@ -897,7 +897,7 @@ export component SideBar inherits Rectangle {
         }
 
         states [
-            expaned when container.expaned && root.collapsed : {
+            expanded when container.expanded && root.collapsed : {
                 width: 160px;
 
                 in {

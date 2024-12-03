@@ -12,7 +12,7 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
-    "spellcheck": "cspell --no-progress --gitignore  ./**/*.{md,mdx}",
+    "spellcheck": "cspell --no-progress --gitignore --exclude 'archive/**' \"./**/*.{md,mdx}\"",
     "type-check": "astro check",
     "test": "playwright test",
     "test:ui": "playwright test --ui"

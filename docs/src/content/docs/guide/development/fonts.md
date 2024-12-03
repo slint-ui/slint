@@ -4,6 +4,8 @@ title: Font Handling
 description: Font Handling
 ---
 
+<!-- cSpell:ignore Noto -->
+
 Elements such as `Text` and `TextInput` can render text and allow customizing the appearance of the text through
 different properties. The properties prefixed with `font-`, such as `font-family`, `font-size` and `font-weight`
 affect the choice of font used for rendering to the screen. If any of these properties isn't specified, the `default-font-`

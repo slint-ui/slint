@@ -4,6 +4,8 @@ title: LinuxKMS Backend
 description: LinuxKMS Backend
 ---
 
+<!-- cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat -->
+
 The LinuxKMS backend runs only on Linux and eliminates the need for a windowing system such as Wayland or X11.
 Instead it uses the following libraries and interface to render directly to the screen and react to touch, mouse,
 and keyboard input.
@@ -26,7 +28,7 @@ For compilation, pkg-config is used to determine the location of the following r
 :::{note}
 If you don't have `libseat` available on your target system, then instead of selecting `backend-linuxkms`, select
 `backend-linuxkms-noseat`. This variant of the LinuxKMS backend eliminates the need to have libseat installed, but
-in exchange requires running the application as a user that's priviledged to access all input and DRM/KMS device
+in exchange requires running the application as a user that's privileged to access all input and DRM/KMS device
 files; typically that's the root user.
 :::
 

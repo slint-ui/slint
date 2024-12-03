@@ -58,7 +58,7 @@
             ]
         },
         {
-            "languageId": "markdown, mdx",
+            "languageId": "markdown,md,mdx",
             "words": [
                 "linebuffer",
                 "progressindicator",
@@ -93,7 +93,9 @@
         "cupertino",
         "datastructures",
         "dealloc",
+        "distros",
         "Femto",
+        "femtovg",
         "flickable",
         "focusable",
         "frameless",
