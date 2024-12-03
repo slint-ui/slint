@@ -82,5 +82,24 @@
     },
     "VerticalLayout": {
         "href": "/reference/layouts/verticallayout"
+    },
+    "localization": {
+        "href": "/guide/development/localization"
+    },
+    "backends_and_renderers": {
+        "href": "/misc/backends_and_renderers"
+    },
+    "globals": {
+        "href": "/guide/unfinished/globals"
+    },
+    "quickstart": {
+        "href": "/tutorial/quickstart/"
+    },
+    "modules": {
+        "href": "/guide/unfinished/modules"
+    },
+    "index": {
+        "href": "/"
     }
+
 }
