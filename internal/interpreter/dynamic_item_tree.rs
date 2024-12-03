@@ -644,7 +644,7 @@ impl<'id> ItemTreeDescription<'id> {
             let element = alias.element();
             match eval::enclosing_component_instance_for_element(
                 &element,
-                eval::ComponentInstance::InstanceRef(c),
+                &eval::ComponentInstance::InstanceRef(c),
                 guard,
             ) {
                 eval::ComponentInstance::InstanceRef(enclosing_component) => {
@@ -703,9 +703,9 @@ impl<'id> ItemTreeDescription<'id> {
         let inst = eval::ComponentInstance::InstanceRef(c);
 
         if matches!(&decl.property_type, Type::Function { .. }) {
-            eval::call_function(inst, &elem, name, args.to_vec()).ok_or(())
+            eval::call_function(&inst, &elem, name, args.to_vec()).ok_or(())
         } else {
-            eval::invoke_callback(inst, &elem, name, args).ok_or(())
+            eval::invoke_callback(&inst, &elem, name, args).ok_or(())
         }
     }
 
@@ -722,7 +722,8 @@ impl<'id> ItemTreeDescription<'id> {
         // Safety: we just verified that the component has the right vtable
         let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
         let extra_data = c.description.extra_data_offset.apply(c.instance.get_ref());
-        extra_data.globals.get().unwrap().get(global_name).cloned().ok_or(())
+        let g = extra_data.globals.get().unwrap().get(global_name).clone();
+        g.ok_or(())
     }
 }
 
@@ -1739,7 +1740,7 @@ pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *c
     generativity::make_guard!(guard);
     let enclosing_component = eval::enclosing_component_instance_for_element(
         &element,
-        eval::ComponentInstance::InstanceRef(instance),
+        &eval::ComponentInstance::InstanceRef(instance),
         guard,
     );
     match enclosing_component {
@@ -2143,7 +2144,7 @@ extern "C" fn accessibility_action(
             .cloned();
         if let Some(nr) = nr {
             let instance_ref = eval::ComponentInstance::InstanceRef(instance_ref);
-            crate::eval::invoke_callback(instance_ref, &nr.element(), nr.name(), args).unwrap();
+            crate::eval::invoke_callback(&instance_ref, &nr.element(), nr.name(), args).unwrap();
         }
     };
 
@@ -2472,7 +2473,7 @@ pub fn update_timers(instance: InstanceRef) {
                         let c = instance.unerase(guard);
                         let c = c.borrow_instance();
                         let inst = eval::ComponentInstance::InstanceRef(c);
-                        eval::invoke_callback(inst, &callback.element(), callback.name(), &[])
+                        eval::invoke_callback(&inst, &callback.element(), callback.name(), &[])
                             .unwrap();
                     }
                 });

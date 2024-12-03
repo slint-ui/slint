@@ -91,10 +91,10 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackIn
 
 impl corelib::rtti::ValueType for Value {}
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub(crate) enum ComponentInstance<'a, 'id> {
     InstanceRef(InstanceRef<'a, 'id>),
-    GlobalComponent(&'a Pin<Rc<dyn crate::global_component::GlobalComponent>>),
+    GlobalComponent(Pin<Rc<dyn crate::global_component::GlobalComponent>>),
 }
 
 /// The local variable needed for binding evaluation
@@ -150,14 +150,14 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
         Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
         Expression::PropertyReference(nr) => {
-            load_property_helper(local_context.component_instance, &nr.element(), nr.name()).unwrap()
+            load_property_helper(&local_context.component_instance, &nr.element(), nr.name()).unwrap()
         }
-        Expression::RepeaterIndexReference { element } => load_property_helper(local_context.component_instance,
+        Expression::RepeaterIndexReference { element } => load_property_helper(&local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             crate::dynamic_item_tree::SPECIAL_PROPERTY_INDEX,
         )
         .unwrap(),
-        Expression::RepeaterModelReference { element } => load_property_helper(local_context.component_instance,
+        Expression::RepeaterModelReference { element } => load_property_helper(&local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
         )
@@ -209,11 +209,11 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
             Expression::FunctionReference(nr, _) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                call_function(local_context.component_instance, &nr.element(), nr.name(), args).unwrap()
+                call_function(&local_context.component_instance, &nr.element(), nr.name(), args).unwrap()
             }
             Expression::CallbackReference(nr, _) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
+                invoke_callback(&local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
             }
             Expression::BuiltinFunctionReference(f, _) => call_builtin_function(f.clone(), arguments, local_context),
             _ => panic!("call of something not a callback: {function:?}"),
@@ -369,7 +369,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             local_context.return_value.clone().unwrap()
         }
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
-            let cache = load_property_helper(local_context.component_instance, &layout_cache_prop.element(), layout_cache_prop.name()).unwrap();
+            let cache = load_property_helper(&local_context.component_instance, &layout_cache_prop.element(), layout_cache_prop.name()).unwrap();
             if let Value::LayoutCache(cache) = cache {
                 if let Some(ri) = repeater_index {
                     let offset : usize = eval_expression(ri, local_context).try_into().unwrap();
@@ -619,10 +619,10 @@ fn call_builtin_function(
                     popup,
                     |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
-                        let x =
-                            load_property_helper(comp, &popup.x.element(), popup.x.name()).unwrap();
-                        let y =
-                            load_property_helper(comp, &popup.y.element(), popup.y.name()).unwrap();
+                        let x = load_property_helper(&comp, &popup.x.element(), popup.x.name())
+                            .unwrap();
+                        let y = load_property_helper(&comp, &popup.y.element(), popup.y.name())
+                            .unwrap();
                         corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
                             y.try_into().unwrap(),
@@ -1297,7 +1297,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
             generativity::make_guard!(guard);
             let enclosing_component = enclosing_component_instance_for_element(
                 &element,
-                local_context.component_instance,
+                &local_context.component_instance,
                 guard,
             );
 
@@ -1413,11 +1413,11 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
 }
 
 pub fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Result<Value, ()> {
-    load_property_helper(ComponentInstance::InstanceRef(component), element, name)
+    load_property_helper(&ComponentInstance::InstanceRef(component), element, name)
 }
 
 fn load_property_helper(
-    component_instance: ComponentInstance,
+    component_instance: &ComponentInstance,
     element: &ElementRc,
     name: &str,
 ) -> Result<Value, ()> {
@@ -1457,7 +1457,7 @@ pub fn store_property(
     generativity::make_guard!(guard);
     match enclosing_component_instance_for_element(
         element,
-        ComponentInstance::InstanceRef(component_instance),
+        &ComponentInstance::InstanceRef(component_instance),
         guard,
     ) {
         ComponentInstance::InstanceRef(enclosing_component) => {
@@ -1555,7 +1555,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
 }
 
 pub(crate) fn invoke_callback(
-    component_instance: ComponentInstance,
+    component_instance: &ComponentInstance,
     element: &ElementRc,
     callback_name: &SmolStr,
     args: &[Value],
@@ -1609,7 +1609,7 @@ pub(crate) fn invoke_callback(
 ///
 /// Return None if the function don't exist
 pub(crate) fn call_function(
-    component_instance: ComponentInstance,
+    component_instance: &ComponentInstance,
     element: &ElementRc,
     function_name: &str,
     args: Vec<Value>,
@@ -1657,7 +1657,7 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
 /// The difference with enclosing_component_for_element is that it takes the GlobalComponent into account.
 pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
     element: &'a ElementRc,
-    component_instance: ComponentInstance<'a, '_>,
+    component_instance: &ComponentInstance<'a, '_>,
     guard: generativity::Guard<'new_id>,
 ) -> ComponentInstance<'a, 'new_id> {
     let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
@@ -1666,23 +1666,24 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
             if enclosing.is_global() && !Rc::ptr_eq(enclosing, &component.description.original) {
                 let root = component.toplevel_instance(guard);
                 ComponentInstance::GlobalComponent(
-                    &root
-                        .description
+                    root.description
                         .extra_data_offset
                         .apply(root.instance.get_ref())
                         .globals
                         .get()
-                        .unwrap()[enclosing.root_element.borrow().id.as_str()],
+                        .unwrap()
+                        .get(enclosing.root_element.borrow().id.as_str())
+                        .unwrap(),
                 )
             } else {
                 ComponentInstance::InstanceRef(enclosing_component_for_element(
-                    element, component, guard,
+                    element, *component, guard,
                 ))
             }
         }
         ComponentInstance::GlobalComponent(global) => {
             //assert!(Rc::ptr_eq(enclosing, &global.component));
-            ComponentInstance::GlobalComponent(global)
+            ComponentInstance::GlobalComponent(global.clone())
         }
     }
 }
