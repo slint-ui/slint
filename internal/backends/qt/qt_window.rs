@@ -695,14 +695,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_text(
         &mut self,
         text: Pin<&dyn RenderText>,
-        _: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
         let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
-        let font: QFont = get_font(text.font_request(WindowInner::from_pub(self.window)));
+        let font: QFont = get_font(text.font_request(self_rc));
         let (horizontal_alignment, vertical_alignment) = text.alignment();
         let alignment = match horizontal_alignment {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -872,14 +872,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_text_input(
         &mut self,
         text_input: Pin<&items::TextInput>,
-        _: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
 
-        let font: QFont =
-            get_font(text_input.font_request(&WindowInner::from_pub(self.window).window_adapter()));
+        let font: QFont = get_font(text_input.font_request(self_rc));
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,

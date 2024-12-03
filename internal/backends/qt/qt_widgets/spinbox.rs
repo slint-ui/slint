@@ -73,6 +73,7 @@ impl Item for NativeSpinBox {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();

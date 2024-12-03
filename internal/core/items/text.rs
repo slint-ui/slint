@@ -70,9 +70,11 @@ impl Item for ComplexText {
         self: Pin<&Self>,
         orientation: Orientation,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> LayoutInfo {
         text_layout_info(
             self,
+            &self_rc,
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width.apply_pin(self),
@@ -128,10 +130,10 @@ impl Item for ComplexText {
     fn bounding_rect(
         self: core::pin::Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        self.text_bounding_rect(window_adapter, geometry.cast()).cast()
+        self.text_bounding_rect(self_rc, window_adapter, geometry.cast()).cast()
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
@@ -155,8 +157,8 @@ impl RenderText for ComplexText {
         self.text()
     }
 
-    fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
-        let window_item = window.window_item();
+    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
+        let window_item = self_rc.window_item();
 
         FontRequest {
             family: {
@@ -216,10 +218,14 @@ impl RenderText for ComplexText {
 }
 
 impl ComplexText {
-    pub fn font_metrics(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontMetrics {
+    pub fn font_metrics(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> FontMetrics {
         let window_inner = WindowInner::from_pub(window_adapter.window());
         let scale_factor = ScaleFactor::new(window_inner.scale_factor());
-        let font_request = self.font_request(window_inner);
+        let font_request = self.font_request(self_rc);
         window_adapter.renderer().font_metrics(font_request, scale_factor)
     }
 }
@@ -248,9 +254,11 @@ impl Item for SimpleText {
         self: Pin<&Self>,
         orientation: Orientation,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> LayoutInfo {
         text_layout_info(
             self,
+            &self_rc,
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width.apply_pin(self),
@@ -306,10 +314,10 @@ impl Item for SimpleText {
     fn bounding_rect(
         self: core::pin::Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        self.text_bounding_rect(window_adapter, geometry.cast()).cast()
+        self.text_bounding_rect(self_rc, window_adapter, geometry.cast()).cast()
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
@@ -333,8 +341,8 @@ impl RenderText for SimpleText {
         self.text()
     }
 
-    fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
-        let window_item = window.window_item();
+    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
+        let window_item = self_rc.window_item();
 
         FontRequest {
             family: window_item.as_ref().and_then(|item| item.as_pin_ref().font_family()),
@@ -387,23 +395,28 @@ impl RenderText for SimpleText {
 }
 
 impl SimpleText {
-    pub fn font_metrics(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontMetrics {
+    pub fn font_metrics(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> FontMetrics {
         let window_inner = WindowInner::from_pub(window_adapter.window());
         let scale_factor = ScaleFactor::new(window_inner.scale_factor());
-        let font_request = self.font_request(window_inner);
+        let font_request = self.font_request(self_rc);
         window_adapter.renderer().font_metrics(font_request, scale_factor)
     }
 }
 
 fn text_layout_info(
     text: Pin<&dyn RenderText>,
+    self_rc: &ItemRc,
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
     width: Pin<&Property<LogicalLength>>,
 ) -> LayoutInfo {
     let window_inner = WindowInner::from_pub(window_adapter.window());
     let text_string = text.text();
-    let font_request = text.font_request(window_inner);
+    let font_request = text.font_request(self_rc);
     let scale_factor = ScaleFactor::new(window_inner.scale_factor());
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(
@@ -545,11 +558,12 @@ impl Item for TextInput {
         self: Pin<&Self>,
         orientation: Orientation,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> LayoutInfo {
         let text = self.text();
         let implicit_size = |max_width, text_wrap| {
             window_adapter.renderer().text_size(
-                self.font_request(window_adapter),
+                self.font_request(&self_rc),
                 {
                     if text.is_empty() {
                         "*"
@@ -615,7 +629,8 @@ impl Item for TextInput {
         }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
-                let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
+                let clicked_offset =
+                    self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
                 if !window_adapter.window().0.modifiers.get().shift() {
@@ -651,7 +666,8 @@ impl Item for TextInput {
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
-                let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
+                let clicked_offset =
+                    self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 self.set_cursor_position(
                     clicked_offset,
@@ -676,7 +692,7 @@ impl Item for TextInput {
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
                     let clicked_offset =
-                        self.byte_offset_for_position(position, window_adapter) as i32;
+                        self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
                     self.set_cursor_position(
                         clicked_offset,
                         true,
@@ -987,12 +1003,12 @@ impl Item for TextInput {
     fn bounding_rect(
         self: core::pin::Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         mut geometry: LogicalRect,
     ) -> LogicalRect {
         let window_inner = WindowInner::from_pub(window_adapter.window());
         let text_string = self.text();
-        let font_request = self.font_request(window_adapter);
+        let font_request = self.font_request(self_rc);
         let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
         let max_width = geometry.size.width_length();
         geometry.size = geometry.size.max(window_adapter.renderer().text_size(
@@ -1208,7 +1224,7 @@ impl TextInput {
         let font_height = window_adapter
             .renderer()
             .text_size(
-                self.font_request(window_adapter),
+                self.font_request(self_rc),
                 " ",
                 None,
                 ScaleFactor::new(window_adapter.window().scale_factor()),
@@ -1240,22 +1256,24 @@ impl TextInput {
             TextCursorDirection::NextLine => {
                 reset_preferred_x_pos = false;
 
-                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let cursor_rect =
+                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.y += font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
             }
             TextCursorDirection::PreviousLine => {
                 reset_preferred_x_pos = false;
 
-                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let cursor_rect =
+                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.y -= font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
             }
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
@@ -1272,18 +1290,20 @@ impl TextInput {
                 prev_word_boundary(&text, last_cursor_pos.saturating_sub(1))
             }
             TextCursorDirection::StartOfLine => {
-                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let cursor_rect =
+                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.x = 0 as Coord;
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
             }
             TextCursorDirection::EndOfLine => {
-                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let cursor_rect =
+                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.x = Coord::MAX;
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
             }
             TextCursorDirection::StartOfParagraph => {
                 prev_paragraph_boundary(&text, last_cursor_pos.saturating_sub(1))
@@ -1299,11 +1319,12 @@ impl TextInput {
                     return false;
                 }
                 reset_preferred_x_pos = false;
-                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let cursor_rect =
+                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
                 let mut cursor_xy_pos = cursor_rect.center();
                 cursor_xy_pos.y -= offset;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
             }
             TextCursorDirection::PageDown => {
                 let offset = self.page_height().get() - font_height;
@@ -1311,11 +1332,12 @@ impl TextInput {
                     return false;
                 }
                 reset_preferred_x_pos = false;
-                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let cursor_rect =
+                    self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter, self_rc);
                 let mut cursor_xy_pos = cursor_rect.center();
                 cursor_xy_pos.y += offset;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter, self_rc)
             }
         };
 
@@ -1350,8 +1372,9 @@ impl TextInput {
     ) {
         self.cursor_position_byte_offset.set(new_position);
         if new_position >= 0 {
-            let pos =
-                self.cursor_rect_for_byte_offset(new_position as usize, window_adapter).origin;
+            let pos = self
+                .cursor_rect_for_byte_offset(new_position as usize, window_adapter, self_rc)
+                .origin;
             if reset_preferred_x_pos {
                 self.preferred_x_pos.set(pos.x);
             }
@@ -1460,14 +1483,15 @@ impl TextInput {
         WindowInner::from_pub(window_adapter.window()).last_ime_text.replace(text.clone());
         let cursor_position = self.cursor_position(&text);
         let anchor_position = self.anchor_position(&text);
-        let cursor_relative = self.cursor_rect_for_byte_offset(cursor_position, window_adapter);
+        let cursor_relative =
+            self.cursor_rect_for_byte_offset(cursor_position, window_adapter, self_rc);
         let geometry = self_rc.geometry();
         let origin = self_rc.map_to_window(geometry.origin).to_vector();
         let cursor_rect_origin =
             crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin);
         let cursor_rect_size = crate::api::LogicalSize::from_euclid(cursor_relative.size);
         let anchor_point = crate::api::LogicalPosition::from_euclid(
-            self.cursor_rect_for_byte_offset(anchor_position, window_adapter).origin
+            self.cursor_rect_for_byte_offset(anchor_position, window_adapter, self_rc).origin
                 + origin
                 + cursor_relative.size,
         );
@@ -1679,8 +1703,8 @@ impl TextInput {
         }
     }
 
-    pub fn font_request(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontRequest {
-        let window_item = WindowInner::from_pub(window_adapter.window()).window_item();
+    pub fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
+        let window_item = self_rc.window_item();
 
         FontRequest {
             family: {
@@ -1781,11 +1805,12 @@ impl TextInput {
         self: Pin<&Self>,
         byte_offset: usize,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> LogicalRect {
         window_adapter.renderer().text_input_cursor_rect_for_byte_offset(
             self,
             byte_offset,
-            self.font_request(window_adapter),
+            self.font_request(self_rc),
             ScaleFactor::new(window_adapter.window().scale_factor()),
         )
     }
@@ -1794,11 +1819,12 @@ impl TextInput {
         self: Pin<&Self>,
         pos: LogicalPoint,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> usize {
         window_adapter.renderer().text_input_byte_offset_for_position(
             self,
             pos,
-            self.font_request(window_adapter),
+            self.font_request(self_rc),
             ScaleFactor::new(window_adapter.window().scale_factor()),
         )
     }
@@ -1948,10 +1974,14 @@ impl TextInput {
         self.undo_items.set(undo_items);
     }
 
-    pub fn font_metrics(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontMetrics {
+    pub fn font_metrics(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> FontMetrics {
         let window_inner = WindowInner::from_pub(window_adapter.window());
         let scale_factor = ScaleFactor::new(window_inner.scale_factor());
-        let font_request = self.font_request(window_adapter);
+        let font_request = self.font_request(self_rc);
         window_adapter.renderer().font_metrics(font_request, scale_factor)
     }
 
@@ -2096,13 +2126,14 @@ pub unsafe extern "C" fn slint_textinput_paste(
 pub fn slint_text_item_fontmetrics(
     window_adapter: &Rc<dyn WindowAdapter>,
     item_ref: Pin<ItemRef<'_>>,
+    self_rc: &ItemRc,
 ) -> FontMetrics {
     if let Some(simple_text) = ItemRef::downcast_pin::<SimpleText>(item_ref) {
-        simple_text.font_metrics(window_adapter)
+        simple_text.font_metrics(window_adapter, self_rc)
     } else if let Some(complex_text) = ItemRef::downcast_pin::<ComplexText>(item_ref) {
-        complex_text.font_metrics(window_adapter)
+        complex_text.font_metrics(window_adapter, self_rc)
     } else if let Some(text_input) = ItemRef::downcast_pin::<TextInput>(item_ref) {
-        text_input.font_metrics(window_adapter)
+        text_input.font_metrics(window_adapter, self_rc)
     } else {
         Default::default()
     }
@@ -2118,5 +2149,5 @@ pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     let self_ref = self_rc.borrow();
-    slint_text_item_fontmetrics(window_adapter, self_ref)
+    slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc)
 }
