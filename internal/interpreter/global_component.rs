@@ -1,21 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use core::pin::Pin;
-use smol_str::SmolStr;
-use std::collections::{BTreeMap, HashMap};
-use std::rc::Rc;
-
 use crate::api::Value;
 use crate::dynamic_item_tree::{
     ErasedItemTreeBox, ErasedItemTreeDescription, PopupMenuDescription,
 };
 use crate::SetPropertyError;
+use core::cell::RefCell;
+use core::pin::Pin;
 use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::{Component, Document, PropertyDeclaration};
 use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::rtti;
+use smol_str::SmolStr;
+use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
 
 pub struct CompiledGlobalCollection {
     /// compiled globals
@@ -58,7 +58,27 @@ impl CompiledGlobalCollection {
     }
 }
 
-pub type GlobalStorage = HashMap<String, Pin<Rc<dyn GlobalComponent>>>;
+#[derive(Clone)]
+pub enum GlobalStorage {
+    Strong(Rc<RefCell<HashMap<String, Pin<Rc<dyn GlobalComponent>>>>>),
+    /// When the storage is held by another global
+    Weak(std::rc::Weak<RefCell<HashMap<String, Pin<Rc<dyn GlobalComponent>>>>>),
+}
+
+impl GlobalStorage {
+    pub fn get(&self, name: &str) -> Option<Pin<Rc<dyn GlobalComponent>>> {
+        match self {
+            GlobalStorage::Strong(storage) => storage.borrow().get(name).cloned(),
+            GlobalStorage::Weak(storage) => storage.upgrade().unwrap().borrow().get(name).cloned(),
+        }
+    }
+}
+
+impl Default for GlobalStorage {
+    fn default() -> Self {
+        GlobalStorage::Strong(Default::default())
+    }
+}
 
 pub enum CompiledGlobal {
     Builtin {
@@ -150,6 +170,10 @@ pub fn instantiate(
     globals: &mut GlobalStorage,
     root: vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
 ) {
+    let GlobalStorage::Strong(ref mut globals) = globals else {
+        panic!("Global storage is not strong")
+    };
+
     let instance = match description {
         CompiledGlobal::Builtin { element, .. } => {
             trait Helper {
@@ -179,13 +203,14 @@ pub fn instantiate(
                 None,
                 Some(root),
                 None,
-                globals.clone(),
+                GlobalStorage::Weak(Rc::downgrade(&globals)),
             );
             inst.run_setup_code();
             Rc::pin(GlobalComponentInstance(inst))
         }
     };
-    globals.extend(
+
+    globals.borrow_mut().extend(
         description
             .names()
             .iter()
