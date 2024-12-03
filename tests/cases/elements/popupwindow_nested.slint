@@ -290,6 +290,21 @@ instance.set_result("".into());
 slint_testing::send_mouse_click(&instance, 210., 90.);
 assert_eq!(instance.get_result(), "P1");
 instance.set_result("".into());
+
+// close popup1
+slint_testing::send_mouse_click(&instance, 150., 210. + 40.);
+
+// open both popups
+slint_testing::send_mouse_click(&instance, 380., 10.);
+
+// close popup1 by esc
+slint_testing::send_keyboard_string_sequence(&instance, "\u{001b}");
+
+// popup2 is still open
+slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
+assert_eq!(instance.get_result(), "C2");
+instance.set_result("".into());
+
 ```
 
 ```cpp
