@@ -58,10 +58,17 @@
             ]
         },
         {
-            "languageId": "markdown",
+            "languageId": "markdown, mdx",
             "words": [
+                "linebuffer",
+                "progressindicator",
+                "standardbutton",
+                "standardlistview",
+                "standardtableview",
                 "rustup",
+                "Sonoma",
                 "SUBDIR",
+                "Torizon",
                 "Yocto"
             ],
             "ignoreRegExpList": [
