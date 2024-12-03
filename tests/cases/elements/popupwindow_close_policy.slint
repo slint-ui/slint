@@ -259,6 +259,21 @@ assert_eq!(instance.get_click_count(), 2);
 assert_eq!(instance.get_popup_clicked(), 2003);
 
 
+// --------- Close outside click popup by esc
+instance.set_popup_selector(3);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_click_count(), 1);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_popup_clicked(), 2005);
+
+// close by esc
+slint_testing::send_keyboard_string_sequence(&instance, "\u{001b}");
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 2);
+
 ```
 
 ```cpp
@@ -379,6 +394,44 @@ instance.invoke_do_close();
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_click_count(), 3);
 assert_eq(instance.get_popup_clicked(), 2001);
+
+
+// --------- Close outside click  popup
+instance.set_popup_selector(3);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_created(), true);
+assert_eq(instance.get_popup_clicked(), 2001);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_popup_clicked(), 2003);
+
+// Click outside to close
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 1);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 2);
+assert_eq(instance.get_popup_clicked(), 2003);
+
+
+// --------- Close outside click popup by esc
+instance.set_popup_selector(3);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 1);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_popup_clicked(), 2005);
+
+// close by esc
+slint_testing::send_keyboard_string_sequence(&instance, "\u001b");
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 2);
 ```
 
 ```disable-because-nodejs-runs-with-qt-and-send-mouse-click-wont-send-to-popup-qwindow
@@ -450,6 +503,22 @@ assert.equal(instance.get_click_count(), 1);
 slintlib.private_api.send_mouse_click(instance, 15., 15.);
 assert.equal(instance.get_click_count(), 2);
 assert.equal(instance.get_popup_clicked(), 2003);
+
+
+// --------- Close outside click popup by esc
+instance.set_popup_selector(3);
+instance.set_click_count(0);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.get_click_count(), 1);
+
+// click inside
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.get_popup_clicked(), 2005);
+
+// close by esc
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{001b}");
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.get_click_count(), 2);
 ```
 
 */

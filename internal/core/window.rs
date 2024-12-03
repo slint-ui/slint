@@ -688,21 +688,6 @@ impl WindowInner {
 
         event.modifiers = self.modifiers.get().into();
 
-        // Closes top most popup on esc key pressed when policy is not no-auto-close
-        if event.event_type == KeyEventType::KeyPressed && event.text.starts_with(key_codes::Escape)
-        {
-            let close_on_escape = if let Some(popup) = self.active_popups.borrow().last() {
-                popup.close_policy == PopupClosePolicy::CloseOnClick
-                    || popup.close_policy == PopupClosePolicy::CloseOnClickOutside
-            } else {
-                false
-            };
-
-            if close_on_escape {
-                self.close_top_popup();
-            }
-        }
-
         let mut item = self.focus_item.borrow().clone().upgrade();
         while let Some(focus_item) = item {
             if !focus_item.is_visible() {
@@ -734,6 +719,20 @@ impl WindowInner {
             && !extra_mod
         {
             self.focus_previous_item();
+        } else if event.event_type == KeyEventType::KeyPressed
+            && event.text.starts_with(key_codes::Escape)
+        {
+            // Closes top most popup on esc key pressed when policy is not no-auto-close
+            let close_on_escape = if let Some(popup) = self.active_popups.borrow().last() {
+                popup.close_policy == PopupClosePolicy::CloseOnClick
+                    || popup.close_policy == PopupClosePolicy::CloseOnClickOutside
+            } else {
+                false
+            };
+
+            if close_on_escape {
+                self.close_top_popup();
+            }
         }
         crate::properties::ChangeTracker::run_change_handlers();
     }
