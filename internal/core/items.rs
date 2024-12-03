@@ -953,7 +953,6 @@ pub struct WindowItem {
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
-    pub skip_taskbar: Property<bool>,
     pub resize_border_width: Property<LogicalLength>,
     pub always_on_top: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
