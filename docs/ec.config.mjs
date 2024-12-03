@@ -43,6 +43,61 @@ function sideBorder() {
     });
 }
 
+function remapLanguageIdentifiers(lang) {
+    switch (lang) {
+        case "cpp": {
+            return "C++";
+        }
+        case "sh": {
+            return "bash";
+        }
+        default: {
+            return lang;
+        }
+    }
+}
+
+function languageLabel() {
+    return definePlugin({
+        name: "Adds language label to code blocks",
+        baseStyles: `
+        .language-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            inset-block-start: calc(var(--ec-brdWd) + var(--button-spacing));
+            inset-inline-end: calc(var(--ec-brdWd) + var(--ec-uiPadInl) );
+            direction: ltr;
+            font-size: 0.8rem;
+            color: #767676;
+            opacity: 1;
+            transition: opacity 0.3s;
+        }
+        div.expressive-code:hover .language-label,
+        .expressive-code:hover .language-label {
+            opacity: 0;
+        }
+        `,
+        hooks: {
+            postprocessRenderedBlock: async (context) => {
+                const language =
+                    context.renderData.blockAst.children[1].properties
+                        .dataLanguage;
+
+                const label = h("div.language-label", {}, [
+                    remapLanguageIdentifiers(language),
+                ]);
+
+                const ast = context.renderData.blockAst;
+                ast.children.push(label);
+
+                context.renderData.blockAst = ast;
+            },
+        },
+    });
+}
+
 function workersPlaygroundButton() {
     return definePlugin({
         name: "Adds 'Run in SlintPad' button to slint codeblocks",
@@ -114,7 +169,7 @@ function workersPlaygroundButton() {
 }
 
 export default {
-    plugins: [workersPlaygroundButton(), sideBorder()],
+    plugins: [workersPlaygroundButton(), sideBorder(), languageLabel()],
     themes: ["dark-plus", "light-plus"],
     styleOverrides: {
         borderRadius: "0.4rem",

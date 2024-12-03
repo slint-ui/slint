@@ -8,8 +8,6 @@ description: Localization
 
 Slint's translation infrastructure makes your application available in different languages.
 
-## Overview
-
 :::tip[Prerequisite]
 Install the `slint-tr-extractor` tool to extract translatable strings from `.slint` files:
 ```sh
