@@ -44,12 +44,12 @@ function sideBorder() {
 }
 
 function remapLanguageIdentifiers(lang) {
-    switch(lang){
+    switch (lang) {
         case "cpp": {
-            return "C++"
+            return "C++";
         }
         case "sh": {
-            return "bash"
+            return "bash";
         }
         default: {
             return lang;
@@ -85,7 +85,9 @@ function languageLabel() {
                     context.renderData.blockAst.children[1].properties
                         .dataLanguage;
 
-                const label = h("div.language-label", {}, [remapLanguageIdentifiers(language)]);
+                const label = h("div.language-label", {}, [
+                    remapLanguageIdentifiers(language),
+                ]);
 
                 const ast = context.renderData.blockAst;
                 ast.children.push(label);
