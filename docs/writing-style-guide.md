@@ -40,3 +40,10 @@ In our written communication we aim to be:
 ## Docs
 
   - Ensure links don't go to blank pages e.g. [1.7 concepts](https://releases.slint.dev/1.7.0/docs/slint/src/language/concepts/)
+
+
+## Tabs
+The dev-platform tabs should be in the following order:
+- Windows
+- macOS
+- Linux

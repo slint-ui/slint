@@ -108,6 +108,9 @@ jobs:
                 sed -i 's|"/master/docs/slint/"|"/${{ steps.version.outputs.VERSION }}/docs/slint/"|' docs/astro.config.mjs
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
+            - name: Spellcheck
+              working-directory: docs
+              run: pnpm spellcheck
             # Test docs
             - name: Run Playwright tests
               working-directory: docs
