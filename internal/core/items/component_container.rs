@@ -167,6 +167,7 @@ impl Item for ComponentContainer {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         self.ensure_updated();
         if let Some(rc) = self.item_tree.borrow().clone() {

@@ -448,7 +448,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     let size = text_input
                         .as_pin_ref()
-                        .font_request(&adaptor)
+                        .font_request(&focus_item)
                         .pixel_size
                         .unwrap_or_default()
                         .get();
@@ -457,7 +457,11 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
                             pos_x as f32 / scale_factor,
                             pos_y as f32 / scale_factor - size / 2.,
                         ) - focus_item.map_to_window(focus_item.geometry().origin).to_vector();
-                    let text_pos = text_input.as_pin_ref().byte_offset_for_position(pos, &adaptor);
+                    let text_pos = text_input.as_pin_ref().byte_offset_for_position(
+                        pos,
+                        &adaptor,
+                        &focus_item,
+                    );
 
                     let cur_pos = if id == 0 {
                         text_input.anchor_position_byte_offset.set(text_pos as i32);

@@ -178,6 +178,7 @@ impl Item for NativeTabWidget {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let (content_size, tabbar_size) = match orientation {
             Orientation::Horizontal => (
@@ -368,6 +369,7 @@ impl Item for NativeTab {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.title().as_str().into();
         let icon: qttypes::QPixmap =

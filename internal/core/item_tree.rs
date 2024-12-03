@@ -745,6 +745,14 @@ impl ItemRc {
         result
     }
 
+    pub fn window_item(&self) -> Option<VRcMapped<ItemTreeVTable, crate::items::WindowItem>> {
+        let root_item_in_local_item_tree = ItemRc::new(self.item_tree.clone(), 0);
+
+        root_item_in_local_item_tree.downcast::<crate::items::WindowItem>().or_else(|| {
+            root_item_in_local_item_tree.parent_item().and_then(|parent| parent.window_item())
+        })
+    }
+
     /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
     /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
     fn visit_descendants_impl<R>(

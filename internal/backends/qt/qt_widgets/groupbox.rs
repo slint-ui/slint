@@ -146,6 +146,7 @@ impl Item for NativeGroupBox {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.title().as_str().into();
 
