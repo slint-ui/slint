@@ -437,7 +437,7 @@ macro_rules! for_each_enums {
                 /// Closes the `PopupWindow` when user clicks or presses the escape key.
                 CloseOnClick,
 
-                /// Closed the `PopupWindow` when user clicks outside of the popup or presses the escape key.
+                /// Closes the `PopupWindow` when user clicks outside of the popup or presses the escape key.
                 CloseOnClickOutside,
 
                 /// Does not close the `PopupWindow` automatically when user clicks.
