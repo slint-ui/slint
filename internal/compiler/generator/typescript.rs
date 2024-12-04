@@ -82,7 +82,27 @@ mod typescript_ast {
     /// Declarations  (top level, or within a struct)
     #[derive(Debug, derive_more::Display)]
     pub enum Definition {
+        Class(Class),
         Enum(Enum),
+    }
+
+    #[derive(Default, Debug)]
+    pub struct Class {
+        pub name: SmolStr,
+    }
+
+    impl Display for Class {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            indent(f)?;
+            writeln!(f, "export class {} {{", self.name)?;
+            INDENTATION.with(|x| x.set(x.get() + 1));
+
+            // todo: content
+
+            INDENTATION.with(|x| x.set(x.get() - 1));
+            indent(f)?;
+            writeln!(f, "}};")
+        }
     }
 
     #[derive(Default, Debug)]
@@ -116,14 +136,14 @@ pub fn generate(
 
     for ty in doc.used_types.borrow().structs_and_enums.iter() {
         match ty {
-            // Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-            //     generate_struct(
-            //         &mut file,
-            //         s.name.as_ref().unwrap(),
-            //         &s.fields,
-            //         s.node.as_ref().unwrap(),
-            //     );
-            // }
+            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                generate_class(
+                    &mut file,
+                    s.name.as_ref().unwrap(),
+                    // &s.fields,
+                    // s.node.as_ref().unwrap(),
+                );
+            }
             Type::Enumeration(en) => {
                 generate_enum(&mut file, en);
             }
@@ -132,6 +152,12 @@ pub fn generate(
     }
 
     Ok(file)
+}
+
+fn generate_class(file: &mut File, name: &str) {
+    let name = ident(name);
+
+    file.definitions.push(Definition::Class(Class { name }));
 }
 
 fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
