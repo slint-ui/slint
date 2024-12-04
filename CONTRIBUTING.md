@@ -22,10 +22,10 @@ When opening a pull request, you will be asked to sign a
 
 ## Internal documentation
 
- - [Development guide](docs/development.md)
- - [Building Slint from sources in this repository](docs/building.md)
- - [Testing](docs/testing.md)
- - [GitHub issues triage and labels](docs/triage.md)
+ - [Development guide](docs/src/utils/_templates//development.md)
+ - [Building Slint from sources in this repository](docs/src/utils/_templates/building.md)
+ - [Testing](docs/src/utils/_templates//testing.md)
+ - [GitHub issues triage and labels](docs/src/utils/_templates/triage.md)
 
 ## Coding Style
 

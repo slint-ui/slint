@@ -76,7 +76,7 @@ python3 -m http.server
 ---
 ### Running the C++ Examples
 
-* **When compiling Slint from sources:** If you follow the [C++ build instructions](/docs/building.md#c-build), this will build the C++
+* **When compiling Slint from sources:** If you follow the [C++ build instructions](/docs/src/utils/_templates/building.md#c-build), this will build the C++
 examples as well by default
 * **From [installed binary packages](/api/cpp/README.md#binary-packages):** Simply run cmake in one of the example directory containing a CMakeLists.txt
 
