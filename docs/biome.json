@@ -1,7 +1,7 @@
 {
     "extends": ["../biome.json"],
     "formatter": {
-        "ignore": ["archive/**"]
+        "ignore": ["archive/**", ".astro"]
     },
     "linter": {
         "ignore": ["archive/**", ".astro"]
