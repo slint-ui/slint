@@ -79,6 +79,10 @@ public:
     {
         return slint_windowrc_color_scheme(&inner);
     }
+    bool supports_native_menu_bar() const
+    {
+        return slint_windowrc_supports_native_menu_bar(&inner);
+    }
 
     bool text_input_focused() const { return slint_windowrc_get_text_input_focused(&inner); }
     void set_text_input_focused(bool value) const

@@ -2991,6 +2991,10 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
         }
+        BuiltinFunction::SupportsNativeMenuBar => {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar())
+        }
         BuiltinFunction::MonthDayCount => {
             let (m, y) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))
