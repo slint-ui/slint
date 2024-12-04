@@ -13,7 +13,7 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{properties, SelectionNotification};
+use crate::preview::{properties, runtime_properties, SelectionNotification};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -802,6 +802,258 @@ fn update_grouped_properties(
             }
         }
     }
+}
+
+fn get_float(v: &Option<slint_interpreter::Value>) -> Option<f32> {
+    match v {
+        Some(slint_interpreter::Value::Number(f)) => Some(f.clone() as f32),
+        _ => None,
+    }
+}
+
+fn get_int(v: &Option<slint_interpreter::Value>) -> Option<i32> {
+    match v {
+        Some(slint_interpreter::Value::Number(f)) => Some(f.clone() as i32),
+        _ => None,
+    }
+}
+
+fn get_string(v: &Option<slint_interpreter::Value>) -> Option<slint::SharedString> {
+    match v {
+        Some(slint_interpreter::Value::String(s)) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+fn get_color(v: &Option<slint_interpreter::Value>) -> Option<slint::Color> {
+    match v {
+        Some(slint_interpreter::Value::Brush(slint::Brush::SolidColor(c))) => Some(c.clone()),
+        _ => None,
+    }
+}
+
+fn get_bool(v: &Option<slint_interpreter::Value>) -> Option<bool> {
+    match v {
+        Some(slint_interpreter::Value::Bool(b)) => Some(b.clone()),
+        _ => None,
+    }
+}
+
+fn get_code(v: &Option<slint_interpreter::Value>) -> SharedString {
+    v.as_ref()
+        .and_then(|v| slint_interpreter::json::value_to_json(v).ok())
+        .and_then(|j| serde_json::to_string_pretty(&j).ok())
+        .unwrap_or_default()
+        .into()
+}
+
+pub fn ui_set_runtime_properties(
+    ui: &PreviewUi,
+    runtime_properties: &HashMap<
+        runtime_properties::RuntimeComponent,
+        Vec<runtime_properties::RuntimeProperty>,
+    >,
+) {
+    #[derive(Default)]
+    struct ValueMapping {
+        name_prefix: String,
+        is_too_complex: bool,
+        is_array: bool,
+        values: Vec<NamedPropertyValue>,
+    }
+
+    fn map_value_and_type(
+        ty: &langtype::Type,
+        value: &Option<slint_interpreter::Value>,
+        mapping: &mut ValueMapping,
+    ) {
+        use langtype::Type;
+
+        match ty {
+            Type::Float32 => mapping.values.push(NamedPropertyValue {
+                name: mapping.name_prefix.clone().into(),
+                value: PropertyValue {
+                    kind: PropertyValueKind::Float,
+                    value_float: get_float(value).unwrap_or_default(),
+                    code: get_code(value),
+                    ..Default::default()
+                },
+            }),
+            Type::Int32 => mapping.values.push(NamedPropertyValue {
+                name: mapping.name_prefix.clone().into(),
+                value: PropertyValue {
+                    kind: PropertyValueKind::Integer,
+                    value_int: get_int(value).unwrap_or_default(),
+                    code: get_code(value),
+                    ..Default::default()
+                },
+            }),
+            Type::Duration => todo!(),
+            Type::PhysicalLength => todo!(),
+            Type::LogicalLength => todo!(),
+            Type::Rem => todo!(),
+            Type::Angle => todo!(),
+            Type::Percent => todo!(),
+            Type::String => mapping.values.push(NamedPropertyValue {
+                name: mapping.name_prefix.clone().into(),
+                value: PropertyValue {
+                    kind: PropertyValueKind::String,
+                    value_string: get_string(value).unwrap_or_default(),
+                    code: get_code(value),
+                    ..Default::default()
+                },
+            }),
+            Type::Color => {
+                let color = get_color(value).unwrap_or_default();
+                let color_string = {
+                    let a = color.alpha();
+                    let r = color.red();
+                    let g = color.green();
+                    let b = color.blue();
+
+                    format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+                };
+                mapping.values.push(NamedPropertyValue {
+                    name: mapping.name_prefix.clone().into(),
+                    value: PropertyValue {
+                        kind: PropertyValueKind::Boolean,
+                        value_brush: slint::Brush::SolidColor(color).into(),
+                        value_string: color_string.into(),
+                        code: get_code(value),
+                        ..Default::default()
+                    },
+                })
+            }
+            Type::Image => todo!(),
+            Type::Bool => mapping.values.push(NamedPropertyValue {
+                name: mapping.name_prefix.clone().into(),
+                value: PropertyValue {
+                    kind: PropertyValueKind::Boolean,
+                    value_bool: get_bool(value).unwrap_or_default(),
+                    code: get_code(value),
+                    ..Default::default()
+                },
+            }),
+            Type::Model => todo!(),
+            Type::PathData => todo!(),
+            Type::Easing => todo!(),
+            Type::Brush => todo!(),
+            Type::Array(sty) => {
+                eprintln!("      Found an array:");
+                let mut sm = ValueMapping::default();
+                sm.name_prefix = mapping.name_prefix.clone();
+                map_value_and_type(sty, &None, &mut sm);
+
+                mapping.is_array = mapping.is_array || sm.is_array;
+                mapping.is_too_complex = mapping.is_too_complex || sm.is_too_complex || sm.is_array;
+                mapping.is_array = true;
+                mapping.values.extend_from_slice(&sm.values);
+            }
+            Type::Struct(s) => {
+                eprintln!("      Found a struct:");
+                for (f, sty) in s.fields.iter() {
+                    let mut sm = ValueMapping::default();
+                    sm.name_prefix = if mapping.name_prefix.is_empty() {
+                        f.to_string()
+                    } else {
+                        format!("{}.{f}", mapping.name_prefix)
+                    };
+                    eprintln!("          {} recursion:", sm.name_prefix);
+                    map_value_and_type(sty, &None, &mut sm);
+
+                    mapping.values.extend_from_slice(&sm.values);
+                    mapping.is_array = mapping.is_array || sm.is_array;
+                    mapping.is_too_complex = mapping.is_too_complex || sm.is_too_complex;
+                }
+            }
+            Type::Enumeration(enumeration) => todo!(),
+            Type::UnitProduct(items) => todo!(),
+            _ => mapping.values.push(NamedPropertyValue {
+                name: mapping.name_prefix.clone().into(),
+                value: PropertyValue {
+                    kind: PropertyValueKind::Code,
+                    code: get_code(value),
+                    ..Default::default()
+                },
+            }),
+        }
+
+        // Back out when this got too complex and just put the JSON value in:
+        if mapping.is_too_complex {
+            eprintln!("      TOO COMPLEX!");
+            mapping.is_array = false;
+            mapping.values = vec![NamedPropertyValue {
+                name: String::new().into(),
+                value: PropertyValue {
+                    kind: PropertyValueKind::Code,
+                    code: get_code(value),
+                    ..Default::default()
+                },
+            }]
+        }
+    }
+
+    fn map_runtime_property(rp: &runtime_properties::RuntimeProperty) -> Option<RuntimeProperty> {
+        if !rp.is_property() {
+            return None;
+        };
+
+        let has_getter = rp.has_getter();
+        let has_setter = rp.has_setter();
+
+        let mut mapping = ValueMapping::default();
+        map_value_and_type(&rp.ty, &rp.value, &mut mapping);
+
+        eprintln!("      >>> complete values for {}:", rp.name);
+        for np in &mapping.values {
+            eprintln!("            >>> {}: {:?}", np.name, np.value);
+        }
+        eprintln!("      >>> complete values for {}: Done", rp.name);
+
+        Some(RuntimeProperty {
+            name: rp.name.clone().into(),
+            has_getter,
+            has_setter,
+            prefer_json: mapping.is_too_complex,
+            is_array: mapping.is_array,
+            values: Rc::new(VecModel::from(mapping.values)).into(),
+        })
+    }
+
+    let mut result: Vec<RuntimeComponent> = vec![];
+
+    fn fill_component(
+        component_name: String,
+        properties: &[runtime_properties::RuntimeProperty],
+    ) -> Option<RuntimeComponent> {
+        eprintln!("*** Mapping Runtime properties for {component_name}");
+        let properties =
+            properties.iter().filter_map(|rp| map_runtime_property(&rp)).collect::<Vec<_>>();
+        eprintln!("*** Actual Mapping for {component_name}: DONE");
+
+        (!properties.is_empty()).then(|| RuntimeComponent {
+            component_name: component_name.into(),
+            properties: Rc::new(slint::VecModel::from(properties)).into(),
+        })
+    }
+
+    if let Some(main) = runtime_properties.get(&runtime_properties::RuntimeComponent::Main) {
+        if let Some(c) = fill_component("<MAIN>".to_string(), &main) {
+            result.push(c)
+        }
+    }
+    for component_key in
+        runtime_properties.keys().filter(|k| **k != runtime_properties::RuntimeComponent::Main)
+    {
+        if let Some(component) = runtime_properties.get(component_key) {
+            if let Some(c) = fill_component(component_key.to_string(), &component) {
+                result.push(c);
+            }
+        }
+    }
+
+    let api = ui.global::<Api>();
+    api.set_runtime_components(Rc::new(slint::VecModel::from(result)).into())
 }
 
 fn update_properties(

@@ -29,6 +29,7 @@ mod debug;
 mod drop_location;
 mod element_selection;
 mod ext;
+mod runtime_properties;
 use ext::ElementRcNodeExt;
 mod properties;
 pub mod ui;
@@ -1008,6 +1009,9 @@ fn finish_parsing(preview_url: &Url) {
         )
     };
 
+    let runtime_properties = component_instance()
+        .map(|ci| runtime_properties::query_runtime_properties_and_callbacks(&ci));
+
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
 
@@ -1068,6 +1072,9 @@ fn finish_parsing(preview_url: &Url) {
             if let Some(ui) = &preview_state.ui {
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
+                if let Some(ep) = &runtime_properties {
+                    ui::ui_set_runtime_properties(ui, &ep)
+                }
             }
         });
     }
@@ -1912,6 +1919,10 @@ pub mod test {
             },
         ));
 
+        eprintln!("Test source diagnostics:");
+        for d in diagnostics.iter() {
+            eprintln!("    {d}");
+        }
         assert!(diagnostics.is_empty());
 
         component_definition.unwrap().create().unwrap()

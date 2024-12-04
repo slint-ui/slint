@@ -40,7 +40,28 @@ component SideBarIcon inherits Rectangle {
     }
 }
 
+struct TestStruct {
+    field-bool: bool,
+    field-string: string,
+    field-int: int,
+}
+
 export component MainWindow inherits Window {
+    in property <int> test-in: 23;
+    out property <int> test-out: 42;
+    in-out property <int> test-in-out: 65;
+    in-out property <TestStruct> test-struct-in-out: { field-bool: true, field-string: "From UI", field-int: 42 };
+    in-out property <[TestStruct]> test-array-in-out: [
+        { field-bool: true, field-string: "From UI Array 1", field-int: 0 },
+        { field-bool: false, field-string: "From UI Array 2", field-int: 1 },
+        { field-bool: true, field-string: "From UI Array 3", field-int: 2 }
+    ];
+    in-out property <[[TestStruct]]> test-json-in-out: [
+        [{ field-bool: true, field-string: "From UI Array 1", field-int: 0 }],
+        [{ field-bool: false, field-string: "From UI Array 2", field-int: 1 }],
+        [{ field-bool: true, field-string: "From UI Array 3", field-int: 2 }]
+    ];
+
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
     in property <[InkLevel]> ink-levels: [
