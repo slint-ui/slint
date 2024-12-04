@@ -41,7 +41,7 @@ use i_slint_core::{self as corelib, OpenGLAPI};
 use once_cell::unsync::OnceCell;
 #[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
-use winit::window::WindowAttributes;
+use winit::window::{WindowAttributes, WindowButtons};
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -211,7 +211,16 @@ impl WinitWindowOrNone {
 
     fn set_resizable(&self, resizable: bool) {
         match self {
-            Self::HasWindow { window, .. } => window.set_resizable(resizable),
+            Self::HasWindow { window, .. } => {
+                window.set_resizable(resizable);
+
+                // Workaround for winit bug #2990
+                // Non-resizable windows can still contain a maximize button,
+                // so we'd have to additionally remove the button.
+                let mut buttons = window.enabled_buttons();
+                buttons.set(WindowButtons::MAXIMIZE, resizable);
+                window.set_enabled_buttons(buttons);
+            }
             Self::None(attributes) => attributes.borrow_mut().resizable = resizable,
         }
     }
@@ -405,7 +414,9 @@ impl WinitWindowAdapter {
                     crate::event_loop::unregister_window(last_instance.id());
                     drop(last_instance);
                 } else {
-                    i_slint_core::debug_log!("Slint winit backend: request to hide window failed because references to the window still exist. This could be an application issue, make sure that there are no slint::WindowHandle instances left");
+                    i_slint_core::debug_log!(
+                        "Slint winit backend: request to hide window failed because references to the window still exist. This could be an application issue, make sure that there are no slint::WindowHandle instances left"
+                    );
                 }
             }
             WinitWindowOrNone::None(ref attributes) => {
@@ -988,7 +999,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                     props
                 }
                 corelib::window::InputMethodRequest::Disable => {
-                    return winit_window.set_ime_allowed(false)
+                    return winit_window.set_ime_allowed(false);
                 }
                 corelib::window::InputMethodRequest::Update(props) => props,
                 _ => return,
