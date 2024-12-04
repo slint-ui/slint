@@ -462,6 +462,7 @@ pub struct PreviewConfig {
     pub style: String,
     pub include_paths: Vec<PathBuf>,
     pub library_paths: HashMap<String, PathBuf>,
+    pub reload_on_type: bool,
 }
 
 /// The Component to preview
