@@ -50,7 +50,6 @@
     margin-bottom: -0.8rem; /* Adjust this value as needed */
 }
 
-
 /* Dark mode colors. */
 :root {
     --sl-hue-blue: 222;
@@ -96,8 +95,6 @@
     gap: 1.5rem;
     flex-direction: column-reverse;
 }
-
-
 
 .site-title {
     font-size: 1rem;
