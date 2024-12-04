@@ -996,6 +996,7 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
     }
 }
 
+#[derive(PartialEq)]
 enum AnchorMode {
     KeepAnchor,
     MoveAnchor,
@@ -1136,6 +1137,7 @@ impl TextInput {
             return false;
         }
 
+        let (anchor, cursor) = self.selection_anchor_and_cursor();
         let last_cursor_pos = self.cursor_position(&text);
 
         let mut grapheme_cursor =
@@ -1156,10 +1158,22 @@ impl TextInput {
 
         let new_cursor_pos = match direction {
             TextCursorDirection::Forward => {
-                grapheme_cursor.next_boundary(&text, 0).ok().flatten().unwrap_or_else(|| text.len())
+                if anchor == cursor || anchor_mode == AnchorMode::KeepAnchor {
+                    grapheme_cursor
+                        .next_boundary(&text, 0)
+                        .ok()
+                        .flatten()
+                        .unwrap_or_else(|| text.len())
+                } else {
+                    cursor
+                }
             }
             TextCursorDirection::Backward => {
-                grapheme_cursor.prev_boundary(&text, 0).ok().flatten().unwrap_or(0)
+                if anchor == cursor || anchor_mode == AnchorMode::KeepAnchor {
+                    grapheme_cursor.prev_boundary(&text, 0).ok().flatten().unwrap_or(0)
+                } else {
+                    anchor
+                }
             }
             TextCursorDirection::NextLine => {
                 reset_preferred_x_pos = false;

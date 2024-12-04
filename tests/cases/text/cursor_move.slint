@@ -80,15 +80,78 @@ assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 2);
 assert_eq!(instance.get_test_anchor_pos(), 0);
 
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
 assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 2);
+assert_eq!(instance.get_test_anchor_pos(), 2);
 
 send_move_mod_shift_modifier(&instance, true);
 slint_testing::send_keyboard_string_sequence(&instance, &UP_CODE.to_string());
 send_move_mod_shift_modifier(&instance, false);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);
-assert_eq!(instance.get_test_anchor_pos(), 1);
+assert_eq!(instance.get_test_anchor_pos(), 2);
+
+// Select all and start over
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &"a");
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
+slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_text(), "");
+
+slint_testing::send_keyboard_string_sequence(&instance, "abcdefghi");
+assert_eq!(instance.get_test_text(), "abcdefghi");
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 4);
+assert_eq!(instance.get_test_anchor_pos(), 6);
+
+slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 6);
+
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 4);
+assert_eq!(instance.get_test_anchor_pos(), 6);
+
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 4);
+
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 6);
+assert_eq!(instance.get_test_anchor_pos(), 4);
+
+slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 4);
+
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 6);
+assert_eq!(instance.get_test_anchor_pos(), 4);
+
+slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 6);
 
 // Select all and start over
 slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
