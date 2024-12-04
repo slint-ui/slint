@@ -17,27 +17,61 @@ import ThreeCardGrid from '../../components/ThreeCardGrid.astro';
 import FourCardGrid from '../../components/FourCardGrid.astro';
 import BannerImage from '../../assets/banner.webp';
 
-<Image src={BannerImage} width="1200px" alt="Slint examples running on a range of devices"/>
 
-<ThreeCardGrid>
+
+<div style="display: flex; justify-content: center;">
+  <Image quality="high" src={BannerImage} width="700px" alt="Slint examples running on a range of devices"/>
+</div>
+
+The documentation is split into several sections:
+
+<CardGrid>
+<LinkCard
+  title="Guide"
+  description="This will get you up and running with the tooling for Slint development including the IDE integration via the Slint Language Server (LSP) and Slint Viewer.
+  <br/><br/>
+  It then offers a guide explaining all the key concepts of Slint and how to understand and use the Slint language."
+  href="guide/getting-started"
+>
+</LinkCard>
+
+
+
+
+<LinkCard
+  title="Reference"
+  description="This contains the API reference for all aspects of the Slint language. All the elements, properties, functions, callbacks and namespaces. It also contains the
+API reference for the `std-widgets` library. A set of cross platform components that can be used to build desktop applications."
+  href="reference/overview"
+>
+</LinkCard>
+
+
+
+
 <LinkCard
   title="Tutorial"
-  href="./tutorial/quickstart"
-  description="Follow our step-by-step tutorial to create your first Slint app"
-/>
-<LinkCard
-  title="Standard Widgets"
-  href="./reference/std-widgets/overview"
-  description="Overview of standard widgets to build cross-platform apps"
-/>
-<LinkCard
-  title="Language Integration"
-  href="./language-integrations"
-  description="Connect the UI with business logic in your preferred language."
-/>
-</ThreeCardGrid>
+  description="For those that like to learn by example or want to see how to structure a simple application, this section contains a step-by-step tutorial that walks you 
+through the creation of a simple memory game example."
+href="tutorial/quickstart"
+>
+</LinkCard>
 
-## Get in touch
+
+
+
+<LinkCard
+  title="Platforms & Integration"
+  description="This contains details about the different platforms that Slint supports.
+The Language Integration sections detail the API for the Rust, C++, and JS-Runtime versions of Slint."
+href="platforms"
+>
+</LinkCard>
+</CardGrid>
+
+
+
+### Get in touch
 
 <FourCardGrid>
 <LinkCard

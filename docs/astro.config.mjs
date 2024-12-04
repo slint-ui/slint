@@ -40,7 +40,7 @@ export default defineConfig({
                 dark: "./src/assets/slint-logo-simple-dark.webp",
             },
             customCss: ["./src/styles/custom.css"],
-            lastUpdated: true,
+
             components: {
                 Footer: "./src/components/Footer.astro",
                 Header: "./src/components/Header.astro",
@@ -55,10 +55,15 @@ export default defineConfig({
                         items: [
                             { label: "Overview", slug: "index" },
                             {
-                                label: "Getting Started",
+                                label: "Documentation hints",
                                 slug: "guide/getting-started",
                             },
-                            { label: "Introduction", slug: "guide/intro" },
+                            {
+                                label: "Tooling",
+                                items: [
+                                    "guide/tooling/vscode",
+                                ]
+                            },
                             {
                                 label: "Slint Language",
                                 items: [
