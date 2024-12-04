@@ -5,7 +5,7 @@ description: Getting started
 
 
 ---
-import { extractLines } from "../../../utils/utils.ts"
+import { extractLines } from "/src/utils/utils.ts"
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import { Code } from '@astrojs/starlight/components'
 
@@ -37,7 +37,7 @@ The `CMakeLists.txt` uses the line `add_executable(my_application src/main.cpp)`
 
 Replace the content of `src/main.cpp` with the following:
 
-import initialCpp from '../../code/main_initial.cpp?raw'
+import initialCpp from '/src/content/code/main_initial.cpp?raw'
 
 <Code code={extractLines(initialCpp, 7, 13)} lang="cpp" title="main_initial.cpp" />
 
@@ -47,7 +47,7 @@ add the `app-window.slint` file to the target.
 
 Replace the contents of `ui/app-window.slint` with the following:
 
-import appWindow from '../../code/app-window.slint?raw'
+import appWindow from '/src/content/code/app-window.slint?raw'
 
 <Code code={extractLines(appWindow, 6, 11)} lang="slint" title="app-window.slint" />
 
@@ -113,7 +113,7 @@ The `package.json` file references `src/main.js` as the entry point for the appl
 
 Replace the contents of `src/main.js` with the following:
 
-import mainInitialJs from '../../code/main_initial.js?raw'
+import mainInitialJs from '/src/content/code/main_initial.js?raw'
 
 <Code code={extractLines(mainInitialJs, 6, 10)} lang="js" title="main_initial.js" />
 
@@ -121,7 +121,7 @@ The `slint.loadFile` method resolves files from the process's current working di
 
 Replace the contents of `ui/app-window.slint` with the following:
 
-import memorySlint from '../../code/memory.slint?raw'
+import memorySlint from '/src/content/code/memory.slint?raw'
 
 <Code code={extractLines(memorySlint, 6, 11)} lang="slint" title="memory.slint" />
 
