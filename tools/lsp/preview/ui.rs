@@ -13,7 +13,7 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{properties, SelectionNotification};
+use crate::preview::{preview_data, properties, SelectionNotification};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -96,6 +96,9 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
+
+    api.on_set_preview_data(set_preview_data);
+    api.on_set_json_preview_data(set_json_preview_data);
 
     api.on_string_to_code(string_to_code);
     api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
@@ -423,6 +426,13 @@ fn string_to_color(text: &str) -> Option<slint::Color> {
     literals::parse_color_literal(text).map(slint::Color::from_argb_encoded)
 }
 
+fn unit_model(units: &[expression_tree::Unit]) -> slint::ModelRc<slint::SharedString> {
+    Rc::new(VecModel::from(
+        units.iter().map(|u| u.to_string().into()).collect::<Vec<slint::SharedString>>(),
+    ))
+    .into()
+}
+
 fn extract_value_with_unit(
     expression: &Option<syntax_nodes::Expression>,
     def_val: Option<&expression_tree::Expression>,
@@ -435,13 +445,9 @@ fn extract_value_with_unit(
         return;
     };
 
-    let model = Rc::new(VecModel::from(
-        units.iter().map(|u| u.to_string().into()).collect::<Vec<slint::SharedString>>(),
-    ));
-
     value.kind = kind;
     value.value_float = v;
-    value.visual_items = model.into();
+    value.visual_items = unit_model(units);
     value.value_int = index
 }
 
@@ -833,6 +839,392 @@ fn update_grouped_properties(
     }
 }
 
+fn get_value<T: Sized + std::convert::TryFrom<slint_interpreter::Value> + std::default::Default>(
+    v: &Option<slint_interpreter::Value>,
+) -> T {
+    v.clone().and_then(|v| v.try_into().ok()).unwrap_or_default()
+}
+
+fn get_code(v: &Option<slint_interpreter::Value>) -> SharedString {
+    v.as_ref()
+        .and_then(|v| slint_interpreter::json::value_to_json(v).ok())
+        .and_then(|j| serde_json::to_string_pretty(&j).ok())
+        .unwrap_or_default()
+        .into()
+}
+
+#[derive(Default, Debug)]
+struct ValueMapping {
+    name_prefix: String,
+    is_too_complex: bool,
+    is_array: bool,
+    header: Vec<String>,
+    current_values: Vec<PropertyValue>,
+    array_values: Vec<Vec<PropertyValue>>,
+}
+
+fn map_value_and_type(
+    ty: &langtype::Type,
+    value: &Option<slint_interpreter::Value>,
+    mapping: &mut ValueMapping,
+) {
+    use i_slint_compiler::expression_tree::Unit;
+    use langtype::Type;
+
+    match ty {
+        Type::Float32 => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: get_value::<f32>(value).to_string().into(),
+                code: get_code(value),
+                ..Default::default()
+            });
+        }
+
+        Type::Int32 => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Integer,
+                value_int: get_value::<i32>(value),
+                value_string: get_value::<i32>(value).to_string().into(),
+                code: get_code(value),
+                ..Default::default()
+            });
+        }
+        Type::Duration => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: format!("{}{}", get_value::<f32>(value), Unit::Ms).into(),
+                visual_items: unit_model(&[Unit::S, Unit::Ms]),
+                value_int: 0,
+                code: get_code(value),
+                default_selection: 1,
+                ..Default::default()
+            });
+        }
+        Type::PhysicalLength | Type::LogicalLength | Type::Rem => {
+            // TODO: Is this correct? That unit is the Value anyway?!
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: format!("{}{}", get_value::<f32>(value), Unit::Px).into(),
+                visual_items: unit_model(&[
+                    Unit::Px,
+                    Unit::Cm,
+                    Unit::Mm,
+                    Unit::In,
+                    Unit::Pt,
+                    Unit::Phx,
+                    Unit::Rem,
+                ]),
+                value_int: 0,
+                code: get_code(value),
+                default_selection: 0,
+                ..Default::default()
+            });
+        }
+        Type::Angle => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: format!("{}{}", get_value::<f32>(value), Unit::Deg).into(),
+                visual_items: unit_model(&[Unit::Deg, Unit::Grad, Unit::Turn, Unit::Rad]),
+                value_int: 0,
+                code: get_code(value),
+                default_selection: 0,
+                ..Default::default()
+            });
+        }
+        Type::Percent => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: format!("{}{}", get_value::<f32>(value), Unit::Percent).into(),
+                visual_items: unit_model(&[Unit::Percent]),
+                value_int: 0,
+                code: get_code(value),
+                default_selection: 0,
+                ..Default::default()
+            });
+        }
+        Type::String => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::String,
+                value_string: get_value::<slint::SharedString>(value),
+                code: get_code(value),
+                ..Default::default()
+            });
+        }
+        Type::Color => {
+            let color = get_value::<slint::Color>(value);
+            let color_string = {
+                let a = color.alpha();
+                let r = color.red();
+                let g = color.green();
+                let b = color.blue();
+
+                format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+            };
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Color,
+                value_brush: slint::Brush::SolidColor(color),
+                value_string: color_string.into(),
+                code: get_code(value),
+                ..Default::default()
+            });
+        }
+        Type::Bool => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Boolean,
+                value_bool: get_value::<bool>(value),
+                value_string: if get_value::<bool>(value) { "true".into() } else { "false".into() },
+                code: get_code(value),
+                ..Default::default()
+            });
+        }
+        Type::Array(_)
+        | Type::Image
+        | Type::Model
+        | Type::PathData
+        | Type::Easing
+        | Type::Brush
+        | Type::Struct(_)
+        | Type::Enumeration(_)
+        | Type::UnitProduct(_) => {
+            mapping.is_too_complex = true;
+        }
+        _ => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Code,
+                value_string: "???".into(),
+                code: get_code(value),
+                ..Default::default()
+            });
+        }
+    }
+
+    if mapping.array_values.is_empty() {
+        mapping.array_values = vec![std::mem::take(&mut mapping.current_values)];
+    }
+
+    // Back out when this got too complex and just put the JSON value in:
+    if mapping.is_too_complex {
+        mapping.is_array = false;
+        mapping.header = vec![String::new()];
+        mapping.array_values = vec![vec![PropertyValue {
+            kind: PropertyValueKind::Code,
+            code: get_code(value),
+            ..Default::default()
+        }]]
+    }
+}
+
+fn map_preview_data_property(rp: &preview_data::PreviewData) -> Option<PreviewData> {
+    if !rp.is_property() {
+        return None;
+    };
+
+    let has_getter = rp.has_getter();
+    let has_setter = rp.has_setter();
+
+    let mut mapping = ValueMapping::default();
+    map_value_and_type(&rp.ty, &rp.value, &mut mapping);
+
+    let array_values = mapping
+        .array_values
+        .drain(..)
+        .map(|v| Rc::new(slint::VecModel::from(v)).into())
+        .collect::<Vec<slint::ModelRc<_>>>();
+    let array_values = Rc::new(slint::VecModel::from(array_values)).into();
+
+    Some(PreviewData {
+        name: rp.name.clone().into(),
+        has_getter,
+        has_setter,
+        prefer_json: mapping.is_too_complex,
+        is_array: mapping.is_array,
+        header: Rc::new(VecModel::from(
+            mapping.header.drain(..).map(slint::SharedString::from).collect::<Vec<_>>(),
+        ))
+        .into(),
+        array_values,
+    })
+}
+
+pub fn ui_set_preview_data(
+    ui: &PreviewUi,
+    preview_data: &HashMap<preview_data::PropertyContainer, Vec<preview_data::PreviewData>>,
+) {
+    let mut result: Vec<PropertyContainer> = vec![];
+
+    fn fill_container(
+        container_name: String,
+        container_id: String,
+        properties: &[preview_data::PreviewData],
+    ) -> Option<PropertyContainer> {
+        let properties =
+            properties.iter().filter_map(|rp| map_preview_data_property(rp)).collect::<Vec<_>>();
+
+        (!properties.is_empty()).then(|| PropertyContainer {
+            component_name: container_name.into(),
+            component_id: container_id.into(),
+            properties: Rc::new(slint::VecModel::from(properties)).into(),
+        })
+    }
+
+    if let Some(main) = preview_data.get(&preview_data::PropertyContainer::Main) {
+        if let Some(c) = fill_container("<MAIN>".to_string(), String::new(), main) {
+            result.push(c)
+        }
+    }
+    for component_key in
+        preview_data.keys().filter(|k| **k != preview_data::PropertyContainer::Main)
+    {
+        if let Some(component) = preview_data.get(component_key) {
+            let component_key = component_key.to_string();
+            if let Some(c) = fill_container(component_key.clone(), component_key, component) {
+                result.push(c);
+            }
+        }
+    }
+
+    let api = ui.global::<Api>();
+
+    let mut old_model = api.get_preview_data();
+
+    fn update_model(
+        old_model: &mut slint::ModelRc<PropertyContainer>,
+        new_model: Vec<PropertyContainer>,
+    ) -> Option<slint::ModelRc<PropertyContainer>> {
+        // The structure should never change as the API between business logic and UI should be pretty
+        // fixed.
+
+        fn m(model: Vec<PropertyContainer>) -> Option<slint::ModelRc<PropertyContainer>> {
+            Some(Rc::new(VecModel::from(model)).into())
+        }
+
+        fn is_semantic_equal(o: &PreviewData, n: &PreviewData) -> bool {
+            if o.name != n.name
+                || o.has_getter != n.has_getter
+                || o.has_setter != n.has_setter
+                || o.is_array != n.is_array
+                || o.prefer_json != n.prefer_json
+            {
+                return false;
+            }
+            if o.header.row_count() != n.header.row_count() {
+                return false;
+            }
+            for (oh, nh) in o.header.iter().zip(n.header.iter()) {
+                if oh != nh {
+                    return false;
+                }
+            }
+
+            if o.array_values.row_count() != n.array_values.row_count() {
+                return false;
+            }
+            for (oav, nav) in o.array_values.iter().zip(n.array_values.iter()) {
+                if oav.row_count() != nav.row_count() {
+                    return false;
+                }
+
+                for (oavv, navv) in oav.iter().zip(nav.iter()) {
+                    if oavv != navv {
+                        return false;
+                    }
+                }
+            }
+
+            true
+        }
+
+        if old_model.row_count() != new_model.len() {
+            return m(new_model);
+        }
+
+        for (oc, nc) in old_model.iter().zip(new_model.iter()) {
+            if oc.component_name != nc.component_name
+                || oc.properties.row_count() != nc.properties.row_count()
+            {
+                return m(new_model);
+            }
+
+            let mut to_replace = oc
+                .properties
+                .iter()
+                .zip(nc.properties.iter())
+                .enumerate()
+                .filter_map(|(i, (o, n))| (!is_semantic_equal(&o, &n)).then_some((i, n)))
+                .collect::<Vec<_>>();
+
+            for (i, n) in to_replace.drain(..) {
+                oc.properties.set_row_data(i, n);
+            }
+        }
+
+        None
+    }
+
+    if let Some(m) = update_model(&mut old_model, result) {
+        api.set_preview_data(m);
+    }
+}
+
+fn set_preview_data(
+    component: SharedString,
+    property_name: SharedString,
+    model: slint::ModelRc<slint::ModelRc<PropertyValue>>,
+) -> bool {
+    if model.row_count() == 0 || property_name.is_empty() {
+        return false;
+    }
+
+    let component = if component.is_empty() {
+        preview_data::PropertyContainer::Main
+    } else {
+        preview_data::PropertyContainer::Global(component.to_string())
+    };
+
+    let values = model
+        .iter()
+        .map(|r| {
+            r.iter()
+                .map(|c| if c.was_edited { c.edited_value.to_string() } else { c.code.to_string() })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    crate::preview::set_preview_data(component, property_name.to_string(), values).is_ok()
+}
+
+fn set_json_preview_data(
+    component: SharedString,
+    property_name: SharedString,
+    json_string: SharedString,
+) {
+    let component = if component.is_empty() {
+        preview_data::PropertyContainer::Main
+    } else {
+        preview_data::PropertyContainer::Global(component.to_string())
+    };
+    let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
+
+    let _ =
+        crate::preview::set_json_preview_data(component, property_name, json_string.to_string());
+}
+
 fn update_properties(
     current_model: PropertyGroupModel,
     next_model: PropertyGroupModel,
@@ -888,14 +1280,14 @@ pub fn ui_set_properties(
 
 #[cfg(test)]
 mod tests {
-    use crate::language::test::loaded_document_cache;
+    use crate::{language::test::loaded_document_cache, preview::preview_data};
 
     use crate::common;
     use crate::preview::properties;
 
     use i_slint_core::model::Model;
 
-    use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+    use super::{map_preview_data_property, PropertyInformation, PropertyValue, PropertyValueKind};
 
     fn properties_at_position(
         source: &str,
@@ -1480,5 +1872,395 @@ export component X {
         assert_eq!(t.value.code.as_str(), "DDD");
 
         assert!(it.next().is_none());
+    }
+
+    fn generate_preview_data(
+        visibility: &str,
+        type_def: &str,
+        type_name: &str,
+        code: &str,
+    ) -> crate::preview::preview_data::PreviewData {
+        let component_instance = crate::preview::test::interpret_test(
+            "fluent",
+            &format!(
+                r#"
+{type_def}
+export component Tester {{
+    {visibility} property <{type_name}> test: {code};
+}}
+            "#
+            ),
+        );
+        let preview_data =
+            preview_data::query_preview_data_properties_and_callbacks(&component_instance);
+        return preview_data.get(&preview_data::PropertyContainer::Main).unwrap()[0].clone();
+    }
+
+    fn compare_pv(r: &super::PropertyValue, e: &PropertyValue) {
+        eprintln!("Received: {r:?}");
+        eprintln!("Expected: {e:?}");
+
+        assert_eq!(r.value_bool, e.value_bool);
+        assert_eq!(r.is_translatable, e.is_translatable);
+        assert_eq!(r.value_brush, e.value_brush);
+        assert_eq!(r.value_float, e.value_float);
+        assert_eq!(r.value_int, e.value_int);
+        assert_eq!(r.default_selection, e.default_selection);
+        assert_eq!(r.value_string, e.value_string);
+        assert_eq!(r.tr_context, e.tr_context);
+        assert_eq!(r.tr_plural, e.tr_plural);
+        assert_eq!(r.tr_plural_expression, e.tr_plural_expression);
+        assert_eq!(r.code, e.code);
+
+        assert_eq!(r.visual_items.row_count(), e.visual_items.row_count());
+        for (r, e) in r.visual_items.iter().zip(e.visual_items.iter()) {
+            assert_eq!(r, e);
+        }
+    }
+
+    fn validate_rp(
+        visibility: &str,
+        type_def: &str,
+        type_name: &str,
+        code: &str,
+        expected: super::PreviewData,
+    ) {
+        let rp = generate_preview_data(visibility, type_def, type_name, code);
+
+        let rp = map_preview_data_property(&rp).unwrap();
+
+        eprintln!("*** Validating PreviewData: Received: {rp:?}");
+        eprintln!("*** Validating PreviewData: Expected: {expected:?}");
+
+        assert_eq!(rp.name, expected.name);
+        assert_eq!(rp.has_getter, expected.has_getter);
+        assert_eq!(rp.has_setter, expected.has_setter);
+        assert_eq!(rp.is_array, expected.is_array);
+        assert_eq!(rp.prefer_json, expected.prefer_json);
+
+        eprintln!("***    Basic properties all match, looking at values next...");
+
+        eprintln!("***    Headers: Received:");
+        for h in rp.header.iter() {
+            eprintln!("***        {h}.");
+        }
+        eprintln!("***    Headers: Expected:");
+        for h in expected.header.iter() {
+            eprintln!("***        {h}.");
+        }
+
+        assert_eq!(rp.header.row_count(), expected.header.row_count());
+        for (r, e) in rp.header.iter().zip(expected.header.iter()) {
+            assert_eq!(r, e);
+        }
+
+        eprintln!("***    Values all match, looking at array_values next...");
+
+        assert_eq!(rp.array_values.row_count(), expected.array_values.row_count());
+        for (rr, er) in rp.array_values.iter().zip(expected.array_values.iter()) {
+            assert_eq!(rr.row_count(), er.row_count());
+            for (e, r) in rr.iter().zip(er.iter()) {
+                compare_pv(&r, &e);
+            }
+        }
+    }
+
+    #[test]
+    fn test_map_preview_data_string() {
+        validate_rp(
+            "in",
+            "",
+            "string",
+            "\"Test\"",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "\"Test\"".into(),
+                        kind: super::PropertyValueKind::String,
+                        value_string: "Test".into(),
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_length() {
+        validate_rp(
+            "in",
+            "",
+            "length",
+            "100px",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "100".into(),
+                        kind: super::PropertyValueKind::Float,
+                        value_float: 100.0,
+                        value_string: "100px".into(),
+                        visual_items: std::rc::Rc::new(slint::VecModel::from(vec![
+                            "px".into(),
+                            "cm".into(),
+                            "mm".into(),
+                            "in".into(),
+                            "pt".into(),
+                            "phx".into(),
+                            "rem".into(),
+                        ]))
+                        .into(),
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_duration() {
+        validate_rp(
+            "in",
+            "",
+            "duration",
+            "100s",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "100000".into(),
+                        kind: super::PropertyValueKind::Float,
+                        value_float: 100000.0,
+                        value_string: "100000ms".into(),
+                        visual_items: std::rc::Rc::new(slint::VecModel::from(vec![
+                            "s".into(),
+                            "ms".into(),
+                        ]))
+                        .into(),
+                        default_selection: 1,
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_angle() {
+        validate_rp(
+            "in",
+            "",
+            "angle",
+            "100turn",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "36000".into(),
+                        kind: super::PropertyValueKind::Float,
+                        value_float: 36000.0,
+                        value_string: "36000deg".into(),
+                        visual_items: std::rc::Rc::new(slint::VecModel::from(vec![
+                            "deg".into(),
+                            "grad".into(),
+                            "turn".into(),
+                            "rad".into(),
+                        ]))
+                        .into(),
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_percent() {
+        validate_rp(
+            "in",
+            "",
+            "percent",
+            "10%",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "10".into(),
+                        kind: super::PropertyValueKind::Float,
+                        value_float: 10.0,
+                        value_string: "10%".into(),
+                        visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["%".into()]))
+                            .into(),
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_color() {
+        validate_rp(
+            "in",
+            "",
+            "color",
+            "#aabbcc",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "\"#aabbccff\"".into(),
+                        kind: super::PropertyValueKind::Color,
+                        value_string: "#aabbccff".into(),
+                        value_brush: slint::Brush::SolidColor(slint::Color::from_argb_u8(
+                            0xff, 0xaa, 0xbb, 0xcc,
+                        )),
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_int() {
+        validate_rp(
+            "in",
+            "",
+            "int",
+            "12",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "12".into(),
+                        kind: super::PropertyValueKind::Integer,
+                        value_string: "12".into(),
+                        value_int: 12,
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_bool_true() {
+        validate_rp(
+            "out",
+            "",
+            "bool",
+            "true",
+            super::PreviewData {
+                name: "test".into(),
+                has_getter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "true".into(),
+                        kind: super::PropertyValueKind::Boolean,
+                        value_string: "true".into(),
+                        value_bool: true,
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_bool_false() {
+        validate_rp(
+            "in-out",
+            "",
+            "bool",
+            "false",
+            super::PreviewData {
+                name: "test".into(),
+                has_getter: true,
+                has_setter: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                    slint::VecModel::from(vec![super::PropertyValue {
+                        code: "false".into(),
+                        kind: super::PropertyValueKind::Boolean,
+                        value_string: "false".into(),
+                        value_bool: false,
+                        ..Default::default()
+                    }]),
+                )
+                .into()]))
+                .into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_struct_with_array() {
+        validate_rp(
+            "in-out",
+            r#"
+            struct FooStruct { first: [string] }
+            "#,
+            "FooStruct",
+            "{ first: [ \"first of a kind\", \"second of a kind\"] }",
+            super::PreviewData {
+                name: "test".into(),
+                has_getter: true,
+                has_setter: true,
+                prefer_json: true,
+                header: std::rc::Rc::new(slint::VecModel::from(vec!["".into()])).into(),
+                array_values: std::rc::Rc::new(slint::VecModel::from(vec![std::rc::Rc::new(
+                 slint::VecModel::from(vec![super::PropertyValue {
+                        kind: super::PropertyValueKind::Code,
+                        code: "{\n  \"first\": [\n    \"first of a kind\",\n    \"second of a kind\"\n  ]\n}".into(),
+                        ..Default::default()
+                    },
+                        ])).into(),
+                ]))
+                .into(),
+                ..Default::default()
+            },
+        );
     }
 }

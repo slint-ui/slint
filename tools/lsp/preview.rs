@@ -16,7 +16,7 @@ use lsp_types::Url;
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -29,6 +29,7 @@ mod debug;
 mod drop_location;
 mod element_selection;
 mod ext;
+mod preview_data;
 use ext::ElementRcNodeExt;
 mod properties;
 pub mod ui;
@@ -125,6 +126,15 @@ struct PreviewState {
     workspace_edit_sent: bool,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
+    property_change_tracker: OnceCell<
+        std::pin::Pin<Box<i_slint_core::properties::PropertyTracker<PreviewDataDirtyHandler>>>,
+    >,
+}
+
+impl PreviewState {
+    fn component_instance(&self) -> Option<ComponentInstance> {
+        self.handle.borrow().as_ref().map(|ci| ci.clone_strong())
+    }
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -925,6 +935,69 @@ fn extract_resources(
     result
 }
 
+struct PreviewDataDirtyHandler {}
+
+impl i_slint_core::properties::PropertyDirtyHandler for PreviewDataDirtyHandler {
+    fn notify(self: std::pin::Pin<&Self>) {
+        PREVIEW_STATE.with(|preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+
+            let preview_data = &track_preview_data(&mut preview_state);
+
+            if let Some(ui) = &preview_state.ui {
+                ui::ui_set_preview_data(ui, preview_data);
+            }
+        });
+    }
+}
+
+fn track_preview_data(
+    preview_state: &mut std::cell::RefMut<PreviewState>,
+) -> HashMap<preview_data::PropertyContainer, Vec<preview_data::PreviewData>> {
+    let Some(component_instance) = preview_state.component_instance() else {
+        return Default::default();
+    };
+
+    let mut tracker = preview_state.property_change_tracker.get_or_init(move || {
+        Box::pin(i_slint_core::properties::PropertyTracker::new_with_dirty_handler(
+            PreviewDataDirtyHandler {},
+        ))
+    });
+
+    tracker.borrow_mut().as_ref().evaluate_as_dependency_root(|| {
+        preview_data::query_preview_data_properties_and_callbacks(&component_instance)
+    })
+}
+
+fn set_preview_data(
+    component: preview_data::PropertyContainer,
+    property_name: String,
+    values: Vec<Vec<String>>,
+) -> Result<(), String> {
+    let component_instance = component_instance().expect("No component instance fond");
+
+    preview_data::set_preview_data(&component_instance, component, property_name, values)
+}
+
+fn set_json_preview_data(
+    component: preview_data::PropertyContainer,
+    property_name: Option<String>,
+    json_string: String,
+) -> Result<(), Vec<String>> {
+    let component_instance = component_instance().expect("No component instance fond");
+
+    let json: serde_json::Value = serde_json::from_str(&json_string)
+        .map_err(|e| vec![format!("Could not parse JSON input: {e}")])?;
+
+    if property_name.is_none() && !json.is_object() {
+        return Err(vec![
+            "You need to pass in a JSON object when loading into a component or global".to_string(),
+        ]);
+    }
+
+    preview_data::set_json_preview_data(&component_instance, component, property_name, json)
+}
+
 fn finish_parsing(preview_url: &Url) {
     set_status_text("");
 
@@ -995,9 +1068,12 @@ fn finish_parsing(preview_url: &Url) {
 
             preview_state.document_cache.borrow_mut().replace(Some(Rc::new(document_cache)));
 
+            let preview_data = track_preview_data(&mut preview_state);
+
             if let Some(ui) = &preview_state.ui {
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
+                ui::ui_set_preview_data(ui, &preview_data);
             }
         });
     }
@@ -1378,7 +1454,7 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
     }
 
     let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    if url.as_ref().map_or(true, |url| cache.dependencies.contains(url)) {
+    if url.as_ref().is_none_or(|url| cache.dependencies.contains(url)) {
         let _ = run_in_ui_thread(move || async move {
             if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
                 // Already selected!
@@ -1426,7 +1502,7 @@ fn convert_diagnostics(
 
         // Fill in actual diagnostics now
         for d in diagnostics {
-            if d.source_file().map_or(true, |f| !i_slint_compiler::pathutils::is_absolute(f)) {
+            if d.source_file().is_none_or(|f| !i_slint_compiler::pathutils::is_absolute(f)) {
                 continue;
             }
             let uri = path_to_url(d.source_file().unwrap());
@@ -1649,9 +1725,7 @@ fn selected_element() -> Option<ElementSelection> {
 }
 
 fn component_instance() -> Option<ComponentInstance> {
-    PREVIEW_STATE.with(move |preview_state| {
-        preview_state.borrow().handle.borrow().as_ref().map(|ci| ci.clone_strong())
-    })
+    PREVIEW_STATE.with(move |preview_state| preview_state.borrow().component_instance())
 }
 
 /// This is a *read-only* snapshot of the raw type loader, use this when you

@@ -129,6 +129,8 @@ export struct PropertyValue {
     tr-plural: string, // string
     tr-plural-expression: string, // string
     code: string, // ALWAYS, empty if property is not explicitly defined
+    was-edited: bool, // Used by preview dataonly!
+    edited_value: string, // Used in preview dataonly!
 }
 
 /// Important Ranges in the property definition
@@ -158,10 +160,27 @@ export struct PropertyInformation {
     display-priority: int,
 }
 
-/// Information on one Property
+/// Grouping for properties
 export struct PropertyGroup {
     group-name: string,
     properties: [PropertyInformation],
+}
+
+export struct PreviewData {
+    name: string,
+    has-getter: bool,
+    has-setter: bool,
+    is-array: bool,
+    prefer-json: bool,
+    header: [string], // "Simple" values + table headers
+    array-values: [[PropertyValue]], // The "Table values"
+}
+
+/// Information on exported components and their properties
+export struct PropertyContainer {
+    component-name: string,
+    component-id: string,
+    properties: [PreviewData],
 }
 
 /// Information on an Element a Property belongs to
@@ -385,6 +404,57 @@ export global Api {
 
     ];
 
+    // ## preview data
+
+    in-out property <[PropertyContainer]> preview-data: [
+        {
+            component-name: "Fruits",
+            properties: [
+                {
+                    name: "AppleSetter",
+                    has-getter: false,
+                    has-setter: true,
+                    is-array: false,
+                    prefer-json: false,
+                    header: [ "" ],
+                    array-values: [[{
+                        kind: PropertyValueKind.boolean,
+                        value-bool: true,
+                    }]],
+                },
+                {
+                    name: "BananaGetter",
+                    has-getter: true,
+                    has-setter: true,
+                    is-array: false,
+                    prefer-json: true,
+                    header: [ "fruit" ],
+                    array-values: [[{
+                        kind: PropertyValueKind.code,
+                        code: "{\n   json: true\n}"
+                    }]]
+                },
+            ]
+        },
+        {
+            component-name: "Vegetables",
+            properties: [
+                {
+                    name: "Cucumber",
+                    has-getter: true,
+                    has-setter: true,
+                    is-array: false,
+                    prefer-json: false,
+                    header: [ "" ],
+                    array-values: [[{
+                        kind: PropertyValueKind.string,
+                        value-string: "a green banana",
+                     }]],
+                }
+            ]
+        },
+    ];
+
     // # Callbacks
 
     // ## Custom conversion functions:
@@ -445,6 +515,10 @@ export global Api {
     callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
 
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
+
+    // ## preview data
+    callback set-preview-data(component: string, name: string, raw-json-array-values: [[PropertyValue]]) -> bool;
+    callback set-json-preview-data(component: string, name: string, json-value: string);
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;

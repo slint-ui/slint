@@ -61,7 +61,12 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
         serde_json::Value::Number(n) => Ok(Value::Number(n.as_f64().unwrap_or(f64::NAN))),
         serde_json::Value::String(s) => match t {
             langtype::Type::Enumeration(e) => {
-                let s = s.to_smolstr();
+                let s = if let Some(suffix) = s.strip_prefix(&format!("{}.", e.name)) {
+                    suffix.to_smolstr()
+                } else {
+                    s.to_smolstr()
+                };
+
                 if e.values.contains(&s) {
                     Ok(Value::EnumerationValue(e.name.to_string(), s.into()))
                 } else {

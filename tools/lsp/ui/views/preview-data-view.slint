@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, ScrollView, VerticalBox }  from "std-widgets.slint";
+
+import { ExpandableGroup } from "../components/property-widgets.slint";
+
+import { Api, PropertyContainer } from "../api.slint";
+import { EditorSpaceSettings } from "../components/styling.slint";
+
+import { ExpandableGroup, PreviewDataPropertyValueWidget } from "../components/property-widgets.slint";
+
+export component PreviewDataView inherits ScrollView {
+
+    property <[PropertyContainer]> preview-data <=> Api.preview-data;
+
+    property <length> key-width: self.width / 2.5;
+    property <bool> element-loaded: root.preview-data.length > 0;
+
+    content-layer := VerticalLayout {
+        if !root.element-loaded: Text {
+            text: @tr("Waiting for preview to load");
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            vertical-stretch: 1;
+        }
+
+        if root.element-loaded: component := VerticalBox {
+            alignment: start;
+
+            for ep in root.preview-data: ExpandableGroup {
+                enabled: root.enabled;
+
+                text: ep.component-name;
+                panel-width: content-layer.width;
+
+                VerticalLayout {
+                    spacing: EditorSpaceSettings.property-spacing;
+                    padding-left: EditorSpaceSettings.group-indent;
+                    padding-right: EditorSpaceSettings.group-indent;
+                    padding-top: EditorSpaceSettings.default-padding;
+                    padding-bottom: EditorSpaceSettings.default-padding;
+
+                    for p in ep.properties: PreviewDataPropertyValueWidget {
+                        preview-data: p;
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        width: 1px;
+        background: Palette.border;
+    }
+}
+
