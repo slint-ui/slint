@@ -64,19 +64,61 @@ export default defineConfig({
                                 ],
                             },
                             {
-                                label: "Slint Language",
+                                label: "Language",
                                 items: [
                                     {
-                                        label: "Basics",
-                                        slug: "guide/language/basics",
+                                        label: "Core Concepts",
+                                        items: [
+                                            {
+                                                label: "Components and Properties",
+                                                slug: "guide/language/concepts/component-property",
+                                            },
+                                            {
+                                                label: "Reactivity",
+                                                slug: "guide/language/concepts/reactivity",
+                                            },
+                                            {
+                                                label: "Purity",
+                                                slug: "guide/language/concepts/purity",
+                                            },
+                                        ],
                                     },
                                     {
                                         label: "Syntax",
-                                        slug: "guide/language/syntax",
+                                        items: [
+                                            {
+                                                label: "The `.slint` File",
+                                                slug: "guide/language/syntax/file",
+                                            },
+                                            {
+                                                label: "Basics",
+                                                slug: "guide/language/syntax/basics",
+                                            },
+                                            {
+                                                label: "Syntax",
+                                                slug: "guide/language/syntax/syntax",
+                                            },
+                                            {
+                                                label: "Positioning & Layouts",
+                                                slug: "guide/language/syntax/positioning-and-layouts",
+                                            },
+                                            "guide/language/syntax/expressions",
+                                            "guide/language/syntax/functions",
+                                            "guide/language/syntax/callbacks",
+                                            "guide/language/syntax/globals",
+                                            "guide/language/syntax/modules",
+                                            "guide/language/syntax/properties",
+                                            "guide/language/syntax/statements",
+                                        ],
                                     },
                                     {
-                                        label: "Positioning & Layouts",
-                                        slug: "guide/language/positioning-and-layouts",
+                                        label: "Advanced",
+                                        items: [
+                                            "guide/language/advanced/animation",
+                                            "guide/language/advanced/states",
+                                            "guide/language/advanced/repetitions",
+                                            "guide/language/advanced/container",
+                                        ],
                                     },
                                 ],
                             },
@@ -86,14 +128,8 @@ export default defineConfig({
                                     "guide/development/debugging_techniques",
                                     "guide/development/localization",
                                     "guide/development/fonts",
+                                    "guide/development/focus",
                                 ],
-                            },
-                            {
-                                label: "unfinished",
-                                autogenerate: {
-                                    collapsed: true,
-                                    directory: "guide/unfinished",
-                                },
                             },
                         ],
                     },
@@ -277,8 +313,8 @@ export default defineConfig({
                             },
                             {
                                 label: "Miscellaneous",
-                                collapsed: true,
-                                autogenerate: { directory: "misc" },
+                                collapsed: false,
+                                autogenerate: { directory: "platforms/misc" },
                             },
                         ],
                     },

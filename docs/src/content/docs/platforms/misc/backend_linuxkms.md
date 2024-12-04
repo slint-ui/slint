@@ -25,7 +25,7 @@ For compilation, pkg-config is used to determine the location of the following r
 | `libudev`               | `libudev-dev`                        |
 | `libseat`               | `libseat-dev`                        |
 
-:::{note}
+:::note{Note}
 If you don't have `libseat` available on your target system, then instead of selecting `backend-linuxkms`, select
 `backend-linuxkms-noseat`. This variant of the LinuxKMS backend eliminates the need to have libseat installed, but
 in exchange requires running the application as a user that's privileged to access all input and DRM/KMS device
@@ -41,12 +41,12 @@ The LinuxKMS backend supports different renderers. They can be explicitly select
 | Skia          | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl`, `linuxkms-skia-vulkan`, or `linuxkms-skia-software` |
 | Software      | None                   | `linuxkms-software`                                                         |
 
-:::{note}
+:::note{Note}
 This backend is still experimental. The backend has not undergone a great variety of testing on different devices
 and there are [known issues](https://github.com/slint-ui/slint/labels/a%3Abackend-linuxkms).
 :::
 
-:::{note}
+:::note{Note}
 A mouse is supported as input device, but rendering of the mouse cursor only works with the Skia and FemtoVG renderers,
 not with the Slint software renderer.
 :::

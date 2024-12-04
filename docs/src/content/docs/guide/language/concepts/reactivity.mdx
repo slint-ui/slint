@@ -1,0 +1,59 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Reactivity
+description: Reactivity
+---
+
+Amazing reactivity.
+
+## Bindings
+
+The binding expression is automatically re-evaluated when properties accessed in the expression change.
+
+In the following example, the text of the button automatically changes when
+the user presses the button. Incrementing the `counter` property automatically
+invalidates the expression bound to `text` and triggers a re-evaluation.
+
+```slint
+import { Button } from "std-widgets.slint";
+export component Example inherits Window {
+    preferred-width: 50px;
+    preferred-height: 50px;
+    Button {
+        property <int> counter: 3;
+        clicked => { self.counter += 3 }
+        text: self.counter * 2;
+    }
+}
+```
+
+The re-evaluation happens lazily when the property is queried.
+
+Internally, a dependency is registered for any property accessed while evaluating a binding.
+When a property changes, the dependencies are notified and all dependent bindings
+are marked as dirty.
+
+Callbacks in native code by default don't depend on any properties unless they query a property in the native code.
+
+## Two-way Bindings
+
+Create two-way bindings between properties with the `<=>` syntax. These properties will be linked
+together and always contain the same value.
+
+The right hand side of the `<=>` must be a reference to a property of the same type.
+The property type is optional with two-way bindings, it will be inferred if not specified.
+The initial value of a linked property will be the value of the right hand side of the binding.
+The two linked properties must be compatible in terms of input/output.
+
+```slint
+export component Example  {
+    in property<brush> rect-color <=> r.background;
+    // It's allowed to omit the type to have it automatically inferred
+    in property rect-color2 <=> r.background;
+    r:= Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: blue;
+    }
+}
+```
