@@ -4,6 +4,7 @@
 /*! module for the TypeScript code generator
 */
 
+use std::collections::BTreeMap;
 use std::{collections::HashSet, sync::OnceLock};
 
 use crate::langtype::{Enumeration, EnumerationValue, Type};
@@ -142,6 +143,51 @@ mod typescript_ast {
             writeln!(f, "}};")
         }
     }
+
+    pub trait TypeScriptType {
+        fn ts_type(&self) -> Option<SmolStr>;
+    }
+}
+
+impl TypeScriptType for Type {
+    fn ts_type(&self) -> Option<SmolStr> {
+        match self {
+            Type::Void => Some("void".into()),
+            Type::Float32 => Some("number".into()),
+            Type::Int32 => Some("number".into()),
+            Type::String => Some("string".into()),
+            Type::Color => Some("slint.RgbaColor".into()),
+            Type::Duration => Some("number".into()),
+            Type::PhysicalLength => Some("number".into()),
+            Type::LogicalLength => Some("number".into()),
+            Type::Rem => Some("number".into()),
+            Type::Angle => Some("number".into()),
+            Type::Percent => Some("number".into()),
+            Type::Image => Some("slint.ImageData".into()),
+            Type::Bool => Some("boolean".into()),
+            Type::Brush => Some("slint.Brush".into()),
+            Type::Array(i) => Some(format_smolstr!("slint.Model<{}>", i.ts_type()?)),
+            Type::Struct(s) => match (&s.name, &s.node) {
+                (Some(name), Some(_)) => Some(ident(name)),
+                (Some(name), None) => {
+                    if name.starts_with("slint.") {
+                        Some(name.clone())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
+            Type::Enumeration(enumeration) => {
+                if enumeration.node.is_some() {
+                    Some(ident(&enumeration.name))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
 }
 
 pub fn generate(
@@ -175,7 +221,7 @@ pub fn generate(
 fn generate_class(file: &mut File, name: &str, fields: &BTreeMap<SmolStr, Type>) {
     let name = ident(name);
 
-    file.declarations.push(Declaration::Class(Class { name }));
+    file.declarations.push(Declaration::Class(Class { name, ..Default::default() }));
 }
 
 fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
