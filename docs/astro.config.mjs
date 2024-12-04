@@ -61,8 +61,11 @@ export default defineConfig({
                             {
                                 label: "Tooling",
                                 items: [
+                                    "guide/tooling/slintpad",
                                     "guide/tooling/vscode",
-                                ]
+                                    "guide/tooling/project",
+                                    "guide/tooling/live-editor",
+                                ],
                             },
                             {
                                 label: "Slint Language",
