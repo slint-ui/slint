@@ -157,6 +157,7 @@ pub mod mcu {
     }
 }
 
+#[i_slint_core_macros::slint_doc]
 pub mod cargo_features {
     //! # Feature flags and backend selection.
     //! Use the following feature flags in your Cargo.toml to enable additional features.
@@ -164,7 +165,7 @@ pub mod cargo_features {
     #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
     //!
     //! More information about the backend and renderers is available in the
-    #![doc = concat!("[Slint Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/advanced/backends_and_renderers.html)")]
+    //![Slint Documentation](slint:backends_and_renderers)")]
     use crate::*;
 }
 
