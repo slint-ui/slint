@@ -158,10 +158,30 @@ export struct PropertyInformation {
     display-priority: int,
 }
 
-/// Information on one Property
+/// Grouping for properties
 export struct PropertyGroup {
     group-name: string,
     properties: [PropertyInformation],
+}
+
+export struct NamedPropertyValue {
+    name: string,
+    value: PropertyValue,
+}
+
+export struct RuntimeProperty {
+    name: string,
+    has-getter: bool,
+    has-setter: bool,
+    is-array: bool,
+    prefer-json: bool,
+    values: [NamedPropertyValue],
+}
+
+/// Information on exported components and their properties
+export struct RuntimeComponent {
+    component-name: string,
+    properties: [RuntimeProperty],
 }
 
 /// Information on an Element a Property belongs to
@@ -385,6 +405,96 @@ export global Api {
 
     ];
 
+    // ## Runtime properties
+    in-out property <[RuntimeComponent]> runtime-components: [
+        {
+            component-name: "Fruits",
+            properties: [
+                {
+                    name: "AppleSetter",
+                    has-getter: false,
+                    has-setter: true,
+                    is-array: false,
+                    prefer-json: false,
+                    values: [
+                        {
+                            name: "",
+                            value: {
+                                kind: PropertyValueKind.boolean,
+                                value-bool: true,
+                            }
+                        }
+                    ],
+                },
+                {
+                    name: "BananaGetter",
+                    has-getter: true,
+                    has-setter: false,
+                    is-array: true,
+                    prefer-json: false,
+                    values: [
+                        {
+                            name: "peel",
+                            value: {
+                                kind: PropertyValueKind.boolean,
+                                value-bool: true,
+                            }
+                        },
+                        {
+                            name: "fruit",
+                            value: {
+                                kind: PropertyValueKind.string,
+                                value-string: "banananananana"
+                            }
+                        }
+                    ],
+                },
+                {
+                    name: "BananaGetter",
+                    has-getter: true,
+                    has-setter: true,
+                    is-array: false,
+                    prefer-json: true,
+                    values: [
+                        {
+                            name: "fruit",
+                            value: {
+                                kind: PropertyValueKind.code,
+                                code: "{\n   json: true\n}"
+                            }
+                        }
+                    ],
+                },
+            ]
+        },
+        {
+            component-name: "Vegetables",
+            properties: [
+                {
+                    name: "Cucumber",
+                    has-getter: true,
+                    has-setter: true,
+                    is-array: false,
+                    prefer-json: false,
+                    values: [
+                        {
+                            name: "",
+                            value: {
+                                kind: PropertyValueKind.string,
+                                value-string: "a green banana",
+                            }
+                        }
+                    ],
+                }
+            ]
+        },
+        {
+            component-name: "Empty Component",
+            properties: []
+        },
+        
+    ];
+
     // # Callbacks
 
     // ## Custom conversion functions:
@@ -445,6 +555,9 @@ export global Api {
     callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string);
     callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
     callback set-string-binding(element-url: string, element-version: int, element-offset: int, property-name: string, value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string);
+
+    // ## Runtime properties
+    callback set-exported-property(component: string, name: string, value: string);
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;

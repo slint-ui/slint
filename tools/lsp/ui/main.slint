@@ -3,16 +3,18 @@
 
 // cSpell: ignore Heade
 
-import { Button, ComboBox, ListView, ScrollView, VerticalBox, Palette } from "std-widgets.slint";
+import { Button, ComboBox, ListView, ScrollView, TabWidget, VerticalBox, Palette } from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary } from "api.slint";
 
-import { EditorSpaceSettings, Icons } from "./components/styling.slint";
+import { EditorSizeSettings, EditorSpaceSettings, Icons } from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { LibraryView } from "./views/library-view.slint";
 import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
 import { PropertyView } from "./views/property-view.slint";
 import { OutOfDateBox } from "components/out-of-date-box.slint";
+import { PropertyView } from "views/property-view.slint";
+import { RuntimePropertyView } from "views/runtime-property-view.slint";
 
 export { Api }
 
@@ -95,9 +97,41 @@ export component PreviewUi inherits Window {
                         visible-component <=> root.visible-component;
                     }
 
-                    if  root.show-right-sidebar: PropertyView {
-                        opacity: preview.preview-is-current ? 1.0 : 0.3;
-                        enabled: preview.preview-is-current;
+                    if  root.show-right-sidebar: Rectangle {
+                        width: EditorSizeSettings.property-bar-width;
+                        VerticalLayout {
+                            Text {
+                                text: "Property Inspector";
+                                horizontal-alignment: center;
+                                height: 40px;
+                                font-weight: 400;
+                                vertical-alignment: center;
+                                font-size: 1.3rem;
+                            }
+                            TabWidget {
+                                width: EditorSizeSettings.property-bar-width;
+                                current-index: 0;
+                                Tab {
+                                    preferred-width: 100px;
+                                    title: "Selected";
+                                    ScrollView {
+                                        PropertyView {
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                        }
+                                    }
+                                }
+                                runtime_tab := Tab {
+                                    title: "Runtime";
+                                    ScrollView {
+                                        RuntimePropertyView {
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
