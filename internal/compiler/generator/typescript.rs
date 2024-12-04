@@ -7,15 +7,28 @@
 /// This module contains some data structure that helps represent a TypeScript code.
 /// It is then rendered into an actual TypeScript text using the Display trait
 mod typescript_ast {
+    #[derive(Default, Debug)]
+    pub struct Import {
+        pub exports: SmolStr,
+        pub module: SmolStr,
+    }
+
     use std::fmt::Display;
+
+    use smol_str::SmolStr;
 
     /// A full TypeScript file
     #[derive(Default, Debug)]
-    pub struct File {}
+    pub struct File {
+        pub imports: Vec<Import>,
+    }
 
     impl Display for File {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             writeln!(f, "// This file is auto-generated")?;
+            for i in &self.imports {
+                writeln!(f, "import {} from '{}';", i.exports, i.module)?;
+            }
             Ok(())
         }
     }
@@ -29,7 +42,9 @@ pub fn generate(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<impl std::fmt::Display> {
-    let file = File {};
+    let mut file = File { ..Default::default() };
+
+    file.imports.push(Import { exports: "* as slint".into(), module: "slint-ui".into() });
 
     Ok(file)
 }
