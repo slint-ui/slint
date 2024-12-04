@@ -20,6 +20,7 @@ path = "lib.rs"
 # Generators
 cpp = []
 rust = ["quote", "proc-macro2"]
+typescript = []
 
 # Support for proc_macro spans in the token (only useful for use within a proc macro)
 proc_macro_span = ["quote", "proc-macro2"]

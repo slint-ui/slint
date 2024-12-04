@@ -25,12 +25,17 @@ pub mod cpp;
 #[cfg(feature = "rust")]
 pub mod rust;
 
+#[cfg(feature = "typescript")]
+pub mod typescript;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
     #[cfg(feature = "cpp")]
     Cpp(cpp::Config),
     #[cfg(feature = "rust")]
     Rust,
+    #[cfg(feature = "typescript")]
+    TypeScript,
     Interpreter,
     Llr,
 }
@@ -44,6 +49,8 @@ impl OutputFormat {
             }
             #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
+            #[cfg(feature = "typescript")]
+            Some("ts") => Some(Self::TypeScript),
             _ => None,
         }
     }
@@ -57,6 +64,8 @@ impl std::str::FromStr for OutputFormat {
             "cpp" => Ok(Self::Cpp(cpp::Config::default())),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
+            #[cfg(feature = "typescript")]
+            "typescript" => Ok(Self::TypeScript),
             "llr" => Ok(Self::Llr),
             _ => Err(format!("Unknown output format {}", s)),
         }
@@ -81,6 +90,11 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
+            write!(destination, "{}", output)?;
+        }
+        #[cfg(feature = "typescript")]
+        OutputFormat::TypeScript => {
+            let output = typescript::generate(doc, compiler_config)?;
             write!(destination, "{}", output)?;
         }
         OutputFormat::Interpreter => {
