@@ -133,6 +133,12 @@ export struct PropertyValue {
     edited_value: string, // Used in preview dataonly!
 }
 
+export struct PropertyValueTable {
+    is-array: bool,
+    headers: [string],
+    values: [[PropertyValue]],
+}
+
 /// Important Ranges in the property definition
 ///
 /// The URL and version is the same as in the Element it belongs to
@@ -169,6 +175,7 @@ export struct PropertyGroup {
 export enum PreviewDataKind {
     Value,
     Json,
+    Table,
 }
 
 export struct PreviewData {
