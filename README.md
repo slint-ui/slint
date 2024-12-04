@@ -28,10 +28,8 @@ The name *Slint* is derived from our design goals:
     flexibility that only a native application can offer: Access full operating
     system APIs, utilize all CPU and GPU cores, connect to any peripheral.
 
-We invite you to use Slint and be part of its community.
-
 Visit [#MadeWithSlint](https://madewithslint.com) to view some of the projects
-using Slint and join us in the Slint community.
+using Slint. We invite you to use Slint and be part of its community.
 
 ## Current Status
 
@@ -188,7 +186,7 @@ configure your favorite editor to work well with Slint.
 
 You can use Slint under ***any*** of the following licenses, at your choice:
 
-1. Build proprietary desktop, mobile, or web applications for free with the [Community License](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
+1. Build proprietary desktop, mobile, or web applications for free with the [Royalty-free License](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
 2. Build open source embedded, desktop, mobile, or web applications for free with the [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
 3. Build proprietary embedded, desktop, mobile, or web applications with the [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
 
