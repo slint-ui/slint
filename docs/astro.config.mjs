@@ -55,10 +55,6 @@ export default defineConfig({
                         items: [
                             { label: "Overview", slug: "index" },
                             {
-                                label: "Documentation hints",
-                                slug: "guide/getting-started",
-                            },
-                            {
                                 label: "Tooling",
                                 items: [
                                     "guide/tooling/slintpad",
