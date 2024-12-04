@@ -5,7 +5,7 @@ description: Memory Tile
 ---
 
 import { Code } from '@astrojs/starlight/components';
-import { extractLines } from '../../../utils/utils.ts';
+import { extractLines } from '/src/utils/utils.ts';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 With the skeleton code in place, this step looks at the first element of the game, the memory tile. It's the
@@ -20,7 +20,7 @@ mix values with different units attached to them.
 
 Copy the following code into `ui/app-window.slint` file, replacing the current content:
 
-import memoryTile from '../../code/memory_tile.slint?raw'
+import memoryTile from '/src/content/code/memory_tile.slint?raw'
 
 <Code code={extractLines(memoryTile, 5, 19)} lang="slint" />
 

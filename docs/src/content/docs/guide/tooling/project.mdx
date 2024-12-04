@@ -1,0 +1,67 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+// cSpell: ignore CACHEDIR
+title: Project Structure
+description: Project Structure
+---
+
+import { Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
+
+
+
+<Tabs syncKey="dev-language">
+<TabItem label="C++">
+
+<FileTree>
+
+- .vscode/
+- src/
+  - main.cpp
+- ui/
+  - app-window.slint  The **main** Slint file
+- CMakeLists.txt
+- LICENSE
+- README.md
+
+</FileTree>
+
+</TabItem>
+<TabItem label="NodeJS">
+
+
+<FileTree>
+
+- .vscode/
+- src/
+  - main.js
+- ui/
+  - app-window.slint  The **main** Slint file
+- package.json
+- README.md
+
+</FileTree>
+</TabItem>
+<TabItem label="Rust">
+
+<FileTree>
+
+- .vscode/
+- src/
+  - main.rs
+- target/
+  - debug/
+  - .rustc_info.json
+  - CACHEDIR.TAG
+- ui/
+  - app-window.slint  The **main** Slint file
+- build.rs
+- Cargo.Toml
+- LICENSE
+- README.md
+
+</FileTree>
+
+</TabItem>
+</Tabs>
+
+The `src` folder is for the apps business logic. While the `ui` folder contains the Slint files that define the user interface.

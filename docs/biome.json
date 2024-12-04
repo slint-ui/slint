@@ -4,7 +4,7 @@
         "ignore": ["archive/**"]
     },
     "linter": {
-        "ignore": ["archive/**"]
+        "ignore": ["archive/**", ".astro"]
     },
     "overrides": [
         {

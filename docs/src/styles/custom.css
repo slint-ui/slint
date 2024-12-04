@@ -96,28 +96,6 @@
     flex-direction: column-reverse;
 }
 
-@media (min-width: 50rem) {
-    .hero {
-        padding-bottom: 0;
-        padding-top: 0;
-        flex-direction: column;
-    }
-
-    .hero > img,
-    .hero > .hero-html {
-        order: 2;
-        width: min(100%, 35rem);
-    }
-
-    .stack {
-        text-align: center;
-    }
-
-    .copy {
-        align-items: center;
-    }
-}
-
 .site-title {
     font-size: 1rem;
     text-transform: uppercase;

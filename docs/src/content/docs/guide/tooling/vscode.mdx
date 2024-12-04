@@ -1,26 +1,20 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-// cSpell: ignore CACHEDIR
-title: Getting Started
-description: Get going with Slint.
+title: Visual Studio Code
+description: Get going VS Code
 ---
 
-import { Steps, LinkCard, Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Understanding the documentation
-
-:::note[Note]
-Slint provides a web based live-editing tool called [SlintPad](https://slintpad.com). It's 
-possible to open the larger snippets in this tool by clicking the `play` button in the top right 
-corner of the snippets.
-![Screenshot showing link to SlintPad](../../../assets/getting-started/run-in-slintpad.webp)
-:::
 
 If you are new to Slint and want to quickly get started and learning the basics we recommend 
 using Visual Studio Code (VS Code). VS Code is popular, free and thanks to the Slint extension 
 it is also the easiest to get started with.
 
-:::tip[Tip]
+
+
+
+:::note[Note]
 We support many other tools and editors see [here](https://github.com/slint-ui/slint/blob/master/editors/README.md#editors).
 :::
 
@@ -54,13 +48,13 @@ Find it [here](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
 
 3. **Create a new project based on a Slint template.**  
 This is done via the command palette (CMD+Shift+P).
-![Command palette](../../../assets/getting-started/macos-vscode-template-1.webp)
+![Command palette](../../../../assets/getting-started/macos-vscode-template-1.webp)
 
 4. **Choose your language.**
-![Command palette](../../../assets/getting-started/macos-vscode-template-3.webp)
+![Command palette](../../../../assets/getting-started/macos-vscode-template-3.webp)
 
 5. **Choose a folder to save the project in.**  
-![Project folder](../../../assets/getting-started/macos-vscode-template-2.webp)
+![Project folder](../../../../assets/getting-started/macos-vscode-template-2.webp)
 
 </Steps>
 </TabItem>
@@ -79,64 +73,3 @@ This is done via the command palette (Ctrl+Shift+P).
 </Steps>
 </TabItem>
 </Tabs>
-
-
-### Slint project structure
-
-
-<Tabs syncKey="dev-language">
-<TabItem label="C++">
-
-<FileTree>
-
-- .vscode/
-- src/
-  - main.cpp
-- ui/
-  - app-window.slint  The **main** Slint file
-- CMakeLists.txt
-- LICENSE
-- README.md
-
-</FileTree>
-
-</TabItem>
-<TabItem label="NodeJS">
-
-
-<FileTree>
-
-- .vscode/
-- src/
-  - main.js
-- ui/
-  - app-window.slint  The **main** Slint file
-- package.json
-- README.md
-
-</FileTree>
-</TabItem>
-<TabItem label="Rust">
-
-<FileTree>
-
-- .vscode/
-- src/
-  - main.rs
-- target/
-  - debug/
-  - .rustc_info.json
-  - CACHEDIR.TAG
-- ui/
-  - app-window.slint  The **main** Slint file
-- build.rs
-- Cargo.Toml
-- LICENSE
-- README.md
-
-</FileTree>
-
-</TabItem>
-</Tabs>
-
-The `src` folder is for the apps business logic. While the `ui` folder contains the Slint files that define the user interface.
