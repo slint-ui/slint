@@ -15,11 +15,11 @@ use crate::input::{
     MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::{ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak};
-use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
+use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord, SharedString};
+use crate::{Callback, Coord, SharedString, SharedVector};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
@@ -207,6 +207,13 @@ pub trait WindowAdapterInternal {
     fn color_scheme(&self) -> ColorScheme {
         ColorScheme::Unknown
     }
+
+    /// Returns whether we can have a native menu bar
+    fn supports_native_menu_bar(&self) -> bool {
+        false
+    }
+
+    fn setup_menubar(&self, _menubar: vtable::VBox<MenuVTable>) {}
 
     /// Re-implement this to support exposing raw window handles (version 0.6).
     #[cfg(feature = "raw-window-handle-06")]
@@ -1004,6 +1011,13 @@ impl WindowInner {
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
+    /// Return wether the platform supports native menu bars
+    pub fn supports_native_menu_bar(&self) -> bool {
+        self.window_adapter()
+            .internal(crate::InternalToken)
+            .map_or(false, |x| x.supports_native_menu_bar())
+    }
+
     /// Show a popup at the given position relative to the item and returns its ID.
     /// The returned ID will always be non-zero.
     pub fn show_popup(
@@ -1313,6 +1327,18 @@ impl WindowInner {
 
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
+
+/// Interface for native menu and menubar
+#[vtable::vtable]
+#[repr(C)]
+pub struct MenuVTable {
+    /// destructor
+    drop: fn(VRefMut<MenuVTable>),
+    /// Return the list of items for the sub menu (or the main menu of parent is None)
+    sub_menu: fn(VRef<MenuVTable>, Option<&MenuEntry>) -> SharedVector<MenuEntry>,
+    /// Handler when the menu entry is activated
+    activate: fn(VRef<MenuVTable>, &MenuEntry),
+}
 
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
@@ -1653,6 +1679,17 @@ pub mod ffi {
         window_adapter
             .internal(crate::InternalToken)
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
+    }
+
+    /// Return wether the platform supports native menu bars
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_supports_native_menu_bar(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter
+            .internal(crate::InternalToken)
+            .map_or(false, |x| x.supports_native_menu_bar())
     }
 
     /// Return the default-font-size property of the WindowItem

@@ -291,6 +291,11 @@ fn inline_element(
         fixup_reference(&mut t.running, &mapping);
         fixup_reference(&mut t.triggered, &mapping);
     }
+    if let Some(mb) = root_component.menu_bar.borrow_mut().as_mut() {
+        fixup_reference(&mut mb.entries, &mapping);
+        fixup_reference(&mut mb.sub_menu, &mapping);
+        fixup_reference(&mut mb.activated, &mapping);
+    }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
         recurse_elem_no_borrow(&root_component.root_element.clone(), &(), &mut |e, _| {
@@ -402,6 +407,7 @@ fn duplicate_sub_component(
         init_code: component_to_duplicate.init_code.clone(),
         popup_windows: Default::default(),
         timers: component_to_duplicate.timers.clone(),
+        menu_bar: component_to_duplicate.menu_bar.clone(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         used: component_to_duplicate.used.clone(),
         private_properties: Default::default(),

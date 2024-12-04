@@ -3599,6 +3599,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
         }
+        BuiltinFunction::SupportsNativeMenuBar => {
+            format!("{}.supports_native_menu_bar()", access_window_field(ctx))
+        }
         BuiltinFunction::Use24HourFormat => {
             format!("slint::cbindgen_private::slint_date_time_use_24_hour_format()")
         }

@@ -62,8 +62,8 @@
             "words": [
                 "Espressif",
                 "linebuffer",
-                "mylibrary", 
-                "otherlibrary", 
+                "mylibrary",
+                "otherlibrary",
                 "Lmylibrary",
                 "progressindicator",
                 "standardbutton",
@@ -117,6 +117,7 @@
         "lvalue",
         "microcontroller",
         "microcontrollers",
+        "muda",
         "MSVC",
         "napi",
         "ogoffart",

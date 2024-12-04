@@ -7,9 +7,10 @@
 //! be further inlined as it may expends to native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::NamedReference;
-use crate::langtype::ElementType;
+use crate::expression_tree::{Expression, NamedReference};
+use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
+use core::cell::RefCell;
 use smol_str::{format_smolstr, SmolStr};
 
 struct UsefulMenuComponents {
@@ -121,15 +122,45 @@ fn process_window(
     let Some(menu_bar) = menu_bar else {
         return false;
     };
-    menu_bar.borrow_mut().base_type = components.menubar_impl.clone();
     if menu_bar.borrow().repeated.is_some() {
         diag.push_error(
             "MenuBar cannot be in a conditional or repeated element".into(),
             &*menu_bar.borrow(),
         );
     }
+    assert!(
+        menu_bar.borrow().children.is_empty() || diag.has_errors(),
+        "MenuBar element can't have children"
+    );
 
-    // Create a child that contains all the child but the menubar
+    let menubar_impl = Element {
+        id: format_smolstr!("{}-menulayout", window.id),
+        base_type: components.menubar_impl.clone(),
+        enclosing_component: window.enclosing_component.clone(),
+        repeated: Some(crate::object_tree::RepeatedElementInfo {
+            model: Expression::UnaryOp {
+                op: '!',
+                sub: Expression::FunctionCall {
+                    function: Expression::BuiltinFunctionReference(
+                        crate::expression_tree::BuiltinFunction::SupportsNativeMenuBar,
+                        None,
+                    )
+                    .into(),
+                    arguments: vec![],
+                    source_location: None,
+                }
+                .into(),
+            },
+            model_data_id: SmolStr::default(),
+            index_id: SmolStr::default(),
+            is_conditional_element: true,
+            is_listview: None,
+        }),
+        ..Default::default()
+    }
+    .make_rc();
+
+    // Create a child that contains all the children of the window but the menubar
     let child = Element {
         id: format_smolstr!("{}-child", window.id),
         base_type: components.empty.clone(),
@@ -142,19 +173,52 @@ fn process_window(
     const HEIGHT: &str = "height";
     let child_height = NamedReference::new(&child, SmolStr::new_static(HEIGHT));
 
-    // Create a layout
-    let layout = Element {
-        id: format_smolstr!("{}-menulayout", window.id),
-        base_type: components.vertical_layout.clone(),
-        enclosing_component: window.enclosing_component.clone(),
-        children: vec![menu_bar, child],
-        ..Default::default()
+    const ENTRIES: &str = "entries";
+    const SUB_MENU: &str = "sub-menu";
+    const ACTIVATE: &str = "activated";
+
+    for prop in [ENTRIES, SUB_MENU, ACTIVATE] {
+        // materialize the properties and callbacks
+        let ty = components.menubar_impl.lookup_property(prop).property_type;
+        assert_ne!(ty, Type::Invalid, "Can't lookup type for {prop}");
+        let nr = NamedReference::new(&menu_bar, SmolStr::new_static(prop));
+        let forward_expr = if let Type::Callback(cb) = &ty {
+            Expression::FunctionCall {
+                function: Expression::CallbackReference(nr, None).into(),
+                arguments: cb
+                    .args
+                    .iter()
+                    .enumerate()
+                    .map(|(index, ty)| Expression::FunctionParameterReference {
+                        index,
+                        ty: ty.clone(),
+                    })
+                    .collect(),
+                source_location: None,
+            }
+        } else {
+            Expression::PropertyReference(nr)
+        };
+        menubar_impl.borrow_mut().bindings.insert(prop.into(), RefCell::new(forward_expr.into()));
+        let old = menu_bar
+            .borrow_mut()
+            .property_declarations
+            .insert(prop.into(), PropertyDeclaration { property_type: ty, ..Default::default() });
+        assert!(old.is_none(), "{prop} already exists");
     }
-    .make_rc();
 
-    window.children.push(layout);
+    // Transform the MenuBar in a layout
+    menu_bar.borrow_mut().base_type = components.vertical_layout.clone();
+    menu_bar.borrow_mut().children = vec![menubar_impl, child];
+
+    let menubar_nr = MenuBar {
+        entries: NamedReference::new(&menu_bar, SmolStr::new_static(ENTRIES)),
+        sub_menu: NamedReference::new(&menu_bar, SmolStr::new_static(SUB_MENU)),
+        activated: NamedReference::new(&menu_bar, SmolStr::new_static(ACTIVATE)),
+    };
+
+    window.children.push(menu_bar);
     let component = window.enclosing_component.upgrade().unwrap();
-
     drop(window);
 
     // Rename every access to `root.height` into `child.height`
@@ -166,5 +230,9 @@ fn process_window(
     });
     // except for the actual geometry
     win.borrow_mut().geometry_props.as_mut().unwrap().height = win_height;
+
+    let old = component.menu_bar.replace(Some(menubar_nr));
+    assert!(old.is_none());
+
     true
 }
