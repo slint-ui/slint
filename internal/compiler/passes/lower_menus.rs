@@ -122,6 +122,12 @@ fn process_window(
         return false;
     };
     menu_bar.borrow_mut().base_type = components.menubar_impl.clone();
+    if menu_bar.borrow().repeated.is_some() {
+        diag.push_error(
+            "MenuBar cannot be in a conditional or repeated element".into(),
+            &*menu_bar.borrow(),
+        );
+    }
 
     // Create a child that contains all the child but the menubar
     let child = Element {
