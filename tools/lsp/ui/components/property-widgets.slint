@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEdit, Palette, CheckBox, ComboBox, Button, Slider } from "std-widgets.slint";
+import { LineEdit, Palette, VerticalBox, CheckBox, ComboBox, ScrollView, Button, HorizontalBox, SpinBox, Slider, TextEdit } from "std-widgets.slint";
 
-import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ColorData, ElementInformation, RuntimeComponent, RuntimeProperty, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { GroupHeader } from "../components/group.slint";
 import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
 import { StateLayer } from "../components/state-layer.slint";
-import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorFontSettings } from "../components/styling.slint";
+import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings, EditorFontSettings, EditorPalette } from "../components/styling.slint";
 
 component CodeButton inherits Button {
     text: @tr("Code");
@@ -662,6 +663,43 @@ component BooleanWidget inherits VerticalLayout {
     }
 }
 
+component EditMultiValueWidget inherits VerticalLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback set-bool-binding(text: string);
+
+    NameLabel {
+        property-name: root.property-name;
+        property-value: root.property-value;
+    }
+
+    Button {
+        text: root.enabled ? @tr("Edit") : @tr("View");
+    }
+}
+
+component EditJsonWidget inherits VerticalLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback set-bool-binding(text: string);
+
+    NameLabel {
+        property-name: root.property-name;
+        property-value: root.property-value;
+    }
+
+    TextEdit {
+        min-height: 200px;
+
+        text: root.property-value.code;
+        enabled: root.enabled;
+    }
+}
+
 export component PropertyValueWidget inherits HorizontalLayout {
     in property <PropertyInformation> property-information;
     in property <ElementInformation> element-information;
@@ -809,6 +847,130 @@ export component PropertyValueWidget inherits HorizontalLayout {
     }
 }
 
+export component RuntimePropertyValueWidget inherits HorizontalLayout {
+    in property <RuntimeProperty> runtime-property;
+
+    alignment: stretch;
+
+    function reset-action() {
+        // TODO!
+    }
+
+    function code-action() {
+        // TODO!
+    }
+
+    private property <string> suffix_impl: (runtime_property.has-getter ? "R" : "") + (runtime-property.has-setter ? "W" : "");
+    private property <string> suffix: suffix_impl == "" ? "" : " (" + suffix_impl + ")";
+
+    private property <bool> is-simple: runtime-property.values.length == 1 && !runtime-property.is-array && !runtime-property.prefer-json;
+    private property <bool> is-multi-value: runtime-property.values.length > 1 && !runtime-property.prefer-json;
+    private property <bool> show-json: runtime-property.prefer-json;
+    
+
+    private property <string> full-prop-name: self.runtime-property.name + self.suffix;
+
+    property <PropertyValue> value: root.runtime-property.values[0].value;
+
+    if is-simple && value.kind == PropertyValueKind.boolean: BooleanWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+
+        set-bool-binding(text) => {
+            // TODO!
+        }
+    }
+    if is-simple && ((value.kind == PropertyValueKind.color) || (value.kind == PropertyValueKind.brush)): ColorWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+
+        test-color-binding(text) => {
+            return(false); // TODO
+        }
+        set-color-binding(text) => {
+            // TODO!
+        }
+    }
+
+    if is-simple && value.kind == PropertyValueKind.code: CodeWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
+        }
+    }
+    if is-simple && value.kind == PropertyValueKind.enum:  EnumWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+
+        set-enum-binding(text) => {
+            // TODO!
+        }
+    }
+    if is-simple && value.kind == PropertyValueKind.float: FloatWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+
+        test-float-binding(text) => {
+            return(false); // TODO
+        }
+        set-float-binding(text) => {
+            // TODO!
+        }
+    }
+    if is-simple && value.kind == PropertyValueKind.integer: IntegerWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+
+        test-integer-binding(text) => {
+            return(false); // TODO
+        }
+        set-integer-binding(text) => {
+            // TODO!
+        }
+    }
+    if is-simple && value.kind == PropertyValueKind.string: StringWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
+        }
+
+        test-string-binding(text) => {
+            return(false); // TODO
+        }
+        set-string-binding(text) => {
+            // TODO!
+        }
+    }
+    if is-multi-value: EditMultiValueWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+    }
+    if show-json: EditJsonWidget {
+        enabled: root.runtime-property.has-setter;
+        property-name: root.full-prop-name;
+        property-value: value;
+    }
+    
+}
+
 export component ExpandableGroup {
     in property <bool> enabled;
     in property <string> text;
@@ -863,7 +1025,10 @@ export component ExpandableGroup {
             Rectangle {
                 height: root.open ? self.preferred-height : 0px;
                 clip: true;
+
                 @children
+
+                animate height { duration: 200ms; }
             }
         }
     }
