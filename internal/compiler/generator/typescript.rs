@@ -57,7 +57,7 @@ mod typescript_ast {
     #[derive(Default, Debug)]
     pub struct File {
         pub imports: Vec<Import>,
-        pub definitions: Vec<Definition>,
+        pub declarations: Vec<Declaration>,
     }
 
     impl Display for File {
@@ -66,7 +66,7 @@ mod typescript_ast {
             for i in &self.imports {
                 writeln!(f, "import {} from '{}';", i.exports, i.module)?;
             }
-            for d in &self.definitions {
+            for d in &self.declarations {
                 write!(f, "\n{}", d)?;
             }
             Ok(())
@@ -81,14 +81,29 @@ mod typescript_ast {
 
     /// Declarations  (top level, or within a struct)
     #[derive(Debug, derive_more::Display)]
-    pub enum Definition {
+    pub enum Declaration {
         Class(Class),
         Enum(Enum),
+    }
+
+    /// Member declaration
+    #[derive(Default, Debug)]
+    pub struct Field {
+        pub name: SmolStr,
+        pub ty: SmolStr,
+    }
+
+    impl Display for Field {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            indent(f)?;
+            writeln!(f, "{}: {};", self.ty, self.name)
+        }
     }
 
     #[derive(Default, Debug)]
     pub struct Class {
         pub name: SmolStr,
+        pub members: Vec<Field>,
     }
 
     impl Display for Class {
@@ -98,6 +113,9 @@ mod typescript_ast {
             INDENTATION.with(|x| x.set(x.get() + 1));
 
             // todo: content
+            for m in &self.members {
+                write!(f, "{}", m)?;
+            }
 
             INDENTATION.with(|x| x.set(x.get() - 1));
             indent(f)?;
@@ -140,7 +158,7 @@ pub fn generate(
                 generate_class(
                     &mut file,
                     s.name.as_ref().unwrap(),
-                    // &s.fields,
+                    &s.fields,
                     // s.node.as_ref().unwrap(),
                 );
             }
@@ -154,14 +172,14 @@ pub fn generate(
     Ok(file)
 }
 
-fn generate_class(file: &mut File, name: &str) {
+fn generate_class(file: &mut File, name: &str, fields: &BTreeMap<SmolStr, Type>) {
     let name = ident(name);
 
-    file.definitions.push(Definition::Class(Class { name }));
+    file.declarations.push(Declaration::Class(Class { name }));
 }
 
 fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
-    file.definitions.push(Definition::Enum(Enum {
+    file.declarations.push(Declaration::Enum(Enum {
         name: ident(&en.name),
         values: (0..en.values.len())
             .map(|value| {
