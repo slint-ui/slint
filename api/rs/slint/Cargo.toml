@@ -210,8 +210,8 @@ i-slint-backend-qt = { workspace = true, features = [ "enable" ], optional = tru
 [package.metadata.docs.rs]
 rustdoc-args = [
   # "--html-in-header",
-  # "docs/src/utils/slint-docs-preview.html",
+  # "docs/astro/src/utils/slint-docs-preview.html",
   "--html-in-header",
-  "docs/src/utils/slint-docs-highlight.html",
+  "docs/astro/src/utils/slint-docs-highlight.html",
 ]
 features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "raw-window-handle-06"]

@@ -35,7 +35,7 @@ Slint-node comes with pre-built binaries for macOS, Linux, and Windows. If you'd
 without pre-built binaries, you need to additional software:
 
   * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.77 or newer) * Depending on your operating system, you may need additional components. For a list of required system libraries,
-    see <https://github.com/slint-ui/slint/blob/master/docs/src/utils/_templates/building.md#prerequisites>.
+    see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
 
 ## Getting Started (Node.js)
 

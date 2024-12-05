@@ -113,8 +113,8 @@ use the Slint markup language and how to interact with a Slint user interface
 from supported programming languages.
 
 The `docs` folder contains a lot more information, including
-[build instructions](docs/src/utils/_templates//building.md), and
-[internal developer docs](docs/src/utils/_templates//development.md).
+[build instructions](docs/building.md), and
+[internal developer docs](docs/development.md).
 
 Refer to the README of each language directory in the `api` folder:
 

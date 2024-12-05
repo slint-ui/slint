@@ -35,7 +35,7 @@ You need to install the following components:
   * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.77 or newer)
 
-You will also need a few more dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/src/utils/_templates/building.md#prerequisites>
+You will also need a few more dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
 
 ## Using Slint
 

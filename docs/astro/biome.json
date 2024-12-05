@@ -1,5 +1,5 @@
 {
-    "extends": ["../biome.json"],
+    "extends": ["../../biome.json"],
     "formatter": {
         "ignore": ["archive/**", ".astro"]
     },

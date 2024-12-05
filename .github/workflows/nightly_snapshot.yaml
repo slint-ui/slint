@@ -576,11 +576,11 @@ jobs:
                    RELEASE_INPUT: ${{ github.event.inputs.release }}
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                    notes_file=slint-src/docs/src/utils/_templates/nightly-release-notes.md
+                    notes_file=slint-src/docs/nightly-release-notes.md
                     version=nightly
                     download_version=$version
                   else
-                    notes_file=slint-src/docs/src/utils/_templates/release-notes.md
+                    notes_file=slint-src/docs/release-notes.md
                     version=$(echo artifacts/Slint-cpp-*-win64-MSVC.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
                     if [[ -z "$version" ]]; then
                       echo "Version not found"
@@ -591,7 +591,7 @@ jobs:
                     download_version=v$version
                   fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
-                  cat $notes_file slint-src/docs/src/utils/_templates/release-artifacts.md > release-notes.md
+                  cat $notes_file slint-src/docs/release-artifacts.md > release-notes.md
                   sed -i -e "s,{version},$version,g" release-notes.md
                   sed -i -e "s,{download_version},$download_version,g" release-notes.md
                   sed -i -e "s,{major_version},$major_version,g" release-notes.md

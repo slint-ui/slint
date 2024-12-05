@@ -9,8 +9,8 @@ node_modules
 /_deps
 .DS_Store
 Pipfile.lock
-/docs/src/content/collections/enums/
-/docs/src/content/collections/structs/
+/docs/astro/src/content/collections/enums/
+/docs/astro/src/content/collections/structs/
 /playwright-report
 
 # Ignore all package-lock.json files
