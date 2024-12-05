@@ -32,6 +32,7 @@ pub struct NativeSlider {
     pub value: Property<f32>,
     pub minimum: Property<f32>,
     pub maximum: Property<f32>,
+    pub step: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSliderData>,
     pub changed: Callback<FloatArg>,
@@ -269,7 +270,7 @@ impl Item for NativeSlider {
                 || (vertical && keycode == key_codes::DownArrow)
             {
                 if event.event_type == KeyEventType::KeyPressed {
-                    self.set_value(self.value() + 1.);
+                    self.set_value(self.value() + self.step());
                 } else if event.event_type == KeyEventType::KeyReleased {
                     Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 }
@@ -279,7 +280,7 @@ impl Item for NativeSlider {
                 || (vertical && keycode == key_codes::UpArrow)
             {
                 if event.event_type == KeyEventType::KeyPressed {
-                    self.set_value(self.value() - 1.);
+                    self.set_value(self.value() - self.step());
                 } else if event.event_type == KeyEventType::KeyReleased {
                     Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 }
