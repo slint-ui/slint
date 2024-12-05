@@ -45,6 +45,12 @@ When not part of a layout, its width or height default to 100% of the parent ele
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
 When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
 passed through to elements underneath.
+
+:::note{Note}
+When `enabled` is set to false while the `TouchArea` is pressed, `pointer-event` will be
+invoked with `PointerEventKind.Cancel`, and the `pressed` and `has-hover` properties will
+be reset to `false`.
+:::
 </SlintProperty>
 
 ### has-hover
