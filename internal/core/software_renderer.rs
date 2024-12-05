@@ -1368,9 +1368,15 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
                     return;
                 };
-                if let Some(buffer) = image_inner.render_to_buffer(Some(target_rect.size.cast())) {
+                let orig = image_inner.size().cast::<f32>();
+                let svg_target_size = if tiled.is_some() {
+                    euclid::size2(orig.width * source_to_target_x, orig.height * source_to_target_y)
+                        .cast()
+                } else {
+                    target_rect.size.cast()
+                };
+                if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
-                    let orig = image_inner.size().cast::<f32>();
                     let dx =
                         Fixed::from_f32(buf_size.width / orig.width / source_to_target_x).unwrap();
                     let dy = Fixed::from_f32(buf_size.height / orig.height / source_to_target_y)
