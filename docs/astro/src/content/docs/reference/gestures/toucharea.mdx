@@ -41,6 +41,12 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 ## Properties
 
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
+passed through to elements underneath.
+</SlintProperty>
+
 ### has-hover
 <SlintProperty propName="has-hover" typeName="bool" propertyVisibility="out">
 Set to true when the mouse is over the `TouchArea` area.
