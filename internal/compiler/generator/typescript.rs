@@ -9,6 +9,7 @@ use std::{collections::HashSet, sync::OnceLock};
 
 use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::object_tree::Document;
+use crate::parser::syntax_nodes;
 use crate::CompilerConfiguration;
 use smol_str::{format_smolstr, SmolStr, StrExt};
 use typescript_ast::*;
@@ -85,6 +86,7 @@ mod typescript_ast {
     pub enum Declaration {
         Class(Class),
         Enum(Enum),
+        Field(Field),
     }
 
     /// Member declaration
@@ -104,7 +106,7 @@ mod typescript_ast {
     #[derive(Default, Debug)]
     pub struct Class {
         pub name: SmolStr,
-        pub members: Vec<Field>,
+        pub members: Vec<Declaration>,
     }
 
     impl Display for Class {
@@ -205,7 +207,7 @@ pub fn generate(
                     &mut file,
                     s.name.as_ref().unwrap(),
                     &s.fields,
-                    // s.node.as_ref().unwrap(),
+                    s.node.as_ref().unwrap(),
                 );
             }
             Type::Enumeration(en) => {
@@ -218,10 +220,27 @@ pub fn generate(
     Ok(file)
 }
 
-fn generate_class(file: &mut File, name: &str, fields: &BTreeMap<SmolStr, Type>) {
+fn generate_class(
+    file: &mut File,
+    name: &str,
+    fields: &BTreeMap<SmolStr, Type>,
+    node: &syntax_nodes::ObjectType,
+) {
     let name = ident(name);
 
-    file.declarations.push(Declaration::Class(Class { name, ..Default::default() }));
+    let members = node
+        .ObjectTypeMember()
+        .map(|n| crate::parser::identifier_text(&n).unwrap())
+        .map(|name| {
+            Declaration::Field(Field {
+                ty: fields.get(&name).unwrap().ts_type().unwrap(),
+                name: ident(&name),
+                ..Default::default()
+            })
+        })
+        .collect::<Vec<_>>();
+
+    file.declarations.push(Declaration::Class(Class { name, members }));
 }
 
 fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
