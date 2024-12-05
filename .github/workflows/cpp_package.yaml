@@ -28,11 +28,11 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                os: [ubuntu-20.04, macOS-12, macos-14, windows-2022]
+                os: [ubuntu-20.04, macOS-13, macos-14, windows-2022]
                 include:
                     - os: ubuntu-20.04
                       package_suffix: linux
-                    - os: macOS-12
+                    - os: macOS-13
                       package_suffix: macos-x86_64
                     - os: macos-14
                       package_suffix: macos-aarch64
@@ -192,11 +192,11 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                os: [ubuntu-20.04, macOS-12, macos-14, windows-2022]
+                os: [ubuntu-20.04, macOS-13, macos-14, windows-2022]
                 include:
                     - os: ubuntu-20.04
                       package_suffix: Linux-x86_64
-                    - os: macOS-12
+                    - os: macOS-13
                       package_suffix: Darwin-x86_64
                     - os: macos-14
                       package_suffix: Darwin-arm64
