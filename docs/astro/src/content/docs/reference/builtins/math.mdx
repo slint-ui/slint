@@ -4,6 +4,8 @@ title: Math
 description: Math Namespace
 ---
 
+import Link from '/src/components/Link.astro';
+
 The **Math** namespace contains functions that are available both in the global scope and in the `Math` namespace.
 
 ```slint no-test
@@ -25,7 +27,7 @@ x: -10.abs(); // sets x to 10
 ```  
 
 #### **T type**
-Many of the math functions can be used with any numeric type such as `angle`, `duration`, `float`, `int`, `length`, and `percent`. These are represented on this page as `T`.
+Many of the math functions can be used with any <Link type="NumericTypes" label="numeric type"/> such as `angle`, `duration`, `float`, `int`, `length`, and `percent`. These are represented on this page as `T`.
 
 ## General Math Functions
 ### abs(T) -> T

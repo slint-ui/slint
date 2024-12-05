@@ -72,32 +72,32 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
     switch (baseType) {
         case "angle":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.angle.href,
                 defaultValue: "0deg",
             };
         case "bool":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.bool.href,
                 defaultValue: "false",
             };
         case "brush":
             return {
-                href: linkMap.ColorsRef.href,
+                href: linkMap.brush.href,
                 defaultValue: "a transparent brush",
             };
         case "color":
             return {
-                href: linkMap.ColorsRef.href,
+                href: linkMap.color.href,
                 defaultValue: "a transparent color",
             };
         case "duration":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.duration.href,
                 defaultValue: "0ms",
             };
         case "easing":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.easing.href,
                 defaultValue: "linear",
             };
         case "enum":
@@ -107,7 +107,7 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "float":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.float.href,
                 defaultValue: "0.0",
             };
         case "image":
@@ -117,32 +117,32 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "int":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.int.href,
                 defaultValue: "0",
             };
         case "length":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.length.href,
                 defaultValue: "0px",
             };
         case "percent":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.percent.href,
                 defaultValue: "0%",
             };
         case "physical-length":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.physicalLength.href,
                 defaultValue: "0phx",
             };
         case "Point":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.StructType.href,
                 defaultValue: "(0px, 0px)",
             };
         case "relative-font-size":
             return {
-                href: linkMap.Types.href,
+                href: linkMap.relativeFontSize.href,
                 defaultValue: "0rem",
             };
         case "string":

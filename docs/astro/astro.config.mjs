@@ -59,7 +59,6 @@ export default defineConfig({
                                 items: [
                                     "guide/tooling/slintpad",
                                     "guide/tooling/vscode",
-                                    "guide/tooling/project",
                                     "guide/tooling/live-editor",
                                 ],
                             },
@@ -156,7 +155,7 @@ export default defineConfig({
                                 ],
                             },
                             {
-                                label: "Elements",
+                                label: "Basic Elements",
                                 collapsed: true,
                                 autogenerate: {
                                     directory: "reference/elements",
@@ -330,7 +329,7 @@ export default defineConfig({
                 linkedin: "https://www.linkedin.com/company/slint-ui/",
                 mastodon: "https://fosstodon.org/@slint",
             },
-            favicon: "./src/assets/favicon.svg",
+            favicon: "favicon.svg",
         }),
     ],
 });
