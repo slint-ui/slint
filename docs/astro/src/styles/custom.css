@@ -46,10 +46,6 @@
     /* Tweak the table so the first column is wider */
 }
 
-.sl-markdown-content h3 {
-    margin-bottom: -0.8rem; /* Adjust this value as needed */
-}
-
 /* Dark mode colors. */
 :root {
     --sl-hue-blue: 222;
@@ -96,9 +92,9 @@
     padding-block: initial;
 }
 
- .hero .copy {
-     align-items: center;
- }
+.hero .copy {
+    align-items: center;
+}
 
 .site-title {
     font-size: 1rem;
@@ -119,6 +115,8 @@
     color: var(--sl-color-orange-high);
 }
 
-.sl-markdown-content :not(a, strong, em, del, span, input, code, br) + :not(a, strong, em, del, span, input, code, br, :where(.not-content *)) {
-    padding-top: 1rem;
+.sl-markdown-content {
+    .slint-property {
+        margin-top: 0.1rem;
+    }
 }
