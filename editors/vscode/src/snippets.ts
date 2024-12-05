@@ -34,7 +34,7 @@ export class SnippetTextEditFeature implements StaticFeature {
         );
     }
 
-    dispose() {
+    clear() {
         this.command?.dispose();
     }
 
