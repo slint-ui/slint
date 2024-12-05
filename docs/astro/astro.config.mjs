@@ -330,7 +330,7 @@ export default defineConfig({
                 linkedin: "https://www.linkedin.com/company/slint-ui/",
                 mastodon: "https://fosstodon.org/@slint",
             },
-            favicon: "./src/assets/favicon.svg",
+            favicon: "favicon.svg",
         }),
     ],
 });
