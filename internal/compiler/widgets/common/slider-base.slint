@@ -5,6 +5,7 @@ export component SliderBase {
     in property <bool> enabled <=> touch-area.enabled;
     in property <float> minimum: 0;
     in property <float> maximum: 100;
+    in property <float> step: 1;
     in property <Orientation> orientation;
     in property <length> handle-x;
     in property <length> handle-y;
@@ -52,6 +53,7 @@ export component SliderBase {
             }
 
             self.pressed-value = value;
+            focus-scope.focus();
             root.handle-pressed = true;
         }
 
@@ -74,15 +76,15 @@ export component SliderBase {
         enabled: root.enabled;
 
         key-pressed(event) => {
-            if (!self.enabled) {
+            if (!self.enabled || root.step <= 0) {
                 return reject;
             }
 
             if ((!vertical && event.text == Key.RightArrow) || (vertical && event.text == Key.DownArrow)) {
-                root.set-value(root.value + 1);
+                root.set-value(root.value + root.step);
                 return accept;
             } else if ((!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.UpArrow)) {
-                root.set-value(root.value - 1);
+                root.set-value(root.value - root.step);
                 return accept;
             }
 

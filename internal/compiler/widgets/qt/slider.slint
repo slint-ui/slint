@@ -8,5 +8,5 @@ export component Slider inherits NativeSlider {
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
-    accessible-value-step: (root.maximum - root.minimum) / 100;
+    accessible-value-step: min(root.step, (root.maximum - root.minimum) / 100);
 }
