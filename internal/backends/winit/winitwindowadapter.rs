@@ -18,7 +18,6 @@ use winit::platform::windows::WindowAttributesExtWindows;
 use winit::platform::windows::WindowExtWindows;
 
 use crate::renderer::WinitCompatibleRenderer;
-use const_field_offset::FieldOffsets;
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
@@ -1109,19 +1108,6 @@ impl Drop for WinitWindowAdapter {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             crate::event_loop::unregister_window(winit_window.id());
         }
-    }
-}
-
-#[derive(FieldOffsets)]
-#[repr(C)]
-#[pin]
-struct WindowProperties {
-    scale_factor: Property<f32>,
-}
-
-impl Default for WindowProperties {
-    fn default() -> Self {
-        Self { scale_factor: Property::new(1.0) }
     }
 }
 

@@ -35,8 +35,6 @@ i-slint-core = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
-const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
-
 cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = "1.0"
