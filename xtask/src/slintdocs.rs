@@ -15,7 +15,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     let root = super::root_dir();
 
-    let docs_source_dir = root.join("docs");
+    let docs_source_dir = root.join("docs/astro");
 
     {
         let sh = Shell::new()?;
@@ -32,7 +32,7 @@ fn write_individual_enum_files(
     root_dir: &Path,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = root_dir.join("docs/src/content/collections/enums");
+    let enums_dir = root_dir.join("docs/astro/src/content/collections/enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -224,7 +224,7 @@ fn write_individual_struct_files(
     root_dir: &Path,
     structs: std::collections::BTreeMap<String, StructDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let structs_dir = root_dir.join("docs/src/content/collections/structs");
+    let structs_dir = root_dir.join("docs/astro/src/content/collections/structs");
     create_dir_all(&structs_dir).context(format!(
         "Failed to create folder holding individual structs doc files {structs_dir:?}"
     ))?;

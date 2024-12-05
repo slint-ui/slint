@@ -63,7 +63,7 @@ importers:
         specifier: workspace:*
         version: link:../../../api/node
 
-  docs:
+  docs/astro:
     dependencies:
       '@astrojs/check':
         specifier: 0.9.4
@@ -6346,7 +6346,7 @@ snapshots:
   '@types/fs-extra@11.0.4':
     dependencies:
       '@types/jsonfile': 6.1.4
-      '@types/node': 18.11.9
+      '@types/node': 20.16.10
 
   '@types/geojson@7946.0.14': {}
 

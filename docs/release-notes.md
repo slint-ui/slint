@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 Slint {version} is a patch release that fixes several bugs and crashes. For a complete list of changes, check out the [ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md).
 
 Upgrading to Slint {version}:

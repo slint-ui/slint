@@ -10,5 +10,4 @@ packages:
   - "examples/carousel/node"
   - "examples/todo/node"
   - "examples/memory"
-  - "docs/editor"
-  - "docs"
+  - "docs/astro"

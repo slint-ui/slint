@@ -14,7 +14,8 @@ path = [
   "**/slint-logo-**.pdf",
   "**/slint-logo-**.png",
   "**/slint-logo-**.svg",
-  "docs/src/content/docs/reference/elements/slint-logo.png",
+  "docs/astro/public/favicon.svg",
+  "docs/astro/src/content/docs/reference/elements/slint-logo.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -80,13 +81,13 @@ path = [
   "docs/**/book.toml",
   "docs/**/package.json",
   "docs/public/**.svg",
-  "docs/src/assets/**.svg",
-  "docs/src/assets/**.webp",
-  "docs/src/assets/getting-started/**.webp",
-  "docs/src/content/docs/reference/elements/mini-banner.png",
-  "docs/src/misc/**.json",
-  "docs/src/misc/**.jsonc",
-  "docs/src/utils/_templates/**.md",
+  "docs/astro/src/assets/**.svg",
+  "docs/astro/src/assets/**.webp",
+  "docs/astro/src/assets/getting-started/**.webp",
+  "docs/astro/src/content/docs/reference/elements/mini-banner.png",
+  "docs/astro/src/misc/**.json",
+  "docs/astro/src/misc/**.jsonc",
+  "docs/astro/src/utils/_templates/**.md",
 
   "examples/**.json",
   "examples/**/LC_MESSAGES/**.mo",
