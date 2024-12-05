@@ -67,7 +67,7 @@ component BarChart inherits Rectangle {
 For example when using the Skia renderer, if you replace the gradient with a plain color, the calls will all be batched together into one call. But when the
 UI design requires the use of a gradient, that's not possible. But there might be another way. If the underlying data for your bar chart rarely changes, it
 might be worthwhile to render the entire chart once into a texture and therefore replace multiple calls with just one. This can be done by setting the
-[cache-rendering-hint](../language/builtins/elements.md#miscellaneous) to `true` on the `BarChar` itself, which surrounds and captures the individual bar charts.
+<Link type="cache-rendering-hint" /> to `true` on the `BarChar` itself, which surrounds and captures the individual bar charts.
 
 Note that extensive use of this technique comes at the expense of increased GPU memory usage and memory throughput.
 

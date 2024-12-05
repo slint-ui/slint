@@ -5,6 +5,9 @@
     "BorderRadiusRectangle": {
         "href": "/reference/elements/rectangle#border-radius-properties"
     },
+    "cache-rendering-hint": {
+        "href": "/reference/overview/#cache-rendering-hint"
+    },
     "ColorsRef": {
         "href": "/reference/builtins/colors"
     },
