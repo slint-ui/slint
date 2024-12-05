@@ -13,6 +13,6 @@
         "skipLibCheck": true,
         "strict": true,
         "target": "es6",
-        "typeRoots": ["./node_modules/@types"]
+        "typeRoots": ["./node_modules/@types", "../../node_modules/@types"]
     }
 }
