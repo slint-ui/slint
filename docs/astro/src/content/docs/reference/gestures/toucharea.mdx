@@ -7,6 +7,7 @@ import SlintProperty  from '/src/components/SlintProperty.astro';
 import PointerEvent from '/src/content/collections/structs/PointerEvent.md';
 import PointerScrollEvent from '/src/content/collections/structs/PointerScrollEvent.md';
 import EventResult from '/src/content/collections/enums/EventResult.md';
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 
 
 ```slint playground
@@ -45,6 +46,30 @@ When not part of a layout, its width or height default to 100% of the parent ele
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
 When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
 passed through to elements underneath.
+
+<CodeSnippetMD imagePath="/src/assets/generated/basic-syntax.png" scale="2"  imageWidth="200" imageHeight="100" imageAlt='Basic syntax'>
+```slint playground
+import { Button, CheckBox } from "std-widgets.slint";
+
+export component Example inherits Window {
+    width: 200px; height: 100px;
+
+    VerticalLayout {
+        Rectangle {
+            Button {
+                text: "Try to press me";
+            }
+            TouchArea {
+                enabled: event-blocker.checked;
+            }
+        }
+        event-blocker := CheckBox {
+            text: "Block Access";
+        }
+    }   
+}
+```
+</CodeSnippetMD>
 
 :::note{Note}
 When `enabled` is set to false while the `TouchArea` is pressed, `pointer-event` will be
