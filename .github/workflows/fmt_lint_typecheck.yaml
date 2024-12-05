@@ -54,6 +54,9 @@ jobs:
             - name: Build wasm-interpreter before type check
               working-directory: tools/slintpad
               run: pnpm build:wasm_interpreter
+            - name: Build wasm-lsp before type check
+              working-directory: editors/vscode
+              run: pnpm build:wasm_lsp
             - name: Typecheck on npm projects
               run: |
                   pnpm type-check
