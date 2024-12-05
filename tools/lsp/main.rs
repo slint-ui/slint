@@ -457,7 +457,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
             close_document(ctx, params.text_document.uri).await
         }
-        DidChangeTextDocument::METHOD if ctx.preview_config.borrow().reload_on_type => {
+        DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
             reload_document(
                 ctx,
@@ -465,6 +465,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 params.text_document.uri,
                 Some(params.text_document.version),
                 &mut ctx.document_cache.borrow_mut(),
+                ctx.preview_config.borrow().reload_on_type,
             )
             .await
         }
@@ -476,6 +477,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 params.text_document.uri,
                 None,
                 &mut ctx.document_cache.borrow_mut(),
+                true,
             )
             .await
         }

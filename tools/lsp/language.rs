@@ -594,6 +594,7 @@ pub(crate) async fn reload_document_impl(
     url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
+    update_preview: bool,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     let Some(path) = common::uri_to_file(&url) else { return Default::default() };
     // Normalize the URL
@@ -607,10 +608,12 @@ pub(crate) async fn reload_document_impl(
     }
 
     if let Some(ctx) = ctx {
-        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url.clone(), version),
-            contents: content.clone(),
-        });
+        if update_preview {
+            ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
+                url: common::VersionedUrl::new(url.clone(), version),
+                contents: content.clone(),
+            });
+        }
     }
     let dependencies = document_cache.invalidate_url(&url);
     let mut diag = BuildDiagnostics::default();
@@ -651,7 +654,7 @@ pub async fn open_document(
 ) -> common::Result<()> {
     ctx.open_urls.borrow_mut().insert(url.clone());
 
-    reload_document(ctx, content, url, version, document_cache).await
+    reload_document(ctx, content, url, version, document_cache, true).await
 }
 
 pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
@@ -665,9 +668,17 @@ pub async fn reload_document(
     url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
+    update_preview: bool,
 ) -> common::Result<()> {
-    let lsp_diags =
-        reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
+    let lsp_diags = reload_document_impl(
+        Some(ctx),
+        content,
+        url.clone(),
+        version,
+        document_cache,
+        update_preview,
+    )
+    .await;
 
     for (uri, diagnostics) in lsp_diags {
         let version = document_cache.document_version(&uri);
