@@ -91,10 +91,14 @@
 
 .hero {
     display: flex;
-    align-items: center;
     gap: 1.5rem;
     flex-direction: column-reverse;
+    padding-block: initial;
 }
+
+ .hero .copy {
+     align-items: center;
+ }
 
 .site-title {
     font-size: 1rem;
@@ -113,4 +117,8 @@
 
 .version-banner a {
     color: var(--sl-color-orange-high);
+}
+
+.sl-markdown-content :not(a, strong, em, del, span, input, code, br) + :not(a, strong, em, del, span, input, code, br, :where(.not-content *)) {
+    padding-top: 1rem;
 }
