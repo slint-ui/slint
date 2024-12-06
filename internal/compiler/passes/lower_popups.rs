@@ -3,13 +3,16 @@
 
 //! Passe that transform the PopupWindow element into a component
 
-use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{ElementType, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use smol_str::{format_smolstr, SmolStr};
 use std::rc::{Rc, Weak};
+
+const CLOSE_ON_CLICK: &str = "close-on-click";
+const CLOSE_POLICY: &str = "close-policy";
 
 pub fn lower_popups(
     component: &Rc<Component>,
@@ -42,6 +45,28 @@ fn lower_popup_window(
     window_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
+    if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_ON_CLICK) {
+        if popup_window_element.borrow().bindings.get(CLOSE_POLICY).is_some() {
+            diag.push_error(
+                "close-policy and close-on-click cannot be set at the same time".into(),
+                &binding.borrow().span,
+            );
+        } else {
+            diag.push_property_deprecation_warning(
+                CLOSE_ON_CLICK,
+                CLOSE_POLICY,
+                &binding.borrow().span,
+            );
+            if !matches!(binding.borrow().expression, Expression::BoolLiteral(_)) {
+                report_const_error(CLOSE_ON_CLICK, &binding.borrow().span, diag);
+            }
+        }
+    } else if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_POLICY) {
+        if !matches!(binding.borrow().expression, Expression::EnumerationValue(_)) {
+            report_const_error(CLOSE_POLICY, &binding.borrow().span, diag);
+        }
+    }
+
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
     let parent_element = match parent_element {
         None => {
@@ -76,102 +101,72 @@ fn lower_popup_window(
         popup_window_element.borrow_mut().base_type = window_type.clone();
     }
 
-    const CLOSE_ON_CLICK: &str = "close-on-click";
-    let close_on_click = popup_window_element.borrow_mut().bindings.remove(CLOSE_ON_CLICK);
-
-    // Take a reference to the close on click
-    let close_on_click = close_on_click
-        .map(|b| {
-            diag.push_property_deprecation_warning(
-                "close-on-click",
-                "close-policy",
-                &b.borrow().span,
-            );
-            let b = b.into_inner();
-            (b.expression, b.span)
+    let map_close_on_click_value = |b: &BindingExpression| {
+        let Expression::BoolLiteral(v) = b.expression else {
+            assert!(diag.has_errors());
+            return None;
+        };
+        let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
+        let s = if v { "close-on-click" } else { "no-auto-close" };
+        Some(EnumerationValue {
+            value: enum_ty.values.iter().position(|v| v == s).unwrap(),
+            enumeration: enum_ty,
         })
-        .or_else(|| {
-            let mut base = popup_window_element.borrow().base_type.clone();
-            while let ElementType::Component(b) = base {
-                base = b.root_element.borrow().base_type.clone();
-                if let Some(binding) = b.root_element.borrow().bindings.get(CLOSE_ON_CLICK) {
-                    let b = binding.borrow();
-                    return Some((b.expression.clone(), b.span.clone()));
-                }
+    };
+
+    let close_policy =
+        popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY).and_then(|b| {
+            let b = b.into_inner();
+            if let Expression::EnumerationValue(v) = b.expression {
+                Some(v)
+            } else {
+                assert!(diag.has_errors());
+                None
             }
-            None
         });
-
-    const CLOSE_POLICY: &str = "close-policy";
-    let close_policy = popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY);
-
-    // Take a reference to the close policy
     let close_policy = close_policy
-        .map(|b| {
-            let b = b.into_inner();
-            (b.expression, b.span)
+        .or_else(|| {
+            popup_window_element
+                .borrow_mut()
+                .bindings
+                .remove(CLOSE_ON_CLICK)
+                .and_then(|b| map_close_on_click_value(&b.borrow()))
         })
         .or_else(|| {
+            // check bases
             let mut base = popup_window_element.borrow().base_type.clone();
             while let ElementType::Component(b) = base {
-                base = b.root_element.borrow().base_type.clone();
-                if let Some(binding) = b.root_element.borrow().bindings.get(CLOSE_POLICY) {
-                    let b = binding.borrow();
-                    return Some((b.expression.clone(), b.span.clone()));
+                let base_policy = b
+                    .root_element
+                    .borrow()
+                    .bindings
+                    .get(CLOSE_POLICY)
+                    .and_then(|b| {
+                        let b = b.borrow();
+                        if let Expression::EnumerationValue(v) = &b.expression {
+                            return Some(v.clone());
+                        }
+                        assert!(diag.has_errors());
+                        None
+                    })
+                    .or_else(|| {
+                        b.root_element
+                            .borrow()
+                            .bindings
+                            .get(CLOSE_ON_CLICK)
+                            .and_then(|b| map_close_on_click_value(&b.borrow()))
+                    });
+                if let Some(base_policy) = base_policy {
+                    return Some(base_policy);
                 }
+                base = b.root_element.borrow().base_type.clone();
             }
             None
+        })
+        .unwrap_or_else(|| EnumerationValue {
+            value: 0,
+            enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
         });
-
-    if close_policy.is_some() && close_on_click.is_some() {
-        diag.push_error(
-            "close-policy and close-on-click cannot be set at the same time".into(),
-            &close_on_click.unwrap().1,
-        );
-        return;
-    }
-
-    let close_on_click = match close_on_click {
-        Some((expr, location)) => match expr {
-            Expression::BoolLiteral(value) => Some(value),
-            _ => {
-                diag.push_error(
-                    "The close-on-click property only supports constants at the moment".into(),
-                    &location,
-                );
-                return;
-            }
-        },
-        None => None,
-    };
-
-    let close_policy = match close_policy {
-        Some((expr, location)) => match expr {
-            Expression::EnumerationValue(value) => value,
-            _ => {
-                diag.push_error(
-                    "The close-policy property only supports constants at the moment".into(),
-                    &location,
-                );
-                return;
-            }
-        },
-        None => {
-            let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
-
-            let mut value = String::from("close-on-click");
-
-            if let Some(close_on_click) = close_on_click {
-                if !close_on_click {
-                    value = "no-auto-close".into()
-                }
-            }
-            EnumerationValue {
-                value: enum_ty.values.iter().position(|v| v == value.as_str()).unwrap(),
-                enumeration: enum_ty,
-            }
-        }
-    };
 
     let popup_comp = Rc::new(Component {
         root_element: popup_window_element.clone(),
@@ -233,6 +228,10 @@ fn lower_popup_window(
         close_policy,
         parent_element: parent_element.clone(),
     });
+}
+
+fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut BuildDiagnostics) {
+    diag.push_error(format!("The {} property only supports constants at the moment", prop), span);
 }
 
 fn check_element(
