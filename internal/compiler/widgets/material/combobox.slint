@@ -48,6 +48,9 @@ export component ComboBox {
         show-popup => {
             popup.show();
         }
+        close-popup => {
+            popup.close();
+        }
     }
 
     background := Rectangle {
@@ -96,19 +99,32 @@ export component ComboBox {
             border-radius: 4px;
         }
 
-        ScrollView {
-            VerticalLayout {
-                alignment: start;
+        FocusScope {
+            init => {
+                self.focus();
+                base.popup-has-focus = true;
+            }
+            changed has-focus => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
 
-                for value[index] in root.model: ListItem {
-                    item: { text: value };
-                    is-selected: index == root.current-index;
-                    has-hover: touch-area.has-hover;
-                    pressed: touch-area.pressed;
+            ScrollView {
+                VerticalLayout {
+                    alignment: start;
 
-                    touch-area := StateLayer {
-                        clicked => {
-                            base.select(index);
+                    for value[index] in root.model: ListItem {
+                        item: { text: value };
+                        is-selected: index == root.current-index;
+                        has-hover: touch-area.has-hover;
+                        pressed: touch-area.pressed;
+
+                        touch-area := StateLayer {
+                            clicked => {
+                                base.select(index);
+                            }
                         }
                     }
                 }
