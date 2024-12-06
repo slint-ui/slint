@@ -13,7 +13,6 @@ use i_slint_compiler::parser::{syntax_nodes, TextSize};
 use i_slint_compiler::{diagnostics, EmbedResourcesKind};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
-use i_slint_core::model::VecModel;
 use lsp_types::Url;
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
@@ -934,7 +933,13 @@ fn change_style() {
 
 fn start_parsing() {
     set_status_text("Updating Preview...");
-    set_diagnostics(&[]);
+    PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow_mut();
+
+        if let Some(ui) = &preview_state.ui {
+            ui::set_diagnostics(ui, &[]);
+        }
+    });
     send_status("Loading Preview…", Health::Ok);
 }
 
@@ -1356,7 +1361,13 @@ async fn reload_preview_impl(
     .await;
 
     {
-        set_diagnostics(&diagnostics);
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow_mut();
+
+            if let Some(ui) = &preview_state.ui {
+                ui::set_diagnostics(ui, &diagnostics);
+            }
+        });
         let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
         notify_diagnostics(diags);
     }
@@ -1750,22 +1761,6 @@ fn set_status_text(text: &str) {
             if let Some(ui) = &preview_state.ui {
                 let api = ui.global::<ui::Api>();
                 api.set_status_text(text.into());
-            }
-        });
-    })
-    .unwrap();
-}
-
-fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
-    let data = crate::preview::ui::convert_diagnostics(diagnostics);
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow_mut();
-            if let Some(ui) = &preview_state.ui {
-                let model = VecModel::from(data);
-                let api = ui.global::<ui::Api>();
-                api.set_diagnostics(Rc::new(model).into());
             }
         });
     })

@@ -22,12 +22,10 @@ export struct ComponentListItem {
 }
 
 /// Some `Diagnostics` as raised by the compiler
-export struct Diagnostics {
-    level: string,
-    message: string,
-    url: string,
-    line: int,
-    column: int,
+export enum DiagnosticSummary {
+    NothingDetected,
+    Warnings,
+    Errors,
 }
 
 /// What kind of layout we are working with
@@ -180,9 +178,8 @@ export global Api {
     // The component currently viewed
     out property <ComponentItem> visible-component;
 
-    // ## Diagnostics and other Status messages
-    // Compiler diagnostics
-    in property <[Diagnostics]> diagnostics;
+    // ## Kinds of diagnostics seen in the last compiler run
+    in property <DiagnosticSummary> diagnostic-summary;
     // status message text
     in property <string> status-text;
 
