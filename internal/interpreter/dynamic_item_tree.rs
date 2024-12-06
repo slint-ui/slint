@@ -2415,8 +2415,6 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(parent_window_adapter.clone())),
         Default::default(),
     );
-    inst.run_setup_code();
-
     let pos = {
         generativity::make_guard!(guard);
         let compo_box = inst.unerase(guard);
@@ -2427,12 +2425,13 @@ pub fn show_popup(
     instance.description.popup_ids.borrow_mut().insert(
         element.borrow().id.clone(),
         WindowInner::from_pub(parent_window_adapter.window()).show_popup(
-            &vtable::VRc::into_dyn(inst),
+            &vtable::VRc::into_dyn(inst.clone()),
             pos,
             close_policy,
             parent_item,
         ),
     );
+    inst.run_setup_code();
 }
 
 pub fn close_popup(
