@@ -4,14 +4,18 @@
 export component ComboBoxBase {
     in property <[string]> model;
     in property <bool> enabled <=> i-focus-scope.enabled;
-    out property <bool> has-focus: i-focus-scope.has-focus && root.enabled;
+    out property <bool> has-focus: (i-focus-scope.has-focus || popup-has-focus) && root.enabled;
     out property <bool> pressed <=> i-touch-area.pressed;
     out property <bool> has-hover: i-touch-area.has-hover;
     in-out property <int> current-index: 0;
     in-out property <string> current-value: root.model[root.current-index];
 
+    // Set from the ComboBox when the popup has the focus
+    in-out property <bool> popup-has-focus;
+
     callback selected(current-value: string);
     callback show-popup();
+    callback close-popup();
 
     public function select(index: int) {
         if !root.enabled {
@@ -32,6 +36,21 @@ export component ComboBoxBase {
 
     public function move-selection-down() {
         root.select(Math.min(root.current-index + 1, root.model.length - 1));
+    }
+
+    public function popup-key-handler(event: KeyEvent) -> EventResult {
+        if (event.text == Key.UpArrow) {
+            root.move-selection-up();
+            return accept;
+        } else if (event.text == Key.DownArrow) {
+            root.move-selection-down();
+            return accept;
+        } else if (event.text == Key.Return || event.text == Key.Escape) {
+            root.close-popup();
+            return accept;
+        }
+        return reject;
+
     }
 
     function reset-current() {
@@ -59,6 +78,12 @@ export component ComboBoxBase {
     forward-focus: i-focus-scope;
 
     i-focus-scope := FocusScope {
+        changed has-focus => {
+            if self.has-focus {
+                // this means the popup was closed and we get back the focus
+                root.popup-has-focus = false;
+            }
+        }
         key-pressed(event) => {
             if (!self.enabled) {
                 return reject;

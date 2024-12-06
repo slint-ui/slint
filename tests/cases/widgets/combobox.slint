@@ -90,6 +90,47 @@ assert_eq!(instance.get_current_index(), 1);
 assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
 instance.set_output(Default::default());
 
+// show the popup
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_output(), "");
+// click outside causes the popup to close
+slint_testing::send_mouse_click(&instance, 100., 10.);
+assert_eq!(instance.get_output(), "");
+assert_eq!(instance.get_has_focus(), true);
+slint_testing::send_mouse_click(&instance, 100., 10.);
+assert_eq!(instance.get_output(), "clicked-under\n");
+assert_eq!(instance.get_has_focus(), true);
+instance.set_output(Default::default());
+
+instance.set_current_index(0);
+
+
+// show the popup
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+// The arrow change the values while the popup is shown
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_current_value(), "Bbb");
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_output(), "selected(Bbb,1)\n");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_current_value(), "Ccc");
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\n");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+assert_eq!(instance.get_current_value(), "Bbb");
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
+// close the popup
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Escape));
+assert_eq!(instance.get_current_value(), "Bbb");
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
+instance.set_output(Default::default());
+slint_testing::send_mouse_click(&instance, 100., 10.);
+assert_eq!(instance.get_output(), "clicked-under\n");
+assert_eq!(instance.get_has_focus(), true);
+
+
 // Set current-index to -1
 instance.set_current_index(-1);
 mock_elapsed_time(500);

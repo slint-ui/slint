@@ -299,6 +299,8 @@ impl ItemRc {
     }
 
     /// Return the parent Item in the item tree.
+    ///
+    /// If the item is a the root on its Window or PopupWindow, then the parent is None.
     pub fn parent_item(&self) -> Option<ItemRc> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let item_tree = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
@@ -309,8 +311,19 @@ impl ItemRc {
 
         let mut r = ItemWeak::default();
         comp_ref_pin.as_ref().parent_node(&mut r);
-        // parent_node returns the repeater node, go up one more level!
-        r.upgrade()?.parent_item()
+        let parent = r.upgrade()?;
+        let comp_ref_pin = vtable::VRc::borrow_pin(&parent.item_tree);
+        let item_tree_array = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
+        if let Some(ItemTreeNode::DynamicTree { parent_index, .. }) =
+            item_tree_array.get(parent.index())
+        {
+            // parent_node returns the repeater node, go up one more level!
+            Some(ItemRc::new(parent.item_tree.clone(), *parent_index))
+        } else {
+            // the Item was most likely a PopupWindow and we don't want to return the item for the purpose of this call
+            // (eg, focus/geometry/...)
+            None
+        }
     }
 
     /// Returns true if this item is visible from the root of the item tree. Note that this will return
@@ -635,6 +648,11 @@ impl ItemRc {
                     item_tree = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
 
                     let index = parent.index();
+
+                    if !matches!(item_tree.get(index), Some(ItemTreeNode::DynamicTree { .. })) {
+                        // That was not a repeater (eg, a popup window)
+                        break;
+                    }
 
                     if let Some(next) = step_out(&item_tree, index) {
                         if let Some(item) = step_into_node(

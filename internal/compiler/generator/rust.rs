@@ -2697,7 +2697,6 @@ fn compile_builtin_function_call(
                 quote!({
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    #popup_window_id::user_init(popup_instance_vrc.clone());
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
@@ -2710,6 +2709,7 @@ fn compile_builtin_function_call(
                             #parent_component
                         ))
                     );
+                    #popup_window_id::user_init(popup_instance_vrc.clone());
                 })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)

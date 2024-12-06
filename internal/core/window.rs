@@ -14,8 +14,7 @@ use crate::input::{
     key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, MouseEvent,
     MouseInputState, TextCursorBlinker,
 };
-use crate::item_tree::ItemRc;
-use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
+use crate::item_tree::{ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak};
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
@@ -390,8 +389,10 @@ struct PopupWindow {
     location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     component: ItemTreeRc,
-    //// Defines the close behaviour of the popup.
+    /// Defines the close behaviour of the popup.
     close_policy: PopupClosePolicy,
+    /// the item that had the focus in the parent window when the popup was opened
+    focus_item_in_parent: ItemWeak,
 }
 
 #[pin_project::pin_project]
@@ -840,11 +841,15 @@ impl WindowInner {
 
     /// Move keyboard focus to the next item
     pub fn focus_next_item(&self) {
-        let component = self.component();
-        let start_item = self
-            .take_focus_item()
-            .map(next_focus_item)
-            .unwrap_or_else(|| ItemRc::new(component, 0));
+        let start_item = self.take_focus_item().map(next_focus_item).unwrap_or_else(|| {
+            ItemRc::new(
+                self.active_popups
+                    .borrow()
+                    .last()
+                    .map_or_else(|| self.component(), |p| p.component.clone()),
+                0,
+            )
+        });
         let end_item = self.move_focus(start_item.clone(), next_focus_item);
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
@@ -854,10 +859,15 @@ impl WindowInner {
 
     /// Move keyboard focus to the previous item.
     pub fn focus_previous_item(&self) {
-        let component = self.component();
-        let start_item = previous_focus_item(
-            self.take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
-        );
+        let start_item = previous_focus_item(self.take_focus_item().unwrap_or_else(|| {
+            ItemRc::new(
+                self.active_popups
+                    .borrow()
+                    .last()
+                    .map_or_else(|| self.component(), |p| p.component.clone()),
+                0,
+            )
+        }));
         let end_item = self.move_focus(start_item.clone(), previous_focus_item);
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
@@ -1089,11 +1099,14 @@ impl WindowInner {
             }
         };
 
+        let focus_item = self.take_focus_item().map(|item| item.downgrade()).unwrap_or_default();
+
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,
             location,
             component: popup_componentrc.clone(),
             close_policy,
+            focus_item_in_parent: focus_item,
         });
 
         popup_id
@@ -1134,6 +1147,9 @@ impl WindowInner {
                 let _ = adapter.set_visible(false);
             }
         }
+        if let Some(focus) = current_popup.focus_item_in_parent.upgrade() {
+            self.set_focus_item(&focus, true);
+        }
     }
 
     /// Removes the popup matching the given ID.
@@ -1142,8 +1158,7 @@ impl WindowInner {
         let maybe_index = active_popups.iter().position(|popup| popup.popup_id == popup_id);
 
         if let Some(popup_index) = maybe_index {
-            self.close_popup_impl(&active_popups[popup_index]);
-            active_popups.remove(popup_index);
+            self.close_popup_impl(&active_popups.remove(popup_index));
         }
     }
 
