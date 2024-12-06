@@ -13,10 +13,10 @@ use vtable::*;
 /// This is the actual doc
 struct HelloVTable {
     foo: fn(VRef<'_, HelloVTable>, u32) -> u32,
-    foo_mut: fn(VRefMut<'_, HelloVTable>, u32) -> u32,
+    foo_mut: extern "C" fn(VRefMut<'_, HelloVTable>, u32) -> u32,
     construct: fn(*const HelloVTable, u32) -> VBox<HelloVTable>,
     assoc: fn(*const HelloVTable) -> isize,
-    with_lifetime: fn(VRef<'_, HelloVTable>) -> &'_ u32,
+    with_lifetime: extern "C-unwind" fn(VRef<'_, HelloVTable>) -> &'_ u32,
 
     drop: fn(VRefMut<'_, HelloVTable>),
 
