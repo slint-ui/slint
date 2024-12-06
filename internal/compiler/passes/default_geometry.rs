@@ -12,7 +12,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
 };
@@ -187,7 +187,8 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
                         // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (same as #407)
                         return None;
                     }
-                    let explicit_constraints = LayoutConstraints::new(c, diag);
+                    let explicit_constraints =
+                        LayoutConstraints::new(c, diag, DiagnosticLevel::Error);
                     let use_implicit_size = c.borrow().builtin_type().map_or(false, |b| {
                         b.default_size_binding == DefaultSizeBinding::ImplicitSize
                     });
@@ -223,7 +224,7 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
     let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
 
-    let explicit_constraints = LayoutConstraints::new(elem, diag);
+    let explicit_constraints = LayoutConstraints::new(elem, diag, DiagnosticLevel::Warning);
     if !explicit_constraints.fixed_width {
         merge_explicit_constraints(&mut expr_h, &explicit_constraints, Orientation::Horizontal);
     }

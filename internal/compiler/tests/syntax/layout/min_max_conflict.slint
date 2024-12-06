@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export Test := Rectangle {
+export component Test inherits Rectangle {
 
     GridLayout {
         Rectangle {
@@ -15,6 +15,29 @@ export Test := Rectangle {
 //                 ^error{Cannot specify both 'width' and 'max-width'}
             min-height: 42px;
             max-width: 42px;
+        }
+    }
+
+    // outside a layout
+    Rectangle {
+        width: 42px;
+//             ^error{Cannot specify both 'width' and 'min-width'}
+        min-width: 5rem;
+    }
+
+    Rectangle {
+        // Slint 1.8 and earlier did not complain about extra specifications when the item is not in a layout
+        // contains a layout that's why it's a warning instead now
+        height: 10rem;
+//              ^warning{Cannot specify both 'height' and 'min-height'}
+        min-height: 8rem;
+        HorizontalLayout {
+            Rectangle {
+                height: 42px;
+//                      ^error{Cannot specify both 'height' and 'max-height'}
+                max-height: 12px;
+
+            }
         }
     }
 
