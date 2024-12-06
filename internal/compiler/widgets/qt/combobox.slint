@@ -36,6 +36,10 @@ export component ComboBox {
                 big-popup.show();
             }
         }
+        close-popup => {
+            small-popup.close();
+            big-popup.close();
+        }
     }
 
     big-popup := PopupWindow {
@@ -50,19 +54,32 @@ export component ComboBox {
             height: 100%;
         }
 
-        ScrollView {
-            VerticalLayout {
-                alignment: start;
+        FocusScope {
+            init => {
+                self.focus();
+                base.popup-has-focus = true;
+            }
+            changed has-focus => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
 
-                for value[index] in root.model: NativeStandardListViewItem {
-                    item: { text: value };
-                    is-selected: root.current-index == index;
-                    has-hover: ta2.has-hover;
-                    combobox: true;
+            ScrollView {
+                VerticalLayout {
+                    alignment: start;
 
-                    ta2 := TouchArea {
-                        clicked => {
-                            base.select(index);
+                    for value[index] in root.model: NativeStandardListViewItem {
+                        item: { text: value };
+                        is-selected: root.current-index == index;
+                        has-hover: ta2.has-hover;
+                        combobox: true;
+
+                        ta2 := TouchArea {
+                            clicked => {
+                                base.select(index);
+                            }
                         }
                     }
                 }
@@ -79,17 +96,30 @@ export component ComboBox {
             height: 100%;
         }
 
-        VerticalLayout {
+        FocusScope {
+            init => {
+                self.focus();
+                base.popup-has-focus = true;
+            }
+            changed has-focus => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
 
-            for value[index] in root.model: NativeStandardListViewItem {
-                item: { text: value };
-                is-selected: root.current-index == index;
-                has-hover: ta.has-hover;
-                combobox: true;
+            VerticalLayout {
 
-                ta := TouchArea {
-                    clicked => {
-                        base.select(index);
+                for value[index] in root.model: NativeStandardListViewItem {
+                    item: { text: value };
+                    is-selected: root.current-index == index;
+                    has-hover: ta.has-hover;
+                    combobox: true;
+
+                    ta := TouchArea {
+                        clicked => {
+                            base.select(index);
+                        }
                     }
                 }
             }

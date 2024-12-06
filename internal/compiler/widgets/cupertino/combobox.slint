@@ -46,6 +46,9 @@ export component ComboBox {
         show-popup => {
             popup.show();
         }
+        close-popup => {
+            popup.close();
+        }
     }
 
     FocusBorder {
@@ -96,7 +99,7 @@ export component ComboBox {
 
         VerticalLayout {
             alignment: center;
-            
+
             Rectangle {
                 horizontal-stretch: 0;
                 min-width: 16px;
@@ -160,24 +163,37 @@ export component ComboBox {
         width: root.width;
         height: root.visible-items * CupertinoSizeSettings.item-height  + 2 * root.popup-padding;
 
-        MenuBorder {
-            ScrollView {
-                VerticalLayout {
-                    alignment: start;
-                    padding: root.popup-padding;
+        FocusScope {
+            init => {
+                self.focus();
+                base.popup-has-focus = true;
+            }
+            changed has-focus => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
 
-                    for value[index] in root.model : ListItem {
-                        padding-horizontal: 0;
-                        item: { text: value };
-                        is-selected: index == root.current-index;
-                        has-hover: touch-area.has-hover;
-                        pressed: touch-area.pressed;
-                        pressed-x: touch-area.pressed-x;
-                        pressed-y: touch-area.pressed-y;
+            MenuBorder {
+                ScrollView {
+                    VerticalLayout {
+                        alignment: start;
+                        padding: root.popup-padding;
 
-                        touch-area := TouchArea {
-                            clicked => {
-                                base.select(index);
+                        for value[index] in root.model : ListItem {
+                            padding-horizontal: 0;
+                            item: { text: value };
+                            is-selected: index == root.current-index;
+                            has-hover: touch-area.has-hover;
+                            pressed: touch-area.pressed;
+                            pressed-x: touch-area.pressed-x;
+                            pressed-y: touch-area.pressed-y;
+
+                            touch-area := TouchArea {
+                                clicked => {
+                                    base.select(index);
+                                }
                             }
                         }
                     }

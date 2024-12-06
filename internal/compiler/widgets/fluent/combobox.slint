@@ -52,6 +52,9 @@ export component ComboBox {
         show-popup => {
             popup.show();
         }
+        close-popup => {
+            popup.close();
+        }
     }
 
     background := Rectangle {
@@ -100,21 +103,33 @@ export component ComboBox {
         width: root.width;
         height: root.visible-items * FluentSizeSettings.item-height +  2 * root.popup-padding;
 
-        MenuBorder {
-            ScrollView {
-                VerticalLayout {
-                    alignment: start;
-                    padding: root.popup-padding;
+        FocusScope {
+            init => {
+                self.focus();
+                base.popup-has-focus = true;
+            }
+            changed has-focus => {
+                base.popup-has-focus = self.has-focus;
+            }
+            key-pressed(event) => {
+                return base.popup-key-handler(event);
+            }
+            MenuBorder {
+                ScrollView {
+                    VerticalLayout {
+                        alignment: start;
+                        padding: root.popup-padding;
 
-                    for value[index] in root.model : ListItem {
-                        item: { text: value };
-                        is-selected: index == root.current-index;
-                        has-hover: touch-area.has-hover;
-                        pressed: touch-area.pressed;
+                        for value[index] in root.model : ListItem {
+                            item: { text: value };
+                            is-selected: index == root.current-index;
+                            has-hover: touch-area.has-hover;
+                            pressed: touch-area.pressed;
 
-                        touch-area := TouchArea {
-                            clicked => {
-                                base.select(index);
+                            touch-area := TouchArea {
+                                clicked => {
+                                    base.select(index);
+                                }
                             }
                         }
                     }
