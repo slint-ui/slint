@@ -649,6 +649,11 @@ impl ItemRc {
 
                     let index = parent.index();
 
+                    if !matches!(item_tree.get(index), Some(ItemTreeNode::DynamicTree { .. })) {
+                        // That was not a repeater (eg, a popup window)
+                        break;
+                    }
+
                     if let Some(next) = step_out(&item_tree, index) {
                         if let Some(item) = step_into_node(
                             parent.item_tree(),

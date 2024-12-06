@@ -114,8 +114,10 @@ public:
         auto popup = Component::create(parent_component);
         auto p = pos(popup);
         auto popup_dyn = popup.into_dyn();
-        return cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
-                                                           &parent_item);
+        auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
+                                                              &parent_item);
+        popup->user_init();
+        return id;
     }
 
     void close_popup(uint32_t popup_id) const

@@ -1760,8 +1760,8 @@ fn generate_item_tree(
     ]);
 
     // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
-    // So always call user_init(), unless this component is a repeated.
-    if parent_ctx.map_or(true, |parent_ctx| parent_ctx.repeater_index.is_none()) {
+    // And in PopupWindow this is also called by the runtime
+    if parent_ctx.is_none() {
         create_code.push("self->user_init();".to_string());
     }
 
