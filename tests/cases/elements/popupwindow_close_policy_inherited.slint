@@ -1,0 +1,548 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+component DerivesNoClose inherits PopupWindow {
+    close-policy: no-auto-close;
+}
+
+component DerivesNoCloseLegacy inherits PopupWindow {
+    close-on-click: false;
+}
+
+component DerivesAutoClose inherits DerivesNoClose {
+    close-on-click: true;
+}
+
+component DerivesDerivesNoClose inherits DerivesNoClose {
+}
+
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    in-out property <bool> popup-created;
+    in-out property <int> click-count;
+    in-out property <int> popup-selector: 0;
+    in-out property <int> popup-clicked;
+    out property <length> last-underneath-mouse-x: ta.mouse-x;
+    out property <length> last-underneath-mouse-y: ta.mouse-y;
+
+    callback do-close;
+    do-close => {
+        close-from-outside.close();
+    }
+
+    default-popup := DerivesAutoClose {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        Text {
+            text: "I'm a default";
+        }
+        init => {
+            root.popup-created = true;
+        }
+
+        TouchArea {
+            width: 7px; x: 0px;
+            clicked => {
+                popup-clicked += 1;
+            }
+        }
+    }
+
+    self-closing-popup := DerivesDerivesNoClose {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        Text {
+            text: "I'm a self-closing popup";
+        }
+        TouchArea {
+            clicked => {
+                self-closing-popup.close();
+            }
+        }
+        init => {
+            root.popup-created = true;
+        }
+    }
+
+    close-from-outside := DerivesAutoClose {
+        close-policy: no-auto-close;
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        Text {
+            text: "I'm a popup that only close from outside";
+        }
+        TouchArea {
+            clicked => {
+                popup-clicked += 1000;
+            }
+        }
+        init => {
+            root.popup-created = true;
+        }
+    }
+
+    close-click-outside := DerivesNoCloseLegacy {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        close-policy: close-on-click-outside;
+        Text {
+            text: "I close on outside click";
+        }
+        init => {
+            root.popup-created = true;
+        }
+
+        TouchArea {
+            width: 7px; x: 0px;
+            clicked => {
+                popup-clicked += 2;
+            }
+        }
+    }
+
+    ta := TouchArea {
+        clicked => {
+            root.click-count = root.click-count + 1;
+            if (root.popup-selector == 0) {
+                root.popup-selector = 4;
+                default-popup.show();
+            } else if (root.popup-selector == 1) {
+                root.popup-selector = 4;
+                self-closing-popup.show();
+            } else if (root.popup-selector == 2) {
+                root.popup-selector = 4;
+                close-from-outside.show();
+            } else if (root.popup-selector == 3) {
+                root.popup-selector = 4;
+                close-click-outside.show();
+            }
+        }
+    }
+}
+/*
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_click_count(), 0);
+assert_eq!(instance.get_popup_created(), false);
+
+// --------- Default popup
+instance.set_popup_selector(0);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 0);
+
+// Click to close
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 2);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+// --------- Default popup but verify closed on press when outside
+instance.set_popup_selector(0);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq!(instance.get_last_underneath_mouse_y(), 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+// mouse grabbed, underneath won't notice
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1.0, 1.0) });
+assert_eq!(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq!(instance.get_last_underneath_mouse_y(), 15.);
+
+// press should close
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(1.0, 1.0), button: PointerEventButton::Left });
+
+// if it was closed, the underneath should receive the move event
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(12.0, 12.0) });
+assert_eq!(instance.get_last_underneath_mouse_x(), 12.);
+assert_eq!(instance.get_last_underneath_mouse_y(), 12.);
+
+slint_testing::mock_elapsed_time(50);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(12.0, 12.0), button: PointerEventButton::Left });
+
+assert_eq!(instance.get_click_count(), 1);
+
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 2);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+// --------- Popup with close-policy: no-auto-close
+instance.set_popup_selector(1);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+// Click outside, nothing happens
+slint_testing::send_mouse_click(&instance, 1., 1.);
+assert_eq!(instance.get_click_count(), 1);
+// Click outside again, nothing happens
+slint_testing::send_mouse_click(&instance, 295., 295.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+// Click on the popup, it's registered and the custom TouchArea calls close()
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 2);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+// --------- Popup with close-policy: no-auto-close closed externally
+instance.set_popup_selector(2);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 1);
+
+// Press esc nothing happen
+slint_testing::send_keyboard_string_sequence(&instance, "\u{001b}");
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 1001);
+
+// Click outside, nothing happens
+slint_testing::send_mouse_click(&instance, 1., 1.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 1001);
+
+// Click on the popup, it's registered but nothing is done
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 2001);
+// Click again to verify that it was _not_ closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 3001);
+
+// Close manually and verify that subsequent click is passed through
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_click_count(), 2);
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 3);
+assert_eq!(instance.get_popup_clicked(), 3001);
+
+
+// --------- Close outside click  popup
+instance.set_popup_selector(3);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 3001);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_popup_clicked(), 3003);
+
+// Click outside to close
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_click_count(), 1);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_click_count(), 2);
+assert_eq!(instance.get_popup_clicked(), 3003);
+
+
+// --------- Close outside click popup by esc
+instance.set_popup_selector(3);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_click_count(), 1);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_popup_clicked(), 3005);
+
+// close by esc
+slint_testing::send_keyboard_string_sequence(&instance, "\u{001b}");
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_click_count(), 2);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_click_count(), 0);
+assert_eq(instance.get_popup_created(), false);
+
+// --------- Default popup
+instance.set_popup_selector(0);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_created(), true);
+assert_eq(instance.get_popup_clicked(), 0);
+
+// Click to close
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 2);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// --------- Default popup but verify closed on press when outside
+instance.set_popup_selector(0);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq(instance.get_last_underneath_mouse_y(), 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_created(), true);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// mouse grabbed, underneath won't notice
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({1.0, 1.0}));
+assert_eq(instance.get_last_underneath_mouse_x(), 15.);
+assert_eq(instance.get_last_underneath_mouse_y(), 15.);
+
+// press should close
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({1.0, 1.0}), slint::PointerEventButton::Left);
+
+// if it was closed, the underneath should receive the move event
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({12.0, 12.0}));
+assert_eq(instance.get_last_underneath_mouse_x(), 12.);
+assert_eq(instance.get_last_underneath_mouse_y(), 12.);
+
+slint_testing::mock_elapsed_time(50);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({12.0, 12.0}), slint::PointerEventButton::Left);
+
+assert_eq(instance.get_click_count(), 1);
+
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 2);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// --------- Popup with close-policy: no-auto-close
+instance.set_popup_selector(1);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+
+
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_created(), true);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// Click outside, nothing happens
+slint_testing::send_mouse_click(&instance, 1., 1.);
+assert_eq(instance.get_click_count(), 1);
+// Click outside again, nothing happens
+slint_testing::send_mouse_click(&instance, 295., 295.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// Click on the popup, it's registered and the custom TouchArea calls close()
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 2);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// --------- Popup with close-policy: no-auto-close closed externally
+instance.set_popup_selector(2);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_created(), true);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// Click outside, nothing happens
+slint_testing::send_mouse_click(&instance, 1., 1.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_clicked(), 1);
+
+// Click on the popup, it's registered but nothing is done
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_clicked(), 1001);
+
+// Click again to verify that it was _not_ closed
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_clicked(), 2001);
+
+// Close manually and verify that subsequent click is passed through
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 2);
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 3);
+assert_eq(instance.get_popup_clicked(), 2001);
+
+
+// --------- Close outside click  popup
+instance.set_popup_selector(3);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 1);
+assert_eq(instance.get_popup_created(), true);
+assert_eq(instance.get_popup_clicked(), 2001);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_popup_clicked(), 2003);
+
+// Click outside to close
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 1);
+// Subsequent click to verify that it was closed
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 2);
+assert_eq(instance.get_popup_clicked(), 2003);
+
+
+// --------- Close outside click popup by esc
+instance.set_popup_selector(3);
+instance.set_click_count(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 1);
+
+// click inside
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_popup_clicked(), 2005);
+
+// close by esc
+slint_testing::send_keyboard_string_sequence(&instance, "\u001b");
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_click_count(), 2);
+```
+
+```disable-because-nodejs-runs-with-qt-and-send-mouse-click-wont-send-to-popup-qwindow
+var instance = new slint.TestCase({});
+
+assert.equal(instance.click_count, 0);
+assert.equal(instance.popup_created, false);
+
+instance.popup_selector = 0;
+instance.popup_created = false;
+instance.click_count = 0;
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 1);
+assert.equal(instance.popup_created, true);
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 1);
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 2);
+
+instance.popup_selector = 1;
+instance.popup_created = false;
+instance.click_count = 0;
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 1);
+assert.equal(instance.popup_created, true);
+slintlib.private_api.send_mouse_click(instance, 1., 1.);
+assert.equal(instance.click_count, 1);
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 1);
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 2);
+
+instance.popup_selector = 2;
+instance.popup_created = false;
+instance.click_count = 0;
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 1);
+assert.equal(instance.popup_created, true);
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 1);
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 1);
+
+instance.do_close();
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 2);
+instance.do_close();
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.click_count, 3);
+
+
+// --------- Close outside click  popup
+instance.set_popup_selector(3);
+instance.set_popup_created(false);
+instance.set_click_count(0);
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.get_click_count(), 1);
+assert.equal(instance.get_popup_created(), true);
+assert.equal(instance.get_popup_clicked(), 2001);
+
+// click inside
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.get_popup_clicked(), 2003);
+
+// Click outside to close
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.get_click_count(), 1);
+// Subsequent click to verify that it was closed
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.get_click_count(), 2);
+assert.equal(instance.get_popup_clicked(), 2003);
+
+
+// --------- Close outside click popup by esc
+instance.set_popup_selector(3);
+instance.set_click_count(0);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.get_click_count(), 1);
+
+// click inside
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.get_popup_clicked(), 2005);
+
+// close by esc
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{001b}");
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.get_click_count(), 2);
+```
+
+*/
