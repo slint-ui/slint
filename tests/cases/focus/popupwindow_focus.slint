@@ -1,0 +1,119 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+
+    out property <string> le1-text;
+    out property <string> le2-text;
+    out property <string> inner-text;
+    out property <string> inner2-text;
+
+    forward-focus: le1;
+
+    le1 := LineEdit {
+        width: 100%;
+        x: 0px;
+        y: 0px;
+        edited(text) => {
+            le1-text = text;
+        }
+    }
+
+
+    le2 := LineEdit {
+        width: 100%;
+        x: 0px;
+        y: 50px;
+        edited(text) => {
+            le2-text = text;
+        }
+        accepted(text) => {
+            popup.show();
+        }
+    }
+
+
+
+    popup := PopupWindow {
+        width: 200px;
+        height: 200px;
+        x: 100px;
+        y: 100px;
+        forward-focus: inner-le;
+        // FIXME: Would be nice if forward focus worked in popups, but it doesn't, so simulate it with an init
+        init => { inner-le.focus();  }
+        close-policy: close-on-click-outside;
+        VerticalBox {
+            alignment: center;
+            LineEdit {
+                edited(text) => {
+                    inner2-text = text;
+                }
+            }
+            inner-le := LineEdit {
+                edited(text) => {
+                    inner-text = text;
+                }
+                accepted(text) => {
+                    popup.close();
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "");
+assert_eq!(instance.get_inner_text(), "");
+assert_eq!(instance.get_inner2_text(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "\tY");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "Y");
+assert_eq!(instance.get_inner_text(), "");
+assert_eq!(instance.get_inner2_text(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "\t\tZ");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "YZ");
+assert_eq!(instance.get_inner_text(), "");
+assert_eq!(instance.get_inner2_text(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "\nA");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "YZ");
+assert_eq!(instance.get_inner_text(), "A");
+assert_eq!(instance.get_inner2_text(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "\tB");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "YZ");
+assert_eq!(instance.get_inner_text(), "A");
+assert_eq!(instance.get_inner2_text(), "B");
+slint_testing::send_keyboard_string_sequence(&instance, "\tC");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "YZ");
+assert_eq!(instance.get_inner_text(), "AC");
+assert_eq!(instance.get_inner2_text(), "B");
+// backwards tab
+slint_testing::send_keyboard_string_sequence(&instance, "\u{0019}D\u{0019}E");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "YZ");
+assert_eq!(instance.get_inner_text(), "ACE");
+assert_eq!(instance.get_inner2_text(), "BD");
+slint_testing::send_keyboard_string_sequence(&instance, "\nQ");
+assert_eq!(instance.get_le1_text(), "X");
+assert_eq!(instance.get_le2_text(), "YZQ");
+assert_eq!(instance.get_inner_text(), "ACE");
+assert_eq!(instance.get_inner2_text(), "BD");
+slint_testing::send_keyboard_string_sequence(&instance, "\tR");
+assert_eq!(instance.get_le1_text(), "XR");
+assert_eq!(instance.get_le2_text(), "YZQ");
+assert_eq!(instance.get_inner_text(), "ACE");
+assert_eq!(instance.get_inner2_text(), "BD");
+```
+*/
