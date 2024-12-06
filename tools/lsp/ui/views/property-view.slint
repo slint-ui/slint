@@ -62,16 +62,17 @@ component NameLabel inherits HorizontalLayout {
 }
 
 component ResettingLineEdit {
-    property <length> border: 3px;
     in property <string> default-text;
     in-out property <bool> can-compile: true;
 
-    in property <bool> enabled <=> le.enabled;
+    in property <bool> enabled;
     in property <InputType> input-type <=> le.input-type;
     in property <TextHorizontalAlignment> horizontal-alignment <=> le.horizontal-alignment;
     in property <string> placeholder-text <=> le.placeholder-text;
     out property <bool> has-focus <=> le.has-focus;
     in-out property <string> text <=> le.text;
+
+    property <length> border: 3px;
 
     callback accepted <=> le.accepted;
     callback edited <=> le.edited;
@@ -85,6 +86,8 @@ component ResettingLineEdit {
     max-height <=> le.max-height;
 
     le := LineEdit {
+        enabled: root.enabled;
+        
         width: 100%;
         height: 100%;
         x: 0px;
@@ -120,6 +123,7 @@ component ResettingLineEdit {
 }
 
 component CodeWidget inherits VerticalLayout {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
@@ -145,11 +149,13 @@ component CodeWidget inherits VerticalLayout {
     if property-information.value.code != "": HorizontalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         ResetButton {
+            enabled: root.enabled;
             element-information <=> element-information;
             property-information: property-information;
         }
 
         CodeButton {
+            enabled: root.enabled;
             element-information <=> element-information;
             property-information: property-information;
         }
@@ -160,8 +166,6 @@ component ChildIndicator {
     out property <bool> open: false;
 
     x: -1.0 * EditorSpaceSettings.group-indent * 2;
-
-
 
     Rectangle {
         width: 100%;
@@ -187,6 +191,7 @@ component ChildIndicator {
 component SecondaryContent inherits Rectangle {
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
+    in property <bool> enabled;
 
     in property <bool> open: false;
 
@@ -214,12 +219,14 @@ component SecondaryContent inherits Rectangle {
             HorizontalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 ResetButton {
+                    enabled: root.enabled;
                     element-information <=> element-information;
                     property-information: property-information;
                     clicked() => { root.reset(); }
                 }
 
                 CodeButton {
+                    enabled: root.enabled;
                     element-information <=> element-information;
                     property-information: property-information;
                 }
@@ -229,6 +236,7 @@ component SecondaryContent inherits Rectangle {
 }
 
 component FloatWidget inherits VerticalLayout {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
@@ -268,6 +276,7 @@ component FloatWidget inherits VerticalLayout {
         height: 2rem;
 
         number := ResettingLineEdit {
+            enabled: root.enabled;
             horizontal-alignment: right;
             min-width: EditorSizeSettings.float-size;
             horizontal-stretch: 0;
@@ -290,6 +299,8 @@ component FloatWidget inherits VerticalLayout {
         }
 
         if property-information.value.visual-items.length > 1: ComboBox {
+            enabled: root.enabled;
+
             horizontal-stretch: 0;
 
             min-width: EditorSizeSettings.length-combo;
@@ -312,12 +323,13 @@ component FloatWidget inherits VerticalLayout {
 }
 
 component StringWidget {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
     property <bool> open: false;
 
-    childIndicator := ChildIndicator {
+           childIndicator := ChildIndicator {
         y: content.y + EditorSpaceSettings.default-spacing/2;
     }
 
@@ -331,45 +343,50 @@ component StringWidget {
             spacing: EditorSpaceSettings.default-spacing;
             height: 2rem;
             ResettingLineEdit {
+                enabled: root.enabled;
                 default-text: property-information.value.value-string;
                 edited(text) => {
                     self.can-compile = Api.test-string-binding(
-                 root.element-information.source-uri,
-                 root.element-information.source-version,
-                 root.element-information.range.start,
-                 property-information.name,
-                 text,
-                 property-information.value.is-translatable,
-                 property-information.value.tr-context,
-                 property-information.value.tr-plural,
-                 property-information.value.tr-plural-expression,
-             );
+                        root.element-information.source-uri,
+                        root.element-information.source-version,
+                        root.element-information.range.start,
+                        property-information.name,
+                        text,
+                        property-information.value.is-translatable,
+                        property-information.value.tr-context,
+                        property-information.value.tr-plural,
+                        property-information.value.tr-plural-expression,
+                    );
                 }
                 accepted(text) => {
                     Api.set-string-binding(
-                 root.element-information.source-uri,
-                 root.element-information.source-version,
-                 root.element-information.range.start,
-                 property-information.name,
-                 text,
-                 property-information.value.is-translatable,
-                 property-information.value.tr-context,
-                 property-information.value.tr-plural,
-                 property-information.value.tr-plural-expression,
-             );
+                        root.element-information.source-uri,
+                        root.element-information.source-version,
+                        root.element-information.range.start,
+                        property-information.name,
+                        text,
+                        property-information.value.is-translatable,
+                        property-information.value.tr-context,
+                        property-information.value.tr-plural,
+                        property-information.value.tr-plural-expression,
+                    );
                 }
             }
         }
 
         sub := SecondaryContent {
+            enabled: root.enabled;
             element-information: element-information;
             property-information: property-information;
             open: childIndicator.open;
+
             CheckBox {
+                enabled: root.enabled;
                 text: "Translatable";
             }
 
             CheckBox {
+                enabled: root.enabled;
                 text: "Disambiguate";
             }
         }
@@ -377,10 +394,11 @@ component StringWidget {
 }
 
 component ColorLineEdit inherits HorizontalLayout {
+    in property <bool> enabled;
     in property <string> channel: "R";
     in-out property <int> value;
 
-    alignment: stretch;
+          alignment: stretch;
     spacing: EditorSpaceSettings.default-spacing;
 
     Text {
@@ -390,6 +408,7 @@ component ColorLineEdit inherits HorizontalLayout {
     }
 
     slide-value := Slider {
+        enabled: root.enabled;
         minimum: 0;
         maximum: 255;
         value: root.value;
@@ -400,6 +419,7 @@ component ColorLineEdit inherits HorizontalLayout {
     }
 
     num-value := ResettingLineEdit {
+        enabled: root.enabled;
         input-type: number;
         width: 5rem;
         default-text: root.value;
@@ -411,6 +431,7 @@ component ColorLineEdit inherits HorizontalLayout {
 }
 
 component ColorWidget inherits Rectangle {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
@@ -435,6 +456,7 @@ component ColorWidget inherits Rectangle {
             alignment: stretch;
 
             ResettingLineEdit {
+                enabled: root.enabled;
                 default-text: root.current-color-data.text;
 
                 edited(text) => {
@@ -452,12 +474,12 @@ component ColorWidget inherits Rectangle {
 
                 accepted(text) => {
                     Api.set-code-binding(
-                    root.element-information.source-uri,
-                    root.element-information.source-version,
-                    root.element-information.range.start,
-                    root.property-information.name,
-                    text,
-                );
+                        root.element-information.source-uri,
+                        root.element-information.source-version,
+                        root.element-information.range.start,
+                        root.property-information.name,
+                        text,
+                    );
                 }
             }
 
@@ -472,6 +494,8 @@ component ColorWidget inherits Rectangle {
         sub := SecondaryContent {
             out property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
 
+            enabled: root.enabled;
+
             changed slider-color => {
                 root.current-color = slider-color;
             }
@@ -480,21 +504,25 @@ component ColorWidget inherits Rectangle {
 
 
             r := ColorLineEdit {
+                enabled: root.enabled;
                 value: root.current-color-data.r;
                 channel: "R";
             }
 
             g := ColorLineEdit {
+                enabled: root.enabled;
                 value: root.current-color-data.g;
                 channel: "G";
             }
 
             b := ColorLineEdit {
+                enabled: root.enabled;
                 value: root.current-color-data.b;
                 channel: "B";
             }
 
             a := ColorLineEdit {
+                enabled: root.enabled;
                 value: root.current-color-data.a;
                 channel: "A";
             }
@@ -507,6 +535,7 @@ component ColorWidget inherits Rectangle {
 }
 
 component IntegerWidget inherits VerticalLayout {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
@@ -519,6 +548,7 @@ component IntegerWidget inherits VerticalLayout {
         height: 2rem;
         spacing: EditorSpaceSettings.default-spacing;
         ResettingLineEdit {
+            enabled: root.enabled;
             horizontal-alignment: right;
             input-type: number;
 
@@ -526,28 +556,29 @@ component IntegerWidget inherits VerticalLayout {
 
             edited(text) => {
                 self.can-compile = Api.test-code-binding(
-            element-information.source-uri,
-            element-information.source-version,
-            element-information.range.start,
-            property-information.name,
-            text,
-        );
+                    element-information.source-uri,
+                    element-information.source-version,
+                    element-information.range.start,
+                    property-information.name,
+                    text,
+                );
             }
 
             accepted(text) => {
                 Api.set-code-binding(
-            element-information.source-uri,
-            element-information.source-version,
-            element-information.range.start,
-            property-information.name,
-            text,
-        );
+                    element-information.source-uri,
+                    element-information.source-version,
+                    element-information.range.start,
+                    property-information.name,
+                    text,
+                );
             }
         }
     }
 }
 
 component EnumWidget inherits VerticalLayout {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
@@ -558,6 +589,7 @@ component EnumWidget inherits VerticalLayout {
 
     HorizontalLayout {
         ComboBox {
+            enabled: root.enabled;
             current-index: property-information.value.value-int;
 
             model: property-information.value.visual-items;
@@ -576,6 +608,7 @@ component EnumWidget inherits VerticalLayout {
 }
 
 component BooleanWidget inherits VerticalLayout {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
 
@@ -595,97 +628,19 @@ component BooleanWidget inherits VerticalLayout {
                 alignment: start;
                 padding-left: EditorSpaceSettings.default-padding;
                 spacing: EditorSpaceSettings.default-spacing;
-                checkbox:=CheckBox {
+                checkbox := CheckBox {
+                    enabled: root.enabled;
                     checked: property-information.value.value_bool;
                     text: self.checked ? "True" : "False";
 
                     toggled() => {
                         Api.set-code-binding(
-            element-information.source-uri,
-            element-information.source-version,
-            element-information.range.start,
-            property-information.name,
-            self.checked ? "true" : "false",
-        );
-                    }
-                }
-
-            }
-        }
-    }
-}
-
-export component ExpandableProperty inherits Rectangle {
-    callback toggled;
-    in-out property <bool> checked:false;
-    property <duration> dur:300ms;
-    in-out property <color> headerBG: Palette.alternate-background;
-    in-out property <bool> enabled:true;
-    in property <string> title: "Title";
-    clip: true;
-    height: header.height + EditorSpaceSettings.default-spacing + (root.checked ? content.preferred-height : 0px);
-    animate height {
-        duration: dur;
-        easing: ease-out;
-    }
-
-    VerticalLayout {
-        x: 0;
-        spacing: EditorSpaceSettings.default-spacing;
-        Rectangle {
-            height: 5px;
-        }
-
-        touch-area := TouchArea {
-            clicked => {
-                if (root.enabled) {
-                    root.checked = !root.checked;
-                    root.toggled();
-                }
-            }
-
-            state-layer := StateLayer {
-                width: 100%;
-                height: 100%;
-                has-hover: touch-area.has-hover;
-                pressed: touch-area.pressed;
-            }
-
-            header := Rectangle {
-                width: 100%;
-                height: 30px;
-                background: headerBG;
-            }
-
-            HorizontalLayout {
-                x: 0;
-                y: 0;
-                width: 100%;
-                alignment: stretch;
-
-                accordionIcon := Image {
-                    width: EditorSpaceSettings.group-indent;
-                    source: Icons.add;
-                    colorize: Palette.foreground;
-                    vertical-alignment: top;
-                    visible: state-layer.has-hover;
-                    rotation-angle: root.checked ? 180deg : 0deg;
-                    animate rotation-angle {
-                        duration: dur / 2;
-                        easing: ease-in;
-                    }
-                }
-
-                content := Rectangle {
-                    background: headerBG;
-                    height: root.checked ? self.preferred-height : 10px;
-                    animate height {
-                        duration: dur;
-                        easing: ease-out;
-                    }
-                    VerticalLayout {
-                        width: 100%;
-                        @children
+                            element-information.source-uri,
+                            element-information.source-version,
+                            element-information.range.start,
+                            property-information.name,
+                            self.checked ? "true" : "false",
+                        );
                     }
                 }
             }
@@ -694,12 +649,14 @@ export component ExpandableProperty inherits Rectangle {
 }
 
 component ExpandableGroup {
+    in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <string> text;
     in property <[PropertyInformation]> properties;
     in property <length> panel-width;
 
     property <bool> open: true;
+
     group-layer := Rectangle {
 
         content-layer := VerticalLayout {
@@ -757,31 +714,38 @@ component ExpandableGroup {
                         alignment: stretch;
 
                         if property.value.kind == PropertyValueKind.boolean: BooleanWidget {
+                            enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
                         }
                         if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
+                            enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
                         }
 
                         if property.value.kind == PropertyValueKind.code: CodeWidget {
+                            enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
                         }
                         if property.value.kind == PropertyValueKind.enum:  EnumWidget {
+                            enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
                         }
                         if property.value.kind == PropertyValueKind.integer: IntegerWidget {
+                            enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
                         }
                         if property.value.kind == PropertyValueKind.string: StringWidget {
+                            enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
                         }
                         if property.value.kind == PropertyValueKind.float: FloatWidget {
+                            enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
                         }
@@ -793,6 +757,8 @@ component ExpandableGroup {
 }
 
 export component PropertyView {
+    in property <bool> enabled;
+
     property <ElementInformation> current-element <=> Api.current-element;
     property <[PropertyGroup]> properties <=> Api.properties;
 
@@ -820,6 +786,8 @@ export component PropertyView {
                 alignment: start;
 
                 for group in root.properties: ExpandableGroup {
+                    enabled: root.enabled;
+
                     text: group.group-name;
                     panel-width: content-layer.width;
                     element-information <=> root.current-element;

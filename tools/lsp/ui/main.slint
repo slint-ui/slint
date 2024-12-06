@@ -61,7 +61,7 @@ export component PreviewUi inherits Window {
                         checkable: true;
                         checked <=> preview.select-mode;
                         primary: preview.select-mode;
-                        enabled: Api.diagnostic-summary != DiagnosticSummary.Errors;
+                        enabled: preview.preview-is-current;
                     }
                 }
 
@@ -77,7 +77,8 @@ export component PreviewUi inherits Window {
                         preview-area-position-y: preview.preview-area-position-y;
                         preview-area-width: preview.preview-area-width;
                         preview-area-height: preview.preview-area-height;
-                        visible-component <=> root.visible-component;
+
+                        visible-component: root.visible-component;
 
                         can-drop(index, x, y, on-drop-area) => {
                             Api.can-drop(index, x, y, on-drop-area);
@@ -96,7 +97,9 @@ export component PreviewUi inherits Window {
                         visible-component <=> root.visible-component;
                     }
 
-                    if  root.show-right-sidebar: PropertyView { }
+                    if  root.show-right-sidebar: PropertyView {
+                        enabled: preview.preview-is-current;
+                    }
                 }
 
                 StatusLine { }
