@@ -118,6 +118,8 @@ component ItemTemplate {
 
 export component ExpandableListView inherits ScrollView {
     in property <[ComponentListItem]> known-components;
+
+    in property <bool> preview-is-current;
     in property <length> preview-area-position-x;
     in property <length> preview-area-position-y;
     in property <length> preview-area-width;
@@ -153,7 +155,7 @@ export component ExpandableListView inherits ScrollView {
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
                     property <ComponentItem> data: ci;
 
-                    can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.index, drop-x, drop-y, on-drop-area);
+                    can-drop-here: root.preview-is-current && !self.data.is-currently-shown && root.can-drop(self.data.index, drop-x, drop-y, on-drop-area);
                     enabled: root.preview-visible;
                     text: ci.name;
                     offset: header-item.offset;
