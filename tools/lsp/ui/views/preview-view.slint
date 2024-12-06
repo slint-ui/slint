@@ -190,7 +190,7 @@ component SelectionFrame {
 export component PreviewView {
     property <[Selection]> selections <=> Api.selections;
     in property <ComponentItem> visible-component;
-    property <bool> preview-is-current: Api.diagnostic-summary != DiagnosticSummary.Errors;
+    in-out property <bool> preview-is-current: Api.diagnostic-summary != DiagnosticSummary.Errors;
     property <DropMark> drop-mark <=> Api.drop-mark;
     property <component-factory> preview-area <=> Api.preview-area;
     in-out property <bool> select-mode: false;
