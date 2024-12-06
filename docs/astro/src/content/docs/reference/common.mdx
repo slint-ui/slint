@@ -99,8 +99,12 @@ Currently the `z` value is a compile time constant and cannot be changed at runt
 </SlintProperty>
 
 ### absolute-position
-<SlintProperty propName="absolute-position" typeName="struct" structName="Point" >
-The position of the element within the contained window.
+<SlintProperty propName="absolute-position" typeName="struct" structName="Point" propertyVisibility="out">
+
+Represents a point specifying an absolute position within a window or popup window.
+It defines coordinates (x,y) relative to the enclosing Window or PopupWindow, but the reference frame is unspecified
+(could be screen, window, or popup coordinates).
+This property is only absolute within the enclosing Window or PopupWindow.
 
 </SlintProperty>
 
@@ -172,9 +176,9 @@ These properties are valid on all visible items and can be used to specify const
 
 ### cache-rendering-hint
 <SlintProperty typeName="bool" propName="cache-rendering-hint" default="false" >
-When set to `true`, this provides a hint to the renderer to cache the contents of the element 
-and all the children into an intermediate cached layer. For complex sub-trees that rarely 
-change this may speed up the rendering, at the expense of increased memory consumption. Not 
+When set to `true`, this provides a hint to the renderer to cache the contents of the element
+and all the children into an intermediate cached layer. For complex sub-trees that rarely
+change this may speed up the rendering, at the expense of increased memory consumption. Not
 all rendering backends support this, so this is merely a hint.
 </SlintProperty>
 
