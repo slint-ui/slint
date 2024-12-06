@@ -24,6 +24,12 @@ export component TestCase {
     height: 500phx;
 
     property <bool> simple-inner-ok: simple-inner.absolute-position.x == 40phx && simple-inner.absolute-position.y == 60phx;
+
+    out property <string> inner-popup;
+    // The absolute-position is only absolute within the popup.
+    // If we changed the behavior to be relative within the window, then we'd need to uncomment the commented numbers
+    out property <string> inner-popup-expected: "x=" + (/*10+100+0+8*/-5+200) + " y=" + (/*20+0+50+7*/-5-200);
+
     Rectangle {
         x: 10phx;
         y: 20phx;
@@ -31,6 +37,45 @@ export component TestCase {
         simple-inner := Rectangle {
             x: 30phx;
             y: 40phx;
+        }
+
+        init => {debug(hl.preferred-height) }
+
+        hl := HorizontalLayout {
+            if true:Rectangle {
+                preferred-height: 200phx;
+                Rectangle {
+                    x: 100phx;
+                    init => {
+                        popup.show();
+                    }
+                    Rectangle {
+                        y: 50phx;
+                        popup := PopupWindow {
+                            x: 8phx;
+                            y: 7phx;
+                            Rectangle {
+                                x: -5phx;
+                                y: -5phx;
+                                init => { debug(vl.preferred-height) }
+                                vl:=VerticalLayout {
+                                    if true: Rectangle {
+                                        Rectangle {
+                                            x: 200phx;
+                                            y: -200phx;
+                                            Rectangle {
+                                                init => {
+                                                    inner-popup = "x=" + (self.absolute-position.x/1px) + " y=" + (self.absolute-position.y/1px);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     empty1 := Rectangle {
@@ -41,7 +86,8 @@ export component TestCase {
         }
     }
     xxx := Issue3148 { width: 50%; }
-    out property <bool> test: simple-inner-ok && xxx.result == 42px && empty1.absolute-position == empty2.absolute-position;
+    out property <bool> test: simple-inner-ok && xxx.result == 42px && empty1.absolute-position == empty2.absolute-position
+        && inner-popup == inner-popup-expected;
     out property <Point> coords <=> simple-inner.absolute-position;
 }
 
