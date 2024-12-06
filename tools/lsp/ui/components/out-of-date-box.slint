@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+export component OutOfDateBox {
+    Rectangle {
+        background: Palette.accent-background;
+
+        border-radius: self.height / 2;
+
+        HorizontalLayout {
+            padding-top: 5px;
+            padding-bottom: 5px;
+            padding-left: 15px;
+            padding-right: 15px;
+
+            Text {
+                color: Palette.accent-foreground;
+                text: "Preview is out of date";
+                vertical-alignment: center;
+            }
+        }
+    }
+}
