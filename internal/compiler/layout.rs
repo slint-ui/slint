@@ -3,7 +3,7 @@
 
 //! Datastructures used to represent layouts in the compiler
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::{ElementType, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
@@ -134,7 +134,11 @@ pub struct LayoutConstraints {
 }
 
 impl LayoutConstraints {
-    pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics) -> Self {
+    /// Build the constraints for the given element
+    ///
+    /// Report diagnostics when both constraints and fixed size are set
+    /// (one can set the level to warning to keep compatibility to old version of Slint)
+    pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics, level: DiagnosticLevel) -> Self {
         let mut constraints = Self {
             min_width: binding_reference(element, "min-width"),
             max_width: binding_reference(element, "max-width"),
@@ -162,14 +166,14 @@ impl LayoutConstraints {
                                 && old.priority.saturating_add(d2)
                                     <= binding.priority.saturating_add(depth)
                             {
-                                diag.push_error(
+                                diag.push_diagnostic_with_span(
                                     format!(
-                                        "Cannot specify both '{}' and '{}'",
-                                        prop,
+                                        "Cannot specify both '{prop}' and '{}'",
                                         other_prop.name()
                                     ),
-                                    binding,
-                                )
+                                    binding.to_source_location(),
+                                    level,
+                                );
                             }
                         },
                     );

@@ -5,8 +5,7 @@
 
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 
-use crate::diagnostics::BuildDiagnostics;
-use crate::diagnostics::Spanned;
+use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::ElementType;
 use crate::langtype::Type;
@@ -43,7 +42,7 @@ pub fn lower_layouts(
     });
 
     *component.root_constraints.borrow_mut() =
-        LayoutConstraints::new(&component.root_element, diag);
+        LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
 
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();
@@ -724,7 +723,7 @@ fn create_layout_item(
         fix_explicit_percent("height", &rep_comp.root_element);
 
         *rep_comp.root_constraints.borrow_mut() =
-            LayoutConstraints::new(&rep_comp.root_element, diag);
+            LayoutConstraints::new(&rep_comp.root_element, diag, DiagnosticLevel::Error);
         rep_comp.root_element.borrow_mut().child_of_layout = true;
         (
             Some(if r.is_conditional_element {
@@ -738,7 +737,7 @@ fn create_layout_item(
         (None, item_element.clone())
     };
 
-    let constraints = LayoutConstraints::new(&actual_elem, diag);
+    let constraints = LayoutConstraints::new(&actual_elem, diag, DiagnosticLevel::Error);
     Some(CreateLayoutItemResult {
         item: LayoutItem { element: item_element.clone(), constraints },
         elem: actual_elem,
