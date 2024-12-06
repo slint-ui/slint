@@ -152,6 +152,11 @@
             }
           },
           "description": "Map of paths in which the `import` statement for `@library` imports are looked up"
+        },
+        "slint.preview.reloadOnType": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reload the preview while typing in a file."
         }
       }
     },

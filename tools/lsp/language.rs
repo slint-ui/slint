@@ -28,6 +28,10 @@ use lsp_types::request::{
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
     HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest, SignatureHelpRequest,
 };
+use lsp_types::SaveOptions;
+use lsp_types::TextDocumentSyncKind;
+use lsp_types::TextDocumentSyncOptions;
+use lsp_types::TextDocumentSyncSaveOptions;
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
@@ -230,8 +234,16 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
                 completion_item: None,
             }),
             definition_provider: Some(OneOf::Left(true)),
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                lsp_types::TextDocumentSyncKind::FULL,
+            text_document_sync: Some(TextDocumentSyncCapability::Options(
+                TextDocumentSyncOptions {
+                    open_close: Some(true),
+                    change: Some(TextDocumentSyncKind::FULL),
+                    will_save: None,
+                    will_save_wait_until: None,
+                    save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                        include_text: Some(true),
+                    })),
+                },
             )),
             code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
             execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
@@ -582,6 +594,7 @@ pub(crate) async fn reload_document_impl(
     url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
+    update_preview: bool,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     let Some(path) = common::uri_to_file(&url) else { return Default::default() };
     // Normalize the URL
@@ -595,10 +608,12 @@ pub(crate) async fn reload_document_impl(
     }
 
     if let Some(ctx) = ctx {
-        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url.clone(), version),
-            contents: content.clone(),
-        });
+        if update_preview {
+            ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
+                url: common::VersionedUrl::new(url.clone(), version),
+                contents: content.clone(),
+            });
+        }
     }
     let dependencies = document_cache.invalidate_url(&url);
     let mut diag = BuildDiagnostics::default();
@@ -639,7 +654,7 @@ pub async fn open_document(
 ) -> common::Result<()> {
     ctx.open_urls.borrow_mut().insert(url.clone());
 
-    reload_document(ctx, content, url, version, document_cache).await
+    reload_document(ctx, content, url, version, document_cache, true).await
 }
 
 pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
@@ -653,9 +668,17 @@ pub async fn reload_document(
     url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
+    update_preview: bool,
 ) -> common::Result<()> {
-    let lsp_diags =
-        reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
+    let lsp_diags = reload_document_impl(
+        Some(ctx),
+        content,
+        url.clone(),
+        version,
+        document_cache,
+        update_preview,
+    )
+    .await;
 
     for (uri, diagnostics) in lsp_diags {
         let version = document_cache.document_version(&uri);
@@ -1232,11 +1255,12 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         )?
         .await?;
 
-    let (hide_ui, include_paths, library_paths, style) = {
+    let (hide_ui, include_paths, library_paths, style, reload_on_type) = {
         let mut hide_ui = None;
         let mut include_paths = None;
         let mut library_paths = None;
         let mut style = None;
+        let mut reload_on_type = None;
 
         for v in r {
             if let Some(o) = v.as_object() {
@@ -1265,9 +1289,11 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
                     }
                 }
                 hide_ui = o.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
+                reload_on_type =
+                    o.get("preview").and_then(|v| v.as_object()?.get("reloadOnType")?.as_bool());
             }
         }
-        (hide_ui, include_paths, library_paths, style)
+        (hide_ui, include_paths, library_paths, style, reload_on_type)
     };
 
     let document_cache = &mut ctx.document_cache.borrow_mut();
@@ -1278,6 +1304,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
         library_paths: cc.library_paths.clone(),
+        reload_on_type: reload_on_type.unwrap_or(true),
     };
     *ctx.preview_config.borrow_mut() = config.clone();
     ctx.server_notifier
