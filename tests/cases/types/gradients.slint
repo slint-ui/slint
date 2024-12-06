@@ -13,4 +13,20 @@ Test := Rectangle {
     }
 
     property <color> c: @linear-gradient(90deg,#e2e1e1,#c5c5c5);
+
+
+    Rectangle {
+        property <color> col1 : #f0f;
+        property <color> col2 : #0ff;
+        property <color> col3 : #ff0;
+        property <duration> time : 2s;
+        property <float> animated : 2 * Math.mod(animation-tick()/2s, 1);
+        property <float> animated2 : 2* Math.mod(animation-tick()/-2s, 1);
+        background:
+            self.animated <= 1 ? @linear-gradient(90deg, self.col1 self.animated * 0.1, self.col3 self.animated * 1, self.col1 self.animated2 * 1)
+            : self.animated <= 2 ? @linear-gradient(90deg, self.col1 self.animated2 * 0.1, self.col3 self.animated2 * 1, self.col1 self.animated * 1)
+            : @linear-gradient(90deg, self.col1 self.animated2 * 10, red self.animated2 * 150, self.col1 self.animated2 * 200);
+
+    }
+
 }

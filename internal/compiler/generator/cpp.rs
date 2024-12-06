@@ -3343,7 +3343,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
-                format!("slint::private_api::GradientStop{{ {}, {}, }}", color, position)
+                format!("slint::private_api::GradientStop{{ {}, float({}), }}", color, position)
             });
             format!(
                 "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::LinearGradientBrush({}, stops, {})); }}()",
@@ -3354,7 +3354,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
-                format!("slint::private_api::GradientStop{{ {}, {}, }}", color, position)
+                format!("slint::private_api::GradientStop{{ {}, float({}), }}", color, position)
             });
             format!(
                 "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::RadialGradientBrush(stops, {})); }}()",
