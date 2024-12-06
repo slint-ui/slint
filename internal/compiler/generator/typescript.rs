@@ -19,7 +19,13 @@ fn is_typescript_keyword(word: &str) -> bool {
     static TS_KEYWORDS: OnceLock<HashSet<&'static str>> = OnceLock::new();
     let keywords = TS_KEYWORDS.get_or_init(|| {
         #[rustfmt::skip]
-        let keywords: HashSet<&str> = HashSet::from(["import", "export", "enum"]);
+        let keywords: HashSet<&str> = HashSet::from([
+            "import", "export", "enum", "class", "number", "string", "boolean", "const", "for", "if",
+            "else", "function", "async", "new", "switch", "case", "break", "default", "true", "false",
+            "continue", "const", "catch", "extends", "implements", "throw", "while", "void", "return",
+            "interface", "let", "var", "type", "public", "private", "protected", "await", "any", 
+            "unknown", "never"
+        ]);
         keywords
     });
     keywords.contains(word)
