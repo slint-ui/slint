@@ -190,7 +190,9 @@ component SelectionFrame {
 export component PreviewView {
     property <[Selection]> selections <=> Api.selections;
     in property <ComponentItem> visible-component;
-    in-out property <bool> preview-is-current: Api.diagnostic-summary != DiagnosticSummary.Errors;
+    property <DiagnosticSummary> diagnostic-summary <=> Api.diagnostic-summary;
+    out property <bool> preview-is-current: self.diagnostic-summary != DiagnosticSummary.Errors;
+
     property <DropMark> drop-mark <=> Api.drop-mark;
     property <component-factory> preview-area <=> Api.preview-area;
     in-out property <bool> select-mode: false;
@@ -205,6 +207,17 @@ export component PreviewView {
 
     preferred-height: max(max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border, 10 * scroll-view.border);
     preferred-width: max(max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border, 10 * scroll-view.border);
+
+    changed diagnostic-summary => {
+        if self.diagnostic-summary == DiagnosticSummary.NothingDetected {
+            StatusLineApi.help-text = @tr("");
+        } else if self.diagnostic-summary == DiagnosticSummary.Warnings {
+            StatusLineApi.help-text = @tr("Check your text editor for warnings");
+        }
+        if self.diagnostic-summary == DiagnosticSummary.Errors {
+            StatusLineApi.help-text = @tr("Check your text editor for errors");
+        }
+    }
 
     scroll-view := ScrollView {
         out property <length> border: 30px;
