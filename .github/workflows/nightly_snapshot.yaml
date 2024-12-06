@@ -447,7 +447,7 @@ jobs:
                 mkdir -p $output_path/docs/node
                 cp -a ../api/node/docs/* $output_path/docs/node/
                 mkdir -p $output_path/docs/slint
-                cp -a ../docs/dist/* $output_path/docs/slint/
+                cp -a ../docs/astro/dist/* $output_path/docs/slint/
 
             - name: Adjust redirections
               if: github.event.inputs.release == 'true'
