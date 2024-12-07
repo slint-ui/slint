@@ -41,8 +41,16 @@ component StandardListViewBase inherits ListView {
         return min(root.model.length - 1, max(0, round(-root.viewport-y / root.item-height)));
     }
 
+    pure function last-visible-item() -> int {
+        return min(root.model.length - 1, max(0, round((-root.viewport-y + root.height - root.item-height) / root.item-height)));
+    }
+
     pure function item-y(index: int) -> length {
         return root.viewport-y + index * root.item-height;
+    }
+
+    pure function item-at-y(y: length) -> int {
+        return min(root.model.length - 1, max(0, round(y / root.item-height)));
     }
 
     function bring-into-view(index: int) {
@@ -65,12 +73,28 @@ component StandardListViewBase inherits ListView {
         root.set-focus-item(root.focus-item - 1);
     }
 
+    protected function focus-page-up() {
+        if root.focus-item != root.first-visible-item() {
+            root.set-focus-item(root.first-visible-item())
+        } else {
+            root.set-focus-item(root.item-at-y(root.item-y(root.first-visible-item()) - root.height));
+        }
+    }
+
     protected function focus-first() {
         root.set-focus-item(0);
     }
 
     protected function focus-down() {
         root.set-focus-item(root.focus-item + 1);
+    }
+
+    protected function focus-page-down() {
+        if root.focus-item != root.last-visible-item() {
+            root.set-focus-item(root.last-visible-item())
+        } else {
+            root.set-focus-item(root.item-at-y(root.item-y(root.last-visible-item()) + root.height));
+        }
     }
 
     protected function focus-last() {
@@ -83,7 +107,7 @@ component StandardListViewBase inherits ListView {
 
     protected function focus-current-item() {
         if root.current-item == -1 && !root.has-item-been-selected && root.model.length > 0 {
-            root.current-item = 0;
+            root.set-current-item(0);
         }
         root.has-item-been-selected = true;
 
@@ -151,6 +175,12 @@ export component StandardListView inherits StandardListViewBase {
                     root.select-focus-item();
                 }
                 return accept;
+            } else if (event.text == Key.PageUp) {
+                root.focus-page-up();
+                if (!event.modifiers.control) {
+                    root.select-focus-item();
+                }
+                return accept;
             } else if (event.text == Key.Home) {
                 root.focus-first();
                 if (!event.modifiers.control) {
@@ -159,6 +189,12 @@ export component StandardListView inherits StandardListViewBase {
                 return accept;
             } else if (event.text == Key.DownArrow) {
                 root.focus-down();
+                if (!event.modifiers.control) {
+                    root.select-focus-item();
+                }
+                return accept;
+            } else if (event.text == Key.PageDown) {
+                root.focus-page-down();
                 if (!event.modifiers.control) {
                     root.select-focus-item();
                 }
