@@ -397,7 +397,7 @@ pub fn compile_with_config(
         );
 
     let paths_dependencies =
-        compile_with_output(path, absolute_rust_output_file_path.clone(), config)?;
+        compile_with_output_path(path, absolute_rust_output_file_path.clone(), config)?;
 
     for path_dependency in paths_dependencies {
         println!("cargo:rerun-if-changed={}", path_dependency.display());
@@ -427,7 +427,7 @@ pub fn compile_with_config(
 /// Doesn't print any cargo messages.
 ///
 /// Returns a list of all input files that were used to generate the output file. (dependencies)
-pub fn compile_with_output(
+pub fn compile_with_output_path(
     input_slint_file_path: impl AsRef<std::path::Path>,
     output_rust_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
