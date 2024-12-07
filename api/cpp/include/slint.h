@@ -1525,10 +1525,11 @@ void blocking_invoke_from_event_loop(Functor f)
 /// Sets the application id for use on Wayland or X11 with
 /// [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/) compliant window
 /// managers. This must be set before the window is shown.
-inline void set_xdg_app_id(const SharedString &xdg_app_id)
+inline void set_xdg_app_id(std::string_view xdg_app_id)
 {
     private_api::assert_main_thread();
-    cbindgen_private::slint_set_xdg_app_id(&xdg_app_id);
+    SharedString s = xdg_app_id;
+    cbindgen_private::slint_set_xdg_app_id(&s);
 }
 
 } // namespace slint
