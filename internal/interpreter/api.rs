@@ -460,6 +460,32 @@ impl<T: TryFrom<Value> + Default + 'static> TryFrom<Value> for ModelRc<T> {
     }
 }
 
+#[test]
+fn value_model_conversion() {
+    use i_slint_core::model::*;
+    let m = ModelRc::new(VecModel::from_slice(&[Value::Number(42.), Value::Number(12.)]));
+    let v = Value::from(m.clone());
+    assert_eq!(v, Value::Model(m.clone()));
+    let m2: ModelRc<Value> = v.clone().try_into().unwrap();
+    assert_eq!(m2, m);
+
+    let int_model: ModelRc<i32> = v.clone().try_into().unwrap();
+    assert_eq!(int_model.row_count(), 2);
+    assert_eq!(int_model.iter().collect::<Vec<_>>(), vec![42, 12]);
+
+    let Value::Model(m3) = int_model.clone().try_into().unwrap() else { panic!("not a model?") };
+    assert_eq!(m3.row_count(), 2);
+    assert_eq!(m3.iter().collect::<Vec<_>>(), vec![Value::Number(42.), Value::Number(12.)]);
+
+    let str_model: ModelRc<SharedString> = v.clone().try_into().unwrap();
+    assert_eq!(str_model.row_count(), 2);
+    // Value::Int doesn't convert to string, but since the mapping can't report error, we get the default constructed string
+    assert_eq!(str_model.iter().collect::<Vec<_>>(), vec!["", ""]);
+
+    let err: Result<ModelRc<Value>, _> = Value::Bool(true).try_into();
+    assert!(err.is_err());
+}
+
 /// Normalize the identifier to use dashes
 pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
     if ident.contains('_') {
