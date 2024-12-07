@@ -5,7 +5,7 @@ import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, Stan
     ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit } from "std-widgets.slint";
 
 export component App inherits Window {
-    in property <bool> rotation-enabled <=> apply-rotation.checked;
+    in-out property <bool> rotation-enabled <=> apply-rotation.checked;
 
     preferred-width: 500px;
     preferred-height: 600px;
