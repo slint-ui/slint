@@ -41,7 +41,7 @@ All notable changes to this project are documented in this file.
 
 ### Rust API
 
- - Added `slint_build::compile_with_output`
+ - Added `slint_build::compile_with_output_path`
  - Fixed `init=>` callback on PopupWindow ran twice in rust generated code.
  - Derive serde traits for `PhysicalPosition`, `LogicalPosition`, `PhysicalSize` and `LogicalSize` (#6534)
  - Use `approx_eq` to compare float in the generated code
