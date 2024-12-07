@@ -1322,10 +1322,10 @@ inline void update_all_translations()
 /// This function requires that the application's `.slint` file was compiled with bundled
 /// translations. It must be called after creating the first component. Returns true if the language
 /// was selected; false if the language was not found in the list of bundled translations.
-inline bool select_bundled_translation(std::string_view locale)
+inline bool select_bundled_translation(std::string_view language)
 {
     return cbindgen_private::slint_translate_select_bundled_translation(
-            slint::private_api::string_to_slice(locale));
+            slint::private_api::string_to_slice(language));
 }
 
 #if !defined(DOXYGEN)
