@@ -78,6 +78,8 @@ impl Item for NativeSlider {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         let enabled = self.enabled();
         // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges

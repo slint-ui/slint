@@ -60,6 +60,8 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -258,6 +260,8 @@ impl Item for FocusScope {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -380,6 +384,8 @@ impl Item for SwipeGestureHandler {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }

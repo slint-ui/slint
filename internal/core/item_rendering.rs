@@ -14,7 +14,6 @@ use crate::lengths::{
     LogicalVector,
 };
 use crate::properties::PropertyTracker;
-use crate::window::WindowInner;
 use crate::{Brush, Coord, SharedString};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
@@ -310,7 +309,7 @@ pub trait RenderImage {
 pub trait RenderText {
     fn target_size(self: Pin<&Self>) -> LogicalSize;
     fn text(self: Pin<&Self>) -> SharedString;
-    fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest;
+    fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest;
     fn color(self: Pin<&Self>) -> Brush;
     fn alignment(self: Pin<&Self>) -> (TextHorizontalAlignment, TextVerticalAlignment);
     fn wrap(self: Pin<&Self>) -> TextWrap;

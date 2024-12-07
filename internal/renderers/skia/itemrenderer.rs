@@ -20,7 +20,6 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths,
 };
-use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color};
 use skia_safe::{Matrix, TileMode};
 
@@ -487,7 +486,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     fn draw_text(
         &mut self,
         text: Pin<&dyn RenderText>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
@@ -500,7 +499,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
         let string = text.text();
         let string = string.as_str();
-        let font_request = text.font_request(WindowInner::from_pub(self.window));
+        let font_request = text.font_request(self_rc);
 
         let paint = match self.brush_to_paint(text.color(), max_width, max_height) {
             Some(paint) => paint,
@@ -586,7 +585,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     fn draw_text_input(
         &mut self,
         text_input: Pin<&i_slint_core::items::TextInput>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
         let max_width = size.width_length() * self.scale_factor;
@@ -596,8 +595,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             return;
         }
 
-        let font_request =
-            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter());
+        let font_request = text_input.font_request(self_rc);
 
         let visual_representation = text_input.visual_representation(None);
         let paint =

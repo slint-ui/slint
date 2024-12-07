@@ -2111,8 +2111,11 @@ fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
 }
 
 /// Given a property reference to a native item (eg, the property name is empty)
-/// return tokens to the `ItemRc`
-fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> TokenStream {
+/// return tokens to the VRc for the item tree and the item index.
+fn access_item_by_item_tree_and_index(
+    pr: &llr::PropertyReference,
+    ctx: &EvaluationContext,
+) -> (TokenStream, TokenStream) {
     let mut ctx = ctx;
     let mut component_access_tokens = quote!(_self);
 
@@ -2147,10 +2150,17 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
                 quote!(#component_access_tokens.tree_index_of_first_child.get() + #item_index_in_tree - 1)
             };
 
-            quote!(&sp::ItemRc::new(#component_rc_tokens, #item_index_tokens))
+            (component_rc_tokens, item_index_tokens)
         }
         _ => unreachable!(),
     }
+}
+
+/// Given a property reference to a native item (eg, the property name is empty)
+/// return tokens to the `ItemRc`
+fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> TokenStream {
+    let (component_rc_tokens, item_index_tokens) = access_item_by_item_tree_and_index(pr, ctx);
+    quote!(&sp::ItemRc::new(#component_rc_tokens, #item_index_tokens))
 }
 
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
@@ -2849,8 +2859,9 @@ fn compile_builtin_function_call(
                 let item = access_member(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 item.then(|item| {
+                    let (item_tree, item_index) = access_item_by_item_tree_and_index(pr, ctx);
                     quote!(
-                        sp::Item::layout_info(#item, #orient, #window_adapter_tokens)
+                        sp::Item::layout_info(#item, #orient, #window_adapter_tokens, &#item_tree, #item_index)
                     )
                 })
             } else {

@@ -35,6 +35,8 @@ impl Item for NativeCheckBox {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
