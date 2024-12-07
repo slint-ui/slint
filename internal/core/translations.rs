@@ -340,20 +340,20 @@ fn index_for_locale(languages: &[&'static str]) -> Option<usize> {
 /// This function requires that the application's `.slint` file was compiled with bundled translations..
 /// It must be called after creating the first component.
 /// Returns `Ok` if the language was selected; [`SelectBundledTranslationError`] otherwise.
-pub fn select_bundled_translation(locale: &str) -> Result<(), SelectBundledTranslationError> {
+pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTranslationError> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else {
-            return Err(SelectBundledTranslationError::NoLanguageBundled);
+            return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
         let languages = ctx.0.translations_bundle_languages.borrow();
         let Some(languages) = &*languages else {
-            return Err(SelectBundledTranslationError::NoLanguageBundled);
+            return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-        let idx = languages.iter().position(|x| *x == locale);
+        let idx = languages.iter().position(|x| *x == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
             Ok(())
-        } else if locale == "" || locale == "en" {
+        } else if language == "" || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
             Ok(())
         } else {
@@ -369,8 +369,9 @@ pub fn select_bundled_translation(locale: &str) -> Result<(), SelectBundledTrans
 pub enum SelectBundledTranslationError {
     /// The language was not found. The list of available languages is included in this error variant.
     LanguageNotFound { available_languages: crate::SharedVector<SharedString> },
-    /// There are no bundled languages. Either [`select_bundled_translation`] was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option.
-    NoLanguageBundled,
+    /// There are no bundled translations. Either [`select_bundled_translation`] was called before creating a component,
+    /// or the application's `.slint` file was compiled without the bundle translation option.
+    NoTranslationsBundled,
 }
 
 impl core::fmt::Display for SelectBundledTranslationError {
@@ -379,8 +380,8 @@ impl core::fmt::Display for SelectBundledTranslationError {
             SelectBundledTranslationError::LanguageNotFound { available_languages } => {
                 write!(f, "The specified language was not found. Available languages are: {available_languages:?}")
             }
-            SelectBundledTranslationError::NoLanguageBundled => {
-                write!(f, "There are no bundled languages. Either select_bundled_translation was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option")
+            SelectBundledTranslationError::NoTranslationsBundled => {
+                write!(f, "There are no bundled translations. Either select_bundled_translation was called before creating a component, or the application's `.slint` file was compiled without the bundle translation option")
             }
         }
     }
@@ -486,8 +487,8 @@ mod ffi {
     }
 
     #[no_mangle]
-    pub extern "C" fn slint_translate_select_bundled_translation(locale: Slice<u8>) -> bool {
-        let locale = core::str::from_utf8(&locale).unwrap();
-        return select_bundled_translation(locale).is_ok();
+    pub extern "C" fn slint_translate_select_bundled_translation(language: Slice<u8>) -> bool {
+        let language = core::str::from_utf8(&language).unwrap();
+        return select_bundled_translation(language).is_ok();
     }
 }
