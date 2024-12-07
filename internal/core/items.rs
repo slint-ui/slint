@@ -960,6 +960,9 @@ pub struct WindowItem {
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
+    pub cursor: Property<crate::graphics::Image>,
+    pub cursor_hotspot_x: Property<LogicalLength>,
+    pub cursor_hotspot_y: Property<LogicalLength>,
 }
 
 impl Item for WindowItem {
