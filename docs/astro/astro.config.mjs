@@ -173,7 +173,7 @@ export default defineConfig({
                     },
                     {
                         label: "Reference",
-                        link: "reference/overview",
+                        link: "reference/slint-language",
                         icon: "information",
                         items: [
                             {
@@ -266,10 +266,16 @@ export default defineConfig({
                             {
                                 label: "Global Functions and Enums",
                                 items: [
-                                    { label: "Math", slug: "reference/global-functions-enums/math" },
-                                    { label: "animation-tick() / debug()", slug: "reference/global-functions-enums/builtinfunctions" },
-                                ]
-                            }
+                                    {
+                                        label: "Math",
+                                        slug: "reference/global-functions-enums/math",
+                                    },
+                                    {
+                                        label: "animation-tick() / debug()",
+                                        slug: "reference/global-functions-enums/builtinfunctions",
+                                    },
+                                ],
+                            },
                         ],
                     },
                     {
