@@ -32,6 +32,8 @@ impl Item for NativeComboBox {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
         let size = cpp!(unsafe [widget as "QWidget*"] -> qttypes::QSize as "QSize" {
@@ -172,6 +174,8 @@ impl Item for NativeComboBoxPopup {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         Default::default()
     }

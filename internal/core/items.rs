@@ -26,7 +26,7 @@ use crate::input::{
     KeyEventType, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle};
-pub use crate::item_tree::ItemRc;
+pub use crate::item_tree::{ItemRc, ItemTreeVTable};
 use crate::layout::LayoutInfo;
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalSize, LogicalVector, PointLengths, RectLengths,
@@ -126,6 +126,8 @@ pub struct ItemVTable {
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
         window_adapter: &WindowAdapterRc,
+        self_component: &vtable::VRc<ItemTreeVTable>,
+        self_index: u32,
     ) -> LayoutInfo,
 
     /// Event handler for mouse and touch event. This function is called before being called on children.
@@ -188,6 +190,8 @@ impl Item for Empty {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -265,6 +269,8 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -346,6 +352,8 @@ impl Item for BasicBorderRectangle {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -446,6 +454,8 @@ impl Item for BorderRectangle {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -561,6 +571,8 @@ impl Item for Clip {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -659,6 +671,8 @@ impl Item for Opacity {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -763,6 +777,8 @@ impl Item for Layer {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -842,6 +858,8 @@ impl Item for Rotate {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -969,6 +987,8 @@ impl Item for WindowItem {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -1075,6 +1095,8 @@ impl Item for ContextMenu {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -1157,6 +1179,8 @@ impl Item for BoxShadow {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
