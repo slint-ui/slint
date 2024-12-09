@@ -3,6 +3,7 @@
 import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
 import fs from "node:fs";
+import { pluginLineNumbers } from "@expressive-code/plugin-line-numbers";
 
 function sideBorder() {
     return definePlugin({
@@ -169,7 +170,15 @@ function workersPlaygroundButton() {
 }
 
 export default {
-    plugins: [workersPlaygroundButton(), sideBorder(), languageLabel()],
+    plugins: [
+        workersPlaygroundButton(),
+        sideBorder(),
+        languageLabel(),
+        pluginLineNumbers(),
+    ],
+    defaultProps: {
+        showLineNumbers: false,
+    },
     themes: ["dark-plus", "light-plus"],
     styleOverrides: {
         borderRadius: "0.4rem",

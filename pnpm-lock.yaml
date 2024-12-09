@@ -71,6 +71,9 @@ importers:
       '@astrojs/starlight':
         specifier: 0.29.2
         version: 0.29.2(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2))
+      '@expressive-code/plugin-line-numbers':
+        specifier: 0.38.3
+        version: 0.38.3
       '@types/node':
         specifier: 20.16.10
         version: 20.16.10
@@ -1121,6 +1124,9 @@ packages:
 
   '@expressive-code/plugin-frames@0.38.3':
     resolution: {integrity: sha512-qL2oC6FplmHNQfZ8ZkTR64/wKo9x0c8uP2WDftR/ydwN/yhe1ed7ZWYb8r3dezxsls+tDokCnN4zYR594jbpvg==}
+
+  '@expressive-code/plugin-line-numbers@0.38.3':
+    resolution: {integrity: sha512-QbK9NL44ST9w5ANVEu0a7fkjlq+fXgxyPqiSyFC4Nw/sAXd0MUwT1C8V0qlve4pZYLz53CR9tn4JQQbR0Z1tOg==}
 
   '@expressive-code/plugin-shiki@0.38.3':
     resolution: {integrity: sha512-kqHnglZeesqG3UKrb6e9Fq5W36AZ05Y9tCREmSN2lw8LVTqENIeCIkLDdWtQ5VoHlKqwUEQFTVlRehdwoY7Gmw==}
@@ -5582,6 +5588,10 @@ snapshots:
       unist-util-visit-parents: 6.0.1
 
   '@expressive-code/plugin-frames@0.38.3':
+    dependencies:
+      '@expressive-code/core': 0.38.3
+
+  '@expressive-code/plugin-line-numbers@0.38.3':
     dependencies:
       '@expressive-code/core': 0.38.3
 
