@@ -56,10 +56,12 @@ export default defineConfig({
                             { label: "Overview", slug: "index" },
                             {
                                 label: "Tooling",
+                                collapsed: true,
                                 items: ["guide/tooling/vscode"],
                             },
                             {
                                 label: "Language",
+                                collapsed: true,
                                 items: [
                                     {
                                         label: "Concepts",
@@ -135,6 +137,7 @@ export default defineConfig({
                             },
                             {
                                 label: "App Development",
+                                collapsed: true,
                                 items: [
                                     "guide/development/debugging_techniques",
                                     "guide/development/focus",
@@ -182,20 +185,12 @@ export default defineConfig({
                                 slug: "reference/primitive-types",
                             },
                             {
-                                label: "Common details",
-                                slug: "reference/overview",
+                                label: "Colors & Brushes",
+                                slug: "reference/colors-and-brushes",
                             },
                             {
-                                label: "Basics",
-                                collapsed: true,
-                                items: [
-                                    "reference/builtins/type-conversions",
-                                    "reference/builtins/builtinfunctions",
-                                    "reference/builtins/colors",
-                                    "reference/builtins/math",
-                                    "reference/builtins/animations",
-                                    "reference/builtins/key",
-                                ],
+                                label: "Common Properties & Callbacks",
+                                slug: "reference/common",
                             },
                             {
                                 label: "Basic Elements",
@@ -264,6 +259,17 @@ export default defineConfig({
                                     },
                                 ],
                             },
+                            {
+                                label: "Global Structs and Enums",
+                                slug: "reference/global-structs-enums",
+                            },
+                            {
+                                label: "Global Functions and Enums",
+                                items: [
+                                    { label: "Math", slug: "reference/global-functions-enums/math" },
+                                    { label: "animation-tick() / debug()", slug: "reference/global-functions-enums/builtinfunctions" },
+                                ]
+                            }
                         ],
                     },
                     {
