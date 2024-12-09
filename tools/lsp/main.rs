@@ -20,11 +20,11 @@ use language::*;
 
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
-    DidOpenTextDocument, Notification,
+    DidOpenTextDocument, DidSaveTextDocument, Notification,
 };
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, InitializeParams, Url,
+    DidOpenTextDocumentParams, DidSaveTextDocumentParams, InitializeParams, Url,
 };
 
 use clap::{Args, Parser, Subcommand};
@@ -465,6 +465,19 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 params.text_document.uri,
                 Some(params.text_document.version),
                 &mut ctx.document_cache.borrow_mut(),
+                ctx.preview_config.borrow().reload_on_type,
+            )
+            .await
+        }
+        DidSaveTextDocument::METHOD if !ctx.preview_config.borrow().reload_on_type => {
+            let params: DidSaveTextDocumentParams = serde_json::from_value(req.params)?;
+            reload_document(
+                ctx,
+                params.text.unwrap(),
+                params.text_document.uri,
+                None,
+                &mut ctx.document_cache.borrow_mut(),
+                true,
             )
             .await
         }
