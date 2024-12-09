@@ -93,8 +93,8 @@ importers:
         specifier: 0.33.5
         version: 0.33.5
       starlight-links-validator:
-        specifier: 0.13.3
-        version: 0.13.3(@astrojs/starlight@0.29.2(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)))(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2))
+        specifier: 0.13.4
+        version: 0.13.4(@astrojs/starlight@0.29.2(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)))(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2))
       starlight-sidebar-topics:
         specifier: 0.2.1
         version: 0.2.1(@astrojs/starlight@0.29.2(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)))
@@ -4105,8 +4105,8 @@ packages:
     resolution: {integrity: sha512-XlkWvfIm6RmsWtNJx+uqtKLS8eqFbxUg0ZzLXqY0caEy9l7hruX8IpiDnjsLavoBgqCCR71TqWO8MaXYheJ3RQ==}
     engines: {node: '>=10'}
 
-  starlight-links-validator@0.13.3:
-    resolution: {integrity: sha512-bwTrEwTH9wL6OlP2rUtWrmkbQCbSa71L+n/7nVWYQ0u6k8wq020XSrcrzyni8ZSv1up0zKHm9DO0l2YoLpIF5A==}
+  starlight-links-validator@0.13.4:
+    resolution: {integrity: sha512-LdmLbJyPHVrSUhcuxiP3pJNnW8zRcOg/32C996Ic0LOCKbB8vylqHLvAMdIhT67FvEV4eAROun+2wTVU2J156A==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
       '@astrojs/starlight': '>=0.15.0'
@@ -9423,7 +9423,7 @@ snapshots:
     dependencies:
       escape-string-regexp: 2.0.0
 
-  starlight-links-validator@0.13.3(@astrojs/starlight@0.29.2(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)))(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)):
+  starlight-links-validator@0.13.4(@astrojs/starlight@0.29.2(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)))(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2)):
     dependencies:
       '@astrojs/starlight': 0.29.2(astro@4.16.16(@types/node@20.16.10)(rollup@4.27.3)(terser@5.34.1)(typescript@5.7.2))
       '@types/picomatch': 2.3.3
