@@ -134,62 +134,45 @@ The numbers are either `top right bottom left` or `vertical horizontal`, or one 
 ## Animation
 ### easing
 <SlintProperty propName="easing" typeName="easing" defaultValue='linear'>
-Property animation allow specifying an easing curve. See <Link type="AnimationRef" label="animations"/> for list of values.  
+Property animation allow specifying an easing curve.
+`easing`: can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
+
+    -   `linear`
+    -   `ease-in-quad`
+    -   `ease-out-quad`
+    -   `ease-in-out-quad`
+    -   `ease`
+    -   `ease-in`
+    -   `ease-out`
+    -   `ease-in-out`
+    -   `ease-in-quart`
+    -   `ease-out-quart`
+    -   `ease-in-out-quart`
+    -   `ease-in-quint`
+    -   `ease-out-quint`
+    -   `ease-in-out-quint`
+    -   `ease-in-expo`
+    -   `ease-out-expo`
+    -   `ease-in-out-expo`
+    -   `ease-in-sine`
+    -   `ease-out-sine`
+    -   `ease-in-out-sine`
+    -   `ease-in-back`
+    -   `ease-out-back`
+    -   `ease-in-out-back`
+    -   `ease-in-circ`
+    -   `ease-out-circ`
+    -   `ease-in-out-circ`
+    -   `ease-in-elastic`
+    -   `ease-out-elastic`
+    -   `ease-in-out-elastic`
+    -   `ease-in-bounce`
+    -   `ease-out-bounce`
+    -   `ease-in-out-bounce`
+    -   `cubic-bezier(a, b, c, d)` as in CSS
 </SlintProperty>
 
 
-## Structs
-
-Define named structures using the `struct` keyword:
-
-```slint
-export struct Player  {
-    name: string,
-    score: int,
-}
-
-export component Example {
-    in-out property<Player> player: { name: "Foo", score: 100 };
-}
-```
-
-The default value of a struct, is initialized with all its fields set to their default value.
-
-### Anonymous Structures
-
-Declare anonymous structures using `{ identifier1: type1, identifier2: type2 }`
-syntax, and initialize them using
-`{ identifier1: expression1, identifier2: expression2  }`.
-
-You may have a trailing `,` after the last expression or type.
-
-```slint
-export component Example {
-    in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
-    in-out property<{a: int, }> foo: { a: 3 };
-}
-```
-
-## Enums
-
-Define an enumeration with the `enum` keyword:
-
-```slint
-export enum CardSuit { clubs, diamonds, hearts, spade }
-
-export component Example {
-    in-out property<CardSuit> card: spade;
-    out property<bool> is-clubs: card == CardSuit.clubs;
-}
-```
-
-Enum values can be referenced by using the name of the enum and the name of the value
-separated by a dot. (eg: `CardSuit.spade`)
-
-The name of the enum can be omitted in bindings of the type of that enum, or if the
-return value of a callback is of that enum.
-
-The default value of each enum type is always the first value.
 
 ## Arrays and Models
 
@@ -217,5 +200,47 @@ export component Example {
 
     out property <int> list-len: list-of-int.length;
     out property <int> first-int: list-of-int[0];
+}
+```
+
+
+## Type Conversions
+
+Slint supports conversions between different types. Explicit
+conversions are required to make the UI description more robust, but implicit
+conversions are allowed between some types for convenience.
+
+The following conversions are possible:
+
+-   `int` can be converted implicitly to `float` and vice-versa.
+     When converting from `float` to `int`, the value is truncated.
+-   `int` and `float` can be converted implicitly to `string`
+-   `physical-length`, `relative-font-size`, and `length` can be converted implicitly to each other only in
+    context where the pixel ratio is known.
+-   the units type (`length`, `physical-length`, `duration`, ...) can't be converted to numbers (`float` or `int`)
+    but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
+    these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
+-   The literal `0` can be converted to any of these types that have associated unit.
+-   Struct types convert with another struct type if they have the same property names and their types can be converted.
+    The source struct can have either missing properties, or extra properties. But not both.
+-   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.
+-   String can be converted to float by using the `to-float` function. That function returns 0 if the string isn't
+    a valid number. You can check with `is-float()` if the string contains a valid number
+
+```slint
+export component Example {
+    // OK: int converts to string
+    property<{a: string, b: int}> prop1: {a: 12, b: 12 };
+    // OK: even if a is missing, it will just have the default value ("")
+    property<{a: string, b: int}> prop2: { b: 12 };
+    // OK: even if c is too many, it will be discarded
+    property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
+    // ERROR: b is missing and c is extra, this doesn't compile, because it could be a typo.
+    // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
+
+    property<string> xxx: "42.1";
+    property<float> xxx1: xxx.to-float(); // 42.1
+    property<bool> xxx2: xxx.is-float(); // true
+    property<int> xxx3: 45.8; // 45
 }
 ```

@@ -1,7 +1,7 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Localization (l10n)
-description: Localization
+title: Translations
+description: Translations
 ---
 
 <!-- cSpell: ignore msgfmt msgctx msginit poedit Lokalize Transifex  -->
