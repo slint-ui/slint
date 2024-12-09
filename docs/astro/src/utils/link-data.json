@@ -38,6 +38,9 @@
     "EnumType": {
         "href": "/reference/global-structs-enums"
     },
+    "slintFile": {
+        "href": "/guide/language/coding/file"
+    },
     "float": {
         "href": "/reference/primitive-types#float"
     },

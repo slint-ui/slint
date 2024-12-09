@@ -4,4 +4,150 @@ title: Slint Language
 description: Slint Language
 ---
 
-Component basics. It's components all the way down...
+import Link from '/src/components/Link.astro';
+
+The objective of the concepts section of the guide is to give you an overview of the language from a high level. If you want to
+dive straight in then the details check out the the <Link type="slintFile" label="coding section"/> and language reference
+sections.
+
+This section gives you an insight into the thinking behind the language and the core concepts it is made up from.
+
+
+
+## Why Slint?
+
+The Slint language describes your application's User Interface in a declarative way.
+
+A User Interface is quite different from abstract code. It's made up 
+of text, images, colors, animations, and so on. Even though it's a mirage, the buttons and elements do not
+really exist in the physical world, it's meant to look and behave as if it does. Buttons have pressed effects,
+lists can be flicked and behave as if they had real inertia. When being designed they are described in terms
+of UI components, forms, and views. 
+
+Meanwhile the world of code is a quite different abstraction. It's made up of functions, variables, and so on.
+Even when some aspects of a UI exist such as buttons and menus they also go hand in hand with a lot of code to
+manage the implementation details.
+
+```js
+const button = document.createElement('button');
+button.textContent = 'Click me';
+document.body.appendChild(button);
+```
+
+Take this simple web example. A button is created. Then a property to show 'Click me' text is text. At this point
+technically the button exists, but it won't show up as its not attached to anything. So the final line
+makes it a parent of the main view. 
+
+```js
+const buttonWithListener = document.createElement('button');
+buttonWithListener.textContent = 'Click me';
+buttonWithListener.addEventListener('click', () => {
+    console.log('Button clicked!');
+});
+document.body.appendChild(buttonWithListener);
+```
+
+In this second example a button is created and an event listener is added. Within that is a callback
+function to log out that the button is pressed. It's a lot of code to so simple things.
+
+Its quite abstract. For example once a few more buttons and components are added its almost impossible
+to be able to think how the real interface would look. It's hard to think about the design of a UI
+using this kind of code.
+
+It's also too complex to edit without understanding how to code. This means UI designers cannot work
+hands on to ensure all their design intent is implemented. They are forced to use other tools and frameworks
+to crate prototypes and design guides that may look or behave differently to the software used to implementat
+the production UI. It should not have to be this way.
+
+## Declartive style
+
+There have been attempts to make describing a UI in code more declarative. For example [React](https://reactjs.org/)
+and [SwiftUI](https://developer.apple.com/xcode/swiftui/).
+
+
+```jsx
+function ContentView() {
+  return (
+    <p style={{ fontSize: '2rem', color: 'green' }}>
+      Hello World
+    </p>
+  );
+}
+```
+
+```swift
+struct ContentView: View {
+    var body: some View {
+        Text("Hello World")
+            .font(.title)
+            .foregroundColor(.green)
+    }
+}
+```
+
+These languages take normal code and let it be used in a declartive way. But it's 
+still functions with arguments that act as properties. It is simpler and behaviour
+such as parent child relationships can be inferred. 
+
+For Slint instead of tweaking a normal language to be more declarative we instead 
+created a pure declarative language from the ground up.
+
+
+## The Business Logic Problem
+
+One attempt to solve the problem of describing a UI in code has been to create a separate static markup language.
+Platforms such as Android and [WPF](https://docs.microsoft.com/en-us/dotnet/desktop/wpf/) have done this. The UI
+is described in an XML like format. While the rest of the code is written in both a separate language and also 
+separate files. Known as a code behind file. The issue here is that XML, despite claims to the contrary, is not 
+human readable or editable. It's also too static and rigid and it can be frustrating to jump between the UI file
+and the separate code behind file to describe the behavior of the UI.
+
+Meanwhile the React web framework has solved this problem by using JSX. HTML, CSS and JavaScript can be mixed 
+together in a single file. On one hand this is great as it means you can use the same language to describe the UI
+layout and behavior. On the other hand there is no limit to what code you can put in a JSX file. Logic for handling
+network requests, processing data and pretty much anything quickly ends up mixed in with UI code. It leads to an
+issue where it can be fast to create an initial application, but it becomes so hard to maintain that it's too
+slow or costly to evolve the application.
+
+## A True Declarative UI Language
+
+Slint provides a declarative language to describe an applications user interface
+
+```slint showLineNumbers=true no-test
+Rectangle {
+    Button {
+        text: "Click me!";
+        clicked => {
+            debug("Button clicked!");
+        }
+    }
+}
+```
+
+If you can understand this Slint code you already have grasped a majority of how simple to use the language is.
+On line 2 we declare a `Button`. On line 3 we set its `text` property to `"Click me!"` and on line 4 
+we set a callback to print out "Button clicked!" to the console via the built in `debug` function.
+
+The Slint compiler will take this code and see it needs to generate a Rectangle that has a Button as a child.
+Similarly, when the clicked callback activates, it will run the `debug` function. There is no need to think
+about component and even listener life cycles.
+
+With the Slint language you can think much more closely to how a user interface looks and behaves. Instead of
+describing the 'how', the how should the details be implemented in traditional code, you instead "declare" how
+the interface should look and behave. Hence Slint being a 'declarative UI language'.
+
+It's not only simpler for software developers to use, it's also now something designers can potentially edit or 
+more easily contribute to.
+
+Slint isn't the first declarative UI language, but it takes advantage of being able to learn from earlier more
+complex attempts that hinted at the potential of a declarative UI language to finalize into a modern and complete
+system.
+
+At first glance it has the simplicity of a static markup language, but with a modern take that removes things like
+angle brackets and tags. But also dynamic features such as complex property expressions, functions, callbacks,
+and automatic reactivity. However these can only be used in the context of what helps a UI component. If you want
+to make network requests, process data, or many other things that count as 'business logic' then those have to live
+in separate files written in Rust, C++, JavaScript, etc. Slint allows you to express any UI and only the UI.
+
+It then provides a system of adapters to allow the business logic side of the app to easily communicate with the UI
+and visa versa.
