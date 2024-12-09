@@ -265,6 +265,7 @@ export default defineConfig({
                             },
                             {
                                 label: "Global Functions and Enums",
+                                collapsed: true,
                                 items: [
                                     {
                                         label: "Math",
