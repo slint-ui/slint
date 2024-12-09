@@ -404,6 +404,7 @@ export global Api {
 
     // ## Element selection:
     callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
+    pure callback filter-sort-selection-stack(model: [SelectionStackFrame], filter: string) -> [SelectionStackFrame];
     pure callback find-selected-selection-stack-frame([SelectionStackFrame]) -> SelectionStackFrame;
     callback select-element(file: string, offset: int, x: length, y: length);
 
