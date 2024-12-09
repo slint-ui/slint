@@ -851,7 +851,7 @@ pub async fn invalidate_document(ctx: &Rc<Context>, url: lsp_types::Url) -> comm
 pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     // The preview cares about resources and slint files, so forward everything
     ctx.server_notifier
-        .send_message_to_preview(common::LspToPreviewMessage::FileLost { url: url.clone() });
+        .send_message_to_preview(common::LspToPreviewMessage::ForgetFile { url: url.clone() });
 
     ctx.document_cache.borrow_mut().drop_document(&url)
 }

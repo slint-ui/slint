@@ -348,8 +348,9 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                             },
                         )
                     } else {
-                        server_notifier
-                            .send_message_to_preview(common::LspToPreviewMessage::FileLost { url })
+                        server_notifier.send_message_to_preview(
+                            common::LspToPreviewMessage::ForgetFile { url },
+                        )
                     }
                 }
                 Some(contents.map(|c| (None, c)))
