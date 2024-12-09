@@ -444,6 +444,35 @@ pub fn selection_stack_at(
     Rc::new(slint::VecModel::from(result)).into()
 }
 
+pub fn filter_sort_selection_stack(
+    model: slint::ModelRc<crate::preview::ui::SelectionStackFrame>,
+    filter: slint::SharedString,
+) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
+    use slint::ModelExt;
+
+    eprintln!("filter: {filter}");
+
+    let filter = filter.to_string();
+
+    if filter.is_empty() {
+        model
+    } else if filter.as_str().chars().any(|c| !c.is_lowercase()) {
+        Rc::new(model.filter(move |frame| {
+            frame.id.contains(&filter)
+                || frame.type_name.contains(&filter)
+                || frame.file_name.contains(&filter)
+        }))
+        .into()
+    } else {
+        Rc::new(model.filter(move |frame| {
+            frame.id.to_lowercase().contains(&filter)
+                || frame.type_name.to_lowercase().contains(&filter)
+                || frame.file_name.to_lowercase().contains(&filter)
+        }))
+        .into()
+    }
+}
+
 pub fn parent_layout_kind(element: &common::ElementRcNode) -> ui::LayoutKind {
     element.parent().map(|p| p.layout_kind()).unwrap_or(ui::LayoutKind::None)
 }

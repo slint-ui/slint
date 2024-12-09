@@ -1,13 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ListView, Palette, ScrollView } from "std-widgets.slint";
+import { ListView, Palette, ScrollView, LineEdit } from "std-widgets.slint";
 import { EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, EditorPalette } from "./styling.slint";
 import { Api, SelectionStackFrame } from "../api.slint";
+import { Icons } from "styling.slint";
 
 component PopupInner inherits Rectangle {
     in property <length> preview-width: 500px;
     in property <length> preview-height: 900px;
+
+    callback close();
 
     in property <length> max-popup-height: 900px;
     in-out property <length> selection-x: 0px;
@@ -140,111 +143,113 @@ component PopupInner inherits Rectangle {
     width: 250px;
     height: self.visible-frames * self.frame-height;
 
-    ScrollView {
+    VerticalLayout {
+        padding: EditorSpaceSettings.default-padding;
+        spacing: EditorSpaceSettings.default-spacing;
 
-        list-view := VerticalLayout {
+        HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
 
-            for frame[index] in root.selection-stack: frame-rect := Rectangle {
-                width: 100%;
-                height: root.frame-height;
+            Image {
+                source: Icons.inspect;
+            }
+            filter-edit := LineEdit {
+                placeholder-text: "Filter";
+            }
+        }
+        
+        ScrollView {
 
-                function frame-color(frame: SelectionStackFrame) -> brush {
-                    return EditorPalette.interactive-element-selection-secondary;
-                }
-                function frame-background(frame: SelectionStackFrame) -> brush {
-                    if frame.is-interactive {
-                        return EditorPalette.interactive-element-selection-primary;
-                    } else if frame.is-layout {
-                        return transparent;
-                    } else if frame.is-selected {
-                        EditorPalette.general-element-selection-selected;
-                    } else {
-                        return EditorPalette.general-element-selection-primary;
+            list-view := VerticalLayout {
+
+                for frame[index] in Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text): frame-rect := Rectangle {
+                    width: 100%;
+                    height: root.frame-height;
+
+                    function frame-color(frame: SelectionStackFrame) -> brush {
+                        return EditorPalette.interactive-element-selection-secondary;
                     }
-                }
-                function calculate_pos(p: length, percent: float) -> length {
-                    return Math.round((p / 1px) * percent) * 1px;
-                }
-                function calculate_size(p: length, percent: float) -> length {
-                    return Math.max(Math.round((p / 1px) * percent), 2) * 1px;
-                }
-
-                VerticalLayout {
-                    padding-top: EditorSpaceSettings.default-padding / 2;
-                    if !frame.is-in-root-component: Text {
-                        x: EditorSpaceSettings.default-padding;
-                        text: frame.file-name;
-                        overflow: elide;
-                        color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
-                        font-size: EditorFontSettings.label-sub.font-size - 3px;
-                        font-italic: true;
+                    function frame-background(frame: SelectionStackFrame) -> brush {
+                        if frame.is-interactive {
+                            return EditorPalette.interactive-element-selection-primary;
+                        } else if frame.is-layout {
+                            return transparent;
+                        } else if frame.is-selected {
+                            EditorPalette.general-element-selection-selected;
+                        } else {
+                            return EditorPalette.general-element-selection-primary;
+                        }
+                    }
+                    function calculate_pos(p: length, percent: float) -> length {
+                        return Math.round((p / 1px) * percent) * 1px;
+                    }
+                    function calculate_size(p: length, percent: float) -> length {
+                        return Math.max(Math.round((p / 1px) * percent), 2) * 1px;
                     }
 
-                    HorizontalLayout {
-                        visible: (frame.type-name == "Window") ? false : true;
-                        padding-left: EditorSpaceSettings.default-padding / 2.0;
-                        spacing: EditorSpaceSettings.default-spacing / 2.0;
-                        alignment: start;
+                    VerticalLayout {
+                        padding-top: EditorSpaceSettings.default-padding / 2;
+                        if !frame.is-in-root-component: Text {
+                            x: EditorSpaceSettings.default-padding;
+                            text: frame.file-name;
+                            overflow: elide;
+                            color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
+                            font-size: EditorFontSettings.label-sub.font-size - 3px;
+                            font-italic: true;
+                        }
 
-                        VerticalLayout {
-                            alignment: center;
-                            padding-bottom: EditorSpaceSettings.default-padding / 2;
+                        HorizontalLayout {
+                            visible: (frame.type-name == "Window") ? false : true;
+                            padding-left: EditorSpaceSettings.default-padding / 2.0;
+                            spacing: EditorSpaceSettings.default-spacing / 2.0;
+                            alignment: start;
 
-                            Rectangle {
-                                function calculate_aspect_ratio_box(aspect-ratio: float, max-rect-length: length) -> length {
-                                    return Math.min(aspect-ratio, 1.0) * max-rect-length;
-                                }
-                                clip: true;
-                                width: calculate_aspect_ratio_box(root.aspect-ratio, root.max-rect-size) + EditorSpaceSettings.default-padding;
-                                height: calculate_aspect_ratio_box(1.0 / root.aspect-ratio, root.max-rect-size) + EditorSpaceSettings.default-padding / 2;
-                                measure-rect := Rectangle {
-                                    width: calculate_aspect_ratio_box(root.aspect-ratio, root.max-rect-size);
-                                    height: calculate_aspect_ratio_box(1.0 / root.aspect-ratio, root.max-rect-size);
+                            VerticalLayout {
+                                alignment: center;
+                                padding-bottom: EditorSpaceSettings.default-padding / 2;
 
-                                    border-color: frame.is-selected ? EditorPalette.general-element-selection-selected.transparentize(0.5) : Palette.foreground.transparentize(0.65);
-                                    border-width: 1px;
-                                    placeholder-rect := Rectangle {
-                                        x: calculate_pos(measure-rect.width, frame.x);
-                                        y: calculate_pos(measure-rect.height, frame.y);
-                                        width: calculate_size(measure-rect.width, frame.width);
-                                        height: calculate_size(measure-rect.height, frame.height);
+                                Rectangle {
+                                    function calculate_aspect_ratio_box(aspect-ratio: float, max-rect-length: length) -> length {
+                                        return Math.min(aspect-ratio, 1.0) * max-rect-length;
+                                    }
+                                    clip: true;
+                                    width: calculate_aspect_ratio_box(root.aspect-ratio, root.max-rect-size) + EditorSpaceSettings.default-padding;
+                                    height: calculate_aspect_ratio_box(1.0 / root.aspect-ratio, root.max-rect-size) + EditorSpaceSettings.default-padding / 2;
+                                    measure-rect := Rectangle {
+                                        width: calculate_aspect_ratio_box(root.aspect-ratio, root.max-rect-size);
+                                        height: calculate_aspect_ratio_box(1.0 / root.aspect-ratio, root.max-rect-size);
 
-                                        border-color: frame-rect.frame-color(frame);
-                                        border-width: 0.5px;
-                                        background: frame-rect.frame-background(frame);
-                                        if frame.is-layout: Rectangle {
-                                            border-color: EditorPalette.layout-element-selection-secondary;
+                                        border-color: frame.is-selected ? EditorPalette.general-element-selection-selected.transparentize(0.5) : Palette.foreground.transparentize(0.65);
+                                        border-width: 1px;
+                                        placeholder-rect := Rectangle {
+                                            x: calculate_pos(measure-rect.width, frame.x);
+                                            y: calculate_pos(measure-rect.height, frame.y);
+                                            width: calculate_size(measure-rect.width, frame.width);
+                                            height: calculate_size(measure-rect.height, frame.height);
+
+                                            border-color: frame-rect.frame-color(frame);
                                             border-width: 0.5px;
-                                            if (frame.type-name == "HorizontalLayout" || frame.type-name == "HorizontalBox"): HorizontalLayout {
-                                                spacing: 1px;
-                                                padding: 1px;
+                                            background: frame-rect.frame-background(frame);
+                                            if frame.is-layout: Rectangle {
+                                                border-color: EditorPalette.layout-element-selection-secondary;
+                                                border-width: 0.5px;
+                                                if (frame.type-name == "HorizontalLayout" || frame.type-name == "HorizontalBox"): HorizontalLayout {
+                                                    spacing: 1px;
+                                                    padding: 1px;
 
-                                                Rectangle {
-                                                    background: EditorPalette.layout-element-selection-primary;
+                                                    Rectangle {
+                                                        background: EditorPalette.layout-element-selection-primary;
+                                                    }
+
+                                                    Rectangle {
+                                                        background: EditorPalette.layout-element-selection-primary;
+                                                    }
                                                 }
 
-                                                Rectangle {
-                                                    background: EditorPalette.layout-element-selection-primary;
-                                                }
-                                            }
-
-                                            if (frame.type-name == "VerticalLayout" || frame.type-name == "VerticalBox"): VerticalLayout {
-                                                spacing: 1.5px;
-                                                padding: 1.5px;
-
-                                                Rectangle {
-                                                    background: EditorPalette.layout-element-selection-primary;
-                                                }
-
-                                                Rectangle {
-                                                    background: EditorPalette.layout-element-selection-primary;
-                                                }
-                                            }
-                                            if (frame.type-name == "GridLayout" || frame.type-name == "GridBox"): VerticalLayout {
-                                                spacing: 1px;
-                                                HorizontalLayout {
+                                                if (frame.type-name == "VerticalLayout" || frame.type-name == "VerticalBox"): VerticalLayout {
                                                     spacing: 1.5px;
                                                     padding: 1.5px;
+
                                                     Rectangle {
                                                         background: EditorPalette.layout-element-selection-primary;
                                                     }
@@ -253,16 +258,30 @@ component PopupInner inherits Rectangle {
                                                         background: EditorPalette.layout-element-selection-primary;
                                                     }
                                                 }
+                                                if (frame.type-name == "GridLayout" || frame.type-name == "GridBox"): VerticalLayout {
+                                                    spacing: 1px;
+                                                    HorizontalLayout {
+                                                        spacing: 1.5px;
+                                                        padding: 1.5px;
+                                                        Rectangle {
+                                                            background: EditorPalette.layout-element-selection-primary;
+                                                        }
 
-                                                HorizontalLayout {
-                                                    spacing: 1.5px;
-                                                    padding: 1.5px;
-                                                    Rectangle {
-                                                        background: EditorPalette.layout-element-selection-primary;
+                                                        Rectangle {
+                                                            background: EditorPalette.layout-element-selection-primary;
+                                                        }
                                                     }
 
-                                                    Rectangle {
-                                                        background: EditorPalette.layout-element-selection-primary;
+                                                    HorizontalLayout {
+                                                        spacing: 1.5px;
+                                                        padding: 1.5px;
+                                                        Rectangle {
+                                                            background: EditorPalette.layout-element-selection-primary;
+                                                        }
+
+                                                        Rectangle {
+                                                            background: EditorPalette.layout-element-selection-primary;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -270,59 +289,60 @@ component PopupInner inherits Rectangle {
                                     }
                                 }
                             }
+
+                            VerticalLayout {
+                                padding-left: EditorSpaceSettings.default-padding;
+                                spacing: EditorSpaceSettings.default-spacing / 2;
+                                alignment: center;
+
+                                if frame.id != "": Text {
+                                    text: frame.id;
+                                    overflow: elide;
+                                    color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
+                                    font-weight: EditorFontSettings.bold-font-weight;
+                                    font-size: EditorFontSettings.label.font-size;
+                                }
+
+                                Text {
+                                    text: frame.type-name + (frame.is-interactive ? " (TouchArea)" : "");
+                                    overflow: elide;
+                                    color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
+                                    font-size: EditorFontSettings.label-sub.font-size;
+                                    font-italic: true;
+                                }
+                            }
                         }
 
-                        VerticalLayout {
-                            padding-left: EditorSpaceSettings.default-padding;
-                            spacing: EditorSpaceSettings.default-spacing / 2;
-                            alignment: center;
-
-                            if frame.id != "": Text {
-                                text: frame.id;
-                                overflow: elide;
-                                color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
-                                font-weight: EditorFontSettings.bold-font-weight;
-                                font-size: EditorFontSettings.label.font-size;
-                            }
-
-                            Text {
-                                text: frame.type-name + (frame.is-interactive ? " (TouchArea)" : "");
-                                overflow: elide;
-                                color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
-                                font-size: EditorFontSettings.label-sub.font-size;
-                                font-italic: true;
-                            }
+                        Rectangle {
+                            height: 1px;
+                            background: Palette.border;
                         }
                     }
 
-                    Rectangle {
-                        height: 1px;
-                        background: Palette.border;
-                    }
-                }
+                    states [
+                        hover when ta.has-hover && !frame.is-selected: {
+                            background: Palette.accent-background.transparentize(0.9);
+                        }
+                        unhover when !ta.has-hover && !frame.is-selected: {
+                            background: Palette.background;
+                        }
+                        selected when frame.is-selected: {
+                            background: Palette.accent-background;
+                        }
+                    ]
 
-                states [
-                    hover when ta.has-hover && !frame.is-selected: {
-                        background: Palette.accent-background.transparentize(0.9);
-                    }
-                    unhover when !ta.has-hover && !frame.is-selected: {
-                        background: Palette.background;
-                    }
-                    selected when frame.is-selected: {
-                        background: Palette.accent-background;
-                    }
-                ]
-
-                ta := TouchArea {
-                    clicked() => {
-                        Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
-                        root.select-on-close = {};
-                    }
-                    changed has-hover => {
-                        if self.has-hover {
+                    ta := TouchArea {
+                        clicked() => {
                             Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
-                        } else {
-                            root.unselect-previewed-selection();
+                            root.select-on-close = {};
+                            root.close();
+                        }
+                        changed has-hover => {
+                            if self.has-hover {
+                                Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
+                            } else {
+                                root.unselect-previewed-selection();
+                            }
                         }
                     }
                 }
@@ -355,6 +375,8 @@ export component SelectionPopup {
         in-out property <length> selection-y: root.selection-y;
         in property <length> max-popup-height: root.max-popup-height;
 
+        close-policy: PopupClosePolicy.close-on-click-outside;
+
         max-height: root.max-popup-height;
 
         x: root.selection-x + 10px;
@@ -362,6 +384,8 @@ export component SelectionPopup {
 
         VerticalLayout {
             inner := PopupInner {
+                close() => { popup.close(); }
+
                 preview-width <=> popup.preview-width;
                 preview-height <=> popup.preview-height;
 
