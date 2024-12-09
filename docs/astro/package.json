@@ -21,7 +21,7 @@
     "@astrojs/check": "0.9.4",
     "@astrojs/starlight": "0.29.2",
     "@types/node": "20.16.10",
-    "astro": "4.16.16",
+    "astro": "5.0.3",
     "playwright": "1.49.0",
     "playwright-ctrf-json-reporter": "0.0.18",
     "rehype-external-links": "3.0.0",
