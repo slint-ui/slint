@@ -33,6 +33,10 @@
   ],
   "main": "./out/extension.js",
   "browser": "./out/browser.js",
+  "extensionKind": [
+    "workspace",
+    "ui"
+  ],
   "contributes": {
     "languages": [
       {
