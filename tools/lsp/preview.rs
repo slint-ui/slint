@@ -1828,7 +1828,7 @@ pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
     use crate::common::LspToPreviewMessage as M;
     match message {
         M::InvalidateContents { url } => invalidate_contents(&url),
-        M::FileLost { url } => delete_document(&url),
+        M::ForgetFile { url } => delete_document(&url),
         M::SetContents { url, contents } => {
             set_contents(&url, contents);
         }
