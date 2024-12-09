@@ -1,0 +1,60 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Structs and Enums
+description: Structs and Enums
+---
+
+
+
+## Structs
+
+Define named structures using the `struct` keyword:
+
+```slint
+export struct Player  {
+    name: string,
+    score: int,
+}
+
+export component Example {
+    in-out property<Player> player: { name: "Foo", score: 100 };
+}
+```
+
+The default value of a struct, is initialized with all its fields set to their default value.
+
+### Anonymous Structures
+
+Declare anonymous structures using `{ identifier1: type1, identifier2: type2 }`
+syntax, and initialize them using
+`{ identifier1: expression1, identifier2: expression2  }`.
+
+You may have a trailing `,` after the last expression or type.
+
+```slint
+export component Example {
+    in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
+    in-out property<{a: int, }> foo: { a: 3 };
+}
+```
+
+## Enums
+
+Define an enumeration with the `enum` keyword:
+
+```slint
+export enum CardSuit { clubs, diamonds, hearts, spade }
+
+export component Example {
+    in-out property<CardSuit> card: spade;
+    out property<bool> is-clubs: card == CardSuit.clubs;
+}
+```
+
+Enum values can be referenced by using the name of the enum and the name of the value
+separated by a dot. (eg: `CardSuit.spade`)
+
+The name of the enum can be omitted in bindings of the type of that enum, or if the
+return value of a callback is of that enum.
+
+The default value of each enum type is always the first value.

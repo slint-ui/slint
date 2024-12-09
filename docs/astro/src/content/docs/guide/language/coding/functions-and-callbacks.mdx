@@ -68,50 +68,7 @@ export component Example {
 }
 ```
 
-## Name resolution
 
-Function calls have the same name resolution rules as properties and callbacks. When called without
-an element name:
-
-- If the element that the function is called in (`self`) defines a function with that name, it is chosen.
-- If not, name resolution continues to its parent element, and so on, until the root component.
-
-When called with an element name (or `self`, `parent` or `root`), the function must be defined on that
-element. Name resolution does not look at ancestor elements in this case. Note that this means
-calling a function without an element name is _not_ equivalent to calling it with `self` (which is how methods work in many languages).
-
-Multiple functions with the same name are allowed in the same component, as long as they are defined
-on different elements. Therefore it is possible for a function to shadow another function from an ancestor
-element.
-
-```slint
-export component Example {
-    property <int> secret_number: my-function();
-    public pure function my-function() -> int {
-        return 1;
-    }
-
-    VerticalLayout {
-        public pure function my-function() -> int {
-            return 2;
-        }
-
-        Text {
-            text: "The secret number is " + my-function();
-            public pure function my-function() -> int {
-                return 3;
-            }
-        }
-
-        Text {
-            text: "The other secret number is " + my-function();
-        }
-    }
-}
-```
-
-In the example above, the property `secret_number` will be set to 1, and the text labels will say "The
-secret number is 3" and "The other secret number is 2".
 
 ## Function visibility
 
@@ -186,3 +143,75 @@ But there are also differences:
 
 In general, the biggest reason to use callbacks is to be able to handle them from the backend code. Use
 a function if that is not needed.
+
+## Callbacks
+Components may declare callbacks, that communicate changes of state
+to the outside. Callbacks are invoked by "calling" them like you would
+call a function.
+
+You react to callback invocation by declaring a handler using the `=>` arrow syntax.
+The built-in `TouchArea` element declares a `clicked` callback, that's invoked
+when the user touches the rectangular area covered by the element, or clicks into
+it with the mouse. In the example below, the invocation of that callback is forwarded
+to another custom callback (`hello`) by declaring a handler and invoking our
+custom callback:
+
+```slint
+export component Example inherits Rectangle {
+    // declare a callback
+    callback hello;
+
+    area := TouchArea {
+        // sets a handler with `=>`
+        clicked => {
+            // emit the callback
+            root.hello()
+        }
+    }
+}
+```
+
+It's possible to add parameters to a callback:
+
+```slint
+export component Example inherits Rectangle {
+    // declares a callback
+    callback hello(int, string);
+    hello(aa, bb) => { /* ... */ }
+}
+```
+
+Callbacks may also return a value:
+
+```slint
+export component Example inherits Rectangle {
+    // declares a callback with a return value
+    callback hello(int, int) -> int;
+    hello(aa, bb) => { aa + bb }
+}
+```
+
+Callback arguments can also have names.
+The names of arguments have currently no semantic value, but they improve readability of your code.
+
+```slint
+export component Example inherits Rectangle {
+    // Declare a callback with named argument
+    callback hello(foo: int, bar: string);
+    // The names can be overridden with
+    // anything when setting a handler
+    hello(aa, bb) => { /* ... */ }
+}
+```
+
+## Aliases
+
+It's possible to declare callback aliases in a similar way to two-way bindings:
+
+```slint
+export component Example inherits Rectangle {
+    callback clicked <=> area.clicked;
+    area := TouchArea {}
+}
+```
+

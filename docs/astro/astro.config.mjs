@@ -56,18 +56,18 @@ export default defineConfig({
                             { label: "Overview", slug: "index" },
                             {
                                 label: "Tooling",
-                                items: [
-                                    "guide/tooling/slintpad",
-                                    "guide/tooling/vscode",
-                                    "guide/tooling/live-editor",
-                                ],
+                                items: ["guide/tooling/vscode"],
                             },
                             {
                                 label: "Language",
                                 items: [
                                     {
-                                        label: "Core Concepts",
+                                        label: "Concepts",
                                         items: [
+                                            {
+                                                label: "Slint Language",
+                                                slug: "guide/language/concepts/slint-language",
+                                            },
                                             {
                                                 label: "Components and Properties",
                                                 slug: "guide/language/concepts/component-property",
@@ -76,47 +76,59 @@ export default defineConfig({
                                                 label: "Reactivity",
                                                 slug: "guide/language/concepts/reactivity",
                                             },
-                                            {
-                                                label: "Purity",
-                                                slug: "guide/language/concepts/purity",
-                                            },
                                         ],
                                     },
                                     {
-                                        label: "Syntax",
+                                        label: "Coding",
                                         items: [
                                             {
                                                 label: "The `.slint` File",
-                                                slug: "guide/language/syntax/file",
+                                                slug: "guide/language/coding/file",
                                             },
                                             {
-                                                label: "Basics",
-                                                slug: "guide/language/syntax/basics",
+                                                label: "Properties",
+                                                slug: "guide/language/coding/properties",
                                             },
                                             {
-                                                label: "Syntax",
-                                                slug: "guide/language/syntax/syntax",
+                                                label: "Expressions and Statements",
+                                                slug: "guide/language/coding/expressions-and-statements",
                                             },
                                             {
                                                 label: "Positioning & Layouts",
-                                                slug: "guide/language/syntax/positioning-and-layouts",
+                                                slug: "guide/language/coding/positioning-and-layouts",
                                             },
-                                            "guide/language/syntax/expressions",
-                                            "guide/language/syntax/functions",
-                                            "guide/language/syntax/callbacks",
-                                            "guide/language/syntax/globals",
-                                            "guide/language/syntax/modules",
-                                            "guide/language/syntax/properties",
-                                            "guide/language/syntax/statements",
-                                        ],
-                                    },
-                                    {
-                                        label: "Advanced",
-                                        items: [
-                                            "guide/language/advanced/animation",
-                                            "guide/language/advanced/states",
-                                            "guide/language/advanced/repetitions",
-                                            "guide/language/advanced/container",
+                                            {
+                                                label: "In App Communication",
+                                                slug: "guide/language/coding/in-app-communication",
+                                            },
+                                            {
+                                                label: "Globals",
+                                                slug: "guide/language/coding/globals",
+                                            },
+                                            {
+                                                label: "Repetition and Data Models",
+                                                slug: "guide/language/coding/repetition-and-data-models",
+                                            },
+                                            {
+                                                label: "Animations",
+                                                slug: "guide/language/coding/animation",
+                                            },
+                                            {
+                                                label: "States and Transitions",
+                                                slug: "guide/language/coding/states",
+                                            },
+                                            {
+                                                label: "Functions and Callbacks",
+                                                slug: "guide/language/coding/functions-and-callbacks",
+                                            },
+                                            {
+                                                label: "Name Resolution (Scope)",
+                                                slug: "guide/language/coding/name-resolution",
+                                            },
+                                            {
+                                                label: "Structs and Enums",
+                                                slug: "guide/language/coding/structs-and-enums",
+                                            },
                                         ],
                                     },
                                 ],
@@ -125,10 +137,34 @@ export default defineConfig({
                                 label: "App Development",
                                 items: [
                                     "guide/development/debugging_techniques",
-                                    "guide/development/localization",
-                                    "guide/development/fonts",
                                     "guide/development/focus",
+                                    "guide/development/translations",
+                                    "guide/development/fonts",
+                                    {
+                                        label: "Accessibility",
+                                        slug: "guide/development/accessibility",
+                                    },
+                                    {
+                                        label: "Custom Controls",
+                                        slug: "guide/development/custom-controls",
+                                    },
                                 ],
+                            },
+                            {
+                                label: "Platforms",
+                                collapsed: true,
+                                items: [
+                                    "guide/platforms/desktop",
+                                    "guide/platforms/embedded",
+                                    "guide/platforms/mobile",
+                                ],
+                            },
+                            {
+                                label: "Backends and Renderers",
+                                collapsed: true,
+                                autogenerate: {
+                                    directory: "guide/backends-and-renderers",
+                                },
                             },
                         ],
                     },
@@ -138,6 +174,14 @@ export default defineConfig({
                         icon: "information",
                         items: [
                             {
+                                label: "Slint Language",
+                                slug: "reference/slint-language",
+                            },
+                            {
+                                label: "Primitive Types",
+                                slug: "reference/primitive-types",
+                            },
+                            {
                                 label: "Common details",
                                 slug: "reference/overview",
                             },
@@ -145,7 +189,6 @@ export default defineConfig({
                                 label: "Basics",
                                 collapsed: true,
                                 items: [
-                                    "reference/builtins/types",
                                     "reference/builtins/type-conversions",
                                     "reference/builtins/builtinfunctions",
                                     "reference/builtins/colors",
@@ -272,48 +315,28 @@ export default defineConfig({
                         ],
                     },
                     {
-                        label: "Platforms & Integrations",
-                        link: "platforms",
+                        label: "Language Integrations",
+                        link: "language-integrations",
                         icon: "seti:html",
                         items: [
                             {
-                                label: "Platforms",
-                                collapsed: false,
-                                items: [
-                                    "platforms/desktop",
-                                    "platforms/embedded",
-                                    "platforms/mobile",
-                                ],
+                                label: "C++ ↗",
+                                link: "https://docs.slint.dev/latest/docs/cpp/",
+                                attrs: { target: "_blank" },
                             },
                             {
-                                label: "Language Integrations",
-                                collapsed: false,
-                                items: [
-                                    {
-                                        label: "C++ ↗",
-                                        link: "https://docs.slint.dev/latest/docs/cpp/",
-                                        attrs: { target: "_blank" },
-                                    },
-                                    {
-                                        label: "Rust ↗",
-                                        link: "https://docs.slint.dev/latest/docs/rust/slint/",
-                                        attrs: { target: "_blank" },
-                                    },
-                                    {
-                                        label: "TypeScript ↗",
-                                        badge: {
-                                            text: "beta",
-                                            variant: "caution",
-                                        },
-                                        link: "https://docs.slint.dev/latest/docs/node/",
-                                        attrs: { target: "_blank" },
-                                    },
-                                ],
+                                label: "Rust ↗",
+                                link: "https://docs.slint.dev/latest/docs/rust/slint/",
+                                attrs: { target: "_blank" },
                             },
                             {
-                                label: "Miscellaneous",
-                                collapsed: false,
-                                autogenerate: { directory: "platforms/misc" },
+                                label: "TypeScript ↗",
+                                badge: {
+                                    text: "beta",
+                                    variant: "caution",
+                                },
+                                link: "https://docs.slint.dev/latest/docs/node/",
+                                attrs: { target: "_blank" },
                             },
                         ],
                     },

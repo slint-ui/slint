@@ -66,3 +66,46 @@ export component Example inherits Window {
     }
 }
 ```
+
+## statements
+
+Assignment:
+
+```slint no-test
+clicked => { some-property = 42; }
+```
+
+Self-assignment with `+=` `-=` `*=` `/=`
+
+```slint no-test
+clicked => { some-property += 42; }
+```
+
+Calling a callback
+
+```slint no-test
+clicked => { root.some-callback(); }
+```
+
+Conditional statements
+
+```slint no-test
+clicked => {
+    if (condition) {
+        foo = 42;
+    } else if (other-condition) {
+        bar = 28;
+    } else {
+        foo = 4;
+    }
+}
+```
+
+Empty expression
+
+```slint no-test
+clicked => { }
+// or
+clicked => { ; }
+```
+
