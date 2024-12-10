@@ -440,6 +440,27 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, Rea
                     }
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ItemFontMetrics, _) => {
+                if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    let item = item.upgrade().unwrap();
+                    vis(
+                        &NamedReference::new(&item, SmolStr::new_static("font-size")).into(),
+                        ReadType::NativeRead,
+                    );
+                    vis(
+                        &NamedReference::new(&item, SmolStr::new_static("font-weight")).into(),
+                        ReadType::NativeRead,
+                    );
+                    vis(
+                        &NamedReference::new(&item, SmolStr::new_static("font-family")).into(),
+                        ReadType::NativeRead,
+                    );
+                    vis(
+                        &NamedReference::new(&item, SmolStr::new_static("font-italic")).into(),
+                        ReadType::NativeRead,
+                    );
+                }
+            }
             _ => {}
         },
         _ => {}
