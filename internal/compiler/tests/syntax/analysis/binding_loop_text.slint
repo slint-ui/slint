@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    Text { font-size: self.font-metrics.ascent; }
+//                    ^error{The binding for the property 'font-size' is part of a binding loop}
+//  ^^error{The binding for the property 'font-metrics' is part of a binding loop}
+
+    t1 := Text { font-italic: t2.font-metrics.cap-height > 10px; }
+//                            ^error{The binding for the property 'font-italic' is part of a binding loop}
+//        ^^error{The binding for the property 'font-metrics' is part of a binding loop}
+    t2 := Text { font-weight: t1.font-metrics.descent / 0.5px; }
+//                            ^error{The binding for the property 'font-weight' is part of a binding loop}
+//        ^^error{The binding for the property 'font-metrics' is part of a binding loop}
+
+}
