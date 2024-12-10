@@ -94,19 +94,8 @@ fn should_materialize(
     }
     let has_declared_property = match base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
-        ElementType::Builtin(b) => {
-            if let Some(p) = b.properties.get(prop) {
-                if b.native_class.lookup_property(prop).is_none() {
-                    return Some(p.ty.clone());
-                }
-                true
-            } else {
-                false
-            }
-        }
-        ElementType::Native(n) => {
-            n.lookup_property(prop).map_or(false, |prop_type| prop_type.is_property_type())
-        }
+        ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
+        ElementType::Native(n) => n.lookup_property(prop).is_some(),
         ElementType::Global | ElementType::Error => false,
     };
 
@@ -122,6 +111,9 @@ fn should_materialize(
             return Some(Type::Enumeration(
                 crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
             ));
+        } else {
+            let ty = base_type.lookup_property(prop).property_type.clone();
+            return (ty != Type::Invalid).then_some(ty);
         }
     }
     None
@@ -135,7 +127,7 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
     }
     match &elem.base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
-        ElementType::Builtin(b) => b.properties.contains_key(prop),
+        ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
         ElementType::Native(n) => n.lookup_property(prop).is_some(),
         ElementType::Global | ElementType::Error => false,
     }
@@ -143,10 +135,18 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 
 /// Initialize a sensible default binding for the now materialized property
 pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
-    if let ElementType::Builtin(b) = &elem.borrow().base_type {
-        if let Some(expr) = b.properties.get(name).and_then(|prop| prop.default_value.expr(elem)) {
-            return Some(expr);
-        }
+    let mut base_type = elem.borrow().base_type.clone();
+    loop {
+        base_type = match base_type {
+            ElementType::Component(ref c) => c.root_element.borrow().base_type.clone(),
+            ElementType::Builtin(b) => {
+                match b.properties.get(name).and_then(|prop| prop.default_value.expr(elem)) {
+                    Some(expr) => return Some(expr),
+                    None => break,
+                }
+            }
+            _ => break,
+        };
     }
 
     let expr = match name {
