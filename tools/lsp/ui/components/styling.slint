@@ -8,6 +8,7 @@ export global Icons {
     out property <image> chevron-down: @image-url("../assets/chevron-down.svg");
     out property <image> inspect: @image-url("../assets/inspect.svg");
     out property <image> search: @image-url("../assets/search.svg");
+    out property <image> filter: @image-url("../assets/filter.svg");
     out property <image> sidebar-left-off: @image-url("../assets/layout-sidebar-left-off.svg");
     out property <image> sidebar-right-off: @image-url("../assets/layout-sidebar-right-off.svg");
     out property <image> sidebar-left: @image-url("../assets/layout-sidebar-left.svg");
@@ -25,30 +26,14 @@ export global EditorFontSettings {
     out property <int> regular-font-weight: 400;
     out property <int> semibold-font-weight: 700;
     out property <int> bold-font-weight: 900;
-    
-    out property <TextStyle> header: {
-        font-size: 18 * 0.0769rem,
-        font-weight: root.semibold-font-weight
-    };
 
-    out property <TextStyle> body: {
-        font-size: 14 * 0.0769rem,
-        font-weight: root.regular-font-weight
-    };
-    out property <TextStyle> label: {
-        font-size: 14 * 0.0769rem,
-        font-weight: root.regular-font-weight
-    };
-    out property <TextStyle> label-sub: {
-        font-size: 14 * 0.0769rem,
-        font-weight: root.light-font-weight
-    };
+    out property <TextStyle> header: { font-size: 18 * 0.0769rem, font-weight: root.semibold-font-weight };
 
-    
-    out property <TextStyle> body-strong: {
-        font-size: 16 * 0.0769rem,
-        font-weight: root.bold-font-weight
-    };
+    out property <TextStyle> body: { font-size: 14 * 0.0769rem, font-weight: root.regular-font-weight };
+    out property <TextStyle> label: { font-size: 14 * 0.0769rem, font-weight: root.regular-font-weight };
+    out property <TextStyle> label-sub: { font-size: 14 * 0.0769rem, font-weight: root.light-font-weight };
+
+    out property <TextStyle> body-strong: { font-size: 16 * 0.0769rem, font-weight: root.bold-font-weight };
 }
 
 export global EditorSpaceSettings {
@@ -73,7 +58,7 @@ export global EditorSizeSettings {
 }
 
 export global EditorPalette {
-    
+
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 
     out property <brush> drop-mark-background: #00ff0080;
