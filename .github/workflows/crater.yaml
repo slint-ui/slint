@@ -37,6 +37,22 @@ jobs:
                     - "https://github.com/arunpkio/tymoz"
                     - "https://github.com/Surrealism-All/surrealism-ui-template"
 
+                    # from crates.io
+                    - "https://codeberg.org/drendog/frametrix"
+                    - "https://github.com/hzqd/mycalc"
+                    - "https://github.com/zilongyang/rust_slint_todos"
+                    - "https://github.com/gavinshox/chess-oxide"
+                    - "https://github.com/Obscurely/falion"
+                    - "https://github.com/abhay-n-j/warp-gui-app"
+                    - "https://github.com/dimas-fw/dimas"
+                    - "https://github.com/vova-max-png/slintcalc"
+                    #- "https://github.com/moistpyro/land-calc"  (doesn't actually have an ui)
+                    - "https://github.com/clay-6/baze64"
+                    - "https://github.com/Siiir/k_means-interactive/"
+                    - "https://codeberg.org/waydeer/layer-shika"
+                    - "https://github.com/limitcool/xm"
+
+
                     - "https://github.com/Decodetalkers/launchre"
                     - "https://github.com/Decodetalkers/haruhishot"
                     - "https://github.com/smalltext/trace-slint/"
@@ -64,7 +80,6 @@ jobs:
                     - "https://github.com/jpnurmi/jpos-weather"
                     #- "https://github.com/osp-project/RizPackageTools" 404
                     - "https://github.com/xenein/CountMeDown-rs"
-                    - "https://github.com/vicanso/image-converter"
                     - "https://github.com/JeremiasMeister/rust-heightmap-generator"
                     - "https://github.com/leonardosalsi/rustop"
                     - "https://github.com/joaofl/any-serve"
@@ -83,7 +98,6 @@ jobs:
                     - "https://github.com/olishmollie/radix"
                     - "https://github.com/zivit/watchlist"
                     - "https://github.com/FelgoSDK/RustyWeather"
-                    - "https://github.com/Siiir/k_means-interactive/"
                     - "https://github.com/ThilinaTLM/docker_ui"
                     - "https://github.com/PlanetTeamSpeakk/Thermostat"
                     - "https://github.com/develcooking/Reelix"
@@ -91,16 +105,37 @@ jobs:
                     - "https://github.com/radev1924/profit-first-income-calculator-desktop"
                     - "https://github.com/JarrodDoyle/slint-fmeditor"
                     - "https://github.com/planet0104/slint-noframe-window"
-                    - "https://github.com/Obscurely/falion"
                     - "https://github.com/Dusk-Labs/kira"
-                    - "https://github.com/arihant2math/prontus"
                     - "https://github.com/TuEmb/can-viewer"
-                    - "https://github.com/limitcool/xm"
                     - "https://github.com/sloganking/quick-assistant"
-                    - "https://github.com/clay-6/baze64"
-                    - "https://github.com/zilongyang/rust_slint_todos"
                     # - "https://github.com/qhua948/anubis" # uses nightly rust
                     - "https://github.com/Surrealism-All/slimk"
+                    - "https://github.com/BounceU/car_thang"
+                    - "https://github.com/sloganking/codevis-gui"
+                    - "https://github.com/R3alCl0ud/Rust4Diva"
+                    - "https://github.com/ontley/amuseing"
+                    - "https://github.com/CzNorbi/tic_tac_toe_ui"
+                    - "https://github.com/leonardoCorti/yt-dlp-easy-interface"
+                    - "https://github.com/remy2019/smtbr_gui"
+                    - "https://github.com/mrandal/PDFer"
+                    - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
+                    - "https://github.com/Hoverth/keyboardthing"
+                    - "https://github.com/DraKraft/ozon-rs"
+                    - "https://github.com/SUP2Ak/Lur-Slint"
+                    - "https://github.com/foxboxpdx/melonstt"
+                    - "https://github.com/yuuhikaze/tern"
+                    - "https://github.com/sanyexieai/me_chat"
+                    - "https://github.com/Erik7354/slint_minesweeper"
+                    - "https://github.com/AOSC-Dev/deb-installer/"
+                    - "https://github.com/oreo3494/rockpaper.git"
+                    - "https://github.com/laycookie/record"
+                    - "https://github.com/padangpanda/password-generator-desktop"
+                    - "https://github.com/RealAdarsh/slint-guess-game"
+                    - "https://github.com/asmetics/rustMusicPlayer"
+                    - "https://github.com/DASPRiD/vrc-osc-manager"
+                    - "https://github.com/beac0n/ruroco"
+                    - "https://github.com/Enn3Developer/n_music"
+
 
                     # Missing images
                     # - "https://github.com/rurishigeo/Probe-Downloader"
@@ -130,7 +165,7 @@ jobs:
                     #- "https://github.com/SergioGasquez/espup-slint"
 
                 sub_path: ["."]
-                os: ["ubuntu-latest"]
+                os: ["ubuntu-24.04"]
 
                 include:
                     - git_url: "https://github.com/griccardos/rusl"
@@ -139,8 +174,6 @@ jobs:
                       sub_path: "tunet-gui"
                     #- git_url: "https://github.com/DanielMadmon/tasker"  # needs "themis dep"
                     #  sub_path: "bin/tasker_gui"
-                    - git_url: "https://github.com/matthiasbeyer/distrox"
-                      sub_path: "distrox-gui"
                     # - git_url: "https://github.com/Kllngii/Wetterstation" # can't check submodules
                     #  sub_path: "wetterstation-ui"
                     - git_url: "https://github.com/plule/theremotion"
@@ -180,6 +213,22 @@ jobs:
                     - git_url: "https://github.com/planet0104/USB-Screen/"
                       extra_args: "--no-default-features --features=editor"
                       sub_path: "."
+                    - git_url: "https://github.com/newfla/daily-strip"
+                      sub_path: "."
+                      extra_args: "--no-default-features --features=slint_frontend"
+                    - git_url: "https://github.com/Konstantin-Dudersky/rsiot"
+                      sub_path: "."
+                      extra_args: "--features=cmp_slint"
+                    - git_url: "https://github.com/niqt/matrust/tree/main/matrust"
+                      sub_path: "matrust"
+                    - git_url: "https://github.com/obhq/obliteration"
+                      sub_path: "ui"
+                    - git_url: "https://github.com/jaymedavis/romboy"
+                      sub_path: "romboy"
+                    - git_url: "https://github.com/somantics/retrodungeon"
+                      sub_path: "."
+                      extra_args: "--features=femtovg"
+
         runs-on: "ubuntu-latest"
         steps:
             - uses: actions/checkout@v4
