@@ -6,6 +6,7 @@ description: LineEdit api.
 
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import Link from '/src/components/Link.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-lineedit-example.png"  imageWidth="200" imageHeight="200"  imageAlt='lineedit example'>
 ```slint playground
@@ -23,7 +24,7 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-A widget used to enter a single line of text. See [`TextEdit`](master/docs/slint/reference/std-widgets/textedit) for
+A widget used to enter a single line of text. See <Link type="TextEdit" /> for
 a widget able to handle several lines of text.
 
 ## Properties
@@ -85,7 +86,7 @@ LineEdit {
 Call this function to focus the LineEdit and make it receive future keyboard events.
 
 ### clear-focus()
-Call this function to remove keyboard focus from this `LineEdit` if it currently has the focus. See also [Focus Handling](../concepts/focus.md).
+Call this function to remove keyboard focus from this `LineEdit` if it currently has the focus. See also <Link type="FocusHandling" />.
 
 ### set-selection-offsets(int, int)
 Selects the text between two UTF-8 offsets.

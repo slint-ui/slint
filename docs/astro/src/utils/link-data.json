@@ -2,14 +2,17 @@
     "AnimationRef": {
         "href": "/reference/primitive-types#animation"
     },
+    "AnimationTick": {
+        "href": "/reference/global-functions-enums/builtinfunctions/#animation-tick---duration"
+    },
     "angle": {
-        "href": "/reference/primitive-types##angle"
+        "href": "/reference/primitive-types#angle"
     },
     "bool": {
-        "href": "/reference/primitive-types##bool"
+        "href": "/reference/primitive-types#bool"
     },
     "brush": {
-        "href": "/reference/primitive-types##brush"
+        "href": "/reference/primitive-types#brush"
     },
     "BorderRadiusRectangle": {
         "href": "/reference/elements/rectangle#border-radius-properties"
@@ -38,9 +41,10 @@
     "EnumType": {
         "href": "/reference/global-structs-enums"
     },
-    "slintFile": {
-        "href": "/guide/language/coding/file"
+    "Expressions": {
+        "href": "/guide/language/coding/expressions-and-statements/"
     },
+    
     "float": {
         "href": "/reference/primitive-types#float"
     },
@@ -49,6 +53,9 @@
     },
     "GridLayout": {
         "href": "/reference/layouts/gridlayout"
+    },
+    "Globals": {
+        "href": "/reference/global-structs-enums"
     },
     "HorizontalBox": {
         "href": "/reference/std-widgets/horizontalbox"
@@ -65,6 +72,9 @@
     "int": {
         "href": "/reference/primitive-types#int"
     },
+    "KeyEvent": {
+        "href": "/reference/gestures/key"
+    },
     "length": {
         "href": "/reference/primitive-types#length"
     },
@@ -73,6 +83,15 @@
     },
     "LineEdit": {
         "href": "/reference/std-widgets/lineedit"
+    },
+    "LinuxkmsBackend": {
+        "href": "/guide/backends-and-renderers/backend_linuxkms"
+    },
+    "Modules": {
+        "href": "guide/language/coding/file/#modules"
+    },
+    "Models": {
+        "href": "/guide/language/coding/repetition-and-data-models#models"
     },
     "NumericTypes": {
         "href": "/reference/primitive-types#numeric-types"
@@ -89,11 +108,17 @@
     "ProgressIndicator": {
         "href": "/reference/std-widgets/progressindicator"
     },
+    "Purity": {
+        "href": "/language/concepts/reactivity"
+    },
     "Rectangle": {
         "href": "/reference/elements/rectangle"
     },
     "relativeFontSize": {
         "href": "/reference/primitive-types#relative-font-size"
+    },
+    "slintFile": {
+        "href": "/guide/language/coding/file"
     },
     "ScrollView": {
         "href": "/reference/std-widgets/scrollview"
@@ -113,6 +138,9 @@
     "Text": {
         "href": "/reference/elements/text/"
     },
+    "TextEdit": {
+        "href": "/reference/std-widgets/textedit"
+    },
     "TextInput": {
         "href": "/reference/elements/textinput/"
     },
@@ -127,5 +155,11 @@
     },
     "VerticalLayout": {
         "href": "/reference/layouts/verticallayout"
+    },
+    "QtBackend": {
+        "href": "/guide/backends-and-renderers/backend_qt"
+    },
+    "WinitBackend": {
+        "href": "guide/backends-and-renderers/backend_winit"
     }
 }

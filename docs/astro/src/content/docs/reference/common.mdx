@@ -189,27 +189,85 @@ Specify that this is a button in a `Dialog`.
 
 
 
-
 ## Accessibility
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 `accessible-role` must be set in order to be able to set any other accessible property or callback.
 
--   **`accessible-role`** (_in_ _enum [`AccessibleRole`](enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
--   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
--   **`accessible-checked`** (_in_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
--   **`accessible-description`** (_in_ _string_): The description for the current element.
--   **`accessible-enabled`** (_in_ _bool_): Whether the element is enabled or not. This maps to the "enabled" state of most widgets. (default value: `true`)
--   **`accessible-label`** (_in_ _string_): The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
--   **`accessible-value-maximum`** (_in_ _float_): The maximum value of the item. This is used for example by spin boxes.
--   **`accessible-value-minimum`** (_in_ _float_): The minimum value of the item.
--   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
--   **`accessible-value`** (_in_ _string_): The current value of the item.
--   **`accessible-placeholder-text`** (_in_ _string_): A placeholder text to use when the item's value is empty. Applies to text elements.
--   **`accessible-item-selectable`** (_in_ _bool_): Whether the element can be selected or not.
--   **`accessible-item-selected`** (_in_ _bool_): Whether the element is selected or not. This maps to the "is-selected" state of listview items.
--   **`accessible-item-index`** (_in_ _int_): The index (starting from 0) of this element in a group of similar elements. Applies to list items, radio buttons and other elements.
--   **`accessible-item-count`** (_in_ _int_): The total number of elements in a group. Applies to the parent container of a group of element such as list views, radio button groups or other grouping elements.
+### accessible-role
+<SlintProperty typeName="enum" enumName="AccessibleRole">
+The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
+</SlintProperty>
+
+### accessible-checkable
+<SlintProperty typeName="bool" propName="accessible-checkable" default="false">
+Whether the element is can be checked or not.
+</SlintProperty>
+
+### accessible-checked
+<SlintProperty typeName="bool" propName="accessible-checked" default="false">
+Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
+</SlintProperty>
+
+### accessible-description
+<SlintProperty typeName="string" propName="accessible-description" default='""'>
+The description for the current element.
+</SlintProperty>
+
+### accessible-enabled
+<SlintProperty typeName="bool" propName="accessible-enabled" default="true">
+Whether the element is enabled or not. This maps to the "enabled" state of most widgets. (default value: `true`)
+</SlintProperty>
+
+### accessible-label
+<SlintProperty typeName="string" propName="accessible-label" default='""'>
+The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
+</SlintProperty>
+
+### accessible-value-maximum
+<SlintProperty typeName="float" propName="accessible-value-maximum" default="0">
+The maximum value of the item. This is used for example by spin boxes.
+</SlintProperty>
+
+### accessible-value-minimum
+<SlintProperty typeName="float" propName="accessible-value-minimum" default="0">
+The minimum value of the item.
+</SlintProperty>
+
+### accessible-value-step
+<SlintProperty typeName="float" propName="accessible-value-step" default="0">
+The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
+</SlintProperty>
+
+### accessible-value
+<SlintProperty typeName="string" propName="accessible-value" default='""'>
+The current value of the item.
+</SlintProperty>
+
+### accessible-placeholder-text
+<SlintProperty typeName="string" propName="accessible-placeholder-text" default='""'>
+A placeholder text to use when the item's value is empty. Applies to text elements.
+</SlintProperty>
+
+### accessible-item-selectable
+<SlintProperty typeName="bool" propName="accessible-value" >
+Whether the element can be selected or not.
+</SlintProperty>
+
+### accessible-item-selected
+<SlintProperty typeName="bool" propName="accessible-item-selected" >
+Whether the element is selected or not. This maps to the "is-selected" state of listview items.
+</SlintProperty>
+
+### accessible-item-index
+<SlintProperty typeName="int" propName="accessible-item-index">
+ The index (starting from 0) of this element in a group of similar elements. Applies to list items, radio buttons and other elements.
+</SlintProperty>
+
+### accessible-item-count
+<SlintProperty typeName="int" propName="accessible-item-count">
+The total number of elements in a group. Applies to the parent container of a group of element such as list views, radio button groups or other grouping elements.
+</SlintProperty>
 
 You can also use the following callbacks that are going to be called by the accessibility framework:
 

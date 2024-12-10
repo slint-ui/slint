@@ -173,13 +173,9 @@ export default defineConfig({
                     },
                     {
                         label: "Reference",
-                        link: "reference/slint-language",
+                        link: "reference/primitive-types",
                         icon: "information",
                         items: [
-                            {
-                                label: "Slint Language",
-                                slug: "reference/slint-language",
-                            },
                             {
                                 label: "Primitive Types",
                                 slug: "reference/primitive-types",
@@ -355,8 +351,8 @@ export default defineConfig({
                     },
                 ]),
                 starlightLinksValidator({
-                    errorOnRelativeLinks: false,
                     errorOnLocalLinks: false,
+                    exclude: ["**/index.mdx"],
                 }),
             ],
             social: {

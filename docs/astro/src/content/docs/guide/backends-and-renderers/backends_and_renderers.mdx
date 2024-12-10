@@ -4,7 +4,9 @@ title: Backends & Renderers
 description: Backends & Renderers
 ---
 
-<!-- cSpell: ignore linuxkms mfloat BINDGEN OECORE CCARGS xcrun gnueabi -->
+import Link from '/src/components/Link.astro';
+// cSpell: ignore linuxkms mfloat BINDGEN OECORE CCARGS xcrun gnueabi
+
 
 In Slint, a backend is the module that encapsulates the interaction with the operating system,
 in particular the windowing sub-system. Multiple backends can be compiled into Slint and one
@@ -46,7 +48,7 @@ as well as the features you've selected at Slint compilation time.
 
 ### Qt Renderer
 
-The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPainter:
+The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and renders using QPainter:
 
  - Software rendering, no GPU acceleration.
  - Available only in the Qt backend.
@@ -66,7 +68,7 @@ The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPa
   * No circular gradients.
   * No text stroking/outlining.
 - Text rendering currently limited to western scripts.
-- Available in the [Winit backend](backend_winit.md).
+- Available in the <Link type="WinitBackend" label="Winit backend" />.
 - Public [Rust](slint-rust:platform/software_renderer/) and [C++](slint-cpp:api/classslint_1_1platform_1_1SoftwareRenderer) API.
 
 ### FemtoVG Renderer
@@ -74,14 +76,14 @@ The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPa
  - Highly portable.
  - GPU acceleration with OpenGL (required).
  - Text and path rendering quality sometimes sub-optimal.
- - Available in the [Winit backend](backend_winit.md) and [LinuxKMS backend](backend_linuxkms.md).
+ - Available in the <Link type="WinitBackend" label="Winit backend" /> and <Link type="LinuxkmsBackend" label="LinuxKMS backend" />.
  - Public [Rust](slint-rust:platform/femtovg_renderer/) API.
 
 ### Skia Renderer
 
  - Sophisticated GPU acceleration with OpenGL, Metal, Vulkan, and Direct3D.
  - Heavy disk-footprint compared to other renderers.
- - Available in the [Winit backend](backend_winit.md) and [LinuxKMS backend](backend_linuxkms.md).
+ - Available in the <Link type="WinitBackend" label="Winit backend" /> and <Link type="LinuxkmsBackend" label="LinuxKMS backend" />.
  - Public [C++](slint-cpp:api/classslint_1_1platform_1_1SkiaRenderer) API.
 
 #### Troubleshooting

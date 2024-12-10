@@ -4,6 +4,8 @@ title: Animations
 description: UI Animations.
 ---
 
+import Link from '/src/components/Link.astro';
+
 Declare animations for properties with the `animate` keyword like this:
 
 ```slint
@@ -28,7 +30,7 @@ Fine-tune animations using the following parameters:
 -   `duration`: the amount of time it takes for the animation to complete
 -   `iteration-count`: The number of times an animation should run. A negative value specifies
     infinite reruns. Fractional values are possible.
-    For permanently running animations, see [`animation-tick()`](../language/builtins/functions.md#animation-tick-duration).
+    For permanently running animations, see <Link type="AnimationTick" label="`animation-tick()`" />.
 -   `easing`: can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
 
     -   `linear`

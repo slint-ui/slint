@@ -5,6 +5,7 @@ description:  The `.slint` File
 ---
 
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import Link from '/src/components/Link.astro';
 
 
 You write user interfaces in the Slint language and saved in files with the `.slint` extension.
@@ -75,7 +76,7 @@ export component MyApp inherits Window {
 ```
 
 :::note{Note}
-Names have to be valid [identifiers](../syntax/identifiers.md).
+Names have to be valid [identifiers](#identifiers).
 :::
 
 Some elements are also accessible under pre-defined names:
@@ -276,7 +277,7 @@ export component App inherits Rectangle {
 
 Elements, globals and structs can be exported and imported.
 
-It's also possible to export globals (see [Global Singletons](globals.md)) imported from
+It's also possible to export globals (see <Link type="Globals" label="Global Singletons" />) imported from
 other files:
 
 ```slint no-test
