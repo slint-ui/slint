@@ -28,6 +28,7 @@ export component LibraryView {
     side-bar := Group {
         width: 100%;
         height: 100%;
+        opacity: root.preview-area-is-current ? 1 : 0.3;
 
         GroupHeader {
             title: @tr("Library");
