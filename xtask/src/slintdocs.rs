@@ -38,7 +38,7 @@ fn write_individual_enum_files(
     ))?;
 
     for (k, e) in enums {
-        let path = enums_dir.join(format!("{k}.md"));
+        let path = enums_dir.join(format!("{k}.mdx"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -50,7 +50,7 @@ title: {0}
 description: {0} content
 ---
 
-<!-- Generated with `cargo xtask slintdocs` from internal/commons/enums.rs -->
+{{/* Generated with `cargo xtask slintdocs` from internal/commons/enums.rs */}}
 
 `{0}`
 
@@ -230,7 +230,7 @@ fn write_individual_struct_files(
     ))?;
 
     for (s, v) in &structs {
-        let path = structs_dir.join(format!("{s}.md"));
+        let path = structs_dir.join(format!("{s}.mdx"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -242,7 +242,7 @@ title: {0}
 description: {0} content
 ---
 
-<!-- Generated with `cargo xtask slintdocs` from internal/common/builtin_structs.rs -->
+{{/* Generated with `cargo xtask slintdocs` from internal/common/builtin_structs.rs */}}
 
 `{0}`
 

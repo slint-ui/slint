@@ -5,7 +5,7 @@ export async function getEnumContent(enumName: string | undefined) {
     if (enumName) {
         try {
             const module = await import(
-                `../content/collections/enums/${enumName}.md`
+                `../content/collections/enums/${enumName}.mdx`
             );
             return module.compiledContent();
         } catch (error) {
@@ -27,7 +27,7 @@ export async function getStructContent(
     if (baseStruct) {
         try {
             const module = await import(
-                `../content/collections/structs/${baseStruct}.md`
+                `../content/collections/structs/${baseStruct}.mdx`
             );
             return module.compiledContent();
         } catch (error) {
