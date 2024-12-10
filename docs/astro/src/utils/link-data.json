@@ -88,7 +88,7 @@
         "href": "/guide/backends-and-renderers/backend_linuxkms"
     },
     "Modules": {
-        "href": "guide/language/coding/file/#modules"
+        "href": "/guide/language/coding/file/#modules"
     },
     "Models": {
         "href": "/guide/language/coding/repetition-and-data-models#models"
@@ -109,7 +109,7 @@
         "href": "/reference/std-widgets/progressindicator"
     },
     "Purity": {
-        "href": "/language/concepts/reactivity"
+        "href": "/guide/language/concepts/reactivity"
     },
     "Rectangle": {
         "href": "/reference/elements/rectangle"
@@ -160,6 +160,6 @@
         "href": "/guide/backends-and-renderers/backend_qt"
     },
     "WinitBackend": {
-        "href": "guide/backends-and-renderers/backend_winit"
+        "href": "/guide/backends-and-renderers/backend_winit/"
     }
 }
