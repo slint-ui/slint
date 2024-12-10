@@ -151,13 +151,17 @@ component PopupInner inherits Rectangle {
             spacing: EditorSpaceSettings.default-spacing;
 
             Image {
-                source: Icons.inspect;
+                source: Icons.search;
+                colorize: Palette.foreground;
+                width: EditorSizeSettings.default-icon-width;
+                height: EditorSizeSettings.default-icon-width;
             }
+
             filter-edit := LineEdit {
                 placeholder-text: "Filter";
             }
         }
-        
+
         ScrollView {
 
             list-view := VerticalLayout {
@@ -334,7 +338,7 @@ component PopupInner inherits Rectangle {
                     ta := TouchArea {
                         clicked() => {
                             Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
-                            root.select-on-close = {};
+                            root.select-on-close = { };
                             root.close();
                         }
                         changed has-hover => {
@@ -384,7 +388,9 @@ export component SelectionPopup {
 
         VerticalLayout {
             inner := PopupInner {
-                close() => { popup.close(); }
+                close() => {
+                    popup.close();
+                }
 
                 preview-width <=> popup.preview-width;
                 preview-height <=> popup.preview-height;
