@@ -4,6 +4,7 @@ title: TextInput
 description: TextInput element api.
 ---
 import SlintProperty  from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
 
 ```slint playground
 export component Example inherits Window {
@@ -54,7 +55,7 @@ The design metrics of the font scaled to the font pixel size used by the element
 
 ### has-focus
 <SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
-`TextInput` sets this to `true` when it's focused. Only then it receives [`KeyEvent`](../language/builtins/structs.md#keyevent)s.
+`TextInput` sets this to `true` when it's focused. Only then it receives <Link type="KeyEvent"/>s.
 </SlintProperty>
 
 ### horizontal-alignment
@@ -118,7 +119,7 @@ The way the text input wraps. Only makes sense when `single-line` is false.
 Call this function to focus the text input and make it receive future keyboard events.
 
 ### clear-focus()
-Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also [](../concepts/focus.md).
+Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also <Link type="FocusHandling" />.
 
 ### set-selection-offsets(int, int)
 Selects the text between two UTF-8 offsets.
@@ -145,7 +146,7 @@ Invoked when the enter key is pressed.
 
 ### cursor-position-changed(Point)
 The cursor was moved to the new (x, y) position
-described by the [_`Point`_](../language/builtins/structs.md#point) argument.
+described by the `Point` argument.
 
 ### edited()
 Invoked when the text has changed because the user modified it.

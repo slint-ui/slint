@@ -4,6 +4,8 @@ title: Functions
 description: Functions
 ---
 
+import Link from '/src/components/Link.astro';
+
 Similar to other programming languages, functions in Slint are way to name, organize and reuse
 a piece of logic/code.
 
@@ -35,7 +37,7 @@ If a function does not explicitly return a value, the value of the last statemen
 
 Functions can be annotated with the `pure` keyword.
 This indicates that the function does not cause any side effects.
-More details can be found in the [Purity](../concepts/purity.md) chapter.
+More details can be found in the <Link type="Purity" /> chapter.
 
 ## Calling a function
 
@@ -125,7 +127,7 @@ See the language-specific documentation for the generated code to use.
 
 ## Functions vs. callbacks
 
-There are a lot of similarities between functions and [callbacks](callbacks.md):
+There are a lot of similarities between functions and [callbacks](#callbacks):
 
 - They are both callable blocks of logic/code
 - They are invoked in the same way

@@ -4,6 +4,7 @@ title: FocusScope
 description: FocusScope element api.
 ---
 import SlintProperty  from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
 
 ```slint playground
 export component Example inherits Window {
@@ -28,9 +29,9 @@ export component Example inherits Window {
 The `FocusScope` exposes callbacks to intercept key events. Note that `FocusScope`
 will only invoke them when it `has-focus`.
 
-The [`KeyEvent`](structs.md#keyevent) has a text property, which is a character of the key entered.
+The <Link type="KeyEvent" /> has a text property, which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
-or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](namespaces.md#key) namespace
+or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the <Link type="KeyEvent"/> namespace
 
 ## Properties
 
@@ -49,19 +50,19 @@ Is `true` when the element has keyboard focus.
 ## Functions
 
 ### focus()
-Call this function to transfer keyboard focus to this `FocusScope`, to receive future [`KeyEvent`](structs.md#keyevent)s.  
+Call this function to transfer keyboard focus to this `FocusScope`, to receive future <Link type="KeyEvent" />s.  
 
 ### clear-focus()
-Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also [](../concepts/focus.md).
+Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also <Link type="FocusHandling" />.
 
 ## Callbacks
 
 ### key-pressed(KeyEvent) -> EventResult
-Invoked when a key is pressed, the argument is a [`KeyEvent`](structs.md#keyevent) struct. The returned [`EventResult`](enums.md#eventresult) 
+Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult` 
 indicates whether to accept or ignore the event. Ignored events are forwarded to the parent element.
 
 ### key-released(KeyEvent) -> EventResult
-Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct. The returned [`EventResult`](enums.md#eventresult) 
+Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult` 
 indicates whether to accept or ignore the event. Ignored events are forwarded to the parent element.
 
 ### focus-changed-event()

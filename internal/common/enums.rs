@@ -20,7 +20,7 @@
 macro_rules! for_each_enums {
     ($macro:ident) => {
         $macro![
-            /// This enum describes the different types of alignment of text along the horizontal axis of a [`Text`](elements.md#text) element.
+            /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` element.
             enum TextHorizontalAlignment {
                 /// The text will be aligned with the left edge of the containing box.
                 Left,
@@ -30,7 +30,7 @@ macro_rules! for_each_enums {
                 Right,
             }
 
-            /// This enum describes the different types of alignment of text along the vertical axis of a [`Text`](elements.md#text) element.
+            /// This enum describes the different types of alignment of text along the vertical axis of a `Text` element.
             enum TextVerticalAlignment {
                 /// The text will be aligned to the top of the containing box.
                 Top,
@@ -40,7 +40,7 @@ macro_rules! for_each_enums {
                 Bottom,
             }
 
-            /// This enum describes the how the text wrap if it is too wide to fit in the [`Text`](elements.md#text) width.
+            /// This enum describes the how the text wrap if it is too wide to fit in the `Text` width.
             enum TextWrap {
                 /// The text won't wrap, but instead will overflow.
                 NoWrap,
@@ -50,7 +50,7 @@ macro_rules! for_each_enums {
                 CharWrap,
             }
 
-            /// This enum describes the how the text appear if it is too wide to fit in the [`Text`](elements.md#text) width.
+            /// This enum describes the how the text appear if it is too wide to fit in the `Text` width.
             enum TextOverflow {
                 /// The text will simply be clipped.
                 Clip,
@@ -58,7 +58,7 @@ macro_rules! for_each_enums {
                 Elide,
             }
 
-            /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a [`Text`](elements.md#text).
+            /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a `Text`.
             enum TextStrokeStyle {
                 /// The inside edge of the stroke is at the outer edge of the text.
                 Outside,
@@ -82,20 +82,20 @@ macro_rules! for_each_enums {
                 Evenodd,
             }
 
-            /// Use this enum to add standard buttons to a [`Dialog`](elements.md#dialog). The look and positioning
-            /// of these [`StandardButton`](../widgets/standardbutton.md)s depends on the environment
+            /// Use this enum to add standard buttons to a `Dialog`. The look and positioning
+            /// of these `StandardButton`s depends on the environment
             /// (OS, UI environment, etc.) the application runs in.
             enum StandardButtonKind {
-                /// A "OK" button that accepts a [`Dialog`](elements.md#dialog), closing it when clicked.
+                /// A "OK" button that accepts a `Dialog`, closing it when clicked.
                 Ok,
-                /// A "Cancel" button that rejects a [`Dialog`](elements.md#dialog), closing it when clicked.
+                /// A "Cancel" button that rejects a `Dialog`, closing it when clicked.
                 Cancel,
                 /// A "Apply" button that should accept values from a
-                /// [`Dialog`](elements.md#dialog) without closing it.
+                /// `Dialog` without closing it.
                 Apply,
-                /// A "Close" button, which should close a [`Dialog`](elements.md#dialog) without looking at values.
+                /// A "Close" button, which should close a `Dialog` without looking at values.
                 Close,
-                /// A "Reset" button, which should reset the [`Dialog`](elements.md#dialog) to its initial state.
+                /// A "Reset" button, which should reset the `Dialog` to its initial state.
                 Reset,
                 /// A "Help" button, which should bring up context related documentation when clicked.
                 Help,
@@ -112,7 +112,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum represents the value of the `dialog-button-role` property which can be added to
-            /// any element within a [`Dialog`](elements.md#dialog) to put that item in the button row, and its exact position
+            /// any element within a `Dialog` to put that item in the button row, and its exact position
             /// depends on the role and the platform.
             enum DialogButtonRole {
                 /// This isn't a button meant to go into the bottom row
@@ -232,13 +232,13 @@ macro_rules! for_each_enums {
                 //zoom_out,
             }
 
-            /// This enum defines how the source image shall fit into an [`Image`](elements.md#image) element.
+            /// This enum defines how the source image shall fit into an `Image` element.
             enum ImageFit {
-                /// Scales and stretches the source image to fit the width and height of the [`Image`](elements.md#image) element.
+                /// Scales and stretches the source image to fit the width and height of the `Image` element.
                 Fill,
-                /// The source image is scaled to fit into the [`Image`](elements.md#image) element's dimension while preserving the aspect ratio.
+                /// The source image is scaled to fit into the `Image` element's dimension while preserving the aspect ratio.
                 Contain,
-                /// The source image is scaled to cover into the [`Image`](elements.md#image) element's dimension while preserving the aspect ratio.
+                /// The source image is scaled to cover into the `Image` element's dimension while preserving the aspect ratio.
                 /// If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
                 Cover,
                 /// Preserves the size of the source image in logical pixels.
@@ -249,21 +249,21 @@ macro_rules! for_each_enums {
 
             /// This enum specifies the horizontal alignment of the source image.
             enum ImageHorizontalAlignment {
-                /// Aligns the source image at the center of the [`Image`](elements.md#image) element.
+                /// Aligns the source image at the center of the `Image` element.
                 Center,
-                /// Aligns the source image at the left of the [`Image`](elements.md#image) element.
+                /// Aligns the source image at the left of the `Image` element.
                 Left,
-                /// Aligns the source image at the right of the [`Image`](elements.md#image) element.
+                /// Aligns the source image at the right of the `Image` element.
                 Right,
             }
 
             /// This enum specifies the vertical alignment of the source image.
             enum ImageVerticalAlignment {
-                /// Aligns the source image at the center of the [`Image`](elements.md#image) element.
+                /// Aligns the source image at the center of the `Image` element.
                 Center,
-                /// Aligns the source image at the top of the [`Image`](elements.md#image) element.
+                /// Aligns the source image at the top of the `Image` element.
                 Top,
-                /// Aligns the source image at the bottom of the [`Image`](elements.md#image) element.
+                /// Aligns the source image at the bottom of the `Image` element.
                 Bottom,
             }
 
@@ -279,9 +279,9 @@ macro_rules! for_each_enums {
             enum ImageTiling {
                 /// The source image will not be tiled.
                 None,
-                /// The source image will be repeated to fill the [`Image`](elements.md#image) element.
+                /// The source image will be repeated to fill the `Image` element.
                 Repeat,
-                /// The source image will be repeated and scaled to fill the [`Image`](elements.md#image) element, ensuring an integer number of repetitions.
+                /// The source image will be repeated and scaled to fill the `Image` element, ensuring an integer number of repetitions.
                 Round,
             }
 
@@ -298,9 +298,9 @@ macro_rules! for_each_enums {
                 Decimal,
             }
 
-            /// Enum representing the [alignment](../concepts/layouting.md#alignment) property of a
-            /// [`HorizontalBox`](../widgets/horizontalbox.md), a [`VerticalBox`](../widgets/verticalbox.md),
-            /// a [`HorizontalLayout`, or `VerticalLayout`](elements.md#verticallayout-and-horizontallayout).
+            /// Enum representing the `alignment` property of a
+            /// `HorizontalBox`, a `VerticalBox`,
+            /// a `HorizontalLayout`, or `VerticalLayout`.
             enum LayoutAlignment {
                 /// Use the minimum size of all elements in a layout, distribute remaining space
                 /// based on `*-stretch` among all elements.
@@ -344,41 +344,41 @@ macro_rules! for_each_enums {
             enum AccessibleRole {
                 /// The element isn't accessible.
                 None,
-                /// The element is a [`Button`](slint-reference:src/language/widgets/button) or behaves like one.
+                /// The element is a `Button` or behaves like one.
                 Button,
-                /// The element is a [`CheckBox`](slint-reference:src/language/widgets/checkbox) or behaves like one.
+                /// The element is a `CheckBox` or behaves like one.
                 Checkbox,
-                /// The element is a [`ComboBox`](slint-reference:src/language/widgets/combobox) or behaves like one.
+                /// The element is a `ComboBox` or behaves like one.
                 Combobox,
-                /// The element is a [`ListView`](slint-reference:src/language/widgets/listview) or behaves like one.
+                /// The element is a `ListView` or behaves like one.
                 List,
-                /// The element is a [`Slider`](slint-reference:src/language/widgets/slider) or behaves like one.
+                /// The element is a `Slider` or behaves like one.
                 Slider,
-                /// The element is a [`SpinBox`](slint-reference:src/language/widgets/spinbox) or behaves like one.
+                /// The element is a `SpinBox` or behaves like one.
                 Spinbox,
-                /// The element is a [`Tab`](slint-reference:src/language/widgets/tabwidget) or behaves like one.
+                /// The element is a `Tab` or behaves like one.
                 Tab,
-                /// The element is similar to the tab bar in a [`TabWidget`](slint-reference:src/language/widgets/tabwidget).
+                /// The element is similar to the tab bar in a `TabWidget`.
                 TabList,
-                /// The role for a [`Text`](slint-reference:src/language/builtins/elements#text) element. It's automatically applied.
+                /// The role for a `Text` element. It's automatically applied.
                 Text,
-                /// The role for a [`TableView`](slint-reference:src/language/widgets/standardtableview ) or behaves like one.
+                /// The role for a `TableView` or behaves like one.
                 Table,
                 /// The role for a TreeView or behaves like one. (Not provided yet)
                 Tree,
-                /// The element is a [`ProgressIndicator`](slint-reference:src/language/widgets/progressindicator) or behaves like one.
+                /// The element is a `ProgressIndicator` or behaves like one.
                 ProgressIndicator,
                 /// The role for widget with editable text such as a
-                /// [`LineEdit`](slint-reference:src/language/widgets/lineedit) or a [`TextEdit`](slint-reference:src/language/widgets/textedit)
+                /// `LineEdit` or a `TextEdit`
                 TextInput,
-                /// The element is a [`Switch`](slint-reference:src/language/widgets/switch) or behaves like one.
+                /// The element is a `Switch` or behaves like one.
                 Switch,
-                /// The element is an item in a [`ListView`](slint-reference:src/language/widgets/listview).
+                /// The element is an item in a `ListView`.
                 ListItem,
             }
 
             /// This enum represents the different values of the `sort-order` property.
-            /// It's used to sort a [`StandardTableView`](../widgets/standardtableview.md) by a column.
+            /// It's used to sort a `StandardTableView` by a column.
             enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,
@@ -390,7 +390,7 @@ macro_rules! for_each_enums {
                 Descending,
             }
 
-            /// Represents the orientation of an element or widget such as the [`Slider`](../widgets/slider.md).
+            /// Represents the orientation of an element or widget such as the `Slider`.
             enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
@@ -432,7 +432,7 @@ macro_rules! for_each_enums {
                 AlwaysOn,
             }
 
-            // This enum describes the close behaviour of [`PopupWindow`](elements.md#popupwindow)
+            // This enum describes the close behavior of `PopupWindow`
             enum PopupClosePolicy {
                 /// Closes the `PopupWindow` when user clicks or presses the escape key.
                 CloseOnClick,

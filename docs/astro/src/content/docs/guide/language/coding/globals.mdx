@@ -3,6 +3,7 @@
 title: Globals
 description: Globals
 ---
+import Link from '/src/components/Link.astro';
 
 Declare a global singleton with `global Name { /* .. properties or callbacks .. */ }` to
 make properties and callbacks available throughout the entire project. Access them using `Name.property`.
@@ -22,7 +23,7 @@ export component Example inherits Rectangle {
 }
 ```
 
-Export a global to make it accessible from other files (see [Modules](modules.md)). Export a global from
+Export a global to make it accessible from other files (see <Link type="Modules" />). Export a global from
 the file also exporting the main application component to make it visible
 to native code in the business logic.
 
