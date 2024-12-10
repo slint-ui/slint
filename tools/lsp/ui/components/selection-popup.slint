@@ -151,10 +151,11 @@ component PopupInner inherits Rectangle {
 
             Rectangle {
                 Image {
-                    source: Icons.search;
-                    colorize: Palette.foreground;
-                    width: EditorSizeSettings.default-icon-width;
-                    height: EditorSizeSettings.default-icon-width;
+                    source: Icons.filter;
+                    colorize: Palette.alternate-foreground;
+                    width: EditorSizeSettings.default-icon-width * 0.8;
+                    height: EditorSizeSettings.default-icon-width * 0.8;
+                    y: filter-edit.height / 2 - self.height / 2;
                 }
             }
 

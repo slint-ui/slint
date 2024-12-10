@@ -157,6 +157,7 @@ SPDX-License-Identifier = "LicenseRef-qskinny"
 [[annotations]]
 path = [
   "tools/lsp/ui/assets/chevron-down.svg",
+  "tools/lsp/ui/assets/filter.svg",
   "tools/lsp/ui/assets/inspect.svg",
   "tools/lsp/ui/assets/layout-sidebar**.svg",
   "tools/lsp/ui/assets/search.svg",
