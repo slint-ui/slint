@@ -952,6 +952,11 @@ impl WindowAdapter for WinitWindowAdapter {
 
 impl WindowAdapterInternal for WinitWindowAdapter {
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        let runtime_window = WindowInner::from_pub(self.window());
+        if runtime_window.has_custom_cursor() {
+            return;
+        }
+
         let winit_cursor = match cursor {
             MouseCursor::Default => winit::window::CursorIcon::Default,
             MouseCursor::None => winit::window::CursorIcon::Default,

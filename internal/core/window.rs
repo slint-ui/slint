@@ -435,6 +435,8 @@ pub struct WindowInner {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
 
+    has_custom_cursor: Cell<bool>,
+
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
@@ -504,6 +506,7 @@ impl WindowInner {
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
+            has_custom_cursor: Cell::new(false),
             // The ctx is lazy so that a Window can be initialized before the backend.
             // (for example in test_empty_window)
             ctx: once_cell::unsync::Lazy::new(|| {
@@ -1291,6 +1294,16 @@ impl WindowInner {
     /// Private access to the WindowInner for a given window.
     pub fn from_pub(window: &crate::api::Window) -> &Self {
         &window.0
+    }
+
+    /// Sets whether the window has a custom cursor set.
+    pub fn set_has_custom_cursor(&self, is_custom_cursor: bool) {
+        self.has_custom_cursor.set(is_custom_cursor);
+    }
+
+    /// Returns whether the window has a custom cursor set.
+    pub fn has_custom_cursor(&self) -> bool {
+        self.has_custom_cursor.get()
     }
 }
 
