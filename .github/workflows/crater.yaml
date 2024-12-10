@@ -43,7 +43,7 @@ jobs:
                     - "https://github.com/zilongyang/rust_slint_todos"
                     - "https://github.com/gavinshox/chess-oxide"
                     - "https://github.com/Obscurely/falion"
-                    - "https://github.com/abhay-n-j/warp-gui-app"
+                    #- "https://github.com/abhay-n-j/warp-gui-app" (wrong edition in Cargo.toml)
                     - "https://github.com/dimas-fw/dimas"
                     - "https://github.com/vova-max-png/slintcalc"
                     #- "https://github.com/moistpyro/land-calc"  (doesn't actually have an ui)
@@ -115,23 +115,17 @@ jobs:
                     - "https://github.com/R3alCl0ud/Rust4Diva"
                     - "https://github.com/ontley/amuseing"
                     - "https://github.com/CzNorbi/tic_tac_toe_ui"
-                    - "https://github.com/leonardoCorti/yt-dlp-easy-interface"
                     - "https://github.com/remy2019/smtbr_gui"
                     - "https://github.com/mrandal/PDFer"
                     - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
-                    - "https://github.com/Hoverth/keyboardthing"
                     - "https://github.com/DraKraft/ozon-rs"
                     - "https://github.com/SUP2Ak/Lur-Slint"
                     - "https://github.com/foxboxpdx/melonstt"
-                    - "https://github.com/yuuhikaze/tern"
                     - "https://github.com/sanyexieai/me_chat"
-                    - "https://github.com/Erik7354/slint_minesweeper"
-                    - "https://github.com/AOSC-Dev/deb-installer/"
                     - "https://github.com/oreo3494/rockpaper.git"
                     - "https://github.com/laycookie/record"
                     - "https://github.com/padangpanda/password-generator-desktop"
                     - "https://github.com/RealAdarsh/slint-guess-game"
-                    - "https://github.com/asmetics/rustMusicPlayer"
                     - "https://github.com/DASPRiD/vrc-osc-manager"
                     - "https://github.com/beac0n/ruroco"
                     - "https://github.com/Enn3Developer/n_music"
@@ -140,12 +134,16 @@ jobs:
                     # Missing images
                     # - "https://github.com/rurishigeo/Probe-Downloader"
                     # - "https://github.com/Tricked-dev/stardew-mod-manager"
+                    # - "https://github.com/Erik7354/slint_minesweeper"
+
 
                     # Use our private API (eg: backend winit)
                     # - "https://github.com/Davide255/LVIE"
                     # - "https://github.com/Vadoola/Tomotroid"
                     # - "https://github.com/Horbin-Magician/rotor-rs"
                     # - "https://github.com/ilmai/plugin-things"
+                    # - "https://github.com/Hoverth/keyboardthing"
+
 
                     # - "https://codeberg.org/moire/moire"  # Broken because of other dependencies.
 
@@ -216,13 +214,10 @@ jobs:
                     - git_url: "https://github.com/newfla/daily-strip"
                       sub_path: "."
                       extra_args: "--no-default-features --features=slint_frontend"
-                    - git_url: "https://github.com/Konstantin-Dudersky/rsiot"
-                      sub_path: "."
-                      extra_args: "--features=cmp_slint"
-                    - git_url: "https://github.com/niqt/matrust/tree/main/matrust"
+                    - git_url: "https://github.com/niqt/matrust/"
                       sub_path: "matrust"
                     - git_url: "https://github.com/obhq/obliteration"
-                      sub_path: "ui"
+                      sub_path: "gui"
                     - git_url: "https://github.com/jaymedavis/romboy"
                       sub_path: "romboy"
                     - git_url: "https://github.com/somantics/retrodungeon"
@@ -235,7 +230,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev
+                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libarchive-dev
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
