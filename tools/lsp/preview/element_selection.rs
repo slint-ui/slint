@@ -447,8 +447,21 @@ pub fn selection_stack_at(
 pub fn filter_sort_selection_stack(
     model: slint::ModelRc<crate::preview::ui::SelectionStackFrame>,
     filter: slint::SharedString,
+    sort_by_area: bool,
 ) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
     use slint::ModelExt;
+
+    let model = if sort_by_area {
+        Rc::new(model.sort_by(|a, b| {
+            let a_area = a.width * a.height;
+            let b_area = b.width * b.height;
+
+            a_area.partial_cmp(&b_area).unwrap_or(std::cmp::Ordering::Equal)
+        }))
+        .into()
+    } else {
+        model
+    };
 
     let filter = filter.to_string();
 
