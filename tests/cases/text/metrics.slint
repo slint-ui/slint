@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+component Text2 inherits  Text {}
+
 export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
@@ -10,9 +12,12 @@ export component TestCase inherits Window {
         stroke-width: 2px;
     }
 
+    inherit-text := Text2 {}
+
     text-input := TextInput { }
 
-    out property <bool> test: simple-text.font-metrics.ascent == complex-text.font-metrics.ascent && complex-text.font-metrics.ascent == text-input.font-metrics.ascent && text-input.font-metrics.ascent == 7px;
+    out property <bool> test: simple-text.font-metrics.ascent == complex-text.font-metrics.ascent && complex-text.font-metrics.ascent == text-input.font-metrics.ascent
+        && inherit-text.font-metrics.ascent == simple-text.font-metrics.ascent && text-input.font-metrics.ascent == 7px;
 }
 
 /*
