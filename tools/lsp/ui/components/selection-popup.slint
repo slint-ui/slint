@@ -141,12 +141,17 @@ component PopupInner inherits Rectangle {
     border-color: lightgray;
 
     width: 250px;
+    init => {
+        filter-edit.focus();
+    }
 
     VerticalLayout {
-        padding: EditorSpaceSettings.default-padding;
+        padding-top: EditorSpaceSettings.default-padding;
+        padding-bottom: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
 
         header := HorizontalLayout {
+            padding-right: EditorSpaceSettings.default-padding;
             spacing: EditorSpaceSettings.default-spacing;
 
             Rectangle {
@@ -195,7 +200,6 @@ component PopupInner inherits Rectangle {
                     function calculate_size(p: length, percent: float) -> length {
                         return Math.max(Math.round((p / 1px) * percent), 2) * 1px;
                     }
-
                     VerticalLayout {
                         padding-top: EditorSpaceSettings.default-padding / 2;
                         if !frame.is-in-root-component: Text {
@@ -209,7 +213,7 @@ component PopupInner inherits Rectangle {
 
                         HorizontalLayout {
                             visible: (frame.type-name == "Window") ? false : true;
-                            padding-left: EditorSpaceSettings.default-padding / 2.0;
+                            padding-left: EditorSpaceSettings.default-padding;
                             spacing: EditorSpaceSettings.default-spacing / 2.0;
                             alignment: start;
 
@@ -300,7 +304,6 @@ component PopupInner inherits Rectangle {
                             }
 
                             VerticalLayout {
-                                padding-left: EditorSpaceSettings.default-padding;
                                 spacing: EditorSpaceSettings.default-spacing / 2;
                                 alignment: center;
 
@@ -328,6 +331,8 @@ component PopupInner inherits Rectangle {
                         }
                     }
 
+                    x: -EditorSpaceSettings.default-padding / 2;
+                    border-width: 0px;
                     states [
                         hover when ta.has-hover && !frame.is-selected: {
                             background: Palette.accent-background.transparentize(0.9);
