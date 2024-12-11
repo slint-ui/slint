@@ -1,10 +1,68 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ListView, Palette, ScrollView, LineEdit } from "std-widgets.slint";
+import { Button, CheckBox, ListView, Palette, ScrollView, LineEdit } from "std-widgets.slint";
 import { EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, EditorPalette } from "./styling.slint";
-import { Api, SelectionStackFrame } from "../api.slint";
+import { Api, SelectionStackFrame, SelectionStackFilter } from "../api.slint";
 import { Icons } from "styling.slint";
+
+component FilterList inherits Rectangle {
+    out property <SelectionStackFilter> filter: {
+        if (!lcb.checked && !icb.checked && ocb.checked) {
+            return SelectionStackFilter.Others;
+        } else if (!lcb.checked && icb.checked && !ocb.checked) {
+            return SelectionStackFilter.Interactive;
+        } else if (!lcb.checked && icb.checked && ocb.checked) {
+            return SelectionStackFilter.InteractiveAndOthers;
+        } else if (lcb.checked && !icb.checked && !ocb.checked) {
+            return SelectionStackFilter.Layouts;
+        } else if (lcb.checked && !icb.checked && ocb.checked) {
+            return SelectionStackFilter.LayoutsAndOthers;
+        } else if (lcb.checked && icb.checked && !ocb.checked) {
+            return SelectionStackFilter.LayoutsAndInteractive;
+        } else if (lcb.checked && icb.checked && ocb.checked) {
+            return SelectionStackFilter.Everything;
+        }
+
+        return SelectionStackFilter.Nothing;
+    }
+
+    out property <bool> has-filter: !lcb.checked || !icb.checked || !ocb.checked;
+
+    border-color: Palette.border;
+    border-width: 1px;
+    border-radius: EditorSizeSettings.radius;
+
+    drop-shadow-blur: EditorSpaceSettings.default-padding;
+    drop-shadow-color: Palette.foreground.transparentize(0.9);
+
+    background: Palette.alternate-background;
+
+    TouchArea {
+        // Just block events from reaching other TouchAreas!
+    }
+
+    VerticalLayout {
+        padding: EditorSpaceSettings.default-padding;
+        spacing: EditorSpaceSettings.default-spacing;
+
+        lcb := CheckBox {
+            text: @tr("Layouts");
+            checked: true;
+        }
+
+        icb := CheckBox {
+            text: @tr("Interactive");
+            checked: true;
+        }
+
+        ocb := CheckBox {
+            text: @tr("Other");
+            checked: true;
+        }
+    }
+}
+    
 
 component PopupInner inherits Rectangle {
     in property <length> preview-width: 500px;
@@ -132,6 +190,7 @@ component PopupInner inherits Rectangle {
         }
     }
 
+    private property <[SelectionStackFrame]> filtered-model: Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text, filter-list.filter);
     border-radius: EditorSizeSettings.radius;
 
     border-width: 0.5px;
@@ -141,44 +200,67 @@ component PopupInner inherits Rectangle {
     border-color: lightgray;
 
     width: 250px;
-    init => {
-        filter-edit.focus();
+
+    TouchArea {
+        changed has-hover => {
+            if self.has-hover {
+                root.unselect-previewed-selection();
+                filter-list.visible = false;
+            }            
+        }
     }
 
     VerticalLayout {
-        padding-top: EditorSpaceSettings.default-padding;
-        padding-bottom: EditorSpaceSettings.default-padding;
+        padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
 
         header := HorizontalLayout {
-            padding-right: EditorSpaceSettings.default-padding;
             spacing: EditorSpaceSettings.default-spacing;
 
-            Rectangle {
-                Image {
-                    source: Icons.filter;
-                    colorize: Palette.alternate-foreground;
-                    width: EditorSizeSettings.default-icon-width * 0.8;
-                    height: EditorSizeSettings.default-icon-width * 0.8;
-                    y: filter-edit.height / 2 - self.height / 2;
+            filter-button := Button {
+                private property <bool> filter-state: filter-list.filter != SelectionStackFilter.Everything || filter-edit.text != "";
+
+                changed filter-state => {
+                    self.checked = filter-state;
+                }
+
+                icon: Icons.filter;
+                checkable: true;
+                colorize-icon: true;
+
+                clicked => {
+                    filter-list.visible = !filter-list.visible;
+                    filter-edit.clear-focus();
+                    self.checked = filter-state;
                 }
             }
 
             filter-edit := LineEdit {
                 placeholder-text: "Filter";
+                min-width: 50px;
 
-                init => {
-                    self.focus();
+                changed has-focus => {
+                    if self.has-focus {
+                        filter-list.visible = false;
+                    }
                 }
             }
         }
 
-        ScrollView {
+        if filtered-model.length == 0: Rectangle {
+            width: 100%;
+            height: (root.visible-frames * root.frame-height);
+
+            Text {
+                text: @tr("No match");
+            }
+        }
+
+        if filtered-model.length >= 1: ScrollView {
             height: (root.visible-frames * root.frame-height);
 
             list-view := VerticalLayout {
-
-                for frame[index] in Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text): frame-rect := Rectangle {
+                for frame[index] in root.filtered-model: frame-rect := Rectangle {
                     height: root.frame-height;
 
                     function frame-color(frame: SelectionStackFrame) -> brush {
@@ -354,15 +436,24 @@ component PopupInner inherits Rectangle {
                         }
                         changed has-hover => {
                             if self.has-hover {
+                                filter-list.visible = false;
                                 Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
-                            } else {
-                                root.unselect-previewed-selection();
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    filter-list := FilterList {
+        x: filter-button.x + EditorSpaceSettings.default-spacing;
+        y: filter-button.y + filter-button.height + EditorSpaceSettings.default-spacing;
+
+        width: self.preferred-width;
+        height: self.preferred-height;
+
+        visible: false;
     }
 }
 

@@ -78,6 +78,17 @@ export struct SelectionStackFrame {
     id: string,
 }
 
+export enum SelectionStackFilter {
+    Nothing,
+    Layouts,
+    Interactive,
+    Others,
+    LayoutsAndInteractive,
+    LayoutsAndOthers,
+    InteractiveAndOthers,
+    Everything,
+}
+
 /// A Range in a source
 export struct Range {
     start: int,
@@ -404,7 +415,7 @@ export global Api {
 
     // ## Element selection:
     callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
-    pure callback filter-sort-selection-stack(model: [SelectionStackFrame], filter: string) -> [SelectionStackFrame];
+    pure callback filter-sort-selection-stack(model: [SelectionStackFrame], filter_text: string, filter: SelectionStackFilter) -> [SelectionStackFrame];
     pure callback find-selected-selection-stack-frame([SelectionStackFrame]) -> SelectionStackFrame;
     callback select-element(file: string, offset: int, x: length, y: length);
 
