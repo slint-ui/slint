@@ -163,7 +163,10 @@ export component Test {
     row-pointer-event => { }
   }
   Image {
-      source: @image-url("test.png")
+      source: @image-url("assets/unix-test.png");
+  }
+  Image {
+      source: @image-url("assets\\windows-test.png");
   }
 }"#;
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
@@ -269,10 +272,28 @@ export component Test {
         );
 
         // @image-url
-        let target_path =
-            uri.join("test.png").unwrap().to_file_path().unwrap().to_string_lossy().to_string();
+        let target_path = uri
+            .join("assets/unix-test.png")
+            .unwrap()
+            .to_file_path()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         assert_tooltip(
-            get_tooltip(&mut dc, find_tk("@image-url(", 15.into())),
+            get_tooltip(&mut dc, find_tk("\"assets/unix-test.png\"", 15.into())),
+            &format!("![{target_path}]({target_path})"),
+        );
+
+        // @image-url
+        let target_path = uri
+            .join("assets/windows-test.png")
+            .unwrap()
+            .to_file_path()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("\"assets\\\\windows-test.png\"", 15.into())),
             &format!("![{target_path}]({target_path})"),
         );
 
