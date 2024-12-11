@@ -1,0 +1,9 @@
+{
+    // uncomment this to have rust-analyzer work with mcu related code
+    "rust-analyzer.cargo.features": [
+        "mcu",
+        //"simulator",
+    ],
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.showUnlinkedFileNotification": false,
+}
