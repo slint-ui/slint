@@ -5,6 +5,9 @@ edition = "2021"
 build = "build.rs"
 readme = "README.md"
 resolver = "2"
+license = "MIT"
+repository = "https://github.com/slint-ui/slint"
+homepage = "https://slint.dev"
 
 [dependencies]
 slint = { version = "=1.9.0", path = "../../../api/rs/slint", default-features = false, features = [
