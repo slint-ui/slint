@@ -1,7 +1,7 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Reference Overview
-description: Reference Overview
+title: Common Properties & Callbacks
+description: Common Properties & Callbacks
 ---
 
 import SlintProperty  from '/src/components/SlintProperty.astro';
@@ -11,7 +11,120 @@ import Link from '/src/components/Link.astro';
 The Slint elements have many common properties, callbacks and behavior.
 This page describes these properties and their usage.
 
-## `init()`
+
+## Common Visual Properties
+
+These properties are valid on all visual items. For example `Rectangle`, `Text`, and `layouts`. Non 
+visual items such as `Timer` don't have these properties.
+
+
+### x, y
+<SlintProperty propName="x, y" typeName="length" >
+The position of the element relative to its parent.
+</SlintProperty>
+
+### z
+<SlintProperty propName="z" typeName="float" >
+Allows to specify a different order to stack the items with its siblings.
+The value must be a compile time constant.
+
+:::note[Note]
+Currently the `z` value is a compile time constant and cannot be changed at runtime.
+:::
+
+</SlintProperty>
+
+
+### width, height
+<SlintProperty propName="width, height" typeName="length" >
+The width and height of the element. When set, this overrides the default size.
+</SlintProperty>
+
+
+### opacity
+<SlintProperty propName="opacity" typeName="float" defaultValue="1">
+A value between 0 and 1 (or a percentage) that is used to draw
+the element and its children with transparency.
+0 is fully transparent (invisible), and 1 is fully opaque.
+The opacity is applied to the tree of child elements as if they
+were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
+
+:::tip[Tip]
+When an element has 0 opacity it will still take up layout space and any gesture handling will continue
+to work. If the intent is to hide an element so it has no gesture handling or no longer takes up layout space,
+use the `visible` property instead.
+:::
+</SlintProperty>
+
+### visible
+<SlintProperty propName="visible" typeName="bool" defaultValue="true">
+When set to `false`, the element and all his children won't be drawn and not react to mouse input.
+
+The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you can't see the red rectangle through the green one.
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-opacity.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle opacity'>
+```slint
+Rectangle {
+    x: 10px;
+    y: 10px;
+    width: 180px;
+    height: 180px;
+    background: #315afd;
+    opacity: 0.5;
+}
+
+Rectangle {
+    x: 10px;
+    y: 210px;
+    width: 180px;
+    height: 180px;
+    background: green;
+    opacity: 0.5;
+}
+```
+</CodeSnippetMD>
+</SlintProperty>
+
+### absolute-position
+<SlintProperty propName="absolute-position" typeName="struct" structName="Point" propertyVisibility="out">
+
+A common issue is that in a UI with many nested components it's useful to know their (x,y)position relative to
+the main window or screen. This convienience property gives easy read only access to that value.
+
+It represents a point specifying the absolute position within the enclosing <Link type="Window"/> or <Link type="PopupWindow"/>.
+It defines coordinates (x,y) relative to the enclosing Window or PopupWindow, but the reference frame is unspecified
+(could be screen, window, or popup coordinates).
+</SlintProperty>
+
+## Layout
+
+These properties are valid on all visible items and can be used to specify constraints when used in layouts:
+
+-   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in_ _int_): See <Link type="GridLayout" />.
+-   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements won't be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1.
+-   **`max-width`** and **`max-height`** (_in_ _length_): The maximum size of an element
+-   **`min-width`** and **`min-height`** (_in_ _length_): The minimum size of an element
+-   **`preferred-width`** and **`preferred-height`** (_in_ _length_): The preferred size of an element
+
+## Miscellaneous
+
+### cache-rendering-hint
+<SlintProperty typeName="bool" propName="cache-rendering-hint" default="false" >
+When set to `true`, this provides a hint to the renderer to cache the contents of the element
+and all the children into an intermediate cached layer. For complex sub-trees that rarely
+change this may speed up the rendering, at the expense of increased memory consumption. Not
+all rendering backends support this, so this is merely a hint.
+</SlintProperty>
+
+
+
+### dialog-button-role
+<SlintProperty typeName="enum" enumName="DialogButtonRole" defaultValue="none">
+Specify that this is a button in a `Dialog`.
+</SlintProperty>
+
+## Common Callbacks
+
+### `init()`
 
 Every element implicitly declares an `init` callback. You can assign a code block to it that will be invoked when the
 element is instantiated and after all properties are initialized with the value of their final binding. The order of
@@ -72,124 +185,7 @@ export component AppWindow inherits Window {
 }
 ```
 
-
-## Geometry
-
-These properties are valid on all **visible** items:
-
-### x
-<SlintProperty propName="x" typeName="length" >
-The position of the element relative to its parent.
-</SlintProperty>
-
-### y
-<SlintProperty propName="y" typeName="length" >
-The position of the element relative to its parent.
-</SlintProperty>
-
-### z
-<SlintProperty propName="z" typeName="float" >
-Allows to specify a different order to stack the items with its siblings.
-The value must be a compile time constant.
-
-:::caution[Caution]
-Currently the `z` value is a compile time constant and cannot be changed at runtime.
-:::
-
-</SlintProperty>
-
-### absolute-position
-<SlintProperty propName="absolute-position" typeName="struct" structName="Point" propertyVisibility="out">
-
-Represents a point specifying an absolute position within a window or popup window.
-It defines coordinates (x,y) relative to the enclosing Window or PopupWindow, but the reference frame is unspecified
-(could be screen, window, or popup coordinates).
-This property is only absolute within the enclosing Window or PopupWindow.
-
-</SlintProperty>
-
-### width
-<SlintProperty propName="width" typeName="length" >
-The width of the element. When set, this overrides the default width.
-</SlintProperty>
-
-### height
-<SlintProperty propName="height" typeName="length" >
-The height of the element. When set, this overrides the default height.
-</SlintProperty>
-
-### opacity
-<SlintProperty propName="opacity" typeName="float" defaultValue="1">
-A value between 0 and 1 (or a percentage) that is used to draw
-the element and its children with transparency.
-0 is fully transparent (invisible), and 1 is fully opaque.
-The opacity is applied to the tree of child elements as if they
-were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
-
-:::caution[Caution]
-When an element has 0 opacity it will still take up layout space and any gesture handling will continue
-to work. If the intent is to hide an element so it has no gesture handling or takes up layout space,
-use the `visible` property instead.
-:::
-</SlintProperty>
-
-### visible
-<SlintProperty propName="visible" typeName="bool" defaultValue="true">
-When set to `false`, the element and all his children won't be drawn and not react to mouse input.
-
-The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you can't see the red rectangle through the green one.
-<CodeSnippetMD imagePath="/src/assets/generated/rectangle-opacity.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle opacity'>
-```slint
-Rectangle {
-    x: 10px;
-    y: 10px;
-    width: 180px;
-    height: 180px;
-    background: #315afd;
-    opacity: 0.5;
-}
-
-Rectangle {
-    x: 10px;
-    y: 210px;
-    width: 180px;
-    height: 180px;
-    background: green;
-    opacity: 0.5;
-}
-```
-</CodeSnippetMD>
-</SlintProperty>
-
-
-## Layout
-
-These properties are valid on all visible items and can be used to specify constraints when used in layouts:
-
--   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in_ _int_): See <Link type="GridLayout" />.
--   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements won't be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1.
--   **`max-width`** and **`max-height`** (_in_ _length_): The maximum size of an element
--   **`min-width`** and **`min-height`** (_in_ _length_): The minimum size of an element
--   **`preferred-width`** and **`preferred-height`** (_in_ _length_): The preferred size of an element
-
-## Miscellaneous
-
-### cache-rendering-hint
-<SlintProperty typeName="bool" propName="cache-rendering-hint" default="false" >
-When set to `true`, this provides a hint to the renderer to cache the contents of the element
-and all the children into an intermediate cached layer. For complex sub-trees that rarely
-change this may speed up the rendering, at the expense of increased memory consumption. Not
-all rendering backends support this, so this is merely a hint.
-</SlintProperty>
-
-### dialog-button-role
-<SlintProperty typeName="enum" enumName="DialogButtonRole">
-Specify that this is a button in a `Dialog`.
-</SlintProperty>
-
-
-
-## Accessibility
+## Accessibility Properties
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 `accessible-role` must be set in order to be able to set any other accessible property or callback.
@@ -269,13 +265,18 @@ Whether the element is selected or not. This maps to the "is-selected" state of 
 The total number of elements in a group. Applies to the parent container of a group of element such as list views, radio button groups or other grouping elements.
 </SlintProperty>
 
+
+## Accessibility Callbacks
 You can also use the following callbacks that are going to be called by the accessibility framework:
 
--  **`accessible-action-default()`**: Invoked when the default action for this widget is requested (eg: pressed for a button).
--  **`accessible-action-set-value(string)`**: Invoked when the user wants to change the accessible value.
--  **`accessible-action-increment()`**: Invoked when the user requests to increment the value.
--  **`accessible-action-decrement()`**: Invoked when the user requests to decrement the value.
+### accessible-action-default()
+Invoked when the default action for this widget is requested (eg: pressed for a button).
 
+### accessible-action-set-value(string)
+Invoked when the user wants to change the accessible value.
 
+### accessible-action-increment()
+Invoked when the user requests to increment the value.
 
-
+### accessible-action-decrement()
+Invoked when the user requests to decrement the value.

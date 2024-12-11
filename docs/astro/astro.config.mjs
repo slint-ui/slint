@@ -144,10 +144,6 @@ export default defineConfig({
                                     "guide/development/translations",
                                     "guide/development/fonts",
                                     {
-                                        label: "Accessibility",
-                                        slug: "guide/development/accessibility",
-                                    },
-                                    {
                                         label: "Custom Controls",
                                         slug: "guide/development/custom-controls",
                                     },
@@ -165,9 +161,15 @@ export default defineConfig({
                             {
                                 label: "Backends and Renderers",
                                 collapsed: true,
-                                autogenerate: {
-                                    directory: "guide/backends-and-renderers",
-                                },
+                                items: [
+                                    {
+                                        label: "Overview",
+                                        slug: "guide/backends-and-renderers/backends_and_renderers",
+                                    },
+                                    "guide/backends-and-renderers/backend_linuxkms",
+                                    "guide/backends-and-renderers/backend_qt",
+                                    "guide/backends-and-renderers/backend_winit",
+                                ],
                             },
                         ],
                     },
@@ -260,16 +262,16 @@ export default defineConfig({
                                 slug: "reference/global-structs-enums",
                             },
                             {
-                                label: "Global Functions and Enums",
+                                label: "Global Functions",
                                 collapsed: true,
                                 items: [
                                     {
                                         label: "Math",
-                                        slug: "reference/global-functions-enums/math",
+                                        slug: "reference/global-functions/math",
                                     },
                                     {
                                         label: "animation-tick() / debug()",
-                                        slug: "reference/global-functions-enums/builtinfunctions",
+                                        slug: "reference/global-functions/builtinfunctions",
                                     },
                                 ],
                             },
