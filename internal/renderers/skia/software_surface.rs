@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::lengths::ScaleFactor;
-use i_slint_core::OpenGLAPI;
 
 use std::cell::RefCell;
 use std::num::NonZeroU32;
@@ -119,7 +119,7 @@ impl super::Surface for SoftwareSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         _size: PhysicalWindowSize,
-        _opengl_api: Option<OpenGLAPI>,
+        _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let _context = softbuffer::Context::new(display_handle)
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;

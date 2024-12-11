@@ -176,11 +176,10 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let platform = slint::platform::PlatformBuilder::new()
-        .with_opengl_api(slint::OpenGLAPI::GLES(None))
-        .build()
+    slint::BackendSelector::new()
+        .require_opengl_es()
+        .select()
         .expect("Unable to create Slint backend with OpenGL ES renderer");
-    slint::platform::set_platform(platform).unwrap();
 
     let app = App::new().unwrap();
 

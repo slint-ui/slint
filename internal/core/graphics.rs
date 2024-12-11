@@ -11,11 +11,14 @@
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
+use crate::api::PlatformError;
 use crate::lengths::LogicalLength;
 use crate::Coord;
 use crate::SharedString;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::format;
 
 pub use euclid;
 /// 2D Rectangle
@@ -162,6 +165,55 @@ impl FontRequest {
             weight: Weight(self.weight.unwrap_or(/* CSS normal*/ 400) as _),
             ..Default::default()
         }
+    }
+}
+
+/// Internal enum to specify which version of OpenGL to request
+/// from the windowing system.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RequestedOpenGLVersion {
+    /// OpenGL
+    OpenGL(Option<(u8, u8)>),
+    /// OpenGL ES
+    OpenGLES(Option<(u8, u8)>),
+}
+
+/// Internal enum specify which graphics API should be used, when
+/// the backend selector requests that from a built-in backend.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RequestedGraphicsAPI {
+    /// OpenGL (ES)
+    OpenGL(RequestedOpenGLVersion),
+    /// Metal
+    Metal,
+    /// Vulkan
+    Vulkan,
+    /// Direct 3D
+    Direct3D,
+}
+
+impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
+    type Error = PlatformError;
+
+    fn try_from(requested_graphics_api: RequestedGraphicsAPI) -> Result<Self, Self::Error> {
+        match requested_graphics_api {
+            RequestedGraphicsAPI::OpenGL(requested_open_glversion) => Ok(requested_open_glversion),
+            RequestedGraphicsAPI::Metal => {
+                Err(format!("Metal rendering is not supported with an OpenGL renderer").into())
+            }
+            RequestedGraphicsAPI::Vulkan => {
+                Err(format!("Vulkan rendering is not supported with an OpenGL renderer").into())
+            }
+            RequestedGraphicsAPI::Direct3D => {
+                Err(format!("Direct3D rendering is not supported with an OpenGL renderer").into())
+            }
+        }
+    }
+}
+
+impl From<RequestedOpenGLVersion> for RequestedGraphicsAPI {
+    fn from(version: RequestedOpenGLVersion) -> Self {
+        Self::OpenGL(version)
     }
 }
 

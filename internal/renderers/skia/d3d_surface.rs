@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::api::{OpenGLAPI, PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
@@ -257,8 +258,12 @@ impl super::Surface for D3DSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         _display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
-        _opengl_api: Option<OpenGLAPI>,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
+        if !matches!(requested_graphics_api, Some(RequestedGraphicsAPI::Direct3D)) {
+            return Err(format!("Requested non-Direct3D rendering with Direct3D renderer").into());
+        }
+
         let factory_flags = 0;
         /*
         let factory_flags = dxgi1_3::DXGI_CREATE_FACTORY_DEBUG;

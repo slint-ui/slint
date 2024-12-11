@@ -5,7 +5,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use i_slint_core::renderer::Renderer;
-use i_slint_core::{platform::PlatformError, OpenGLAPI};
+use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
 #[cfg(target_arch = "wasm32")]
@@ -42,14 +42,16 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     fn resume(
         &self,
         window_attributes: winit::window::WindowAttributes,
-        #[cfg_attr(target_arch = "wasm32", allow(unused_variables))] opengl_api: Option<OpenGLAPI>,
+        #[cfg_attr(target_arch = "wasm32", allow(unused_variables))] requested_graphics_api: Option<
+            RequestedGraphicsAPI,
+        >,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             Ok(glcontext::OpenGLContext::new_context(
                 window_attributes,
                 event_loop.event_loop(),
-                opengl_api,
+                requested_graphics_api.map(TryInto::try_into).transpose()?,
             )?)
         })?;
 

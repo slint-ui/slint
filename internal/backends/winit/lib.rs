@@ -8,9 +8,9 @@
 extern crate alloc;
 
 use event_loop::CustomEvent;
+use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
 use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
-use i_slint_core::OpenGLAPI;
 use renderer::WinitCompatibleRenderer;
 use std::rc::Rc;
 #[cfg(not(target_arch = "wasm32"))]
@@ -45,7 +45,7 @@ pub enum WinitWindowEventResult {
 mod renderer {
     use std::rc::Rc;
 
-    use i_slint_core::{platform::PlatformError, OpenGLAPI};
+    use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 
     pub trait WinitCompatibleRenderer {
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
@@ -60,7 +60,7 @@ mod renderer {
         fn resume(
             &self,
             window_attributes: winit::window::WindowAttributes,
-            opengl_api: Option<OpenGLAPI>,
+            requested_graphics_api: Option<RequestedGraphicsAPI>,
         ) -> Result<Rc<winit::window::Window>, PlatformError>;
 
         fn is_suspended(&self) -> bool;
@@ -121,19 +121,6 @@ fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
     }
 }
 
-#[cfg(supports_opengl)]
-fn default_opengl_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
-    cfg_if::cfg_if! {
-        if #[cfg(enable_skia_renderer)] {
-            renderer::skia::WinitSkiaRenderer::new_opengl_suspended()
-        } else if #[cfg(feature = "renderer-femtovg")] {
-            renderer::femtovg::GlutinFemtoVGRenderer::new_suspended()
-        } else {
-            compile_error!("Please select a feature to build with the winit OpenGL backend: `renderer-femtovg` or `renderer-skia-opengl`");
-        }
-    }
-}
-
 fn try_create_window_with_fallback_renderer(
     attrs: winit::window::WindowAttributes,
     _proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
@@ -177,7 +164,7 @@ pub mod native_widgets {}
 /// and build the backend using [`Self::build`].
 pub struct BackendBuilder {
     allow_fallback: bool,
-    opengl_api: Option<OpenGLAPI>,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
     window_attributes_hook:
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
     renderer_name: Option<String>,
@@ -185,20 +172,16 @@ pub struct BackendBuilder {
 }
 
 impl BackendBuilder {
-    /// Allows or disallows a fallback backend if no backend is matched.
-    pub fn with_allow_fallback(mut self, allow_fallback: bool) -> Self {
-        self.allow_fallback = allow_fallback;
-        self
-    }
-
-    /// Configures this builder to use the specified OpenGL API when building the backend later.
-    pub fn with_opengl_api(mut self, opengl_api: OpenGLAPI) -> Self {
-        self.opengl_api = Some(opengl_api);
+    /// Configures this builder to require a renderer that supports the specified graphics API.
+    #[must_use]
+    pub fn request_graphics_api(mut self, graphics_api: RequestedGraphicsAPI) -> Self {
+        self.requested_graphics_api = Some(graphics_api);
         self
     }
 
     /// Configures this builder to use the specified renderer name when building the backend later.
     /// Pass `renderer-software` for example to configure the backend to use the Slint software renderer.
+    #[must_use]
     pub fn with_renderer_name(mut self, name: impl Into<String>) -> Self {
         self.renderer_name = Some(name.into());
         self
@@ -217,6 +200,7 @@ impl BackendBuilder {
     ///     .unwrap();
     /// slint::platform::set_platform(Box::new(backend));
     /// ```
+    #[must_use]
     pub fn with_window_attributes_hook(
         mut self,
         hook: impl Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes + 'static,
@@ -227,6 +211,7 @@ impl BackendBuilder {
 
     /// Configures this builder to use the specified event loop builder when creating the event
     /// loop during a subsequent call to [`Self::build`].
+    #[must_use]
     pub fn with_event_loop_builder(
         mut self,
         event_loop_builder: winit::event_loop::EventLoopBuilder<SlintUserEvent>,
@@ -264,15 +249,28 @@ impl BackendBuilder {
             *loop_instance.borrow_mut() = Some(nre);
         });
 
-        let renderer_factory_fn = match (self.renderer_name.as_deref(), self.opengl_api.as_ref()) {
+        let renderer_factory_fn = match (
+            self.renderer_name.as_deref(),
+            self.requested_graphics_api.as_ref(),
+        ) {
             #[cfg(feature = "renderer-femtovg")]
-            (Some("gl"), _) | (Some("femtovg"), _) => {
+            (Some("gl"), maybe_graphics_api @ _) | (Some("femtovg"), maybe_graphics_api @ _) => {
+                // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
+                if let Some(api) = maybe_graphics_api {
+                    RequestedOpenGLVersion::try_from(api.clone())?;
+                }
                 renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
             }
             #[cfg(enable_skia_renderer)]
-            (Some("skia"), None) => renderer::skia::WinitSkiaRenderer::new_suspended,
+            (Some("skia"), maybe_graphics_api) => {
+                renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(maybe_graphics_api)?
+            }
             #[cfg(all(enable_skia_renderer, supports_opengl))]
-            (Some("skia-opengl"), _) | (Some("skia"), Some(_)) => {
+            (Some("skia-opengl"), maybe_graphics_api @ _) => {
+                // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
+                if let Some(api) = maybe_graphics_api {
+                    RequestedOpenGLVersion::try_from(api.clone())?;
+                }
                 renderer::skia::WinitSkiaRenderer::new_opengl_suspended
             }
             #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
@@ -295,19 +293,23 @@ impl BackendBuilder {
                     return Err(PlatformError::NoPlatform);
                 }
             }
-            (None, Some(_)) => {
+            (None, Some(requested_graphics_api)) => {
                 cfg_if::cfg_if! {
-                    if #[cfg(supports_opengl)] {
-                        default_opengl_renderer_factory
+                    if #[cfg(enable_skia_renderer)] {
+                        renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(requested_graphics_api))?
+                    } else if #[cfg(feature = "renderer-femtovg")] {
+                        // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
+                        RequestedOpenGLVersion::try_from(requested_graphics_api.clone())?;
+                        renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
                     } else {
-                        return Err(PlatformError::NoPlatform);
+                        return Err(format!("Graphics API use requested by the compile-time enabled renderers don't support that"))
                     }
                 }
             }
         };
 
         Ok(Backend {
-            opengl_api: self.opengl_api,
+            requested_graphics_api: self.requested_graphics_api,
             renderer_factory_fn,
             event_loop_state: Default::default(),
             window_attributes_hook: self.window_attributes_hook,
@@ -328,7 +330,7 @@ impl BackendBuilder {
 /// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
 /// ```
 pub struct Backend {
-    opengl_api: Option<OpenGLAPI>,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
     renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
     proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
@@ -381,7 +383,7 @@ impl Backend {
     pub fn builder() -> BackendBuilder {
         BackendBuilder {
             allow_fallback: true,
-            opengl_api: None,
+            requested_graphics_api: None,
             window_attributes_hook: None,
             renderer_name: None,
             event_loop_builder: None,
@@ -434,7 +436,7 @@ impl i_slint_core::platform::Platform for Backend {
         let adapter = WinitWindowAdapter::new(
             (self.renderer_factory_fn)(),
             attrs.clone(),
-            self.opengl_api.clone(),
+            self.requested_graphics_api.clone(),
             #[cfg(enable_accesskit)]
             self.proxy.clone(),
         )
