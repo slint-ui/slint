@@ -6,10 +6,7 @@ use embassy_stm32::{rcc, Config, Peripherals};
 pub fn stm32u5g9zj_init() -> Peripherals {
     // setup power and clocks for an STM32U5G9J-DK2 run from an external 16 Mhz external oscillator
     let mut config = Config::default();
-    config.rcc.hse = Some(rcc::Hse {
-        freq: Hertz(16_000_000),
-        mode: rcc::HseMode::Oscillator,
-    });
+    config.rcc.hse = Some(rcc::Hse { freq: Hertz(16_000_000), mode: rcc::HseMode::Oscillator });
     config.rcc.pll1 = Some(rcc::Pll {
         source: rcc::PllSource::HSE,
         prediv: rcc::PllPreDiv::DIV1,

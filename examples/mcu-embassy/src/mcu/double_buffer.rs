@@ -17,12 +17,7 @@ impl DoubleBuffer {
         buf1: &'static mut [TargetPixelType],
         layer_config: LtdcLayerConfig,
     ) -> Self {
-        Self {
-            buf0,
-            buf1,
-            is_buf0: true,
-            layer_config,
-        }
+        Self { buf0, buf1, is_buf0: true, layer_config }
     }
 
     pub fn current(&mut self) -> &mut [TargetPixelType] {
@@ -44,8 +39,7 @@ impl DoubleBuffer {
         let buf = self.current();
         let frame_buffer = buf.as_ptr();
         self.is_buf0 = !self.is_buf0;
-        ltdc.set_buffer(self.layer_config.layer, frame_buffer as *const _)
-            .await
+        ltdc.set_buffer(self.layer_config.layer, frame_buffer as *const _).await
     }
 
     // Clears the buffer
