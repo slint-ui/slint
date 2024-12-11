@@ -50,6 +50,7 @@
 :root {
     --sl-hue-blue: 222;
     --sl-text-h3: var(--sl-text-2xl);
+    --sl-text-h4: 1.2rem;
     --sl-content-width: 50rem;
     --sl-color-bg: #1b1b1f;
     --sl-color-gray-6: #161618;
