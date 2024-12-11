@@ -16,7 +16,7 @@ const versions = await getVersions();
 
 const currentUrl = Astro.url.href;
 
-const processedVersions = versions.map((version) => ({
+const processedVersions = versions.map((version: Version) => ({
     ...version,
     selected:
         currentUrl.includes(version.version) ||

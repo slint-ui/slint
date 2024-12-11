@@ -23,7 +23,7 @@ import { Icon } from "@astrojs/starlight/components";
     disconnectedCallback() {
       this.removeEventListener('click', this.handleMouseDown);
     }
-    private handleMouseDown(e: MouseEvent) {
+    private handleMouseDown() {
       const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
       document.documentElement.dataset.theme = theme;
       localStorage.setItem('starlight-theme', theme);
