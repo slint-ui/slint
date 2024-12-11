@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file.
  - PopupWindow: added `close-policy` property, deprecated `close-on-click` (#6614)
  - Added `Window::skip-taskbar` (#6911)
  - Fixed `min(..)` and `max(..)` functions with `rem` units
+ - Made a warning when a `@linear-gradient` or `@radial-gradient` is assigned directly to a color property (#6819)
 
 ### Widgets
 
@@ -38,6 +39,8 @@ All notable changes to this project are documented in this file.
  - TabWidget: Fix tabs overflow behavior (#6517)
  - SpinBox: Added `horizontal-alignment`
  - Added `LayoutSpec` global
+ - Slider: added `step` property
+ - StandardListView: improved keyboard navigation (#6955)
 
 ### Rust API
 
@@ -103,6 +106,11 @@ All notable changes to this project are documented in this file.
  - Android: handle properly the Destroy event (#6626)
  - Support multiple PopupWindow at the same time (#4356)
  - Fix init and changed callback not always being called in ListView (#6836)
+ - PopupWindow close on escape key
+ - Fixed focus handling in PopupWindow
+ - Fixed bugs when global cross reference eachothers (#6984)
+ - Improved deselection behavior when pressing Left/Right in TextInput (#6511)
+ - winit: Auto disable maximize button when window resize is disabled
 
 ## 1.8.0 - 2024-09-23
 
