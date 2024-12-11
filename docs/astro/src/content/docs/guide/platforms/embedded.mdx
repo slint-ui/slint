@@ -3,6 +3,9 @@
 title: Embedded 
 description: Embedded Platforms on which Slint has been tested
 ---
+
+<!-- cSpell: Toradex Vivante espflash pico -->
+
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Slint runs on many embedded platforms.
@@ -133,7 +136,7 @@ To use Slint with your C++ application, you can follow the instructions on the [
  * ESP Rust Toolchain: https://esp-rs.github.io/book/installation/installation.html
  * `espflash`: Install via `cargo install espflash`.
 
-When flashing, with `esplash`, you will be prompted to select a USB port. If this port is always the same, then you can also pass it as a parameter on the command line to avoid the prompt. For example if
+When flashing, with `espflash`, you will be prompted to select a USB port. If this port is always the same, then you can also pass it as a parameter on the command line to avoid the prompt. For example if
 `/dev/ttyUSB1` is the device file for your port, the command line changes to `espflash --monitor /dev/ttyUSB1 path/to/binary/to/flash_and_monitor`.
 
 #### ESP32-S2-Kaluga-1
