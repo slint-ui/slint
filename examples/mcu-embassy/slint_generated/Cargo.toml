@@ -2,7 +2,6 @@
 name = "slint-generated"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.79"
 build = "build.rs"
 readme = "README.md"
 resolver = "2"
