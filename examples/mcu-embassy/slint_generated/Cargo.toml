@@ -1,0 +1,20 @@
+[package]
+name = "slint-generated"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.79"
+build = "build.rs"
+readme = "README.md"
+resolver = "2"
+
+[dependencies]
+slint = { version = "=1.9.0", path = "../../../api/rs/slint", default-features = false, features = [
+    "compat-1-2",
+    "unsafe-single-threaded",
+    "libm",
+    "renderer-software",
+] }
+i-slint-core-macros = { version = "=1.9.0", path = "../../../internal/core-macros" }
+
+[build-dependencies]
+slint-build = { version = "=1.9.0", path = "../../../api/rs/build" }
