@@ -161,9 +161,15 @@ export default defineConfig({
                             {
                                 label: "Backends and Renderers",
                                 collapsed: true,
-                                autogenerate: {
-                                    directory: "guide/backends-and-renderers",
-                                },
+                                items: [
+                                    {
+                                        label: "Overview",
+                                        slug: "guide/backends-and-renderers/backends_and_renderers",
+                                    },
+                                    "guide/backends-and-renderers/backend_linuxkms",
+                                    "guide/backends-and-renderers/backend_qt",
+                                    "guide/backends-and-renderers/backend_winit",
+                                ],
                             },
                         ],
                     },
