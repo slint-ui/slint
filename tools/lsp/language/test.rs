@@ -22,13 +22,23 @@ pub fn empty_document_cache() -> common::DocumentCache {
 pub fn loaded_document_cache(
     content: String,
 ) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
+    loaded_document_cache_with_file_name(content, "bar.slint")
+}
+
+pub fn loaded_document_cache_with_file_name(
+    content: String,
+    file_name: &str,
+) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
     let mut dc = empty_document_cache();
 
     // Pre-load std-widgets.slint:
     spin_on::spin_on(dc.preload_builtins());
 
-    let dummy_absolute_path =
-        if cfg!(target_family = "windows") { "c://foo/bar.slint" } else { "/foo/bar.slint" };
+    let dummy_absolute_path = if cfg!(target_family = "windows") {
+        format!("c://foo/{file_name}")
+    } else {
+        format!("/foo/{file_name}")
+    };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
     let diag =
         spin_on::spin_on(reload_document_impl(None, content, url.clone(), Some(42), &mut dc));
