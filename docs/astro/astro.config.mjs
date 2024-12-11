@@ -34,12 +34,13 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Docs",
+            title: "Slint Docs",
             logo: {
                 light: "./src/assets/slint-logo-simple-light.webp",
                 dark: "./src/assets/slint-logo-simple-dark.webp",
+                replacesTitle: true,
             },
-            customCss: ["./src/styles/custom.css"],
+            customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
 
             components: {
                 Footer: "./src/components/Footer.astro",
