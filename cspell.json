@@ -171,7 +171,11 @@
         "windowrc",
         "winit",
         "xtask",
-        "xtensa"
+        "xtensa",
+        "Toradex",
+        "Vivante",
+        "espflash",
+        "pico"
     ],
     "ignorePaths": [
         "api/cpp/docs/conf.py",
