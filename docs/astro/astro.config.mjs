@@ -4,8 +4,6 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
-import rehypeMermaid from "rehype-mermaid";
-import addMermaidClass from "./src/utils/add-mermaid-classnames";
 import rehypeExternalLinks from "rehype-external-links";
 import starlightSidebarTopics from "starlight-sidebar-topics";
 
@@ -28,8 +26,6 @@ export default defineConfig({
                     rel: ["noopener"],
                 },
             ],
-            addMermaidClass,
-            rehypeMermaid,
         ],
     },
     integrations: [

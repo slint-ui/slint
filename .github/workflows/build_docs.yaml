@@ -112,6 +112,9 @@ jobs:
               working-directory: docs/astro
               run: pnpm spellcheck
             # Test docs
+            - name: Install Playwright
+              working-directory: docs/astro
+              run: pnpm exec playwright install --with-deps
             - name: Run Playwright tests
               working-directory: docs/astro
               run: pnpm exec playwright test
