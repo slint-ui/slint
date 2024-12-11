@@ -3,6 +3,7 @@
 title: Embedded 
 description: Embedded Platforms on which Slint has been tested
 ---
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Slint runs on many embedded platforms.
 
@@ -14,15 +15,303 @@ we recommend using a recent desktop operating system and compiler version.
 Slint runs on a variety of embedded Linux platforms. Generally speaking, Slint requires a modern Linux userspace
 with working OpenGL ES 2.0 (or newer) or Vulkan drivers. We've had success running Slint on
 
--   Yocto based distributions. For C++ applications see [meta-slint](https://github.com/slint-ui/meta-slint) for recipes. Rust application work out of the box with Yocto's rust support.
+-   Yocto based distributions. 
 -   BuildRoot based distributions.
--   [TorizonCore](https://www.torizon.io/torizoncore-os).
+-   Torizon.
+
+<Tabs>
+<TabItem label="Yocto Linux">
+For C++ applications see [meta-slint](https://github.com/slint-ui/meta-slint) for recipes. 
+
+Rust application work out of the box with Yocto's rust support.
+</TabItem>
+<TabItem label="Torizon">
+Toradex provides [TorizonCore](https://developer.toradex.com/torizon/), a Linux based platform for its embedded devices that packages applications in docker containers.
+
+We provide our demos compiled for Toradex as docker containers.
+
+#### Prerequisites
+
+ - A device running Torizon
+ - A running [weston container](https://developer.toradex.com/torizon/5.0/provided-containers/working-with-weston-on-torizoncore)
+ - SSH access to the Torizon device
+
+#### Running
+
+Our pre-compiled demos are available in four different variants:
+
+1. Compiled for ARM 32-bit as `armhf` and compiled for ARM 64-bit as `arm64`
+2. Compiled with Linux DRI or with support for Vivante GPUs (`-vivante` suffix)
+
+A complete list of all containers can be found at
+
+https://github.com/orgs/slint-ui/packages?q=torizon&tab=packages&q=torizon
+
+For example to run the container on an i.MX8 board with Vivante GPU, use the following command line:
+
+```
+docker run --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' ghcr.io/slint-ui/slint/torizon-demos-arm64-vivante
+```
+
+#### Selecting Demos
+
+By default, the printer demo from /usr/bin is run. The containers however package multiple demos:
+
+ * printerdemo
+ * slide_puzzle
+ * gallery
+ * opengl_underlay
+ * carousel
+ * todo
+ * energy-monitor
+
+Run then by specifying them as parameter to `docker run`, for example:
+
+```
+docker run --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' ghcr.io/slint-ui/slint/torizon-demos-arm64-vivante opengl_underlay
+```
+</TabItem>
+</Tabs>
 
 ## Microcontrollers
 
 Slint's platform abstraction allows for integration into any Rust or C++ based Microcontroller development
 environment. Developers need to implement functionality to feed input events such as touch or keyboard, as
 well as displaying the pixels rendered by Slint into a frame- or linebuffer.
+
+<Tabs syncKey="dev-language">
+<TabItem label="C++">
+We provide templates for a few off-the-shelf development boards from some of the silicon vendors.
+</TabItem>
+<TabItem label="Rust">
+You will need to use the `mcu-board-support` crate. This crate re-export a `entry` attribute macro to apply to the `main` function, and a `init()`
+function that should be called before creating the Slint UI.
+
+In order to use this backend, the final program must depend on both `slint` and `mcu-board-support`.
+The main.rs will look something like this
+
+```rust
+#![no_std]
+#![cfg_attr(not(feature = "simulator"), no_main)]
+slint::include_modules!();
+
+#[mcu_board_support::entry]
+fn main() -> ! {
+    mcu_board_support::init();
+    MainWindow::new().run();
+    panic!("The event loop should not return");
+}
+```
+
+Since mcu-board-support is at the moment an internal crate not uploaded to crates.io, you must
+use the git version of slint, slint-build, and mcu-board-support
+
+```toml
+[dependencies]
+slint = { git = "https://github.com/slint-ui/slint", default-features = false }
+mcu-board-support = { git = "https://github.com/slint-ui/slint" }
+# ...
+[build-dependencies]
+slint-build = { git = "https://github.com/slint-ui/slint" }
+```
+
+In your build.rs, you must include a call to `slint_build::print_rustc_flags().unwrap()` to set some of the flags.
+
+</TabItem>
+</Tabs>
+
+### Espressif (ESP32)
+
+<Tabs syncKey="dev-language">
+<TabItem label="C++">
+To use Slint with your C++ application, you can follow the instructions on the [Espressif Documentation site](https://components.espressif.com/components/slint/slint)
+</TabItem>
+<TabItem label="Rust">
+#### Prerequisites
+
+ * ESP Rust Toolchain: https://esp-rs.github.io/book/installation/installation.html
+ * `espflash`: Install via `cargo install espflash`.
+
+When flashing, with `esplash`, you will be prompted to select a USB port. If this port is always the same, then you can also pass it as a parameter on the command line to avoid the prompt. For example if
+`/dev/ttyUSB1` is the device file for your port, the command line changes to `espflash --monitor /dev/ttyUSB1 path/to/binary/to/flash_and_monitor`.
+
+#### ESP32-S2-Kaluga-1
+
+To compile and run the Slint Printer demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1 --release --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml
+```
+
+The device needs to be connected with the two USB cables (one for power, one for data)
+
+#### ESP32-S3-Box
+
+To compile and run the Slint Printer demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box --release --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml
+```
+</TabItem>
+</Tabs>
+
+### ST (STM32)
+
+<Tabs syncKey="dev-language">
+<TabItem label="C++">
+#### STM32H735G-DK
+You can start with the template [slint-cpp-template-stm32h735g-dk.zip](https://github.com/slint-ui/slint/releases/download/%7Bdownload_version%7D/slint-cpp-template-stm32h735g-dk.zip)
+
+#### STM32H747I-DISCO
+You can start with the template [slint-cpp-template-stm32h747i-disco.zip](https://github.com/slint-ui/slint/releases/download/%7Bdownload_version%7D/slint-cpp-template-stm32h747i-disco.zip)
+
+</TabItem>
+<TabItem label="Rust">
+Follow the steps below to run the Slint Printer Demo 
+
+#### STM32H735G-DK
+
+Using [probe-rs](https://probe.rs).
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-rs run --chip STM32H735IGKx" cargo run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
+```
+</TabItem>
+</Tabs>
+
+### Raspberry Pi (Pico)
+
+Only Rust programs are currently supported on the Raspberry Pi Pico.
+
+#### On the Raspberry Pi Pico
+
+Build the Slint Printer demo with:
+
+```sh
+cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
+```
+
+The resulting file can be flashed conveniently with [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs). Install it using `cargo install`:
+
+```sh
+cargo install elf2uf2-rs
+```
+
+Then upload the demo to the Raspberry Pi Pico: push the "bootsel" white button on the device while connecting the
+micro-usb cable to the device, this connect some storage where you can store the binary.
+
+Or from the command on linux: (connect the device while pressing the "bootsel" button.
+
+```sh
+# If you're on Linux: mount the device
+udisksctl mount -b /dev/sda1
+# upload
+elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
+```
+
+#### On the Raspberry Pi Pico2
+
+Build the Slint Printer demo with:
+
+```sh
+cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --target=thumbv8m.main-none-eabihf --release
+```
+
+The resulting file can be flashed conveniently with [picotool](https://github.com/raspberrypi/picotool). You should build it from source.
+
+Then upload the demo to the Raspberry Pi Pico: push the "bootsel" white button on the device while connecting the
+micro-usb cable to the device, this connects some USB storage on your workstation where you can store the binary.
+
+Or from the command on linux (connect the device while pressing the "bootsel" button):
+
+```sh
+# If you're on Linux: mount the device
+udisksctl mount -b /dev/sda1
+# upload
+picotool load -u -v -x -t elf target/thumbv8m.main-none-eabihf/release/printerdemo_mcu
+```
+
+#### Using probe-rs
+
+This requires [probe-rs](https://probe.rs) and to connect the pico via a probe
+(for example another pico running the probe).
+
+Then you can simply run with `cargo run`
+
+```sh
+CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-rs run --chip RP2040" cargo run -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
+```
+
+#### Flashing and Debugging the Pico with `probe-rs`'s VSCode Plugin
+
+Install `probe-rs-debugger` and the VSCode plugin as described [here](https://probe.rs/docs/tools/vscode/).
+
+Add this build task to your `.vscode/tasks.json`:
+```json
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "build",
+			"args": [
+				"--package=printerdemo_mcu",
+				"--features=mcu-pico-st7789",
+				"--target=thumbv6m-none-eabi",
+				"--profile=release-with-debug"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build",
+			"label": "build mcu demo for pico"
+		},
+	]
+}
+```
+
+The `release-with-debug` profile is needed, because the debug build does not fit into flash.
+
+You can define it like this in your top level `Cargo.toml`:
+
+```toml
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+```
+
+Now you can add the launch configuration to `.vscode/launch.json`:
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "preLaunchTask": "build mcu demo for pico",
+            "type": "probe-rs-debug",
+            "request": "launch",
+            "name": "Flash and Debug MCU Demo",
+            "cwd": "${workspaceFolder}",
+            "connectUnderReset": false,
+            "chip": "RP2040",
+            "flashingConfig": {
+                "flashingEnabled": true,
+                "resetAfterFlashing": true,
+                "haltAfterReset": true
+            },
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "rttEnabled": true,
+                    "programBinary": "./target/thumbv6m-none-eabi/release-with-debug/printerdemo_mcu"
+                }
+            ]
+        },
+    ]
+}
+```
+
+This was tested using a second Raspberry Pi Pico programmed as a probe with [DapperMime](https://github.com/majbthrd/DapperMime).
 
 ## What about other platforms?
 [Contact us](https://slint.dev/contact) if you need to support specific or older versions.
