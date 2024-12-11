@@ -37,7 +37,7 @@ All notable changes to this project are documented in this file.
  - LineEdit: fixed cursor drawing out of bounds (#6243)
  - TabWidget: fixed tabs overflow behavior (#6517)
  - SpinBox: added `horizontal-alignment`
- - Undeprecared `StyleMetrics` layout properties
+ - Undeprecated `StyleMetrics` layout properties
  - Slider: added `step` property
  - StandardListView: improved keyboard navigation (#6955)
 

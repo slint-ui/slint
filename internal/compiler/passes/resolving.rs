@@ -1447,12 +1447,10 @@ fn continue_lookup_within_element(
                 &lookup_result.resolved_name,
                 &second,
             );
-        } else if let Some(deprecated) = crate::lookup::check_deprecated_stylemetrics(elem, ctx, &prop_name) {
-            ctx.diag.push_property_deprecation_warning(
-                &prop_name,
-                &deprecated,
-                &second,
-            );
+        } else if let Some(deprecated) =
+            crate::lookup::check_deprecated_stylemetrics(elem, ctx, &prop_name)
+        {
+            ctx.diag.push_property_deprecation_warning(&prop_name, &deprecated, &second);
         }
         let prop = Expression::PropertyReference(NamedReference::new(
             elem,
