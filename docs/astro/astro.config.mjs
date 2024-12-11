@@ -144,10 +144,6 @@ export default defineConfig({
                                     "guide/development/translations",
                                     "guide/development/fonts",
                                     {
-                                        label: "Accessibility",
-                                        slug: "guide/development/accessibility",
-                                    },
-                                    {
                                         label: "Custom Controls",
                                         slug: "guide/development/custom-controls",
                                     },
@@ -260,16 +256,16 @@ export default defineConfig({
                                 slug: "reference/global-structs-enums",
                             },
                             {
-                                label: "Global Functions and Enums",
+                                label: "Global Functions",
                                 collapsed: true,
                                 items: [
                                     {
                                         label: "Math",
-                                        slug: "reference/global-functions-enums/math",
+                                        slug: "reference/global-functions/math",
                                     },
                                     {
                                         label: "animation-tick() / debug()",
-                                        slug: "reference/global-functions-enums/builtinfunctions",
+                                        slug: "reference/global-functions/builtinfunctions",
                                     },
                                 ],
                             },

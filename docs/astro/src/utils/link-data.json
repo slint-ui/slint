@@ -3,7 +3,7 @@
         "href": "/reference/primitive-types#animation"
     },
     "AnimationTick": {
-        "href": "/reference/global-functions-enums/builtinfunctions/#animation-tick---duration"
+        "href": "/reference/global-functions/builtinfunctions/#animation-tick---duration"
     },
     "angle": {
         "href": "/reference/primitive-types#angle"
@@ -33,7 +33,7 @@
         "href": "/reference/primitive-types#duration"
     },
     "DebugFn": {
-        "href": "/reference/global-functions-enums/builtinfunctions#debug"
+        "href": "/reference/global-functions/builtinfunctions#debug"
     },
     "easing": {
         "href": "/reference/primitive-types#easing"
@@ -105,6 +105,9 @@
     "physicalLength": {
         "href": "/reference/primitive-types#physical-length"
     },
+    "PopupWindow": {
+        "href": "/reference/window/popupwindow"
+    },
     "ProgressIndicator": {
         "href": "/reference/std-widgets/progressindicator"
     },
@@ -158,6 +161,9 @@
     },
     "QtBackend": {
         "href": "/guide/backends-and-renderers/backend_qt"
+    },
+    "Window": { 
+        "href": "/reference/window/window"
     },
     "WinitBackend": {
         "href": "/guide/backends-and-renderers/backend_winit/"
