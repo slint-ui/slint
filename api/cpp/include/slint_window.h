@@ -621,8 +621,7 @@ public:
 
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
     ///
-    /// Note that this function may be slow to call. Reading from the framebuffer previously
-    /// rendered, too, may take a long time.
+    /// Note that this function may be slow to call as it may need to re-render the scene.
     std::optional<SharedPixelBuffer<Rgba8Pixel>> take_snapshot() const
     {
         SharedPixelBuffer<Rgba8Pixel> result;

@@ -694,8 +694,7 @@ impl Window {
 
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
     ///
-    /// Note that this function may be slow to call. Reading from the framebuffer previously
-    /// rendered, too, may take a long time.
+    /// Note that this function may be slow to call as it may need to re-render the scene.
     pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.0.window_adapter().renderer().take_snapshot()
     }
