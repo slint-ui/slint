@@ -2111,4 +2111,55 @@ export component MainWindow inherits Window {
             }])
         );
     }
+
+    #[test]
+    fn test_show_preview_code_lens() {
+        // Empty slint document:
+        let (mut dc, url, _) = loaded_document_cache(
+            r#"
+component Internal { }
+
+export component Test {
+    
+}         
+"#
+            .into(),
+        );
+
+        assert_eq!(
+            get_code_lenses(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
+            Some(vec![
+                lsp_types::CodeLens {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(1, 19),
+                        lsp_types::Position::new(1, 22)
+                    ),
+                    command: Some(lsp_types::Command {
+                        title: "▶ Show Preview".to_string(),
+                        command: SHOW_PREVIEW_COMMAND.to_string(),
+                        arguments: Some(vec![
+                            serde_json::to_value(url.clone()).unwrap(),
+                            "Internal".into()
+                        ]),
+                    }),
+                    data: None,
+                },
+                lsp_types::CodeLens {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(3, 22),
+                        lsp_types::Position::new(5, 1)
+                    ),
+                    command: Some(lsp_types::Command {
+                        title: "▶ Show Preview".to_string(),
+                        command: SHOW_PREVIEW_COMMAND.to_string(),
+                        arguments: Some(vec![
+                            serde_json::to_value(url.clone()).unwrap(),
+                            "Test".into()
+                        ])
+                    }),
+                    data: None,
+                }
+            ])
+        );
+    }
 }
