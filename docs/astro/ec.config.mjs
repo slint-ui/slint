@@ -31,8 +31,6 @@ function sideBorder() {
                 ) {
                     return;
                 }
-                const content = context.codeBlock.code;
-
                 const side = h("div.sideBar");
 
                 const ast = context.renderData.blockAst;

@@ -6,7 +6,7 @@ import { linkMap } from "../src/utils/utils";
 test("Test all links", async ({ page }) => {
     const baseUrl = "http://localhost:4321/master/docs/slint";
 
-    for (const [key, value] of Object.entries(linkMap)) {
+    for (const [_key, value] of Object.entries(linkMap)) {
         const fullUrl = `${baseUrl}${value.href}`;
 
         try {

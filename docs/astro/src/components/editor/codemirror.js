@@ -29,7 +29,6 @@ import {
     highlightActiveLineGutter,
     highlightSpecialChars,
     drawSelection,
-    dropCursor,
     rectangularSelection,
     crosshairCursor,
     highlightActiveLine,
@@ -118,7 +117,7 @@ function statusPanel(view) {
 
     return {
         dom,
-        update(update) {
+        update(_update) {
             // You can update the panel content based on editor state changes if needed
         },
     };
@@ -159,8 +158,8 @@ async function updateWasmPreview(previewContainer, content) {
 // Wrap updateWasmPreview in a debounce function (500ms delay)
 const debouncedUpdateWasmPreview = debounce(updateWasmPreview, 500);
 
-async function initializePreviewContainers(previewContainer, content) {
-    const canvas_id = "canvas_" + Math.random().toString(36).substr(2, 9);
+async function initializePreviewContainers(previewContainer, _content) {
+    const canvas_id = "canvas_" + Math.random().toString(36).substring(2, 9);
     const canvas = document.createElement("canvas");
     canvas.id = canvas_id;
     previewContainer.appendChild(canvas);
@@ -170,7 +169,7 @@ async function initializePreviewContainers(previewContainer, content) {
     previewContainer.parentNode.appendChild(error_div);
 }
 
-async function loadSlintWasmInterpreter(editor) {
+async function loadSlintWasmInterpreter(_editor) {
     try {
         if (slint_wasm_module) {
             return;
@@ -198,7 +197,7 @@ async function loadSlintWasmInterpreter(editor) {
 
 // Initialize CodeMirror based on the language passed as a data attribute
 window.initCodeMirror = function (editorDiv, language, content) {
-    const editorDiv_id = editorDiv.getAttribute("id");
+    // const editorDiv_id = editorDiv.getAttribute("id");
 
     const extensions = [
         lineNumbers(),
