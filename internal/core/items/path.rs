@@ -55,6 +55,8 @@ impl Item for Path {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
