@@ -38,10 +38,7 @@ where
     H: Hardware,
 {
     pub fn new(main_window: &'a MainWindow, hardware: H) -> Self {
-        Self {
-            main_window,
-            hardware,
-        }
+        Self { main_window, hardware }
     }
 
     pub async fn run(&mut self) {
