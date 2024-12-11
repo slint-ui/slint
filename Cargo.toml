@@ -29,6 +29,7 @@ members = [
     'examples/carousel/rust',
     'demos/energy-monitor',
     'demos/home-automation/rust',
+    'examples/mcu-embassy',
     'examples/mcu-board-support',
     'examples/uefi-demo',
     'demos/weather-demo',
