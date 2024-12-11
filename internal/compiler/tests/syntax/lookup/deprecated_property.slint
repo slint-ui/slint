@@ -24,8 +24,15 @@ export Xxx := Rectangle {
     not_called() => {
         color = #000000;
 //      ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+
         debug(StyleMetrics.dark-color-scheme);
-//            ^warning{The property 'StyleMetrics' has been deprecated. Please use 'Palette' instead}
+//                         ^warning{The property 'dark-color-scheme' has been deprecated. Please use 'Palette.dark-color-scheme' instead}
+
+        // not deprecated
+        debug(StyleMetrics.layout-padding, StyleMetrics.layout-padding);
+
+        background = StyleMetrics.window-background;
+//                                ^warning{The property 'window-background' has been deprecated. Please use 'Palette.window-background' instead}
     }
 
 }
