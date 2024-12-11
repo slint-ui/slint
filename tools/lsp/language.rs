@@ -1337,11 +1337,7 @@ export component MainWindow inherits Window {
         }
     }
 
-    if result.is_empty() {
-        None
-    } else {
-        Some(result)
-    }
+    (!result.is_empty()).then_some(result)
 }
 
 /// If the token is matching a Element ID, return the list of all element id in the same component
@@ -1496,9 +1492,10 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
 pub mod tests {
     use super::*;
 
+    use crate::language::test::{
+        complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
+    };
     use lsp_types::WorkspaceEdit;
-
-    use crate::language::test::{complex_document_cache, loaded_document_cache};
 
     #[test]
     fn test_reload_document_invalid_contents() {
@@ -2005,6 +2002,113 @@ export component TestWindow inherits Window {
                 }),
                 ..Default::default()
             }),])
+        );
+    }
+
+    #[test]
+    fn test_hello_world_code_lens_slint_file() {
+        // Empty slint document:
+        let (mut dc, url, _) = loaded_document_cache(
+            "
+  \t
+\t     \t
+                
+"
+            .into(),
+        );
+
+        assert_eq!(
+            get_code_lenses(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
+            Some(vec![lsp_types::CodeLens {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(0, 0),
+                    lsp_types::Position::new(4, 0)
+                ),
+                command: Some(lsp_types::Command {
+                    title: "Start with Hello World!".to_string(),
+                    command: POPULATE_COMMAND.to_string(),
+                    arguments: Some(vec![
+                        serde_json::to_value(lsp_types::OptionalVersionedTextDocumentIdentifier {
+                            uri: url,
+                            version: Some(42)
+                        })
+                        .unwrap(),
+                        r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    VerticalBox {
+        Text {
+            text: "Hello World!";
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+    }
+}
+"#
+                        .into()
+                    ]),
+                }),
+                data: None,
+            }])
+        );
+    }
+
+    #[test]
+    fn test_hello_world_code_lens_rust_file() {
+        // Empty slint document in rust macro:
+        let (mut dc, url, _) = loaded_document_cache_with_file_name(
+            "
+use slint::Model;
+
+slint!(\t
+  \t
+\t       \t
+
+)
+
+fn main() {{
+    println!(\"Hello World\");
+}}
+"
+            .into(),
+            "bar.rs",
+        );
+
+        assert_eq!(
+            get_code_lenses(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
+            Some(vec![lsp_types::CodeLens {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(3, 7),
+                    lsp_types::Position::new(7, 0)
+                ),
+                command: Some(lsp_types::Command {
+                    title: "Start with Hello World!".to_string(),
+                    command: POPULATE_COMMAND.to_string(),
+                    arguments: Some(vec![
+                        serde_json::to_value(lsp_types::OptionalVersionedTextDocumentIdentifier {
+                            uri: url,
+                            version: Some(42)
+                        })
+                        .unwrap(),
+                        r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    VerticalBox {
+        Text {
+            text: "Hello World!";
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+    }
+}
+"#
+                        .into()
+                    ]),
+                }),
+                data: None,
+            }])
         );
     }
 }
