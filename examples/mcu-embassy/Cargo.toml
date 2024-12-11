@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"
-license = "Apache-2.0"
+license = "MIT"
 
 [dependencies]
 log = "0.4"

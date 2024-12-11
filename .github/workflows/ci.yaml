@@ -86,12 +86,12 @@ jobs:
                    cargo update -p home --precise 0.5.9
                  fi
             - name: Run tests (not qt)
-              run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
               shell: bash
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
@@ -374,6 +374,20 @@ jobs:
                   target: ${{matrix.target}}
             - name: Check
               run: cargo check --target=${{matrix.target}} -p printerdemo_mcu --no-default-features --features=mcu-board-support/${{matrix.feature}} --release
+
+    # test to compile the mcu backend for the arm target (no_std) using embassy
+    mcu-embassy:
+        env:
+            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
+            RUSTFLAGS: --cfg slint_int_coord -D warnings
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+            - name: Check
+              run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features=mcu --release
 
     mcu_esp:
         env:
