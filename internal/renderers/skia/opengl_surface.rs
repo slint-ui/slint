@@ -12,12 +12,13 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::graphics::RequestedGraphicsAPI;
+use i_slint_core::item_rendering::DirtyRegion;
+use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
 use i_slint_core::{
-    api::{APIVersion, GraphicsAPI},
-    platform::PlatformError,
+    api::{PhysicalSize as PhysicalWindowSize, Window},
+    graphics::RequestedOpenGLVersion,
 };
-use i_slint_core::{item_rendering::DirtyRegion, OpenGLAPI};
 
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
@@ -33,13 +34,13 @@ impl super::Surface for OpenGLSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
-        opengl_api: Option<OpenGLAPI>,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
         Self::new_with_config(
             window_handle,
             display_handle,
             size,
-            opengl_api,
+            requested_graphics_api.map(TryInto::try_into).transpose()?,
             glutin::config::ConfigTemplateBuilder::new(),
             None,
         )
@@ -157,7 +158,7 @@ impl OpenGLSurface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
-        opengl_api: Option<OpenGLAPI>,
+        requested_opengl_version: Option<RequestedOpenGLVersion>,
         config_builder: glutin::config::ConfigTemplateBuilder,
         config_filter: Option<&dyn Fn(&glutin::config::Config) -> bool>,
     ) -> Result<Self, PlatformError> {
@@ -180,7 +181,7 @@ impl OpenGLSurface {
             display_handle,
             width,
             height,
-            opengl_api,
+            requested_opengl_version,
             config_builder,
             config_filter,
         )?;
@@ -250,7 +251,7 @@ impl OpenGLSurface {
         _display_handle: raw_window_handle::DisplayHandle<'_>,
         width: NonZeroU32,
         height: NonZeroU32,
-        opengl_api: Option<OpenGLAPI>,
+        requested_opengl_version: Option<RequestedOpenGLVersion>,
         config_template_builder: glutin::config::ConfigTemplateBuilder,
         config_filter: Option<&dyn Fn(&glutin::config::Config) -> bool>,
     ) -> Result<
@@ -316,23 +317,19 @@ impl OpenGLSurface {
                 .ok_or("Unable to find suitable GL config")?
         };
 
-        let opengl_api =
-            opengl_api.unwrap_or(OpenGLAPI::GLES(Some(APIVersion { major: 3, minor: 0 })));
-        let preferred_context_attributes = match opengl_api {
-            OpenGLAPI::GL(version) => {
-                let version = version.map(|version| glutin::context::Version {
-                    major: version.major,
-                    minor: version.minor,
-                });
+        let requested_opengl_version =
+            requested_opengl_version.unwrap_or(RequestedOpenGLVersion::OpenGLES(Some((3, 0))));
+        let preferred_context_attributes = match requested_opengl_version {
+            RequestedOpenGLVersion::OpenGL(version) => {
+                let version =
+                    version.map(|(major, minor)| glutin::context::Version { major, minor });
                 ContextAttributesBuilder::new()
                     .with_context_api(ContextApi::OpenGl(version))
                     .build(Some(_window_handle.as_raw()))
             }
-            OpenGLAPI::GLES(version) => {
-                let version = version.map(|version| glutin::context::Version {
-                    major: version.major,
-                    minor: version.minor,
-                });
+            RequestedOpenGLVersion::OpenGLES(version) => {
+                let version =
+                    version.map(|(major, minor)| glutin::context::Version { major, minor });
 
                 ContextAttributesBuilder::new()
                     .with_context_api(ContextApi::Gles(version))

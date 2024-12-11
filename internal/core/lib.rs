@@ -84,9 +84,6 @@ pub use graphics::BorderRadius;
 
 pub use context::{with_global_context, SlintContext};
 
-#[doc(inline)]
-pub use api::{OpenGLAPI, SlintRenderer};
-
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
 #[cfg(slint_int_coord)]

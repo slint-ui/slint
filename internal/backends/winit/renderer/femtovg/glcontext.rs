@@ -10,7 +10,7 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::{api::APIVersion, platform::PlatformError, OpenGLAPI};
+use i_slint_core::{graphics::RequestedOpenGLVersion, platform::PlatformError};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 pub struct OpenGLContext {
@@ -58,7 +58,7 @@ impl OpenGLContext {
     pub(crate) fn new_context(
         window_attributes: winit::window::WindowAttributes,
         event_loop: crate::event_loop::ActiveOrInactiveEventLoop<'_>,
-        opengl_api: Option<OpenGLAPI>,
+        requested_opengl_version: Option<RequestedOpenGLVersion>,
     ) -> Result<(Rc<winit::window::Window>, Self), PlatformError> {
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
@@ -122,23 +122,19 @@ impl OpenGLContext {
             })?
             .map(|h| h.as_raw());
 
-        let opengl_api =
-            opengl_api.unwrap_or(OpenGLAPI::GLES(Some(APIVersion { major: 2, minor: 0 })));
-        let preferred_context_attributes = match opengl_api {
-            OpenGLAPI::GL(version) => {
-                let version = version.map(|version| glutin::context::Version {
-                    major: version.major,
-                    minor: version.minor,
-                });
+        let requested_opengl_version =
+            requested_opengl_version.unwrap_or(RequestedOpenGLVersion::OpenGLES(Some((2, 0))));
+        let preferred_context_attributes = match requested_opengl_version {
+            RequestedOpenGLVersion::OpenGL(version) => {
+                let version =
+                    version.map(|(major, minor)| glutin::context::Version { major, minor });
                 ContextAttributesBuilder::new()
                     .with_context_api(ContextApi::OpenGl(version))
                     .build(raw_window_handle)
             }
-            OpenGLAPI::GLES(version) => {
-                let version = version.map(|version| glutin::context::Version {
-                    major: version.major,
-                    minor: version.minor,
-                });
+            RequestedOpenGLVersion::OpenGLES(version) => {
+                let version =
+                    version.map(|(major, minor)| glutin::context::Version { major, minor });
 
                 ContextAttributesBuilder::new()
                     .with_context_api(ContextApi::Gles(version))

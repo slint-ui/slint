@@ -8,7 +8,7 @@ use core::ops::DerefMut;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
-use i_slint_core::{graphics::Rgb8Pixel, OpenGLAPI};
+use i_slint_core::{graphics::RequestedGraphicsAPI, graphics::Rgb8Pixel};
 use std::{cell::RefCell, rc::Rc};
 
 use super::WinitCompatibleRenderer;
@@ -173,7 +173,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     fn resume(
         &self,
         window_attributes: winit::window::WindowAttributes,
-        _opengl_api: Option<OpenGLAPI>,
+        _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             event_loop.create_window(window_attributes).map_err(|winit_os_error| {

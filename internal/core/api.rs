@@ -283,35 +283,6 @@ impl<'a> core::fmt::Debug for GraphicsAPI<'a> {
     }
 }
 
-/// API Version
-#[derive(Debug, Clone, PartialEq)]
-pub struct APIVersion {
-    /// Major API version
-    pub major: u8,
-    /// Minor API version
-    pub minor: u8,
-}
-
-/// This enum specifies which OpenGL API should be used.
-#[derive(Debug, Clone, PartialEq)]
-pub enum OpenGLAPI {
-    /// OpenGL
-    GL(Option<APIVersion>),
-    /// OpenGL ES
-    GLES(Option<APIVersion>),
-}
-
-/// This enum specifies which renderer should be used.
-#[derive(Debug, Clone, PartialEq)]
-pub enum SlintRenderer {
-    /// The FemtoVG renderer
-    FemtoVG,
-    /// The Skia renderer
-    Skia,
-    /// The software renderer
-    Software,
-}
-
 /// This enum describes the different rendering states, that will be provided
 /// to the parameter of the callback for `set_rendering_notifier` on the `slint::Window`.
 #[derive(Debug, Clone)]

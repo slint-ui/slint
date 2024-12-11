@@ -13,7 +13,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
-use i_slint_core::graphics::{BorderRadius, FontRequest, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, FontRequest, RequestedGraphicsAPI, SharedPixelBuffer};
 use i_slint_core::item_rendering::RepaintBufferType;
 use i_slint_core::item_rendering::{DirtyRegion, ItemCache, ItemRenderer, PartialRenderingState};
 use i_slint_core::lengths::{
@@ -21,7 +21,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::{Brush, OpenGLAPI};
+use i_slint_core::Brush;
 
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
@@ -68,9 +68,14 @@ fn create_default_surface(
     window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
     display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
     size: PhysicalWindowSize,
-    opengl_api: Option<OpenGLAPI>,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    match DefaultSurface::new(window_handle.clone(), display_handle.clone(), size, opengl_api) {
+    match DefaultSurface::new(
+        window_handle.clone(),
+        display_handle.clone(),
+        size,
+        requested_graphics_api,
+    ) {
         Ok(gpu_surface) => Ok(Box::new(gpu_surface) as Box<dyn Surface>),
         #[cfg(skia_backend_software)]
         Err(err) => {
@@ -110,7 +115,7 @@ pub struct SkiaRenderer {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
-        opengl_api: Option<OpenGLAPI>,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Box<dyn Surface>, PlatformError>,
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
     partial_rendering_state: Option<PartialRenderingState>,
@@ -149,12 +154,12 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
-            surface_factory: |window_handle, display_handle, size, opengl_api| {
+            surface_factory: |window_handle, display_handle, size, requested_graphics_api| {
                 software_surface::SoftwareSurface::new(
                     window_handle,
                     display_handle,
                     size,
-                    opengl_api,
+                    requested_graphics_api,
                 )
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
@@ -176,9 +181,95 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
-            surface_factory: |window_handle, display_handle, size, opengl_api| {
-                opengl_surface::OpenGLSurface::new(window_handle, display_handle, size, opengl_api)
-                    .map(|r| Box::new(r) as Box<dyn Surface>)
+            surface_factory: |window_handle, display_handle, size, requested_graphics_api| {
+                opengl_surface::OpenGLSurface::new(
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+            pre_present_callback: Default::default(),
+            partial_rendering_state,
+            visualize_dirty_region,
+        }
+    }
+
+    #[cfg(target_vendor = "apple")]
+    /// Creates a new SkiaRenderer that will always use Skia's Metal renderer.
+    pub fn default_metal() -> Self {
+        let (partial_rendering_state, visualize_dirty_region) = create_partial_renderer_state();
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |window_handle, display_handle, size, requested_graphics_api| {
+                metal_surface::MetalSurface::new(
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+            pre_present_callback: Default::default(),
+            partial_rendering_state,
+            visualize_dirty_region,
+        }
+    }
+
+    #[cfg(skia_backend_vulkan)]
+    /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
+    pub fn default_vulkan() -> Self {
+        let (partial_rendering_state, visualize_dirty_region) = create_partial_renderer_state();
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |window_handle, display_handle, size, requested_graphics_api| {
+                vulkan_surface::VulkanSurface::new(
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+            pre_present_callback: Default::default(),
+            partial_rendering_state,
+            visualize_dirty_region,
+        }
+    }
+
+    #[cfg(target_family = "windows")]
+    /// Creates a new SkiaRenderer that will always use Skia's Direct3D renderer.
+    pub fn default_direct3d() -> Self {
+        let (partial_rendering_state, visualize_dirty_region) = create_partial_renderer_state();
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |window_handle, display_handle, size, requested_graphics_api| {
+                d3d_surface::D3DSurface::new(
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
             partial_rendering_state,
@@ -268,11 +359,12 @@ impl SkiaRenderer {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
-        opengl_api: Option<OpenGLAPI>,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), PlatformError> {
         // just in case
         self.suspend()?;
-        let surface = (self.surface_factory)(window_handle, display_handle, size, opengl_api)?;
+        let surface =
+            (self.surface_factory)(window_handle, display_handle, size, requested_graphics_api)?;
         self.set_surface(surface);
         Ok(())
     }
@@ -774,7 +866,7 @@ pub trait Surface {
         window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
-        opengl_api: Option<OpenGLAPI>,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError>
     where
         Self: Sized;
