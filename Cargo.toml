@@ -94,6 +94,8 @@ default-members = [
     'tools/viewer',
 ]
 
+exclude = ["editors/tree-sitter-slint"]
+
 resolver="2"
 
 [workspace.package]
