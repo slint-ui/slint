@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ListView, Palette, ScrollView, LineEdit } from "std-widgets.slint";
+import { ListView, Palette, ScrollView, LineEdit, Button } from "std-widgets.slint";
 import { EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, EditorPalette } from "./styling.slint";
-import { Api, SelectionStackFrame } from "../api.slint";
+import { Api, SelectionStackFrame, SelectionStackFilter } from "../api.slint";
 import { Icons } from "styling.slint";
 
 component PopupInner inherits Rectangle {
@@ -146,30 +146,48 @@ component PopupInner inherits Rectangle {
     }
 
     VerticalLayout {
-        padding-top: EditorSpaceSettings.default-padding;
-        padding-bottom: EditorSpaceSettings.default-padding;
+        padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
 
         header := HorizontalLayout {
-            padding-right: EditorSpaceSettings.default-padding;
             spacing: EditorSpaceSettings.default-spacing;
 
+            property <SelectionStackFilter> filter: {
+                if (layout-filter.checked && interactive-filter.checked) {
+                    return SelectionStackFilter.LayoutsAndInteractive;
+                } else if (layout-filter.checked) {
+                    return SelectionStackFilter.Layouts;
+                } else if (interactive-filter.checked) {
+                    return SelectionStackFilter.Interactive;
+                } else {
+                    return SelectionStackFilter.Nothing;
+                }
+            
+            }
+
             Rectangle {
+                width: EditorSizeSettings.default-icon-width * 0.8;
+
                 Image {
                     source: Icons.filter;
                     colorize: Palette.alternate-foreground;
                     width: EditorSizeSettings.default-icon-width * 0.8;
                     height: EditorSizeSettings.default-icon-width * 0.8;
-                    y: filter-edit.height / 2 - self.height / 2;
                 }
             }
 
             filter-edit := LineEdit {
                 placeholder-text: "Filter";
+                min-width: 50px;
+            }
 
-                init => {
-                    self.focus();
-                }
+            layout-filter := Button {
+                text: "L";
+                checkable: true;
+            }
+            interactive-filter := Button {
+                text: "I";
+                checkable: true;
             }
         }
 
@@ -178,7 +196,7 @@ component PopupInner inherits Rectangle {
 
             list-view := VerticalLayout {
 
-                for frame[index] in Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text): frame-rect := Rectangle {
+                for frame[index] in Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text, header.filter): frame-rect := Rectangle {
                     height: root.frame-height;
 
                     function frame-color(frame: SelectionStackFrame) -> brush {
