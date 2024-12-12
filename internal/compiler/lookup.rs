@@ -382,12 +382,14 @@ impl LookupObject for ElementRc {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
-            let e = expression_from_reference(
+            let expression = expression_from_reference(
                 NamedReference::new(self, name.clone()),
                 &prop.property_type,
                 &ctx.current_token,
             );
-            if let Some(r) = f(name, e.into()) {
+
+            let deprecated = check_deprecated_stylemetrics(self, ctx, name);
+            if let Some(r) = f(name, LookupResult::Expression { expression, deprecated }) {
                 return Some(r);
             }
         }
@@ -402,7 +404,7 @@ impl LookupObject for ElementRc {
                 return Some(r);
             }
         }
-        if !matches!(self.borrow().base_type, ElementType::Global) {
+        if !(matches!(self.borrow().base_type, ElementType::Global)) {
             for (name, ty, _) in crate::typeregister::reserved_properties() {
                 let name = SmolStr::new_static(name);
                 let e = expression_from_reference(
@@ -431,12 +433,33 @@ impl LookupObject for ElementRc {
                     &ctx.current_token,
                 ),
                 deprecated: (lookup_result.resolved_name != name.as_str())
-                    .then(|| lookup_result.resolved_name.to_string()),
+                    .then(|| lookup_result.resolved_name.to_string())
+                    .or_else(|| check_deprecated_stylemetrics(self, ctx, name)),
             })
         } else {
             None
         }
     }
+}
+
+pub fn check_deprecated_stylemetrics(
+    elem: &ElementRc,
+    ctx: &LookupCtx<'_>,
+    name: &SmolStr,
+) -> Option<String> {
+    let borrow = elem.borrow();
+    (!ctx.type_register.expose_internal_types
+        && matches!(
+            borrow.enclosing_component.upgrade().unwrap().id.as_str(),
+            "StyleMetrics" | "NativeStyleMetrics"
+        )
+        && borrow
+            .debug
+            .first()
+            .and_then(|x| x.node.source_file())
+            .map_or(true, |x| x.path().starts_with("builtin:"))
+        && !name.starts_with("layout-"))
+    .then(|| format!("Palette.{}", name))
 }
 
 fn expression_from_reference(
@@ -498,18 +521,7 @@ impl LookupType {
                 {
                     None
                 } else {
-                    Some(LookupResult::Expression {
-                        expression: Expression::ElementReference(Rc::downgrade(&c.root_element)),
-                        deprecated: (name == "StyleMetrics"
-                            && !ctx.type_register.expose_internal_types
-                            && c.root_element
-                                .borrow()
-                                .debug
-                                .first()
-                                .and_then(|x| x.node.source_file())
-                                .map_or(false, |x| x.path().starts_with("builtin:")))
-                        .then(|| "Palette".to_string()),
-                    })
+                    Some(Expression::ElementReference(Rc::downgrade(&c.root_element)).into())
                 }
             }
             _ => None,

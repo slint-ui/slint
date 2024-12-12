@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { HorizontalBox, VerticalBox, StandardTableView, GroupBox, LayoutSpec, LineEdit } from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, StandardTableView, GroupBox, StyleMetrics, LineEdit } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -14,14 +14,14 @@ export global TableViewPageAdapter  {
         [ { text: "Item 5.1" }, { text: "Item 5.2" }, { text: "Item 5.3" }, { text: "Item 5.4" }, ],
         [ { text: "Item 6.1" }, { text: "Item 6.2" }, { text: "Item 6.3" }, { text: "Item 6.4" }, ],
     ];
-    
+
     pure callback filter_sort_model([[StandardListViewItem]], string, int, bool) -> [[StandardListViewItem]];
 }
 
 export component TableViewPage inherits Page {
     property <int> sort-index: -1;
     property <bool> sort-acending;
-    
+
     title: @tr("TableView");
     show-enable-switch: false;
     description: @tr("StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"");
@@ -34,8 +34,8 @@ export component TableViewPage inherits Page {
             vertical-stretch: 0;
 
             VerticalLayout {
-                spacing: LayoutSpec.layout-spacing;
-                
+                spacing: StyleMetrics.layout-spacing;
+
                 StandardTableView {
                     sort-ascending(index) => {
                         root.sort-index = index;
@@ -64,7 +64,7 @@ export component TableViewPage inherits Page {
                     filter-edit := LineEdit {
                         placeholder-text: @tr("Enter filter text");
                     }
-                }   
+                }
             }
        }
     }
