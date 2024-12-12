@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ListView, Palette, ScrollView, LineEdit } from "std-widgets.slint";
+import { ListView, Palette, ScrollView, LineEdit, Button } from "std-widgets.slint";
 import { EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, EditorPalette } from "./styling.slint";
 import { Api, SelectionStackFrame } from "../api.slint";
 import { Icons } from "styling.slint";
@@ -171,6 +171,12 @@ component PopupInner inherits Rectangle {
                     self.focus();
                 }
             }
+
+            sort-by-area-button := Button {
+                checkable: true;
+                icon: Icons.list-filter;
+                colorize-icon: true;
+            }
         }
 
         ScrollView {
@@ -178,7 +184,7 @@ component PopupInner inherits Rectangle {
 
             list-view := VerticalLayout {
 
-                for frame[index] in Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text): frame-rect := Rectangle {
+                for frame[index] in Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text, sort-by-area-button.checked): frame-rect := Rectangle {
                     height: root.frame-height;
 
                     function frame-color(frame: SelectionStackFrame) -> brush {
