@@ -78,7 +78,6 @@ export component TextEdit {
     in property <string> placeholder-text;
 
     callback edited(text: string);
-    callback rejected(text: string);
 
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
@@ -157,10 +156,6 @@ export component TextEdit {
 
             edited => {
                 root.edited(self.text);
-            }
-
-            rejected => {
-                root.rejected(self.text);
             }
 
             cursor-position-changed(cpos) => {

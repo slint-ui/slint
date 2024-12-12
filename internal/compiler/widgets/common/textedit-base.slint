@@ -29,7 +29,6 @@ export component TextEditBase inherits Rectangle {
     in property <brush> placeholder-color;
 
     callback edited(text: string);
-    callback rejected(text: string);
 
     public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
@@ -74,10 +73,6 @@ export component TextEditBase inherits Rectangle {
 
             edited => {
                 root.edited(self.text);
-            }
-
-            rejected => {
-                root.rejected(self.text);
             }
 
             cursor-position-changed(cpos) => {
