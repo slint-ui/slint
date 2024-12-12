@@ -78,6 +78,8 @@ export component TextEdit {
     in property <string> placeholder-text;
 
     callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
 
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
@@ -156,6 +158,14 @@ export component TextEdit {
 
             edited => {
                 root.edited(self.text);
+            }
+            
+            key-pressed(event) => {
+                root.key-pressed(event)
+            }
+
+            key-released(event) => {
+                root.key-released(event)
             }
 
             cursor-position-changed(cpos) => {

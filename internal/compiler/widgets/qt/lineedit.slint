@@ -15,6 +15,8 @@ export component LineEdit {
 
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
+    callback key-pressed <=> inner.key-pressed;
+    callback key-released <=> inner.key-released;
     accessible-role: text-input;
     accessible-enabled: root.enabled;
     accessible-value <=> text;

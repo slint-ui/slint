@@ -19,6 +19,8 @@ export component LineEditBase inherits Rectangle {
 
     callback accepted(text: string);
     callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
 
     public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
@@ -89,6 +91,14 @@ export component LineEditBase inherits Rectangle {
 
         edited => {
             root.edited(self.text);
+        }
+
+        key-pressed(event) => {
+            root.key-pressed(event)
+        }
+
+        key-released(event) => {
+            root.key-released(event)
         }
     }
 }
