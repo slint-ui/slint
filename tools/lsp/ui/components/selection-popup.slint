@@ -399,7 +399,7 @@ component PopupInner inherits Rectangle {
                                 }
 
                                 Text {
-                                    text: frame.type-name + (frame.is-interactive ? " (TouchArea)" : "");
+                                    text: frame.type-name;
                                     overflow: elide;
                                     color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
                                     font-size: EditorFontSettings.label-sub.font-size;
