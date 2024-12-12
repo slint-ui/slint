@@ -136,5 +136,6 @@ handle keys before `LineEdit` does. Return `accept` to indicate that you've hand
 `reject` to let `LineEdit` handle it.
 
 ### key-released(KeyEvent) -> EventResult
-Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult` 
-indicates whether to accept or ignore the event. Ignored events are forwarded to the parent element.
+Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
+handle keys before `LineEdit` does. Return `accept` to indicate that you've handled the event, or return
+`reject` to let `LineEdit` handle it.
