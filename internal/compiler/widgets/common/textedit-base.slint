@@ -29,7 +29,8 @@ export component TextEditBase inherits Rectangle {
     in property <brush> placeholder-color;
 
     callback edited(text: string);
-    callback rejected(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
 
     public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
@@ -76,8 +77,12 @@ export component TextEditBase inherits Rectangle {
                 root.edited(self.text);
             }
 
-            rejected => {
-                root.rejected(self.text);
+            key-pressed(event) => {
+                root.key-pressed(event)
+            }
+
+            key-released(event) => {
+                root.key-released(event)
             }
 
             cursor-position-changed(cpos) => {

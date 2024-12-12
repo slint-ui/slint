@@ -8,9 +8,10 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{
-    FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventResult, KeyEventType,
-    PointArg, PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
-    TextStrokeStyle, TextVerticalAlignment, TextWrap, VoidArg,
+    EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
+    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
+    TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
+    VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -490,9 +491,10 @@ pub struct TextInput {
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub accepted: Callback<VoidArg>,
-    pub rejected: Callback<VoidArg>,
     pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
+    pub key_pressed: Callback<KeyEventArg, EventResult>,
+    pub key_released: Callback<KeyEventArg, EventResult>,
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
@@ -685,6 +687,13 @@ impl Item for TextInput {
         }
         match event.event_type {
             KeyEventType::KeyPressed => {
+                // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
+                if Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
+                    == EventResult::Accept
+                {
+                    return KeyEventResult::EventAccepted;
+                }
+
                 match event.text_shortcut() {
                     Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
@@ -745,9 +754,6 @@ impl Item for TextInput {
                 if let Some(keycode) = event.text.chars().next() {
                     if keycode == key_codes::Return && !self.read_only() && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
-                        return KeyEventResult::EventAccepted;
-                    } else if keycode == key_codes::Escape && !self.read_only() {
-                        Self::FIELD_OFFSETS.rejected.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
                 }
@@ -854,6 +860,16 @@ impl Item for TextInput {
 
                 KeyEventResult::EventAccepted
             }
+            KeyEventType::KeyReleased => {
+                return match Self::FIELD_OFFSETS
+                    .key_released
+                    .apply_pin(self)
+                    .call(&(event.clone(),))
+                {
+                    EventResult::Accept => KeyEventResult::EventAccepted,
+                    EventResult::Reject => KeyEventResult::EventIgnored,
+                };
+            }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 let cursor = self.cursor_position(&self.text()) as i32;
                 self.preedit_text.set(event.preedit_text.clone());
@@ -889,7 +905,6 @@ impl Item for TextInput {
                 }
                 KeyEventResult::EventAccepted
             }
-            _ => KeyEventResult::EventIgnored,
         }
     }
 
