@@ -450,8 +450,6 @@ pub fn filter_sort_selection_stack(
 ) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
     use slint::ModelExt;
 
-    eprintln!("filter: {filter}");
-
     let filter = filter.to_string();
 
     if filter.is_empty() {
