@@ -59,11 +59,11 @@ Call this function to remove keyboard focus from this `FocusScope` if it current
 
 ### key-pressed(KeyEvent) -> EventResult
 Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult` 
-indicates whether to accept or ignore the event. Ignored events are forwarded to the parent element.
+indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### key-released(KeyEvent) -> EventResult
 Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult` 
-indicates whether to accept or ignore the event. Ignored events are forwarded to the parent element.
+indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### focus-changed-event()
 Invoked when the focus on the `FocusScope` has changed.
