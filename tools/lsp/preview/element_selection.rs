@@ -446,26 +446,47 @@ pub fn selection_stack_at(
 
 pub fn filter_sort_selection_stack(
     model: slint::ModelRc<crate::preview::ui::SelectionStackFrame>,
-    filter: slint::SharedString,
+    filter_text: slint::SharedString,
+    filter: crate::preview::ui::SelectionStackFilter,
 ) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
+    use crate::preview::ui::{SelectionStackFilter, SelectionStackFrame};
     use slint::ModelExt;
 
-    let filter = filter.to_string();
+    fn filter_fn(frame: &SelectionStackFrame, filter: SelectionStackFilter) -> bool {
+        match filter {
+            SelectionStackFilter::Nothing => false,
+            SelectionStackFilter::Layouts => frame.is_layout,
+            SelectionStackFilter::Interactive => frame.is_interactive,
+            SelectionStackFilter::Others => !frame.is_interactive && !frame.is_layout,
+            SelectionStackFilter::LayoutsAndInteractive => frame.is_layout || frame.is_interactive,
+            SelectionStackFilter::LayoutsAndOthers => {
+                frame.is_layout || (!frame.is_layout && !frame.is_interactive)
+            }
+            SelectionStackFilter::InteractiveAndOthers => {
+                frame.is_interactive || (!frame.is_layout && !frame.is_interactive)
+            }
+            SelectionStackFilter::Everything => true,
+        }
+    }
 
-    if filter.is_empty() {
+    let filter_text = filter_text.to_string();
+
+    if filter_text.is_empty() && filter == SelectionStackFilter::Everything {
         model
-    } else if filter.as_str().chars().any(|c| !c.is_lowercase()) {
+    } else if filter_text.as_str().chars().any(|c| !c.is_lowercase()) {
         Rc::new(model.filter(move |frame| {
-            frame.id.contains(&filter)
-                || frame.type_name.contains(&filter)
-                || frame.file_name.contains(&filter)
+            filter_fn(frame, filter)
+                && (frame.id.contains(&filter_text)
+                    || frame.type_name.contains(&filter_text)
+                    || frame.file_name.contains(&filter_text))
         }))
         .into()
     } else {
         Rc::new(model.filter(move |frame| {
-            frame.id.to_lowercase().contains(&filter)
-                || frame.type_name.to_lowercase().contains(&filter)
-                || frame.file_name.to_lowercase().contains(&filter)
+            filter_fn(frame, filter)
+                && (frame.id.to_lowercase().contains(&filter_text)
+                    || frame.type_name.to_lowercase().contains(&filter_text)
+                    || frame.file_name.to_lowercase().contains(&filter_text))
         }))
         .into()
     }
