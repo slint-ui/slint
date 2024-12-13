@@ -60,7 +60,7 @@
         "href": "/reference/global-structs-enums"
     },
     "HorizontalBox": {
-        "href": "/reference/std-widgets/horizontalbox"
+        "href": "/reference/std-widgets/layouts/horizontalbox"
     },
     "HorizontalLayout": {
         "href": "/reference/layouts/horizontallayout"
@@ -75,16 +75,16 @@
         "href": "/reference/primitive-types#int"
     },
     "KeyEvent": {
-        "href": "/reference/gestures/key"
+        "href": "/reference/keyboard-input/overview"
     },
     "length": {
         "href": "/reference/primitive-types#length"
     },
     "ListView": {
-        "href": "/reference/std-widgets/listview"
+        "href": "/reference/std-widgets/views/listview"
     },
     "LineEdit": {
-        "href": "/reference/std-widgets/lineedit"
+        "href": "/reference/std-widgets/views/lineedit"
     },
     "LinuxkmsBackend": {
         "href": "/guide/backends-and-renderers/backend_linuxkms"
@@ -111,7 +111,7 @@
         "href": "/reference/window/popupwindow"
     },
     "ProgressIndicator": {
-        "href": "/reference/std-widgets/progressindicator"
+        "href": "/reference/std-widgets/basic-widgets/progressindicator"
     },
     "Purity": {
         "href": "/guide/language/concepts/reactivity"
@@ -126,10 +126,10 @@
         "href": "/guide/language/coding/file"
     },
     "ScrollView": {
-        "href": "/reference/std-widgets/scrollview"
+        "href": "/reference/std-widgets/views/scrollview"
     },
     "StandardButton": {
-        "href": "/reference/std-widgets/standardbutton"
+        "href": "/reference/std-widgets/basic-widgets/standardbutton"
     },
     "StringType": {
         "href": "/reference/primitive-types#string"
@@ -144,10 +144,10 @@
         "href": "/reference/elements/text/"
     },
     "TextEdit": {
-        "href": "/reference/std-widgets/textedit"
+        "href": "/reference/std-widgets/views/textedit"
     },
     "TextInput": {
-        "href": "/reference/elements/textinput/"
+        "href": "/reference/keyboard-input/textinput/"
     },
     "Timer": {
         "href": "/reference/elements/timer/"
@@ -156,7 +156,7 @@
         "href": "/reference/primitive-types"
     },
     "VerticalBox": {
-        "href": "/reference/std-widgets/verticalbox"
+        "href": "/reference/std-widgets/layouts/verticalbox"
     },
     "VerticalLayout": {
         "href": "/reference/layouts/verticallayout"
