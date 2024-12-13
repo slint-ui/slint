@@ -172,46 +172,116 @@ export default defineConfig({
                     },
                     {
                         label: "Reference",
-                        link: "reference/primitive-types",
+                        link: "reference/overview",
                         icon: "information",
                         items: [
                             {
-                                label: "Primitive Types",
-                                slug: "reference/primitive-types",
+                                label: "Overview",
+                                slug: "reference/overview",
                             },
                             {
-                                label: "Colors & Brushes",
-                                slug: "reference/colors-and-brushes",
-                            },
-                            {
-                                label: "Common Properties & Callbacks",
-                                slug: "reference/common",
-                            },
-                            {
-                                label: "Basic Elements",
+                                label: "Types and Properties",
                                 collapsed: true,
-                                autogenerate: {
-                                    directory: "reference/elements",
-                                },
+                                items: [
+                                    {
+                                        label: "Primitive Types",
+                                        slug: "reference/primitive-types",
+                                    },
+                                    {
+                                        label: "Common Properties & Callbacks",
+                                        slug: "reference/common",
+                                    },
+                                    {
+                                        label: "Colors & Brushes",
+                                        slug: "reference/colors-and-brushes",
+                                    },
+                                ],
                             },
                             {
-                                label: "Gestures & Keyboard",
+                                label: "Visual Elements",
                                 collapsed: true,
-                                autogenerate: {
-                                    directory: "reference/gestures",
-                                },
+                                items: [
+                                    {
+                                        label: "Basic Elements",
+                                        autogenerate: {
+                                            directory: "reference/elements",
+                                        },
+                                    },
+                                    {
+                                        label: "Gestures",
+                                        autogenerate: {
+                                            directory: "reference/gestures",
+                                        },
+                                    },
+                                    {
+                                        label: "Keyboard Input",
+                                        items: [
+                                            {
+                                                label: "Overview",
+                                                slug: "reference/keyboard-input/overview",
+                                            },
+                                            {
+                                                label: "HorizontalLayout",
+                                                slug: "reference/keyboard-input/focusscope",
+                                            },
+                                            {
+                                                label: "VerticalLayout",
+                                                slug: "reference/keyboard-input/textinput",
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        label: "Layouts",
+                                        items: [
+                                            {
+                                                label: "Overview",
+                                                slug: "reference/layouts/overview",
+                                            },
+                                            {
+                                                label: "GridLayout",
+                                                slug: "reference/layouts/gridlayout",
+                                            },
+                                            {
+                                                label: "HorizontalLayout",
+                                                slug: "reference/layouts/horizontallayout",
+                                            },
+                                            {
+                                                label: "VerticalLayout",
+                                                slug: "reference/layouts/verticallayout",
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        label: "Window",
+                                        autogenerate: {
+                                            directory: "reference/window",
+                                        },
+                                    },
+                                ],
                             },
                             {
-                                label: "Layouts",
+                                label: "Globals",
                                 collapsed: true,
-                                autogenerate: {
-                                    directory: "reference/layouts",
-                                },
-                            },
-                            {
-                                label: "Window",
-                                collapsed: true,
-                                autogenerate: { directory: "reference/window" },
+                                items: [
+                                    {
+                                        label: "Global Structs and Enums",
+                                        slug: "reference/global-structs-enums",
+                                    },
+                                    {
+                                        label: "Global Functions",
+                                        collapsed: true,
+                                        items: [
+                                            {
+                                                label: "Math",
+                                                slug: "reference/global-functions/math",
+                                            },
+                                            {
+                                                label: "animation-tick() / debug()",
+                                                slug: "reference/global-functions/builtinfunctions",
+                                            },
+                                        ],
+                                    },
+                                ],
                             },
                             {
                                 label: "Std-Widgets",
@@ -220,55 +290,32 @@ export default defineConfig({
                                     "reference/std-widgets/overview",
                                     "reference/std-widgets/style",
                                     {
-                                        label: "UI Widgets",
-                                        items: [
-                                            "reference/std-widgets/aboutslint",
-                                            "reference/std-widgets/button",
-                                            "reference/std-widgets/checkbox",
-                                            "reference/std-widgets/combobox",
-                                            "reference/std-widgets/datepicker",
-                                            "reference/std-widgets/lineedit",
-                                            "reference/std-widgets/listview",
-                                            "reference/std-widgets/progressindicator",
-                                            "reference/std-widgets/scrollview",
-                                            "reference/std-widgets/slider",
-                                            "reference/std-widgets/spinbox",
-                                            "reference/std-widgets/spinner",
-                                            "reference/std-widgets/standardbutton",
-                                            "reference/std-widgets/standardlistview",
-                                            "reference/std-widgets/standardtableview",
-                                            "reference/std-widgets/switch",
-                                            "reference/std-widgets/tabwidget",
-                                            "reference/std-widgets/textedit",
-                                            "reference/std-widgets/timepicker",
-                                        ],
+                                        label: "Basic Widgets",
+                                        autogenerate: {
+                                            directory:
+                                                "reference/std-widgets/basic-widgets",
+                                        },
                                     },
                                     {
-                                        label: "Layout Widgets",
-                                        items: [
-                                            "reference/std-widgets/gridbox",
-                                            "reference/std-widgets/groupbox",
-                                            "reference/std-widgets/horizontalbox",
-                                            "reference/std-widgets/verticalbox",
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                label: "Global Structs and Enums",
-                                slug: "reference/global-structs-enums",
-                            },
-                            {
-                                label: "Global Functions",
-                                collapsed: true,
-                                items: [
-                                    {
-                                        label: "Math",
-                                        slug: "reference/global-functions/math",
+                                        label: "Views",
+                                        autogenerate: {
+                                            directory:
+                                                "reference/std-widgets/views",
+                                        },
                                     },
                                     {
-                                        label: "animation-tick() / debug()",
-                                        slug: "reference/global-functions/builtinfunctions",
+                                        label: "Layouts",
+                                        autogenerate: {
+                                            directory:
+                                                "reference/std-widgets/layouts",
+                                        },
+                                    },
+                                    {
+                                        label: "Misc",
+                                        autogenerate: {
+                                            directory:
+                                                "reference/std-widgets/misc",
+                                        },
                                     },
                                 ],
                             },
@@ -351,7 +398,6 @@ export default defineConfig({
                 ]),
                 starlightLinksValidator({
                     errorOnLocalLinks: false,
-                    exclude: ["**/index.mdx"],
                 }),
             ],
             social: {

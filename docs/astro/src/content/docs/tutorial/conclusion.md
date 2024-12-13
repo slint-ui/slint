@@ -2,6 +2,7 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: Conclusion
 description: Conclusion
+next: false
 ---
 
 This tutorial showed you how to combine built-in Slint elements with C++, Rust, or NodeJS code to build a

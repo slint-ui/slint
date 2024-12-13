@@ -2,6 +2,7 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 title: Winit Backend
 description: Winit Backend
+next: false
 ---
 
 The Winit backend uses the [winit](https://docs.rs/winit/latest/winit/) library to interact with the

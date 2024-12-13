@@ -9,9 +9,10 @@ test("smoke test", async ({ page }) => {
         .getByLabel("Main")
         .getByRole("link", { name: "Reference" })
         .click();
-    await page.locator("summary").filter({ hasText: "Basic Elements" }).click();
-    await page.getByRole("link", { name: "Image", exact: true }).click();
+    await page.getByText("Visual Elements").click();
+    await page.getByRole("link", { name: "Image" }).click();
     await page.getByRole("link", { name: "colorize" }).click();
     await expect(page.locator("#colorize")).toContainText("colorize");
     await page.getByRole("link", { name: "brush", exact: true }).click();
+    await expect(page.locator("#brush")).toContainText("brush");
 });
