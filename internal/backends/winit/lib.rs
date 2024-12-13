@@ -271,7 +271,7 @@ impl BackendBuilder {
             }
             #[cfg(enable_skia_renderer)]
             (Some("skia"), None) => renderer::skia::WinitSkiaRenderer::new_suspended,
-            #[cfg(enable_skia_renderer)]
+            #[cfg(all(enable_skia_renderer, supports_opengl))]
             (Some("skia-opengl"), _) | (Some("skia"), Some(_)) => {
                 renderer::skia::WinitSkiaRenderer::new_opengl_suspended
             }
@@ -452,7 +452,7 @@ impl i_slint_core::platform::Platform for Backend {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios")))]
     fn process_events(
         &self,
         timeout: core::time::Duration,

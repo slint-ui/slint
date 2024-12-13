@@ -29,6 +29,7 @@ impl WinitSkiaRenderer {
         })
     }
 
+    #[cfg(not(target_os = "ios"))]
     pub fn new_opengl_suspended() -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
             renderer: i_slint_renderer_skia::SkiaRenderer::default_opengl(),
