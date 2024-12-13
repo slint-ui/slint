@@ -44,12 +44,14 @@
     "Expressions": {
         "href": "/guide/language/coding/expressions-and-statements/"
     },
-    
     "float": {
         "href": "/reference/primitive-types#float"
     },
     "FocusHandling": {
         "href": "/guide/development/focus"
+    },
+    "FontHandling": {
+        "href": "/guide/development/fonts"
     },
     "GridLayout": {
         "href": "/reference/layouts/gridlayout"

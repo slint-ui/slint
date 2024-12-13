@@ -69,7 +69,7 @@ function languageLabel() {
             inset-inline-end: calc(var(--ec-brdWd) + var(--ec-uiPadInl) );
             direction: ltr;
             font-size: 0.8rem;
-            color: #767676;
+            color:rgb(169, 169, 169);
             opacity: 1;
             transition: opacity 0.3s;
         }

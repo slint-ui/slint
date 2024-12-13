@@ -351,7 +351,6 @@ export default defineConfig({
                 ]),
                 starlightLinksValidator({
                     errorOnLocalLinks: false,
-                    exclude: ["**/index.mdx"],
                 }),
             ],
             social: {
