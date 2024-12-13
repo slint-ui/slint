@@ -172,9 +172,13 @@ export default defineConfig({
                     },
                     {
                         label: "Reference",
-                        link: "reference/primitive-types",
+                        link: "reference/overview",
                         icon: "information",
                         items: [
+                            {
+                                label: "Overview",
+                                slug: "reference/overview",
+                            },
                             {
                                 label: "Primitive Types",
                                 slug: "reference/primitive-types",
