@@ -63,7 +63,6 @@ component FilterList inherits Rectangle {
         }
     }
 }
-    
 
 component PopupInner inherits Rectangle {
     in property <length> preview-width: 500px;
@@ -207,7 +206,7 @@ component PopupInner inherits Rectangle {
             if self.has-hover {
                 root.unselect-previewed-selection();
                 filter-list.visible = false;
-            }            
+            }
         }
     }
 
@@ -239,10 +238,13 @@ component PopupInner inherits Rectangle {
             filter-edit := LineEdit {
                 placeholder-text: "Filter";
                 min-width: 50px;
+                init => {
+                    self.focus();
+                }
 
                 changed has-focus => {
-                    if self.has-focus {
-                        filter-list.visible = false;
+                    if !self.has-focus {
+                        self.focus();
                     }
                 }
             }
