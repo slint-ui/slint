@@ -23,10 +23,8 @@ component FilterList inherits Rectangle {
         } else if (lcb.checked && icb.checked && ocb.checked) {
             return SelectionStackFilter.Everything;
         }
-
         return SelectionStackFilter.Nothing;
     }
-
     out property <bool> has-filter: !lcb.checked || !icb.checked || !ocb.checked;
 
     border-color: Palette.border;
@@ -39,6 +37,9 @@ component FilterList inherits Rectangle {
     background: Palette.alternate-background;
 
     TouchArea {
+        y: - EditorSpaceSettings.default-padding;
+        height: parent.height + EditorSpaceSettings.default-padding * 2;
+
         // Just block events from reaching other TouchAreas!
     }
 
