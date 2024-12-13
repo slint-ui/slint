@@ -159,6 +159,12 @@
         }
       }
     },
+    "snippets": [
+      {
+        "language": "slint",
+        "path": "./snippets/slint.json"
+      }
+    ],
     "walkthroughs": [
       {
         "id": "slint.welcomeWalkthrough",
