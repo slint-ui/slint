@@ -221,6 +221,9 @@ component WindowItem {
     in-out property <length> default-font-size; // <=> StyleMetrics.default-font-size  set in apply_default_properties_from_style
     in property <int> default-font-weight;
     in property <image> icon;
+    in property <image> cursor;
+    in property <length> cursor-hotspot-x;
+    in property <length> cursor-hotspot-y;
 }
 
 export component Window inherits WindowItem {
