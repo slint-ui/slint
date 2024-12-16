@@ -25,3 +25,14 @@ targets = [
 ignore-build-dependencies = true
 ignore-dev-dependencies = true
 filter-noassertion = true
+
+# See https://embarkstudios.github.io/cargo-about/cli/generate/workarounds.html
+workarounds = ["ring"]
+
+[femtovg.clarify]
+# See https://github.com/femtovg/femtovg/commit/53bf79e720767354486affced9e2c7ad204f0f85
+license = "MIT OR Apache-2.0"
+[[femtovg.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "cd4eb10b20da1d85916624e0e15a8e76b0a66406996a4f9aa5afee909fecfb7e"
