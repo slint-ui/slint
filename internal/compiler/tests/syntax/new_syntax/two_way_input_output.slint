@@ -390,3 +390,42 @@ export Legacy1 := Rectangle {
 
 }
 
+export Legacy2 := Rectangle {
+//             ^warning{':=' to declare a component is deprecated}
+    out property <bool> out;
+    in property <bool> in;
+    in-out property <bool> inout;
+    property <bool> priv;
+
+    Button { internal <=> in; }
+//           ^error{Cannot assign to private property 'internal'}
+    Button { internal <=> out; }
+//           ^error{Cannot assign to private property 'internal'}
+    Button { internal <=> priv; }
+//           ^error{Cannot assign to private property 'internal'}
+    Button { internal <=> inout; }
+//           ^error{Cannot assign to private property 'internal'}
+    Button { internal <=> self.checked; }
+//           ^error{Cannot assign to private property 'internal'}
+
+    Button { pressed <=> self.pressed; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+    Button { pressed <=> self.checked; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+    Button { pressed <=> self.enabled; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+    Button { pressed <=> self.accessible-checked; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+    Button { pressed <=> self.internal; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+//                            ^^error{The property 'internal' is private. Annotate it with}
+    Button { pressed <=> out; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+    Button { pressed <=> in; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+    Button { pressed <=> inout; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+    Button { pressed <=> priv; }
+//           ^warning{Assigning to output property 'pressed' is deprecated}
+
+}
