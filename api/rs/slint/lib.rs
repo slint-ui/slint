@@ -287,7 +287,7 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
 /// Futures from the [smol](https://docs.rs/smol/latest/smol/) runtime always hand off their work to
 /// separate I/O threads that run in parallel to the Slint event loop.
 ///
-/// The [Tokio](https://docs.rs/tokio/latest/tokio/index.html) runtime is to the following constraints:
+/// The [Tokio](https://docs.rs/tokio/latest/tokio/index.html) runtime is subject to the following constraints:
 ///
 /// * Tokio futures require entering the context of a global Tokio runtime.
 /// * Tokio futures aren't guaranteed to hand off their work to separate threads and may therefore not complete, because
