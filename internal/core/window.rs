@@ -1216,6 +1216,18 @@ impl WindowInner {
         })
     }
 
+    /// Returns the window item that is the first item in the component.
+    pub fn window_item_rc(&self) -> Option<ItemRc> {
+        self.try_component().and_then(|component_rc| {
+            let window_item_rc = ItemRc::new(component_rc, 0);
+            if window_item_rc.downcast::<crate::items::WindowItem>().is_some() {
+                Some(window_item_rc)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Sets the size of the window item. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     pub(crate) fn set_window_item_geometry(&self, size: crate::lengths::LogicalSize) {

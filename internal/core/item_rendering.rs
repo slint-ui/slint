@@ -292,6 +292,24 @@ pub trait RenderBorderRectangle {
     fn border_color(self: Pin<&Self>) -> Brush;
 }
 
+impl RenderBorderRectangle for Brush {
+    fn background(self: Pin<&Self>) -> Brush {
+        self.get_ref().clone()
+    }
+
+    fn border_width(self: Pin<&Self>) -> LogicalLength {
+        Default::default()
+    }
+
+    fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        Default::default()
+    }
+
+    fn border_color(self: Pin<&Self>) -> Brush {
+        Default::default()
+    }
+}
+
 /// Trait for an item that represents an Image towards the renderer
 #[allow(missing_docs)]
 pub trait RenderImage {
@@ -450,12 +468,6 @@ pub trait ItemRenderer {
     fn draw_string(&mut self, string: &str, color: crate::Color);
 
     fn draw_image_direct(&mut self, image: crate::graphics::Image);
-
-    /// Fills a rectangle at (0,0) with the given size. This is used for example by the Skia renderer to
-    /// handle window backgrounds with a brush (gradient).
-    fn draw_rect(&mut self, _size: LogicalSize, _brush: Brush) {
-        unimplemented!()
-    }
 
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
@@ -908,10 +920,6 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn draw_image_direct(&mut self, image: crate::graphics::image::Image) {
         self.actual_renderer.draw_image_direct(image)
-    }
-
-    fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
-        self.actual_renderer.draw_rect(size, brush);
     }
 
     fn window(&self) -> &crate::window::WindowInner {
