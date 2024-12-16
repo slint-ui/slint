@@ -22,7 +22,6 @@ targets = [
     "x86_64-pc-windows-msvc",
     "x86_64-apple-darwin",
 ]
-ignore-build-dependencies = true
 ignore-dev-dependencies = true
 filter-noassertion = true
 
