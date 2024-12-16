@@ -107,6 +107,28 @@ pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn s
 
     let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("docs/Pipfile"))];
 
+    println!("Generating third-party license list with cargo-about");
+
+    let cargo_about_output = super::run_command(
+        "cargo",
+        &[
+            "about",
+            "generate",
+            "--manifest-path",
+            "api/cpp/Cargo.toml",
+            "api/cpp/docs/thirdparty.hbs",
+            "-o",
+            docs_build_dir.join("thirdparty.md").to_str().unwrap(),
+        ],
+        pip_env.clone(),
+    )?;
+
+    println!(
+        "{}\n{}",
+        String::from_utf8_lossy(&cargo_about_output.stdout),
+        String::from_utf8_lossy(&cargo_about_output.stderr)
+    );
+
     println!("Running pipenv install");
 
     super::run_command("pipenv", &["install"], pip_env.clone())
