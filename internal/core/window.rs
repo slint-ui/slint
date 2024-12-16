@@ -685,15 +685,16 @@ impl WindowInner {
         event.modifiers = self.modifiers.get().into();
 
         let mut item = self.focus_item.borrow().clone().upgrade();
+
+        if item.as_ref().is_some_and(|i| !i.is_visible()) {
+            // Reset the focus... not great, but better than keeping it.
+            self.take_focus_item();
+            item = None;
+        }
+
         while let Some(focus_item) = item {
-            if !focus_item.is_visible() {
-                // Reset the focus... not great, but better than keeping it.
-                self.take_focus_item();
-            } else if focus_item.borrow().as_ref().key_event(
-                &event,
-                &self.window_adapter(),
-                &focus_item,
-            ) == crate::input::KeyEventResult::EventAccepted
+            if focus_item.borrow().as_ref().key_event(&event, &self.window_adapter(), &focus_item)
+                == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
                 return;
