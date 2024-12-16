@@ -79,9 +79,9 @@ jobs:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v3
             - name: Pin dependencies to make it build with our MSRV
-             if: matrix.rust_version == '1.77'
-             shell: bash
-             run: |
+              if: matrix.rust_version == '1.77'
+              shell: bash
+              run: |
                  if [ ! -f ./Cargo.lock ]; then
                    cargo update -p home --precise 0.5.9
                  fi
