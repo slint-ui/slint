@@ -81,8 +81,8 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/node@20.16.10)(rollup@4.28.1)(terser@5.34.1)(typescript@5.7.2)(yaml@2.6.1)
       playwright:
-        specifier: 1.49.0
-        version: 1.49.0
+        specifier: 1.49.1
+        version: 1.49.1
       playwright-ctrf-json-reporter:
         specifier: 0.0.18
         version: 0.0.18
@@ -103,8 +103,8 @@ importers:
         version: 5.7.2
     devDependencies:
       '@playwright/test':
-        specifier: 1.49.0
-        version: 1.49.0
+        specifier: 1.49.1
+        version: 1.49.1
       cspell:
         specifier: 8.17.0
         version: 8.17.0
@@ -216,8 +216,8 @@ importers:
         specifier: 2.5.0
         version: 2.5.0
       '@playwright/test':
-        specifier: 1.49.0
-        version: 1.49.0
+        specifier: 1.49.1
+        version: 1.49.1
       '@types/node':
         specifier: 20.16.10
         version: 20.16.10
@@ -1394,8 +1394,8 @@ packages:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
 
-  '@playwright/test@1.49.0':
-    resolution: {integrity: sha512-DMulbwQURa8rNIQrf94+jPJQ4FmOVdpE5ZppRNvWVjvhC+6sOeo28r8MgIpQRYouXRtt/FCCXU7zn20jnHR4Qw==}
+  '@playwright/test@1.49.1':
+    resolution: {integrity: sha512-Ky+BVzPz8pL6PQxHqNRW1k3mIyv933LML7HktS8uik0bUXNCdPhoS/kLihiO1tMf/egaJb4IutXd7UywvXEW+g==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -3142,16 +3142,16 @@ packages:
     resolution: {integrity: sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ==}
     engines: {node: '>=8'}
 
-  playwright-core@1.49.0:
-    resolution: {integrity: sha512-R+3KKTQF3npy5GTiKH/T+kdhoJfJojjHESR1YEWhYuEKRVfVaxH3+4+GvXE5xyCngCxhxnykk0Vlah9v8fs3jA==}
+  playwright-core@1.49.1:
+    resolution: {integrity: sha512-BzmpVcs4kE2CH15rWfzpjzVGhWERJfmnXmniSyKeRZUs9Ws65m+RGIi7mjJK/euCegfn3i7jvqWeWyHe9y3Vgg==}
     engines: {node: '>=18'}
     hasBin: true
 
   playwright-ctrf-json-reporter@0.0.18:
     resolution: {integrity: sha512-AjFNpIMKI8zeyaktA2LBphYzy3ffiBjXobBXxEfrVUDov/Z8v5+y9FI0m3cBCr8yauk2brN+Er225vHsZDIu0g==}
 
-  playwright@1.49.0:
-    resolution: {integrity: sha512-eKpmys0UFDnfNb3vfsf8Vx2LEOtflgRebl0Im2eQQnYMA4Aqd+Zw8bEOB+7ZKvN76901mRnqdsiOGKxzVTbi7A==}
+  playwright@1.49.1:
+    resolution: {integrity: sha512-VYL8zLoNTBxVOrJBbDuRgDWa3i+mfQgDTrL8Ah9QXZ7ax4Dsj0MSq5bYgytRnDVVe+njoKnfsYkH3HzqVj5UZA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -5233,9 +5233,9 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@playwright/test@1.49.0':
+  '@playwright/test@1.49.1':
     dependencies:
-      playwright: 1.49.0
+      playwright: 1.49.1
 
   '@rauschma/env-var@1.0.1': {}
 
@@ -7514,13 +7514,13 @@ snapshots:
     dependencies:
       find-up: 4.1.0
 
-  playwright-core@1.49.0: {}
+  playwright-core@1.49.1: {}
 
   playwright-ctrf-json-reporter@0.0.18: {}
 
-  playwright@1.49.0:
+  playwright@1.49.1:
     dependencies:
-      playwright-core: 1.49.0
+      playwright-core: 1.49.1
     optionalDependencies:
       fsevents: 2.3.2
 
