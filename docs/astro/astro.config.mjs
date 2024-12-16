@@ -30,11 +30,10 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Slint Docs",
+            title: "1.9.0",
             logo: {
                 light: "./src/assets/slint-logo-simple-light.webp",
                 dark: "./src/assets/slint-logo-simple-dark.webp",
-                replacesTitle: true,
             },
             customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
 

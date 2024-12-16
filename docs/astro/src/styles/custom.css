@@ -84,6 +84,9 @@
     --sl-color-accent-high: hsl(222, 80%, 35%);
     --sl-color-accent: hsl(222, 89%, 55%);
     --sl-color-accent-low: hsl(222, 89%, 85%);
+    .site-title {
+        color: #000;
+    }
 }
 
 .hero {
@@ -98,8 +101,14 @@
 }
 
 .site-title {
-    font-size: 1rem;
+    font-size: 1.3rem;
     text-transform: uppercase;
+    color: #fff;
+}
+
+span {
+    display: inline-block;
+    margin-top: 2px;
 }
 
 .version-banner {
