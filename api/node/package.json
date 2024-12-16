@@ -41,7 +41,7 @@
     "build:debug": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json && pnpm compile",
     "build:testing": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts -c binaries.json --features testing && pnpm compile",
     "install": "node build-on-demand.mjs",
-    "docs": "pnpm build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md typescript/index.ts",
+    "docs": "pnpm build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md typescript/index.ts && cargo about generate thirdparty.hbs -o docs/thirdparty.html",
     "check": "biome check",
     "format": "biome format",
     "format:fix": "biome format --write",
