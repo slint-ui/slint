@@ -24,13 +24,19 @@ pub struct BackendSelector {
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     backend: Option<String>,
     renderer: Option<String>,
+    selected: bool,
 }
 
 impl BackendSelector {
     /// Creates a new BackendSelector.
     #[must_use]
     pub fn new() -> BackendSelector {
-        BackendSelector { requested_graphics_api: None, backend: None, renderer: None }
+        BackendSelector {
+            requested_graphics_api: None,
+            backend: None,
+            renderer: None,
+            selected: false,
+        }
     }
 
     /// Adds the requirement to the selector that the backend must render with OpenGL ES
@@ -109,7 +115,13 @@ impl BackendSelector {
     /// Completes the backend selection process and tries to combine with specified requirements
     /// with the different backends and renderers enabled at compile time. On success, the selected
     /// backend is automatically set to be active. Returns an error if the requirements could not be met.
-    pub fn select(self) -> Result<(), PlatformError> {
+    pub fn select(mut self) -> Result<(), PlatformError> {
+        self.select_internal()
+    }
+
+    pub fn select_internal(&mut self) -> Result<(), PlatformError> {
+        self.selected = true;
+
         let backend_name = self.backend.as_deref().unwrap_or(super::DEFAULT_BACKEND_NAME);
 
         let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
@@ -127,12 +139,12 @@ impl BackendSelector {
             "winit" => {
                 let builder = i_slint_backend_winit::Backend::builder();
 
-                let builder = match self.requested_graphics_api {
-                    Some(api) => builder.request_graphics_api(api),
+                let builder = match self.requested_graphics_api.as_ref() {
+                    Some(api) => builder.request_graphics_api(api.clone()),
                     None => builder,
                 };
 
-                let builder = match self.renderer {
+                let builder = match self.renderer.as_ref() {
                     Some(name) => builder.with_renderer_name(name),
                     None => builder,
                 };
@@ -164,5 +176,13 @@ impl BackendSelector {
 
         i_slint_core::platform::set_platform(backend)
             .map_err(|set_platform_error| PlatformError::SetPlatformError(set_platform_error))
+    }
+}
+
+impl Drop for BackendSelector {
+    fn drop(&mut self) {
+        if !self.selected {
+            self.select_internal().unwrap();
+        }
     }
 }
