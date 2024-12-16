@@ -801,20 +801,6 @@ impl Item for TextInput {
                     }
                 }
 
-                let input_type = self.input_type();
-                if input_type == InputType::Number
-                    && !event.text.as_str().chars().all(|ch| ch.is_ascii_digit())
-                {
-                    return KeyEventResult::EventIgnored;
-                }
-                if input_type == InputType::Decimal {
-                    let text = self.text().clone() + event.text.as_str();
-                    if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err()
-                    {
-                        return KeyEventResult::EventIgnored;
-                    }
-                }
-
                 if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
@@ -824,6 +810,21 @@ impl Item for TextInput {
                     let text = self.text();
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
+
+                let input_type = self.input_type();
+                if input_type == InputType::Number
+                    && !event.text.as_str().chars().all(|ch| ch.is_ascii_digit())
+                {
+                    return KeyEventResult::EventIgnored;
+                } else if input_type == InputType::Decimal {
+                    let (a, c) = self.selection_anchor_and_cursor();
+                    let text = self.text();
+                    let text = [&text[..a], event.text.as_str(), &text[c..]].concat();
+                    if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err()
+                    {
+                        return KeyEventResult::EventIgnored;
+                    }
+                }
 
                 self.delete_selection(window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
 
