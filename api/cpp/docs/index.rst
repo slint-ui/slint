@@ -47,6 +47,13 @@ Slint C++ documentation
 
    genindex
 
+.. toctree::
+   :maxdepth: 0
+   :hidden:
+   :caption: Third-Party Licenses
+
+   thirdparty.md
+
 .. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
    :target: https://github.com/slint-ui/slint/actions
    :alt: GitHub CI Build Status

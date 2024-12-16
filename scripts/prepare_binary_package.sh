@@ -70,31 +70,4 @@ cat > about.hbs <<EOT
     <main></body></html>
 EOT
 
-cat > about.toml << EOT
-accepted = [
-    "MIT",
-    "Apache-2.0",
-    "MPL-2.0",
-    "Zlib",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "CC0-1.0",
-    "BSL-1.0",
-    "ISC",
-    "Unicode-DFS-2016",
-    "Unicode-3.0",
-    "OpenSSL",
-    "WTFPL",
-    "GPL-3.0", # That's only for Slint
-]
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "x86_64-pc-windows-msvc",
-    "x86_64-apple-darwin",
-]
-ignore-build-dependencies = true
-ignore-dev-dependencies = true
-filter-noassertion = true
-EOT
-
-cargo about generate about.hbs -o $target_path/index.html
+cargo about generate -c `dirname $0`/../about.toml about.hbs -o $target_path/index.html
