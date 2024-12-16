@@ -1,20 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     ti := TextInput {
         input-type: decimal;
     }
 
-    property <bool> input_focused: ti.has_focus;
-    property <string> text <=> ti.text;
+    out property <bool> input_focused: ti.has_focus;
+    in-out property <string> text <=> ti.text;
 }
 
 /*
 ```rust
 use slint::platform::Key;
+use slint::SharedString;
 
 let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 5., 5.);
@@ -22,17 +23,44 @@ assert!(instance.get_input_focused());
 assert!(instance.get_text().is_empty());
 
 // accept characters as valid decimal only
-slint_testing::send_keyboard_char(&instance, 'a', true);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
 assert!(instance.get_text().is_empty());
 slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_text().is_empty());
-slint_testing::send_keyboard_char(&instance, '-', true);
+slint_testing::send_keyboard_string_sequence(&instance, "-");
 assert_eq!(instance.get_text(), "-");
-slint_testing::send_keyboard_char(&instance, '1', true);
+slint_testing::send_keyboard_string_sequence(&instance, "1");
 assert_eq!(instance.get_text(), "-1");
-slint_testing::send_keyboard_char(&instance, '.', true);
+slint_testing::send_keyboard_string_sequence(&instance, ".");
 assert_eq!(instance.get_text(), "-1.");
-slint_testing::send_keyboard_char(&instance, '0', true);
+slint_testing::send_keyboard_string_sequence(&instance, "0");
 assert_eq!(instance.get_text(), "-1.0");
+
+instance.set_text("".into());
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+slint_testing::send_keyboard_string_sequence(&instance, "4");
+slint_testing::send_keyboard_string_sequence(&instance, "b");
+slint_testing::send_keyboard_string_sequence(&instance, "5");
+assert_eq!(instance.get_text(), "45");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+assert_eq!(instance.get_text(), "45");
+slint_testing::send_keyboard_string_sequence(&instance, "c");
+slint_testing::send_keyboard_string_sequence(&instance, "6");
+slint_testing::send_keyboard_string_sequence(&instance, "-");
+assert_eq!(instance.get_text(), "465");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+slint_testing::send_keyboard_string_sequence(&instance, "-");
+assert_eq!(instance.get_text(), "-465");
+
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::RightArrow));
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
+slint_testing::send_keyboard_string_sequence(&instance, "d");
+assert_eq!(instance.get_text(), "-465");
+slint_testing::send_keyboard_string_sequence(&instance, "7");
+assert_eq!(instance.get_text(), "-765");
+
 ```
 */
