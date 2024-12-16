@@ -51,6 +51,9 @@ jobs:
                   target: aarch64-linux-android
             - name: Install apt dependencies
               run: sudo apt-get install doxygen
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
             - name: Upgrade pip and install pipenv
               run: |
                   sudo apt-get install python3-pip pipenv
