@@ -10,21 +10,22 @@ export SuperSimple := Rectangle {
     property <int> a: max + max() + max(45, "hello");
 //                    ^error{Builtin function must be called}
 //                          ^^error{Needs at least one argument}
-//                                          ^^^error{Cannot convert string to float}
+//                                  ^^^error{Invalid argument type}
     property <length> b: max(41px, 41phx);
     property <string> c: max("a", "b");
-//                           ^error{Invalid argument type}
+//                       ^error{Invalid argument type}
 
     property <int> d: min + min() + min(45, "hello");
 //                    ^error{Builtin function must be called}
 //                          ^^error{Needs at least one argument}
-//                                          ^^^error{Cannot convert string to float}
+//                                  ^^^error{Invalid argument type}
     property <length> e: min(41px, 41phx);
     property <string> f: min("a", "b");
-//                           ^error{Invalid argument type}
+//                       ^error{Invalid argument type}
 
     property <int> g: min(42, 42, 42cm);
-//                                ^error{Cannot convert length to float}
+//                        ^error{Cannot convert float to length}
+//                            ^^error{Cannot convert float to length}
     property <int> h: min(42, 42 + 1) + max(1px , 2phx);
 //                    ^error{Cannot convert float to length}
 

@@ -6,6 +6,12 @@ TestCase := Rectangle {
     property<float> p2: 1%;
     property<float> p3: 5.5%;
     property<float> p4: 10 + 50%;
+
+    property <percent> p_min: min(50%, 100%);
+    property <percent> p_max: max(50%, 0%);
+    property <percent> p_clamp: clamp(50%, 0%, 100%);
+
+    property <bool> test: p_min == 50% && p_max == 50% && p_clamp == 50%;
 }
 
 
@@ -21,6 +27,8 @@ assert(fuzzy_compare(instance.get_p3(), 0.055));
 assert(fuzzy_compare(instance.get_p4(), 10.5));
 // self_test
 assert(!fuzzy_compare(instance.get_p1(), 1.001));
+
+assert(instance.get_test());
 ```
 
 ```rust
@@ -31,6 +39,8 @@ assert_eq!(instance.get_p3(), 0.055);
 assert_eq!(instance.get_p4(), 10.5);
 
 assert_ne!(instance.get_p3(), 0.0549);
+
+assert!(instance.get_test());
 ```
 
 ```js
@@ -42,6 +52,8 @@ assert.equal(n(instance.p3), n(0.055));
 assert.equal(n(instance.p4), n(10.5));
 // self_test
 assert.notEqual(n(instance.p1), n(1.001));
+
+assert(instance.test);
 
 ```
 

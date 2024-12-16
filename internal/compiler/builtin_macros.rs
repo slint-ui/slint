@@ -79,23 +79,14 @@ fn min_max_macro(
         diag.push_error("Needs at least one argument".into(), &node);
         return Expression::Invalid;
     }
+    let ty = Expression::common_target_type_for_type_list(args.iter().map(|expr| expr.0.ty()));
+    if ty.as_unit_product().is_none() {
+        diag.push_error("Invalid argument type".into(), &node);
+        return Expression::Invalid;
+    }
     let mut args = args.into_iter();
-    let (mut base, arg_node) = args.next().unwrap();
-    let ty = match base.ty() {
-        Type::Float32 => Type::Float32,
-        // In case there are other floats, we don't want to convert the result to int
-        Type::Int32 => Type::Float32,
-        Type::PhysicalLength => Type::PhysicalLength,
-        Type::LogicalLength => Type::LogicalLength,
-        Type::Duration => Type::Duration,
-        Type::Angle => Type::Angle,
-        Type::Percent => Type::Float32,
-        Type::Rem => Type::Rem,
-        _ => {
-            diag.push_error("Invalid argument type".into(), &arg_node);
-            return Expression::Invalid;
-        }
-    };
+    let (base, arg_node) = args.next().unwrap();
+    let mut base = base.maybe_convert_to(ty.clone(), &arg_node, diag);
     for (next, arg_node) in args {
         let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag);
         base = min_max_expression(base, rhs, op);
@@ -117,20 +108,11 @@ fn clamp_macro(
         return Expression::Invalid;
     }
     let (value, value_node) = args.first().unwrap().clone();
-    let ty = match value.ty() {
-        Type::Float32 => Type::Float32,
-        // In case there are other floats, we don't want to convert the result to int
-        Type::Int32 => Type::Float32,
-        Type::PhysicalLength => Type::PhysicalLength,
-        Type::LogicalLength => Type::LogicalLength,
-        Type::Duration => Type::Duration,
-        Type::Angle => Type::Angle,
-        Type::Percent => Type::Float32,
-        _ => {
-            diag.push_error("Invalid argument type".into(), &value_node);
-            return Expression::Invalid;
-        }
-    };
+    let ty = value.ty();
+    if ty.as_unit_product().is_none() {
+        diag.push_error("Invalid argument type".into(), &value_node);
+        return Expression::Invalid;
+    }
 
     let (min, min_node) = args.get(1).unwrap().clone();
     let min = min.maybe_convert_to(ty.clone(), &min_node, diag);
