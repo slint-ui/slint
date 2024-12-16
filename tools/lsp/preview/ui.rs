@@ -574,11 +574,14 @@ fn simplify_value(prop_info: &super::properties::PropertyInformation) -> Propert
                 if let Some(text) = expression
                     .child_node(SyntaxKind::QualifiedName)
                     .map(|n| i_slint_compiler::object_tree::QualifiedTypeName::from_node(n.into()))
-                    .and_then(|n| {
-                        n.to_string()
+                    .map(|n| {
+                        let n_str = n.to_string();
+                        n_str
                             .strip_prefix(&format!("{}.", enumeration.name))
                             .map(|s| s.to_string())
+                            .unwrap_or(n_str)
                     })
+                    .map(|s| s.to_string())
                 {
                     value.value_int = enumeration
                         .values
@@ -1062,6 +1065,18 @@ mod tests {
 
         let result = property_conversion_test(
             r#"export component Test { in property <ImageFit> test1: ImageFit   .    /* abc */ preserve; }"#,
+            0,
+        );
+        assert_eq!(result.kind, PropertyValueKind::Enum);
+        assert_eq!(result.value_string, "ImageFit");
+        assert_eq!(result.value_int, 3);
+        assert_eq!(result.default_selection, 0);
+        assert_eq!(result.is_translatable, false);
+
+        assert_eq!(result.visual_items.row_count(), 4);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <ImageFit> test1: /* abc */ preserve; }"#,
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Enum);
