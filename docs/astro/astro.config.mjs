@@ -221,11 +221,11 @@ export default defineConfig({
                                                 slug: "reference/keyboard-input/overview",
                                             },
                                             {
-                                                label: "HorizontalLayout",
+                                                label: "FocusScope",
                                                 slug: "reference/keyboard-input/focusscope",
                                             },
                                             {
-                                                label: "VerticalLayout",
+                                                label: "TextInput",
                                                 slug: "reference/keyboard-input/textinput",
                                             },
                                         ],
@@ -234,7 +234,7 @@ export default defineConfig({
                                         label: "Layouts",
                                         items: [
                                             {
-                                                label: "Overview",
+                                                label: "Common Properties",
                                                 slug: "reference/layouts/overview",
                                             },
                                             {
