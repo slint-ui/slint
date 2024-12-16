@@ -1618,7 +1618,7 @@ fn resolve_two_way_bindings(
                                 ) && !lhs_lookup.is_local_to_component
                                 {
                                     // invalid property assignment should have been reported earlier
-                                    assert!(diag.has_errors());
+                                    assert!(diag.has_errors() || elem.borrow().is_legacy_syntax);
                                     continue;
                                 }
 
