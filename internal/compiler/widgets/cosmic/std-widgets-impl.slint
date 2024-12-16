@@ -9,15 +9,9 @@ export { LineEdit } from "lineedit.slint";
 
 import { CosmicPalette } from "styling.slint";
 
-
-export global LayoutSpec {
+export global StyleMetrics  {
     out property <length> layout-spacing: 8px;
     out property <length> layout-padding: 8px;
-}
-
-export global StyleMetrics  {
-    out property <length> layout-spacing: LayoutSpec.layout-spacing;
-    out property <length> layout-padding: LayoutSpec.layout-padding;
     out property <length> text-cursor-width: 1px;
     out property <color> window-background: CosmicPalette.background;
     out property <color> default-text-color: CosmicPalette.foreground;
@@ -42,4 +36,3 @@ export global Palette {
     out property <brush> border: CosmicPalette.border;
     in-out property <ColorScheme> color-scheme <=> CosmicPalette.color-scheme;
 }
-
