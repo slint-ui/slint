@@ -119,7 +119,7 @@ impl BackendSelector {
         self.select_internal()
     }
 
-    pub fn select_internal(&mut self) -> Result<(), PlatformError> {
+    fn select_internal(&mut self) -> Result<(), PlatformError> {
         self.selected = true;
 
         let backend_name = self.backend.as_deref().unwrap_or(super::DEFAULT_BACKEND_NAME);
