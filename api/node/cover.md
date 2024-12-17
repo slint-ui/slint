@@ -6,7 +6,7 @@
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
 Slint-node is the integration with [Node.js](https://nodejs.org/en) and [Deno](https://deno.com).
 
-To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/src/quickstart).
+To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
 the code of a minimal application using Slint that can be used as a starting point to your program.
 
@@ -194,7 +194,7 @@ This is your main TypeScript entry point:
 
 ### Instantiating a Component
 
-Use the {@link loadFile} function to load a `.slint` file. Instantiate the [exported component](http://slint.dev/docs/slint/src/language/concepts/file)
+Use the {@link loadFile} function to load a `.slint` file. Instantiate the [exported component](http://slint.dev/docs/slint/guide/language/coding/file/)
 with the new operator. Access exported callbacks and properties as JavaScript properties on the instantiated component. In addition,
 the returned object implements the {@link ComponentHandle} interface, to show/hide the instance or access the window.
 
@@ -233,7 +233,7 @@ let component = new ui.MainWindow({
 
 ### Accessing a Properties
 
-[Properties](http://slint.dev/docs/slint/src/language/syntax/properties) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
+[Properties](http://slint.dev/docs/slint/guide/language/coding/properties/) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
 
 **`main.slint`**
 export component MainWindow {
@@ -250,7 +250,7 @@ instance.name = "Joe";
 
 ### Setting and Invoking Callbacks
 
-[Callbacks](http://slint.dev/docs/slint/src/language/syntax/callbacks) declared in `.slint` files are visible as JavaScript function properties on the component instance. Invoke them
+[Callbacks](http://slint.dev/docs/slint/guide/language/coding/functions-and-callbacks/) declared in `.slint` files are visible as JavaScript function properties on the component instance. Invoke them
 as function to invoke the callback, and assign JavaScript functions to set the callback handler.
 
 **`ui/my-component.slint`**
@@ -303,7 +303,7 @@ The types used for properties in .slint design markup each translate to specific
 
 ### Arrays and Models
 
-[Array properties](http://slint.dev/docs/slint/src/language/syntax/types#arrays-and-models) can be set from JavaScript by passing
+[Array properties](http://slint.dev/docs/slint/guide/language/coding/repetition-and-data-models#arrays-and-models) can be set from JavaScript by passing
 either `Array` objects or implementations of the {@link Model} interface.
 
 When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side.
@@ -390,7 +390,7 @@ component.position = ui.Position.bottom;
 
 ### Globals
 
-You can declare [globally available singletons](http://slint.dev/docs/slint/src/language/syntax/globals) in your
+You can declare [globally available singletons](http://slint.dev/docs/slint/guide/language/coding/globals) in your
 `.slint` files. If exported, these singletons are accessible as properties on your main
 componen instance. Each global singleton is represented by an object with properties and callbacks,
 similar to API that's created for your `.slint` component.
