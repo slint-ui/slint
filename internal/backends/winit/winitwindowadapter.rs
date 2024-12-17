@@ -1046,14 +1046,28 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         self.color_scheme
             .get_or_init(|| {
                 Box::pin(Property::new({
-                    self.winit_window_or_none
-                        .borrow()
-                        .as_window()
-                        .and_then(|window| window.theme())
-                        .map_or(ColorScheme::Unknown, |theme| match theme {
-                            winit::window::Theme::Dark => ColorScheme::Dark,
-                            winit::window::Theme::Light => ColorScheme::Light,
-                        })
+                    cfg_if::cfg_if! {
+                        if #[cfg(use_winit_theme)] {
+                            self.winit_window_or_none
+                                .borrow()
+                                .as_window()
+                                .and_then(|window| window.theme())
+                                .map_or(ColorScheme::Unknown, |theme| match theme {
+                                    winit::window::Theme::Dark => ColorScheme::Dark,
+                                    winit::window::Theme::Light => ColorScheme::Light,
+                                })
+                        } else {
+                            spin_on::spin_on(async move {
+                                let Ok(settings) = ashpd::desktop::settings::Settings::new().await else { return None };
+                                let Ok(initial_color_scheme_value) = settings.color_scheme().await else { return None };
+                                Some(match initial_color_scheme_value {
+                                    ashpd::desktop::settings::ColorScheme::NoPreference => ColorScheme::Unknown,
+                                    ashpd::desktop::settings::ColorScheme::PreferDark => ColorScheme::Dark,
+                                    ashpd::desktop::settings::ColorScheme::PreferLight => ColorScheme::Light,
+                                })
+                            }).unwrap_or(ColorScheme::Unknown)
+                        }
+                    }
                 }))
             })
             .as_ref()
