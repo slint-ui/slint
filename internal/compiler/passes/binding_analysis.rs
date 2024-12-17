@@ -474,7 +474,7 @@ fn visit_layout_items_dependencies<'a>(
 ) {
     for it in items {
         let mut element = it.element.clone();
-        if element.borrow().repeated.is_some() {
+        if element.borrow().repeated.as_ref().map(|r| recurse_expression(&r.model, vis)).is_some() {
             element = it.element.borrow().base_type.as_component().root_element.clone();
         }
 

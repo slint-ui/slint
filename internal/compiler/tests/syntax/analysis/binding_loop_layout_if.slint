@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Wrapper {
+    width: 100%;
+    height: 100%;
+
+    Rectangle {
+//  ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+        VerticalLayout {
+//      ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+            if root.width > 200px: Rectangle { }
+        }
+    }
+}
+
+component WrapperInherited inherits Rectangle {
+//                                  ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+    VerticalLayout {
+//  ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+        if root.width > 200px: Rectangle { }
+    }
+}
+
+export component Test inherits Window {
+
+    VerticalLayout {
+        HorizontalLayout {
+//      ^error{The binding for the property 'width' is part of a binding loop}
+//      ^^error{The binding for the property 'width' is part of a binding loop}
+//      ^^^error{The binding for the property 'layout-cache' is part of a binding loop}
+            WrapperInherited { }
+            Wrapper { }
+//          ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+        }
+    }
+}
