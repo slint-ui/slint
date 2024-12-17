@@ -231,6 +231,10 @@ export default defineConfig({
                                                 label: "TextInput",
                                                 slug: "reference/keyboard-input/textinput",
                                             },
+                                            {
+                                                label: "TextInputInterface",
+                                                slug: "reference/keyboard-input/textinputinterface",
+                                            },
                                         ],
                                     },
                                     {

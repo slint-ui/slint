@@ -6,8 +6,17 @@ description: Key Handling Overview
 
 import Link from '/src/components/Link.astro';
 
-Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of <Link type="KeyEvent" />'s `text` property
-against the constants below.
+## KeyEvent
+
+ This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
+
+- **`text`** (_string_):  The unicode representation of the key pressed.
+- **`modifiers`** (_KeyboardModifiers_):  The keyboard modifiers active at the time of the key press event.
+- **`repeat`** (_bool_):  This field is set to true for key press events that are repeated, i.e. the key is held down. It's always false for key release events.
+
+
+## Key Namespace
+Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character.
 
 -   **`Backspace`**
 -   **`Tab`**

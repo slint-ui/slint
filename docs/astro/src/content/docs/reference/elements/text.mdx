@@ -138,6 +138,7 @@ The design metrics of the font scaled to the font pixel size used by the element
 <CodeSnippetMD imagePath="/src/assets/generated/text-horizontal-alignment.png" needsBackground="true" imageWidth="200" imageHeight="200"  imageAlt='text-horizontal-alignment'>
 ```slint "horizontal-alignment: left;"
 Text {
+    x: 0;
     text: "Hello";
     color: black;
     font-size: 40pt;
@@ -244,7 +245,7 @@ Text {
     rotation-angle: 45deg;
     rotation-origin-x: self.width / 2;
     rotation-origin-y: self.height / 2;
-    font-size: 40pt;
+    font-size: 30pt;
 }
 ```
 </CodeSnippetMD>
@@ -257,5 +258,3 @@ Text {
 
 ### rotation-origin-y
 <SlintProperty propName="rotation-origin-y" typeName="length"/>
-
-

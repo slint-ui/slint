@@ -24,6 +24,18 @@ export async function getStructContent(
     }
     const baseStruct = structName.replace(/[\[\]]/g, "");
 
+    if (baseStruct === "Time" || baseStruct === "Date") {
+        try {
+            const module = await import(
+                `../content/collections/std-widgets/${baseStruct}.md`
+            );
+            return module.compiledContent();
+        } catch (error) {
+            console.error(`Failed to load enum file for ${baseStruct}:`, error);
+            return "";
+        }
+    }
+
     if (baseStruct) {
         try {
             const module = await import(
