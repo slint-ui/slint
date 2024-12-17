@@ -47,11 +47,10 @@ fn symbol_export_names(document_node: &syntax_nodes::Document, type_name: &str) 
     result
 }
 
-fn replace_element_types(
+fn replace_in_all_elements(
     document_cache: &common::DocumentCache,
     element: &syntax_nodes::Element,
-    old_type: &str,
-    new_type: &str,
+    action: &mut dyn FnMut(&syntax_nodes::Element, &mut Vec<common::SingleTextEdit>),
     edits: &mut Vec<common::SingleTextEdit>,
 ) {
     // HACK: We inject an ignored component into the live preview. Do not
@@ -63,51 +62,56 @@ fn replace_element_types(
     if common::is_element_node_ignored(element) {
         return;
     }
-    if let Some(name) = element.QualifiedName() {
-        if name.text().to_string().trim() == old_type {
-            edits.push(
-                common::SingleTextEdit::from_path(
-                    document_cache,
-                    element.source_file.path(),
-                    lsp_types::TextEdit {
-                        range: util::node_to_lsp_range(&name),
-                        new_text: new_type.to_string(),
-                    },
-                )
-                .expect("URL conversion can not fail here"),
-            )
-        }
-    }
+    action(element, edits);
 
     for c in element.children() {
         match c.kind() {
             SyntaxKind::SubElement => {
                 let e: syntax_nodes::SubElement = c.into();
-                replace_element_types(document_cache, &e.Element(), old_type, new_type, edits);
+                replace_in_all_elements(document_cache, &e.Element(), action, edits);
             }
             SyntaxKind::RepeatedElement => {
                 let e: syntax_nodes::RepeatedElement = c.into();
-                replace_element_types(
-                    document_cache,
-                    &e.SubElement().Element(),
-                    old_type,
-                    new_type,
-                    edits,
-                );
+                replace_in_all_elements(document_cache, &e.SubElement().Element(), action, edits);
             }
             SyntaxKind::ConditionalElement => {
                 let e: syntax_nodes::ConditionalElement = c.into();
-                replace_element_types(
-                    document_cache,
-                    &e.SubElement().Element(),
-                    old_type,
-                    new_type,
-                    edits,
-                );
+                replace_in_all_elements(document_cache, &e.SubElement().Element(), action, edits);
             }
             _ => { /* do nothing */ }
         }
     }
+}
+
+fn replace_element_types(
+    document_cache: &common::DocumentCache,
+    element: &syntax_nodes::Element,
+    old_type: &str,
+    new_type: &str,
+    edits: &mut Vec<common::SingleTextEdit>,
+) {
+    replace_in_all_elements(
+        document_cache,
+        element,
+        &mut |element, edits| {
+            if let Some(name) = element.QualifiedName() {
+                if name.text().to_string().trim() == old_type {
+                    edits.push(
+                        common::SingleTextEdit::from_path(
+                            document_cache,
+                            element.source_file.path(),
+                            lsp_types::TextEdit {
+                                range: util::node_to_lsp_range(&name),
+                                new_text: new_type.to_string(),
+                            },
+                        )
+                        .expect("URL conversion can not fail here"),
+                    )
+                }
+            }
+        },
+        edits,
+    )
 }
 
 fn fix_imports(
