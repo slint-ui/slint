@@ -6,6 +6,10 @@ description: Key Handling Overview
 
 import Link from '/src/components/Link.astro';
 
+To handle keyboard input in Slint, use the `FocusScope` or individual `key-pressed` and `key-released` callbacks in various elements. Keyboard
+input is delivered via [`KeyEvent`](#keyevent) data structures. The primary field of this data structure is the `text` property, which holds all affected keys
+encoded in a string. Use the [`Key` namespace](#key-namespace) to identify known named keys.
+
 ## KeyEvent
 
  This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
