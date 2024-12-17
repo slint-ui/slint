@@ -13,7 +13,7 @@ and extend the include directories of your target so that the generated file is 
 
 The optional `NAMESPACE` argument will put the generated components in the given C++ namespace.
 
-Use the `LIBRARY_PATHS` argument to specify the name and paths to [component libraries](slint-reference:src/language/syntax/modules#component-libraries),
+Use the `LIBRARY_PATHS` argument to specify the name and paths to {{ '[component libraries]({})'.format(slint_href_ComponentLibraries) }},
 separated by an equals sign (`=`).
 
 Given a file called `the_window.slint`, the following example will create a file called `the_window.h` that can
@@ -38,7 +38,7 @@ only one single `.h` file.
 
 ## Resource Embedding
 
-By default, images from [`@image-url()`](slint-reference:src/language/syntax/types#images) or fonts that your Slint files reference are loaded from disk at run-time. This minimises build times, but requires that the directory structure with the files remains stable. If you want to build a program that runs anywhere, then you can configure the Slint compiler to embed such sources into the binary.
+By default, images from {{ '[`@image-url()`]({})'.format(slint_href_ImageType) }} or fonts that your Slint files reference are loaded from disk at run-time. This minimises build times, but requires that the directory structure with the files remains stable. If you want to build a program that runs anywhere, then you can configure the Slint compiler to embed such sources into the binary.
 
 Set the `SLINT_EMBED_RESOURCES` target property on your CMake target to one of the following values:
 

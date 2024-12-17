@@ -13,10 +13,11 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 import textwrap
+import os
+import json
 
 
 # -- Project information -----------------------------------------------------
@@ -109,7 +110,7 @@ html_show_sourcelink = False
 html_logo = "https://slint.dev/logo/slint-logo-small-light.svg"
 
 myst_enable_extensions = [
-    "html_image", "colon_fence"
+    "html_image", "colon_fence", "substitution"
 ]
 
 # Annotate h1/h2 elements with anchors
@@ -120,13 +121,19 @@ myst_url_schemes = {
     'http': None, 'https': None, 'mailto': None,
 }
 
-rst_epilog = """
-.. |ListView| replace:: :code:`ListView`
-.. _ListView: ../../slint/src/language/widgets/listview
-.. |Repetition| replace:: :code:`for` - :code:`in`
-.. _Repetition: ../../slint/src/reference/repetitions.html
-"""
+rst_epilog = ""
 
+myst_substitutions = {}
+
+with open(os.path.join(os.path.dirname(__file__), "..", "..", "internal", "core-macros", "link-data.json")) as link_data:
+    links = json.load(link_data)
+
+for key in links.keys():
+    href = links[key]["href"]
+    url = f"https://slint.dev/releases/{version}/docs/slint{href}"
+    myst_substitutions[f"slint_href_{key}"] = url
+    rst_epilog += f".. |{key}| replace:: :code:`{key}`\n"
+    rst_epilog += f".. _{key}: {url}\n"
 
 def setup(app):
     app.add_css_file("theme_tweak.css")

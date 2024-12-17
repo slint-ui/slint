@@ -35,8 +35,8 @@ actual instance and keeps it alive as long as at least one
 {cpp:class}`slint::ComponentHandle` is in scope, similar to `std::shared_ptr<T>`.
 
 For more complex user interfaces it's common to supply data in the form of an
-abstract data model, that's used with <a href="../slint/src/reference/repetitions.html">`for` - `in`</a>
-repetitions or <a href="../slint/src/language/widgets/listview">`ListView`</a> elements in the
+abstract data model, that's used with {{ '[`for` - `in`]({})'.format(slint_href_Models) }}
+repetitions or {{ '[ListView]({})'.format(slint_href_ListView) }} elements in the
 `.slint` language. All models in C++ are sub-classes of the
 {cpp:class}`slint::Model` and you can sub-class it yourself. For convenience,
 the {cpp:class}`slint::VectorModel` provides an implementation that's backed

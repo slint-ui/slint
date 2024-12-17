@@ -26,6 +26,9 @@
     "color": {
         "href": "/reference/primitive-types#color"
     },
+    "ComponentLibraries": {
+        "href": "/guide/language/coding/file/#component-libraries"
+    },
     "CommonProperties": {
         "href": "/reference/common"
     },
