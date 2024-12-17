@@ -180,6 +180,7 @@ pub fn ui_set_known_components(
     current_component_index: usize,
 ) {
     let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
+    let mut std_widgets_map: HashMap<String, Vec<ComponentItem>> = Default::default();
     let mut path_map: HashMap<PathBuf, (SharedString, Vec<ComponentItem>)> = Default::default();
     let mut library_map: HashMap<String, Vec<ComponentItem>> = Default::default();
     let mut longest_path_prefix = PathBuf::new();
@@ -219,39 +220,33 @@ pub fn ui_set_known_components(
                 }
                 path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
             }
-        } else {
+        } else if ci.is_builtin {
             builtins_map.entry(ci.category.clone()).or_default().push(item);
+        } else {
+            std_widgets_map.entry(ci.category.clone()).or_default().push(item);
         }
     }
 
-    let mut builtin_components = builtins_map
-        .drain()
-        .map(|(k, mut v)| {
-            v.sort_by_key(|i| i.name.clone());
-            let model = Rc::new(VecModel::from(v));
-            ComponentListItem {
-                category: k.into(),
-                file_url: SharedString::new(),
-                components: model.into(),
-            }
-        })
-        .collect::<Vec<_>>();
-    builtin_components.sort_by_key(|k| k.category.clone());
+    fn sort_subset(mut input: HashMap<String, Vec<ComponentItem>>) -> Vec<ComponentListItem> {
+        let mut output = input
+            .drain()
+            .map(|(k, mut v)| {
+                v.sort_by_key(|i| i.name.clone());
+                let model = Rc::new(VecModel::from(v));
+                ComponentListItem {
+                    category: k.into(),
+                    file_url: SharedString::new(),
+                    components: model.into(),
+                }
+            })
+            .collect::<Vec<_>>();
+        output.sort_by_key(|k| k.category.clone());
+        output
+    }
 
-    let mut library_components = library_map
-        .drain()
-        .map(|(k, mut v)| {
-            v.sort_by_key(|i| i.name.clone());
-            let model = Rc::new(VecModel::from(v));
-            ComponentListItem {
-                category: k.into(),
-                file_url: SharedString::new(),
-                components: model.into(),
-            }
-        })
-        .collect::<Vec<_>>();
-    library_components.sort_by_key(|k| k.category.clone());
-
+    let builtin_components = sort_subset(builtins_map);
+    let std_widgets_components = sort_subset(std_widgets_map);
+    let library_components = sort_subset(library_map);
     let mut file_components = path_map
         .drain()
         .map(|(p, (file_url, mut v))| {
@@ -271,6 +266,7 @@ pub fn ui_set_known_components(
         builtin_components.len() + library_components.len() + file_components.len(),
     );
     all_components.extend_from_slice(&builtin_components);
+    all_components.extend_from_slice(&std_widgets_components);
     all_components.extend_from_slice(&library_components);
     all_components.extend_from_slice(&file_components);
 
