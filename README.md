@@ -215,10 +215,12 @@ located remotely in Germany.
 
 ### Stay up to date
 
-- Follow [@slint-ui](https://twitter.com/slint_ui) on X/Twitter.
+- Follow [@slint_ui](https://twitter.com/slint_ui) on X/Twitter.
 - Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon.
 - Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn.
-
+- Follow [@slint.dev](https://bsky.app/profile/slint.dev) on Bluesky
+- Subscribe to our [YouTube channel](https://www.youtube.com/@Slint-UI)
+ 
 ### Contact us
 
 Feel free to join [Github discussions](https://github.com/slint-ui/slint/discussions)
