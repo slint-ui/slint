@@ -8,7 +8,8 @@ fn main() {
     cfg_aliases! {
        enable_skia_renderer: { any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan")},
        enable_accesskit: { all(feature = "accessibility", not(target_arch = "wasm32")) },
-       supports_opengl: { all(any(enable_skia_renderer, feature = "renderer-femtovg"), not(target_os = "ios")) }
+       supports_opengl: { all(any(enable_skia_renderer, feature = "renderer-femtovg"), not(target_os = "ios")) },
+       use_winit_theme: { any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32") }
     }
     // This uses `web_sys_unstable_api`, which is typically set via `RUST_FLAGS`
     println!("cargo:rustc-check-cfg=cfg(web_sys_unstable_apis)");
