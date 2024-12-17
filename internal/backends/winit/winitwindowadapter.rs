@@ -573,7 +573,16 @@ impl WinitWindowAdapter {
         self.color_scheme
             .get_or_init(|| Box::pin(Property::new(ColorScheme::Unknown)))
             .as_ref()
-            .set(scheme)
+            .set(scheme);
+        // Inform winit about the selected color theme, so that the window decoration is drawn correctly.
+        #[cfg(not(use_winit_theme))]
+        if let Some(winit_window) = self.winit_window() {
+            winit_window.set_theme(match scheme {
+                ColorScheme::Unknown => None,
+                ColorScheme::Dark => Some(winit::window::Theme::Dark),
+                ColorScheme::Light => Some(winit::window::Theme::Light),
+            });
+        }
     }
 
     pub fn window_state_event(&self) {
