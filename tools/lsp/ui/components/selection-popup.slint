@@ -190,7 +190,7 @@ component PopupInner inherits Rectangle {
         }
     }
 
-    private property <[SelectionStackFrame]> filtered-model: Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text, filter-list.filter);
+    private property <[SelectionStackFrame]> filtered-model: Api.filter-sort-selection-stack(root.selection-stack, filter-edit.text, filter-list.filter, sort-by-area-button.checked);
     border-radius: EditorSizeSettings.radius;
 
     border-width: 0.5px;
@@ -248,6 +248,12 @@ component PopupInner inherits Rectangle {
                         self.focus();
                     }
                 }
+            }
+
+            sort-by-area-button := Button {
+                checkable: true;
+                icon: Icons.list-filter;
+                colorize-icon: true;
             }
         }
 
