@@ -304,6 +304,22 @@ pub fn rename_component_from_definition(
     identifier: &syntax_nodes::DeclaredIdentifier,
     new_name: &str,
 ) -> crate::Result<lsp_types::WorkspaceEdit> {
+    rename_declared_identifier(document_cache, identifier, new_name, &change_local_element_type)
+}
+
+/// Helper function to rename a `DeclaredIdentifier`.
+fn rename_declared_identifier(
+    document_cache: &common::DocumentCache,
+    identifier: &syntax_nodes::DeclaredIdentifier,
+    new_name: &str,
+    fixup_local_use: &dyn Fn(
+        &common::DocumentCache,
+        &syntax_nodes::Document,
+        &str,
+        &str,
+        &mut Vec<common::SingleTextEdit>,
+    ),
+) -> crate::Result<lsp_types::WorkspaceEdit> {
     let source_file = identifier.source_file().expect("Identifier had no source file");
     let document = document_cache
         .get_document_for_source_file(source_file)
@@ -344,7 +360,7 @@ pub fn rename_component_from_definition(
     );
 
     // Change all local usages:
-    change_local_element_type(document_cache, document_node, &component_type, new_name, &mut edits);
+    fixup_local_use(document_cache, document_node, &component_type, new_name, &mut edits);
 
     // Change exports
     fix_exports(document_cache, document_node, &component_type, new_name, &mut edits);
