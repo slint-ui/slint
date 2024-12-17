@@ -498,18 +498,24 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 return Ok(Some(common::create_workspace_edit(uri, version, edits)));
             }
             match p.kind() {
-                SyntaxKind::DeclaredIdentifier => {
-                    common::rename_component::rename_component_from_definition(
-                        &document_cache,
-                        &p.into(),
-                        &params.new_name,
-                    )
-                    .map(Some)
-                    .map_err(|e| LspError {
+                SyntaxKind::DeclaredIdentifier => match p.parent().map(|gp| gp.kind()) {
+                    Some(SyntaxKind::Component) => {
+                        common::rename_component::rename_component_from_definition(
+                            &document_cache,
+                            &p.into(),
+                            &params.new_name,
+                        )
+                        .map(Some)
+                        .map_err(|e| LspError {
+                            code: LspErrorCode::RequestFailed,
+                            message: e.to_string(),
+                        })
+                    }
+                    None | Some(_) => Err(LspError {
                         code: LspErrorCode::RequestFailed,
-                        message: e.to_string(),
-                    })
-                }
+                        message: "This symbol cannot be renamed.".into(),
+                    }),
+                },
                 _ => Err(LspError {
                     code: LspErrorCode::RequestFailed,
                     message: "This symbol cannot be renamed.".into(),
