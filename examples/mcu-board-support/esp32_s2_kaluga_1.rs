@@ -8,8 +8,8 @@ use display_interface_spi::SPIInterface;
 use embedded_hal::digital::OutputPin;
 use esp_alloc as _;
 pub use esp_hal::entry;
-use esp_hal::gpio::{Io, Level, Output};
-use esp_hal::spi::{master::Spi, SpiMode};
+use esp_hal::gpio::{Level, Output};
+use esp_hal::spi::master as spi;
 use esp_hal::timer::{systimer::SystemTimer, timg::TimerGroup};
 use esp_hal::{delay::Delay, prelude::*, rtc_cntl::Rtc};
 use esp_println::println;
@@ -73,24 +73,24 @@ impl slint::platform::Platform for EspBackend {
         timer_group1.wdt.disable();
 
         let mut delay = Delay::new();
-        let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
 
-        let mut backlight = Output::new(io.pins.gpio6, Level::High);
+        let mut backlight = Output::new(peripherals.GPIO6, Level::High);
         backlight.set_high();
 
-        let mosi = io.pins.gpio9;
-        let cs = Output::new(io.pins.gpio11, Level::Low);
-        let rst = Output::new(io.pins.gpio16, Level::Low);
-        let dc = io.pins.gpio13;
-        let sck = io.pins.gpio15;
-        let miso = io.pins.gpio8;
+        let mosi = peripherals.GPIO9;
+        let cs = Output::new(peripherals.GPIO11, Level::Low);
+        let rst = Output::new(peripherals.GPIO16, Level::Low);
+        let dc = peripherals.GPIO13;
+        let sck = peripherals.GPIO15;
+        let miso = peripherals.GPIO8;
 
-        let spi = Spi::new(peripherals.SPI3, 80u32.MHz(), SpiMode::Mode0).with_pins(
-            sck,
-            mosi,
-            miso,
-            esp_hal::gpio::NoPin,
-        );
+        let spi = spi::Spi::new_with_config(
+            peripherals.SPI3,
+            spi::Config { frequency: 80u32.MHz(), ..spi::Config::default() },
+        )
+        .with_sck(sck)
+        .with_mosi(mosi)
+        .with_miso(miso);
         let spi = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(spi, cs).unwrap();
         let di = SPIInterface::new(spi, Output::new(dc, Level::Low));
         let display = mipidsi::Builder::new(mipidsi::models::ST7789, di)
