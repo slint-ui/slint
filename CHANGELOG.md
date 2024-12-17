@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## 1.9.0 - Unreleased
+## 1.9.0 - 2024-12-18
 
 ### General
 
@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file.
  - Named callback arguments
  - Added animation `direction` property. (#6260)
  - TextInput: fixed selection colors not used from style (#6326)
- - TextInput: added `rejected` callback
+ - TextInput: added `key-pressed` and `key-released` callback
  - Fixed `changed` callback on unused property causing compiler panic (#6331)
  - Fixed geometry constraints when they are partially inferred from the content and partially inferred from the explicit constraints (#6285)
  - Deprecated two-way binding between `in` and `in-out` property (#6400)
@@ -27,8 +27,10 @@ All notable changes to this project are documented in this file.
  - Support property changed callbacks in globals (#6599)
  - PopupWindow: added `close-policy` property, deprecated `close-on-click` (#6614)
  - Added `Window::skip-taskbar` (#6911)
+ - Added `Window::full-screen` (#6665)
  - Fixed `min(..)` and `max(..)` functions with `rem` units
  - Emit a warning when a `@linear-gradient` or `@radial-gradient` is assigned directly to a color property (#6819)
+ - Fix min/max/clamp functions with percentages arguments (#7118)
 
 ### Widgets
 
@@ -74,6 +76,7 @@ All notable changes to this project are documented in this file.
  - LSP: Added image preview in tooltip for `@image-url`
  - LSP: Fixed reloading files that import a changed file
  - LSP: Implemented Signature Help
+ - LSP: Added a code lense to populate empty documents with a hello world
  - live-preview: New selection popup
  - live-preview: Bring the window to the front and focused it when clicking "Show preview" in the editor (#196)
  - live-preview: On macOS, renamed "Quit" to "Closed" and used cmd+w to close the window
@@ -110,6 +113,7 @@ All notable changes to this project are documented in this file.
  - Fixed bugs with global cross-references (#6984)
  - Improved deselection behavior when pressing Left/Right in TextInput (#6511)
  - winit: automatically disabled maximize button when window resizing is disabled
+ - winit: react to dark/light color scheme changes on Linux (other platform were already working before) (#4392)
 
 
 ## 1.8.0 - 2024-09-23
