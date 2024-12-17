@@ -7,13 +7,15 @@ description: CheckBox api.
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty  from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/std-widgets-checkbox-example.png"  imageWidth="200" imageHeight="200"  imageAlt='checkbox example'>
+<CodeSnippetMD needsBackground imagePath="/src/assets/generated/std-widgets-checkbox-example.png" scale="3" imageWidth="100" imageHeight="50"  imageAlt='checkbox example'>
 ```slint
 import { CheckBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
     height: 25px;
+    background: transparent;
     CheckBox {
+        x: 5px;
         width: parent.width;
         height: parent.height;
         text: "Hello World";

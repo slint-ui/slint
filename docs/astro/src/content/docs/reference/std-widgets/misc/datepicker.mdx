@@ -7,6 +7,8 @@ description: DatePickerPopup api.
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 
+Use a date picker to let the user select a date.
+
 ```slint playground
 import { DatePickerPopup, Button } from "std-widgets.slint";
 export component Example inherits Window {
@@ -36,7 +38,7 @@ export component Example inherits Window {
 }
 ```
 
-Use a date picker to let the user select a date.
+
 
 ## Properties
 
@@ -80,12 +82,3 @@ date-picker := DatePickerPopup {
 }
 ```
 
-### Struct `Date`
-
-Defines a date with day, month, and year.
-
-#### Fields
-
--   **`day`(int)**: The day value (range from 1 to 31).
--   **`month`(int)**: The month value (range from 1 to 12).
--   **`year`(int)**: The year value.

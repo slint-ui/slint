@@ -37,6 +37,8 @@ In our written communication we aim to be:
    - Use: "Try out XYZ."
    - Rationale: Use exclamation points sparingly, save them for when they really count. We already have the attention of the reader.
 
+  5. Use Title Case for headings.
+
 ## Docs
 
   - Ensure links don't go to blank pages e.g. [1.7 concepts](https://releases.slint.dev/1.7.0/docs/slint/src/language/concepts/)

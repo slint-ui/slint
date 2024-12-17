@@ -7,6 +7,8 @@ description: TimePickerPopup api.
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 
+Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/PM). 
+
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-timepicker.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets timepicker example'>
 ```slint
 import { TimePickerPopup, Button } from "std-widgets.slint";
@@ -40,7 +42,7 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/PM). 
+
 
 ## Properties
 
@@ -89,13 +91,3 @@ time-picker := TimePickerPopup {
     }
 }
 ```
-
-### Struct `Time`
-
-Defines a time with hours, minutes, and seconds.
-
-#### Fields
-
--   **`hour`(int)**: The hour value (range from 0 to 23).
--   **`minute`(int)**: The minute value (range from 1 to 59).
--   **`second`(int)**: The second value (range form 1 to 59).

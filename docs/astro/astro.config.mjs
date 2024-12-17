@@ -194,6 +194,10 @@ export default defineConfig({
                                         label: "Colors & Brushes",
                                         slug: "reference/colors-and-brushes",
                                     },
+                                    {
+                                        label: "Timer",
+                                        slug: "reference/timer",
+                                    },
                                 ],
                             },
                             {
@@ -226,6 +230,10 @@ export default defineConfig({
                                             {
                                                 label: "TextInput",
                                                 slug: "reference/keyboard-input/textinput",
+                                            },
+                                            {
+                                                label: "TextInputInterface",
+                                                slug: "reference/keyboard-input/textinputinterface",
                                             },
                                         ],
                                     },

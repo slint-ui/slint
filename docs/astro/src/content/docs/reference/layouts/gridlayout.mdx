@@ -6,6 +6,14 @@ description: GridLayout element api.
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 
+`GridLayout` places elements on a grid.
+
+`GridLayout` covers its entire surface with cells. Cells are not aligned. 
+The elements constituting the cells will be stretched inside their allocated 
+space, unless their size constraints&mdash;like, e.g., `min-height` or 
+`max-width`&mdash;work against this.
+
+
 <CodeSnippetMD imagePath="/src/assets/generated/gridlayout-example1.png"  imageWidth="200" imageHeight="100"  imageAlt='gridlayout example'>
 
 ```slint playground
@@ -47,11 +55,8 @@ export component Foo inherits Window {
 ```
 </CodeSnippetMD>
 
-`GridLayout` places elements on a grid.
 
-`GridLayout` covers its entire surface with cells. Cells are not aligned. The elements constituting the cells will be stretched inside their allocated space, unless their size constraints&mdash;like, e.g., `min-height` or `max-width`&mdash;work against this.
-
-## Spacing properties
+## Spacing Properties
 
 ### spacing
 <SlintProperty propName="spacing" typeName="length">
@@ -65,7 +70,7 @@ To target specific axis with different values use the following properties:
 ### spacing-vertical
 <SlintProperty propName="spacing-vertical" typeName="length"/>
 
-## Padding properties
+## Padding Properties
 
 ### padding
 <SlintProperty propName="padding" typeName="length">

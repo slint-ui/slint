@@ -13,7 +13,7 @@ Functions can be defined as part of a component, or as part of an element within
 It is not possible to declare global (top-level) functions, or to declare them as part of a
 struct or enum. It is also not possible to nest functions within other functions.
 
-## Declaring functions
+## Declaring Functions
 
 Functions in Slint are declared using the `function` keyword. For example:
 
@@ -39,7 +39,7 @@ Functions can be annotated with the `pure` keyword.
 This indicates that the function does not cause any side effects.
 More details can be found in the <Link type="Purity" /> chapter.
 
-## Calling a function
+## Calling Functions
 
 A function can be called without an element name (like a function call in other languages) or with
 an element name (like a method call in other languages):
@@ -72,7 +72,7 @@ export component Example {
 
 
 
-## Function visibility
+## Function Visibility
 
 By default, functions are private and cannot be accessed from other components.
 
@@ -125,7 +125,7 @@ See the language-specific documentation for the generated code to use.
 
 - A function annotated with `protected` can only be accessed by components that directly inherit from it.
 
-## Functions vs. callbacks
+## Functions vs. Callbacks
 
 There are a lot of similarities between functions and [callbacks](#callbacks):
 
