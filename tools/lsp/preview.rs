@@ -287,15 +287,16 @@ fn add_new_component() {
 }
 
 /// Find the identifier that belongs to a component of the given `name` in the `document`
-pub fn find_component_identifier(
+pub fn find_component_identifiers(
     document: &syntax_nodes::Document,
     name: &str,
-) -> Option<syntax_nodes::DeclaredIdentifier> {
+) -> Vec<syntax_nodes::DeclaredIdentifier> {
+    let mut result = vec![];
     for el in document.ExportsList() {
         if let Some(component) = el.Component() {
             let identifier = component.DeclaredIdentifier();
             if identifier.text() == name {
-                return Some(identifier);
+                result.push(identifier);
             }
         }
     }
@@ -303,11 +304,12 @@ pub fn find_component_identifier(
     for component in document.Component() {
         let identifier = component.DeclaredIdentifier();
         if identifier.text() == name {
-            return Some(identifier);
+            result.push(identifier);
         }
     }
 
-    None
+    result.sort_by_key(|i| i.text_range().start());
+    result
 }
 
 /// Find the last component in the `document`
@@ -358,13 +360,16 @@ fn rename_component(
         return;
     };
 
-    let Some(identifier) = find_component_identifier(document, &old_name) else {
+    let identifiers = find_component_identifiers(document, &old_name);
+    if identifiers.is_empty() {
         return;
     };
 
-    if let Ok(edit) =
-        rename_component::rename_component_from_definition(&document_cache, &identifier, &new_name)
-    {
+    if let Ok(edit) = rename_component::rename_identifier_from_declaration(
+        &document_cache,
+        &identifiers.last().unwrap(),
+        &new_name,
+    ) {
         // Update which component to show after refresh from the editor.
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.rename_current_component(&old_url, &old_name, &new_name);
@@ -591,7 +596,7 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         return;
     };
 
-    let Some(identifier) = find_component_identifier(document, &name) else {
+    let Some(identifier) = find_component_identifiers(document, &name).last().cloned() else {
         return;
     };
 
@@ -1635,7 +1640,7 @@ fn set_selected_element(
                         let document = document.node.as_ref()?;
 
                         let identifier = if let Some(name) = &current.component {
-                            find_component_identifier(document, name)
+                            find_component_identifiers(document, name).last().cloned()
                         } else {
                             find_last_component_identifier(document)
                         }?;

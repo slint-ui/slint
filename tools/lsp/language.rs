@@ -498,24 +498,18 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 return Ok(Some(common::create_workspace_edit(uri, version, edits)));
             }
             match p.kind() {
-                SyntaxKind::DeclaredIdentifier => match p.parent().map(|gp| gp.kind()) {
-                    Some(SyntaxKind::Component) => {
-                        common::rename_component::rename_component_from_definition(
-                            &document_cache,
-                            &p.into(),
-                            &params.new_name,
-                        )
-                        .map(Some)
-                        .map_err(|e| LspError {
-                            code: LspErrorCode::RequestFailed,
-                            message: e.to_string(),
-                        })
-                    }
-                    None | Some(_) => Err(LspError {
+                SyntaxKind::DeclaredIdentifier => {
+                    common::rename_component::rename_identifier_from_declaration(
+                        &document_cache,
+                        &p.into(),
+                        &params.new_name,
+                    )
+                    .map(Some)
+                    .map_err(|e| LspError {
                         code: LspErrorCode::RequestFailed,
-                        message: "This symbol cannot be renamed.".into(),
-                    }),
-                },
+                        message: e.to_string(),
+                    })
+                }
                 _ => Err(LspError {
                     code: LspErrorCode::RequestFailed,
                     message: "This symbol cannot be renamed.".into(),
@@ -538,7 +532,13 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             let p = tk.parent();
             if matches!(p.kind(), SyntaxKind::DeclaredIdentifier) {
                 if let Some(gp) = p.parent() {
-                    if gp.kind() == SyntaxKind::Component {
+                    if [
+                        SyntaxKind::Component,
+                        SyntaxKind::EnumDeclaration,
+                        SyntaxKind::StructDeclaration,
+                    ]
+                    .contains(&gp.kind())
+                    {
                         return Ok(Some(PrepareRenameResponse::Range(util::node_to_lsp_range(&p))));
                     }
                 }
