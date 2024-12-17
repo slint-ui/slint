@@ -1294,6 +1294,11 @@ impl WindowInner {
     pub fn from_pub(window: &crate::api::Window) -> &Self {
         &window.0
     }
+
+    /// Provides access to the Windows' Slint context.
+    pub fn context(&self) -> &crate::SlintContext {
+        &*self.ctx
+    }
 }
 
 /// Internal alias for `Rc<dyn WindowAdapter>`.
