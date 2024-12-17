@@ -67,10 +67,6 @@ export default defineConfig({
                                                 slug: "guide/language/concepts/slint-language",
                                             },
                                             {
-                                                label: "Components and Properties",
-                                                slug: "guide/language/concepts/component-property",
-                                            },
-                                            {
                                                 label: "Reactivity",
                                                 slug: "guide/language/concepts/reactivity",
                                             },
