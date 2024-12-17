@@ -92,10 +92,6 @@ export default defineConfig({
                                                 slug: "guide/language/coding/positioning-and-layouts",
                                             },
                                             {
-                                                label: "In App Communication",
-                                                slug: "guide/language/coding/in-app-communication",
-                                            },
-                                            {
                                                 label: "Globals",
                                                 slug: "guide/language/coding/globals",
                                             },
