@@ -161,32 +161,3 @@ Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struc
 handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
 `reject` to let `TextInput` handle it.
 
-## TextInputInterface
-
-The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
-If you're implementing your own virtual keyboard, this property is an indicator whether the virtual keyboard should be shown or hidden.
-
-### text-input-focused
-<SlintProperty propName="text-input-focused" typeName="bool"> 
-True if an `TextInput` element has the focus; false otherwise.
-</SlintProperty>
-
-### Example
-
-```slint
-import { LineEdit } from "std-widgets.slint";
-
-component VKB {
-    Rectangle { background: yellow; }
-}
-
-export component Example inherits Window {
-    width: 200px;
-    height: 100px;
-    VerticalLayout {
-        LineEdit {}
-        FocusScope {}
-        if TextInputInterface.text-input-focused: VKB {}
-    }
-}
-```
