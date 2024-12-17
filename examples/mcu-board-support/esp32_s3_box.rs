@@ -12,11 +12,12 @@ use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::delay::Delay;
 pub use esp_hal::entry;
-use esp_hal::gpio::{Input, Io, Level, Output, Pull};
+use esp_hal::gpio::{Input, Level, Output, Pull};
+use esp_hal::i2c::master as i2c;
+use esp_hal::prelude::*;
 use esp_hal::rtc_cntl::Rtc;
-use esp_hal::spi::{master::Spi, SpiMode};
+use esp_hal::spi::master as spi;
 use esp_hal::timer::{systimer::SystemTimer, timg::TimerGroup};
-use esp_hal::{i2c::I2c, prelude::*};
 use mipidsi::{options::Orientation, Display};
 use slint::platform::WindowEvent;
 
@@ -67,26 +68,27 @@ impl slint::platform::Platform for EspBackend {
         timer_group1.wdt.disable();
 
         let mut delay = Delay::new();
-        let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
 
-        let i2c = I2c::new(peripherals.I2C0, io.pins.gpio8, io.pins.gpio18, 400u32.kHz());
+        let i2c = i2c::I2c::new(
+            peripherals.I2C0,
+            i2c::Config { frequency: 400u32.kHz(), ..i2c::Config::default() },
+        )
+        .with_sda(peripherals.GPIO8)
+        .with_scl(peripherals.GPIO18);
 
-        let mut touch = tt21100::TT21100::new(i2c, Input::new(io.pins.gpio3, Pull::Up))
+        let mut touch = tt21100::TT21100::new(i2c, Input::new(peripherals.GPIO3, Pull::Up))
             .expect("Initialize the touch device");
 
-        let sclk = io.pins.gpio7;
-        let mosi = io.pins.gpio6;
+        let spi = spi::Spi::new_with_config(
+            peripherals.SPI2,
+            spi::Config { frequency: 60u32.MHz(), ..spi::Config::default() },
+        )
+        .with_sck(peripherals.GPIO7)
+        .with_mosi(peripherals.GPIO6);
 
-        let spi = Spi::new(peripherals.SPI2, 60u32.MHz(), SpiMode::Mode0).with_pins(
-            sclk,
-            mosi,
-            Level::Low,
-            esp_hal::gpio::NoPin,
-        );
-
-        let dc = Output::new(io.pins.gpio4, Level::Low);
-        let cs = Output::new(io.pins.gpio5, Level::Low);
-        let rst = Output::new(io.pins.gpio48, Level::Low);
+        let dc = Output::new(peripherals.GPIO4, Level::Low);
+        let cs = Output::new(peripherals.GPIO5, Level::Low);
+        let rst = Output::new(peripherals.GPIO48, Level::Low);
 
         let spi = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(spi, cs).unwrap();
 
@@ -98,7 +100,7 @@ impl slint::platform::Platform for EspBackend {
             .init(&mut delay)
             .unwrap();
 
-        let mut backlight = Output::new(io.pins.gpio45, Level::High);
+        let mut backlight = Output::new(peripherals.GPIO45, Level::High);
         backlight.set_high();
 
         let size = display.size();
