@@ -5,6 +5,7 @@
 [![Build Status](https://github.com/slint-ui/slint/workflows/CI/badge.svg)](https://github.com/slint-ui/slint/actions)
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Slint%20Guru-006BFF)](https://gurubase.io/g/slint)
 
 Slint is a declarative GUI toolkit to build native user interfaces for embedded,
 desktop, and mobile applications written in Rust, C++, JavaScript, or Python. 
