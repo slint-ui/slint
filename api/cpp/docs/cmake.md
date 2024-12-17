@@ -130,7 +130,7 @@ any built-in backends, and instead develop your own backend by implementing Slin
 abstraction and window adapter interfaces.
 
 For more information about the available backends, their system requirements, and configuration
-options, see the [Backend & Renderers Documentation](slint-reference:src/advanced/backends_and_renderers.html).
+options, see the {{ '[Backend & Renderers Documentation]({})'.format(slint_href_backends_and_renderers) }}.
 
 By default Slint will include both the Qt and
 [winit](https://crates.io/crates/winit) back-ends -- if both are detected at
