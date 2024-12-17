@@ -71,7 +71,7 @@ copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 ashpd = { version = "0.9.2" }
-spin_on = { workspace = true }
+futures = { version = "0.3.31" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # For GL rendering

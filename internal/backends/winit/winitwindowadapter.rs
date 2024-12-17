@@ -290,6 +290,9 @@ pub struct WinitWindowAdapter {
     >,
 
     winit_window_or_none: RefCell<WinitWindowOrNone>,
+
+    #[cfg(not(use_winit_theme))]
+    xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 }
 
 impl WinitWindowAdapter {
@@ -323,6 +326,8 @@ impl WinitWindowAdapter {
             #[cfg(enable_accesskit)]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
+            #[cfg(not(use_winit_theme))]
+            xdg_settings_watcher: Default::default(),
         });
 
         let winit_window = self_rc.ensure_window()?;
@@ -627,6 +632,44 @@ impl WinitWindowAdapter {
             WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => callback(&accesskit_adapter),
             WinitWindowOrNone::None(..) => {}
         }
+    }
+
+    #[cfg(not(use_winit_theme))]
+    fn spawn_xdg_settings_watcher(&self) -> Option<i_slint_core::future::JoinHandle<()>> {
+        let window_inner = WindowInner::from_pub(self.window());
+        let self_weak = self.self_weak.clone();
+        window_inner
+            .context()
+            .spawn_local(async move {
+                let Ok(settings) = ashpd::desktop::settings::Settings::new().await else { return };
+
+                let Ok(initial_color_scheme_value) = settings.color_scheme().await else { return };
+
+                let convert = |ashpd_color_scheme| match ashpd_color_scheme {
+                    ashpd::desktop::settings::ColorScheme::NoPreference => ColorScheme::Unknown,
+                    ashpd::desktop::settings::ColorScheme::PreferDark => ColorScheme::Dark,
+                    ashpd::desktop::settings::ColorScheme::PreferLight => ColorScheme::Light,
+                };
+
+                if let Some(window) = self_weak.upgrade() {
+                    window.set_color_scheme(convert(initial_color_scheme_value));
+                }
+
+                let Ok(mut color_scheme_stream) = settings.receive_color_scheme_changed().await
+                else {
+                    return;
+                };
+
+                loop {
+                    use futures::stream::StreamExt;
+
+                    let Some(new_scheme) = color_scheme_stream.next().await else { break };
+                    if let Some(window) = self_weak.upgrade() {
+                        window.set_color_scheme(convert(new_scheme));
+                    }
+                }
+            })
+            .ok()
     }
 }
 
@@ -1057,15 +1100,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                                     winit::window::Theme::Light => ColorScheme::Light,
                                 })
                         } else {
-                            spin_on::spin_on(async move {
-                                let Ok(settings) = ashpd::desktop::settings::Settings::new().await else { return None };
-                                let Ok(initial_color_scheme_value) = settings.color_scheme().await else { return None };
-                                Some(match initial_color_scheme_value {
-                                    ashpd::desktop::settings::ColorScheme::NoPreference => ColorScheme::Unknown,
-                                    ashpd::desktop::settings::ColorScheme::PreferDark => ColorScheme::Dark,
-                                    ashpd::desktop::settings::ColorScheme::PreferLight => ColorScheme::Light,
-                                })
-                            }).unwrap_or(ColorScheme::Unknown)
+                            if let Some(old_watch) = self.xdg_settings_watcher.replace(self.spawn_xdg_settings_watcher()) {
+                                old_watch.abort()
+                            }
+                            ColorScheme::Unknown
                         }
                     }
                 }))
@@ -1134,6 +1172,11 @@ impl Drop for WinitWindowAdapter {
     fn drop(&mut self) {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             crate::event_loop::unregister_window(winit_window.id());
+        }
+
+        #[cfg(not(use_winit_theme))]
+        if let Some(xdg_watch_future) = self.xdg_settings_watcher.take() {
+            xdg_watch_future.abort();
         }
     }
 }
