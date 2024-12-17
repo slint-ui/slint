@@ -8,6 +8,11 @@ import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import Link from '/src/components/Link.astro';
 
+The `StandardTableView` represents a table of data with columns and rows. Cells
+are organized in a model where each row is a model of
+<SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" default="[]" >
+</SlintProperty>
+
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-standardtableview.png"  imageWidth="200" imageHeight="200"  imageAlt='std-widgets standardtableview example'>
 ```slint playground
 import { StandardTableView } from "std-widgets.slint";
@@ -38,10 +43,7 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-The `StandardTableView` represents a table of data with columns and rows. Cells
-are organized in a model where each row is a model of
-<SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" default="[]" >
-</SlintProperty>
+
 
 ## Properties
 

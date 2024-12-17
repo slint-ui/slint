@@ -9,6 +9,10 @@ import PointerScrollEvent from '/src/content/collections/structs/PointerScrollEv
 import EventResult from '/src/content/collections/enums/EventResult.md';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 
+Use `TouchArea` to control what happens when the region it covers is touched or interacted with
+using the mouse.
+
+When not part of a layout, its width or height default to 100% of the parent element.
 
 ```slint playground
 export component Example inherits Window {
@@ -34,11 +38,6 @@ export component Example inherits Window {
     }
 }
 ```
-
-Use `TouchArea` to control what happens when the region it covers is touched or interacted with
-using the mouse.
-
-When not part of a layout, its width or height default to 100% of the parent element.
 
 ## Properties
 

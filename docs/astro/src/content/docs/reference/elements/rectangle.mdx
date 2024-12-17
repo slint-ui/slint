@@ -6,6 +6,10 @@ description: Rectangle element api.
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 
+By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
+it's then possible to draw a rectangle on the screen.
+
+When not part of a layout, its width and height default to 100% of the parent element.
 
 <CodeSnippetMD imagePath="/src/assets/generated/rectangle-example.png" imageAlt='rectangle example'>
 ```slint playground
@@ -53,10 +57,6 @@ export component ExampleRectangle inherits Window {
 ```
 </CodeSnippetMD>
 
-By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
-it's then possible to draw a rectangle on the screen.
-
-When not part of a layout, its width and height default to 100% of the parent element.
 
 ## Properties
 
@@ -206,7 +206,7 @@ of this `Rectangle` are clipped and only the contents inside the elements bounds
 </SlintProperty>
 
 
-## Border Radius properties
+## Border Radius Properties
 
 ### border-radius
 <SlintProperty propName="border-radius" typeName="length" defaultValue="0">

@@ -194,6 +194,10 @@ export default defineConfig({
                                         label: "Colors & Brushes",
                                         slug: "reference/colors-and-brushes",
                                     },
+                                    {
+                                        label: "Timer",
+                                        slug: "reference/timer",
+                                    },
                                 ],
                             },
                             {

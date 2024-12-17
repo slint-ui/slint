@@ -52,7 +52,7 @@ If non-zero, the path will be scaled to fit into the specified width.
 If non-zero, the path will be scaled to fit into the specified height.
 </SlintProperty>
 
-## Viewbox properties
+## Viewbox Properties
 
 ### viewbox-x
 <SlintProperty propName="viewbox-x" typeName="float"/>
@@ -77,7 +77,7 @@ ignored and instead the bounding rectangle of all path elements is used to defin
 outside of it, they are still rendered. When this property is set to `true`, then rendering will be
 clipped at the boundaries of the view box.
 
-## Path Using SVG commands
+## Path Using SVG Commands
 
 SVG is a popular file format for defining scalable graphics, which are often composed of paths. In SVG
 paths are composed using [commands](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d#path_commands),
@@ -97,7 +97,7 @@ export component Example inherits Path {
 
 The commands are provided in a property:
 
-### commands
+### Commands
 <SlintProperty propName="commands" typeName="string">
 A string providing the commands according to the SVG path specification.
 This property can only be set in a binding and cannot be accessed in an expression.
@@ -141,7 +141,7 @@ export component Example inherits Path {
 Note how the coordinates of the path elements don't use units - they operate within the imaginary
 coordinate system of the scalable path.
 
-## MoveTo Sub-element for `Path`
+## MoveTo Sub-Element for `Path`
 
 The `MoveTo` sub-element closes the current sub-path, if present, and moves the current point
 to the location specified by the `x` and `y` properties. Subsequent elements such as `LineTo`
@@ -157,7 +157,7 @@ The x position of the new current point.
 The y position of the new current point.
 </SlintProperty>
 
-## LineTo Sub-element for `Path`
+## LineTo Sub-Element for `Path`
 
 The `LineTo` sub-element describes a line from the path's current position to the
 location specified by the `x` and `y` properties.
@@ -172,7 +172,7 @@ The target x position of the line.
 The target y position of the line.
 </SlintProperty>
 
-## ArcTo Sub-element for `Path`
+## ArcTo Sub-Element for `Path`
 
 The `ArcTo` sub-element describes the portion of an ellipse. The arc is drawn from the path's
 current position to the location specified by the `x` and `y` properties. The remaining properties
@@ -215,7 +215,7 @@ The target y position of the line.
 </SlintProperty>
 
 
-## CubicTo Sub-element for `Path`
+## CubicTo Sub-Element for `Path`
 
 The `CubicTo` sub-element describes a smooth Bézier from the path's current position to the
 location specified by the `x` and `y` properties, using two control points specified by their
@@ -251,7 +251,7 @@ The target x position of the curve.
 The target y position of the curve.
 </SlintProperty>
 
-## QuadraticTo Sub-element for `Path`
+## QuadraticTo Sub-Element for `Path`
 
 The QuadraticTo sub-element describes a smooth Bézier from the path's current position to the
 location specified by the `x` and `y` properties, using the control points specified by the
@@ -277,7 +277,7 @@ The target x position of the curve.
 The target y position of the curve.
 </SlintProperty>
 
-## Close Sub-element for `Path`
+## Close Sub-Element for `Path`
 
 The `Close` element closes the current sub-path and draws a straight line from the current
 position to the beginning of the path.

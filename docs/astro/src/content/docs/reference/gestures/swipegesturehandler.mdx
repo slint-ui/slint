@@ -5,6 +5,10 @@ description: SwipeGestureHandler element api.
 ---
 import SlintProperty  from '/src/components/SlintProperty.astro';
 
+
+Use the `SwipeGestureHandler` to handle swipe gesture in some particular direction. 
+Recognition is limited to the element's geometry.
+
 ```slint playground
 export component Example inherits Window {
     width: 270px;
@@ -46,7 +50,6 @@ export component Example inherits Window {
 }
 ```
 
-Use the `SwipeGestureHandler` to handle swipe gesture in some particular direction. Recognition is limited to the element's geometry.
 
 Specify the different swipe directions you'd like to handle by setting the `handle-swipe-left/right/up/down` properties and react to the gesture in the `swiped` callback.
 
