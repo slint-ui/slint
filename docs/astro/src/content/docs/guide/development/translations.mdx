@@ -255,6 +255,9 @@ the `<domain>` is the cmake target name.
 </TabItem>
 <TabItem label="Rust" icon="rust">
 
+Use `slint_build::CompilerConfiguration`'s `with_bundled_translations()` function to set up bundling in
+`build.rs`:
+
 ```rust
 let config = slint_build::CompilerConfiguration::new()
     .with_bundled_translations("path/to/translations");
