@@ -29,6 +29,13 @@ updates:
     ignore:
       - dependency-name: "@types/node"
       - dependency-name: "@types/vscode"
+      - dependency-name: "@codingame/monaco-vscode-configuration-service-override"
+      - dependency-name: "@codingame/monaco-vscode-files-service-override"
+      - dependency-name: "@codingame/monaco-vscode-keybindings-service-override"
+      - dependency-name: "@codingame/monaco-vscode-languages-service-override"
+      - dependency-name: "@codingame/monaco-vscode-model-service-override"
+      - dependency-name: "@codingame/monaco-vscode-storage-service-override"
+
     groups:
       codingame:
         patterns:
