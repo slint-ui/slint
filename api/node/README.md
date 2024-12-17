@@ -7,7 +7,7 @@
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
 Slint-node is the integration with Node.js.
 
-To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/src/quickstart/).
+To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
 the code of a minimal application using Slint that can be used as a starting point to your program.
 
