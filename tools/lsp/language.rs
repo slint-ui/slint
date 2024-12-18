@@ -532,7 +532,13 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             let p = tk.parent();
             if matches!(p.kind(), SyntaxKind::DeclaredIdentifier) {
                 if let Some(gp) = p.parent() {
-                    if [SyntaxKind::Component, SyntaxKind::StructDeclaration].contains(&gp.kind()) {
+                    if [
+                        SyntaxKind::Component,
+                        SyntaxKind::EnumDeclaration,
+                        SyntaxKind::StructDeclaration,
+                    ]
+                    .contains(&gp.kind())
+                    {
                         return Ok(Some(PrepareRenameResponse::Range(util::node_to_lsp_range(&p))));
                     }
                 }

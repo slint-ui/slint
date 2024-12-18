@@ -115,7 +115,7 @@ fn replace_element_types(
     )
 }
 
-fn replace_struct_types_in_properties(
+fn replace_types_in_properties(
     document_cache: &common::DocumentCache,
     element: &syntax_nodes::Element,
     old_type: &str,
@@ -148,7 +148,6 @@ fn replace_struct_types_in_properties(
         edits,
     )
 }
-
 fn fix_imports(
     document_cache: &common::DocumentCache,
     exporter_path: &Path,
@@ -362,36 +361,6 @@ pub fn rename_identifier_from_declaration(
     identifier: &syntax_nodes::DeclaredIdentifier,
     new_type: &str,
 ) -> crate::Result<lsp_types::WorkspaceEdit> {
-    fn change_local_struct_type(
-        document_cache: &common::DocumentCache,
-        document_node: &syntax_nodes::Document,
-        old_type: &str,
-        new_type: &str,
-        edits: &mut Vec<common::SingleTextEdit>,
-    ) {
-        for component in document_node.Component() {
-            replace_struct_types_in_properties(
-                document_cache,
-                &component.Element(),
-                old_type,
-                new_type,
-                edits,
-            );
-        }
-
-        for exported in document_node.ExportsList() {
-            if let Some(component) = exported.Component() {
-                replace_struct_types_in_properties(
-                    document_cache,
-                    &component.Element(),
-                    old_type,
-                    new_type,
-                    edits,
-                );
-            }
-        }
-    }
-
     fn change_local_element_type(
         document_cache: &common::DocumentCache,
         document_node: &syntax_nodes::Document,
@@ -415,6 +384,75 @@ pub fn rename_identifier_from_declaration(
         }
     }
 
+    fn change_local_enum_type(
+        document_cache: &common::DocumentCache,
+        document_node: &syntax_nodes::Document,
+        old_type: &str,
+        new_type: &str,
+        edits: &mut Vec<common::SingleTextEdit>,
+    ) {
+        change_local_struct_type(document_cache, document_node, old_type, new_type, edits);
+
+        for qualified_name in
+            document_node.descendants().filter(|node| node.kind() == SyntaxKind::QualifiedName)
+        {
+            let Some(source_file) = qualified_name.source_file() else {
+                continue;
+            };
+
+            let name = qualified_name.to_string().trim().to_string();
+            if name.starts_with(&format!("{old_type}.")) {
+                let start = qualified_name.text_range().start();
+                // Considering that old_type is a substring, this should be before the end() of the text_range...
+                let end = start.checked_add((old_type.len() as u32).into()).unwrap();
+
+                edits.push(
+                    common::SingleTextEdit::from_path(
+                        document_cache,
+                        qualified_name.source_file.path(),
+                        lsp_types::TextEdit {
+                            range: util::text_range_to_lsp_range(
+                                &source_file,
+                                i_slint_compiler::parser::TextRange::new(start, end),
+                            ),
+                            new_text: new_type.to_string(),
+                        },
+                    )
+                    .expect("URL conversion can not fail here"),
+                )
+            }
+        }
+    }
+
+    fn change_local_struct_type(
+        document_cache: &common::DocumentCache,
+        document_node: &syntax_nodes::Document,
+        old_type: &str,
+        new_type: &str,
+        edits: &mut Vec<common::SingleTextEdit>,
+    ) {
+        for component in document_node.Component() {
+            replace_types_in_properties(
+                document_cache,
+                &component.Element(),
+                old_type,
+                new_type,
+                edits,
+            );
+        }
+
+        for exported in document_node.ExportsList() {
+            if let Some(component) = exported.Component() {
+                replace_types_in_properties(
+                    document_cache,
+                    &component.Element(),
+                    old_type,
+                    new_type,
+                    edits,
+                );
+            }
+        }
+    }
     let action: Option<
         &dyn Fn(
             &common::DocumentCache,
@@ -425,6 +463,7 @@ pub fn rename_identifier_from_declaration(
         ),
     > = match identifier.parent().map(|p| p.kind()).unwrap_or(SyntaxKind::Error) {
         SyntaxKind::Component => Some(&change_local_element_type),
+        SyntaxKind::EnumDeclaration => Some(&change_local_enum_type),
         SyntaxKind::StructDeclaration => Some(&change_local_struct_type),
         _ => None,
     };
@@ -467,7 +506,12 @@ fn rename_declared_identifier(
     }
 
     let parent = identifier.parent().expect("Identifier had no parent");
-    debug_assert!([SyntaxKind::Component, SyntaxKind::StructDeclaration].contains(&parent.kind()));
+    debug_assert!([
+        SyntaxKind::Component,
+        SyntaxKind::EnumDeclaration,
+        SyntaxKind::StructDeclaration
+    ]
+    .contains(&parent.kind()));
 
     let Some(document_node) = &document.node else {
         return Err("No document found".into());
@@ -532,6 +576,30 @@ mod tests {
 
         for st in document.StructDeclaration() {
             let identifier = st.DeclaredIdentifier();
+            if identifier.text() == name {
+                return Some(identifier);
+            }
+        }
+
+        None
+    }
+
+    /// Find the identifier that belongs to a struct of the given `name` in the `document`
+    pub fn find_enum_identifier(
+        document: &syntax_nodes::Document,
+        name: &str,
+    ) -> Option<syntax_nodes::DeclaredIdentifier> {
+        for el in document.ExportsList() {
+            for en in el.EnumDeclaration() {
+                let identifier = en.DeclaredIdentifier();
+                if identifier.text() == name {
+                    return Some(identifier);
+                }
+            }
+        }
+
+        for en in document.EnumDeclaration() {
+            let identifier = en.DeclaredIdentifier();
             if identifier.text() == name {
                 return Some(identifier);
             }
@@ -1300,6 +1368,213 @@ export { Foo as User4Fxx }
                 assert!(ed.contents.contains("import { User4Fxx }"));
             } else if ed_path == test::test_file_name("source.slint") {
                 assert!(ed.contents.contains("export struct XxxYyyZzz {"));
+                assert!(!ed.contents.contains("Foo"));
+            } else if ed_path == test::test_file_name("user.slint") {
+                assert!(ed.contents.contains("{ XxxYyyZzz as Bar }"));
+                assert!(ed.contents.contains("property <Bar> user-component-prop"));
+                assert!(!ed.contents.contains("Foo"));
+            } else if ed_path == test::test_file_name("user2.slint") {
+                assert!(ed.contents.contains("import { XxxYyyZzz }"));
+                assert!(ed.contents.contains("member: XxxYyyZzz,"));
+            } else if ed_path == test::test_file_name("user3.slint") {
+                assert!(ed.contents.contains("import { XxxYyyZzz }"));
+                assert!(ed.contents.contains("export { XxxYyyZzz }"));
+            } else if ed_path == test::test_file_name("user4.slint") {
+                assert!(ed.contents.contains("import { XxxYyyZzz }"));
+                assert!(ed.contents.contains("export { XxxYyyZzz as User4Fxx }"));
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    #[test]
+    fn test_rename_enum_from_definition_ok() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+    export enum Foo {
+        M1, M2,
+    }
+
+    component Baz {
+        in-out property <Foo> baz-prop: Foo.M1;
+    }
+
+    export component Bar {
+        in-out property <Foo> bar-prop <=> baz.baz-prop;
+
+        baz := Baz {}
+    }
+                        "#
+                .to_string(),
+            )]),
+            false,
+        );
+
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
+
+        let foo_identifier = find_enum_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+        let edit =
+            rename_identifier_from_declaration(&document_cache, &foo_identifier, "XxxYyyZzz")
+                .unwrap();
+
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
+
+        assert_eq!(edited_text.len(), 1);
+        assert!(edited_text[0].contents.contains("XxxYyyZzz"));
+        assert!(!edited_text[0].contents.contains("Foo"));
+    }
+
+    #[test]
+    fn test_rename_enum_from_definition_with_renaming_export_ok() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+    import { FExport} from "source.slint";
+
+    export enum Foo {
+        M1, M2
+    }
+                    "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+    export enum Foo {
+        OM1, OM2,
+    }
+
+    export { Foo as FExport }
+                    "#
+                    .to_string(),
+                ),
+            ]),
+            false,
+        );
+
+        let doc =
+            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
+
+        let identifier = find_enum_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+        let edit =
+            rename_identifier_from_declaration(&document_cache, &identifier, "XxxYyyZzz").unwrap();
+
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
+
+        assert_eq!(edited_text.len(), 1);
+        assert_eq!(
+            edited_text[0].url.to_file_path().unwrap(),
+            test::test_file_name("source.slint")
+        );
+        assert!(edited_text[0].contents.contains("XxxYyyZzz"));
+        assert!(edited_text[0].contents.contains("export { XxxYyyZzz as FExport"));
+        assert!(!edited_text[0].contents.contains("Foo"));
+    }
+
+    #[test]
+    fn test_rename_enum_from_definition_with_export_ok() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+    import { Foo } from "source.slint";
+    import { UserComponent } from "user.slint";
+    import { User2Struct } from "user2.slint";
+    import { Foo as User3Fxx } from "user3.slint";
+    import { User4Fxx } from "user4.slint";
+
+    export component Main {
+        property <Foo> main-prop: Foo.M1;
+        property <User3Fxx> main-prop2: User3Fxx.M1;
+        property <User2Struct> main-prop3;
+        property <User3Fxx> main-prop4 <=> uc.user-component-prop;
+
+        uc := UserComponent { }
+    }
+                    "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+    export enum Foo { M1, M2, }
+                    "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
+                    r#"
+    import { Foo as Bar } from "source.slint";
+
+    export component UserComponent {
+        in-out property <Bar> user-component-prop: Bar.M1;
+    }
+
+    export { Bar }
+                    "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    r#"
+    import { Foo as XxxYyyZzz } from "source.slint";
+
+    export struct User2Struct {
+        member: XxxYyyZzz,
+    }
+                    "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
+                    r#"
+    import { Foo } from "source.slint";
+
+    export { Foo }
+                    "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
+                    r#"
+    import { Foo } from "source.slint";
+
+    export { Foo as User4Fxx }
+                    "#
+                    .to_string(),
+                ),
+            ]),
+            false,
+        );
+
+        let doc =
+            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
+
+        let identifier = find_enum_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+        let edit =
+            rename_identifier_from_declaration(&document_cache, &identifier, "XxxYyyZzz").unwrap();
+
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
+
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("XxxYyyZzz"));
+                assert!(!ed.contents.contains("Foo"));
+                assert!(ed.contents.contains("UserComponent"));
+                assert!(ed.contents.contains("import { XxxYyyZzz as User3Fxx }"));
+                assert!(ed.contents.contains("import { User4Fxx }"));
+            } else if ed_path == test::test_file_name("source.slint") {
+                assert!(ed.contents.contains("export enum XxxYyyZzz {"));
                 assert!(!ed.contents.contains("Foo"));
             } else if ed_path == test::test_file_name("user.slint") {
                 assert!(ed.contents.contains("{ XxxYyyZzz as Bar }"));
