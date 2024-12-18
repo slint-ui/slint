@@ -18,10 +18,6 @@ else()
     message(FATAL_ERROR "Unsupported BOARD option specified: ${BOARD}")
 endif()
 
-if(SHIELD STREQUAL "rk055hdmipi4ma0")
-    set(EXTRA_DTC_OVERLAY_FILE "${CMAKE_CURRENT_LIST_DIR}/boards/shields/rk055hdmipi4ma0/rk055hdmipi4ma0.overlay")
-endif()
-
 find_package(Zephyr)
 project(slint_zephyr_printer_demo_mcu LANGUAGES CXX)
 
