@@ -9,8 +9,8 @@ import starlightSidebarTopics from "starlight-sidebar-topics";
 
 // https://astro.build/config
 export default defineConfig({
-    site: "https://snapshots.slint.dev/master/docs/slint/",
-    base: "/master/docs/slint",
+    site: "https://releases.slint.dev/1.9.0/docs/slint/",
+    base: "/1.9.0/docs/slint",
     markdown: {
         rehypePlugins: [
             [
