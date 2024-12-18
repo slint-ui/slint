@@ -44,6 +44,7 @@ default = ["i-slint-backend-qt", "backend-winit"]
 cfg-if = "1"
 i-slint-core = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true }
+i-slint-core-macros = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default"], optional = true }
