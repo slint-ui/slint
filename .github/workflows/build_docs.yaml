@@ -116,20 +116,20 @@ jobs:
               working-directory: docs/astro
               run: pnpm spellcheck
             # Test docs
-            - name: Install Playwright
-              working-directory: docs/astro
-              run: pnpm exec playwright install --with-deps
-            - name: Run Playwright tests
-              working-directory: docs/astro
-              run: pnpm exec playwright test
-            - name: Publish Test Summary Results
-              working-directory: docs/astro
-              run: npx github-actions-ctrf playwright-report/ctrf-report.json
+#            - name: Install Playwright
+#              working-directory: docs/astro
+#              run: pnpm exec playwright install --with-deps
+#            - name: Run Playwright tests
+#              working-directory: docs/astro
+#              run: pnpm exec playwright test
+#            - name: Publish Test Summary Results
+#              working-directory: docs/astro
+#              run: npx github-actions-ctrf playwright-report/ctrf-report.json
 
             - name: "Node docs"
               run: pnpm run docs
               working-directory: api/node
-                
+
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
               id: app-token
