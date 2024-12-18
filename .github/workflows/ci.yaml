@@ -599,7 +599,3 @@ jobs:
                   components: miri
             - name: Run Miri
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
-
-    format_lint_typecheck:
-      uses: ./.github/workflows/fmt_lint_typecheck.yaml
-      secrets: inherit
