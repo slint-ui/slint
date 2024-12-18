@@ -465,10 +465,12 @@ jobs:
 
             - name: Print contents before update
               if: github.event.inputs.release == 'true'
-              run: cat releases/versions.json
+              working-directory: www-releases/releases
+              run: cat versions.json
       
             - name: Update version in versions.json
               if: github.event.inputs.release == 'true'
+              working-directory: www-releases/releases
               run: |
                   sed -i '/"name": "development snapshot"/,/"preferred": true,/c\
                           "name": "development snapshot",\
@@ -479,11 +481,12 @@ jobs:
                           "version": "${{ steps.version.outputs.VERSION }}",\
                           "url": "https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs/slint"\
                       },\
-                      {' releases/versions.json
+                      {' versions.json
       
             - name: Print contents before update
               if: github.event.inputs.release == 'true'
-              run: cat releases/versions.json
+              working-directory: www-releases/releases
+              run: cat versions.json
             
             - name: Update SlintPad
               if: github.event.inputs.release == 'true'
