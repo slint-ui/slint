@@ -13,6 +13,7 @@ use i_slint_compiler::pathutils::clean_path;
 use smol_str::{SmolStr, ToSmolStr};
 use std::path::Path;
 
+#[derive(Clone, Debug)]
 pub enum TokenInfo {
     Type(Type),
     ElementType(ElementType),
@@ -47,11 +48,15 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                     Some(TokenInfo::Type(doc.local_registry.lookup_qualified(&qual.members)))
                 }
                 SyntaxKind::Element => {
-                    let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
-                    let doc = document_cache.get_document_for_source_file(&node.source_file)?;
-                    Some(TokenInfo::ElementType(
-                        doc.local_registry.lookup_element(&qual.to_string()).ok()?,
-                    ))
+                    if !crate::common::is_element_node_ignored(&parent.into()) {
+                        let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
+                        let doc = document_cache.get_document_for_source_file(&node.source_file)?;
+                        Some(TokenInfo::ElementType(
+                            doc.local_registry.lookup_element(&qual.to_string()).ok()?,
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 SyntaxKind::Expression => {
                     if token.kind() != SyntaxKind::Identifier {
@@ -170,11 +175,11 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
             }
             return find_property_declaration_in_base(document_cache, element, &prop_name);
         } else if node.kind() == SyntaxKind::DeclaredIdentifier {
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
+            }
             let parent = node.parent()?;
             if parent.kind() == SyntaxKind::PropertyChangedCallback {
-                if token.kind() != SyntaxKind::Identifier {
-                    return None;
-                }
                 let prop_name = i_slint_compiler::parser::normalize_identifier(token.text());
                 let element = syntax_nodes::Element::new(parent.parent()?)?;
                 if let Some(p) = element.PropertyDeclaration().find_map(|p| {
@@ -185,6 +190,60 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                     return Some(TokenInfo::LocalProperty(p));
                 }
                 return find_property_declaration_in_base(document_cache, element, &prop_name);
+            }
+            if parent.kind() == SyntaxKind::Component {
+                let doc = document_cache.get_document_for_source_file(&node.source_file)?;
+                let element_type = doc
+                    .local_registry
+                    .lookup_element(
+                        i_slint_compiler::parser::normalize_identifier(token.text()).as_str(),
+                    )
+                    .ok()?;
+                if let ElementType::Component(component) = &element_type {
+                    if component
+                        .node
+                        .as_ref()
+                        .map(|n| n.text_range().contains_range(token.text_range()))
+                        .unwrap_or_default()
+                    {
+                        return Some(TokenInfo::ElementType(element_type));
+                    }
+                }
+            }
+            if parent.kind() == SyntaxKind::StructDeclaration {
+                let doc = document_cache.get_document_for_source_file(&node.source_file)?;
+                let ty = doc
+                    .local_registry
+                    .lookup(i_slint_compiler::parser::normalize_identifier(token.text()).as_str());
+                match &ty {
+                    Type::Struct(s)
+                        if s.node
+                            .as_ref()
+                            .and_then(|n| n.parent())
+                            .map(|n| n.text_range().contains_range(token.text_range()))
+                            .unwrap_or_default() =>
+                    {
+                        return Some(TokenInfo::Type(ty));
+                    }
+                    _ => { /* nothing to do */ }
+                }
+            }
+            if parent.kind() == SyntaxKind::EnumDeclaration {
+                let doc = document_cache.get_document_for_source_file(&node.source_file)?;
+                let ty = doc
+                    .local_registry
+                    .lookup(i_slint_compiler::parser::normalize_identifier(token.text()).as_str());
+                match &ty {
+                    Type::Enumeration(e)
+                        if e.node
+                            .as_ref()
+                            .map(|n| n.text_range().contains_range(token.text_range()))
+                            .unwrap_or_default() =>
+                    {
+                        return Some(TokenInfo::Type(ty));
+                    }
+                    _ => { /* nothing to do */ }
+                }
             }
         }
         node = node.parent()?;

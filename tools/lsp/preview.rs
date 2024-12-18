@@ -301,7 +301,7 @@ fn add_new_component() {
 }
 
 /// Find the identifier that belongs to a component of the given `name` in the `document`
-pub fn find_component_identifiers(
+fn find_component_identifiers(
     document: &syntax_nodes::Document,
     name: &str,
 ) -> Vec<syntax_nodes::DeclaredIdentifier> {
@@ -381,11 +381,17 @@ fn rename_component(
         return;
     };
 
-    if let Ok(edit) = rename_component::rename_identifier_from_declaration(
+    if let Ok(edit) = rename_component::find_declaration_node(
         &document_cache,
-        &identifiers.last().unwrap(),
-        &new_name,
-    ) {
+        &identifiers
+            .get(0)
+            .unwrap()
+            .child_token(i_slint_compiler::parser::SyntaxKind::Identifier)
+            .unwrap(),
+    )
+    .unwrap()
+    .rename(&document_cache, &new_name)
+    {
         // Update which component to show after refresh from the editor.
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.rename_current_component(&old_url, &old_name, &new_name);
