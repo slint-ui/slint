@@ -46,9 +46,10 @@ const showOlderVersion =
     currentVersion &&
     preferredVersion &&
     compareVersions(preferredVersion, currentVersion) > 0;
-const showDevVersion = currentVersion
-    ? preferredVersion && compareVersions(preferredVersion, currentVersion) < 0
-    : Astro.url.pathname.includes("master");
+//const showDevVersion = currentVersion
+//    ? preferredVersion && compareVersions(preferredVersion, currentVersion) < 0
+//    : Astro.url.pathname.includes("master");
+const showDevVersion = false;
 ---
 
 {showDevVersion && (
