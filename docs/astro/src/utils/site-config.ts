@@ -1,0 +1,1 @@
+export const BASE_PATH = "/1.9.0/docs/slint/";

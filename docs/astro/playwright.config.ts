@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { defineConfig, devices } from "@playwright/test";
+import { BASE_PATH } from "./src/utils/site-config";
 
 /**
  * Read environment variables from file.
@@ -37,7 +38,7 @@ export default defineConfig({
     /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
     use: {
         /* Base URL to use in actions like `await page.goto('/')`. */
-        baseURL: "http://127.0.0.1:4321/master/docs/slint/",
+        baseURL: `http://localhost:4321${BASE_PATH}`,
 
         /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
         trace: "on-first-retry",
@@ -83,7 +84,7 @@ export default defineConfig({
     /* Run your local dev server before starting the tests */
     webServer: {
         command: "pnpm run preview",
-        url: "http://localhost:4321/master/docs/slint",
+        url: `http://localhost:4321${BASE_PATH}`,
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,
     },
