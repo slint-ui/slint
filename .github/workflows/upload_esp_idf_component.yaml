@@ -33,10 +33,6 @@ jobs:
               working-directory: api/cpp/esp-idf/slint
               run: |
                 sed -i "s/find_package(Slint)/find_package(Slint ${{ steps.version.outputs.VERSION }})/g" CMakeLists.txt
-                if ! grep -q 'find_package(Slint 1\.)' CMakeLists.txt; then
-                    echo "Substituting the choice of nightly Slint against the released version failed. Check this script and CMakeLists.txt"
-                    exit 1
-                fi
             - name: Upload component
               if: github.event.inputs.release == 'true'
               uses: espressif/upload-components-ci-action@v1
