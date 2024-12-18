@@ -498,51 +498,33 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .collect();
                 return Ok(Some(common::create_workspace_edit(uri, version, edits)));
             }
-            match p.kind() {
-                SyntaxKind::DeclaredIdentifier => {
-                    common::rename_component::rename_identifier_from_declaration(
-                        &document_cache,
-                        &p.into(),
-                        &params.new_name,
-                    )
+            if let Some(declaration_node) =
+                common::rename_component::find_declaration_node(&document_cache, &tk)
+            {
+                return declaration_node
+                    .rename(&document_cache, &params.new_name)
                     .map(Some)
                     .map_err(|e| LspError {
                         code: LspErrorCode::RequestFailed,
                         message: e.to_string(),
-                    })
-                }
-                _ => Err(LspError {
-                    code: LspErrorCode::RequestFailed,
-                    message: "This symbol cannot be renamed.".into(),
-                }),
+                    });
             }
-        } else {
-            Err(LspError {
-                code: LspErrorCode::RequestFailed,
-                message: "This symbol cannot be renamed.".into(),
-            })
         }
+
+        Err(LspError {
+            code: LspErrorCode::RequestFailed,
+            message: "This symbol cannot be renamed.".into(),
+        })
     });
     rh.register::<PrepareRenameRequest, _>(|params, ctx| async move {
         let mut document_cache = ctx.document_cache.borrow_mut();
         let uri = params.text_document.uri;
-        if let Some((tk, _off)) = token_descr(&mut document_cache, &uri, &params.position) {
+        if let Some((tk, _)) = token_descr(&mut document_cache, &uri, &params.position) {
             if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
                 return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(&tk))));
             }
-            let p = tk.parent();
-            if matches!(p.kind(), SyntaxKind::DeclaredIdentifier) {
-                if let Some(gp) = p.parent() {
-                    if [
-                        SyntaxKind::Component,
-                        SyntaxKind::EnumDeclaration,
-                        SyntaxKind::StructDeclaration,
-                    ]
-                    .contains(&gp.kind())
-                    {
-                        return Ok(Some(PrepareRenameResponse::Range(util::node_to_lsp_range(&p))));
-                    }
-                }
+            if common::rename_component::find_declaration_node(&document_cache, &tk).is_some() {
+                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(&tk))));
             }
         }
         Ok(None)
