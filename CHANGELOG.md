@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file.
  - winit: automatically disabled maximize button when window resizing is disabled.
  - winit: react to dark/light color scheme changes on Linux (other platforms were already working before). (#4392)
 
-### Slint language
+### Slint Language
 
  - Callback arguments can now be named.
  - Animations: Added `direction` property. (#6260)
