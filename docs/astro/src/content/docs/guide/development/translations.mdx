@@ -1,6 +1,6 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-// cSpell: ignore msgfmt msgctx msginit poedit Lokalize Transifex 
+// cSpell: ignore msgfmt msgctx msginit poedit Lokalize Transifex
 title: Translations
 description: Translations
 ---
@@ -207,8 +207,8 @@ Slint looks for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 First, enable the `gettext` feature of the `slint` crate in the `features` section to gain access to the translations API
 and activate run-time translation support.
 
-Next, use the `slint::init_translations!` macro to specify the base location of your `.mo` files. This is
-the `dir_name` in the scheme of the previous section. Slint expects the `.mo` files to be in the
+Next, use the [`slint::init_translations!`](https://slint.dev/docs/rust/slint/macro.init_translations) macro to specify the base location of your `.mo` files.
+This is the `dir_name` in the scheme of the previous section. Slint expects the `.mo` files to be in the
 corresponding sub-directories and their file name - `domain_name` - must match the package name
 in your `Cargo.toml`. This is often the same as the crate name.
 
@@ -244,7 +244,7 @@ path/<lang>/LC_MESSAGES/<domain>.po
 ### Bundling
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Set the `SLINT_BUNDLE_TRANSLATIONS` property in CMake:
+Set the [`SLINT_BUNDLE_TRANSLATIONS`](https://slint.dev/docs/cpp/cmake_reference.html#bundle-translations) property in CMake:
 
 ```cmake
 set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
@@ -255,7 +255,7 @@ the `<domain>` is the cmake target name.
 </TabItem>
 <TabItem label="Rust" icon="rust">
 
-Use `slint_build::CompilerConfiguration`'s `with_bundled_translations()` function to set up bundling in
+Use `slint_build::CompilerConfiguration`'s [`with_bundled_translations()`](https://slint.dev/docs/rust/slint_build/struct.compilerconfiguration#method.with_bundled_translations) function to set up bundling in
 `build.rs`:
 
 ```rust
@@ -271,10 +271,17 @@ The `<domain>` is the crate name.
 
 ### Selecting a Translation
 
-If you enable the `std` feature with Slint, language for translations is detected based on the locale.
-If one of the bundled language matches the selected locale, it will be used.
+If you enable the `std` feature with Slint, language for translations is detected based on the locale:
+if one of the bundled language matches the selected locale, it will be used.
 
-Use the `slint::select_bundled_translation` function to change translations at runtime.
+<Tabs syncKey="dev-language">
+<TabItem label="C++" icon="cpp">
+Use the [`slint::select_bundled_translation`](https://slint.dev/docs/cpp/api/function_namespaceslint_1a18aba736373254f5be3362941f3ddbcd.html#_CPPv4N5slint26select_bundled_translationENSt11string_viewE) function to change translations at runtime.
+</TabItem>
+<TabItem label="Rust" icon="rust">
+Use the [`slint::select_bundled_translation`](https://slint.dev/docs/rust/slint/fn.select_bundled_translation.html) function to change translations at runtime.
+</TabItem>
+</Tabs>
 
 ## Previewing Translations with `slint-viewer`
 
