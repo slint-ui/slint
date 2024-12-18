@@ -483,7 +483,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
     }
 }
 
-INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_ALIAS(slint_input)), zephyr_process_input_event, NULL);
+INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_CHOSEN(zephyr_touch)), zephyr_process_input_event, NULL);
 
 void slint_zephyr_init(const struct device *display)
 {
