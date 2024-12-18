@@ -230,7 +230,7 @@ export default defineConfig({
                                         ],
                                     },
                                     {
-                                        label: "Layouts",
+                                        label: "Basic Layouts",
                                         items: [
                                             {
                                                 label: "Common Properties",
@@ -303,7 +303,7 @@ export default defineConfig({
                                         },
                                     },
                                     {
-                                        label: "Layouts",
+                                        label: "Widget Layouts",
                                         autogenerate: {
                                             directory:
                                                 "reference/std-widgets/layouts",
