@@ -10,6 +10,11 @@ All notable changes to this project are documented in this file.
  - Minimum Supported Rust Version (MSRV) is 1.77.
  - Added functions to set the XDG app ID on Wayland/X11. (#1332)
  - Added ability to bundle translations in the binary.
+ - Fixed panics in timer handling. (#6187, #6505)
+ - Fixed support for older Android versions (9.0).
+ - Android: handle the Destroy event properly. (#6626)
+ - winit: automatically disabled maximize button when window resizing is disabled.
+ - winit: react to dark/light color scheme changes on Linux (other platforms were already working before). (#4392)
 
 ### Slint language
 
@@ -17,6 +22,8 @@ All notable changes to this project are documented in this file.
  - Animations: Added `direction` property. (#6260)
  - `TextInput`: Fixed selection colors not begin picked up from the selected style. (#6326)
  - `TextInput`: Added `key-pressed` and `key-released` callbacks to intercept key events.
+ - Fixed `TextInput` mouse cursor after left click. (#6444)
+ - Improved deselection behavior when pressing left/right in `TextInput`. (#6511) 
  - Fixed `changed` callback on unused properties causing compiler panic. (#6331)
  - Fixed geometry constraints when they are partially inferred from the content and partially inferred from the explicit constraints. (#6285)
  - Deprecated two-way binding between `in` and `in-out` properties. (#6400)
@@ -25,11 +32,18 @@ All notable changes to this project are documented in this file.
  - Added `accessible-item-selectable`, `accessible-item-selected`, `accessible-enabled`, `accessible-item-index`, and `accessible-delegate-focus` properties.
  - Emit a warning when the case of the import file differs from the case of the file that was imported. (#4265)
  - Support property changed callbacks in globals. (#6599)
- - `PopupWindow`: Added `close-policy` property, deprecated `close-on-click`. (#6614)
  - `Window`: Added `skip-taskbar` (#6911) and `full-screen` (#6665) properties.
+ - `Window::icon` is now used as the big taskbar icon on Windows.
  - Fixed `min(..)` and `max(..)` functions with `rem` units.
  - Emit a warning when a `@linear-gradient` or `@radial-gradient` is assigned directly to a color property. (#6819)
  - Fixed `min`/`max`/`clamp` functions with percentage arguments. (#7118)
+ - Adjusted thresholds and behavior of the `SwipeGestureHandler`. (#6344, #6542, #6543)
+ - `PopupWindow`: Improved positioning to avoid clipping by the window.
+ - `PopupWindow`: Supported multiple popup windows at the same time. (#4356) 
+ - `PopupWindow`: Added `close-policy` property, deprecated `close-on-click`. (#6614)
+ - `PopupWindow`: Close when the escape key is pressed.
+ - Fixed focus handling in `PopupWindow`.
+ - Fixed bugs with global cross-references. (#6984)
 
 ### Widgets
 
@@ -41,6 +55,7 @@ All notable changes to this project are documented in this file.
  - Undeprecated `StyleMetrics` layout properties (`layout-spacing` / `layout-padding`).
  - `Slider`: Added `step` property.
  - `StandardListView`: Improved keyboard navigation. (#6955)
+ - Fixed `init` and `changed` callbacks not always being called in `ListView`. (#6836)
 
 ### Rust API
 
@@ -96,24 +111,6 @@ All notable changes to this project are documented in this file.
  - Software renderer: Fixed artifacts with partial drawing and rotation.
  - Software renderer: Fixed panic with fractional scale factor. (#6932)
  - Skia: Fixed opacity not being applied to box shadows correctly. (#6359)
-
-### Misc
-
- - Adjusted thresholds and behavior of the `SwipeGestureHandler`. (#6344, #6542, #6543)
- - Improved `PopupWindow` positioning: positioned it to avoid clipping by the window.
- - `Window::icon` is now used as the big taskbar icon on Windows.
- - Fixed `TextInput` mouse cursor after left click. (#6444)
- - Fixed panics in timer code. (#6187, #6505)
- - Fixed support for older Android versions (9.0).
- - Android: handled the Destroy event properly. (#6626)
- - Supported multiple popup windows at the same time. (#4356)
- - Fixed `init` and `changed` callbacks not always being called in `ListView`. (#6836)
- - `PopupWindow`: Close when the escape key is pressed.
- - Fixed focus handling in `PopupWindow`.
- - Fixed bugs with global cross-references. (#6984)
- - Improved deselection behavior when pressing left/right in `TextInput`. (#6511)
- - winit: automatically disabled maximize button when window resizing is disabled.
- - winit: react to dark/light color scheme changes on Linux (other platforms were already working before). (#4392)
 
 
 ## 1.8.0 - 2024-09-23
