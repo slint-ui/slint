@@ -176,9 +176,10 @@ impl<'a> GLItemRenderer<'a> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
     }
+}
 
-    /// Draws a `Rectangle` using the `GLItemRenderer`.
-    pub fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
+impl<'a> ItemRenderer for GLItemRenderer<'a> {
+    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc, size: LogicalSize) {
         let geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
@@ -186,6 +187,7 @@ impl<'a> GLItemRenderer<'a> {
         if self.global_alpha_transparent() {
             return;
         }
+        let brush = rect.background();
         // TODO: cache path in item to avoid re-tesselation
         let path = rect_to_path(geometry);
         let paint = match self.brush_to_paint(brush, &path) {
@@ -196,12 +198,6 @@ impl<'a> GLItemRenderer<'a> {
         // the extra stroke triangle strip around the edges
         .with_anti_alias(false);
         self.canvas.borrow_mut().fill_path(&path, &paint);
-    }
-}
-
-impl<'a> ItemRenderer for GLItemRenderer<'a> {
-    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc, size: LogicalSize) {
-        self.draw_rect(size, rect.background());
     }
 
     fn draw_border_rectangle(
