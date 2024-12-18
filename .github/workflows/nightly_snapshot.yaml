@@ -124,7 +124,7 @@ jobs:
                   target: x86_64-apple-darwin
             - name: Install cargo-bundle
               run: cargo install --version=0.6.0 cargo-bundle
-            # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.   
+            # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.
             - uses: actions/setup-python@v5
               with:
                 python-version: '3.12'
@@ -151,7 +151,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
-            # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.   
+            # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.
             - uses: actions/setup-python@v5
               with:
                 python-version: '3.12'
@@ -382,8 +382,7 @@ jobs:
                 path: www-releases
                 token: ${{ steps.app-token.outputs.token }}
                 sparse-checkout: |
-                  releases/versions.txt
-                  releases/versions.json
+                  releases
                   slintpad
 
             - name: Clone www-releases/snapshots directory
@@ -482,12 +481,12 @@ jobs:
                           "url": "https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs/slint"\
                       },\
                       {' versions.json
-      
+
             - name: Print contents before update
               if: github.event.inputs.release == 'true'
               working-directory: www-releases/releases
               run: cat versions.json
-            
+
             - name: Update SlintPad
               if: github.event.inputs.release == 'true'
               run: |
