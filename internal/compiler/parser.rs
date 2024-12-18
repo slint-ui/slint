@@ -832,6 +832,17 @@ impl SyntaxNode {
             .descendants()
             .map(move |node| SyntaxNode { node, source_file: source_file.clone() })
     }
+    pub fn decendants_with_tokens(&self) -> impl Iterator<Item = NodeOrToken> {
+        let source_file = self.source_file.clone();
+        self.node.descendants_with_tokens().map(move |token| match token {
+            rowan::NodeOrToken::Node(node) => {
+                SyntaxNode { node, source_file: source_file.clone() }.into()
+            }
+            rowan::NodeOrToken::Token(token) => {
+                SyntaxToken { token, source_file: source_file.clone() }.into()
+            }
+        })
+    }
     pub fn kind(&self) -> SyntaxKind {
         self.node.kind()
     }
