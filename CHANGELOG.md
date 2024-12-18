@@ -13,58 +13,57 @@ All notable changes to this project are documented in this file.
 
 ### Slint language
 
- - Named callback arguments.
- - Added animation `direction` property. (#6260)
- - TextInput: fixed selection colors not used from style. (#6326)
- - TextInput: added `key-pressed` and `key-released` callback.
- - Fixed `changed` callback on unused property causing compiler panic. (#6331)
+ - Callback arguments can now be named.
+ - Animations: Added `direction` property. (#6260)
+ - `TextInput`: Fixed selection colors not begin picked up from the selected style. (#6326)
+ - `TextInput`: Added `key-pressed` and `key-released` callbacks to intercept key events.
+ - Fixed `changed` callback on unused properties causing compiler panic. (#6331)
  - Fixed geometry constraints when they are partially inferred from the content and partially inferred from the explicit constraints. (#6285)
- - Deprecated two-way binding between `in` and `in-out` property. (#6400)
- - TouchArea: Send cancel event and update `pressed` and `has-hover` properties when `enabled` is set to false while pressed. (#6422)
- - Added `font-metrics` property to `Text` and `TextInput`. (#6047)
- - Added `accessible-item-selectable`, `accessible-item-selected`, `accessible-enabled`, `accessible-item-index`, and `accessible-delegate-focus` properties
+ - Deprecated two-way binding between `in` and `in-out` properties. (#6400)
+ - `TouchArea`: When `enabled` is set to false while pressed, send cancel event and update `pressed` and `has-hover` properties. (#6422)
+ - `Text`/`TextInput`: Added `font-metrics` property. (#6047)
+ - Added `accessible-item-selectable`, `accessible-item-selected`, `accessible-enabled`, `accessible-item-index`, and `accessible-delegate-focus` properties.
  - Emit a warning when the case of the import file differs from the case of the file that was imported. (#4265)
  - Support property changed callbacks in globals. (#6599)
- - PopupWindow: added `close-policy` property, deprecated `close-on-click`. (#6614)
- - Added `Window::skip-taskbar`. (#6911)
- - Added `Window::full-screen`. (#6665)
+ - `PopupWindow`: Added `close-policy` property, deprecated `close-on-click`. (#6614)
+ - `Window`: Added `skip-taskbar` (#6911) and `full-screen` (#6665) properties.
  - Fixed `min(..)` and `max(..)` functions with `rem` units.
  - Emit a warning when a `@linear-gradient` or `@radial-gradient` is assigned directly to a color property. (#6819)
- - Fix min/max/clamp functions with percentages arguments. (#7118)
+ - Fixed `min`/`max`/`clamp` functions with percentage arguments. (#7118)
 
 ### Widgets
 
- - CheckBox: fixed text color in fluent style. (#6239)
- - CheckBox: removed margin in fluent and cupertino styles. (#6639)
- - LineEdit: fixed cursor drawing out of bounds. (#6243)
- - TabWidget: fixed tabs overflow behavior. (#6517)
- - SpinBox: added `horizontal-alignment`.
- - Undeprecated `StyleMetrics` layout properties.
- - Slider: added `step` property.
- - StandardListView: improved keyboard navigation. (#6955)
+ - `CheckBox`: Fixed text color in Fluent style. (#6239)
+ - `CheckBox`: Removed margin in Fluent and Cupertino styles. (#6639)
+ - `LineEdit`: Fixed cursor drawing out of bounds. (#6243)
+ - `TabWidget`: Fixed tabs overflow behavior. (#6517)
+ - `SpinBox`: added `horizontal-alignment` property.
+ - Undeprecated `StyleMetrics` layout properties (`layout-spacing` / `layout-padding`).
+ - `Slider`: Added `step` property.
+ - `StandardListView`: Improved keyboard navigation. (#6955)
 
 ### Rust API
 
  - Added `slint_build::compile_with_output_path`.
  - Fixed `init=>` callback on PopupWindow running twice in Rust-generated code.
  - Derived serde traits for `PhysicalPosition`, `LogicalPosition`, `PhysicalSize`, and `LogicalSize`. (#6534)
- - Used `approx_eq` to compare floats in the generated code.
+ - Use `approx_eq` to compare floats in the generated code.
  - Added `BackendSelector` to select backend, renderer, and renderer specific features.
  - Added `ToSharedString` trait. (#6845)
- - Implemented `AsRef<Path>` and `AsRef<OsStr>` for `SharedString`.
+ - Implement `AsRef<Path>` and `AsRef<OsStr>` for `SharedString`.
 
 ### C++ API
 
  - Added `Image::to_rgb8/to_rgba8/to_rgba8_premultiplied` pixel buffer accessors. (#6399)
  - Added `SharedString::size()`. (#6417)
- - cmake: supported generator expressions for `SLINT_EMBED_RESOURCES` & `SLINT_SCALE_FACTOR`.
- - Added `_` to the end of identifiers that would otherwise be keywords. (#5613)
+ - CMake: Support generator expressions for `SLINT_EMBED_RESOURCES` and `SLINT_SCALE_FACTOR`.
+ - Add `_` to the end of generated identifiers that would otherwise be keywords. (#5613)
  - Improved float comparisons in the generated code.
- - esp-idf: fixed vsync locking.
+ - esp-idf: Fixed vsync locking.
  - Added `to_lowercase` and `to_uppercase` to `slint::SharedString`. (#6869)
  - Added `slint::Window::take_snapshot()`.
 
-### Node API
+### Node.js API
 
  - Added support for enums.
  - Added `initTranslations` function. (#6504)
@@ -75,23 +74,24 @@ All notable changes to this project are documented in this file.
  - LSP: Preserve `_` when auto-completing element identifiers. (#6479)
  - LSP: Added image preview in tooltip for `@image-url`.
  - LSP: Fixed reloading files that import a changed file.
- - LSP: Implemented Signature Help.
+ - LSP: Implemented signature help.
  - LSP: Added a code lense to populate empty documents with a hello world.
- - live-preview: New selection popup.
+ - live-preview: Added new selection popup.
  - live-preview: Bring the window to the front and focused it when clicking "Show preview" in the editor. (#196)
- - live-preview: On macOS, renamed "Quit" to "Closed" and used cmd+w to close the window.
+ - live-preview: On macOS, renamed "Quit" to "Close" and used cmd+w to close the window.
  - live-preview: Fixed panic if `run_event_loop` returns an error, showing an error in the editor instead.
  - live-preview: Fixed panic when dragging elements onto layouts.
- - live-preview: In the property editor, filtered layout properties not applicable to the selected element.
- - live-preview: In the property editor, visualized negative numbers.
- - live-preview: Delayed updating the preview.
+ - live-preview: In the property editor, filter layout properties not applicable to the selected element.
+ - live-preview: In the property editor, visualize negative numbers.
+ - live-preview: Delay updating the preview.
  - live-preview: Reload when image resources changed on disk.
  - live-preview: macOS: Added support for reloading via cmd+r.
  - SlintPad: Updated Monaco editor and other dependencies.
 
 ### Renderer
 
- - femtovg: Fixed artifacts of texture sampling with accidental wrap-around on texture boundaries.
+ - FemtoVG: Fixed artifacts of texture sampling with accidental wrap-around on texture boundaries.
+ - FemtoVG: Fixed rendering of fonts that rely on non-zero winding rule (such as Inter).
  - Software renderer: Fixed `char-wrap` not breaking between lines.
  - Software renderer: Fixed artifacts with partial drawing and rotation.
  - Software renderer: Fixed panic with fractional scale factor. (#6932)
@@ -99,21 +99,21 @@ All notable changes to this project are documented in this file.
 
 ### Misc
 
- - Adjusted thresholds and behavior of the SwipeGestureHandler. (#6344, #6542, #6543)
- - Improved PopupWindow positioning: positioned it to avoid clipping by the window.
+ - Adjusted thresholds and behavior of the `SwipeGestureHandler`. (#6344, #6542, #6543)
+ - Improved `PopupWindow` positioning: positioned it to avoid clipping by the window.
  - `Window::icon` is now used as the big taskbar icon on Windows.
- - Fixed TextInput mouse cursor after left click. (#6444)
- - Fixed panic in timer code. (#6187, #6505)
+ - Fixed `TextInput` mouse cursor after left click. (#6444)
+ - Fixed panics in timer code. (#6187, #6505)
  - Fixed support for older Android versions (9.0).
  - Android: handled the Destroy event properly. (#6626)
- - Supported multiple PopupWindows at the same time. (#4356)
- - Fixed `init` and `changed` callbacks not always being called in ListView. (#6836)
- - PopupWindow: closed on escape key.
- - Fixed focus handling in PopupWindow.
+ - Supported multiple popup windows at the same time. (#4356)
+ - Fixed `init` and `changed` callbacks not always being called in `ListView`. (#6836)
+ - `PopupWindow`: Close when the escape key is pressed.
+ - Fixed focus handling in `PopupWindow`.
  - Fixed bugs with global cross-references. (#6984)
- - Improved deselection behavior when pressing Left/Right in TextInput. (#6511)
+ - Improved deselection behavior when pressing left/right in `TextInput`. (#6511)
  - winit: automatically disabled maximize button when window resizing is disabled.
- - winit: react to dark/light color scheme changes on Linux (other platform were already working before). (#4392)
+ - winit: react to dark/light color scheme changes on Linux (other platforms were already working before). (#4392)
 
 
 ## 1.8.0 - 2024-09-23
