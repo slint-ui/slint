@@ -49,7 +49,7 @@ All notable changes to this project are documented in this file.
  - Fixed `init=>` callback on PopupWindow running twice in Rust-generated code
  - Derived serde traits for `PhysicalPosition`, `LogicalPosition`, `PhysicalSize`, and `LogicalSize` (#6534)
  - Used `approx_eq` to compare floats in the generated code
- - Added `PlatformBuilder` to select OpenGL API and renderer
+ - Added `BackendSelector` to select backend, renderer, and renderer specific features.
  - Added `ToSharedString` trait (#6845)
  - Implemented `AsRef<Path>` and `AsRef<OsStr>` for `SharedString`
 
