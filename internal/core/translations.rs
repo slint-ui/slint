@@ -21,14 +21,20 @@ mod formatter {
     }
 
     impl<T: Display> FormatArgs for [T] {
-        type Output<'a> = &'a T where T: 'a;
+        type Output<'a>
+            = &'a T
+        where
+            T: 'a;
         fn from_index(&self, index: usize) -> Option<&T> {
             self.get(index)
         }
     }
 
     impl<const N: usize, T: Display> FormatArgs for [T; N] {
-        type Output<'a> = &'a T where T: 'a;
+        type Output<'a>
+            = &'a T
+        where
+            T: 'a;
         fn from_index(&self, index: usize) -> Option<&T> {
             self.get(index)
         }
@@ -154,7 +160,8 @@ impl<T: Display> Display for DisplayOrInt<T> {
 }
 
 impl<'a, T: FormatArgs + ?Sized> FormatArgs for WithPlural<'a, T> {
-    type Output<'b> = DisplayOrInt<T::Output<'b>>
+    type Output<'b>
+        = DisplayOrInt<T::Output<'b>>
     where
         Self: 'b;
 
