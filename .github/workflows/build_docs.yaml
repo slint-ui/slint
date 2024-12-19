@@ -114,10 +114,16 @@ jobs:
                 fi
                   echo "VERSION=$version" >> $GITHUB_OUTPUT
             - name: Update URL for sitemap in site-config.ts
-              if: ${{ env.RELEASE_INPUT == 'true' }}
               run: |
-                sed -i 's|BASE_URL = ".*"|BASE_URL = "https://releases.slint.dev"|' docs/astro/src/utils/site-config.ts
-                sed -i 's|BASE_PATH = ".*"|BASE_PATH = "/${{ steps.version.outputs.VERSION }}/docs/slint"|' docs/astro/src/utils/site-config.ts
+                if [ "$RELEASE_INPUT" != "true" ]; then
+                    base_url="https://snapshots.slint.dev"
+                    base_path="/master/docs/slint/"
+                else
+                    base_url="https://releases.slint.dev"
+                    base_path="/${{ steps.version.outputs.VERSION }}/docs/slint"
+                fi
+                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/astro/src/utils/site-config.ts
+                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/astro/src/utils/site-config.ts
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
             - name: Spellcheck
