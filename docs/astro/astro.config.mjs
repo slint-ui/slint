@@ -6,11 +6,11 @@ import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import rehypeExternalLinks from "rehype-external-links";
 import starlightSidebarTopics from "starlight-sidebar-topics";
-import { BASE_PATH } from "./src/utils/site-config";
+import { BASE_PATH, BASE_URL } from "./src/utils/site-config";
 
 // https://astro.build/config
 export default defineConfig({
-    site: `https://releases.slint.dev${BASE_PATH}`,
+    site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     markdown: {
         rehypePlugins: [
