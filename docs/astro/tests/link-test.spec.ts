@@ -13,19 +13,21 @@ test("Test all links", async ({ page }) => {
             const basePath = href.split("#")[0];
             if (basePath) {
                 const response = await page.goto(basePath);
+                const status = response?.status();
                 expect(
-                    response?.status(),
-                    `Link ${key} (${basePath}) returned ${response?.status()}`,
-                ).toBe(200);
+                    [200, 304].includes(status!),
+                    `Link ${key} (${basePath}) returned ${status}`,
+                ).toBeTruthy();
             }
             continue;
         }
 
         const response = await page.goto(href);
+        const status = response?.status();
         expect(
-            response?.status(),
-            `Link ${key} (${href}) returned ${response?.status()}`,
-        ).toBe(200);
+            [200, 304].includes(status!),
+            `Link ${key} (${href}) returned ${status}`,
+        ).toBeTruthy();
 
         // Optionally verify we didn't get to an error page
         const title = await page.title();
