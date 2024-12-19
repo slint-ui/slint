@@ -136,9 +136,11 @@ int main(int argc, char **argv)
             } else {
                 QMessageBox::critical(
                         &main, QApplication::translate("qt_viewer", "Set Property Error"),
-                        QApplication::translate("qt_viewer", "Invalid conversion to boolean, must be true or false"),
+                        QApplication::translate(
+                                "qt_viewer",
+                                "Invalid conversion to boolean, must be true or false"),
                         QMessageBox::StandardButton::Ok);
-                return;                
+                return;
             }
             break;
         }
