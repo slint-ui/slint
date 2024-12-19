@@ -55,7 +55,7 @@ impl Visitor {
                     .expect("Missing href in link-data.json")
                     .as_str()
                     .expect("invalid string in link-data.json");
-                format!("https://releases.slint.dev/{}/docs/slint{dst}", env!("CARGO_PKG_VERSION"),)
+                format!("https://releases.slint.dev/{}/docs/slint/{dst}", env!("CARGO_PKG_VERSION"),)
             } else {
                 panic!("Unknown link {}", link);
             };
