@@ -4,20 +4,35 @@ import { test, expect } from "@playwright/test";
 import { linkMap } from "../src/utils/utils";
 
 test("Test all links", async ({ page }) => {
-    const baseUrl = "http://localhost:4321/master/docs/slint";
+    for (const [key, value] of Object.entries(linkMap)) {
+        const href = value.href.replace(/^\//, "");
 
-    for (const [_key, value] of Object.entries(linkMap)) {
-        const fullUrl = `${baseUrl}${value.href}`;
-
-        try {
-            const response = await page.request.get(fullUrl);
-            expect
-                .soft(response.ok(), `${fullUrl} has no green status code`)
-                .toBeTruthy();
-        } catch {
-            expect
-                .soft(null, `${fullUrl} has no green status code`)
-                .toBeTruthy();
+        // Skip testing anchor links (internal page references)
+        if (href.includes("#")) {
+            // Optionally test if the base page exists
+            const basePath = href.split("#")[0];
+            if (basePath) {
+                const response = await page.goto(basePath);
+                const status = response?.status();
+                expect(
+                    [200, 304].includes(status!),
+                    `Link ${key} (${basePath}) returned ${status}`,
+                ).toBeTruthy();
+            }
+            continue;
         }
+
+        const response = await page.goto(href);
+        const status = response?.status();
+        expect(
+            [200, 304].includes(status!),
+            `Link ${key} (${href}) returned ${status}`,
+        ).toBeTruthy();
+
+        // Optionally verify we didn't get to an error page
+        const title = await page.title();
+        expect(title, `Page ${href} has error title: ${title}`).not.toContain(
+            "404",
+        );
     }
 });

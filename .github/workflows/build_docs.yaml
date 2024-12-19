@@ -104,27 +104,33 @@ jobs:
               working-directory: docs/astro
               continue-on-error: true
               run: pnpm format
-#            - name: Update URL for sitemap in astro.config.mjs
+            - name: Update URL for sitemap in site-config.ts
 #              if: ${{ env.RELEASE_INPUT == 'true' }}
-#              run: |
-#                sed -i 's|"https://snapshots.slint.dev/master/docs/slint/"|"https://releases.slint.dev/${{ steps.version.outputs.VERSION }}/docs/slint/"|' docs/astro/astro.config.mjs
-#                sed -i 's|"/master/docs/slint"|"/${{ steps.version.outputs.VERSION }}/docs/slint"|' docs/astro/astro.config.mjs
-#                sed -i 's|href="/master/docs/slint|href="/${{ steps.version.outputs.VERSION }}/docs/slint|' docs/astro/src/content/docs/index.mdx
+              run: |
+                sed -i 's|BASE_URL = "https://snapshots.slint.dev"|BASE_URL = "https://releases.slint.dev"|' docs/astro/src/utils/site-config.ts
+                sed -i 's|BASE_PATH = "/master/docs/slint"|BASE_PATH = "/${{ steps.version.outputs.VERSION }}/docs/slint"|' docs/astro/src/utils/site-config.ts
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
             - name: Spellcheck
               working-directory: docs/astro
               run: pnpm spellcheck
             # Test docs
-#            - name: Install Playwright
-#              working-directory: docs/astro
-#              run: pnpm exec playwright install --with-deps
-#            - name: Run Playwright tests
-#              working-directory: docs/astro
-#              run: pnpm exec playwright test
-#            - name: Publish Test Summary Results
-#              working-directory: docs/astro
-#              run: npx github-actions-ctrf playwright-report/ctrf-report.json
+            - name: Install Playwright
+              working-directory: docs/astro
+              run: pnpm exec playwright install --with-deps
+            - name: Run Playwright tests
+              working-directory: docs/astro
+              run: pnpm exec playwright test
+            - name: Publish Test Summary Results
+              working-directory: docs/astro
+              run: npx github-actions-ctrf playwright-report/ctrf-report.json
+            - name: Upload test results
+              if: always()
+              uses: actions/upload-artifact@v3
+              with:
+                name: playwright-test-report
+                path: docs/astro/playwright-report/
+                retention-days: 30
 
             - name: "Node docs"
               run: pnpm run docs
