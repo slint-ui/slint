@@ -1,0 +1,18 @@
+name: autofix.ci  # needed to securely identify the workflow
+
+on:
+  pull_request:
+    branches: [master, "feature/*"]
+  push:
+    branches: [master, "feature/*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format_lint_typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO
