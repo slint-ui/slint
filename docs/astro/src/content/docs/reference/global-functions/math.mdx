@@ -1,6 +1,6 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Math 
+title: Math
 description: Math Namespace
 ---
 
@@ -23,10 +23,10 @@ x: abs(-10); // sets x to 10
 Some of the math functions can be used in a postfix style which can make the code more readable.
 ```slint no-test
 // Using the postfix style.
-x: -10.abs(); // sets x to 10
-```  
+x: (-10).abs(); // sets x to 10
+```
 
-**T type**  
+**T type**
 Many of the math functions can be used with any <Link type="NumericTypes" label="numeric type"/> such as `angle`, `duration`, `float`, `int`, `length`, and `percent`. These are represented on this page as `T`.
 
 ## General Math Functions
@@ -35,11 +35,11 @@ Many of the math functions can be used with any <Link type="NumericTypes" label=
 Return the absolute value, where T is a numeric type.
 ```slint no-test
 Math.abs(-10); // returns 10
-abs(-10); // returns 10
--10.abs(); // returns 10
+abs(-10px); // returns 10px
+(-10).abs(); // returns 10
 ```
 
-### ceil(float) -> int 
+### ceil(float) -> int
 Returns the value rounded up to the nearest integer.
 ```slint no-test
 Math.ceil(4); // returns 4
@@ -99,7 +99,7 @@ Return the value of the first value raised to the second
 
 
 ## Trigonometric Functions
-### acos(float) -> angle 
+### acos(float) -> angle
 Returns the arccosine, or inverse cosine, of a number. The arccosine is the angle whose cosine is number.
 
 
@@ -111,7 +111,7 @@ Returns the arctangent, or inverse tangent, of a number.
 
 ### atan2(float, float) -> angle
 
-### cos(angle) -> float 
+### cos(angle) -> float
 
 ### sin(angle) -> float
 
