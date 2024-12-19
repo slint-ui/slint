@@ -50,9 +50,6 @@ jobs:
                   tool_name: formatters
                   level: error
                   fail_on_error: true
-            - name: Build Node.js API before type-check
-              working-directory: api/node
-              run: pnpm build:debug
             - name: Build wasm-interpreter before type check
               working-directory: tools/slintpad
               run: pnpm build:wasm_interpreter
