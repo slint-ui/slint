@@ -26,7 +26,7 @@ function populateVersions(versions: Version[]) {
         ? "next"
         : version.version;
       // Select the correct version based on the URL
-      const isCurrentVersion = currentUrl.includes(version.version);
+      const isCurrentVersion = currentUrl.includes(version.version) || (currentUrl.includes('latest') && version.preferred);
       const isDevelopmentSnapshot = currentUrl.includes('master') && version.name?.includes('development snapshot');
       if (isCurrentVersion || isDevelopmentSnapshot) option.selected = true;
       select.appendChild(option);
