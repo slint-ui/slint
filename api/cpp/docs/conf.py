@@ -130,7 +130,7 @@ with open(os.path.join(os.path.dirname(__file__), "..", "..", "internal", "core-
 
 for key in links.keys():
     href = links[key]["href"]
-    url = f"https://slint.dev/releases/{version}/docs/slint{href}"
+    url = f"https://slint.dev/releases/{version}/docs/slint/{href}"
     myst_substitutions[f"slint_href_{key}"] = url
     rst_epilog += f".. |{key}| replace:: :code:`{key}`\n"
     rst_epilog += f".. _{key}: {url}\n"
