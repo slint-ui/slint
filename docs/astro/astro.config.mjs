@@ -11,7 +11,7 @@ import { BASE_PATH } from "./src/utils/site-config";
 // https://astro.build/config
 export default defineConfig({
     site: `https://releases.slint.dev${BASE_PATH}`,
-    base: `${BASE_PATH}`,
+    base: BASE_PATH,
     markdown: {
         rehypePlugins: [
             [
