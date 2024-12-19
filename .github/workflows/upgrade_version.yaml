@@ -80,11 +80,9 @@ jobs:
                   releases/versions.json
                 path: www-releases
                 token: ${{ steps.app-token.outputs.token }}
-            - name: List files in www-releases
-              run: ls -R www-releases
             - name: Update version in versions.json
               run: |
-                sed -i '0,/"version": "[0-9]\+\.[0-9]\+\.[0-9]\+"/s//"version": "${{ github.event.inputs.new_version }}"/' releases/versions.json
+                sed -i '0,/"version": "[0-9]\+\.[0-9]\+\.[0-9]\+"/s//"version": "${{ github.event.inputs.new_version }}"/' www-releases/releases/versions.json
             - name: Adjust redirections
               run: |
                 sed -i "/\/[0-9]*\.[0-9]*\.[0-9]*\/* https:\/\/snapshots\.slint\.dev\/master\/:splat/ s/[0-9]*\.[0-9]*\.[0-9]*/${{ github.event.inputs.new_version }}/" www-releases/releases/_redirects
