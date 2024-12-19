@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 # Run various formatters, linters, and type-checkers (Rust, C++, TypeScript, etc.)
-name: Format, Lint, and type-check
+name: autofix.ci
 
 on:
     workflow_call:
