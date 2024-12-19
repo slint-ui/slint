@@ -32,7 +32,7 @@ All notable changes to this project are documented in this file.
  - Added `accessible-item-selectable`, `accessible-item-selected`, `accessible-enabled`, `accessible-item-index`, and `accessible-delegate-focus` properties.
  - Emit a warning when the case of the import file differs from the case of the file that was imported. (#4265)
  - Support property changed callbacks in globals. (#6599)
- - `Window`: Added `skip-taskbar` (#6911) and `full-screen` (#6665) properties.
+ - `Window`: Added `full-screen` (#6665) property.
  - `Window::icon` is now used as the big taskbar icon on Windows.
  - Fixed `min(..)` and `max(..)` functions with `rem` units.
  - Emit a warning when a `@linear-gradient` or `@radial-gradient` is assigned directly to a color property. (#6819)
