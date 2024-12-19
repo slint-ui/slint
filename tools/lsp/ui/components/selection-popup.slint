@@ -6,60 +6,79 @@ import { EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, EditorPale
 import { Api, SelectionStackFrame, SelectionStackFilter } from "../api.slint";
 import { Icons } from "styling.slint";
 
-component FilterList inherits Rectangle {
+component FilterList {
+    public function show() { pop.show(); } 
+    public function close() { pop.close(); }
+    
     out property <SelectionStackFilter> filter: {
-        if (!lcb.checked && !icb.checked && ocb.checked) {
+        if (!self.lcb && !self.icb && self.ocb) {
             return SelectionStackFilter.Others;
-        } else if (!lcb.checked && icb.checked && !ocb.checked) {
+        } else if (!self.lcb && self.icb && !self.ocb) {
             return SelectionStackFilter.Interactive;
-        } else if (!lcb.checked && icb.checked && ocb.checked) {
+        } else if (!self.lcb && self.icb && self.ocb) {
             return SelectionStackFilter.InteractiveAndOthers;
-        } else if (lcb.checked && !icb.checked && !ocb.checked) {
+        } else if (self.lcb && !self.icb && !self.ocb) {
             return SelectionStackFilter.Layouts;
-        } else if (lcb.checked && !icb.checked && ocb.checked) {
+        } else if (self.lcb && !self.icb && self.ocb) {
             return SelectionStackFilter.LayoutsAndOthers;
-        } else if (lcb.checked && icb.checked && !ocb.checked) {
+        } else if (self.lcb && self.icb && !self.ocb) {
             return SelectionStackFilter.LayoutsAndInteractive;
-        } else if (lcb.checked && icb.checked && ocb.checked) {
+        } else if (self.lcb && self.icb && self.ocb) {
             return SelectionStackFilter.Everything;
         }
         return SelectionStackFilter.Nothing;
     }
-    out property <bool> has-filter: !lcb.checked || !icb.checked || !ocb.checked;
+    out property <bool> has-filter: !self.lcb || !self.icb || !self.ocb;
 
-    border-color: Palette.border;
-    border-width: 1px;
-    border-radius: EditorSizeSettings.radius;
+    private property <bool> lcb;
+    private property <bool> icb;
+    private property <bool> ocb;
 
-    drop-shadow-blur: EditorSpaceSettings.default-padding;
-    drop-shadow-color: Palette.foreground.transparentize(0.9);
+    width: 0px;
+    height: 0px;
 
-    background: Palette.alternate-background;
+    pop := PopupWindow {
+        width: self.preferred-width;
+        height: self.preferred-height;
 
-    TouchArea {
-        y: - EditorSpaceSettings.default-padding;
-        height: parent.height + EditorSpaceSettings.default-padding * 2;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+        
+        Rectangle {
+            border-color: Palette.border;
+            border-width: 1px;
+            border-radius: EditorSizeSettings.radius;
 
-        // Just block events from reaching other TouchAreas!
-    }
+            drop-shadow-blur: EditorSpaceSettings.default-padding;
+            drop-shadow-color: Palette.foreground.transparentize(0.9);
 
-    VerticalLayout {
-        padding: EditorSpaceSettings.default-padding;
-        spacing: EditorSpaceSettings.default-spacing;
+            background: Palette.alternate-background;
 
-        lcb := CheckBox {
-            text: @tr("Layouts");
-            checked: true;
-        }
+            TouchArea {
+                // Just block events from reaching other TouchAreas!
+            }
 
-        icb := CheckBox {
-            text: @tr("Interactive");
-            checked: true;
-        }
+            VerticalLayout {
+                padding: EditorSpaceSettings.default-padding;
+                spacing: EditorSpaceSettings.default-spacing;
 
-        ocb := CheckBox {
-            text: @tr("Other");
-            checked: true;
+                lcb := CheckBox {
+                    text: @tr("Layouts");
+                    checked <=> root.lcb;
+                    init => { self.checked = true; }
+                }
+
+                icb := CheckBox {
+                    text: @tr("Interactive");
+                    checked <=> root.icb;
+                    init => { self.checked = true; }
+                }
+
+                ocb := CheckBox {
+                    text: @tr("Other");
+                    checked <=> root.ocb;
+                    init => { self.checked = true; }
+                }
+            }
         }
     }
 }
@@ -205,7 +224,6 @@ component PopupInner inherits Rectangle {
         changed has-hover => {
             if self.has-hover {
                 root.unselect-previewed-selection();
-                filter-list.visible = false;
             }
         }
     }
@@ -230,7 +248,7 @@ component PopupInner inherits Rectangle {
                 colorize-icon: true;
 
                 clicked => {
-                    filter-list.visible = !filter-list.visible;
+                    filter-list.show();
                     filter-edit.clear-focus();
                     self.checked = filter-state;
                 }
@@ -442,7 +460,6 @@ component PopupInner inherits Rectangle {
                                 }
                                 changed has-hover => {
                                     if self.has-hover {
-                                        filter-list.visible = false;
                                         Api.select-element(frame.element-path, frame.element-offset, frame.x * root.preview-width, frame.y * root.preview-height);
                                     }
                                 }
@@ -464,11 +481,6 @@ component PopupInner inherits Rectangle {
     filter-list := FilterList {
         x: filter-button.x + EditorSpaceSettings.default-spacing;
         y: filter-button.y + filter-button.height + EditorSpaceSettings.default-spacing;
-
-        width: self.preferred-width;
-        height: self.preferred-height;
-
-        visible: false;
     }
 }
 
