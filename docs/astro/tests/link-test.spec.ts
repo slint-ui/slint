@@ -5,7 +5,7 @@ import { linkMap } from "../src/utils/utils";
 
 test("Test all links", async ({ page }) => {
     for (const [key, value] of Object.entries(linkMap)) {
-        const href = value.href.replace(/^\//, "");
+        const href = value.href;
 
         // Skip testing anchor links (internal page references)
         if (href.includes("#")) {
