@@ -47,8 +47,7 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
-    "test": "ava",
-    "type-check": "tsc --noEmit"
+    "test": "ava"
   },
   "ava": {
     "extensions": {
