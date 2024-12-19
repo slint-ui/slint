@@ -293,16 +293,16 @@ impl BackendBuilder {
                     return Err(PlatformError::NoPlatform);
                 }
             }
-            (None, Some(requested_graphics_api)) => {
+            (None, Some(_requested_graphics_api)) => {
                 cfg_if::cfg_if! {
                     if #[cfg(enable_skia_renderer)] {
-                        renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(requested_graphics_api))?
+                        renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?
                     } else if #[cfg(feature = "renderer-femtovg")] {
                         // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-                        RequestedOpenGLVersion::try_from(requested_graphics_api.clone())?;
+                        RequestedOpenGLVersion::try_from(_requested_graphics_api.clone())?;
                         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
                     } else {
-                        return Err(format!("Graphics API use requested by the compile-time enabled renderers don't support that"))
+                        return Err(format!("Graphics API use requested by the compile-time enabled renderers don't support that").into())
                     }
                 }
             }
