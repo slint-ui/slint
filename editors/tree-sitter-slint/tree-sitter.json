@@ -1,0 +1,36 @@
+{
+  "grammars": [
+    {
+      "name": "slint",
+      "camelcase": "Slint",
+      "scope": "source.slint",
+      "file-types": [
+        ".slint"
+      ],
+      "injection-regex": "^slint$"
+    }
+  ],
+  "metadata": {
+    "version": "0.23.0",
+    "license": "MIT",
+    "description": "A tree-sitter parser for Slint",
+    "authors": [
+      {
+        "name": "Slint Developers",
+        "email": "info@slint.dev",
+        "url": "https://slint.dev/"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/slint/slint-ui/tree/master/editors/tree-sitter-slint"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": true,
+    "node": true,
+    "python": true,
+    "rust": true,
+    "swift": true
+  }
+}
