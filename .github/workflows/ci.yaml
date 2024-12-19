@@ -153,6 +153,9 @@ jobs:
               # Release is only applied to the harness that drives the node.js invocations, but needed
               # to avoid crashing on Windows with what looks like an out of stack exception.
               run: cargo test --verbose --release --all-features -p test-driver-nodejs
+            - name: Check image-filter example
+              working-directory: examples/imagefilter/node
+              run: pnpm check
 
     python_test:
         env:
