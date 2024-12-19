@@ -11,28 +11,28 @@ component FilterList {
     public function close() { pop.close(); }
     
     out property <SelectionStackFilter> filter: {
-        if (!self.lcb && !self.icb && self.ocb) {
+        if (!self.filter-layout && !self.filter-interactive && self.filter-other) {
             return SelectionStackFilter.Others;
-        } else if (!self.lcb && self.icb && !self.ocb) {
+        } else if (!self.filter-layout && self.filter-interactive && !self.filter-other) {
             return SelectionStackFilter.Interactive;
-        } else if (!self.lcb && self.icb && self.ocb) {
+        } else if (!self.filter-layout && self.filter-interactive && self.filter-other) {
             return SelectionStackFilter.InteractiveAndOthers;
-        } else if (self.lcb && !self.icb && !self.ocb) {
+        } else if (self.filter-layout && !self.filter-interactive && !self.filter-other) {
             return SelectionStackFilter.Layouts;
-        } else if (self.lcb && !self.icb && self.ocb) {
+        } else if (self.filter-layout && !self.filter-interactive && self.filter-other) {
             return SelectionStackFilter.LayoutsAndOthers;
-        } else if (self.lcb && self.icb && !self.ocb) {
+        } else if (self.filter-layout && self.filter-interactive && !self.filter-other) {
             return SelectionStackFilter.LayoutsAndInteractive;
-        } else if (self.lcb && self.icb && self.ocb) {
+        } else if (self.filter-layout && self.filter-interactive && self.filter-other) {
             return SelectionStackFilter.Everything;
         }
         return SelectionStackFilter.Nothing;
     }
-    out property <bool> has-filter: !self.lcb || !self.icb || !self.ocb;
+    out property <bool> has-filter: !self.filter-layout || !self.filter-interactive || !self.filter-other;
 
-    private property <bool> lcb: true;
-    private property <bool> icb: true;
-    private property <bool> ocb: true;
+    in-out property <bool> filter-interactive: true;
+    in-out property <bool> filter-layout: true;
+    in-out property <bool> filter-other: true;
 
     width: 0px;
     height: 0px;
@@ -63,17 +63,17 @@ component FilterList {
 
                 lcb := CheckBox {
                     text: @tr("Layouts");
-                    checked <=> root.lcb;
+                    checked <=> root.filter-layout;
                 }
 
                 icb := CheckBox {
                     text: @tr("Interactive");
-                    checked <=> root.icb;
+                    checked <=> root.filter-interactive;
                 }
 
                 ocb := CheckBox {
                     text: @tr("Other");
-                    checked <=> root.ocb;
+                    checked <=> root.filter-other;
                 }
             }
         }
@@ -85,6 +85,11 @@ component PopupInner inherits Rectangle {
     in property <length> preview-height: 900px;
 
     callback close();
+
+    in-out property <bool> filter-interactive: true;
+    in-out property <bool> filter-layout: true;
+    in-out property <bool> filter-other: true;
+    in-out property <string> filter-text: "";
 
     in property <length> max-popup-height: 900px;
     in-out property <length> selection-x: 0px;
@@ -249,11 +254,16 @@ component PopupInner inherits Rectangle {
                     filter-edit.clear-focus();
                     self.checked = filter-state;
                 }
+
+                init => {
+                    self.checked = filter-state;
+                }
             }
 
             filter-edit := LineEdit {
                 placeholder-text: "Filter";
                 min-width: 50px;
+                text <=> root.filter-text;
                 init => {
                     self.focus();
                 }
@@ -478,6 +488,10 @@ component PopupInner inherits Rectangle {
     filter-list := FilterList {
         x: filter-button.x + EditorSpaceSettings.default-spacing;
         y: filter-button.y + filter-button.height + EditorSpaceSettings.default-spacing;
+
+        filter-layout <=> root.filter-layout;
+        filter-interactive <=> root.filter-interactive;
+        filter-other <=> root.filter-other;
     }
 }
 
@@ -497,6 +511,11 @@ export component SelectionPopup {
     private property <length> selection-x;
     private property <length> selection-y;
 
+    private property <bool> filter-interactive: true;
+    private property <bool> filter-layout: true;
+    private property <bool> filter-other: true;
+    private property <string> filter-text: "";
+
     popup := PopupWindow {
         in property <length> preview-width: root.preview-width;
         in property <length> preview-height: root.preview-height;
@@ -504,6 +523,11 @@ export component SelectionPopup {
         in-out property <length> selection-x: root.selection-x;
         in-out property <length> selection-y: root.selection-y;
         in property <length> max-popup-height: root.max-popup-height;
+
+        in-out property <bool> filter-interactive <=> root.filter-interactive;
+        in-out property <bool> filter-layout <=> root.filter-layout;
+        in-out property <bool> filter-other <=> root.filter-other;
+        in-out property <string> filter-text <=> root.filter-text;
 
         close-policy: PopupClosePolicy.close-on-click-outside;
 
@@ -517,6 +541,11 @@ export component SelectionPopup {
                 close() => {
                     popup.close();
                 }
+
+                filter-text <=> popup.filter-text;
+                filter-layout <=> popup.filter-layout;
+                filter-interactive <=> popup.filter-interactive;
+                filter-other <=> popup.filter-other;
 
                 preview-width <=> popup.preview-width;
                 preview-height <=> popup.preview-height;
