@@ -80,6 +80,8 @@ jobs:
                   releases/versions.json
                 path: www-releases
                 token: ${{ steps.app-token.outputs.token }}
+            - name: List files in www-releases
+              run: ls -R www-releases
             - name: Update version in versions.json
               run: |
                 sed -i '0,/"version": "[0-9]\+\.[0-9]\+\.[0-9]\+"/s//"version": "${{ github.event.inputs.new_version }}"/' releases/versions.json
