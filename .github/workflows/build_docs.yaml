@@ -60,20 +60,6 @@ jobs:
             - name: Remove docs from cache # Avoid stale docs
               run: |
                   rm -rf target/doc target/cppdocs api/node/docs
-            - name: Check license headers
-              run: cargo xtask check_license_headers --fix-it
-            - name: Suggest license header changes
-              uses: reviewdog/action-suggester@v1
-              with:
-                  tool_name: xtask license_header
-                  level: error
-                  fail_on_error: true
-            - run: sudo apt-get install pipx
-            - run: pipx install reuse
-            - name: Check reuse compliance
-              run: cargo xtask check_reuse_compliance
-
-            # Build Docs
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS="" 
