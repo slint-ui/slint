@@ -499,7 +499,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
             match p.kind() {
                 SyntaxKind::DeclaredIdentifier => {
-                    common::rename_component::rename_component_from_definition(
+                    common::rename_component::rename_identifier_from_declaration(
                         &document_cache,
                         &p.into(),
                         &params.new_name,
@@ -532,7 +532,13 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             let p = tk.parent();
             if matches!(p.kind(), SyntaxKind::DeclaredIdentifier) {
                 if let Some(gp) = p.parent() {
-                    if gp.kind() == SyntaxKind::Component {
+                    if [
+                        SyntaxKind::Component,
+                        SyntaxKind::EnumDeclaration,
+                        SyntaxKind::StructDeclaration,
+                    ]
+                    .contains(&gp.kind())
+                    {
                         return Ok(Some(PrepareRenameResponse::Range(util::node_to_lsp_range(&p))));
                     }
                 }

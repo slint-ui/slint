@@ -362,9 +362,11 @@ fn rename_component(
         return;
     };
 
-    if let Ok(edit) =
-        rename_component::rename_component_from_definition(&document_cache, &identifier, &new_name)
-    {
+    if let Ok(edit) = rename_component::rename_identifier_from_declaration(
+        &document_cache,
+        &identifier,
+        &new_name,
+    ) {
         // Update which component to show after refresh from the editor.
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.rename_current_component(&old_url, &old_name, &new_name);
