@@ -125,6 +125,13 @@ jobs:
             - name: Publish Test Summary Results
               working-directory: docs/astro
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
+            - name: Upload test results
+              if: always()
+              uses: actions/upload-artifact@v3
+              with:
+                name: playwright-test-report
+                path: docs/astro/playwright-report/
+                retention-days: 30
 
             - name: "Node docs"
               run: pnpm run docs
