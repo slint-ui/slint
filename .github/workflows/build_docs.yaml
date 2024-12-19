@@ -104,11 +104,20 @@ jobs:
               working-directory: docs/astro
               continue-on-error: true
               run: pnpm format
-            - name: Update URL for sitemap in site-config.ts
-#              if: ${{ env.RELEASE_INPUT == 'true' }}
+            - name: Extract Version from Cargo.toml
+              id: version
               run: |
-                sed -i 's|BASE_URL = "https://snapshots.slint.dev"|BASE_URL = "https://releases.slint.dev"|' docs/astro/src/utils/site-config.ts
-                sed -i 's|BASE_PATH = "/master/docs/slint"|BASE_PATH = "/${{ steps.version.outputs.VERSION }}/docs/slint"|' docs/astro/src/utils/site-config.ts
+                version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
+                if [[ -z "$version" ]]; then
+                  echo "Version not found"
+                  exit 1
+                fi
+                  echo "VERSION=$version" >> $GITHUB_OUTPUT
+            - name: Update URL for sitemap in site-config.ts
+              if: ${{ env.RELEASE_INPUT == 'true' }}
+              run: |
+                sed -i 's|BASE_URL = ".*"|BASE_URL = "https://releases.slint.dev"|' docs/astro/src/utils/site-config.ts
+                sed -i 's|BASE_PATH = ".*"|BASE_PATH = "/${{ steps.version.outputs.VERSION }}/docs/slint"|' docs/astro/src/utils/site-config.ts
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
             - name: Spellcheck
