@@ -30,9 +30,9 @@ component FilterList {
     }
     out property <bool> has-filter: !self.lcb || !self.icb || !self.ocb;
 
-    private property <bool> lcb;
-    private property <bool> icb;
-    private property <bool> ocb;
+    private property <bool> lcb: true;
+    private property <bool> icb: true;
+    private property <bool> ocb: true;
 
     width: 0px;
     height: 0px;
@@ -64,19 +64,16 @@ component FilterList {
                 lcb := CheckBox {
                     text: @tr("Layouts");
                     checked <=> root.lcb;
-                    init => { self.checked = true; }
                 }
 
                 icb := CheckBox {
                     text: @tr("Interactive");
                     checked <=> root.icb;
-                    init => { self.checked = true; }
                 }
 
                 ocb := CheckBox {
                     text: @tr("Other");
                     checked <=> root.ocb;
-                    init => { self.checked = true; }
                 }
             }
         }
