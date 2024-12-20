@@ -4,9 +4,10 @@
 export global AppState {
     out property <int> totalLights: 35;
     property <angle> degreesFilledWithLights: 360deg - (startAngle - endAngle);
-    out property <int> volume: (normalizeAngle(angle - startAngle) / degreesFilledWithLights) * totalLights;
+    out property <int> volume: (normalizeAngle(angle - startAngle) / degreesFilledWithLights) * (totalLights + 1);
     out property <angle> startAngle: 120deg;
     out property <angle> endAngle: 60deg;
+    out property <angle> angleGap: startAngle - endAngle;
     in-out property <angle> angle: startAngle;
     out property <length> elementRadius: 185px;
 
@@ -68,10 +69,11 @@ export component AppWindow inherits Window {
         property <length> centerY: self.height / 2;
         property <length> relativeX;
         property <length> relativeY;
+        property <angle> lastAngle;
         property <angle> newAngle;
-        property <bool> hovering: Math.pow((ta.mouse-x - centerX) / 1px, 2) + Math.pow((ta.mouse-y - centerY) / 1px, 2) < metalKnob.width / 2px * metalKnob.height / 2px;
+        property <angle> nextAngle;
+        property <bool> hovering: Math.pow(relativeX / 1px, 2) + Math.pow(relativeY / 1px, 2) < metalKnob.width / 2px * metalKnob.height / 2px;
         property <bool> touching: false;
-        property <angle> deltaDegrees;
         width: base.width;
         height: base.height;
 
@@ -84,15 +86,18 @@ export component AppWindow inherits Window {
             if event.kind == PointerEventKind.down {
                 if hovering {
                     touching = true;
-                    // on first touch work out what angle the dial is at. Then use this to create a delta
-                    // So further movement will be relative to this angle.
-                    deltaDegrees = AppState.normalizeAngle(AppState.angle - newAngle);
+                    lastAngle = newAngle;
                 }
             } else if event.kind == PointerEventKind.up {
                 touching = false;
             } else if event.kind == PointerEventKind.move {
                 if touching {
-                    AppState.angle = AppState.normalizeAngle(deltaDegrees + newAngle);
+                    nextAngle = AppState.normalizeAngle(AppState.angle - lastAngle + newAngle);
+                    // Check if the new angle is within the start and end angles
+                    if nextAngle >= AppState.startAngle || nextAngle <= AppState.endAngle {
+                        AppState.angle = nextAngle;
+                    }
+                    lastAngle = newAngle;
                 }
             }
         }
