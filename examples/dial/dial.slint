@@ -4,11 +4,11 @@
 export global AppState {
     out property <int> totalLights: 35;
     property <angle> degreesFilledWithLights: 360deg - (startAngle - endAngle);
-    in-out property <int> volume: (normalizeAngle(angle - startAngle) / degreesFilledWithLights) * totalLights;
+    out property <int> volume: (normalizeAngle(angle - startAngle) / degreesFilledWithLights) * totalLights;
     out property <angle> startAngle: 120deg;
     out property <angle> endAngle: 60deg;
     in-out property <angle> angle: startAngle;
-    in-out property <length> elementRadius: 185px;
+    out property <length> elementRadius: 185px;
 
     pure public function normalizeAngle(angle: angle) -> angle {
         return (angle + 360deg).mod(360deg);
@@ -27,9 +27,6 @@ export component Light {
     height: 0;
 
     states [
-        lightOff when !root.lightOn: {
-            blueLed.opacity: 0;
-        }
         lightOn when root.lightOn: {
             blueLed.opacity: 0.6;
             in {
@@ -46,15 +43,14 @@ export component Light {
             }
         }
     ]
-    Rectangle {
-        Image {
-            source: @image-url("images/light-hole.png");
-        }
 
-        blueLed := Image {
-            source: @image-url("images/light.png");
-            opacity: 0;
-        }
+    Image {
+        source: @image-url("images/light-hole.png");
+    }
+
+    blueLed := Image {
+        source: @image-url("images/light.png");
+        opacity: 0;
     }
 }
 
@@ -63,81 +59,71 @@ export component AppWindow inherits Window {
     preferred-height: 500px;
     background: #1e1d27;
 
-    Rectangle {
-        width: 425px;
-        height: 427px;
-        background: #1e1d27;
-        knob := Rectangle {
-            base := Image {
-                source: @image-url("images/dial-frame.png");
-                ta := TouchArea {
-                    property <length> centerX: self.width / 2;
-                    property <length> centerY: self.height / 2;
-                    property <length> relativeX;
-                    property <length> relativeY;
-                    property <angle> newAngle;
-                    property <bool> hovering: Math.pow((ta.mouse-x - centerX) / 1px, 2) + Math.pow((ta.mouse-y - centerY) / 1px, 2) < metalKnob.width / 2px * metalKnob.height / 2px;
-                    property <bool> touching: false;
-                    property <angle> deltaDegrees;
-                    width: parent.width;
-                    height: parent.height;
-                    mouse-cursor: touching ? move : hovering ? grab : default;
+    base := Image {
+        source: @image-url("images/dial-frame.png");
+    }
 
-                    pointer-event(event) => {
-                        relativeX = ta.mouse-x - centerX;
-                        relativeY = ta.mouse-y - centerY;
-                        newAngle = AppState.normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
-                        if event.kind == PointerEventKind.down {
-                            if hovering {
-                                touching = true;
-                                // on first touch work out what angle the dial is at. Then use this to create a delta
-                                // So further movement will be relative to this angle.
-                                deltaDegrees = AppState.normalizeAngle(AppState.angle - newAngle);
-                            }
-                        } else if event.kind == PointerEventKind.up {
-                            touching = false;
-                        } else if event.kind == PointerEventKind.move {
-                            if touching {
-                                AppState.angle = AppState.normalizeAngle(deltaDegrees + newAngle);
-                            }
-                        }
-                    }
+    ta := TouchArea {
+        property <length> centerX: self.width / 2;
+        property <length> centerY: self.height / 2;
+        property <length> relativeX;
+        property <length> relativeY;
+        property <angle> newAngle;
+        property <bool> hovering: Math.pow((ta.mouse-x - centerX) / 1px, 2) + Math.pow((ta.mouse-y - centerY) / 1px, 2) < metalKnob.width / 2px * metalKnob.height / 2px;
+        property <bool> touching: false;
+        property <angle> deltaDegrees;
+        width: base.width;
+        height: base.height;
+
+        mouse-cursor: touching ? move : hovering ? grab : default;
+
+        pointer-event(event) => {
+            relativeX = ta.mouse-x - centerX;
+            relativeY = ta.mouse-y - centerY;
+            newAngle = AppState.normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
+            if event.kind == PointerEventKind.down {
+                if hovering {
+                    touching = true;
+                    // on first touch work out what angle the dial is at. Then use this to create a delta
+                    // So further movement will be relative to this angle.
+                    deltaDegrees = AppState.normalizeAngle(AppState.angle - newAngle);
+                }
+            } else if event.kind == PointerEventKind.up {
+                touching = false;
+            } else if event.kind == PointerEventKind.move {
+                if touching {
+                    AppState.angle = AppState.normalizeAngle(deltaDegrees + newAngle);
                 }
             }
         }
+    }
 
-        Rectangle {
-            width: 1px;
-            height: 1px;
-            x: 212px;
-            y: 210px;
+    metalKnob := Image {
+        source: @image-url("images/metal-dial.png");
+        rotation-angle: AppState.angle;
+    }
 
-            metalKnob := Image {
-                source: @image-url("images/metal-dial.png");
-                rotation-angle: AppState.angle;
-            }
+    Image {
+        source: @image-url("images/metal-lights.png");
+    }
 
-            Image {
-                source: @image-url("images/metal-lights.png");
-            }
+    Image {
+        source: @image-url("images/dial-trim.png");
+    }
 
-            Image {
-                x: 120px * AppState.angle.cos();
-                y: 120px * AppState.angle.sin();
-                source: @image-url("images/indicator.png");
-            }
+    Rectangle {
+        x: parent.width / 2;
+        y: parent.height / 2;
 
-            Image {
-                source: @image-url("images/dial-trim.png");
-            }
+        Image {
+            property <float> r: 0.5;
+            x: r * root.width / 2 * AppState.angle.cos();
+            y: r * root.height / 2 * AppState.angle.sin();
+            source: @image-url("images/indicator.png");
+        }
 
-            lightHolder := Rectangle {
-                x: 0px;
-                y: 2px;
-                for i in AppState.totalLights + 1: Light {
-                    index: i;
-                }
-            }
+        for i in AppState.totalLights + 1: Light {
+            index: i;
         }
     }
 }
