@@ -11,7 +11,6 @@ Dial example. Uses Math.atan2 to calculate the angle and let the user rotate a d
 
 # Planned changes
 
-- [ ] Lock the dial so it cannot be rotated between the blank start and end angles.
 - [ ] Update the graphics slightly. They are 10 years old and would benefit from a small polish.
 
 
