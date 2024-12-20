@@ -209,10 +209,4 @@ async-compat = { version = "0.2.4" }
 i-slint-backend-qt = { workspace = true, features = [ "enable" ], optional = true }
 
 [package.metadata.docs.rs]
-rustdoc-args = [
-  # "--html-in-header",
-  # "docs/astro/src/utils/slint-docs-preview.html",
-  "--html-in-header",
-  "docs/astro/src/utils/slint-docs-highlight.html",
-]
 features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "raw-window-handle-06"]
