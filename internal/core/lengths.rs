@@ -16,6 +16,7 @@ pub type LogicalPoint = euclid::Point2D<Coord, LogicalPx>;
 pub type LogicalSize = euclid::Size2D<Coord, LogicalPx>;
 pub type LogicalVector = euclid::Vector2D<Coord, LogicalPx>;
 pub type LogicalBorderRadius = BorderRadius<Coord, LogicalPx>;
+pub type ItemTransform = euclid::Transform2D<f32, LogicalPx, LogicalPx>;
 
 pub type ScaleFactor = euclid::Scale<f32, LogicalPx, PhysicalPx>;
 

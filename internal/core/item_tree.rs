@@ -10,7 +10,7 @@ use crate::accessibility::{
 };
 use crate::items::{AccessibleRole, ItemRef, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalPoint, LogicalRect};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use crate::SharedString;
@@ -784,6 +784,23 @@ impl ItemRc {
         mut visitor: impl FnMut(&ItemRc) -> ControlFlow<R>,
     ) -> Option<R> {
         self.visit_descendants_impl(&mut visitor)
+    }
+
+    /// Returns the transform to apply to children to map them into the local coordinate space of this item.
+    /// Typically this is None, but rotation for example may return Some.
+    pub fn children_transform(&self) -> Option<ItemTransform> {
+        self.downcast::<crate::items::Rotate>().map(|rotate_item| {
+            let origin = euclid::Vector2D::<f32, crate::lengths::LogicalPx>::from_lengths(
+                rotate_item.as_pin_ref().rotation_origin_x().cast(),
+                rotate_item.as_pin_ref().rotation_origin_y().cast(),
+            );
+            ItemTransform::translation(-origin.x, -origin.y)
+                .cast()
+                .then_rotate(euclid::Angle {
+                    radians: rotate_item.as_pin_ref().rotation_angle().to_radians(),
+                })
+                .then_translate(origin)
+        })
     }
 }
 

@@ -209,10 +209,12 @@ i-slint-backend-android-activity = { workspace = true, optional = true }
 slint-build = { path = "../build" }
 # The next can not be a workspace dependency because it may not have a version
 i-slint-backend-testing = {  path = "../../../internal/backends/testing", features = ["internal"] }
+i-slint-renderer-skia = {  path = "../../../internal/renderers/skia" }
 serde_json = { workspace = true }
 serde = { workspace = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util"]}
 async-compat = { version = "0.2.4" }
+bytemuck = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
