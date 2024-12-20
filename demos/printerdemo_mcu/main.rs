@@ -21,7 +21,7 @@ struct PrinterQueueData {
 impl PrinterQueueData {
     fn push_job(&self, title: slint::SharedString) {
         self.data.push(PrinterQueueItem {
-            status: JobStatus::Waiting,
+            status: "waiting".into(),
             progress: 0,
             title,
             owner: env!("CARGO_PKG_AUTHORS").into(),
@@ -78,7 +78,7 @@ fn main() -> ! {
                 if printer_queue.data.row_count() > 0 {
                     let mut top_item = printer_queue.data.row_data(0).unwrap();
                     top_item.progress += 1;
-                    top_item.status = JobStatus::Printing;
+                    top_item.status = "printing".into();
                     if top_item.progress > 100 {
                         printer_queue.data.remove(0);
                         if printer_queue.data.row_count() == 0 {
