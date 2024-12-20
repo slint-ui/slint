@@ -78,6 +78,41 @@ pub(super) fn draw_texture_line(
             }
         }
         end = end.min(len);
+
+        // Straight blitting cases
+        #[allow(unsafe_code)]
+        if alpha == 0xff && delta == Fixed::from_integer(1) && end == len {
+            let pos = pos.truncate() as usize;
+            if format == TexturePixelFormat::Rgb && colorize.alpha() == 0 {
+                let (unaligned_part, data, _tail) = unsafe { data.align_to() };
+                if unaligned_part.is_empty() {
+                    TargetPixel::blend_texture_slice_rgb(
+                        &mut line_buffer[..end],
+                        &data[pos..pos + end],
+                    );
+                    return;
+                }
+            }
+            if format == TexturePixelFormat::RgbaPremultiplied && colorize.alpha() == 0 {
+                let (unaligned_part, data, _tail) = unsafe { data.align_to() };
+                if unaligned_part.is_empty() {
+                    TargetPixel::blend_texture_slice_rgba(
+                        &mut line_buffer[..end],
+                        &data[pos..pos + end],
+                    );
+                    return;
+                }
+            }
+            if format == TexturePixelFormat::AlphaMap && colorize.alpha() == 0xff {
+                TargetPixel::blend_texture_slice_alpha(
+                    &mut line_buffer[..end],
+                    Rgb8Pixel { r: colorize.red(), g: colorize.green(), b: colorize.blue() },
+                    &data[pos..pos + end],
+                );
+                return;
+            }
+        }
+
         let mut begin = 0;
         let row_fract = row.fract();
         while begin < len {
@@ -712,6 +747,29 @@ pub trait TargetPixel: Sized + Copy {
     /// Pixel which will be filled as the background in case the slint view has transparency
     fn background() -> Self {
         Self::from_rgb(0, 0, 0)
+    }
+
+    /// Blend a texture slice into this slice of pixels
+    fn blend_texture_slice_rgba(slice: &mut [Self], color: &[PremultipliedRgbaColor]) {
+        for (p, c) in slice.iter_mut().zip(color.iter()) {
+            p.blend(*c);
+        }
+    }
+
+    /// Blend a texture slice into this slice of pixels
+    fn blend_texture_slice_rgb(slice: &mut [Self], color: &[Rgb8Pixel]) {
+        for (p, c) in slice.iter_mut().zip(color.iter()) {
+            *p = Self::from_rgb(c.r, c.g, c.b);
+        }
+    }
+
+    /// Blend an alpha map slice into this slice of pixels
+    fn blend_texture_slice_alpha(slice: &mut [Self], color: Rgb8Pixel, alpha: &[u8]) {
+        for (p, a) in slice.iter_mut().zip(alpha.iter()) {
+            let c =
+                PremultipliedRgbaColor::from(Color::from_argb_u8(*a, color.r, color.g, color.b));
+            p.blend(c)
+        }
     }
 }
 
