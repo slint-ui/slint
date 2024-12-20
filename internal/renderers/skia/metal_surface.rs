@@ -7,7 +7,7 @@ use i_slint_core::item_rendering::DirtyRegion;
 use objc2::rc::autoreleasepool;
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_foundation::CGSize;
-use objc2_metal::{MTLCommandBuffer, MTLCommandQueue, MTLDevice, MTLPixelFormat};
+use objc2_metal::{MTLCommandBuffer, MTLCommandQueue, MTLDevice, MTLPixelFormat, MTLTexture};
 use objc2_quartz_core::{CAMetalDrawable, CAMetalLayer};
 
 use skia_safe::gpu::mtl;
@@ -21,6 +21,9 @@ pub struct MetalSurface {
     command_queue: Retained<ProtocolObject<dyn objc2_metal::MTLCommandQueue>>,
     layer: raw_window_metal::Layer,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
+    // Map from drawable texture to age. Per https://developer.apple.com/documentation/quartzcore/cametallayer/maximumdrawablecount, CAMetalLayer
+    // can have either 2 or 3 drawables, but not more. That way, this vector is bound in growth.
+    drawable_ages: RefCell<Vec<(objc2_metal::MTLResourceID, u8)>>,
 }
 
 impl super::Surface for MetalSurface {
@@ -64,6 +67,12 @@ impl super::Surface for MetalSurface {
             ca_layer.setPresentsWithTransaction(false);
 
             ca_layer.setDrawableSize(CGSize::new(size.width as f64, size.height as f64));
+
+            // When partial rendering is enabled, we need to set the maximum drawable count to 2 to avoid triple
+            // buffering. Triple buffering is not supported by the partial renderer.
+            if std::env::var("SLINT_SKIA_PARTIAL_RENDERING").is_ok() {
+                ca_layer.setMaximumDrawableCount(2);
+            }
         }
 
         let flipped = ca_layer.contentsAreFlipped();
@@ -88,7 +97,7 @@ impl super::Surface for MetalSurface {
         let gr_context =
             skia_safe::gpu::direct_contexts::make_metal(&backend, None).unwrap().into();
 
-        Ok(Self { command_queue, layer, gr_context })
+        Ok(Self { command_queue, layer, gr_context, drawable_ages: Default::default() })
     }
 
     fn name(&self) -> &'static str {
@@ -104,6 +113,7 @@ impl super::Surface for MetalSurface {
         unsafe {
             ca_layer.setDrawableSize(CGSize::new(size.width as f64, size.height as f64));
         }
+        self.drawable_ages.borrow_mut().clear();
         Ok(())
     }
 
@@ -155,7 +165,20 @@ impl super::Surface for MetalSurface {
                 .unwrap()
             };
 
-            callback(surface.canvas(), Some(gr_context), 0);
+            let texture: Retained<ProtocolObject<dyn MTLTexture>> = unsafe { drawable.texture() };
+            let texture_id = unsafe { texture.gpuResourceID() };
+            let age = {
+                let mut drawables = self.drawable_ages.borrow_mut();
+                if let Some(existing_age) =
+                    drawables.iter().find_map(|(id, age)| (*id == texture_id).then_some(*age))
+                {
+                    existing_age
+                } else {
+                    drawables.push((texture_id, 0));
+                    0
+                }
+            };
+            callback(surface.canvas(), Some(gr_context), age);
 
             drop(surface);
 
@@ -170,6 +193,14 @@ impl super::Surface for MetalSurface {
             })?;
             command_buffer.presentDrawable(ProtocolObject::from_ref(&*drawable));
             command_buffer.commit();
+
+            for (id, age) in self.drawable_ages.borrow_mut().iter_mut() {
+                if *id == texture_id {
+                    *age = 1;
+                } else {
+                    *age += 1;
+                }
+            }
 
             Ok(())
         })
