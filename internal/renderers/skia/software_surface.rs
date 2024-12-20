@@ -197,3 +197,23 @@ impl<T: RenderBuffer + 'static> From<T> for SoftwareSurface {
         Self { render_buffer: Box::new(render_buffer) }
     }
 }
+
+impl<T: RenderBuffer + 'static> RenderBuffer for Rc<T> {
+    fn with_buffer(
+        &self,
+        window: &Window,
+        size: PhysicalWindowSize,
+        render_callback: &mut dyn FnMut(
+            NonZeroU32,
+            NonZeroU32,
+            skia_safe::ColorType,
+            u8,
+            &mut [u8],
+        ) -> Result<
+            Option<DirtyRegion>,
+            i_slint_core::platform::PlatformError,
+        >,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.as_ref().with_buffer(window, size, render_callback)
+    }
+}

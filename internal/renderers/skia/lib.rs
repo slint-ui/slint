@@ -930,6 +930,8 @@ pub trait SkiaRendererExt {
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
+    /// Remove this when partial rendering becomes enabled by default.
+    fn enable_partial_rendering(&mut self);
 }
 
 impl SkiaRendererExt for SkiaRenderer {
@@ -946,5 +948,8 @@ impl SkiaRendererExt for SkiaRenderer {
             surface_size,
             post_render_cb,
         )
+    }
+    fn enable_partial_rendering(&mut self) {
+        self.partial_rendering_state = Some(PartialRenderingState::default())
     }
 }

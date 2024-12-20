@@ -1,23 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_renderer_skia::skia_safe;
+use i_slint_renderer_skia::SkiaRenderer;
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
 };
 use slint::platform::{PlatformError, WindowAdapter};
-use slint::{Model, PhysicalPosition, PhysicalSize};
-use std::rc::Rc;
+use slint::{Model, PhysicalPosition, PhysicalSize, SharedPixelBuffer};
+use std::cell::{Cell, RefCell};
+use std::rc::{Rc, Weak};
 
 thread_local! {
     static WINDOW: Rc<MinimalSoftwareWindow>  =
     MinimalSoftwareWindow::new(slint::platform::software_renderer::RepaintBufferType::ReusedBuffer);
-
+    static SKIA_WINDOW: Rc<SkiaTestWindow> = SkiaTestWindow::new();
+    static NEXT_WINDOW_CHOICE: Rc<RefCell<Option<Rc<dyn WindowAdapter>>>> = Rc::new(RefCell::new(None));
 }
 
 struct TestPlatform;
 impl slint::platform::Platform for TestPlatform {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        Ok(WINDOW.with(|x| x.clone()))
+        Ok(NEXT_WINDOW_CHOICE.with(|choice| {
+            choice.borrow_mut().take().unwrap_or_else(|| WINDOW.with(|x| x.clone()))
+        }))
     }
 }
 
@@ -53,6 +59,130 @@ fn do_test_render_region(renderer: &SoftwareRenderer, x: i32, y: i32, x2: i32, y
         }
     }
     assert!(has_one_pixel, "Nothing was rendered");
+}
+
+struct SkiaTestWindow {
+    window: slint::Window,
+    renderer: SkiaRenderer,
+    needs_redraw: Cell<bool>,
+    size: Cell<slint::PhysicalSize>,
+    render_buffer: Rc<SkiaTestSoftwareBuffer>,
+}
+
+impl SkiaTestWindow {
+    fn new() -> Rc<Self> {
+        let render_buffer = Rc::new(SkiaTestSoftwareBuffer::default());
+        let mut renderer = SkiaRenderer::new_with_surface(Box::new(
+            i_slint_renderer_skia::software_surface::SoftwareSurface::from(render_buffer.clone()),
+        ));
+        i_slint_renderer_skia::SkiaRendererExt::enable_partial_rendering(&mut renderer);
+        Rc::new_cyclic(|w: &Weak<Self>| Self {
+            window: slint::Window::new(w.clone()),
+            renderer,
+            needs_redraw: Default::default(),
+            size: Default::default(),
+            render_buffer,
+        })
+    }
+
+    fn draw_if_needed(&self) -> bool {
+        if self.needs_redraw.replace(false) {
+            self.renderer.render().unwrap();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn last_dirty_region_bounding_box_size(&self) -> Option<slint::LogicalSize> {
+        self.render_buffer.last_dirty_region.borrow().as_ref().map(|r| {
+            let size = r.bounding_rect().size;
+            slint::LogicalSize::new(size.width as _, size.height as _)
+        })
+    }
+    fn last_dirty_region_bounding_box_origin(&self) -> Option<slint::LogicalPosition> {
+        self.render_buffer.last_dirty_region.borrow().as_ref().map(|r| {
+            let origin = r.bounding_rect().origin;
+            slint::LogicalPosition::new(origin.x as _, origin.y as _)
+        })
+    }
+}
+
+impl WindowAdapter for SkiaTestWindow {
+    fn window(&self) -> &slint::Window {
+        &self.window
+    }
+
+    fn size(&self) -> PhysicalSize {
+        self.size.get()
+    }
+
+    fn renderer(&self) -> &dyn slint::platform::Renderer {
+        &self.renderer
+    }
+
+    fn set_size(&self, size: slint::WindowSize) {
+        self.size.set(size.to_physical(1.));
+        self.window
+            .dispatch_event(slint::platform::WindowEvent::Resized { size: size.to_logical(1.) })
+    }
+
+    fn request_redraw(&self) {
+        self.needs_redraw.set(true);
+    }
+}
+
+#[derive(Default)]
+struct SkiaTestSoftwareBuffer {
+    pixels: RefCell<Option<SharedPixelBuffer<slint::Rgba8Pixel>>>,
+    last_dirty_region: RefCell<Option<i_slint_core::item_rendering::DirtyRegion>>,
+}
+
+impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareBuffer {
+    fn with_buffer(
+        &self,
+        _window: &slint::Window,
+        size: PhysicalSize,
+        render_callback: &mut dyn FnMut(
+            std::num::NonZeroU32,
+            std::num::NonZeroU32,
+            i_slint_renderer_skia::skia_safe::ColorType,
+            u8,
+            &mut [u8],
+        ) -> Result<
+            Option<i_slint_core::item_rendering::DirtyRegion>,
+            i_slint_core::platform::PlatformError,
+        >,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        let Some((width, height)): Option<(std::num::NonZeroU32, std::num::NonZeroU32)> =
+            size.width.try_into().ok().zip(size.height.try_into().ok())
+        else {
+            // Nothing to render
+            return Ok(());
+        };
+
+        let mut shared_pixel_buffer = self.pixels.borrow_mut().take();
+
+        if shared_pixel_buffer.as_ref().map_or(false, |existing_buffer| {
+            existing_buffer.width() != width.get() || existing_buffer.height() != height.get()
+        }) {
+            shared_pixel_buffer = None;
+        }
+
+        let mut age = 1;
+        let pixels = shared_pixel_buffer.get_or_insert_with(|| {
+            age = 0;
+            SharedPixelBuffer::new(width.get(), height.get())
+        });
+
+        let bytes = bytemuck::cast_slice_mut(pixels.make_mut_slice());
+        *self.last_dirty_region.borrow_mut() =
+            render_callback(width, height, skia_safe::ColorType::RGBA8888, age, bytes)?;
+
+        *self.pixels.borrow_mut() = shared_pixel_buffer;
+
+        Ok(())
+    }
 }
 
 #[test]
@@ -280,4 +410,72 @@ fn scale_factor() {
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 0, 0, 500, 500);
     }));
+}
+
+#[test]
+fn rotated_image() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <angle> rotation <=> i.rotation-angle;
+            in property <length> x-pos <=> i.x;
+            background: black;
+            i := Image {
+                x: 50px;
+                y: 50px;
+                width: 50px;
+                height: 150px;
+                source: @image-url("../../../logo/slint-logo-full-dark.png");
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    // Redraw once more, to work around set_repaint_buffer_type clearing the rendering cache
+    // because the buffer age changed from 0 to 1.
+    window.request_redraw();
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 250., height: 250. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 0., y: 0. })
+    );
+
+    assert!(!window.draw_if_needed());
+
+    ui.set_x_pos(51.);
+
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 51., height: 150. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 50., y: 50. })
+    );
+
+    ui.set_rotation(90.);
+
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 150., height: 150. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 1., y: 50. })
+    );
 }

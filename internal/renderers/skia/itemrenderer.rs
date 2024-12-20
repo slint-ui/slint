@@ -11,7 +11,7 @@ use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::ApproxEq;
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderImage, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, RenderImage, RenderText,
 };
 use i_slint_core::items::{
     ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult, TextStrokeStyle,
@@ -1017,6 +1017,10 @@ pub fn to_skia_rrect(rect: &PhysicalRect, radius: &PhysicalBorderRadius) -> skia
             ],
         )
     }
+}
+
+impl<'a> ItemRendererFeatures for SkiaItemRenderer<'a> {
+    const SUPPORTS_TRANSFORMATIONS: bool = true;
 }
 
 pub fn to_skia_point(point: PhysicalPoint) -> skia_safe::Point {

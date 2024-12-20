@@ -2272,3 +2272,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         None
     }
 }
+
+impl<'a, T: ProcessScene> crate::item_rendering::ItemRendererFeatures for SceneBuilder<'a, T> {
+    const SUPPORTS_TRANSFORMATIONS: bool = false;
+}
