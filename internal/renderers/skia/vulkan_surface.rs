@@ -164,7 +164,7 @@ impl super::Surface for VulkanSurface {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
-        if !matches!(requested_graphics_api, Some(RequestedGraphicsAPI::Vulkan)) {
+        if requested_graphics_api.map_or(false, |api| api != RequestedGraphicsAPI::Vulkan) {
             return Err(format!("Requested non-Vulkan rendering with Vulkan renderer").into());
         }
         let library = VulkanLibrary::new()
