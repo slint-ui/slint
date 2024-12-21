@@ -1,12 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-/{
-	aliases {
-		slint-input = &input_sdl_touch;
-	};
-};
-
 &sdl_dc {
 	height = <720>;
 	width = <1280>;
