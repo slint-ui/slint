@@ -153,6 +153,11 @@ pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) 
 }
 
 #[no_mangle]
+pub extern "C" fn slint_string_character_count(string: &SharedString) -> usize {
+    unicode_segmentation::UnicodeSegmentation::graphemes(string.as_str(), true).count()
+}
+
+#[no_mangle]
 pub extern "C" fn slint_string_to_usize(string: &SharedString, value: &mut usize) -> bool {
     match string.as_str().parse::<usize>() {
         Ok(v) => {

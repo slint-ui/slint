@@ -977,9 +977,22 @@ impl<'a> LookupObject for StringExpression<'a> {
                 )),
             })
         };
+        let function_call = |f: BuiltinFunction| {
+            LookupResult::from(Expression::FunctionCall {
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    f,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )),
+                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                arguments: vec![self.0.clone()],
+            })
+        };
+
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("is-float", member_function(BuiltinFunction::StringIsFloat)))
             .or_else(|| f("to-float", member_function(BuiltinFunction::StringToFloat)))
+            .or_else(|| f("is-empty", function_call(BuiltinFunction::StringIsEmpty)))
+            .or_else(|| f("character-count", function_call(BuiltinFunction::StringCharacterCount)))
     }
 }
 struct ColorExpression<'a>(&'a Expression);

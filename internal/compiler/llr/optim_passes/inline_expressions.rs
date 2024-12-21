@@ -111,6 +111,8 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
+        BuiltinFunction::StringIsEmpty => 50,
+        BuiltinFunction::StringCharacterCount => 50,
         BuiltinFunction::ColorRgbaStruct => 50,
         BuiltinFunction::ColorHsvaStruct => 50,
         BuiltinFunction::ColorBrighter => 50,
