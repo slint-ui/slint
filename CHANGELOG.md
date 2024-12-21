@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 
  - Skia: Fix Metal and D3D defaults on macOS / Windows.
  - Winit backend: Fix build with only software renderer enabled.
+ - Fixed build on https://docs.rs/slint
+ - Live-preview: Improvements of the filter in selection popup
 
 ## 1.9.0 - 2024-12-18
 
