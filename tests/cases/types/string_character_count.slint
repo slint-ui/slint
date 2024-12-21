@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+    property<string> empty;
+    property<string> hello: "hello";
+    property<string> hiragana: "あいうえお";
+    property<string> surrogate-pair: "😊𩸽";
+    property<string> variation-selectors: "👍🏿";
+    property<string> combining-character: "パ";
+    property<string> zero-width-joiner: "👨‍👩‍👧‍👦";
+    property<string> region-indicator-character: "🇦🇿🇿🇦";
+    property<string> emoji-tag-sequences: "🏴󠁧󠁢󠁥󠁮󠁧󠁿";
+
+    // is-empty
+    out property<bool> is-empty: empty.is-empty;
+    out property<bool> is-not_empty: !hello.is-empty;
+    out property<bool> test-is_empty: is_empty && is_not_empty;
+
+    // character-count
+    out property<int> empty-character-count: empty.character-count;
+    out property<int> hello-character-count: hello.character-count;
+    out property<int> hiragana-character-count: hiragana.character-count;
+    out property<int> surrogate-pair-character-count: surrogate-pair.character-count;
+    out property<int> variation-selectors-character-count: variation-selectors.character-count;
+    out property<int> combining-character-character-count: combining-character.character-count;
+    out property<int> zero-width-joiner-character-count: zero-width-joiner.character-count;
+    out property<int> region-indicator-character-character-count: region-indicator-character.character-count;
+    out property<int> emoji-tag-sequences-character-count: emoji-tag-sequences.character-count;
+    out property<bool> test_character-count: empty-character-count == 0
+        && hello-character-count == 5
+        && hiragana-character-count == 5
+        && surrogate-pair-character-count == 2
+        && variation-selectors-character-count == 1
+        && combining-character-character-count == 1
+        && zero-width-joiner-character-count == 1
+        && region-indicator-character-character-count == 2
+        && emoji-tag-sequences-character-count == 1;
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_is_empty());
+assert(instance.get_is_not_empty());
+assert(instance.get_test_is_empty());
+assert(instance.get_empty_character_count() == 0);
+assert(instance.get_hello_character_count() == 5);
+assert(instance.get_hiragana_character_count() == 5);
+assert(instance.get_surrogate_pair_character_count() == 2);
+assert(instance.get_variation_selectors_character_count() == 1);
+assert(instance.get_combining_character_character_count() == 1);
+assert(instance.get_zero_width_joiner_character_count() == 1);
+assert(instance.get_region_indicator_character_character_count() == 2);
+assert(instance.get_emoji_tag_sequences_character_count() == 1);
+assert(instance.get_test_character_count());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_is_empty());
+assert!(instance.get_is_not_empty());
+assert!(instance.get_test_is_empty());
+assert_eq!(instance.get_empty_character_count(), 0);
+assert_eq!(instance.get_hello_character_count(), 5);
+assert_eq!(instance.get_hiragana_character_count(), 5);
+assert_eq!(instance.get_surrogate_pair_character_count(), 2);
+assert_eq!(instance.get_variation_selectors_character_count(), 1);
+assert_eq!(instance.get_combining_character_character_count(), 1);
+assert_eq!(instance.get_zero_width_joiner_character_count(), 1);
+assert_eq!(instance.get_region_indicator_character_character_count(), 2);
+assert_eq!(instance.get_emoji_tag_sequences_character_count(), 1);
+assert!(instance.get_test_character_count());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.is_empty);
+assert(instance.is_not_empty);
+assert(instance.test_is_empty);
+assert.equal(instance.empty_character_count, 0);
+assert.equal(instance.hello_character_count, 5);
+assert.equal(instance.hiragana_character_count, 5);
+assert.equal(instance.surrogate_pair_character_count, 2);
+assert.equal(instance.variation_selectors_character_count, 1);
+assert.equal(instance.combining_character_character_count, 1);
+assert.equal(instance.zero_width_joiner_character_count, 1);
+assert.equal(instance.region_indicator_character_character_count, 2);
+assert.equal(instance.emoji_tag_sequences_character_count, 1);
+assert(instance.test_character_count);
+```
+
+*/

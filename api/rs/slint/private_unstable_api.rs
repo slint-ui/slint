@@ -227,5 +227,6 @@ pub mod re_exports {
     pub use once_cell::race::OnceBox;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;
+    pub use unicode_segmentation::UnicodeSegmentation;
     pub use vtable::{self, *};
 }

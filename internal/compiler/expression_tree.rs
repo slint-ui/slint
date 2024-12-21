@@ -53,6 +53,10 @@ pub enum BuiltinFunction {
     StringToFloat,
     /// the "42".is_float()
     StringIsFloat,
+    /// the "42".is_empty
+    StringIsEmpty,
+    /// the "42".length
+    StringCharacterCount,
     ColorRgbaStruct,
     ColorHsvaStruct,
     ColorBrighter,
@@ -167,6 +171,8 @@ declare_builtin_function_types!(
     ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
     StringIsFloat: (Type::String) -> Type::Bool,
+    StringIsEmpty: (Type::String) -> Type::Bool,
+    StringCharacterCount: (Type::String) -> Type::Int32,
     ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -281,7 +287,10 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
-            BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
+            BuiltinFunction::StringToFloat
+            | BuiltinFunction::StringIsFloat
+            | BuiltinFunction::StringIsEmpty
+            | BuiltinFunction::StringCharacterCount => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
@@ -352,7 +361,10 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => true,
-            BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
+            BuiltinFunction::StringToFloat
+            | BuiltinFunction::StringIsFloat
+            | BuiltinFunction::StringIsEmpty
+            | BuiltinFunction::StringCharacterCount => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
