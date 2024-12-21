@@ -74,7 +74,7 @@ extern "C" void app_main(void)
         char time_buf[100] = { 0 };
         std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S %d/%m/%Y", std::localtime(&now));
         PrinterQueueItem item;
-        item.status = JobStatus::Waiting;
+        item.status = "waiting";
         item.progress = 0;
         item.title = std::move(name);
         item.owner = "joe@example.com";
@@ -94,7 +94,7 @@ extern "C" void app_main(void)
             if (top_item.progress > 100) {
                 printer_queue->erase(0);
             } else {
-                top_item.status = JobStatus::Printing;
+                top_item.status = "printing";
                 printer_queue->set_row_data(0, top_item);
             }
         }
