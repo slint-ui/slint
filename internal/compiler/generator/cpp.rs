@@ -3553,6 +3553,14 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.cstdlib.set(true);
             format!("[](const auto &a){{ float res = 0; slint::cbindgen_private::slint_string_to_float(&a, &res); return res; }}({})", a.next().unwrap())
         }
+        BuiltinFunction::StringIsEmpty => {
+            ctx.generator_state.conditional_includes.cstdlib.set(true);
+            format!("[](const auto &a){{ return slint::cbindgen_private::slint_string_is_empty(&a); }}({})", a.next().unwrap())
+        }
+        BuiltinFunction::StringLength => {
+            ctx.generator_state.conditional_includes.cstdlib.set(true);
+            format!("[](const auto &a){{ return slint::cbindgen_private::slint_string_length(&a); }}({})", a.next().unwrap())
+        }
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())
         }
