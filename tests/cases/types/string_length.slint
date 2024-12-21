@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+    property<string> empty;
+    property<string> hello: "hello";
+    property<string> hiragana: "あいうえお";
+    property<string> surrogate-pair: "😊𩸽";
+    property<string> variation-selectors: "👍🏿";
+    property<string> combining-character: "パ";
+    property<string> zero-width-joiner: "👨‍👩‍👧‍👦";
+    property<string> region-indicator-character: "🇦🇿🇿🇦";
+    property<string> emoji-tag-sequences: "🏴󠁧󠁢󠁥󠁮󠁧󠁿";
+
+    // is-empty
+    out property<bool> is-empty: empty.is-empty;
+    out property<bool> is-not_empty: !hello.is-empty;
+    out property<bool> test-is_empty: is_empty && is_not_empty;
+
+    // length
+    out property<int> empty-length: empty.length;
+    out property<int> hello-length: hello.length;
+    out property<int> hiragana-length: hiragana.length;
+    out property<int> surrogate-pair-length: surrogate-pair.length;
+    out property<int> variation-selectors-length: variation-selectors.length;
+    out property<int> combining-character-length: combining-character.length;
+    out property<int> zero-width-joiner-length: zero-width-joiner.length;
+    out property<int> region-indicator-character-length: region-indicator-character.length;
+    out property<int> emoji-tag-sequences-length: emoji-tag-sequences.length;
+    out property<bool> test_length: empty-length == 0
+        && hello-length == 5
+        && hiragana-length == 5
+        && surrogate-pair-length == 2
+        && variation-selectors-length == 1
+        && combining-character-length == 1
+        && zero-width-joiner-length == 1
+        && region-indicator-character-length == 2
+        && emoji-tag-sequences-length == 1;
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_is_empty());
+assert(instance.get_is_not_empty());
+assert(instance.get_test_is_empty());
+assert(instance.get_empty_length() == 0);
+assert(instance.get_hello_length() == 5);
+assert(instance.get_hiragana_length() == 5);
+assert(instance.get_surrogate_pair_length() == 2);
+assert(instance.get_variation_selectors_length() == 1);
+assert(instance.get_combining_character_length() == 1);
+assert(instance.get_zero_width_joiner_length() == 1);
+assert(instance.get_region_indicator_character_length() == 2);
+assert(instance.get_emoji_tag_sequences_length() == 1);
+assert(instance.get_test_length());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_is_empty());
+assert!(instance.get_is_not_empty());
+assert!(instance.get_test_is_empty());
+assert_eq!(instance.get_empty_length(), 0);
+assert_eq!(instance.get_hello_length(), 5);
+assert_eq!(instance.get_hiragana_length(), 5);
+assert_eq!(instance.get_surrogate_pair_length(), 2);
+assert_eq!(instance.get_variation_selectors_length(), 1);
+assert_eq!(instance.get_combining_character_length(), 1);
+assert_eq!(instance.get_zero_width_joiner_length(), 1);
+assert_eq!(instance.get_region_indicator_character_length(), 2);
+assert_eq!(instance.get_emoji_tag_sequences_length(), 1);
+assert!(instance.get_test_length());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.is_empty);
+assert(instance.is_not_empty);
+assert(instance.test_is_empty);
+assert.equal(instance.empty_length, 0);
+assert.equal(instance.hello_length, 5);
+assert.equal(instance.hiragana_length, 5);
+assert.equal(instance.surrogate_pair_length, 2);
+assert.equal(instance.variation_selectors_length, 1);
+assert.equal(instance.combining_character_length, 1);
+assert.equal(instance.zero_width_joiner_length, 1);
+assert.equal(instance.region_indicator_character_length, 2);
+assert.equal(instance.emoji_tag_sequences_length, 1);
+assert(instance.test_length);
+```
+
+*/
