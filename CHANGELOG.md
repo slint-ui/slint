@@ -3,6 +3,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### General
+
+ - Skia: Fix Metal and D3D defaults on macOS / Windows.
+ - Winit backend: Fix build with only software renderer enabled.
+
 ## 1.9.0 - 2024-12-18
 
 ### General
