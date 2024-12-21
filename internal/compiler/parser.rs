@@ -826,6 +826,12 @@ impl SyntaxNode {
             .find(|n| n.kind() == kind)
             .and_then(|x| x.as_token().map(|x| x.text().into()))
     }
+    pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode> {
+        let source_file = self.source_file.clone();
+        self.node
+            .descendants()
+            .map(move |node| SyntaxNode { node, source_file: source_file.clone() })
+    }
     pub fn kind(&self) -> SyntaxKind {
         self.node.kind()
     }
