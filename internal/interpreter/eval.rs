@@ -909,6 +909,26 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::StringIsEmpty => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to StringIsEmpty")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                Value::Bool(s.as_str().is_empty())
+            } else {
+                panic!("Argument not a string");
+            }
+        }
+        BuiltinFunction::StringLength => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to StringLength")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                Value::Number(s.as_str().len() as f64)
+            } else {
+                panic!("Argument not a string");
+            }
+        }
         BuiltinFunction::ColorRgbaStruct => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ColorRGBAComponents")

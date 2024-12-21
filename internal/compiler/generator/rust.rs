@@ -2929,6 +2929,8 @@ fn compile_builtin_function_call(
             quote!(#(#a)*.as_str().parse::<f64>().unwrap_or_default())
         }
         BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
+        BuiltinFunction::StringIsEmpty => quote!(#(#a)*.as_str().is_empty()),
+        BuiltinFunction::StringLength => quote!(#(#a)*.as_str().len() as i32),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
         BuiltinFunction::ColorBrighter => {

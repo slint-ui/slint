@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+    in property<string> hello: "hello";
+    in property<string> empty;
+
+    out property<bool> empty_is_empty: empty.is-empty();
+    out property<bool> hello_is_not_empty: !hello.is-empty();
+    out property<bool> test_is_empty: empty_is_empty && hello_is_not_empty;
+    out property<int> hello_length: hello.length();
+    out property<int> empty_length: empty.length();
+    out property<bool> hello_length_is_5: hello_length == 5;
+    out property<bool> empty_length_is_0: empty_length == 0;
+    out property<bool> test_length: hello_length_is_5 && empty_length_is_0;
+    out property<bool> test: test_is_empty && test_length;
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

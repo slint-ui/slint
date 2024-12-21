@@ -52,6 +52,10 @@ pub enum BuiltinFunction {
     StringToFloat,
     /// the "42".is_float()
     StringIsFloat,
+    /// the "42".is_empty()
+    StringIsEmpty,
+    /// the "42".length()
+    StringLength,
     ColorRgbaStruct,
     ColorHsvaStruct,
     ColorBrighter,
@@ -164,6 +168,8 @@ declare_builtin_function_types!(
     ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
     StringIsFloat: (Type::String) -> Type::Bool,
+    StringIsEmpty: (Type::String) -> Type::Bool,
+    StringLength: (Type::String) -> Type::Int32,
     ImplicitLayoutInfo(..): (Type::ElementReference) -> crate::typeregister::layout_info_type(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -274,6 +280,7 @@ impl BuiltinFunction {
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
+            BuiltinFunction::StringIsEmpty | BuiltinFunction::StringLength => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
@@ -343,6 +350,7 @@ impl BuiltinFunction {
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => true,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
+            BuiltinFunction::StringIsEmpty | BuiltinFunction::StringLength => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter

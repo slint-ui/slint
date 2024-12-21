@@ -980,6 +980,8 @@ impl<'a> LookupObject for StringExpression<'a> {
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("is-float", member_function(BuiltinFunction::StringIsFloat)))
             .or_else(|| f("to-float", member_function(BuiltinFunction::StringToFloat)))
+            .or_else(|| f("is-empty", member_function(BuiltinFunction::StringIsEmpty)))
+            .or_else(|| f("length", member_function(BuiltinFunction::StringLength)))
     }
 }
 struct ColorExpression<'a>(&'a Expression);
