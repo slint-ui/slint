@@ -25,6 +25,7 @@ export component ComboBox {
     forward-focus: base;
     accessible-role: combobox;
     accessible-enabled: root.enabled;
+    accessible-value <=> root.current-value;
 
     states [
         disabled when !root.enabled : {
