@@ -40,6 +40,7 @@ std = [
   "chrono/wasmbind",
   "chrono/clock",
   "dep:sys-locale",
+  "dataurl",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -130,6 +131,10 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fontdb = { workspace = true, optional = true, default-features = true }
+
+[dependencies.dataurl]
+version = "0.1.2"
+optional = true
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }

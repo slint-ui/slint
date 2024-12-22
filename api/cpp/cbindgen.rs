@@ -485,6 +485,7 @@ fn gen_corelib(
                 "slint_image_size",
                 "slint_image_path",
                 "slint_image_load_from_path",
+                "slint_image_load_from_data_url",
                 "slint_image_load_from_embedded_data",
                 "slint_image_from_embedded_textures",
                 "slint_image_compare_equal",

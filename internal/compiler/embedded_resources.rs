@@ -95,6 +95,8 @@ pub enum EmbeddedResourcesKind {
     ListOnly,
     /// Just put the file content as a resource
     RawData,
+    /// Decoded data from a data URL (data, extension)
+    DecodedData(Vec<u8>, String),
     /// The data has been processed in a texture
     #[cfg(feature = "software-renderer")]
     TextureData(Texture),

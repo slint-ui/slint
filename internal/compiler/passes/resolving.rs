@@ -406,10 +406,16 @@ impl Expression {
     }
 
     fn from_at_image_url_node(node: syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Self {
-        let s = match node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|x| crate::literals::unescape_string(&x))
-        {
+        let s = match node.child_text(SyntaxKind::StringLiteral).and_then(|x| {
+            if x.starts_with("\"data:") {
+                // Remove quotes here because unescape_string() doesn't support \n yet.
+                let x = x.strip_prefix('"')?;
+                let x = x.strip_suffix('"')?;
+                Some(SmolStr::new(x))
+            } else {
+                crate::literals::unescape_string(&x)
+            }
+        }) {
             Some(s) => s,
             None => {
                 ctx.diag.push_error("Cannot parse string literal".into(), &node);

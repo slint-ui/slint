@@ -7,6 +7,8 @@ This module contains image and caching related types for the run-time library.
 
 use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
 use crate::{slice::Slice, SharedString};
+#[cfg(not(target_arch = "wasm32"))]
+use dataurl::DataUrl;
 
 struct ImageWeightInBytes;
 
@@ -100,6 +102,65 @@ impl ImageCache {
             image::open(std::path::Path::new(&path.as_str())).map_or_else(
                 |decode_err| {
                     crate::debug_log!("Error loading image from {}: {}", &path, decode_err);
+                    None
+                },
+                |image| {
+                    Some(ImageInner::EmbeddedImage {
+                        cache_key,
+                        buffer: dynamic_image_to_shared_image_buffer(image),
+                    })
+                },
+            )
+        });
+    }
+
+    pub(crate) fn load_image_from_data_url(&mut self, str: &str) -> Option<Image> {
+        let cache_key = ImageCacheKey::Path(CachedPath::new(str));
+        #[cfg(target_arch = "wasm32")]
+        return self.lookup_image_in_cache_or_create(cache_key, |_| {
+            return Some(ImageInner::HTMLImage(vtable::VRc::new(
+                super::htmlimage::HTMLImage::new(&str),
+            )));
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+            let data_url = match DataUrl::parse(&str) {
+                Ok(url) => url,
+                Err(e) => {
+                    crate::debug_log!("Failed to parse data URL: {:?}", e);
+                    return None;
+                }
+            };
+            let media_type = data_url.get_media_type();
+            if !media_type.starts_with("image/") {
+                crate::debug_log!("Unsupported media type: {}", media_type);
+                return None;
+            }
+            let media_type = media_type.split('/').nth(1).unwrap_or("");
+
+            let text = data_url.get_text();
+            let data = if data_url.get_is_base64_encoded() {
+                data_url.get_data()
+            } else {
+                text.as_bytes()
+            };
+
+            if cfg!(feature = "svg") && (media_type == ("svg+xml") || media_type == "svgz+xml") {
+                return Some(ImageInner::Svg(vtable::VRc::new(
+                    super::svg::load_from_data(data, cache_key).map_or_else(
+                        |err| {
+                            crate::debug_log!("Error loading SVG from {}: {}", &str, err);
+                            None
+                        },
+                        Some,
+                    )?,
+                )));
+            }
+
+            let format = image::ImageFormat::from_extension(media_type);
+            image::load_from_memory_with_format(data, format.unwrap()).map_or_else(
+                |decode_err| {
+                    crate::debug_log!("Error loading image from {}: {}", &str, decode_err);
                     None
                 },
                 |image| {

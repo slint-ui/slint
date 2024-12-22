@@ -19,11 +19,19 @@ TestCase := Rectangle {
 
     out property <image> with-border: @image-url("dog.jpg", nine-slice(12 13 14 15));
 
+    // slint-logo-small-light.png
+    out property <image> data-url-image-png-base64: @image-url("data:image/png;base64,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");
+
+    out property <image> data-url-image-svg: @image-url("data:image/svg+xml,%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22utf-8%22%3F%3E%0A%3Csvg%20version%3D%221.1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%2295%22%20viewBox%3D%220%200%20100%2095%22%3E%0A%3Cpolygon%20fill%3D%22%23231815%22%20points%3D%2250%2C0%2065.451%2C31.271%20100%2C36.287%2075%2C60.629%2080.902%2C95%2050%2C78.771%2019.098%2C95%2025%2C60.629%200%2C36.287%20%0A%0934.549%2C31.271%20%22%2F%3E%0A%3C%2Fsvg%3E");
+
     property <length> img_width: img.width;
     property <length> img_height: img.height;
     in-out property <float> test_no_overflow: (21 - img.source.width) / 2; // (21 - 320)/2 = -149.5
+    property <bool> data-url: data-url-image-png-base64.width == 128 && data-url-image-png-base64.height == 128 &&
+        data-url-image-svg.width > 0 && data-url-image-svg.height > 0;
     property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
-         img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0 && test_no_overflow == -149.5;
+         img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0 && test_no_overflow == -149.5 &&
+         data-url;
 }
 
 /*

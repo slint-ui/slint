@@ -283,17 +283,22 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     Ok(Default::default())
                 }
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    let path = std::path::Path::new(path);
-                    if path.starts_with("builtin:/") {
-                        i_slint_compiler::fileaccess::load_file(path).and_then(|virtual_file| virtual_file.builtin_contents).map(|virtual_file| {
-                            let extension = path.extension().unwrap().to_str().unwrap();
-                            corelib::graphics::load_image_from_embedded_data(
-                                corelib::slice::Slice::from_slice(virtual_file),
-                                corelib::slice::Slice::from_slice(extension.as_bytes())
-                            )
-                        }).ok_or_else(Default::default)
+                    if path.starts_with("data:") {
+                        // For interpreter, continue handling data URLs at runtime
+                        corelib::graphics::Image::load_from_data_url(path)
                     } else {
-                        corelib::graphics::Image::load_from_path(path)
+                        let path = std::path::Path::new(path);
+                        if path.starts_with("builtin:/") {
+                            i_slint_compiler::fileaccess::load_file(path).and_then(|virtual_file| virtual_file.builtin_contents).map(|virtual_file| {
+                                let extension = path.extension().unwrap().to_str().unwrap();
+                                corelib::graphics::load_image_from_embedded_data(
+                                    corelib::slice::Slice::from_slice(virtual_file),
+                                    corelib::slice::Slice::from_slice(extension.as_bytes())
+                                )
+                            }).ok_or_else(Default::default)
+                        } else {
+                            corelib::graphics::Image::load_from_path(path)
+                        }
                     }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
