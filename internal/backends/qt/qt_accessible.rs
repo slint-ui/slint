@@ -31,6 +31,7 @@ const VALUE_MAXIMUM: u32 = VALUE_MINIMUM + 1;
 const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
 const CHECKABLE: u32 = VALUE_STEP + 1;
 const EXPANDABLE: u32 = CHECKABLE + 1;
+const EXPANDED: u32 = EXPANDABLE + 1;
 
 pub struct AccessibleItemPropertiesTracker {
     obj: *mut c_void,
@@ -210,6 +211,7 @@ impl SlintAccessibleItemData {
                 item_rc.accessible_string_property(AccessibleStringProperty::Checkable);
                 item_rc.accessible_string_property(AccessibleStringProperty::Checked);
                 item_rc.accessible_string_property(AccessibleStringProperty::Expandable);
+                item_rc.accessible_string_property(AccessibleStringProperty::Expanded);
             }
         });
     }
@@ -270,6 +272,7 @@ cpp! {{
     const uint32_t VALUE_STEP { VALUE_MAXIMUM + 1 };
     const uint32_t CHECKABLE { VALUE_STEP + 1 };
     const uint32_t EXPANDABLE { CHECKABLE + 1 };
+    const uint32_t EXPANDED { EXPANDABLE + 1 };
 
     // ------------------------------------------------------------------------------
     // Helper:
@@ -366,6 +369,7 @@ cpp! {{
                     VALUE_STEP => item.accessible_string_property(AccessibleStringProperty::ValueStep),
                     CHECKABLE => item.accessible_string_property(AccessibleStringProperty::Checkable),
                     EXPANDABLE => item.accessible_string_property(AccessibleStringProperty::Expandable),
+                    EXPANDED => item.accessible_string_property(AccessibleStringProperty::Expanded),
                     _ => None,
                 };
                 if let Some(string) = string {
@@ -625,7 +629,14 @@ cpp! {{
             state.focused = has_focus_delegation;
             state.checked = (checked == "true") ? 1 : 0;
             state.checkable = (item_string_property(m_data, CHECKABLE) == "true") ? 1 : 0;
-            state.expandable = (item_string_property(m_data, EXPANDABLE) == "true") ? 1 : 0;
+            if (item_string_property(m_data, EXPANDABLE) == "true") {
+                state.expandable = 1;
+                if (item_string_property(m_data, EXPANDED) == "true") {
+                    state.expanded = 1;
+                } else {
+                    state.collapsed = 1;
+                }
+            }
             return state; /* FIXME */
         }
 
