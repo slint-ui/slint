@@ -647,6 +647,17 @@ impl ElementHandle {
         })
     }
 
+    /// Returns the value of the `accessible-expanded` property, if present
+    pub fn accessible_expanded(&self) -> Option<bool> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Expanded))
+            .and_then(|item| item.parse().ok())
+    }
+
     /// Returns the value of the `accessible-expandable` property, if present
     pub fn accessible_expandable(&self) -> Option<bool> {
         if self.element_index != 0 {

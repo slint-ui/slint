@@ -46,6 +46,7 @@ assert_eq!(instance.get_has_focus(), false);
 let mut combobox_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::box");
 let combobox = combobox_search.next().unwrap();
 assert_eq!(combobox.accessible_expandable(), Some(true));
+assert_eq!(combobox.accessible_expanded(), Some(false));
 assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
 
 // Change the index programmatically
@@ -65,6 +66,7 @@ assert_eq!(instance.get_has_focus(), false);
 slint_testing::send_mouse_click(&instance, 100., 100.);
 assert_eq!(instance.get_output(), "");
 assert_eq!(instance.get_has_focus(), true);
+assert_eq!(combobox.accessible_expanded(), Some(true));
 
 // click outside of the combobox, this should close it
 slint_testing::send_mouse_click(&instance, 100., 10.);
@@ -73,6 +75,7 @@ assert_eq!(instance.get_current_value(), "Aaa");
 assert_eq!(instance.get_current_index(), 0);
 assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
 assert_eq!(instance.get_has_focus(), true);
+assert_eq!(combobox.accessible_expanded(), Some(false));
 
 // click outside of the combobox again
 slint_testing::send_mouse_click(&instance, 100., 10.);
@@ -82,6 +85,7 @@ assert_eq!(instance.get_current_value(), "Aaa");
 assert_eq!(instance.get_current_index(), 0);
 assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
 assert_eq!(instance.get_has_focus(), true);
+assert_eq!(combobox.accessible_expanded(), Some(false));
 
 
 // The arrow change the values
@@ -105,13 +109,16 @@ instance.set_output(Default::default());
 // show the popup
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
 assert_eq!(instance.get_output(), "");
+assert_eq!(combobox.accessible_expanded(), Some(true));
 // click outside causes the popup to close
 slint_testing::send_mouse_click(&instance, 100., 10.);
 assert_eq!(instance.get_output(), "");
 assert_eq!(instance.get_has_focus(), true);
+assert_eq!(combobox.accessible_expanded(), Some(false));
 slint_testing::send_mouse_click(&instance, 100., 10.);
 assert_eq!(instance.get_output(), "clicked-under\n");
 assert_eq!(instance.get_has_focus(), true);
+assert_eq!(combobox.accessible_expanded(), Some(false));
 instance.set_output(Default::default());
 
 instance.set_current_index(0);
@@ -144,6 +151,7 @@ assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bb
 instance.set_output(Default::default());
 slint_testing::send_mouse_click(&instance, 100., 10.);
 assert_eq!(instance.get_output(), "clicked-under\n");
+assert_eq!(combobox.accessible_expanded(), Some(false));
 assert_eq!(instance.get_has_focus(), true);
 
 

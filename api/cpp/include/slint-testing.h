@@ -382,6 +382,18 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-expanded of that element, if any.
+    std::optional<bool> accessible_expanded() const
+    {
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Expanded)) {
+            if (*result == "true")
+                return true;
+            else if (*result == "false")
+                return false;
+        }
+        return std::nullopt;
+    }
     /// Returns the accessible-expandable of that element, if any.
     std::optional<bool> accessible_expandable() const
     {

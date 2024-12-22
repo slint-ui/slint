@@ -520,6 +520,16 @@ impl NodeCollection {
             node.set_description(description.to_string());
         }
 
+        if item
+            .accessible_string_property(AccessibleStringProperty::Expandable)
+            .is_some_and(|x| x == "true")
+        {
+            node.set_expanded(
+                item.accessible_string_property(AccessibleStringProperty::Expanded)
+                    .is_some_and(|x| x == "true"),
+            );
+        }
+
         if matches!(
             role,
             Role::Button
