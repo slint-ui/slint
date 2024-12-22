@@ -45,6 +45,7 @@ assert_eq!(instance.get_has_focus(), false);
 
 let mut combobox_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::box");
 let combobox = combobox_search.next().unwrap();
+assert_eq!(combobox.accessible_expandable(), Some(true));
 assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
 
 // Change the index programmatically

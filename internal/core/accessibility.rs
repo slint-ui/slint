@@ -17,6 +17,7 @@ pub enum AccessibleStringProperty {
     DelegateFocus,
     Description,
     Enabled,
+    Expandable,
     ItemCount,
     ItemIndex,
     ItemSelectable,
