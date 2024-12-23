@@ -28,7 +28,7 @@
     "rehype-external-links": "3.0.0",
     "sharp": "0.33.5",
     "starlight-links-validator": "0.13.4",
-    "starlight-sidebar-topics": "0.2.1",
+    "starlight-sidebar-topics": "0.3.0",
     "typescript": "5.7.2"
   },
   "devDependencies": {
