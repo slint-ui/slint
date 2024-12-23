@@ -27,7 +27,7 @@
     "playwright-ctrf-json-reporter": "0.0.18",
     "rehype-external-links": "3.0.0",
     "sharp": "0.33.5",
-    "starlight-links-validator": "0.13.4",
+    "starlight-links-validator": "0.14.1",
     "starlight-sidebar-topics": "0.2.1",
     "typescript": "5.7.2"
   },
