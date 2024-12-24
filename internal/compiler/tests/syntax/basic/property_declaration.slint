@@ -25,4 +25,7 @@ export Test := Comp {
 
     property<bool> pressed;
 //                 ^error{Cannot declare property 'pressed' when a callback with the same name exists}
+
+    property<color> color;
+//                  ^error{Cannot override property 'color'}
 }
