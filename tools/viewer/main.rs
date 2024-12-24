@@ -114,9 +114,7 @@ fn to_json(val: slint_interpreter::Value) -> Option<serde_json::Value> {
             }
             Some(obj.into())
         }
-        slint_interpreter::Value::EnumerationValue(_class, value) => {
-            Some(value.as_str().into())
-        }
+        slint_interpreter::Value::EnumerationValue(_class, value) => Some(value.as_str().into()),
         slint_interpreter::Value::Image(image) => {
             image.path().and_then(|path| path.to_str()).map(|path| path.into())
         }
