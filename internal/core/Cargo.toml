@@ -105,6 +105,7 @@ web-sys = { workspace = true, features = [ "HtmlImageElement" ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fontdb = { workspace = true, optional = true, default-features = true }
+dataurl = "0.1.2"
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
