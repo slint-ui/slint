@@ -1005,7 +1005,7 @@ impl Element {
                 }
                 Type::Function { .. } => {
                     diag.push_error(
-                        format!("Cannot declare property '{}' when a callback with the same name exists", prop_name),
+                        format!("Cannot declare property '{}' when a function with the same name exists", prop_name),
                         &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
                     );
                     continue;
