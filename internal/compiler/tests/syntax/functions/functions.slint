@@ -30,7 +30,7 @@ export Xxx := Rectangle {
 
     Abc {
         property <int> par;
-//                     ^error{Cannot declare property 'par' when a callback with the same name exists}
+//                     ^error{Cannot declare property 'par' when a function with the same name exists}
         callback par();
 //               ^error{Cannot declare callback 'par' when a function with the same name exists}
     }
