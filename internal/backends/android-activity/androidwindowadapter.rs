@@ -224,6 +224,13 @@ impl AndroidWindowAdapter {
                         None,
                     )?;
                     self.resize();
+
+                    // FIXME: I don't know why this is the case, but without this, the soft input
+                    // always prompt out on startup.
+                    #[cfg(feature = "native-activity")]
+                    self.java_helper
+                        .show_or_hide_soft_input(false)
+                        .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 }
             }
             PollEvent::Main(

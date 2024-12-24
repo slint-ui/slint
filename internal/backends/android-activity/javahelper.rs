@@ -7,7 +7,7 @@ use i_slint_core::graphics::{euclid, Color};
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::platform::WindowAdapter;
 use i_slint_core::SharedString;
-use jni::objects::{JClass, JObject, JString, JValue, JValueGen};
+use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jboolean, jint};
 use jni::JNIEnv;
 use std::time::Duration;
@@ -35,7 +35,7 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
     let dex_buffer =
         unsafe { env.new_direct_byte_buffer(dex_data.as_ptr() as *mut _, dex_data.len()).unwrap() };
 
-    let parent_dex_loader = env
+    let parent_class_loader = env
         .call_method(&native_activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?
         .l()?;
 
@@ -46,7 +46,7 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
         env.new_object(
             "dalvik/system/InMemoryDexClassLoader",
             "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V",
-            &[JValue::Object(&dex_buffer), JValue::Object(&parent_dex_loader)],
+            &[JValue::Object(&dex_buffer), JValue::Object(&parent_class_loader)],
         )?
     } else {
         // writes the dex data into the application internal storage
@@ -59,13 +59,12 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
                 &native_activity,
                 "getDir",
                 "(Ljava/lang/String;I)Ljava/io/File;",
-                &[JValue::Object(&dex_dir), JValueGen::Int(0)],
+                &[JValue::Object(&dex_dir), JValue::from(0 as jint)],
             )?
             .l()?;
         let dex_name = env.new_string(env!("CARGO_CRATE_NAME").to_string() + ".dex")?;
-        let file_class = env.find_class("java/io/File")?;
         let dex_path = env.new_object(
-            file_class,
+            "java/io/File",
             "(Ljava/io/File;Ljava/lang/String;)V",
             &[JValue::Object(&dex_dir_path), JValue::Object(&dex_name)],
         )?;
@@ -79,7 +78,7 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
                 &native_activity,
                 "getDir",
                 "(Ljava/lang/String;I)Ljava/io/File;",
-                &[JValue::Object(&out_dex_dir), JValueGen::Int(0)],
+                &[JValue::Object(&out_dex_dir), JValue::from(0 as jint)],
             )?
             .l()?;
         let out_dex_dir_path = env
@@ -87,14 +86,20 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             .l()?;
 
         // writes the dex data
-        let output_stream_class = env.find_class("java/io/FileOutputStream")?;
-        let write_stream =
-            env.new_object(output_stream_class, "(Ljava/lang/String;)V", &[(&dex_path).into()])?;
+        let write_stream = env.new_object(
+            "java/io/FileOutputStream",
+            "(Ljava/lang/String;)V",
+            &[(&dex_path).into()],
+        )?;
         env.call_method(
             &write_stream,
             "write",
             "([BII)V",
-            &[JValue::Object(&dex_byte_array), JValueGen::Int(0), JValueGen::Int(dex_data_len)],
+            &[
+                JValue::Object(&dex_byte_array),
+                JValue::from(0 as jint),
+                JValue::from(dex_data_len as jint),
+            ],
         )?;
         env.call_method(&write_stream, "close", "()V", &[])?;
 
@@ -106,7 +111,7 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
                 JValue::Object(&dex_path),
                 JValue::Object(&out_dex_dir_path),
                 JValue::Object(&JObject::null()),
-                JValue::Object(&parent_dex_loader),
+                JValue::Object(&parent_class_loader),
             ],
         )?
     };
@@ -205,7 +210,7 @@ impl JavaHelper {
             }
 
             let to_utf16 = |x| convert_utf8_index_to_utf16(&text, x as usize);
-            let text = &env.new_string(text.as_str())?;
+            let text = &env.auto_local(env.new_string(text.as_str())?);
 
             let class_it = env.find_class("android/text/InputType")?;
             let input_type = match data.input_type {
@@ -223,6 +228,7 @@ impl JavaHelper {
                 }
                 _ => 0 as jint,
             };
+            env.delete_local_ref(class_it)?;
 
             let cur_origin = data.cursor_rect_origin.to_physical(scale_factor);
             let anchor_origin = data.anchor_point.to_physical(scale_factor);
@@ -269,6 +275,7 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| {
             let rect =
                 env.call_method(helper, "get_view_rect", "()Landroid/graphics/Rect;", &[])?.l()?;
+            let rect = env.auto_local(rect);
             let x = env.get_field(&rect, "left", "I")?.i()?;
             let y = env.get_field(&rect, "top", "I")?.i()?;
             let width = env.get_field(&rect, "right", "I")?.i()? - x;
@@ -291,10 +298,13 @@ impl JavaHelper {
 
     pub fn long_press_timeout(&self) -> Result<Duration, jni::errors::Error> {
         self.with_jni_env(|env, _helper| {
-            let view_configuration = env.find_class("android/view/ViewConfiguration")?;
-            let view_configuration = JClass::from(view_configuration);
             let long_press_timeout = env
-                .call_static_method(view_configuration, "getLongPressTimeout", "()I", &[])?
+                .call_static_method(
+                    "android/view/ViewConfiguration",
+                    "getLongPressTimeout",
+                    "()I",
+                    &[],
+                )?
                 .i()?;
             Ok(Duration::from_millis(long_press_timeout as _))
         })
@@ -309,7 +319,7 @@ impl JavaHelper {
 
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            let text = &env.new_string(text)?;
+            let text = env.auto_local(env.new_string(text)?);
             env.call_method(
                 helper,
                 "set_clipboard",
@@ -322,9 +332,12 @@ impl JavaHelper {
 
     pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            let j_string =
-                env.call_method(helper, "get_clipboard", "()Ljava/lang/String;", &[])?.l()?;
-            let string = env.get_string(&j_string.into())?.into();
+            let j_string = env
+                .call_method(helper, "get_clipboard", "()Ljava/lang/String;", &[])?
+                .l()
+                .map(|l| env.auto_local(l))?;
+            // Safety: `get_clipboard` returns a non-null Java string object.
+            let string = unsafe { jni_get_string(j_string.as_ref(), env) }?.into();
             Ok(string)
         })
     }
@@ -340,12 +353,10 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
     preedit_start: jint,
     preedit_end: jint,
 ) {
-    fn make_shared_string(env: &mut JNIEnv, string: &JString) -> Option<SharedString> {
-        let java_str = env.get_string(&string).ok()?;
-        let decoded: std::borrow::Cow<str> = (&java_str).into();
-        Some(SharedString::from(decoded.as_ref()))
-    }
-    let Some(text) = make_shared_string(&mut env, &text) else { return };
+    // Safety: `SlintEditable.toString()` returns a non-null Java string object.
+    let Ok(java_str) = (unsafe { jni_get_string(&text, &mut env) }) else { return };
+    let decoded: std::borrow::Cow<str> = (&java_str).into();
+    let text = SharedString::from(decoded.as_ref());
 
     let cursor_position = convert_utf16_index_to_utf8(&text, cursor_position as usize);
     let anchor_position = convert_utf16_index_to_utf8(&text, anchor_position as usize);
@@ -514,4 +525,13 @@ extern "system" fn Java_SlintAndroidJavaHelper_popupMenuAction(
         }
     })
     .unwrap()
+}
+
+/// workaround before <https://github.com/jni-rs/jni-rs/pull/557> is merged.
+unsafe fn jni_get_string<'e, 'a>(
+    obj: &'a JObject<'a>,
+    env: &mut JNIEnv<'e>,
+) -> Result<jni::strings::JavaStr<'e, 'a, 'a>, jni::errors::Error> {
+    let j_string: &jni::objects::JString<'_> = obj.into();
+    unsafe { env.get_string_unchecked(j_string) }
 }

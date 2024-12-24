@@ -16,6 +16,7 @@ import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.graphics.BlendMode;
 import android.graphics.BlendModeColorFilter;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.Editable;
@@ -102,7 +103,11 @@ class InputHandle extends ImageView {
     public void setHandleColor(int color) {
         Drawable drawable = getDrawable();
         if (drawable != null) {
-            drawable.setColorFilter(new BlendModeColorFilter(color, BlendMode.SRC_IN));
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                drawable.setColorFilter(new BlendModeColorFilter(color, BlendMode.SRC_IN));
+            } else {
+                drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+            }
             setImageDrawable(drawable);
         }
     }
@@ -295,8 +300,9 @@ class SlintInputView extends View {
                 mode.setTitle(null);
                 mode.setSubtitle(null);
                 mode.setTitleOptionalHint(true);
-
-                menu.setGroupDividerEnabled(true);
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    menu.setGroupDividerEnabled(true);
+                }
 
                 final TypedArray a = getContext().obtainStyledAttributes(new int[] {
                         android.R.attr.actionModeCutDrawable,
@@ -340,6 +346,7 @@ class SlintInputView extends View {
             public void onDestroyActionMode(ActionMode action) {
             }
 
+            // Introduced in API level 23
             @Override
             public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
                 outRect.set(selectionRect);
@@ -467,6 +474,7 @@ public class SlintAndroidJavaHelper {
     public Rect get_view_rect() {
         Rect rect = new Rect();
         mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
+        // Note: `View.getRootWindowInsets` requires API level 23 or above
         WindowInsets insets = mActivity.getWindow().getDecorView().getRootView().getRootWindowInsets();
         if (insets != null) {
             int dx = rect.left - insets.getSystemWindowInsetLeft();
