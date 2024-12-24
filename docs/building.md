@@ -102,7 +102,7 @@ More info: <https://github.com/git-for-windows/git/wiki/Symbolic-Links>
 ## Building and Testing
 
 Most of the project is written in Rust, and compiling and running the test can
-done with cargo.
+be done with cargo.
 
 ```sh
 cargo build
