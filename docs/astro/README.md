@@ -62,13 +62,14 @@ pnpm run build
 This will build the site and place it in `dist/`.
 
 ## Live edit the docs
-To run the live hot reloading dev server run:
+To run the live hot reloading dev server run in the astro directory:
 
 ```bash
+cd docs/astro/
 pnpm start
 ```
 
-This will start the dev server at [`localhost:4321/master/docs/slint`](http://localhost:4321/master/docs/slint).
+This will start the dev server at [`localhost:4321/docs/`](http://localhost:4321/docs/).
 
 
 
