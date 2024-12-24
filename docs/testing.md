@@ -46,8 +46,7 @@ cargo test -p test-driver-interpreter --
 
 You can add an argument to test only for particular tests.
 
-If there is a property `test` in the last component of the file, the test will make sure this
-property equal to bool.
+If the last component in the file includes a `bool` property named `test`, the test will verify that its value is `true`.
 
 example:
 
