@@ -419,8 +419,10 @@ void ZephyrPlatform::run_in_event_loop(Task event)
     k_sem_give(&SLINT_SEM);
 }
 
-void zephyr_process_input_event(struct input_event *event)
+void zephyr_process_input_event(struct input_event *event, void *user_data)
 {
+    ARG_UNUSED(user_data);
+
     static slint::LogicalPosition pos;
     static std::optional<slint::PointerEventButton> button;
 
@@ -481,7 +483,7 @@ void zephyr_process_input_event(struct input_event *event)
     }
 }
 
-INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_ALIAS(slint_input)), zephyr_process_input_event);
+INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_CHOSEN(zephyr_touch)), zephyr_process_input_event, NULL);
 
 void slint_zephyr_init(const struct device *display)
 {

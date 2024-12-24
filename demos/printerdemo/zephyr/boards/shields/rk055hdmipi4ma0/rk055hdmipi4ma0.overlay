@@ -1,8 +1,0 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: MIT
-
-/{
-	aliases {
-		slint-input = &gt911_rk055hdmipi4ma0;
-	};
-};
