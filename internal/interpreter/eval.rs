@@ -924,7 +924,10 @@ fn call_builtin_function(
                 panic!("internal error: incorrect argument count to StringLength")
             }
             if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                Value::Number(unicode_segmentation::UnicodeSegmentation::graphemes(s.as_str(), true).count() as f64)
+                Value::Number(
+                    unicode_segmentation::UnicodeSegmentation::graphemes(s.as_str(), true).count()
+                        as f64,
+                )
             } else {
                 panic!("Argument not a string");
             }
