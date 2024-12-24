@@ -448,6 +448,7 @@ pub fn filter_sort_selection_stack(
     model: slint::ModelRc<crate::preview::ui::SelectionStackFrame>,
     filter_text: slint::SharedString,
     filter: crate::preview::ui::SelectionStackFilter,
+    sort_by_area: bool,
 ) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
     use crate::preview::ui::{SelectionStackFilter, SelectionStackFrame};
     use slint::ModelExt;
@@ -468,6 +469,18 @@ pub fn filter_sort_selection_stack(
             SelectionStackFilter::Everything => true,
         }
     }
+
+    let model = if sort_by_area {
+        Rc::new(model.sort_by(|a, b| {
+            let a_area = a.width * a.height;
+            let b_area = b.width * b.height;
+
+            a_area.partial_cmp(&b_area).unwrap_or(std::cmp::Ordering::Equal)
+        }))
+        .into()
+    } else {
+        model
+    };
 
     let filter_text = filter_text.to_string();
 
