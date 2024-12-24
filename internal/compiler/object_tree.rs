@@ -1013,7 +1013,7 @@ impl Element {
                 Type::Invalid => {} // Ok to proceed with a new declaration
                 _ => {
                     diag.push_error(
-                        format!("Cannot override property '{}'", prop_name),
+                        format!("Cannot override property '{}'", unresolved_prop_name),
                         &prop_decl
                             .DeclaredIdentifier()
                             .child_token(SyntaxKind::Identifier)
