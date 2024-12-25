@@ -452,6 +452,24 @@ if(SLINT_BUILD_RUNTIME)
 
 endif(SLINT_BUILD_RUNTIME)
 
+if (SLINT_BUILD_RUNTIME)
+    function(_slint_write_pc_file)
+        configure_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/cmake/slint.pc.in
+            ${CMAKE_CURRENT_BINARY_DIR}/slint.pc
+            @ONLY
+        )
+
+        install(
+            FILES ${CMAKE_CURRENT_BINARY_DIR}/slint.pc
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+        )
+    endfunction()
+
+    cmake_language(DEFER CALL _slint_write_pc_file)
+
+endif(SLINT_BUILD_RUNTIME)
+
 set(CPACK_PACKAGE_NAME "Slint-cpp")
 set(CPACK_PACKAGE_VENDOR "Slint")
 set(CPACK_VERBATIM_VARIABLES true)

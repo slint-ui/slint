@@ -448,6 +448,7 @@ lazy_static! {
         ("\\.astro$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.pc.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.css$", LicenseLocation::NoLicense),
