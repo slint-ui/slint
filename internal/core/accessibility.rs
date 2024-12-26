@@ -38,6 +38,7 @@ pub enum AccessibilityAction {
     Default,
     Decrement,
     Increment,
+    Expand,
     /// This is currently unused
     ReplaceSelectedText(SharedString),
     SetValue(SharedString),
@@ -51,8 +52,9 @@ bitflags! {
         const Default = 1;
         const Decrement = 1 << 1;
         const Increment = 1 << 2;
-        const ReplaceSelectedText = 1 << 3;
-        const SetValue = 1 << 4;
+        const Expand = 1 << 3;
+        const ReplaceSelectedText = 1 << 4;
+        const SetValue = 1 << 5;
     }
 }
 

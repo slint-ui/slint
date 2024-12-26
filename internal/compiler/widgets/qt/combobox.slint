@@ -18,6 +18,9 @@ export component ComboBox {
     accessible-expandable: true;
     accessible-expanded: base.popup-has-focus;
     accessible-value <=> root.current-value;
+    accessible-action-expand => {
+        base.show-popup();
+    }
     forward-focus: base;
 
     HorizontalLayout {

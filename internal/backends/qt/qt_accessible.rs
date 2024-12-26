@@ -685,6 +685,8 @@ cpp! {{
                 actions << QAccessibleActionInterface::increaseAction();
             if (supported & rust!(Slint_accessible_item_an3 [] -> SupportedAccessibilityAction as "uint" { SupportedAccessibilityAction::Decrement }))
                 actions << QAccessibleActionInterface::decreaseAction();
+            if (supported & rust!(Slint_accessible_item_an4 [] -> SupportedAccessibilityAction as "uint" { SupportedAccessibilityAction::Expand }))
+                actions << QAccessibleActionInterface::pressAction();
             return actions;
         }
 
@@ -692,7 +694,12 @@ cpp! {{
             if (actionName == QAccessibleActionInterface::pressAction()) {
                 rust!(Slint_accessible_item_do_action1 [m_data: Pin<&SlintAccessibleItemData> as "void*"] {
                     let Some(item) = m_data.item.upgrade() else {return};
-                    item.accessible_action(&AccessibilityAction::Default);
+                    let supported_actions = item.supported_accessibility_actions();
+                    if supported_actions.contains(SupportedAccessibilityAction::Expand) {
+                        item.accessible_action(&AccessibilityAction::Expand);
+                    } else {
+                        item.accessible_action(&AccessibilityAction::Default);
+                    }
                 });
             } else if (actionName == QAccessibleActionInterface::increaseAction()) {
                 rust!(Slint_accessible_item_do_action2 [m_data: Pin<&SlintAccessibleItemData> as "void*"] {

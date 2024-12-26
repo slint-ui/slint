@@ -209,6 +209,7 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-action-increment", noarg_callback_type()),
         ("accessible-action-decrement", noarg_callback_type()),
         ("accessible-action-set-value", strarg_callback_type()),
+        ("accessible-action-expand", noarg_callback_type()),
         ("accessible-item-selectable", Type::Bool),
         ("accessible-item-selected", Type::Bool),
         ("accessible-item-index", Type::Int32),
