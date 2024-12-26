@@ -16,6 +16,7 @@ enum ElementAccessibilityAction {
     Default_ = 0;
     Increment = 1;
     Decrement = 2;
+    Expand = 3;
 }
 
 enum PointerEventButton {

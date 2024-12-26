@@ -737,6 +737,17 @@ impl ElementHandle {
         }
     }
 
+    /// Invokes the element's `accessible-action-expand` callback, if declared. On widgets such as combo boxes, this
+    /// typically discloses the list of available choices.
+    pub fn invoke_accessible_expand_action(&self) {
+        if self.element_index != 0 {
+            return;
+        }
+        if let Some(item) = self.item.upgrade() {
+            item.accessible_action(&AccessibilityAction::Expand)
+        }
+    }
+
     /// Simulates a single click (or touch tap) on the element at its center point with the
     /// specified button.
     pub async fn single_click(&self, button: i_slint_core::platform::PointerEventButton) {

@@ -380,6 +380,7 @@ impl TestingClient {
             proto::ElementAccessibilityAction::Decrement => {
                 element.invoke_accessible_decrement_action()
             }
+            proto::ElementAccessibilityAction::Expand => element.invoke_accessible_expand_action(),
         }
         Ok(())
     }

@@ -153,6 +153,19 @@ slint_testing::send_mouse_click(&instance, 100., 10.);
 assert_eq!(instance.get_output(), "clicked-under\n");
 assert_eq!(combobox.accessible_expanded(), Some(false));
 assert_eq!(instance.get_has_focus(), true);
+instance.set_output(Default::default());
+
+
+// The accessible expand action should open the popup
+combobox.invoke_accessible_expand_action();
+assert_eq!(instance.get_output(), "");
+assert_eq!(instance.get_has_focus(), true);
+assert_eq!(combobox.accessible_expanded(), Some(true));
+// close the popup
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Escape));
+assert_eq!(instance.get_output(), "");
+assert_eq!(instance.get_has_focus(), true);
+assert_eq!(combobox.accessible_expanded(), Some(false));
 
 
 // Set current-index to -1

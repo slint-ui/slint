@@ -149,6 +149,7 @@ impl AccessKitAdapter {
                 }
                 _ => return None,
             },
+            Action::Expand => AccessibilityAction::Expand,
             _ => return None,
         };
         self.nodes
@@ -623,6 +624,9 @@ impl NodeCollection {
         }
         if supported.contains(SupportedAccessibilityAction::ReplaceSelectedText) {
             node.add_action(accesskit::Action::ReplaceSelectedText);
+        }
+        if supported.contains(SupportedAccessibilityAction::Expand) {
+            node.add_action(accesskit::Action::Expand);
         }
 
         node

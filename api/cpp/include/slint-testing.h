@@ -407,6 +407,27 @@ public:
         return std::nullopt;
     }
 
+    /// Invokes the expand accessibility action of that element
+    /// (`accessible-action-expand`).
+    void invoke_accessible_expand_action() const
+    {
+        if (inner.element_index != 0)
+            return;
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
+            union ExpandActionHelper {
+                cbindgen_private::AccessibilityAction action;
+                ExpandActionHelper()
+                {
+                    action.tag = cbindgen_private::AccessibilityAction::Tag::Expand;
+                }
+                ~ExpandActionHelper() { }
+
+            } action;
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
+    }
+
     /// Sets the accessible-value of that element.
     ///
     /// Setting the value will invoke the `accessible-action-set-value` callback.
