@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -498,17 +500,35 @@ public class SlintAndroidJavaHelper {
     }
 
     public String get_clipboard() {
-        ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard.hasPrimaryClip()) {
-            ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
-            return item.getText().toString();
+        FutureTask<String> future = new FutureTask<>(new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+                ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard.hasPrimaryClip()) {
+                    ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
+                    return item.getText().toString();
+                }
+                return "";
+            }
+        });
+
+        mActivity.runOnUiThread(future);
+        try {
+            return future.get(); // Wait for the result and return it
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
         }
-        return "";
     }
 
     public void set_clipboard(String text) {
-        ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText(null, text);
-        clipboard.setPrimaryClip(clip);
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clip = ClipData.newPlainText(null, text);
+                clipboard.setPrimaryClip(clip);
+            }
+        });
     }
 }
