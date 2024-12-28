@@ -596,6 +596,13 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
 
 impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 
+/// Creates a non Slint aware window with winit
+pub fn create_winit_window(
+    window_attributes: winit::window::WindowAttributes,
+) -> Result<winit::window::Window, winit::error::OsError> {
+    event_loop::with_window_target(|eli| Ok(eli.create_window(window_attributes))).unwrap()
+}
+
 #[cfg(test)]
 mod testui {
     slint::slint! {
