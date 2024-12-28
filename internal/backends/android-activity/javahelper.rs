@@ -336,8 +336,7 @@ impl JavaHelper {
                 .call_method(helper, "get_clipboard", "()Ljava/lang/String;", &[])?
                 .l()
                 .map(|l| env.auto_local(l))?;
-            // Safety: `get_clipboard` returns a non-null Java string object.
-            let string = unsafe { jni_get_string(j_string.as_ref(), env) }?.into();
+            let string = jni_get_string(j_string.as_ref(), env)?.into();
             Ok(string)
         })
     }
@@ -353,8 +352,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
     preedit_start: jint,
     preedit_end: jint,
 ) {
-    // Safety: `SlintEditable.toString()` returns a non-null Java string object.
-    let Ok(java_str) = (unsafe { jni_get_string(&text, &mut env) }) else { return };
+    let Ok(java_str) = jni_get_string(&text, &mut env) else { return };
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
 
@@ -527,11 +525,21 @@ extern "system" fn Java_SlintAndroidJavaHelper_popupMenuAction(
     .unwrap()
 }
 
-/// workaround before <https://github.com/jni-rs/jni-rs/pull/557> is merged.
-unsafe fn jni_get_string<'e, 'a>(
+/// Workaround before <https://github.com/jni-rs/jni-rs/pull/557> is merged.
+fn jni_get_string<'e, 'a>(
     obj: &'a JObject<'a>,
     env: &mut JNIEnv<'e>,
 ) -> Result<jni::strings::JavaStr<'e, 'a, 'a>, jni::errors::Error> {
+    use jni::errors::{Error::*, JniError};
+
+    let string_class = env.find_class("java/lang/String")?;
+    let obj_class = env.get_object_class(obj)?;
+    let obj_class = env.auto_local(obj_class);
+    if !env.is_assignable_from(string_class, obj_class)? {
+        return Err(JniCall(JniError::InvalidArguments));
+    }
+
     let j_string: &jni::objects::JString<'_> = obj.into();
+    // SAFETY: We check that the passed in Object is actually a java.lang.String
     unsafe { env.get_string_unchecked(j_string) }
 }
