@@ -91,7 +91,7 @@ A callback is invoked only if the property's value has indeed changed.
 If a property's value changes multiple times within the same event loop cycle, the callback is invoked only once.
 Additionally, if a property's value changes and then reverts to its original state before the callback is executed, the callback won't be invoked.
 
-**Warning:** Altering properties during a change event in a way that could lead to the same property being affected is undefined behaviour.
+**Warning:** Altering properties during a change event in a way that could lead to the same property being affected is undefined behavior.
 
 ```slint
 export component Example {

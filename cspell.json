@@ -58,8 +58,9 @@
             ]
         },
         {
-            "languageId": "markdown,md,mdx",
+            "languageId": ["markdown", "md", "mdx"],
             "words": [
+                "Espressif",
                 "linebuffer",
                 "mylibrary", 
                 "otherlibrary", 
@@ -74,10 +75,6 @@
                 "Torizon",
                 "Yocto"
             ],
-            "ignoreRegExpList": [
-                // Ignore simple code blocks
-                "`[^`]+`"
-            ]
         }
     ],
     "words": [
