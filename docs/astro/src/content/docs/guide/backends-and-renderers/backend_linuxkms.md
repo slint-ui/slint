@@ -1,10 +1,9 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+// cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm
 title: LinuxKMS Backend
 description: LinuxKMS Backend
 ---
-
-<!-- cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat -->
 
 The LinuxKMS backend runs only on Linux and eliminates the need for a windowing system such as Wayland or X11.
 Instead it uses the following libraries and interface to render directly to the screen and react to touch, mouse,
