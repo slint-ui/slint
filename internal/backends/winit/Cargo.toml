@@ -27,7 +27,7 @@ renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
 renderer-software = ["dep:softbuffer", "dep:imgref", "dep:rgb", "i-slint-core/software-renderer-systemfonts", "dep:bytemuck", "winit/rwh_06"]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
-raw-window-handle-06 = ["winit/rwh_06"]
+raw-window-handle-06 = ["winit/rwh_06", "i-slint-core/raw-window-handle-06"]
 default = []
 
 [dependencies]
