@@ -19,16 +19,16 @@
   },
   "dependencies": {
     "@astrojs/check": "0.9.4",
-    "@astrojs/starlight": "0.30.2",
+    "@astrojs/starlight": "0.30.3",
     "@expressive-code/plugin-line-numbers": "0.38.3",
     "@types/node": "20.16.10",
-    "astro": "5.0.9",
+    "astro": "5.1.1",
     "playwright": "1.49.1",
     "playwright-ctrf-json-reporter": "0.0.18",
     "rehype-external-links": "3.0.0",
     "sharp": "0.33.5",
-    "starlight-links-validator": "0.13.4",
-    "starlight-sidebar-topics": "0.2.1",
+    "starlight-links-validator": "0.14.1",
+    "starlight-sidebar-topics": "0.3.0",
     "typescript": "5.7.2"
   },
   "devDependencies": {
