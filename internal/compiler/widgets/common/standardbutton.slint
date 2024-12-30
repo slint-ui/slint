@@ -8,6 +8,7 @@ export component StandardButton {
     in property <bool> enabled <=> btn.enabled;
     out property <bool> has-focus <=> btn.has-focus;
     out property <bool> pressed <=> btn.pressed;
+    forward-focus: btn;
 
     callback clicked <=> btn.clicked;
 
