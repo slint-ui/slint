@@ -95,6 +95,33 @@ struct Cli {
     translation_dir: Option<std::path::PathBuf>,
 }
 
+fn to_json(val: slint_interpreter::Value) -> Option<serde_json::Value> {
+    match val {
+        slint_interpreter::Value::Number(x) => Some(x.into()),
+        slint_interpreter::Value::String(x) => Some(x.as_str().into()),
+        slint_interpreter::Value::Bool(x) => Some(x.into()),
+        slint_interpreter::Value::Model(model) => {
+            let mut res = Vec::with_capacity(model.row_count());
+            for i in 0..model.row_count() {
+                res.push(to_json(model.row_data(i).unwrap())?);
+            }
+            Some(serde_json::Value::Array(res))
+        }
+        slint_interpreter::Value::Struct(st) => {
+            let mut obj = serde_json::Map::new();
+            for (k, v) in st.iter() {
+                obj.insert(k.into(), to_json(v.clone())?);
+            }
+            Some(obj.into())
+        }
+        slint_interpreter::Value::EnumerationValue(_class, value) => Some(value.as_str().into()),
+        slint_interpreter::Value::Image(image) => {
+            image.path().and_then(|path| path.to_str()).map(|path| path.into())
+        }
+        _ => None,
+    }
+}
+
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
@@ -155,34 +182,6 @@ fn main() -> Result<()> {
     if let Some(data_path) = args.save_data {
         let mut obj = serde_json::Map::new();
         for (name, _) in c.properties() {
-            fn to_json(val: slint_interpreter::Value) -> Option<serde_json::Value> {
-                match val {
-                    slint_interpreter::Value::Number(x) => Some(x.into()),
-                    slint_interpreter::Value::String(x) => Some(x.as_str().into()),
-                    slint_interpreter::Value::Bool(x) => Some(x.into()),
-                    slint_interpreter::Value::Model(model) => {
-                        let mut res = Vec::with_capacity(model.row_count());
-                        for i in 0..model.row_count() {
-                            res.push(to_json(model.row_data(i).unwrap())?);
-                        }
-                        Some(serde_json::Value::Array(res))
-                    }
-                    slint_interpreter::Value::Struct(st) => {
-                        let mut obj = serde_json::Map::new();
-                        for (k, v) in st.iter() {
-                            obj.insert(k.into(), to_json(v.clone())?);
-                        }
-                        Some(obj.into())
-                    }
-                    slint_interpreter::Value::EnumerationValue(_class, value) => {
-                        Some(value.as_str().into())
-                    }
-                    slint_interpreter::Value::Image(image) => {
-                        image.path().and_then(|path| path.to_str()).map(|path| path.into())
-                    }
-                    _ => None,
-                }
-            }
             if let Some(v) = to_json(component.get_property(&name).unwrap()) {
                 obj.insert(name.into(), v);
             }
@@ -473,6 +472,13 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
                 Value::Bool(x) => x.to_string(),
                 Value::Image(img) => {
                     img.path().map(|p| p.to_string_lossy()).unwrap_or_default().into()
+                }
+                Value::Struct(st) => {
+                    let mut obj = serde_json::Map::new();
+                    for (k, v) in st.iter() {
+                        obj.insert(k.into(), to_json(v.clone()).unwrap());
+                    }
+                    serde_json::to_string_pretty(&obj)?
                 }
                 _ => return Err(format!("Cannot convert argument to string: {:?}", v).into()),
             })
