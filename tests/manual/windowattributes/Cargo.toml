@@ -20,4 +20,4 @@ name = "windowattributes"
 path = "main.rs"
 
 [dependencies]
-slint = { version = "=1.9.1", path = "../../../api/rs/slint" }
+slint = { version = "=1.9.2", path = "../../../api/rs/slint" }

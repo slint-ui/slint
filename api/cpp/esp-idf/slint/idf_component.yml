@@ -4,7 +4,7 @@
 description: "Slint — declarative GUI toolkit"
 url: "https://slint.dev"
 license: "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
-version: "1.9.1"
+version: "1.9.2"
 discussion: "https://github.com/slint-ui/slint/discussions"
 documentation: "https://slint.dev/docs"
 repository: "https://github.com/slint-ui/slint"

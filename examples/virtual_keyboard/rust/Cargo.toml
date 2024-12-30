@@ -3,7 +3,7 @@
 
 [package]
 name = "virtual_keyboard"
-version = "1.9.1"
+version = "1.9.2"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 build = "build.rs"

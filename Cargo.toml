@@ -106,26 +106,26 @@ keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 repository = "https://github.com/slint-ui/slint"
 rust-version = "1.77"
-version = "1.9.1"
+version = "1.9.2"
 
 [workspace.dependencies]
-i-slint-backend-android-activity = { version = "=1.9.1", path = "internal/backends/android-activity", default-features = false }
-i-slint-backend-linuxkms = { version = "=1.9.1", path = "internal/backends/linuxkms", default-features = false }
-i-slint-backend-qt = { version = "=1.9.1", path="internal/backends/qt", default-features = false }
-i-slint-backend-selector = { version = "=1.9.1", path = "internal/backends/selector", default-features = false }
-i-slint-backend-testing = { version = "=1.9.1", path = "internal/backends/testing", default-features = false }
-i-slint-backend-winit = { version = "=1.9.1", path = "internal/backends/winit", default-features = false }
-i-slint-common = { version = "=1.9.1", path = "internal/common", default-features = false }
-i-slint-compiler = { version = "=1.9.1", path = "internal/compiler", default-features = false }
-i-slint-core = { version = "=1.9.1", path = "internal/core", default-features = false }
-i-slint-core-macros = { version = "=1.9.1", path = "internal/core-macros", default-features = false }
-i-slint-renderer-femtovg = { version = "=1.9.1", path = "internal/renderers/femtovg", default-features = false }
-i-slint-renderer-skia = { version = "=1.9.1", path = "internal/renderers/skia", default-features = false }
-slint = { version = "=1.9.1", path = "api/rs/slint", default-features = false }
-slint-build = { version = "=1.9.1", path = "api/rs/build", default-features = false }
-slint-cpp = { version = "=1.9.1", path = "api/cpp", default-features = false }
-slint-interpreter = { version = "=1.9.1", path = "internal/interpreter", default-features = false }
-slint-macros = { version = "=1.9.1", path = "api/rs/macros", default-features = false }
+i-slint-backend-android-activity = { version = "=1.9.2", path = "internal/backends/android-activity", default-features = false }
+i-slint-backend-linuxkms = { version = "=1.9.2", path = "internal/backends/linuxkms", default-features = false }
+i-slint-backend-qt = { version = "=1.9.2", path="internal/backends/qt", default-features = false }
+i-slint-backend-selector = { version = "=1.9.2", path = "internal/backends/selector", default-features = false }
+i-slint-backend-testing = { version = "=1.9.2", path = "internal/backends/testing", default-features = false }
+i-slint-backend-winit = { version = "=1.9.2", path = "internal/backends/winit", default-features = false }
+i-slint-common = { version = "=1.9.2", path = "internal/common", default-features = false }
+i-slint-compiler = { version = "=1.9.2", path = "internal/compiler", default-features = false }
+i-slint-core = { version = "=1.9.2", path = "internal/core", default-features = false }
+i-slint-core-macros = { version = "=1.9.2", path = "internal/core-macros", default-features = false }
+i-slint-renderer-femtovg = { version = "=1.9.2", path = "internal/renderers/femtovg", default-features = false }
+i-slint-renderer-skia = { version = "=1.9.2", path = "internal/renderers/skia", default-features = false }
+slint = { version = "=1.9.2", path = "api/rs/slint", default-features = false }
+slint-build = { version = "=1.9.2", path = "api/rs/build", default-features = false }
+slint-cpp = { version = "=1.9.2", path = "api/cpp", default-features = false }
+slint-interpreter = { version = "=1.9.2", path = "internal/interpreter", default-features = false }
+slint-macros = { version = "=1.9.2", path = "api/rs/macros", default-features = false }
 
 vtable = { version = "0.2", path = "helper_crates/vtable", default-features = false }
 
