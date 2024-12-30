@@ -225,8 +225,7 @@ impl AndroidWindowAdapter {
                     )?;
                     self.resize();
 
-                    // FIXME: I don't know why this is the case, but without this, the soft input
-                    // always prompt out on startup.
+                    // Fixes a problem for old Android versions: the soft input always prompt out on startup.
                     #[cfg(feature = "native-activity")]
                     self.java_helper
                         .show_or_hide_soft_input(false)
