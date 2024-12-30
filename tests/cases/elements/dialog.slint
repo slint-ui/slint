@@ -9,9 +9,10 @@ TestCase := Dialog {
         preferred-width: 600px;
         preferred-height: 600px;
     }
+    forward-focus: ok-button;
 
     StandardButton { kind: help; }
-    StandardButton { kind: ok; }
+    ok-button := StandardButton { kind: ok; }
     StandardButton { kind: cancel; }
     StandardButton { kind: apply; }
     StandardButton { kind: reset; }

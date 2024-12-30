@@ -44,6 +44,8 @@ export component StandardButton {
 
     callback clicked <=> native.clicked;
 
+    forward-focus: native;
+
     HorizontalLayout {
         native := NativeButton {
             accessible-role: button;
