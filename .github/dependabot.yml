@@ -43,10 +43,11 @@ updates:
       vscode:
         patterns:
           - "vscode*"
-      astro:
+      starlight_astro:
         patterns:
           - "astro"
           - "@astro*"
+          - "starlight*"
       playwright:
         patterns:
           - "playwright*"
