@@ -14,7 +14,7 @@ on:
           description: "Release? Enable options for building binaries for a release (i.e. apply a nightly tag, nightly version)"
         app-id:
           type: string
-          required: true  
+          required: true
 
 jobs:
     docs:
@@ -62,7 +62,7 @@ jobs:
                   rm -rf target/doc target/cppdocs api/node/docs
             - name: Build Cpp docs
               run: |
-                CPPDOCS_EXTRA_FLAGS="" 
+                CPPDOCS_EXTRA_FLAGS=""
                 if [ "$RELEASE_INPUT" != "true" ]; then
                     CPPDOCS_EXTRA_FLAGS="--experimental"
                 fi
@@ -71,7 +71,7 @@ jobs:
               run: cargo doc -p slint -p slint-build -p slint-interpreter --no-deps --all-features
             - name: "Rust android-activity and i-slint-backend-winit"
               run: |
-                  cargo doc -p i-slint-backend-android-activity -p i-slint-backend-winit -p i-slint-backend-testing --no-deps --target aarch64-linux-android --features=i-slint-backend-android-activity/native-activity,i-slint-backend-android-activity/aa-06,i-slint-backend-winit/renderer-femtovg
+                  cargo doc -p i-slint-backend-android-activity -p i-slint-backend-winit -p i-slint-backend-testing --no-deps --target aarch64-linux-android --features=i-slint-backend-android-activity/native-activity,i-slint-backend-android-activity/aa-06,i-slint-backend-winit/raw-window-handle-06,i-slint-backend-winit/renderer-femtovg
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_testing/ target/doc/
@@ -145,7 +145,7 @@ jobs:
                 app-id: ${{ inputs.app-id }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: website
-        
+
             - name: Clone website directory
               if: ${{ github.ref == 'refs/heads/master' }}
               uses: actions/checkout@v4
@@ -155,20 +155,20 @@ jobs:
                 path: website
                 token: ${{ steps.app-token.outputs.token }}
                 persist-credentials: false
-      
+
             - name: Generate release-docs.html and 404.html
               if: ${{ github.ref == 'refs/heads/master' }}
               run: |
                 mkdir -p website/output
                 cd website && go run generator/generator.go -skip-agreements
-      
+
             - name: Copy release-docs.html and 404.html
               if: ${{ github.ref == 'refs/heads/master' }}
               run: |
                 cp website/output/release-docs.html docs/site/index.html
                 cp website/output/404.html docs/site/404.html
                 rm -rf website
-                
+
             - name: "Upload Docs Artifacts"
               uses: actions/upload-artifact@v4
               with:
