@@ -168,6 +168,8 @@ impl Item for ComponentContainer {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         self.ensure_updated();
         if let Some(rc) = self.item_tree.borrow().clone() {
