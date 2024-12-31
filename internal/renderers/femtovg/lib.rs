@@ -264,11 +264,17 @@ impl FemtoVGRenderer {
                 match window_background_brush {
                     Some(Brush::SolidColor(..)) | None => {}
                     Some(brush) => {
-                        item_renderer.draw_rect(
+                        let window_item_rc = window_inner.window_item_rc().unwrap();
+                        let window_item =
+                            window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
+                        let pinned_brush = std::pin::pin!(brush);
+                        item_renderer.draw_border_rectangle(
+                            pinned_brush,
+                            &window_item_rc,
                             i_slint_core::lengths::logical_size_from_api(
                                 window.size().to_logical(window_inner.scale_factor()),
                             ),
-                            brush,
+                            &window_item.cached_rendering_data,
                         );
                     }
                 }
