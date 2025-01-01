@@ -124,7 +124,7 @@ export component MyComponent inherits Window { /*...*/ }
 
 in the .slint file, it will create a
 ```rust
-struct MyComponent{ /*...*/ }
+struct MyComponent { /*...*/ }
 ```
 
 See also our [sample component](docs::generated_code::SampleComponent) for more information about the API of the generated struct.
