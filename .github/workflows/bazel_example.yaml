@@ -1,0 +1,38 @@
+name: CI
+on:
+ workflow_dispatch:
+jobs:
+ ci_bazel:
+   runs-on: ubuntu-24.04
+   steps:
+     - uses: actions/checkout@v4
+     - uses: actions/cache@v4
+       with:
+         path: ~/.cache/bazel
+         key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelversion', '.bazelrc', 'MODULE.bazel') }}
+         restore-keys: |
+           ${{ runner.os }}-bazel-
+
+     - name: update packages
+       run: sudo apt-get update
+
+     - name: install other system dependencies
+       run: sudo apt-get -y install pkg-config libssl-dev default-jre pkgconf
+
+     - name: Bazel Build
+       run: bazelisk build --config=ci //...
+
+     - name: Upload bazel-explain build artifact
+       uses: actions/upload-artifact@v4
+       with:
+          name: bazel-explain-build-run
+          path: bazel-explain.log
+
+     - name: Bazel Test
+       run: bazelisk test //... --config=ci --test_output=all --test_arg=--nocapture
+
+     - name: Upload bazel-explain test artifact
+       uses: actions/upload-artifact@v4
+       with:
+          name: bazel-explain-test-run
+          path: bazel-explain.log
