@@ -128,6 +128,7 @@ export component TabImpl inherits Rectangle {
             font-size: CosmicFontSettings.body.font-size;
             font-weight: root.is-current ? CosmicFontSettings.body-strong.font-weight : CosmicFontSettings.body.font-weight;
             color: root.is-current ? CosmicPalette.accent-background : CosmicPalette.control-foreground;
+            accessible-role: none;
         }
     }
 }
