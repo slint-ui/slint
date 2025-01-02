@@ -130,6 +130,14 @@ public:
         cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
         return img;
     }
+
+    /// Load an image from data url
+    [[nodiscard]] static Image load_from_data_url(const SharedString &data_url)
+    {
+        Image img;
+        cbindgen_private::types::slint_image_load_from_data_url(&data_url, &img.data);
+        return img;
+    }
 #endif
 
     /// Constructs a new Image from an existing OpenGL texture. The texture remains borrowed by

@@ -3249,7 +3249,13 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::ImageReference { resource_ref, nine_slice }  => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
-                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#, escape_string(path.as_str())),
+                crate::expression_tree::ImageReference::AbsolutePath(path) => {
+                    if path.starts_with("data:") {
+                        format!(r#"slint::Image::load_from_data_url(u8"{}")"#, escape_string(path.as_str()))
+                    } else {
+                        format!(r#"slint::Image::load_from_path(u8"{}")"#, escape_string(path.as_str()))
+                    }
+                }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format!("slint_embedded_resource_{}", resource_id);
                     format!(r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#, escape_string(extension))
