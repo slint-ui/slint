@@ -73,7 +73,12 @@ let mut tab3_search = slint_testing::ElementHandle::find_by_accessible_label(&in
 let tab3 = tab3_search.next().unwrap();
 
 assert_eq!(tab1.accessible_item_index(), Some(0));
+assert_eq!(tab1.accessible_item_selectable(), Some(true));
+
 assert_eq!(tab2.accessible_item_index(), Some(1));
+assert_eq!(tab2.accessible_item_selectable(), Some(true));
+
 assert_eq!(tab3.accessible_item_index(), Some(2));
+assert_eq!(tab3.accessible_item_selectable(), Some(true));
 ```
 */
