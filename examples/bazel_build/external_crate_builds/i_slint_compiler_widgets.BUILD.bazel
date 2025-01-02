@@ -1,0 +1,6 @@
+"widgets"
+filegroup(
+  name = "widgets",
+  srcs = glob(["widgets/**"]),
+  visibility = ["//visibility:public"],
+)

@@ -1,0 +1,70 @@
+module(name = "slint_bazel_example")
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(
+    name = "buildifier_prebuilt",
+    version = "7.3.1",
+    dev_dependency = True,
+)
+bazel_dep(name = "rules_rust", version = "0.54.1")
+bazel_dep(name = "toolchains_llvm", version = "1.1.2")
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+
+# https://github.com/bazel-contrib/toolchains_llvm/blob/master/toolchain/internal/llvm_distributions.bzl
+llvm.toolchain(name = "llvm_toolchain", llvm_versions = {"": "17.0.6"})
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    versions = ["1.83.0", "nightly/2024-07-20"],
+    sha256s = {
+        "2024-07-20/rustc-nightly-x86_64-unknown-linux-gnu.tar.xz": "97750490a01fa797d93eb2ea72c6b02492cc85671ba2ca1c3fa1d1a61968b587",
+        "2024-07-20/clippy-nightly-x86_64-unknown-linux-gnu.tar.xz": "8ebdd6a56559a11a4863ab23d9a0c8896a2f5759d40bd6869bad857f57b85e55",
+        "2024-07-20/cargo-nightly-x86_64-unknown-linux-gnu.tar.xz": "3a0ab34fe9a3985b75711fafa0e5e1215904be7e70ab3e432300f7d165e8bf18",
+        "2024-07-20/llvm-tools-nightly-x86_64-unknown-linux-gnu.tar.xz": "b53be917d6e1f844d5c72b027751985c8c8116851cc980e92f407167aff0c9ad",
+        "2024-07-20/rust-std-nightly-x86_64-unknown-linux-gnu.tar.xz": "16e059cd736127f1667c1f56de17fadb8a1d31cb4fab6ca64ac11ef4c2864bc2",
+    },
+)
+use_repo(rust, "rust_toolchains")
+register_toolchains("@llvm_toolchain//:all")
+register_toolchains("@rust_toolchains//:all")
+
+crate = use_extension(
+    "@rules_rust//crate_universe:extension.bzl",
+    "crate",
+)
+
+slint_version = "=1.7.0"
+crate.spec(package = "slint", version = slint_version, default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-2"])
+crate.spec(package = "slint-build", version = slint_version)
+crate.spec(package = "i-slint-backend-winit", version = slint_version)
+crate.spec(package = "i-slint-backend-testing", version = slint_version)  # Must match the slint crate version!
+
+# slint_git_url = "https://github.com/slint-ui/slint.git"
+# slint_revision = "27f17676222165bfd0648a213363c1a183ec49ed"
+# crate.spec(package = "slint", git=slint_git_url, rev=slint_revision, default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-2"])
+# crate.spec(package = "i-slint-backend-winit", git=slint_git_url, rev=slint_revision)
+# crate.spec(package = "i-slint-backend-testing", git=slint_git_url, rev=slint_revision)  # Must match the slint crate version!
+# crate.spec(package = "slint-build", git = slint_git_url, rev=slint_revision)
+
+crate.annotation(
+    crate = "i-slint-compiler",
+    patches = ["@//external_crate_builds:i_slint_compiler.patch"],
+    patch_args = ["-p1"],
+    disable_pipelining = True,
+)
+crate.annotation(
+    crate = "khronos_api",
+    patches = ["@//external_crate_builds:khronos_apis_fix_build.patch"],
+    patch_args = ["-p1"],
+    compile_data = [":webgl_exts_rs"],
+    gen_build_script = "off",
+    additive_build_file = "@//external_crate_builds:khronos_api_webgl_exts_rs.BUILD.bazel",
+    rustc_env = {"WEBGL_EXTS": "$(location :webgl_exts_rs)"},
+)
+
+CRATES_REPOSITORY_NAME = "crates"
+crate.from_specs(name = CRATES_REPOSITORY_NAME)
+use_repo(crate, CRATES_REPOSITORY_NAME)
