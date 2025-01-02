@@ -724,11 +724,12 @@ fn complete_path_in_string(
     text: &str,
     offset: TextSize,
 ) -> Option<Vec<CompletionItem>> {
-    if u32::from(offset) as usize > text.len() || offset == 0.into() {
+    let offset = u32::from(offset) as usize;
+    if offset > text.len() || offset == 0 || !text.is_char_boundary(offset) {
         return None;
     }
     let mut text = text.strip_prefix('\"')?;
-    text = &text[..(u32::from(offset) - 1) as usize];
+    text = &text[..(offset - 1)];
     let base = i_slint_compiler::typeloader::base_directory(base);
     let path = if let Some(last_slash) = text.rfind('/') {
         base.join(Path::new(&text[..last_slash]))
