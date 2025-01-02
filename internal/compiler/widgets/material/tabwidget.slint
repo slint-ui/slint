@@ -49,6 +49,7 @@ export component TabImpl inherits Rectangle {
     accessible-label: root.title;
     accessible-item-index: root.tab-index;
     accessible-item-selectable: true;
+    accessible-item-selected: root.active;
 
     i-container := Rectangle {
         background: MaterialPalette.alternate-background;
