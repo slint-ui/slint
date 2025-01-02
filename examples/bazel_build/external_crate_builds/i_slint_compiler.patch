@@ -1,0 +1,125 @@
+diff --git a/build.rs b/build.rs
+index 844525ed1..cc7537baf 100644
+--- a/build.rs
++++ b/build.rs
+@@ -8,8 +8,8 @@
+ fn main() -> std::io::Result<()> {
+     println!("cargo:rustc-check-cfg=cfg(slint_debug_property)");
+ 
+-    let mut library_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+-    library_dir.push("widgets");
++    let library_dir = PathBuf::from("widgets");
++    assert!(library_dir.exists());
+ 
+     println!("cargo:rerun-if-changed={}", library_dir.display());
+ 
+@@ -46,29 +46,14 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
+ }
+ 
+ fn process_style(path: &Path) -> std::io::Result<String> {
+-    let library_files: Vec<PathBuf> = read_dir(path)?
+-        .filter_map(Result::ok)
+-        .filter(|entry| {
+-            entry.file_type().map_or(false, |f| f.is_file())
+-                && entry
+-                    .path()
+-                    .extension()
+-                    .map(|ext| {
+-                        ext == std::ffi::OsStr::new("slint")
+-                            || ext == std::ffi::OsStr::new("60")
+-                            || ext == std::ffi::OsStr::new("svg")
+-                            || ext == std::ffi::OsStr::new("svgz")
+-                    })
+-                    .unwrap_or_default()
+-        })
+-        .map(|entry| entry.path())
+-        .collect();
++    let library_files: Vec<PathBuf> =
++        read_dir(path)?.filter_map(Result::ok).map(|entry| entry.path()).collect();
+ 
+     Ok(library_files
+         .iter()
+         .map(|file| {
+             format!(
+-                "&BuiltinFile {{path: r#\"{}\"# , contents: include_bytes!(r#\"{}\"#)}}",
++                "&BuiltinFile {{path: r#\"{}\"# , contents: include_bytes!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/{}\"))}}",
+                 file.file_name().unwrap().to_string_lossy(),
+                 file.display()
+             )
+diff --git a/fileaccess.rs b/fileaccess.rs
+index a80557482..14536d3e4 100644
+--- a/fileaccess.rs
++++ b/fileaccess.rs
+@@ -29,11 +29,9 @@ pub fn styles() -> Vec<&'static str> {
+ pub fn load_file(path: &std::path::Path) -> Option<VirtualFile> {
+     match path.strip_prefix("builtin:/") {
+         Ok(builtin_path) => builtin_library::load_builtin_file(builtin_path),
+-        Err(_) => path.exists().then(|| {
+-            let path =
+-                crate::pathutils::join(&std::env::current_dir().ok().unwrap_or_default(), path)
+-                    .unwrap_or_else(|| path.to_path_buf());
+-            VirtualFile { canon_path: crate::pathutils::clean_path(&path), builtin_contents: None }
++        Err(_) => path.exists().then(|| VirtualFile {
++            canon_path: crate::pathutils::clean_path(&path),
++            builtin_contents: None,
+         }),
+     }
+ }
+diff --git a/generator/rust.rs b/generator/rust.rs
+index 0e2c01201..b91476e6a 100644
+--- a/generator/rust.rs
++++ b/generator/rust.rs
+@@ -2780,12 +2780,27 @@ fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenSt
+ 
+ fn embedded_file_tokens(path: &str) -> TokenStream {
+     let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
++
+     match file.builtin_contents {
+         Some(static_data) => {
+             let literal = proc_macro2::Literal::byte_string(static_data);
+             quote!(#literal)
+         }
+-        None => quote!(::core::include_bytes!(#path)),
++        None => {
++            // Paths like:
++            // /home/user/.cache/bazel/_bazel_user/id/sandbox/processwrapper-sandbox/sandbox_id/execroot/my_workspace/packages/shared_ui/widget_library/assets/images/yellow-triangle.svg
++            // Should be stripped to: my_workspace/packages/shared_ui/widget_library/assets/images/yellow-triangle.svg
++
++            if path.starts_with('/') {
++                // remove prefix up to /widget_library
++                let path = path.split("/widget_library/").collect::<Vec<_>>().pop().unwrap();
++                return quote!(::core::include_bytes!(
++                    concat!(env!("WIDGET_LIBRARY_PACKAGE_PATH"),"/",#path)
++                ));
++            }
++            // relative path
++            quote!(::core::include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/", #path)))
++        }
+     }
+ }
+ 
+diff --git a/typeloader.rs b/typeloader.rs
+index a4c7e2c9c..13b4ba0a9 100644
+--- a/typeloader.rs
++++ b/typeloader.rs
+@@ -1254,9 +1254,17 @@ pub fn find_file_in_include_path(
+                 .then(|| format!("builtin:/{}", self.style).into()),
+             )
+             .find_map(|include_dir| {
+-                let candidate = crate::pathutils::join(&include_dir, Path::new(file_to_import))?;
+-                crate::fileaccess::load_file(&candidate)
+-                    .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
++                if include_dir.starts_with("builtin:/") {
++                    let candidate =
++                        crate::pathutils::join(&include_dir, Path::new(file_to_import))?;
++                    crate::fileaccess::load_file(&candidate).map(|virtual_file| {
++                        (virtual_file.canon_path, virtual_file.builtin_contents)
++                    })
++                } else {
++                    crate::fileaccess::load_file(Path::new(file_to_import)).map(|virtual_file| {
++                        (virtual_file.canon_path, virtual_file.builtin_contents)
++                    })
++                }
+             })
+     }
+ 
