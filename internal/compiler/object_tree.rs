@@ -86,7 +86,9 @@ impl Document {
              diag: &mut BuildDiagnostics,
              local_registry: &mut TypeRegister| {
                 let compo = Component::from_node(n, diag, local_registry);
-                local_registry.add(compo.clone());
+                if !local_registry.add(compo.clone()) {
+                    diag.push_warning(format!("Component '{}' is replacing a previously defined component with the same name", compo.id), &syntax_nodes::Component::from(compo.node.clone().unwrap()).DeclaredIdentifier());
+                }
                 inner_components.push(compo);
             };
         let process_struct = |n: syntax_nodes::StructDeclaration,
@@ -102,7 +104,14 @@ impl Document {
                 parser::identifier_text(&n.DeclaredIdentifier()),
             );
             assert!(matches!(ty, Type::Struct(_)));
-            local_registry.insert_type(ty.clone());
+            if !local_registry.insert_type(ty.clone()) {
+                diag.push_warning(
+                    format!(
+                        "Struct '{ty}' is replacing a previously defined type with the same name"
+                    ),
+                    &n.DeclaredIdentifier(),
+                );
+            }
             inner_types.push(ty);
         };
         let process_enum = |n: syntax_nodes::EnumDeclaration,
@@ -132,9 +141,17 @@ impl Document {
                     }
                 })
                 .collect();
-            let en = Enumeration { name: name.clone(), values, default_value: 0, node: Some(n) };
+            let en =
+                Enumeration { name: name.clone(), values, default_value: 0, node: Some(n.clone()) };
             let ty = Type::Enumeration(Rc::new(en));
-            local_registry.insert_type_with_name(ty.clone(), name);
+            if !local_registry.insert_type_with_name(ty.clone(), name.clone()) {
+                diag.push_warning(
+                    format!(
+                        "Enum '{name}' is replacing a previously defined type with the same name"
+                    ),
+                    &n.DeclaredIdentifier(),
+                );
+            }
             inner_types.push(ty);
         };
 
@@ -226,9 +243,7 @@ impl Document {
             if local_compo.is_global() {
                 continue;
             }
-            // First ref count is in the type registry, the second one in inner_components. Any use of the element
-            // would have resulted in another strong reference.
-            if Rc::strong_count(local_compo) == 2 {
+            if !local_compo.used.get() {
                 diag.push_warning(
                     "Component is neither used nor exported".into(),
                     &local_compo.node,
@@ -376,6 +391,9 @@ pub struct Component {
     /// The names under which this component should be accessible
     /// if it is a global singleton and exported.
     pub exported_global_names: RefCell<Vec<ExportedName>>,
+
+    /// True if this component is used as a sub-component by at least one other component.
+    pub used: Cell<bool>,
 
     /// The list of properties (name and type) declared as private in the component.
     /// This is used to issue better error in the generated code if the property is used.
@@ -962,6 +980,9 @@ impl Element {
         };
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
+        if let ElementType::Component(c) = &base_type {
+            c.used.set(true);
+        }
         let type_name = base_type
             .type_name()
             .filter(|_| base_type != tr.empty_type())
