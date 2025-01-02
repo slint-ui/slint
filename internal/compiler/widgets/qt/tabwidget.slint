@@ -18,6 +18,7 @@ export component TabBarImpl inherits TabBarBase {
 
     accessible-role: tab-list;
     accessible-delegate-focus: root.current;
+    accessible-item-count: root.num-tabs;
 
     Rectangle {
         // The breeze style draws outside of the tab bar, which is clip by default with Qt

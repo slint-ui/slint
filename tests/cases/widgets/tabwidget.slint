@@ -59,6 +59,10 @@ export component TestCase inherits Window {
 ```rust
 let instance = TestCase::new().unwrap();
 
+let mut tabbar_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TabBarImpl::root");
+let tabbar = tabbar_search.next().unwrap();
+assert_eq!(tabbar.accessible_item_count(), Some(3));
+
 let mut tab1_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "First Tab");
 let _tab1 = tab1_search.next().unwrap();
 
