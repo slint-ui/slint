@@ -15,6 +15,7 @@ component SideBarItem inherits Rectangle {
     accessible-role: tab;
     accessible-label: root.text;
     accessible-item-index: root.tab-index;
+    accessible-item-selectable: true;
 
     states [
         pressed when touch.pressed : {

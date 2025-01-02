@@ -10,6 +10,7 @@ export component TabImpl inherits NativeTab {
     accessible-enabled: root.enabled;
     accessible-label <=> root.title;
     accessible-item-index: root.tab-index;
+    accessible-item-selectable: true;
 }
 
 export component TabBarImpl inherits TabBarBase {
