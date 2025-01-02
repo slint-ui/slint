@@ -122,6 +122,7 @@ export component TabBarImpl inherits TabBarBase {
    
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
+    accessible-item-count: root.num-tabs;
 
     i-focus-scope := FocusScope {
         property <int> focused-tab: 0;
