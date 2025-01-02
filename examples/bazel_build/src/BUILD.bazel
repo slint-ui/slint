@@ -1,0 +1,32 @@
+load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+
+cargo_build_script(
+    name = "ui_builder",
+    srcs = ["build.rs"],
+    build_script_env = {
+        "SLINT_INDEX_FILE_PATH": "$(location slint/index.slint)",
+        "SLINT_EMIT_DEBUG_INFO": "1",
+    },
+    crate_root = "build.rs",
+    data = [
+        "slint/index.slint",
+    ],
+    edition = "2021",
+    deps = [
+        "@crates//:slint-build",
+    ],
+)
+
+rust_binary(
+    name = "slint_bazel_example",
+    srcs = [
+        "main.rs",
+    ],
+    crate_root = "main.rs",
+    deps = [
+        "@crates//:slint",
+        ":ui_builder",
+        "@crates//:slint-build",
+    ],
+)
