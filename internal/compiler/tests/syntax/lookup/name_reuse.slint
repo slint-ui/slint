@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Foo /* Foo 1 */ { }
+
+export component FooBaz {
+    Foo /* <- TEST_ME_1 */ { }
+}
+
+component Foo /* Foo 2 */ { }
+//        ^warning{Component 'Foo' is replacing a previously defined component with the same name}
+
+export component Baz {
+    Foo /* <- TEST_ME_2 */ { }
+}
+
+
+struct Type1 { xxx: int }
+enum Type2 { AAA, BBB }
+
+  component Test1 {}
+//^warning{Component is neither used nor exported}
+
+export component Test1 {
+//               ^warning{Component 'Test1' is replacing a previously defined component with the same name}
+    property <Type1> t1: { xxx: 42 };
+    property <Type2> t2: Type2.AAA;
+//                       ^error{Cannot access id 'Type2'} // because in the lookup phase it was already erased
+
+    init => {
+        debug(Type1.CCC);         // This is allowed because the resolving phase has full view on the document
+        debug(Type2.AAA);
+//            ^error{Cannot access id 'Type2'}
+    }
+}
+
+struct Type2 { yyy: int }
+//     ^warning{Struct 'Type2' is replacing a previously defined type with the same name}
+enum Type1 { CCC, DDD }
+//   ^warning{Enum 'Type1' is replacing a previously defined type with the same name}
+export component Test2 {
+    property <Type1> t1: Type1.DDD;
+    property <Type2> t2: { yyy: 42 };
+    property <Type1> error: Type2.AAA;
+    //                      ^error{Cannot access id 'Type2'}
+}
+

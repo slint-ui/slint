@@ -350,6 +350,7 @@ impl Snapshotter {
                 exported_global_names: RefCell::new(
                     component.exported_global_names.borrow().clone(),
                 ),
+                used: component.used.clone(),
                 init_code: RefCell::new(component.init_code.borrow().clone()),
                 inherits_popup_window: std::cell::Cell::new(component.inherits_popup_window.get()),
                 optimized_elements,
@@ -1455,7 +1456,7 @@ impl TypeLoader {
                 itertools::Either::Right(ty) => registry_to_populate
                     .borrow_mut()
                     .insert_type_with_name(ty, import_name.internal_name),
-            }
+            };
         }
     }
 

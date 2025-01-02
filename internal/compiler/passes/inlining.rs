@@ -403,6 +403,7 @@ fn duplicate_sub_component(
         popup_windows: Default::default(),
         timers: component_to_duplicate.timers.clone(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
+        used: component_to_duplicate.used.clone(),
         private_properties: Default::default(),
         inherits_popup_window: core::cell::Cell::new(false),
     };

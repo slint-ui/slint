@@ -356,12 +356,17 @@ impl TypeRegister {
         }
     }
 
-    /// FIXME: same as 'add' ?
-    pub fn insert_type(&mut self, t: Type) {
-        self.types.insert(t.to_smolstr(), t);
+    /// Insert a type into the type register with its builtin type name.
+    ///
+    /// Returns false if a it replaced an existing type.
+    pub fn insert_type(&mut self, t: Type) -> bool {
+        self.types.insert(t.to_smolstr(), t).is_none()
     }
-    pub fn insert_type_with_name(&mut self, t: Type, name: SmolStr) {
-        self.types.insert(name, t);
+    /// Insert a type into the type register with a specified name.
+    ///
+    /// Returns false if a it replaced an existing type.
+    pub fn insert_type_with_name(&mut self, t: Type, name: SmolStr) -> bool {
+        self.types.insert(name, t).is_none()
     }
 
     fn builtin_internal() -> Self {
@@ -642,12 +647,18 @@ impl TypeRegister {
         self.lookup(qualified[0].as_ref())
     }
 
-    pub fn add(&mut self, comp: Rc<Component>) {
-        self.add_with_name(comp.id.clone(), comp);
+    /// Add the component with it's defined name
+    ///
+    /// Returns false if there was already an element with the same name
+    pub fn add(&mut self, comp: Rc<Component>) -> bool {
+        self.add_with_name(comp.id.clone(), comp)
     }
 
-    pub fn add_with_name(&mut self, name: SmolStr, comp: Rc<Component>) {
-        self.elements.insert(name, ElementType::Component(comp));
+    /// Add the component with a specified name
+    ///
+    /// Returns false if there was already an element with the same name
+    pub fn add_with_name(&mut self, name: SmolStr, comp: Rc<Component>) -> bool {
+        self.elements.insert(name, ElementType::Component(comp)).is_none()
     }
 
     pub fn add_builtin(&mut self, builtin: Rc<BuiltinElement>) {
