@@ -4,6 +4,7 @@
 import { HorizontalBox, VerticalBox, Palette } from "std-widgets.slint";
 
 component SideBarItem inherits Rectangle {
+    in property <int> tab-index;
     in property <bool> selected;
     in property <bool> has-focus;
     in-out property <string> text <=> label.text;
@@ -13,6 +14,7 @@ component SideBarItem inherits Rectangle {
     min-height: l.preferred-height;
     accessible-role: tab;
     accessible-label: root.text;
+    accessible-item-index: root.tab-index;
 
     states [
         pressed when touch.pressed : {
@@ -116,6 +118,7 @@ export component SideBar inherits Rectangle {
             for item[index] in root.model : SideBarItem {
                 clicked => { root.current-item = index; }
 
+                tab-index: index;
                 has-focus: index == root.current-focused;
                 text: item;
                 selected: index == root.current-item;
