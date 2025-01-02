@@ -2,68 +2,79 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import type { Props } from "@astrojs/starlight/props";
-import { getVersions } from "../utils/versions.ts";
-
-// Define types
-interface Version {
+---
+<script>
+  // Define types
+  interface Version {
     version: string;
     name?: string;
     url: string;
     preferred?: boolean;
-}
-
-// Compare two versions
-function compareVersions(v1: string, v2: string): number {
-    const [major1, minor1, patch1] = v1.split(".").map(Number);
-    const [major2, minor2, patch2] = v2.split(".").map(Number);
-
-    if (major1 !== major2) {
-        return major1 - major2;
-    }
-    if (minor1 !== minor2) {
-        return minor1 - minor2;
-    }
+  }
+  // Compare two versions
+  function compareVersions(v1: string, v2: string): number {
+    const [major1, minor1, patch1] = v1.split('.').map(Number);
+    const [major2, minor2, patch2] = v2.split('.').map(Number);
+    if (major1 !== major2) return major1 - major2;
+    if (minor1 !== minor2) return minor1 - minor2;
     return patch1 - patch2;
-}
-
-// Extract version from URL path
-function extractVersion(path: string): string | null {
-    const match = path.match(/(\d+\.\d+\.\d+|\d+\.\d+)(?=\/|$)/);
+  }
+  // Extract version from URL
+  function extractVersion(url: string): string | null {
+    const match = url.match(/(\d+\.\d+\.\d+|\d+\.\d+)(?=\/|$)/);
     return match ? match[0] : null;
+  }
+  function showBanner(latestVersion: string, currentVersion: string | null) {
+      // Logic for showing banners based on version comparison
+      if (currentVersion) {
+        const compareToPreferred = latestVersion && compareVersions(latestVersion, currentVersion);
+        
+        const olderVersionElem = document.getElementById('older-version');
+        const devVersionElem = document.getElementById('development-snapshot');
+        
+        if (olderVersionElem && compareToPreferred && compareToPreferred > 0) {
+          olderVersionElem.hidden = false;
+        } else if (olderVersionElem) {
+          olderVersionElem.hidden = true;
+        }
+        if (devVersionElem && compareToPreferred && compareToPreferred < 0) {
+          devVersionElem.hidden = false;
+        } else if (devVersionElem) {
+          devVersionElem.hidden = true;
+        }
+      } else if (window.location.href.includes('master')) {
+        const devVersionElem = document.getElementById('development-snapshot');
+        if (devVersionElem) devVersionElem.hidden = false;
+      }
+  }
+  // Fetch version data and set up logic
+  async function fetchVersions() {
+    const storedVersion: string | null = sessionStorage.getItem('version');
+    const currentUrl = window.location.href;
+    const currentVersion = extractVersion(currentUrl);
+    if (storedVersion) {
+      showBanner(storedVersion, currentVersion);
+    } else {
+      try {
+        const response = await fetch('https://releases.slint.dev/versions.json');
+        const versions: Version[] = await response.json();
+        const preferredVersion = versions.find((version: Version) => version.preferred) || null;
+        if (preferredVersion) {
+          const latestVersion = preferredVersion.version;
+          showBanner(latestVersion, currentVersion);
+          sessionStorage.setItem('version', latestVersion)
+        }
+      } catch (error) {
+        console.error('Failed to load versions.json:', error);
+      }
+    }
 }
-
-// Fetch versions at build time
-const versions = await getVersions();
-const preferredVersion = versions.find(
-    (version: Version) => version.preferred,
-)?.version;
-
-// Get current version from URL
-const currentVersion = extractVersion(Astro.url.pathname);
-
-// Determine which banner to show
-const showOlderVersion =
-    currentVersion &&
-    preferredVersion &&
-    compareVersions(preferredVersion, currentVersion) > 0;
-//const showDevVersion = currentVersion
-//    ? preferredVersion && compareVersions(preferredVersion, currentVersion) < 0
-//    : Astro.url.pathname.includes("master");
-const showDevVersion = false;
----
-
-{showDevVersion && (
-  <div class="version-banner">
-    This is the unreleased documentation for the <strong>next</strong> version of Slint.
-    <br />
-    For up-to-date documentation, see <a href="https://docs.slint.dev">here</a>.
-  </div>
-)}
-
-{showOlderVersion && (
-  <div class="version-banner">
-    You are viewing contents of an older version.
-    <br />
-    For up-to-date documentation, see <a href="https://docs.slint.dev">here</a>.
-  </div>
-)}
+// Fetch versions when the page loads
+fetchVersions();
+</script>
+<div class="version-banner" id="development-snapshot" hidden>
+  This is the unreleased documentation for the <strong>next</strong> version of Slint. Switch to <a href="https://docs.slint.dev">the latest released version</a>.
+</div>
+<div class="version-banner" id="older-version" hidden>
+    You are viewing contents of an older version. Switch to <a href="https://docs.slint.dev">the latest released version</a>.
+</div>
