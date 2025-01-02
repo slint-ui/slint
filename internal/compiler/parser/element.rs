@@ -17,7 +17,17 @@ use super::statements::parse_statement;
 /// ```
 pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
-    if !(parse_qualified_name(&mut *p) && p.expect(SyntaxKind::LBrace)) {
+    if !parse_qualified_name(&mut *p) {
+        return if p.test(SyntaxKind::LBrace) {
+            // recover
+            parse_element_content(&mut *p);
+            p.expect(SyntaxKind::RBrace)
+        } else {
+            false
+        };
+    }
+
+    if !p.expect(SyntaxKind::LBrace) {
         return false;
     }
 
@@ -50,7 +60,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
-                SyntaxKind::ColonEqual | SyntaxKind::LBrace => parse_sub_element(&mut *p),
+                SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
+                    had_parse_error |= !parse_sub_element(&mut *p)
+                }
                 SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
                     parse_callback_connection(&mut *p)
                 }
@@ -143,13 +155,13 @@ pub fn parse_element_content(p: &mut impl Parser) {
 /// Bar { x : y ; }
 /// ```
 /// Must consume at least one token
-fn parse_sub_element(p: &mut impl Parser) {
+fn parse_sub_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::SubElement);
     if p.nth(1).kind() == SyntaxKind::ColonEqual {
         p.expect(SyntaxKind::Identifier);
         p.expect(SyntaxKind::ColonEqual);
     }
-    parse_element(&mut *p);
+    parse_element(&mut *p)
 }
 
 #[cfg_attr(test, parser_test)]
