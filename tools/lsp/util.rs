@@ -34,10 +34,8 @@ pub fn node_to_url_and_lsp_range(node: &SyntaxNode) -> Option<(lsp_types::Url, l
 }
 
 /// Map a `node` to the `Range` of characters covered by the `node`
-///
-/// This will exclude trailing whitespaces.
 pub fn node_to_lsp_range(node: &SyntaxNode) -> lsp_types::Range {
-    let range = node_range_without_trailing_ws(node);
+    let range = node.text_range();
     text_range_to_lsp_range(&node.source_file, range)
 }
 
