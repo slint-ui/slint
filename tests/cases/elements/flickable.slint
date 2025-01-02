@@ -286,5 +286,49 @@ assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 ```
 
+```rust
+// Same as first test, but wait a bit before moving the mouse, and move only a tiny  ()
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
+slint_testing::mock_elapsed_time(5000);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+slint_testing::mock_elapsed_time(500);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(299.0, 99.0) });
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
+assert_eq!(instance.get_offset_x(), 100.);
+assert_eq!(instance.get_offset_y(), 50.);
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.get_offset_x(), 100.);
+assert_eq!(instance.get_offset_y(), 50.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 50.0) });
+assert_eq!(instance.get_offset_x(), 200.);
+assert_eq!(instance.get_offset_y(), 50.);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 50.0), button: PointerEventButton::Left });
+// Start of the animation, the position is still unchanged
+assert_eq!(instance.get_offset_x(), 200.);
+assert_eq!(instance.get_offset_y(), 50.);
+slint_testing::mock_elapsed_time(50);
+// middle of the animation
+// NOTE: the value were changed compared to the first test because the timing is different
+assert!(instance.get_offset_x() > 201.);
+assert!(instance.get_offset_y() > 41.);
+assert!(instance.get_offset_x() < 290.);
+assert!(instance.get_offset_y() < 70.);
+
+// end of the animation
+slint_testing::mock_elapsed_time(300);
+
+assert!(!instance.get_inner_ta_pressed());
+assert!(!instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_clicked(), 0);
+assert_eq!(instance.get_double_clicked(), 0);
+```
+
 */
 
