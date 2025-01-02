@@ -2012,7 +2012,7 @@ export component TestWindow inherits Window {
             "
   \t
 \t     \t
-                
+
 "
             .into(),
         );
@@ -2112,6 +2112,7 @@ export component MainWindow inherits Window {
         );
     }
 
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     #[test]
     fn test_show_preview_code_lens() {
         // Empty slint document:
@@ -2120,8 +2121,8 @@ export component MainWindow inherits Window {
 component Internal { }
 
 export component Test {
-    
-}         
+
+}
 "#
             .into(),
         );
