@@ -11,6 +11,8 @@ component SideBarItem inherits Rectangle {
     callback clicked <=> touch.clicked;
 
     min-height: l.preferred-height;
+    accessible-role: tab;
+    accessible-label: root.text;
 
     states [
         pressed when touch.pressed : {
@@ -40,7 +42,8 @@ component SideBarItem inherits Rectangle {
 
         label := Text {
             vertical-alignment: center;
-         }
+            accessible-role: none;
+        }
     }
 
     touch := TouchArea {
@@ -57,8 +60,9 @@ export component SideBar inherits Rectangle {
 
     width: 180px;
     forward-focus: fs;
-    accessible-role: tab;
+    accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+    accessible-label: root.title;
 
     Rectangle {
         background: Palette.background.darker(0.2);
