@@ -6,7 +6,8 @@ bazel_dep(
     version = "7.3.1",
     dev_dependency = True,
 )
-bazel_dep(name = "rules_rust", version = "0.54.1")
+# bazel_dep(name = "rules_rust", version = "0.54.1")
+bazel_dep(name = "rules_rust", version = "0.56.0")
 bazel_dep(name = "toolchains_llvm", version = "1.1.2")
 
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
@@ -64,6 +65,13 @@ crate.annotation(
     additive_build_file = "@//external_crate_builds:khronos_api_webgl_exts_rs.BUILD.bazel",
     rustc_env = {"WEBGL_EXTS": "$(location :webgl_exts_rs)"},
 )
+# crate.annotation(
+#     crate = "ashpd",
+#     compile_data = [":cargo_toml"],
+#     # additive_build_file = "@//external_crate_builds:ashpd.BUILD.bazel",
+#     # rustc_env = {"CARGO_MANIFEST_DIR": "$(location :cargo_toml)"},
+#     rustc_env = {"CARGO_MANIFEST_DIR": "$(PWD)/"},
+# )
 
 CRATES_REPOSITORY_NAME = "crates"
 crate.from_specs(name = CRATES_REPOSITORY_NAME)
