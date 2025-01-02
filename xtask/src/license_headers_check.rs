@@ -153,9 +153,13 @@ impl<'a> SourceFileWithTags<'a> {
             None => return false,
         };
 
-        let expected_tag_str = expected_tag.to_string(self.tag_style, license);
-        let found_tag = &self.source[tag_loc.start..tag_loc.end];
-        expected_tag_str == found_tag
+        let found_tag = &self.source[tag_loc.start..tag_loc.end]
+            .trim_start_matches(self.tag_style.overall_start)
+            .trim_end_matches(self.tag_style.overall_end);
+        let mut tag_entries = found_tag.split(self.tag_style.line_break);
+        let Some(_copyright_entry) = tag_entries.next() else { return false };
+        let Some(license_entry) = tag_entries.next() else { return false };
+        expected_tag.to_string(self.tag_style, license) == license_entry
     }
 
     fn replace_tag(&self, replacement: &LicenseHeader, license: &str) -> String {
@@ -166,7 +170,32 @@ impl<'a> SourceFileWithTags<'a> {
             self.source.as_bytes().first()
         };
 
-        let new_header = replacement.to_string(self.tag_style, license);
+        let existing_copyright = loc.as_ref().and_then(|tag_loc| {
+            self.source[tag_loc.start..tag_loc.end]
+                .trim_start_matches(self.tag_style.overall_start)
+                .trim_end_matches(self.tag_style.overall_end)
+                .split(self.tag_style.line_break)
+                .next()
+        });
+
+        let new_header = [
+            self.tag_style.overall_start,
+            &existing_copyright.map_or_else(
+                || {
+                    [
+                        self.tag_style.line_prefix,
+                        self.tag_style.line_indentation,
+                        "Copyright © SixtyFPS GmbH <info@slint.dev>",
+                    ]
+                    .concat()
+                },
+                ToString::to_string,
+            ),
+            self.tag_style.line_break,
+            &replacement.to_string(self.tag_style, license),
+            self.tag_style.overall_end,
+        ]
+        .concat();
         let new_header = if next_char == Some(&b'\n') || next_char.is_none() {
             new_header
         } else {
@@ -195,8 +224,9 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "foo"),
-            r#"// TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "foo"),
+            r#"// Copyright © something <bar@something.com>
+// TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -213,8 +243,9 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"// TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"// Copyright © something <bar@something.com>
+// TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -223,8 +254,9 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("blah", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"// TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"// Copyright © SixtyFPS GmbH <info@slint.dev>
+// TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -233,8 +265,8 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("\nblah", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&[SPDX_LICENSE_LINE]), "bar"),
-            String::from("// ")
+            test_source.replace_tag(&LicenseHeader(SPDX_LICENSE_LINE), "bar"),
+            String::from("// Copyright © SixtyFPS GmbH <info@slint.dev>\n// ")
                 + SPDX_LICENSE_LINE
                 + r#"bar
 
@@ -244,8 +276,9 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"// TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"// Copyright © SixtyFPS GmbH <info@slint.dev>
+// TEST_LICENSE
 "#
             .to_string()
         );
@@ -266,8 +299,9 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"# TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"# Copyright © something <bar@something.com>
+# TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -276,8 +310,9 @@ blah"#
     {
         let test_source = SourceFileWithTags::new(r#"blah"#, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"# TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"# Copyright © SixtyFPS GmbH <info@slint.dev>
+# TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -299,8 +334,9 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#".. TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#".. Copyright © something <bar@something.com>
+.. TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -309,8 +345,9 @@ blah"#
     {
         let test_source = SourceFileWithTags::new(r#"blah"#, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#".. TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#".. Copyright © SixtyFPS GmbH <info@slint.dev>
+.. TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -323,16 +360,14 @@ fn test_license_tag_html_style() {
     let style = LicenseTagStyle::html_comment_style();
     {
         let source = format!(
-            r#"<!-- Copyright © something <bar@something.com>
-foobar
-// SP{}-License-Identifier: {} -->
+            r#"<!-- Copyright © something <bar@something.com> ; SP{}-License-Identifier: {} -->
 blah"#,
             "DX", EXPECTED_SPDX_EXPRESSION
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "foo"),
-            r#"<!-- TEST_LICENSE -->
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "foo"),
+            r#"<!-- Copyright © something <bar@something.com> ; TEST_LICENSE -->
 
 blah"#
                 .to_string()
@@ -340,17 +375,15 @@ blah"#
     }
     {
         let source = format!(
-            r#"<!-- Copyright © something <bar@something.com>
-foobar
- SP{}-License-Identifier: {} -->
+            r#"<!-- Copyright © something <bar@something.com> ; SP{}-License-Identifier: {} -->
 
 blah"#,
             "DX", EXPECTED_SPDX_EXPRESSION
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"<!-- TEST_LICENSE -->
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"<!-- Copyright © something <bar@something.com> ; TEST_LICENSE -->
 
 blah"#
                 .to_string()
@@ -359,8 +392,8 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("blah", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"<!-- TEST_LICENSE -->
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; TEST_LICENSE -->
 
 blah"#
                 .to_string()
@@ -369,8 +402,8 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("\nblah", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&[SPDX_LICENSE_LINE]), "bar"),
-            String::from("<!-- ")
+            test_source.replace_tag(&LicenseHeader(SPDX_LICENSE_LINE), "bar"),
+            String::from("<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; ")
                 + SPDX_LICENSE_LINE
                 + r#"bar -->
 
@@ -380,8 +413,8 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
-            r#"<!-- TEST_LICENSE -->
+            test_source.replace_tag(&LicenseHeader("TEST_LICENSE"), "bar"),
+            r#"<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; TEST_LICENSE -->
 "#
             .to_string()
         );
@@ -528,31 +561,18 @@ const TRIPLE_LICENSE: &str =
 const MIT_LICENSE: &str = "MIT";
 const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
 
-pub struct LicenseHeader<'a>(&'a [&'a str]);
+// This is really just the SPDX expression after the copyright line. The existence of the
+// Copyright prefix is enforced by the tag scanning (tag_start).
+pub struct LicenseHeader<'a>(&'a str);
 
 impl<'a> LicenseHeader<'a> {
     fn to_string(&self, style: &LicenseTagStyle, license: &str) -> String {
-        let mut result = String::from(style.overall_start);
-        let mut linebreak_needed = false;
+        let mut result = [style.line_prefix, style.line_indentation, self.0].concat();
 
-        for line in self.0 {
-            if linebreak_needed {
-                result += style.line_break;
-            }
-
-            result += style.line_prefix;
-
-            if !line.is_empty() {
-                result += style.line_indentation;
-            }
-            result += line;
-            if line == &SPDX_LICENSE_LINE {
-                result.push_str(license);
-            }
-            linebreak_needed = true;
+        if self.0 == SPDX_LICENSE_LINE {
+            result.push_str(license);
         }
 
-        result += style.overall_end;
         result
     }
 }
@@ -564,8 +584,7 @@ const EXPECTED_SPDX_EXPRESSION: &str =
 const SPDX_LICENSE_ID: &str = const_format::concatcp!("SP", "DX-License-Identifier:"); // Do not confuse the reuse tool
 const SPDX_LICENSE_LINE: &str = const_format::concatcp!(SPDX_LICENSE_ID, " "); // Do not confuse the reuse tool
 
-const EXPECTED_HEADER: LicenseHeader<'static> =
-    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@slint.dev>", SPDX_LICENSE_LINE]);
+const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(SPDX_LICENSE_LINE);
 
 const EXPECTED_HOMEPAGE: &str = "https://slint.dev";
 const ALLOWED_HOMEPAGE: &str = "https://slint.rs";
