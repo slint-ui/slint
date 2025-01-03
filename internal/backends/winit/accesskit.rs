@@ -13,8 +13,8 @@ use i_slint_core::accessibility::{
 use i_slint_core::api::Window;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{ItemRc, WindowItem};
-use i_slint_core::lengths::ScaleFactor;
-use i_slint_core::window::WindowInner;
+use i_slint_core::lengths::{LogicalPoint, ScaleFactor};
+use i_slint_core::window::{PopupWindowLocation, WindowInner};
 use i_slint_core::SharedString;
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
@@ -195,7 +195,11 @@ impl AccessKitAdapter {
                         let scale_factor = ScaleFactor::new(window.scale_factor());
                         let item = self.nodes.item_rc_for_node_id(cached_node.id)?;
 
-                        let mut node = self.nodes.build_node_without_children(&item, scale_factor);
+                        let mut node = self.nodes.build_node_without_children(
+                            &item,
+                            scale_factor,
+                            Default::default(),
+                        );
 
                         node.set_children(cached_node.children.clone());
 
@@ -314,20 +318,48 @@ impl NodeCollection {
         &mut self,
         item: ItemRc,
         nodes: &mut Vec<(NodeId, Node)>,
+        popups: &[AccessiblePopup],
         scale_factor: ScaleFactor,
+        window_position: LogicalPoint,
     ) -> NodeId {
         let tracker = Box::pin(PropertyTracker::default());
 
-        let mut node =
-            tracker.as_ref().evaluate(|| self.build_node_without_children(&item, scale_factor));
+        let mut node = tracker
+            .as_ref()
+            .evaluate(|| self.build_node_without_children(&item, scale_factor, window_position));
+
+        let id = self.encode_item_node_id(&item);
+
+        let popup_child = popups.iter().find_map(|popup| {
+            if popup.parent_node != id {
+                return None;
+            }
+
+            let popup_item = ItemRc::new(popup.component.clone(), 0);
+            Some(self.build_node_for_item_recursively(
+                popup_item,
+                nodes,
+                popups,
+                scale_factor,
+                popup.location,
+            ))
+        });
 
         let children = i_slint_core::accessibility::accessible_descendents(&item)
-            .map(|child| self.build_node_for_item_recursively(child, nodes, scale_factor))
+            .map(|child| {
+                self.build_node_for_item_recursively(
+                    child,
+                    nodes,
+                    popups,
+                    scale_factor,
+                    window_position,
+                )
+            })
+            .chain(popup_child)
             .collect::<Vec<NodeId>>();
 
         node.set_children(children.clone());
 
-        let id = self.encode_item_node_id(&item);
         self.all_nodes.push(CachedNode { id, children, tracker });
 
         nodes.push((id, node));
@@ -352,6 +384,25 @@ impl NodeCollection {
 
         let root_item = ItemRc::new(window_inner.component(), 0);
 
+        let popups = window_inner
+            .active_popups()
+            .iter()
+            .filter_map(|popup| {
+                let PopupWindowLocation::ChildWindow(location) = popup.location else {
+                    return None;
+                };
+
+                let parent_item = accessible_parent_for_item_rc(popup.parent_item.upgrade()?);
+                let parent_node = self.encode_item_node_id(if parent_item.is_accessible() {
+                    &parent_item
+                } else {
+                    &root_item
+                });
+
+                Some(AccessiblePopup { location, parent_node, component: popup.component.clone() })
+            })
+            .collect::<Vec<_>>();
+
         self.all_nodes.clear();
         let mut nodes = Vec::new();
 
@@ -359,7 +410,9 @@ impl NodeCollection {
             self.build_node_for_item_recursively(
                 root_item,
                 &mut nodes,
+                &popups,
                 ScaleFactor::new(window.scale_factor()),
+                Default::default(),
             )
         });
         self.root_node_id = root_id;
@@ -371,7 +424,12 @@ impl NodeCollection {
         }
     }
 
-    fn build_node_without_children(&self, item: &ItemRc, scale_factor: ScaleFactor) -> Node {
+    fn build_node_without_children(
+        &self,
+        item: &ItemRc,
+        scale_factor: ScaleFactor,
+        window_position: LogicalPoint,
+    ) -> Node {
         let is_checkable = item
             .accessible_string_property(AccessibleStringProperty::Checkable)
             .is_some_and(|x| x == "true");
@@ -426,7 +484,7 @@ impl NodeCollection {
         }
 
         let geometry = item.geometry();
-        let absolute_origin = item.map_to_window(geometry.origin);
+        let absolute_origin = item.map_to_window(geometry.origin) + window_position.to_vector();
         let physical_origin = (absolute_origin * scale_factor).cast::<f64>();
         let physical_size = (geometry.size * scale_factor).cast::<f64>();
         node.set_bounds(accesskit::Rect {
@@ -595,4 +653,10 @@ impl DeferredAccessKitAction {
             }
         }
     }
+}
+
+struct AccessiblePopup {
+    location: LogicalPoint,
+    parent_node: NodeId,
+    component: ItemTreeRc,
 }
