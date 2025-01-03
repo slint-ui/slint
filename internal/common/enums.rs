@@ -360,6 +360,8 @@ macro_rules! for_each_enums {
                 Tab,
                 /// The element is similar to the tab bar in a `TabWidget`.
                 TabList,
+                /// The element is a container for tab content.
+                TabPanel,
                 /// The role for a `Text` element. It's automatically applied.
                 Text,
                 /// The role for a `TableView` or behaves like one.

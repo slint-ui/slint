@@ -24,5 +24,11 @@ export Test2 := Rectangle {
 //                  ^error{dynamic tabs \('if' or 'for'\) are currently not supported}
             title: "hello";
         }
+
+        Tab {
+            accessible-role: tab-panel;
+//                           ^error{The property 'accessible-role' cannot be set for Tabs inside a TabWidget}
+            Rectangle { }
+        }
     }
 }

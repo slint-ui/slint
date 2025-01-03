@@ -448,6 +448,7 @@ impl NodeCollection {
                     i_slint_core::items::AccessibleRole::Spinbox => Role::SpinButton,
                     i_slint_core::items::AccessibleRole::Tab => Role::Tab,
                     i_slint_core::items::AccessibleRole::TabList => Role::TabList,
+                    i_slint_core::items::AccessibleRole::TabPanel => Role::TabPanel,
                     i_slint_core::items::AccessibleRole::Text => Role::Label,
                     i_slint_core::items::AccessibleRole::Table => Role::Table,
                     i_slint_core::items::AccessibleRole::Tree => Role::Tree,
