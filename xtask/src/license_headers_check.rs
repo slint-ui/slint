@@ -489,6 +489,7 @@ lazy_static! {
         ("\\.dockerignore$", LicenseLocation::NoLicense),
         ("\\.dockerignore$", LicenseLocation::NoLicense),
         ("\\.prettierignore$", LicenseLocation::NoLicense),
+        ("\\.bazelignore$", LicenseLocation::NoLicense),
         ("\\.npmignore$", LicenseLocation::NoLicense),
         ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.html$", LicenseLocation::NoLicense),
@@ -530,6 +531,12 @@ lazy_static! {
         ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.proto$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.bazelrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("MODULE.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("BUILD.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("MODULE.bazel.lock$", LicenseLocation::NoLicense),
+        ("\\.patch$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())), // Doesn't really need a # prefix, but better than nothing
+        ("\\.bazelversion$", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
