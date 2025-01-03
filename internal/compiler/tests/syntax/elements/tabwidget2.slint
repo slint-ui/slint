@@ -30,5 +30,10 @@ export Test2 := Rectangle {
 //                           ^error{The property 'accessible-role' cannot be set for Tabs inside a TabWidget}
             Rectangle { }
         }
+        Tab {
+            accessible-label: "Tab Panel";
+//                            ^error{The property 'accessible-label' cannot be set for Tabs inside a TabWidget}
+            Rectangle { }
+        }
     }
 }

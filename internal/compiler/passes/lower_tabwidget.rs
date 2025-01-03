@@ -125,6 +125,17 @@ fn process_tabwidget(
                 &old.into_inner(),
             );
         }
+        let title_ref = RefCell::new(
+            Expression::PropertyReference(NamedReference::new(child, "title".into())).into(),
+        );
+        let old = child.borrow_mut().bindings.insert("accessible-label".into(), title_ref);
+        if let Some(old) = old {
+            diag.push_error(
+                "The property 'accessible-label' cannot be set for Tabs inside a TabWidget"
+                    .to_owned(),
+                &old.into_inner(),
+            );
+        }
 
         let mut tab = Element {
             id: format_smolstr!("{}-tab{}", elem.borrow().id, index),
