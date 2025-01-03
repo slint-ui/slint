@@ -9,7 +9,7 @@ bazel_dep(
     version = "7.3.1",
     dev_dependency = True,
 )
-bazel_dep(name = "rules_rust", version = "0.54.1")
+bazel_dep(name = "rules_rust", version = "0.56.0")
 bazel_dep(name = "toolchains_llvm", version = "1.1.2")
 
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
