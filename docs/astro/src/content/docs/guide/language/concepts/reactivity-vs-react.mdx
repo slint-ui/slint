@@ -1,0 +1,65 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Reactivity vs React.js
+description: Reactivity vs React.js
+---
+
+## React.js
+
+This section is for those coming from or are familiar with the [React.js](https://react.dev/) web framework.
+
+Slint differs from React.js in several key ways:
+
+First there is no web browser as part of Slint to render the UI. There is no DOM or shadow DOM.
+
+### Component life cycle management
+
+React.js has a model where on a state change a component is destroyed and recreated. By default this will
+also include the destruction of all child components of an element and these then all need to be recreated.
+To manage performance careful use of useMemo and useCallback are needed to avoid unnecessary re-renders. Even
+though the need for this has been reduced via the React Compiler it's still necessary to understand this model
+to understand how a React app behaves.
+
+Slint is much simpler. Components update, but they are not destroyed and recreated. There is no equivlant of
+useMemo and useCallback as they are unnecessary.
+
+### State 
+
+React.js refers to properties that update and re-render the component as state. They are opt in and by
+default are not tracked.
+
+```jsx 
+function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => {
+    setCount((currentCount) => currentCount + 1)
+    }}>{count}</button>;
+}
+```
+
+```slint playground
+import { Button } from "std-widgets.slint";
+
+export component Counter {
+    property <int> count: 0;
+    Button {
+        text: count;
+        clicked => {
+            count += 1;
+        }
+    }
+}
+```
+
+The classic counter example also shows key differences. First the `count` property is declared and
+a count value and setCount function are deconstructed from the useState hook. Note that 'count' cannot
+be directly accessed and must be updated via setCount.
+
+The counter button is then used to update the count property and to ensure it's correctly updated must rely
+on the 'currentCount' value returned by setCount is used to update the values. As using `setCount(count + 1)`
+can cause issues in more complex scenarios where the state is updated later.
+
+While the Slint example may not look much simpler it does the same job and has less gotchas. As everything
+in Slint is reactive by default the property is declared in one single way. The language has strong types and for
+numbers has both `floats` and `ints`. The property can also be safely modified directly which also in this example
+allows the use of the `+=` operator.

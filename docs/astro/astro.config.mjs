@@ -71,6 +71,10 @@ export default defineConfig({
                                                 label: "Reactivity",
                                                 slug: "guide/language/concepts/reactivity",
                                             },
+                                            {
+                                                label: "Reactivity vs React.js",
+                                                slug: "guide/language/concepts/reactivity-vs-react"
+                                            }
                                         ],
                                     },
                                     {
