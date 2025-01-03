@@ -34,12 +34,18 @@ mod esp32_s3_box;
 #[cfg(feature = "esp32-s3-box")]
 pub use esp32_s3_box::*;
 
+#[cfg(feature = "waveshare-esp32-s3-touch-lcd-1-28")]
+mod waveshare_esp32_s3_soutch_lcd_1_28;
+#[cfg(feature = "waveshare-esp32-s3-touch-lcd-1-28")]
+pub use waveshare_esp32_s3_soutch_lcd_1_28::*;
+
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
     feature = "stm32h735g",
     feature = "esp32-s2-kaluga-1",
-    feature = "esp32-s3-box"
+    feature = "esp32-s3-box",
+    feature = "waveshare-esp32-s3-touch-lcd-1-28",
 )))]
 pub use i_slint_core_macros::identity as entry;
 
@@ -48,6 +54,7 @@ pub use i_slint_core_macros::identity as entry;
     feature = "pico2-st7789",
     feature = "stm32h735g",
     feature = "esp32-s2-kaluga-1",
-    feature = "esp32-s3-box"
+    feature = "esp32-s3-box",
+    feature = "waveshare-esp32-s3-touch-lcd-1-28",
 )))]
 pub fn init() {}

@@ -23,6 +23,7 @@ pico2-st7789 = ["slint/unsafe-single-threaded", "rp235x-hal/binary-info", "rp235
 stm32h735g = ["slint/unsafe-single-threaded", "cortex-m/critical-section-single-core", "cortex-m-rt","embedded-alloc", "embedded-time", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
 esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp-hal/esp32s2", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s2", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics-core", "slint/libm"]
 esp32-s3-box = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
+waveshare-esp32-s3-touch-lcd-1-28 = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "display-interface", "display-interface-spi", "slint/libm", "dep:gc9a01-rs", "dep:cst816s"]
 
 [dependencies]
 slint = { version = "=1.9.2", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
@@ -60,6 +61,8 @@ esp-alloc = { version = "0.5", optional = true }
 esp-println = { version = "0.12.0", optional = true }
 esp-backtrace = { version = "0.14.0", optional = true, features = ["panic-handler", "println"] }
 tt21100 = { version = "0.1", optional = true }
+gc9a01-rs = { version = "0.4.2", optional = true }
+cst816s = { version = "0.1.4", optional = true }
 
 mipidsi = { version = "0.8.0", optional = true }
 embedded-graphics-core =  { version = "0.4", optional = true }
