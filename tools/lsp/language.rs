@@ -1279,6 +1279,22 @@ fn get_document_symbols(
 
     r.sort_by(|a, b| a.range.start.cmp(&b.range.start));
 
+    #[cfg(debug_assertions)]
+    fn check_ranges(r: &[DocumentSymbol]) {
+        // Make sure that the selection range is inside the range as this causes JS error in vscode
+        for s in r {
+            assert!(
+                s.range.start <= s.selection_range.start && s.range.end >= s.selection_range.end,
+                "Invalid range for {s:?}",
+            );
+            if let Some(children) = &s.children {
+                check_ranges(children);
+            }
+        }
+    }
+    #[cfg(debug_assertions)]
+    check_ranges(&r);
+
     Some(r.into())
 }
 
@@ -1730,6 +1746,36 @@ enum {}
         assert_eq!(tree!(1 0 1 0).name, "TouchArea");
         assert_eq!(tree!(1 0 1 0).detail, Some("ta".into()));
         check_start_with(tree!(1 0 1 0).range.start, "ta := TouchArea");
+    }
+
+    #[test]
+    fn test_document_symbols_syntax_error() {
+        let (mut dc, uri, _) =
+            loaded_document_cache(r#"component foo { xxx := {} /*--*/ yyy := }"#.into());
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
+        let mk_range = |r: std::ops::Range<u32>| {
+            lsp_types::Range::new(Position::new(0, r.start), Position::new(0, r.end))
+        };
+
+        if let DocumentSymbolResponse::Nested(result) = result {
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].name, "foo");
+            assert_eq!(result[0].range, mk_range(0..41));
+            assert_eq!(result[0].selection_range, mk_range(10..13));
+            let children = result[0].children.as_ref().unwrap();
+            assert_eq!(children.len(), 2);
+            assert_eq!(children[0].name, "<error>");
+            assert_eq!(children[0].range, mk_range(16..25));
+            assert_eq!(children[0].detail, Some("xxx".into()));
+            assert_eq!(children[0].selection_range, mk_range(23..23));
+            assert_eq!(children[1].name, "<error>");
+            assert_eq!(children[1].range, mk_range(33..40));
+            assert_eq!(children[1].detail, Some("yyy".into()));
+            assert_eq!(children[1].selection_range, mk_range(40..40));
+        } else {
+            unreachable!();
+        }
     }
 
     #[test]
