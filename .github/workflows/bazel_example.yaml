@@ -8,11 +8,12 @@ jobs:
  ci_bazel:
    runs-on: ubuntu-24.04
    steps:
+     - uses: ./.github/actions/install-linux-dependencies
      - uses: actions/checkout@v4
      - uses: actions/cache@v4
        with:
          path: ~/.cache/bazel
-         key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelversion', '.bazelrc', 'MODULE.bazel') }}
+         key: ${{ runner.os }}-bazel-${{ hashFiles('examples/bazel_build/.bazelversion', 'examples/bazel_build/.bazelrc', 'examples/bazel_build/MODULE.bazel.lock') }}
          restore-keys: |
            ${{ runner.os }}-bazel-
 
