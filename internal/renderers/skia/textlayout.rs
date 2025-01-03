@@ -269,6 +269,13 @@ pub fn cursor_rect(
         );
     }
 
+    // This is needed in case of the cursor is moving to the end of the text (#7203).
+    let cursor_pos = cursor_pos.min(string.len());
+    // Not doing this check may cause crashing with non-ASCII text.
+    if !string.is_char_boundary(cursor_pos) {
+        return Default::default();
+    }
+
     // SkParagraph::getRectsForRange() does not report the text box of a trailing newline
     // correctly. Use the last line's metrics to get the correct coordinates (#3590).
     if cursor_pos == string.len()

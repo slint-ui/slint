@@ -27,16 +27,14 @@ fn main() {
     let classpath = find_latest_version(android_home.join("platforms"), "android.jar")
         .expect("No Android platforms found");
 
-    // Try to locate javac
-    let javac_path = match env_var("JAVA_HOME") {
-        Ok(val) => {
-            if cfg!(windows) {
-                format!("{}\\bin\\javac.exe", val)
-            } else {
-                format!("{}/bin/javac", val)
-            }
-        }
-        Err(_) => String::from("javac"),
+    // Try to locate javac and java
+    let javac_java = env_var("JAVA_HOME")
+        .map(|home| PathBuf::from(home).join("bin"))
+        .map(|bin| (bin.join("javac"), bin.join("java")));
+    let (javac_path, java_path) = if let Ok(ref javac_java) = javac_java {
+        (javac_java.0.to_str().unwrap(), javac_java.1.to_str().unwrap())
+    } else {
+        ("javac", "java")
     };
 
     let handle_java_err = |err: std::io::Error| {
@@ -87,11 +85,9 @@ fn main() {
     }
 
     // Convert the .class file into a .dex file
-    let d8_path = find_latest_version(
-        android_home.join("build-tools"),
-        if cfg!(windows) { "d8.bat" } else { "d8" },
-    )
-    .expect("d8 tool not found");
+    let d8_path = find_latest_version(android_home.join("build-tools"), "lib")
+        .map(|path| path.join("d8.jar"))
+        .expect("d8 tool not found");
 
     // collect all the *.class files
     let classes = fs::read_dir(&out_class)
@@ -101,12 +97,18 @@ fn main() {
         .map(|entry| entry.path())
         .collect::<Vec<_>>();
 
-    let o = Command::new(&d8_path)
+    let o = Command::new(&java_path)
+        // class path of D8 itself
+        .arg("-classpath")
+        .arg(&d8_path)
+        .arg("com.android.tools.r8.D8")
+        // class path of D8's input
         .arg("--classpath")
         .arg(&out_class)
         .args(&classes)
         .arg("--output")
         .arg(out_dir.as_os_str())
+        // workaround for the DexClassLoader in Android 7.x
         .arg("--min-api")
         .arg("20")
         .output()

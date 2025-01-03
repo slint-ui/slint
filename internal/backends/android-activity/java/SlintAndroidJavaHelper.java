@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -16,6 +18,7 @@ import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.graphics.BlendMode;
 import android.graphics.BlendModeColorFilter;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.Editable;
@@ -102,7 +105,11 @@ class InputHandle extends ImageView {
     public void setHandleColor(int color) {
         Drawable drawable = getDrawable();
         if (drawable != null) {
-            drawable.setColorFilter(new BlendModeColorFilter(color, BlendMode.SRC_IN));
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                drawable.setColorFilter(new BlendModeColorFilter(color, BlendMode.SRC_IN));
+            } else {
+                drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+            }
             setImageDrawable(drawable);
         }
     }
@@ -295,8 +302,9 @@ class SlintInputView extends View {
                 mode.setTitle(null);
                 mode.setSubtitle(null);
                 mode.setTitleOptionalHint(true);
-
-                menu.setGroupDividerEnabled(true);
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    menu.setGroupDividerEnabled(true);
+                }
 
                 final TypedArray a = getContext().obtainStyledAttributes(new int[] {
                         android.R.attr.actionModeCutDrawable,
@@ -340,6 +348,7 @@ class SlintInputView extends View {
             public void onDestroyActionMode(ActionMode action) {
             }
 
+            // Introduced in API level 23
             @Override
             public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
                 outRect.set(selectionRect);
@@ -467,6 +476,7 @@ public class SlintAndroidJavaHelper {
     public Rect get_view_rect() {
         Rect rect = new Rect();
         mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
+        // Note: `View.getRootWindowInsets` requires API level 23 or above
         WindowInsets insets = mActivity.getWindow().getDecorView().getRootView().getRootWindowInsets();
         if (insets != null) {
             int dx = rect.left - insets.getSystemWindowInsetLeft();
@@ -490,17 +500,35 @@ public class SlintAndroidJavaHelper {
     }
 
     public String get_clipboard() {
-        ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard.hasPrimaryClip()) {
-            ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
-            return item.getText().toString();
+        FutureTask<String> future = new FutureTask<>(new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+                ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard.hasPrimaryClip()) {
+                    ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
+                    return item.getText().toString();
+                }
+                return "";
+            }
+        });
+
+        mActivity.runOnUiThread(future);
+        try {
+            return future.get(); // Wait for the result and return it
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
         }
-        return "";
     }
 
     public void set_clipboard(String text) {
-        ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText(null, text);
-        clipboard.setPrimaryClip(clip);
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clip = ClipData.newPlainText(null, text);
+                clipboard.setPrimaryClip(clip);
+            }
+        });
     }
 }
