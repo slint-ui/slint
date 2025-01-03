@@ -1,3 +1,6 @@
+# Copyright © 2024 OTIV B.V.
+# SPDX-License-Identifier: MIT
+
 module(name = "slint_bazel_example")
 
 bazel_dep(name = "bazel_skylib", version = "1.7.1")

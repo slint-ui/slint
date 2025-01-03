@@ -1,3 +1,6 @@
+# Copyright © 2024 OTIV B.V.
+# SPDX-License-Identifier: MIT
+
 diff --git a/src/lib.rs b/src/lib.rs
 index 798459e..82c1c43 100644
 --- a/src/lib.rs
