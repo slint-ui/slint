@@ -23,6 +23,7 @@ jobs:
        run: sudo apt-get -y install pkg-config libssl-dev default-jre pkgconf
 
      - name: Bazel Build
+       working-directory: examples/bazel_build
        run: bazelisk build --config=ci //...
 
      - name: Upload bazel-explain build artifact
@@ -32,6 +33,7 @@ jobs:
           path: bazel-explain.log
 
      - name: Bazel Test
+       working-directory: examples/bazel_build
        run: bazelisk test //... --config=ci --test_output=all --test_arg=--nocapture
 
      - name: Upload bazel-explain test artifact
