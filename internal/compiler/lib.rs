@@ -294,12 +294,16 @@ pub async fn compile_syntax_node(
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+    let enable_experimental = compiler_config.enable_experimental;
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
 
     let type_registry =
         Rc::new(RefCell::new(typeregister::TypeRegister::new(&loader.global_type_registry)));
+    if enable_experimental {
+        type_registry.borrow_mut().expose_internal_types = true;
+    }
     let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
