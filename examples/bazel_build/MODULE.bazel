@@ -42,8 +42,6 @@ crate = use_extension(
 slint_version = "=1.7.0"
 crate.spec(package = "slint", version = slint_version, default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-2"])
 crate.spec(package = "slint-build", version = slint_version)
-crate.spec(package = "i-slint-backend-winit", version = slint_version)
-crate.spec(package = "i-slint-backend-testing", version = slint_version)  # Must match the slint crate version!
 
 # slint_git_url = "https://github.com/slint-ui/slint.git"
 # slint_revision = "27f17676222165bfd0648a213363c1a183ec49ed"
