@@ -226,6 +226,18 @@ impl AccessKitAdapter {
     }
 }
 
+fn accessible_parent_for_item_rc(mut item: ItemRc) -> ItemRc {
+    while !item.is_accessible() {
+        if let Some(parent) = item.parent_item() {
+            item = parent;
+        } else {
+            break;
+        }
+    }
+
+    item
+}
+
 struct NodeCollection {
     next_component_id: u32,
     components_by_id: HashMap<u32, ItemTreeWeak>,
@@ -235,18 +247,6 @@ struct NodeCollection {
 }
 
 impl NodeCollection {
-    fn accessible_parent_for_item_rc(&self, mut item: ItemRc) -> ItemRc {
-        while !item.is_accessible() {
-            if let Some(parent) = item.parent_item() {
-                item = parent;
-            } else {
-                break;
-            }
-        }
-
-        item
-    }
-
     fn focus_node(&mut self, window_adapter_weak: &Weak<WinitWindowAdapter>) -> NodeId {
         window_adapter_weak
             .upgrade()
@@ -260,7 +260,7 @@ impl NodeCollection {
                     .borrow()
                     .upgrade()
                     .map(|focus_item| {
-                        let parent = self.accessible_parent_for_item_rc(focus_item);
+                        let parent = accessible_parent_for_item_rc(focus_item);
                         parent
                             .accessible_string_property(AccessibleStringProperty::DelegateFocus)
                             .and_then(|s| s.parse::<usize>().ok())
@@ -287,7 +287,7 @@ impl NodeCollection {
     }
 
     fn find_node_id_by_item_rc(&mut self, mut item: ItemRc) -> NodeId {
-        item = self.accessible_parent_for_item_rc(item);
+        item = accessible_parent_for_item_rc(item);
 
         self.encode_item_node_id(&item)
     }
