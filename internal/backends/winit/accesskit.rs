@@ -247,7 +247,7 @@ impl NodeCollection {
         item
     }
 
-    fn focus_node(&self, window_adapter_weak: &Weak<WinitWindowAdapter>) -> NodeId {
+    fn focus_node(&mut self, window_adapter_weak: &Weak<WinitWindowAdapter>) -> NodeId {
         window_adapter_weak
             .upgrade()
             .filter(|window_adapter| {
@@ -274,7 +274,7 @@ impl NodeCollection {
                             .try_component()
                             .map(|component_rc| ItemRc::new(component_rc, 0))
                     })
-                    .and_then(|focus_item| self.find_node_id_by_item_rc(focus_item))
+                    .map(|focus_item| self.find_node_id_by_item_rc(focus_item))
             })
             .unwrap_or_else(|| self.root_node_id)
     }
@@ -286,18 +286,28 @@ impl NodeCollection {
         Some(ItemRc::new(component, index))
     }
 
-    fn find_node_id_by_item_rc(&self, mut item: ItemRc) -> Option<NodeId> {
+    fn find_node_id_by_item_rc(&mut self, mut item: ItemRc) -> NodeId {
         item = self.accessible_parent_for_item_rc(item);
 
         self.encode_item_node_id(&item)
     }
 
-    fn encode_item_node_id(&self, item: &ItemRc) -> Option<NodeId> {
+    fn encode_item_node_id(&mut self, item: &ItemRc) -> NodeId {
         let component = item.item_tree();
         let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
-        let component_id = *(self.component_ids.get(&component_ptr)?);
+        let component_id = match self.component_ids.get(&component_ptr) {
+            Some(&component_id) => component_id,
+            None => {
+                let component_id = self.next_component_id;
+                self.next_component_id += 1;
+                self.component_ids.insert(component_ptr, component_id);
+                self.components_by_id.insert(component_id, ItemTreeRc::downgrade(component));
+                component_id
+            }
+        };
+
         let index = item.index();
-        Some(NodeId((component_id as u64) << u32::BITS | (index as u64 & u32::MAX as u64)))
+        NodeId((component_id as u64) << u32::BITS | (index as u64 & u32::MAX as u64))
     }
 
     fn build_node_for_item_recursively(
@@ -317,16 +327,7 @@ impl NodeCollection {
 
         node.set_children(children.clone());
 
-        let component = item.item_tree();
-        let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
-        if !self.component_ids.contains_key(&component_ptr) {
-            let component_id = self.next_component_id;
-            self.next_component_id += 1;
-            self.component_ids.insert(component_ptr, component_id);
-            self.components_by_id.insert(component_id, ItemTreeRc::downgrade(component));
-        }
-
-        let id = self.encode_item_node_id(&item).unwrap();
+        let id = self.encode_item_node_id(&item);
         self.all_nodes.push(CachedNode { id, children, tracker });
 
         nodes.push((id, node));
