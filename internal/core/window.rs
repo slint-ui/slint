@@ -373,7 +373,8 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 }
 
 /// This enum describes the different ways a popup can be rendered by the back-end.
-enum PopupWindowLocation {
+#[derive(Clone)]
+pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
     TopLevel(Rc<dyn WindowAdapter>),
     /// The popup is rendered as an embedded child window at the given position.
@@ -382,17 +383,20 @@ enum PopupWindowLocation {
 
 /// This structure defines a graphical element that is designed to pop up from the surrounding
 /// UI content, for example to show a context menu.
-struct PopupWindow {
+#[derive(Clone)]
+pub struct PopupWindow {
     /// The ID of the associated popup.
     popup_id: NonZeroU32,
     /// The location defines where the pop up is rendered.
-    location: PopupWindowLocation,
+    pub location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
-    component: ItemTreeRc,
+    pub component: ItemTreeRc,
     /// Defines the close behaviour of the popup.
     close_policy: PopupClosePolicy,
     /// the item that had the focus in the parent window when the popup was opened
     focus_item_in_parent: ItemWeak,
+    /// The item from where the Popup was invoked from
+    pub parent_item: ItemWeak,
 }
 
 #[pin_project::pin_project]
@@ -550,6 +554,11 @@ impl WindowInner {
     /// returns the component or None if it isn't set.
     pub fn try_component(&self) -> Option<ItemTreeRc> {
         self.component.borrow().upgrade()
+    }
+
+    /// Returns a slice of the active poppups.
+    pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
+        core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
     }
 
     /// Receive a mouse event and pass it to the items of the component to
@@ -1103,6 +1112,7 @@ impl WindowInner {
             component: popup_componentrc.clone(),
             close_policy,
             focus_item_in_parent: focus_item,
+            parent_item: parent_item.downgrade(),
         });
 
         popup_id
