@@ -231,3 +231,13 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © Felgo GmbH <contact@felgo.com>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
+
+[[annotations]]
+path = [
+  "examples/bazel_build/.bazelignore",
+  "examples/bazel_build/.bazelversion",
+  "examples/bazel_build/MODULE.bazel.lock",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © 2024 OTIV B.V."
+SPDX-License-Identifier = "MIT"
