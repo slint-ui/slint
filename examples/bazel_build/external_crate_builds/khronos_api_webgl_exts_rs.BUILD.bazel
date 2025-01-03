@@ -1,3 +1,6 @@
+# Copyright © 2024 OTIV B.V.
+# SPDX-License-Identifier: MIT
+
 # 1. Go to khronos_api folder in gl-rs repo
 # 2. find api_webgl/extensions -type f -name *.xml | sort
 # 3. rm api_webgl/extensions/template/extension.xml from the list

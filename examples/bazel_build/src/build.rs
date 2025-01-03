@@ -1,3 +1,6 @@
+// Copyright © 2024 OTIV B.V.
+// SPDX-License-Identifier: MIT
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 

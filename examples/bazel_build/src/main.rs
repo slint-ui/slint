@@ -1,3 +1,6 @@
+// Copyright © 2024 OTIV B.V.
+// SPDX-License-Identifier: MIT
+
 include!(concat!(env!("OUT_DIR"), "/", "index.rs"));
 
 use slint::ComponentHandle;
