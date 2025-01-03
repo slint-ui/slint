@@ -874,7 +874,7 @@ impl TypeLoader {
         {
             diag.push_diagnostic_with_span(
                 format!(
-                    "Style {} in not known. Use one of the builtin styles [{}] or make sure your custom style is found in the include directories",
+                    "Style {} is not known. Use one of the builtin styles [{}] or make sure your custom style is found in the include directories",
                     &style,
                     known_styles.join(", ")
                 ),
@@ -1922,7 +1922,7 @@ fn test_unknown_style() {
     assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(diags.len(), 1);
-    assert!(diags[0].starts_with("Style FooBar in not known. Use one of the builtin styles ["));
+    assert!(diags[0].starts_with("Style FooBar is not known. Use one of the builtin styles ["));
 }
 
 #[test]
