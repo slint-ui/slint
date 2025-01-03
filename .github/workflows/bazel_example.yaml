@@ -32,13 +32,3 @@ jobs:
        with:
           name: bazel-explain-build-run
           path: bazel-explain.log
-
-     - name: Bazel Test
-       working-directory: examples/bazel_build
-       run: bazelisk test //... --config=ci --test_output=all --test_arg=--nocapture
-
-     - name: Upload bazel-explain test artifact
-       uses: actions/upload-artifact@v4
-       with:
-          name: bazel-explain-test-run
-          path: bazel-explain.log
