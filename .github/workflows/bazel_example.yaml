@@ -1,7 +1,7 @@
 # Copyright © 2024 OTIV B.V.
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-name: CI
+name: Bazel Build
 on:
  workflow_dispatch:
 jobs:
