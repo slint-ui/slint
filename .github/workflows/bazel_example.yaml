@@ -4,6 +4,7 @@
 name: Bazel Build
 on:
  workflow_dispatch:
+ workflow_call:
 jobs:
  ci_bazel:
    runs-on: ubuntu-24.04
