@@ -139,3 +139,7 @@ jobs:
                   target: x86_64-unknown-uefi
             - name: Check
               run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
+
+    bazel:
+        uses: ./.github/workflows/bazel_example.yaml
+
