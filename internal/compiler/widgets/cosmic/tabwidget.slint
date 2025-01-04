@@ -55,6 +55,7 @@ export component TabImpl inherits Rectangle {
     accessible-item-index: root.tab-index;
     accessible-item-selectable: true;
     accessible-item-selected: root.is-current;
+    accessible-action-default => { touch-area.clicked(); }
 
     Rectangle {
         y: 0;
