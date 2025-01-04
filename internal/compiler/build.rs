@@ -1,15 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::fs::read_dir;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn main() -> std::io::Result<()> {
     println!("cargo:rustc-check-cfg=cfg(slint_debug_property)");
 
-    let mut library_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
-    library_dir.push("widgets");
+    let cargo_manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let library_dir = PathBuf::from("widgets");
 
     println!("cargo:rerun-if-changed={}", library_dir.display());
 
@@ -25,7 +24,7 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
 "#
     )?;
 
-    for style in read_dir(library_dir)?.filter_map(Result::ok) {
+    for style in cargo_manifest_dir.join(&library_dir).read_dir()?.filter_map(Result::ok) {
         if !style.file_type().map_or(false, |f| f.is_dir()) {
             continue;
         }
@@ -34,7 +33,7 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
             file,
             "(\"{}\", &[{}]),",
             path.file_name().unwrap().to_string_lossy(),
-            process_style(&path)?
+            process_style(&cargo_manifest_dir, &path)?
         )?;
     }
 
@@ -45,8 +44,10 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
     Ok(())
 }
 
-fn process_style(path: &Path) -> std::io::Result<String> {
-    let library_files: Vec<PathBuf> = read_dir(path)?
+fn process_style(cargo_manifest_dir: &Path, path: &Path) -> std::io::Result<String> {
+    let library_files: Vec<PathBuf> = cargo_manifest_dir
+        .join(&path)
+        .read_dir()?
         .filter_map(Result::ok)
         .filter(|entry| {
             entry.file_type().map_or(false, |f| !f.is_dir())
@@ -68,9 +69,9 @@ fn process_style(path: &Path) -> std::io::Result<String> {
         .iter()
         .map(|file| {
             format!(
-                "&BuiltinFile {{path: r#\"{}\"# , contents: include_bytes!(r#\"{}\"#)}}",
+                "&BuiltinFile {{path: r#\"{}\"# , contents: include_bytes!(concat!(env!(\"CARGO_MANIFEST_DIR\"), r#\"/{}\"#))}}",
                 file.file_name().unwrap().to_string_lossy(),
-                file.display()
+                file.strip_prefix(&cargo_manifest_dir).unwrap().display()
             )
         })
         .collect::<Vec<_>>()
