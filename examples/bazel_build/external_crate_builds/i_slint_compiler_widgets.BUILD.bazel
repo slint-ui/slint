@@ -1,8 +1,0 @@
-# Copyright © 2024 OTIV B.V.
-# SPDX-License-Identifier: MIT
-"widgets"
-filegroup(
-  name = "widgets",
-  srcs = glob(["widgets/**"]),
-  visibility = ["//visibility:public"],
-)

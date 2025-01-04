@@ -39,9 +39,8 @@ crate = use_extension(
     "crate",
 )
 
-slint_version = "=1.9.0"
-crate.spec(package = "slint", version = slint_version, default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-2"])
-crate.spec(package = "slint-build", version = slint_version)
+crate.spec(package = "slint", git = "https://github.com/slint-ui/slint", branch = "master", default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-2"])
+crate.spec(package = "slint-build", git = "https://github.com/slint-ui/slint", branch = "master")
 
 # slint_git_url = "https://github.com/slint-ui/slint.git"
 # slint_revision = "27f17676222165bfd0648a213363c1a183ec49ed"
@@ -50,12 +49,6 @@ crate.spec(package = "slint-build", version = slint_version)
 # crate.spec(package = "i-slint-backend-testing", git=slint_git_url, rev=slint_revision)  # Must match the slint crate version!
 # crate.spec(package = "slint-build", git = slint_git_url, rev=slint_revision)
 
-crate.annotation(
-    crate = "i-slint-compiler",
-    patches = ["@//external_crate_builds:i_slint_compiler.patch"],
-    patch_args = ["-p1"],
-    disable_pipelining = True,
-)
 crate.annotation(
     crate = "khronos_api",
     patches = ["@//external_crate_builds:khronos_apis_fix_build.patch"],
