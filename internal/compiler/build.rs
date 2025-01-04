@@ -49,7 +49,7 @@ fn process_style(path: &Path) -> std::io::Result<String> {
     let library_files: Vec<PathBuf> = read_dir(path)?
         .filter_map(Result::ok)
         .filter(|entry| {
-            entry.file_type().map_or(false, |f| f.is_file())
+            entry.file_type().map_or(false, |f| !f.is_dir())
                 && entry
                     .path()
                     .extension()
