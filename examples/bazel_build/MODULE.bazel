@@ -39,7 +39,7 @@ crate = use_extension(
     "crate",
 )
 
-slint_version = "=1.7.0"
+slint_version = "=1.9.0"
 crate.spec(package = "slint", version = slint_version, default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-2"])
 crate.spec(package = "slint-build", version = slint_version)
 
@@ -64,6 +64,10 @@ crate.annotation(
     gen_build_script = "off",
     additive_build_file = "@//external_crate_builds:khronos_api_webgl_exts_rs.BUILD.bazel",
     rustc_env = {"WEBGL_EXTS": "$(location :webgl_exts_rs)"},
+)
+crate.annotation(
+    crate = "ashpd",
+    deps = [ "@crates__zvariant-4.2.0//:zvariant" ],
 )
 
 CRATES_REPOSITORY_NAME = "crates"
