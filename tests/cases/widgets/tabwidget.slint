@@ -65,12 +65,20 @@ assert_eq!(tabbar.accessible_item_count(), Some(3));
 
 let mut tab1_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "First Tab");
 let tab1 = tab1_search.next().unwrap();
+// First tab panel is visible and has the same accessible label
+assert!(tab1_search.next().is_some());
+assert!(tab1_search.next().is_none());
 
 let mut tab2_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Second Tab");
 let tab2 = tab2_search.next().unwrap();
+// Second tab panel is not active at first, so it is hidden.
+assert!(tab2_search.next().is_none());
 
 let mut tab3_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Third Tab");
 let tab3 = tab3_search.next().unwrap();
+// Third tab panel is not active at first, so it is hidden.
+assert!(tab3_search.next().is_none());
+
 
 assert_eq!(tab1.accessible_item_index(), Some(0));
 assert_eq!(tab1.accessible_item_selectable(), Some(true));

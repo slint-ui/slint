@@ -484,6 +484,10 @@ impl NodeCollection {
             node.set_disabled();
         }
 
+        if !item.is_visible() {
+            node.set_hidden();
+        }
+
         let geometry = item.geometry();
         let absolute_origin = item.map_to_window(geometry.origin) + window_position.to_vector();
         let physical_origin = (absolute_origin * scale_factor).cast::<f64>();
