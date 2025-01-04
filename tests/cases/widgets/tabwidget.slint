@@ -91,5 +91,24 @@ assert_eq!(tab2.accessible_item_selected(), Some(false));
 assert_eq!(tab3.accessible_item_index(), Some(2));
 assert_eq!(tab3.accessible_item_selectable(), Some(true));
 assert_eq!(tab3.accessible_item_selected(), Some(false));
+
+// The accessible default action of tabs change the active tab panel
+tab2.invoke_accessible_default_action();
+assert_eq!(tab2.accessible_item_selectable(), Some(true));
+assert_eq!(tab2.accessible_item_selected(), Some(true));
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Second Tab").count(), 2);
+
+assert_eq!(tab1.accessible_item_selectable(), Some(true));
+assert_eq!(tab1.accessible_item_selected(), Some(false));
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "First Tab").count(), 1);
+
+tab3.invoke_accessible_default_action();
+assert_eq!(tab3.accessible_item_selectable(), Some(true));
+assert_eq!(tab3.accessible_item_selected(), Some(true));
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Third Tab").count(), 2);
+
+assert_eq!(tab2.accessible_item_selectable(), Some(true));
+assert_eq!(tab2.accessible_item_selected(), Some(false));
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Second Tab").count(), 1);
 ```
 */

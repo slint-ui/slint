@@ -12,6 +12,10 @@ export component TabImpl inherits NativeTab {
     accessible-item-index: root.tab-index;
     accessible-item-selectable: true;
     accessible-item-selected: root.tab-index == root.current;
+    accessible-action-default => {
+        root.current = root.tab-index;
+        root.current-focused = root.tab-index;
+    }
 }
 
 export component TabBarImpl inherits TabBarBase {
