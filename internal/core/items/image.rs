@@ -49,6 +49,8 @@ impl Item for ImageItem {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         let natural_size = self.source().size();
         LayoutInfo {
@@ -182,6 +184,8 @@ impl Item for ClippedImage {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         LayoutInfo {
             preferred: match orientation {

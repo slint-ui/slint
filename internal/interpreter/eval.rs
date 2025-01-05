@@ -881,9 +881,17 @@ fn call_builtin_function(
                 let item_info = &description.items[elem.borrow().id.as_str()];
                 let item_ref =
                     unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+                let item_rc = corelib::items::ItemRc::new(
+                    vtable::VRc::into_dyn(item_comp),
+                    item_info.item_index(),
+                );
                 let window_adapter = component.window_adapter();
-                let metrics =
-                    i_slint_core::items::slint_text_item_fontmetrics(&window_adapter, item_ref);
+                let metrics = i_slint_core::items::slint_text_item_fontmetrics(
+                    &window_adapter,
+                    item_ref,
+                    &item_rc,
+                );
                 metrics.into()
             } else {
                 panic!("internal error: argument to set-selection-offsetsAll must be an element")
@@ -1171,11 +1179,16 @@ fn call_builtin_function(
                 let item_info = &description.items[item.borrow().id.as_str()];
                 let item_ref =
                     unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-
+                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
                 let window_adapter = component.window_adapter();
                 item_ref
                     .as_ref()
-                    .layout_info(crate::eval_layout::to_runtime(orient), &window_adapter)
+                    .layout_info(
+                        crate::eval_layout::to_runtime(orient),
+                        &window_adapter,
+                        &vtable::VRc::into_dyn(item_comp),
+                        item_info.item_index(),
+                    )
                     .into()
             } else {
                 panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);

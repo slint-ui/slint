@@ -93,6 +93,8 @@ impl Item for NativeScrollView {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_component: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable>,
+        _self_index: u32,
     ) -> LayoutInfo {
         let min = match orientation {
             Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
