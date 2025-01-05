@@ -59,8 +59,9 @@ crate.annotation(
     rustc_env = {"WEBGL_EXTS": "$(location :webgl_exts_rs)"},
 )
 crate.annotation(
-    crate = "ashpd",
-    deps = [ "@crates__zvariant-4.2.0//:zvariant" ],
+    crate = "proc-macro-crate",
+    patches = ["@//external_crate_builds:0001-Fix-use-with-packaged-crates-and-Bazel.patch"],
+    patch_args = ["-p1"],
 )
 
 CRATES_REPOSITORY_NAME = "crates"
