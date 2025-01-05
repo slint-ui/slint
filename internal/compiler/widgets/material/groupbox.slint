@@ -8,6 +8,8 @@ export component GroupBox {
     in property <string> title <=> i-text.text;
     in property <bool> enabled: true;
 
+    accessible-role: group-box;
+
     states [
         disabled when !root.enabled : {
             i-background.border-color: MaterialPalette.control-foreground;

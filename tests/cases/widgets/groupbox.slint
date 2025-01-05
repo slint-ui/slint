@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { GroupBox } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+
+    gb := GroupBox {
+        title: "Group Title";
+    }
+}
+
+
+/*
+```rust
+use i_slint_backend_testing::AccessibleRole;
+
+let instance = TestCase::new().unwrap();
+
+let mut gb_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::gb");
+let gb = gb_search.next().unwrap();
+
+assert_eq!(gb.accessible_role(), Some(AccessibleRole::GroupBox));
+```
+*/

@@ -322,6 +322,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::Switch => QAccessible_Role_CheckBox,
                     i_slint_core::items::AccessibleRole::ListItem => QAccessible_Role_ListItem,
                     i_slint_core::items::AccessibleRole::TabPanel => QAccessible_Role_Pane,
+                    i_slint_core::items::AccessibleRole::GroupBox => QAccessible_Role_Grouping,
                     _ => QAccessible_Role_NoRole,
                 }
             });
