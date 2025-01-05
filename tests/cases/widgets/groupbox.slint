@@ -14,6 +14,7 @@ export component TestCase inherits Window {
 /*
 ```rust
 use i_slint_backend_testing::AccessibleRole;
+use slint::SharedString;
 
 let instance = TestCase::new().unwrap();
 
@@ -21,5 +22,6 @@ let mut gb_search = slint_testing::ElementHandle::find_by_element_id(&instance, 
 let gb = gb_search.next().unwrap();
 
 assert_eq!(gb.accessible_role(), Some(AccessibleRole::GroupBox));
+assert_eq!(gb.accessible_label(), Some(SharedString::from("Group Title")));
 ```
 */
