@@ -1,0 +1,57 @@
+# Copyright © 2025 SixtyFPS GmbH
+# SPDX-License-Identifier: MIT
+
+# See https://github.com/bkchr/proc-macro-crate/pull/55
+
+From db99213ae08c7f6cd1dadda60c3b42d16f2c0099 Mon Sep 17 00:00:00 2001
+From: Simon Hausmann <simon.hausmann@slint.dev>
+Date: Sun, 5 Jan 2025 10:12:35 +0100
+Subject: [PATCH] Fix use with Bazel
+
+When the application is built with Bazel as build system, environment
+variables like CARGO_MANIFEST_DIR, etc. are set for compatibility, but
+CARGO itself isn't, because Bazel is the tool of choice. Therefore any
+attempt to invoke Cargo to locate the workspace manifest path fails.
+
+As a fallback, a lack of the CARGO environment variable now just means
+no workspace support.
+---
+ src/lib.rs | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/lib.rs b/src/lib.rs
+index fe46eb3..020d315 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -100,7 +100,6 @@ use toml_edit::{DocumentMut, Item, Table, TomlError};
+ pub enum Error {
+     NotFound(PathBuf),
+     CargoManifestDirNotSet,
+-    CargoEnvVariableNotSet,
+     FailedGettingWorkspaceManifestPath,
+     CouldNotRead { path: PathBuf, source: io::Error },
+     InvalidToml { source: TomlError },
+@@ -138,7 +137,6 @@ impl fmt::Display for Error {
+                 crate_name,
+                 path.display(),
+             ),
+-            Error::CargoEnvVariableNotSet => f.write_str("`CARGO` env variable not set."),
+             Error::FailedGettingWorkspaceManifestPath =>
+                 f.write_str("Failed to get the path of the workspace manifest path."),
+         }
+@@ -241,7 +239,11 @@ pub fn crate_name(orig_name: &str) -> Result<FoundCrate, Error> {
+ }
+ 
+ fn workspace_manifest_path(cargo_toml_manifest: &Path) -> Result<Option<PathBuf>, Error> {
+-    let stdout = Command::new(env::var("CARGO").map_err(|_| Error::CargoEnvVariableNotSet)?)
++    let Ok(cargo) = env::var("CARGO") else {
++        return Ok(None);
++    };
++
++    let stdout = Command::new(cargo)
+         .arg("locate-project")
+         .args(&["--workspace", "--message-format=plain"])
+         .arg(format!("--manifest-path={}", cargo_toml_manifest.display()))
+-- 
+2.39.5 (Apple Git-154)
+

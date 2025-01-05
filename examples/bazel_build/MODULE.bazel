@@ -49,7 +49,7 @@ crate.annotation(
 )
 crate.annotation(
     crate = "proc-macro-crate",
-    patches = ["@//external_crate_builds:0001-Fix-use-with-packaged-crates-and-Bazel.patch"],
+    patches = ["@//external_crate_builds:0001-Fix-use-with-Bazel.patch"],
     patch_args = ["-p1"],
 )
 
