@@ -98,6 +98,7 @@ enum AccessibleRole {
     Switch = 14;
     ListItem = 15;
     TabPanel = 16;
+    GroupBox = 17;
 }
 
 message ElementQueryInstruction {
