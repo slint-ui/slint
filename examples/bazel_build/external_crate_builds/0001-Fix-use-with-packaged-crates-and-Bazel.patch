@@ -33,7 +33,7 @@ index fe46eb3..45339f3 100644
  
  fn workspace_manifest_path(cargo_toml_manifest: &Path) -> Result<Option<PathBuf>, Error> {
 +    // Skip invoking Cargo if we're building a crate packaged with cargo.
-+    if !cargo_toml_manifest.with_extension(".toml.orig").exists() {
++    if cargo_toml_manifest.with_extension("toml.orig").exists() {
 +        return Ok(None);
 +    }
 +
