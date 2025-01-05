@@ -8,6 +8,11 @@ export component TestCase inherits Window {
     gb := GroupBox {
         title: "Group Title";
     }
+
+    gb-disabled := GroupBox {
+        title: "Disabled Group";
+        enabled: false;
+    }
 }
 
 
@@ -23,5 +28,10 @@ let gb = gb_search.next().unwrap();
 
 assert_eq!(gb.accessible_role(), Some(AccessibleRole::GroupBox));
 assert_eq!(gb.accessible_label(), Some(SharedString::from("Group Title")));
+assert_eq!(gb.accessible_enabled(), Some(true));
+
+let mut gb_disabled_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::gb-disabled");
+let gb_disabled = gb_disabled_search.next().unwrap();
+assert_eq!(gb_disabled.accessible_enabled(), Some(false));
 ```
 */
