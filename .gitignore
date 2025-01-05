@@ -24,3 +24,5 @@ Pipfile.lock
 .env
 .envrc
 __pycache__
+
+MODULE.bazel.lock
