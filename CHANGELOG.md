@@ -3,6 +3,36 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 1.9.2 - Unreleased
+
+### General
+
+ - Improved support for bazel build
+ - Expose PopupWindow in the accessibility tree
+ - Fixed support for older android version (Android 6)
+ - Fixed Flickable hard to scroll when starting slow (#7152)
+
+### Slint Language
+
+ - Added `AccessibleRole::tab-panel` and fixed accessibility on TabWidget (#7270)
+ - Better error recovery when element name is missing.
+ - Added warning when a type name overwrite another.
+
+### Widgets
+
+ - Fixed StandardButton not focusable (#7230)
+
+### C++
+
+ - Updated corrosion dependency, fixing build with Rustup 1.28
+
+### Tools
+
+ - LSP: Fix ranges in textDocument/documentSymbol
+ - Binary packages: Disabled Qt backend
+ - LSP: fixed panic in autocompletion of file patch with unicode
+ - Viewer: struct are now supported in callback argument (passed as JSON) (#7206)
+
 ## 1.9.1 - 2024-12-21
 
 ### General
@@ -32,7 +62,7 @@ All notable changes to this project are documented in this file.
  - `TextInput`: Fixed selection colors not begin picked up from the selected style. (#6326)
  - `TextInput`: Added `key-pressed` and `key-released` callbacks to intercept key events.
  - Fixed `TextInput` mouse cursor after left click. (#6444)
- - Improved deselection behavior when pressing left/right in `TextInput`. (#6511) 
+ - Improved deselection behavior when pressing left/right in `TextInput`. (#6511)
  - Fixed `changed` callback on unused properties causing compiler panic. (#6331)
  - Fixed geometry constraints when they are partially inferred from the content and partially inferred from the explicit constraints. (#6285)
  - Deprecated two-way binding between `in` and `in-out` properties. (#6400)
@@ -48,7 +78,7 @@ All notable changes to this project are documented in this file.
  - Fixed `min`/`max`/`clamp` functions with percentage arguments. (#7118)
  - Adjusted thresholds and behavior of the `SwipeGestureHandler`. (#6344, #6542, #6543)
  - `PopupWindow`: Improved positioning to avoid clipping by the window.
- - `PopupWindow`: Supported multiple popup windows at the same time. (#4356) 
+ - `PopupWindow`: Supported multiple popup windows at the same time. (#4356)
  - `PopupWindow`: Added `close-policy` property, deprecated `close-on-click`. (#6614)
  - `PopupWindow`: Close when the escape key is pressed.
  - Fixed focus handling in `PopupWindow`.
