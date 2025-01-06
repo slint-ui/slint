@@ -187,6 +187,35 @@ jobs:
                   name: cpp_mcu_bin-${{ matrix.idf_target }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
 
+    cmake_package_arm_linux:
+        env:
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                gcc_target: [aarch64-linux-gnu, arm-linux-gnueabihf]
+                include:
+                  - gcc_target: aarch64-linux-gnu
+                    rust_target: aarch64-unknown-linux-gnu
+                  - gcc_target: arm-linux-gnueabihf
+                    rust_target: armv7-unknown-linux-gnueabihf
+
+        runs-on: ubuntu-20.04
+        container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
+        steps:
+            - uses: actions/checkout@v4
+            - name: CMake configure
+              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
+            - name: CMake build
+              run: cmake --build build --parallel
+            - name: CMake package                                      
+              working-directory: build
+              run: cpack -G TGZ
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: cpp_bin-${{ matrix.rust_target }}
+                  path: build/Slint-cpp-*
+
     cmake_slint_compiler:
         env:
             CARGO_INCREMENTAL: false
