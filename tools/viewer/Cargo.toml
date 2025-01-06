@@ -59,7 +59,7 @@ i-slint-backend-selector = { workspace = true }
 clap = { workspace = true }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
-notify = { version = "6.0.0", default-features = false, features = ["macos_kqueue"] }
+notify = { version = "7.0.0", default-features = false, features = ["macos_kqueue"] }
 serde_json = { workspace = true }
 shlex = "1"
 spin_on = { workspace = true }
