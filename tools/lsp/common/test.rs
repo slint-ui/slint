@@ -118,7 +118,7 @@ pub fn recompile_test_with_sources(
 
     eprintln!("Test source diagnostics:");
     for d in diagnostics.iter() {
-        eprintln!("    {d}");
+        eprintln!("    {:?}: {d}", d.level());
     }
     assert!(!diagnostics.has_errors());
     if !allow_warnings {
