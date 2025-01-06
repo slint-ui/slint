@@ -795,11 +795,11 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                     None,
                 ));
 
-                let mut surface = self.canvas.new_surface(&image_info, None).unwrap();
+                let mut surface = self.canvas.new_surface(&image_info, None)?;
                 let canvas = surface.canvas();
                 canvas.clear(skia_safe::Color::TRANSPARENT);
                 canvas.draw_rrect(rounded_rect, &paint);
-                surface.image_snapshot()
+                Some(surface.image_snapshot())
             },
         );
 
