@@ -1250,7 +1250,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         cache.loading_state = PreviewFutureState::PreLoading;
     };
 
-    run_in_ui_thread(move || async move {
+    if let Err(e) = run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             preview_state
                 .borrow_mut()
@@ -1261,15 +1261,16 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                         slint::TimerMode::SingleShot,
                         core::time::Duration::from_millis(50),
                         || {
-                            slint::spawn_local(reload_timer_function()).unwrap();
+                            let _ = slint::spawn_local(reload_timer_function());
                         },
                     );
                     timer
                 })
                 .restart();
         });
-    })
-    .unwrap();
+    }) {
+        send_platform_error_notification(&e);
+    }
 }
 
 async fn parse_source(
