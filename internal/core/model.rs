@@ -895,15 +895,17 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     }
 
     fn model(self: Pin<&Self>) -> ModelRc<C::Data> {
-        // Safety: Repeater does not implement drop and never allows access to model as mutable
         let model = self.data().project_ref().model;
 
         if model.is_dirty() {
-            *self.data().inner.borrow_mut() = RepeaterInner::default();
-            self.data().is_dirty.set(true);
+            let old_model = model.get_internal();
             let m = model.get();
-            let peer = self.project_ref().0.model_peer();
-            m.model_tracker().attach_peer(peer);
+            if old_model != m {
+                *self.data().inner.borrow_mut() = RepeaterInner::default();
+                self.data().is_dirty.set(true);
+                let peer = self.project_ref().0.model_peer();
+                m.model_tracker().attach_peer(peer);
+            }
             m
         } else {
             model.get()

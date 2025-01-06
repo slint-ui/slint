@@ -184,6 +184,8 @@ struct Property
     {
     }
 
+    const T &get_internal() const { return value; }
+
 private:
     cbindgen_private::PropertyHandleOpaque inner;
     mutable T value {};

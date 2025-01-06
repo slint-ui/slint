@@ -1146,10 +1146,14 @@ public:
     void ensure_updated(const Parent *parent) const
     {
         if (model.is_dirty()) {
-            inner = std::make_shared<RepeaterInner>();
-            if (auto m = model.get()) {
-                inner->model = m;
-                m->attach_peer(inner);
+            auto old_model = model.get_internal();
+            auto m = model.get();
+            if (!inner || old_model != m) {
+                inner = std::make_shared<RepeaterInner>();
+                if (m) {
+                    inner->model = m;
+                    m->attach_peer(inner);
+                }
             }
         }
 
