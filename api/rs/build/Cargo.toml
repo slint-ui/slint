@@ -25,5 +25,5 @@ i-slint-compiler = { workspace = true, features = ["default", "rust", "display-d
 i-slint-core-macros = { workspace = true }
 
 spin_on = { workspace = true }
-thiserror = "1"
 toml_edit = { workspace = true }
+derive_more = { workspace = true, features = ["std", "error"] }

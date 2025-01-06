@@ -192,17 +192,17 @@ impl CompilerConfiguration {
 }
 
 /// Error returned by the `compile` function
-#[derive(thiserror::Error, Debug)]
+#[derive(derive_more::Error, derive_more::Display, Debug)]
 #[non_exhaustive]
 pub enum CompileError {
     /// Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.
-    #[error("Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.")]
+    #[display("Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.")]
     NotRunViaCargo,
     /// Parse error. The error are printed in the stderr, and also are in the vector
-    #[error("{0:?}")]
-    CompileError(Vec<String>),
+    #[display("{_0:?}")]
+    CompileError(#[error(not(source))] Vec<String>),
     /// Cannot write the generated file
-    #[error("Cannot write the generated file: {0}")]
+    #[display("Cannot write the generated file: {_0}")]
     SaveError(std::io::Error),
 }
 

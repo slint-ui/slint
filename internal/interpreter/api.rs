@@ -1580,48 +1580,48 @@ impl From<ComponentInstance>
 }
 
 /// Error returned by [`ComponentInstance::get_property`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Error, derive_more::Display)]
 #[non_exhaustive]
 pub enum GetPropertyError {
     /// There is no property with the given name
-    #[error("no such property")]
+    #[display("no such property")]
     NoSuchProperty,
 }
 
 /// Error returned by [`ComponentInstance::set_property`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Error, derive_more::Display)]
 #[non_exhaustive]
 pub enum SetPropertyError {
     /// There is no property with the given name.
-    #[error("no such property")]
+    #[display("no such property")]
     NoSuchProperty,
     /// The property exists but does not have a type matching the dynamic value.
     ///
     /// This happens for example when assigning a source struct value to a target
     /// struct property, where the source doesn't have all the fields the target struct
     /// requires.
-    #[error("wrong type")]
+    #[display("wrong type")]
     WrongType,
     /// Attempt to set an output property.
-    #[error("access denied")]
+    #[display("access denied")]
     AccessDenied,
 }
 
 /// Error returned by [`ComponentInstance::set_callback`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Error, derive_more::Display)]
 #[non_exhaustive]
 pub enum SetCallbackError {
     /// There is no callback with the given name
-    #[error("no such callback")]
+    #[display("no such callback")]
     NoSuchCallback,
 }
 
 /// Error returned by [`ComponentInstance::invoke`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Error, derive_more::Display)]
 #[non_exhaustive]
 pub enum InvokeError {
     /// There is no callback or function with the given name
-    #[error("no such callback or function")]
+    #[display("no such callback or function")]
     NoSuchCallable,
 }
 
