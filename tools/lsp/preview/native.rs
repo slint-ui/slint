@@ -54,11 +54,11 @@ pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
             return Err(err.clone());
         }
     }
+
     i_slint_core::api::invoke_from_event_loop(move || {
         slint::spawn_local(create_future()).unwrap();
     })
-    .unwrap();
-    Ok(())
+    .map_err(|e| e.to_string())
 }
 
 /// This is the main entry for the Slint event loop. It runs on the main thread,
