@@ -693,8 +693,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     &self.canvas,
                     shadow_image_width,
                     shadow_image_height,
-                )
-                .expect("unable to create box shadow texture");
+                )?;
 
                 {
                     let mut canvas = self.canvas.borrow_mut();
@@ -756,7 +755,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     canvas.set_render_target(self.current_render_target());
                 }
 
-                ItemGraphicsCacheEntry::Texture(shadow_image)
+                Some(ItemGraphicsCacheEntry::Texture(shadow_image))
             },
         );
 

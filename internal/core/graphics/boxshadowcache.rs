@@ -82,7 +82,7 @@ impl BoxShadowOptions {
 }
 
 /// Cache to hold box textures for given box shadow options.
-pub struct BoxShadowCache<ImageType>(RefCell<BTreeMap<BoxShadowOptions, ImageType>>);
+pub struct BoxShadowCache<ImageType>(RefCell<BTreeMap<BoxShadowOptions, Option<ImageType>>>);
 
 impl<ImageType> Default for BoxShadowCache<ImageType> {
     fn default() -> Self {
@@ -98,7 +98,7 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
         item_cache: &crate::item_rendering::ItemCache<Option<ImageType>>,
         box_shadow: std::pin::Pin<&crate::items::BoxShadow>,
         scale_factor: ScaleFactor,
-        shadow_render_fn: impl FnOnce(&BoxShadowOptions) -> ImageType,
+        shadow_render_fn: impl FnOnce(&BoxShadowOptions) -> Option<ImageType>,
     ) -> Option<ImageType> {
         item_cache.get_or_update_cache_entry(item_rc, || {
             let shadow_options = BoxShadowOptions::new(item_rc, box_shadow, scale_factor)?;
@@ -107,7 +107,6 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
                 .entry(shadow_options.clone())
                 .or_insert_with(|| shadow_render_fn(&shadow_options))
                 .clone()
-                .into()
         })
     }
 }
