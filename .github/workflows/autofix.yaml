@@ -49,7 +49,7 @@ jobs:
             - name: Format, Lint on npm projects
               run: |
                   pnpm install --frozen-lockfile
-                  pnpm format
+                  pnpm format:fix
                   pnpm lint
             - name: Check license headers
               run: cargo xtask check_license_headers --fix-it
