@@ -1,0 +1,15 @@
+load("@rules_rust//rust:defs.bzl", "rust_library")
+
+exports_files(["index.slint"] + glob(["assets/**/*"]))
+
+filegroup(
+  name = "widget_library",
+  srcs = glob(["assets/**/*"]) + glob(["**/*.slint"]),
+  visibility = ["//visibility:public"],
+)
+
+rust_library(
+  name = "widget_library_utils",
+  srcs = ["lib.rs"],  
+  visibility = ["//visibility:public"],
+)

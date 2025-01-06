@@ -9,14 +9,18 @@ cargo_build_script(
     srcs = ["build.rs"],
     build_script_env = {
         "SLINT_INDEX_FILE_PATH": "$(location slint/index.slint)",
+        "SLINT_WIDGET_LIBRARY_INDEX_PATH": "$(location //widget_library:index.slint)",
         "SLINT_EMIT_DEBUG_INFO": "1",
     },
     crate_root = "build.rs",
     data = [
         "slint/index.slint",
+        "//widget_library",
+        "//widget_library:index.slint",
     ],
     edition = "2021",
     deps = [
+        "//widget_library:widget_library_utils",
         "@crates//:slint-build",
     ],
 )
@@ -26,10 +30,14 @@ rust_binary(
     srcs = [
         "main.rs",
     ],
+    data = ["//widget_library"],
+        rustc_env = {
+        "WIDGET_LIBRARY_PACKAGE_PATH": "$${pwd}/widget_library",
+    },
     crate_root = "main.rs",
     deps = [
-        "@crates//:slint",
         ":ui_builder",
+        "@crates//:slint",
         "@crates//:slint-build",
     ],
 )
