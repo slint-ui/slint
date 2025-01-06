@@ -196,15 +196,17 @@ jobs:
                 include:
                   - gcc_target: aarch64-linux-gnu
                     rust_target: aarch64-unknown-linux-gnu
+                    cmake_system_processor: arm64
                   - gcc_target: arm-linux-gnueabihf
                     rust_target: armv7-unknown-linux-gnueabihf
+                    cmake_system_processor: armhf
 
         runs-on: ubuntu-22.04
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
         steps:
             - uses: actions/checkout@v4
             - name: CMake configure
-              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
+              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
             - name: CMake build
               run: cmake --build build --parallel
             - name: CMake package                                      
