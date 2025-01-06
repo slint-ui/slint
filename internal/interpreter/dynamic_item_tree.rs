@@ -1726,7 +1726,11 @@ pub fn instantiate(
         let model_binding_closure = make_binding_eval_closure(expr, &self_weak);
         repeater.set_model_binding(move || {
             let m = model_binding_closure();
-            i_slint_core::model::ModelRc::new(crate::value_model::ValueModel::new(m))
+            if let Value::Model(m) = m {
+                m.clone()
+            } else {
+                i_slint_core::model::ModelRc::new(crate::value_model::ValueModel::new(m))
+            }
         });
     }
 
