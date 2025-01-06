@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
 load("@rules_rust//rust:defs.bzl", "rust_library")
 
 exports_files(["index.slint"] + glob(["assets/**/*"]))
