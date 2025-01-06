@@ -4,28 +4,29 @@ title: Reactivity vs React.js
 description: Reactivity vs React.js
 ---
 
-## React.js
+## Comparison to React.js
 
-This section is for those coming from or are familiar with the [React.js](https://react.dev/) web framework.
+The following sections are for those coming from or are familiar with the [React.js](https://react.dev/) web framework.
+We're going to compare patterns from React.js based app development with Slint.
 
-Slint differs from React.js in several key ways:
+:::note[Note]
+There is no web browser as part of Slint to render the UI. There is no DOM or shadow DOM.
+:::
 
-First there is no web browser as part of Slint to render the UI. There is no DOM or shadow DOM.
-
-### Component life cycle management
+### Component Life Cycle Management
 
 React.js has a model where on a state change a component is destroyed and recreated. By default this will
 also include the destruction of all child components of an element and these then all need to be recreated.
-To manage performance careful use of useMemo and useCallback are needed to avoid unnecessary re-renders. Even
+To manage performance, careful use of `useMemo()` and `useCallback()` are needed to avoid unnecessary re-renders. Even
 though the need for this has been reduced via the React Compiler it's still necessary to understand this model
 to understand how a React app behaves.
 
-Slint is much simpler. Components update, but they are not destroyed and recreated. There is no equivlant of
-useMemo and useCallback as they are unnecessary.
+Slint is much simpler and uses fine-grained reactivity: Components update, but they aren't destroyed and recreated. There is no equivalent of
+`useMemo()` and `useCallback()` as they are unnecessary.
 
 ### State 
 
-React.js refers to properties that update and re-render the component as state. They are opt in and by
+React.js refers to properties that update and re-render the component as state. They are opt-in and by
 default are not tracked.
 
 ```jsx 
@@ -52,14 +53,14 @@ export component Counter {
 ```
 
 The classic counter example also shows key differences. First the `count` property is declared and
-a count value and setCount function are deconstructed from the useState hook. Note that 'count' cannot
-be directly accessed and must be updated via setCount.
+a `count` value and `setCount()` function are deconstructed from the useState hook. Note that 'count' cannot
+be directly accessed and must be updated via `setCount()`.
 
 The counter button is then used to update the count property and to ensure it's correctly updated must rely
-on the 'currentCount' value returned by setCount is used to update the values. As using `setCount(count + 1)`
+on the `currentCount` value returned by `setCount()` is used to update the values. As using `setCount(count + 1)`
 can cause issues in more complex scenarios where the state is updated later.
 
-While the Slint example may not look much simpler it does the same job and has less gotchas. As everything
-in Slint is reactive by default the property is declared in one single way. The language has strong types and for
-numbers has both `floats` and `ints`. The property can also be safely modified directly which also in this example
+While the Slint example may not look much simpler, it does the same job and has less gotchas. As everything
+in Slint is reactive by default, the property is declared in one single way. The language has strong types and for
+numbers has both `float`s and `int`s. The property can also be safely modified directly which also in this example
 allows the use of the `+=` operator.

@@ -41,7 +41,7 @@ export component MyComponent {
 }
 ```
 
-As the name suggests Reactivity is all about parts of the user interface automatically updating or 'reacting'
+As the name suggests, Reactivity is all about parts of the user interface automatically updating or 'reacting'
 to changes. The above example looks simple, but when run it does several things:
 
 - The `Rectangle` will follow the mouse around as you move it.
@@ -62,8 +62,9 @@ to orange when `ta.pressed` is true, or white when it isn't.
 Similarly the 2 text items are updating by tracking the rectangle's `x` and `y` position.
 
 
-## Performance
-From a performance perspective Slint works out what properties are changed. It then finds all the expressions
+## performance
+
+From a performance perspective, Slint works out what properties are changed. It then finds all the expressions
 that depend on that value. These dependencies are then re-evaluated based on the new values and the UI will update.
 
 The re-evaluation happens lazily when the property is queried.
@@ -75,6 +76,7 @@ are marked as dirty.
 
 
 ## Property Expressions
+
 Expressions can vary in complexity:
 
 ```slint no-test
