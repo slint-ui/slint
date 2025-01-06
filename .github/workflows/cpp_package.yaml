@@ -199,7 +199,7 @@ jobs:
                   - gcc_target: arm-linux-gnueabihf
                     rust_target: armv7-unknown-linux-gnueabihf
 
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-22.04
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
         steps:
             - uses: actions/checkout@v4
