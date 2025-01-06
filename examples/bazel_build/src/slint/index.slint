@@ -1,9 +1,17 @@
+import {Icons} from "@initech_widgets";
 export component BazelBuildExampleWindow inherits Window {
     background: black;
 
+    VerticalLayout {
+    Image {
+        source: Icons.bazel-logo;
+    }
     Text {
         text: "Bazel Build Example";
-        font_size: 200px;
+        font_size: 100px;
         color: white;
     }
+
+    }
+
 }
