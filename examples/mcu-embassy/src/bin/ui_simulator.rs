@@ -1,3 +1,6 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
 // A simulator for the stm32u5g9j-dk2
 // This uses the cross platform sdl2 library to render the application on a PC (see readme for installation instructions)
 // The LEFTSHIFT key can be used in place of the blue push button on the dk2 (Hardware User Button)

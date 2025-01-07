@@ -1,3 +1,6 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
 use alloc::rc::Rc;
 use embassy_time::Instant;
 use slint::{
