@@ -69,6 +69,12 @@ fn syntax_tests() -> std::io::Result<()> {
 
 fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
     let source = std::fs::read_to_string(path)?;
+    if path.to_str().unwrap_or("").contains("bom-") && !source.starts_with("\u{FEFF}") {
+        // make sure that the file still contains BOM and it wasn't remove by some tools
+        return Err(std::io::Error::other(format!(
+            "{path:?} does not contains BOM while it should"
+        )));
+    }
     std::panic::catch_unwind(|| process_file_source(path, source, false)).unwrap_or_else(|err| {
         println!("Panic while processing {}: {:?}", path.display(), err);
         Ok(false)
