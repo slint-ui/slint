@@ -1,3 +1,6 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
 pub mod double_buffer;
 pub mod hardware;
 pub mod rcc_setup;

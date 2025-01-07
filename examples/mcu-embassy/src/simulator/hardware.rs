@@ -1,3 +1,6 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
 use crate::controller::Hardware;
 use crate::info;
 

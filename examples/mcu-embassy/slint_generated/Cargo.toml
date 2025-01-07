@@ -1,11 +1,16 @@
+# Copyright © 2025 David Haig
+# SPDX-License-Identifier: MIT
+
 [package]
 name = "slint-generated"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
+authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"
 resolver = "2"
 license = "MIT"
+publish = false
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
 

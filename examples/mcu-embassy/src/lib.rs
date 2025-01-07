@@ -1,3 +1,6 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
 #![cfg_attr(feature = "mcu", no_std)]
 
 extern crate alloc;
