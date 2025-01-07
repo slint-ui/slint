@@ -198,6 +198,17 @@ pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
     let mut result = vec![];
     let mut offset = 0;
     let mut state = LexState::default();
+    if source.starts_with("\u{FEFF}") {
+        // Skip BOM
+        result.push(crate::parser::Token {
+            kind: SyntaxKind::Whitespace,
+            text: source[..3].into(),
+            offset: 0,
+            ..Default::default()
+        });
+        source = &source[3..];
+        offset += 3;
+    }
     while !source.is_empty() {
         if let Some((len, kind)) = crate::parser::lex_next_token(source, &mut state) {
             result.push(crate::parser::Token {
