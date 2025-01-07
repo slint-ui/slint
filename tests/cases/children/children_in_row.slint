@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue 7284
+
+component HeaderScreen {
+    GridLayout {
+        Row {
+            @children
+        }
+    }
+}
+
+component Intermediate {
+    HeaderScreen {
+        @children
+    }
+}
+
+export component TestCase inherits Window {
+    h := HeaderScreen {  }
+    i := Intermediate { }
+    i2 := Intermediate { Rectangle { height: 32px; } }
+
+    out property <bool> test: h.preferred-height == 0 && i.preferred-height == 0 && i2.preferred-height == 32px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

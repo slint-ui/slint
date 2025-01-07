@@ -147,7 +147,7 @@ fn inline_element(
                 } else if Rc::ptr_eq(elem, &root_component.root_element) {
                     *cip = Some((insertion_element.clone(), *index + old_count, cip_node.clone()));
                 };
-            } else {
+            } else if old_count > 0 {
                 // @children was into a PopupWindow
                 debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
                     &p.component,
