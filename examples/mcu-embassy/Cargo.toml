@@ -1,10 +1,15 @@
+# Copyright © 2025 David Haig
+# SPDX-License-Identifier: MIT
+
 [package]
 name = "mcu-embassy"
 version = "0.1.0"
 edition = "2021"
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"
+resolver = "2"
 license = "MIT"
+publish = false
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
 
@@ -33,7 +38,7 @@ slint = { version = "=1.9.0", path = "../../api/rs/slint", default-features = fa
 ] }
 i-slint-core-macros = { version = "=1.9.0", path = "../../internal/core-macros" }
 
-embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true, features = [
+embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true, features = [
     "stm32u5g9zj",
     "time-driver-tim2",
     "exti",
@@ -42,14 +47,14 @@ embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe"
     "chrono",
     "time",
 ] }
-embassy-sync = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true }
-embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true, features = [
+embassy-sync = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true }
+embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true, features = [
     "task-arena-size-32768",
+    "arch-cortex-m",
     "executor-thread",
-    "integrated-timers",
 ] }
-embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true }
-embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true }
+embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true }
+embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true }
 
 env_logger = { version = "0.9.0", optional = true }
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "400e033", optional = true }

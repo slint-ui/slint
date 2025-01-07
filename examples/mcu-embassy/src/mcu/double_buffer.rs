@@ -1,3 +1,6 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
 use embassy_stm32::ltdc::{self, Ltdc, LtdcLayerConfig};
 use slint::platform::software_renderer::Rgb565Pixel;
 

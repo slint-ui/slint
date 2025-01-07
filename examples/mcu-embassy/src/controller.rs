@@ -1,3 +1,6 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
 use embassy_sync::channel::Channel;
 use slint::ComponentHandle;
 use slint_generated::{Globals, MainWindow};
