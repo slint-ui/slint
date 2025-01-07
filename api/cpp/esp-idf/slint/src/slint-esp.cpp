@@ -18,9 +18,30 @@ static const char *TAG = "slint_platform";
 
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
+template<typename PixelType>
+class EspWindowAdapter : public slint::platform::WindowAdapter
+{
+public:
+    slint::platform::SoftwareRenderer m_renderer;
+    bool needs_redraw = true;
+    const slint::PhysicalSize m_size;
+
+    explicit EspWindowAdapter(RepaintBufferType buffer_type, slint::PhysicalSize size)
+        : m_renderer(buffer_type), m_size(size)
+    {
+    }
+
+    slint::platform::AbstractRenderer &renderer() override { return m_renderer; }
+
+    slint::PhysicalSize size() override { return m_size; }
+
+    void request_redraw() override { needs_redraw = true; }
+};
+
+template<typename PixelType>
 struct EspPlatform : public slint::platform::Platform
 {
-    EspPlatform(const SlintPlatformConfiguration &config)
+    EspPlatform(const SlintPlatformConfiguration<PixelType> &config)
         : size(config.size),
           panel_handle(config.panel_handle),
           touch_handle(config.touch_handle),
@@ -49,11 +70,11 @@ private:
     slint::PhysicalSize size;
     esp_lcd_panel_handle_t panel_handle;
     esp_lcd_touch_handle_t touch_handle;
-    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1;
-    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2;
+    std::optional<std::span<PixelType>> buffer1;
+    std::optional<std::span<PixelType>> buffer2;
     bool color_swap_16;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
-    class EspWindowAdapter *m_window = nullptr;
+    class EspWindowAdapter<PixelType> *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
     static TaskHandle_t task;
@@ -62,26 +83,8 @@ private:
     bool quit = false; // protected by queue_mutex
 };
 
-class EspWindowAdapter : public slint::platform::WindowAdapter
-{
-public:
-    slint::platform::SoftwareRenderer m_renderer;
-    bool needs_redraw = true;
-    const slint::PhysicalSize m_size;
-
-    explicit EspWindowAdapter(RepaintBufferType buffer_type, slint::PhysicalSize size)
-        : m_renderer(buffer_type), m_size(size)
-    {
-    }
-
-    slint::platform::AbstractRenderer &renderer() override { return m_renderer; }
-
-    slint::PhysicalSize size() override { return m_size; }
-
-    void request_redraw() override { needs_redraw = true; }
-};
-
-std::unique_ptr<slint::platform::WindowAdapter> EspPlatform::create_window_adapter()
+template<typename PixelType>
+std::unique_ptr<slint::platform::WindowAdapter> EspPlatform<PixelType>::create_window_adapter()
 {
     if (m_window != nullptr) {
         ESP_LOGI(TAG, "FATAL: create_window_adapter called multiple times");
@@ -90,13 +93,14 @@ std::unique_ptr<slint::platform::WindowAdapter> EspPlatform::create_window_adapt
 
     auto buffer_type =
             buffer2 ? RepaintBufferType::SwappedBuffers : RepaintBufferType::ReusedBuffer;
-    auto window = std::make_unique<EspWindowAdapter>(buffer_type, size);
+    auto window = std::make_unique<EspWindowAdapter<PixelType>>(buffer_type, size);
     m_window = window.get();
     m_window->m_renderer.set_rendering_rotation(rotation);
     return window;
 }
 
-std::chrono::milliseconds EspPlatform::duration_since_start()
+template<typename PixelType>
+std::chrono::milliseconds EspPlatform<PixelType>::duration_since_start()
 {
     auto ticks = xTaskGetTickCount();
     return std::chrono::milliseconds(pdTICKS_TO_MS(ticks));
@@ -117,7 +121,8 @@ extern "C" bool on_vsync_event(esp_lcd_panel_handle_t panel,
 }
 #endif
 
-void EspPlatform::run_event_loop()
+template<typename PixelType>
+void EspPlatform<PixelType>::run_event_loop()
 {
     task = xTaskGetCurrentTaskHandle();
 
@@ -300,7 +305,8 @@ void EspPlatform::run_event_loop()
     vTaskDelete(NULL);
 }
 
-void EspPlatform::quit_event_loop()
+template<typename PixelType>
+void EspPlatform<PixelType>::quit_event_loop()
 {
     {
         const std::unique_lock lock(queue_mutex);
@@ -309,7 +315,8 @@ void EspPlatform::quit_event_loop()
     vTaskNotifyGiveFromISR(task, nullptr);
 }
 
-void EspPlatform::run_in_event_loop(slint::platform::Platform::Task event)
+template<typename PixelType>
+void EspPlatform<PixelType>::run_in_event_loop(slint::platform::Platform::Task event)
 {
     {
         const std::unique_lock lock(queue_mutex);
@@ -318,7 +325,8 @@ void EspPlatform::run_in_event_loop(slint::platform::Platform::Task event)
     vTaskNotifyGiveFromISR(task, nullptr);
 }
 
-TaskHandle_t EspPlatform::task = {};
+template<typename PixelType>
+TaskHandle_t EspPlatform<PixelType>::task = {};
 
 void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<esp_lcd_touch_handle_t> touch,
@@ -355,7 +363,13 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
 }
 #endif
 
-void slint_esp_init(const SlintPlatformConfiguration &config)
+void slint_esp_init(const SlintPlatformConfiguration<slint::platform::Rgb565Pixel> &config)
 {
-    slint::platform::set_platform(std::make_unique<EspPlatform>(config));
+    slint::platform::set_platform(
+            std::make_unique<EspPlatform<slint::platform::Rgb565Pixel>>(config));
+}
+
+void slint_esp_init(const SlintPlatformConfiguration<slint::Rgb8Pixel> &config)
+{
+    slint::platform::set_platform(std::make_unique<EspPlatform<slint::Rgb8Pixel>>(config));
 }
