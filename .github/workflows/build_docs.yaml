@@ -127,7 +127,7 @@ jobs:
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
             - name: Upload test results
               if: always()
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                 name: playwright-test-report
                 path: docs/astro/playwright-report/
