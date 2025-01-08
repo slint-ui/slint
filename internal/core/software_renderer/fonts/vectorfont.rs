@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use ab_glyph::Font;
 use alloc::rc::Rc;
 
 use crate::lengths::PhysicalPx;
@@ -47,7 +48,6 @@ crate::thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
 
 pub struct VectorFont {
     id: fontdb::ID,
-    fontdue_font: Rc<fontdue::Font>,
     ascender: PhysicalLength,
     descender: PhysicalLength,
     height: PhysicalLength,
@@ -58,11 +58,7 @@ pub struct VectorFont {
 }
 
 impl VectorFont {
-    pub fn new(
-        id: fontdb::ID,
-        fontdue_font: Rc<fontdue::Font>,
-        pixel_size: PhysicalLength,
-    ) -> Self {
+    pub fn new(id: fontdb::ID, pixel_size: PhysicalLength) -> Self {
         sharedfontdb::FONT_DB.with(|db| {
             db.borrow()
                 .with_face_data(id, |face_data, font_index| {
@@ -78,7 +74,6 @@ impl VectorFont {
                     let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
                     Self {
                         id,
-                        fontdue_font,
                         ascender: (ascender.cast() * scale).cast(),
                         descender: (descender.cast() * scale).cast(),
                         height: (height.cast() * scale).cast(),
@@ -201,19 +196,48 @@ impl super::GlyphRenderer for VectorFont {
             if let Some(entry) = cache.get(&cache_key) {
                 Some(entry.clone())
             } else {
-                let (metrics, alpha_map) =
-                    self.fontdue_font.rasterize_indexed(glyph_id.get(), self.pixel_size.get() as _);
+                let outline: ab_glyph::OutlinedGlyph = sharedfontdb::FONT_DB.with(|db| {
+                    db.borrow().with_face_data(
+                        self.id,
+                        |face_data, font_index| -> Option<ab_glyph::OutlinedGlyph> {
+                            // Note: Creating a new ab_glyph object for every glyph rendering can
+                            //       seem wasteful (and it is), but due to lifetimes, we can't
+                            //       create cached FontRefs, and owning Fonts waste a lot of memory.
+                            //       Fortunately parsing is relatively cheap, so we can actually
+                            //       afford to do this, especially since we cache the rendered
+                            //       glyphs themselves.
+                            let face =
+                                ab_glyph::FontRef::try_from_slice_and_index(face_data, font_index)
+                                    .ok()?;
+                            face.outline_glyph(ab_glyph::Glyph {
+                                id: ab_glyph::GlyphId(glyph_id.get()),
+                                // ab_glyph uses a weird "font height" metric, so we need to transform
+                                // pixel sizes to that here.
+                                scale: (face.height_unscaled() / face.units_per_em()?
+                                    * (self.pixel_size.get() as f32))
+                                    .into(),
+                                position: Default::default(),
+                            })
+                        },
+                    )
+                })??;
+                let bounds = outline.px_bounds();
+                let mut alpha_map = alloc::vec![0u8; (bounds.width() * bounds.height()) as usize];
+                outline.draw(|x, y, value| {
+                    alpha_map[y as usize * bounds.width() as usize + x as usize] =
+                        (value * 255.0) as u8;
+                });
 
                 let alpha_map: Rc<[u8]> = alpha_map.into();
 
                 let glyph = super::RenderableGlyph {
-                    x: Fixed::from_integer(metrics.xmin.try_into().unwrap()),
-                    y: Fixed::from_integer(metrics.ymin.try_into().unwrap()),
-                    width: PhysicalLength::new(metrics.width.try_into().unwrap()),
-                    height: PhysicalLength::new(metrics.height.try_into().unwrap()),
+                    x: Fixed::from_f32(bounds.min.x)?,
+                    y: Fixed::from_f32(-bounds.max.y)?,
+                    width: PhysicalLength::new(bounds.width() as i16),
+                    height: PhysicalLength::new(bounds.height() as i16),
                     alpha_map: alpha_map.into(),
                     sdf: false,
-                    pixel_stride: metrics.width.try_into().unwrap(),
+                    pixel_stride: bounds.width() as u16,
                 };
 
                 cache.put_with_weight(cache_key, glyph.clone()).ok();

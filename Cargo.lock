@@ -5525,6 +5525,7 @@ dependencies = [
 name = "i-slint-core"
 version = "1.12.1"
 dependencies = [
+ "ab_glyph",
  "async-compat",
  "auto_enums",
  "bitflags 2.9.1",
@@ -5536,7 +5537,6 @@ dependencies = [
  "derive_more 2.0.1",
  "euclid",
  "fontdb",
- "fontdue",
  "gettext-rs",
  "i-slint-backend-testing",
  "i-slint-common",
