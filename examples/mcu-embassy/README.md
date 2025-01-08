@@ -22,10 +22,10 @@ Install the cross compilation target for the mcu:
  rustup target add thumbv8m.main-none-eabihf
 ```
 
-You need software to be able to flash the firmware to the dev kit. At the time of writing (7 Dec 2024) you need the latest version of probe-rs to flash to STM32U5G9ZJTxQ, not the one in crates.io. 
+You need software to be able to flash the firmware to the dev kit. 
 
 ```bash
-cargo install --force --locked --git https://github.com/probe-rs/probe-rs probe-rs-tools
+cargo install --force --locked probe-rs-tools
 ```
 
 # Running the application
