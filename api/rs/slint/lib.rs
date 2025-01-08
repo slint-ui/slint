@@ -44,7 +44,7 @@ This method combines your Rust code with the `.slint` design markup in one file,
 
 ```rust
 slint::slint!{
-    export component HelloWorld {
+    export component HelloWorld inherits Window {
         Text {
             text: "hello world";
             color: green;
