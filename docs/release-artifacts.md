@@ -9,6 +9,8 @@ For C++ developers, this release contains the following pre-packed builds of Sli
 | Desktop Operating System | Compiler | Architecture | Download |
 |--------------------------|----------|--------------|----------|
 | Linux                    | gcc      | x86-64       | [Slint-cpp-{version}-Linux-x86_64.tar.gz](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{version}-Linux-x86_64.tar.gz) |
+| Linux                    | gcc      | arm64        | [Slint-cpp-{version}-Linux-arm64.tar.gz](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{version}-Linux-arm64.tar.gz) |
+| Linux                    | gcc      | armhf        | [Slint-cpp-{version}-Linux-armhf.tar.gz](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{version}-Linux-armhf.tar.gz) |
 | Windows                  | MSVC     | x86-64       | [Slint-cpp-{version}-win64-MSVC.exe](https://github.com/slint-ui/slint/releases/download/{download_version}/Slint-cpp-{version}-win64-MSVC.exe) |
 
 | Templates for Microcontroller Evaluation Board | Download |
