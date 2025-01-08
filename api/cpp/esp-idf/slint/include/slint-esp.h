@@ -31,6 +31,9 @@
  *  display controller. Use line-by-line rendering if you don't have sufficient memory or rendering
  *  to internal memory (MALLOC_CAP_INTERNAL) and flushing to the display is faster than rendering
  *  into memory buffers that may be slower to access for the CPU.
+ *
+ *  The data structure is a template where the pixel type is configurable. The default is for
+ *  RGB565 displays, but you can also use `slint::Rgb8Pixel` if you're targeting an RGB888 display.
  */
 template<typename PixelType = slint::platform::Rgb565Pixel>
 struct SlintPlatformConfiguration
