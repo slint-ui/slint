@@ -7,8 +7,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"
-resolver = "2"
 license = "MIT"
+resolver = "2"
 publish = false
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
@@ -28,17 +28,17 @@ embedded-alloc = { version = "0.5", optional = true }
 heapless = { version = "0.8", default-features = false, features = [
     "defmt-03",
 ] }
+tinybmp = { version = "0.5" }
 static_cell = { version = "2", optional = true }
 
-slint = { version = "=1.9.0", path = "../../api/rs/slint", default-features = false, features = [
+slint = { path = "../../api/rs/slint", default-features = false, features = [
     "compat-1-2",
     "unsafe-single-threaded",
     "libm",
     "renderer-software",
 ] }
-i-slint-core-macros = { version = "=1.9.0", path = "../../internal/core-macros" }
 
-embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true, features = [
+embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true, features = [
     "stm32u5g9zj",
     "time-driver-tim2",
     "exti",
@@ -46,24 +46,25 @@ embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f"
     "unstable-pac",
     "chrono",
     "time",
+    "defmt",
 ] }
-embassy-sync = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true }
-embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true, features = [
+embassy-sync = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe" }
+embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", features = [
     "task-arena-size-32768",
-    "arch-cortex-m",
     "executor-thread",
+    "integrated-timers",
 ] }
-embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true }
-embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "4790f8f", optional = true }
+embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe" }
+embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe" }
 
 env_logger = { version = "0.9.0", optional = true }
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "400e033", optional = true }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2.git", rev = "400e033", optional = true }
 object-pool = { version = "0.6.0", optional = true }
 embedded-hal = { version = "1.0.0", optional = true }
 gt911 = { version = "0.1", features = ["defmt"], optional = true }
 
 [features]
-default = ["mcu"]
+default = []
 mcu = [
     "defmt",
     "defmt-rtt",
@@ -71,18 +72,13 @@ mcu = [
     "cortex-m",
     "cortex-m-rt",
     "embassy-stm32",
-    "embassy-stm32/defmt",
-    "embassy-sync",
     "embassy-sync/defmt",
-    "embassy-executor",
     "embassy-executor/arch-cortex-m",
     "embassy-executor/executor-interrupt",
     "embassy-executor/defmt",
-    "embassy-time",
     "embassy-time/tick-hz-32_768",
     "embassy-time/defmt",
     "embassy-time/defmt-timestamp-uptime",
-    "embassy-futures",
     "embedded-alloc",
     "embedded-hal",
     "gt911",
@@ -94,10 +90,6 @@ simulator = [
     "slint/std",
     "embassy-executor/arch-std",
     "embassy-time/std",
-    "embassy-futures",
-    "embassy-time",
-    "embassy-time/std",
-    "embassy-sync",
     "env_logger",
     "sdl2",
     "object-pool",
