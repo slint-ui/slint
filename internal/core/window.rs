@@ -1018,6 +1018,13 @@ impl WindowInner {
             .map_or(false, |x| x.supports_native_menu_bar())
     }
 
+    /// Setup the native menu bar
+    pub fn setup_menubar(&self, menubar: vtable::VBox<MenuVTable>) {
+        if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
+            x.setup_menubar(menubar);
+        }
+    }
+
     /// Show a popup at the given position relative to the item and returns its ID.
     /// The returned ID will always be non-zero.
     pub fn show_popup(
@@ -1335,7 +1342,7 @@ pub struct MenuVTable {
     /// destructor
     drop: fn(VRefMut<MenuVTable>),
     /// Return the list of items for the sub menu (or the main menu of parent is None)
-    sub_menu: fn(VRef<MenuVTable>, Option<&MenuEntry>) -> SharedVector<MenuEntry>,
+    sub_menu: fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
     activate: fn(VRef<MenuVTable>, &MenuEntry),
 }
@@ -1353,6 +1360,7 @@ pub mod ffi {
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::SharedVector;
+    use core::ptr::NonNull;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -1690,6 +1698,19 @@ pub mod ffi {
         window_adapter
             .internal(crate::InternalToken)
             .map_or(false, |x| x.supports_native_menu_bar())
+    }
+
+    /// Setup the native menu bar
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_setup_native_menu_bar(
+        handle: *const WindowAdapterRcOpaque,
+        vtable: NonNull<MenuVTable>,
+        menu_instance: NonNull<c_void>,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter
+            .internal(crate::InternalToken)
+            .map(|x| x.setup_menubar(vtable::VBox::from_raw(vtable, menu_instance.cast())));
     }
 
     /// Return the default-font-size property of the WindowItem

@@ -6,8 +6,8 @@
 //! Must be done before inlining and many other passes because the lowered code must
 //! be further inlined as it may expends to native widget that needs inlining
 
-use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference};
+use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::expression_tree::{BuiltinFunction, Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
@@ -142,7 +142,7 @@ fn process_window(
                 op: '!',
                 sub: Expression::FunctionCall {
                     function: Expression::BuiltinFunctionReference(
-                        crate::expression_tree::BuiltinFunction::SupportsNativeMenuBar,
+                        BuiltinFunction::SupportsNativeMenuBar,
                         None,
                     )
                     .into(),
@@ -177,6 +177,8 @@ fn process_window(
     const SUB_MENU: &str = "sub-menu";
     const ACTIVATE: &str = "activated";
 
+    let source_location = Some(menu_bar.borrow().to_source_location());
+
     for prop in [ENTRIES, SUB_MENU, ACTIVATE] {
         // materialize the properties and callbacks
         let ty = components.menubar_impl.lookup_property(prop).property_type;
@@ -194,7 +196,7 @@ fn process_window(
                         ty: ty.clone(),
                     })
                     .collect(),
-                source_location: None,
+                source_location: source_location.clone(),
             }
         } else {
             Expression::PropertyReference(nr)
@@ -211,10 +213,27 @@ fn process_window(
     menu_bar.borrow_mut().base_type = components.vertical_layout.clone();
     menu_bar.borrow_mut().children = vec![menubar_impl, child];
 
-    let menubar_nr = MenuBar {
-        entries: NamedReference::new(&menu_bar, SmolStr::new_static(ENTRIES)),
-        sub_menu: NamedReference::new(&menu_bar, SmolStr::new_static(SUB_MENU)),
-        activated: NamedReference::new(&menu_bar, SmolStr::new_static(ACTIVATE)),
+    let setup_menubar = Expression::FunctionCall {
+        function: Expression::BuiltinFunctionReference(
+            BuiltinFunction::SetupNativeMenuBar,
+            source_location.clone(),
+        )
+        .into(),
+        arguments: vec![
+            Expression::PropertyReference(NamedReference::new(
+                &menu_bar,
+                SmolStr::new_static(ENTRIES),
+            )),
+            Expression::CallbackReference(
+                NamedReference::new(&menu_bar, SmolStr::new_static(SUB_MENU)),
+                None,
+            ),
+            Expression::CallbackReference(
+                NamedReference::new(&menu_bar, SmolStr::new_static(ACTIVATE)),
+                None,
+            ),
+        ],
+        source_location: source_location.clone(),
     };
 
     window.children.push(menu_bar);
@@ -231,8 +250,7 @@ fn process_window(
     // except for the actual geometry
     win.borrow_mut().geometry_props.as_mut().unwrap().height = win_height;
 
-    let old = component.menu_bar.replace(Some(menubar_nr));
-    assert!(old.is_none());
+    component.init_code.borrow_mut().constructor_code.push(setup_menubar.into());
 
     true
 }

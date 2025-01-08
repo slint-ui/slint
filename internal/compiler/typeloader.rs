@@ -339,12 +339,6 @@ impl Snapshotter {
             let timers = RefCell::new(
                 component.timers.borrow().iter().map(|p| self.snapshot_timer(p)).collect(),
             );
-            let menu_bar =
-                RefCell::new(component.menu_bar.borrow().as_ref().map(|mb| object_tree::MenuBar {
-                    entries: mb.entries.snapshot(self),
-                    sub_menu: mb.sub_menu.snapshot(self),
-                    activated: mb.activated.snapshot(self),
-                }));
             let root_constraints = RefCell::new(
                 self.snapshot_layout_constraints(&component.root_constraints.borrow()),
             );
@@ -363,7 +357,6 @@ impl Snapshotter {
                 parent_element,
                 popup_windows,
                 timers,
-                menu_bar,
                 private_properties: RefCell::new(component.private_properties.borrow().clone()),
                 root_constraints,
                 root_element,

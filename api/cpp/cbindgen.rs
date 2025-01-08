@@ -571,6 +571,7 @@ fn gen_corelib(
             "slint_windowrc_set_physical_size",
             "slint_windowrc_color_scheme",
             "slint_windowrc_supports_native_menu_bar",
+            "slint_windowrc_setup_native_menu_bar",
             "slint_windowrc_default_font_size",
             "slint_windowrc_dispatch_pointer_event",
             "slint_windowrc_dispatch_key_event",
@@ -653,6 +654,7 @@ fn gen_corelib(
     // Previously included types are now excluded (to avoid duplicates)
     public_config.export.exclude = private_exported_types.into_iter().collect();
     public_config.export.exclude.push("LogicalPosition".into());
+    public_config.export.exclude.push("MenuVTable".into());
     public_config.export.include = public_exported_types.into_iter().map(str::to_string).collect();
     public_config.export.body.insert(
         "Rgb8Pixel".to_owned(),

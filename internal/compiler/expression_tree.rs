@@ -7,6 +7,7 @@ use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
+use crate::typeregister;
 use core::cell::RefCell;
 use smol_str::{format_smolstr, SmolStr};
 use std::cell::Cell;
@@ -65,6 +66,7 @@ pub enum BuiltinFunction {
     Hsv,
     ColorScheme,
     SupportsNativeMenuBar,
+    SetupNativeMenuBar,
     Use24HourFormat,
     MonthDayCount,
     MonthOffset,
@@ -159,13 +161,13 @@ declare_builtin_function_types!(
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
     ClosePopupWindow: (Type::ElementReference) -> Type::Void,
-    ShowPopupMenu: (Type::ElementReference, Type::Model, crate::typeregister::logical_point_type()) -> Type::Void,
+    ShowPopupMenu: (Type::ElementReference, Type::Model, typeregister::logical_point_type()) -> Type::Void,
     ItemMemberFunction(..): (Type::ElementReference) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
-    ItemFontMetrics: (Type::ElementReference) -> crate::typeregister::font_metrics_type(),
+    ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
     StringIsFloat: (Type::String) -> Type::Bool,
-    ImplicitLayoutInfo(..): (Type::ElementReference) -> crate::typeregister::layout_info_type(),
+    ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
@@ -209,9 +211,11 @@ declare_builtin_function_types!(
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     ColorScheme: () -> Type::Enumeration(
-        crate::typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
+        typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
     ),
     SupportsNativeMenuBar: () -> Type::Bool,
+    // entries, sub-menu, activate. But the types here are not accurate.
+    SetupNativeMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
     MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
     MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
     FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
@@ -220,7 +224,7 @@ declare_builtin_function_types!(
     ValidDate: (Type::String, Type::String) -> Type::Bool,
     ParseDate: (Type::String, Type::String) -> Type::Array(Rc::new(Type::Int32)),
     SetTextInputFocused: (Type::Bool) -> Type::Void,
-    ItemAbsolutePosition: (Type::ElementReference) -> crate::typeregister::logical_point_type(),
+    ItemAbsolutePosition: (Type::ElementReference) -> typeregister::logical_point_type(),
     RegisterCustomFontByPath: (Type::String) -> Type::Void,
     RegisterCustomFontByMemory: (Type::Int32) -> Type::Void,
     RegisterBitmapFont: (Type::Int32) -> Type::Void,
@@ -246,6 +250,7 @@ impl BuiltinFunction {
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::ColorScheme => false,
             BuiltinFunction::SupportsNativeMenuBar => false,
+            BuiltinFunction::SetupNativeMenuBar => false,
             BuiltinFunction::MonthDayCount => false,
             BuiltinFunction::MonthOffset => false,
             BuiltinFunction::FormatDate => false,
@@ -316,6 +321,7 @@ impl BuiltinFunction {
             BuiltinFunction::AnimationTick => true,
             BuiltinFunction::ColorScheme => true,
             BuiltinFunction::SupportsNativeMenuBar => true,
+            BuiltinFunction::SetupNativeMenuBar => false,
             BuiltinFunction::MonthDayCount => true,
             BuiltinFunction::MonthOffset => true,
             BuiltinFunction::FormatDate => true,
@@ -800,7 +806,7 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Expression::ComputeLayoutInfo(..) => crate::typeregister::layout_info_type(),
+            Expression::ComputeLayoutInfo(..) => typeregister::layout_info_type(),
             Expression::SolveLayout(..) => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,

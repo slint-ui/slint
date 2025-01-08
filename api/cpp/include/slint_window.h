@@ -84,6 +84,43 @@ public:
         return slint_windowrc_supports_native_menu_bar(&inner);
     }
 
+    template<typename Component, typename SubMenu, typename Activated>
+    void setup_native_menu_bar(Component component, SubMenu submenu, Activated activated) const
+    {
+        if (!supports_native_menu_bar()) {
+            return;
+        }
+        struct MenuWrapper
+        {
+            Component component;
+            SubMenu submenu;
+            Activated activated;
+        };
+        static cbindgen_private::MenuVTable menu_vtable = {
+            .drop = [](auto data) { delete reinterpret_cast<MenuWrapper *>(data.instance); },
+            .sub_menu =
+                    [](auto data, const cbindgen_private::MenuEntry *entry,
+                       slint::SharedVector<cbindgen_private::MenuEntry> *result) {
+                        auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
+                        auto model = wrapper->submenu(wrapper->component, entry);
+                        result->clear();
+                        if (model) {
+                            auto count = model->row_count();
+                            for (size_t i = 0; i < count; ++i) {
+                                result->push_back(*model->row_data(i));
+                            }
+                        }
+                    },
+            .activate =
+                    [](auto data, const cbindgen_private::MenuEntry *entry) {
+                        auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
+                        wrapper->activated(wrapper->component, *entry);
+                    },
+        };
+        auto instance = new MenuWrapper { component, std::move(submenu), std::move(activated) };
+        cbindgen_private::slint_windowrc_setup_native_menu_bar(&inner, &menu_vtable, instance);
+    }
+
     bool text_input_focused() const { return slint_windowrc_get_text_input_focused(&inner); }
     void set_text_input_focused(bool value) const
     {

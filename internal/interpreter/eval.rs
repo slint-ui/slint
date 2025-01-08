@@ -5,15 +5,17 @@ use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::InstanceRef;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
-use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
+use corelib::items::{ColorScheme, ItemRef, MenuEntry, PropertyAnimation};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
+use corelib::window::{Menu, MenuVTable};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
     PathElement as ExprPathElement,
 };
 use i_slint_compiler::langtype::Type;
+use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
 use smol_str::SmolStr;
@@ -1100,6 +1102,27 @@ fn call_builtin_function(
                 panic!("Cannot get the window from a global component")
             }
         },
+        BuiltinFunction::SetupNativeMenuBar => {
+            let ComponentInstance::InstanceRef(component) = local_context.component_instance else {
+                panic!("SetupNativeMenuBar from a global");
+            };
+            let [entries, Expression::CallbackReference(sub_menu, _), Expression::CallbackReference(activated, _)] =
+                arguments
+            else {
+                panic!("internal error: incorrect arguments to SetupNativeMenuBar")
+            };
+            if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
+                if w.supports_native_menu_bar() {
+                    w.setup_menubar(vtable::VBox::new(MenuWrapper {
+                        entries: entries.clone(),
+                        sub_menu: sub_menu.clone(),
+                        activated: activated.clone(),
+                        item_tree: component.self_weak().get().unwrap().clone(),
+                    }));
+                }
+            }
+            Value::Void
+        }
         BuiltinFunction::MonthDayCount => {
             let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
@@ -1825,5 +1848,53 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Function { .. } => {
             panic!("There can't be such property")
         }
+    }
+}
+
+pub struct MenuWrapper {
+    entries: Expression,
+    sub_menu: NamedReference,
+    activated: NamedReference,
+    item_tree: crate::dynamic_item_tree::ErasedItemTreeBoxWeak,
+}
+i_slint_core::MenuVTable_static!(static MENU_WRAPPER_VTABLE for MenuWrapper);
+impl i_slint_core::window::Menu for MenuWrapper {
+    fn sub_menu(&self, parent: Option<&MenuEntry>, result: &mut SharedVector<MenuEntry>) {
+        let Some(s) = self.item_tree.upgrade() else { return };
+        generativity::make_guard!(guard);
+        let compo_box = s.unerase(guard);
+        let instance_ref = compo_box.borrow_instance();
+        let res = match parent {
+            None => eval_expression(
+                &self.entries,
+                &mut EvalLocalContext::from_component_instance(instance_ref),
+            ),
+            Some(parent) => {
+                let instance_ref = ComponentInstance::InstanceRef(instance_ref);
+                invoke_callback(
+                    &instance_ref,
+                    &self.sub_menu.element(),
+                    self.sub_menu.name(),
+                    &[parent.clone().into()],
+                )
+                .unwrap()
+            }
+        };
+        let Value::Model(model) = res else { panic!("Not a model of menu entries {res:?}") };
+        *result = model.iter().map(|v| v.try_into().unwrap()).collect();
+    }
+    fn activate(&self, entry: &MenuEntry) {
+        let Some(s) = self.item_tree.upgrade() else { return };
+        generativity::make_guard!(guard);
+        let compo_box = s.unerase(guard);
+        let instance_ref = compo_box.borrow_instance();
+        let instance_ref = ComponentInstance::InstanceRef(instance_ref);
+        invoke_callback(
+            &instance_ref,
+            &self.activated.element(),
+            self.activated.name(),
+            &[entry.clone().into()],
+        )
+        .unwrap();
     }
 }

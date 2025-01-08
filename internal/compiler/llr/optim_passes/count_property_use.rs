@@ -144,6 +144,13 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
     }
 
+    if let Some(p) = &root.popup_menu {
+        let ctx = EvaluationContext::new_sub_component(&root, &p.item_tree.root, (), None);
+        visit_property(&p.entries, &ctx);
+        visit_property(&p.sub_menu, &ctx);
+        visit_property(&p.activated, &ctx);
+    }
+
     clean_unused_bindings(root);
 }
 

@@ -2995,6 +2995,45 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar())
         }
+        BuiltinFunction::SetupNativeMenuBar => {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            let [entries, Expression::PropertyReference(sub_menu), Expression::PropertyReference(activated)] =
+                arguments
+            else {
+                panic!("internal error: incorrect arguments to SetupNativeMenuBar")
+            };
+            let entries = compile_expression(entries, ctx);
+            let sub_menu = access_member(sub_menu, ctx).unwrap();
+            let activated = access_member(activated, ctx).unwrap();
+            let inner_component_id = self::inner_component_id(ctx.current_sub_component.unwrap());
+            quote! {
+                if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                    // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
+                    struct MenuBarWrapper(sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>);
+                    const _ : () = {
+                        use slint::private_unstable_api::re_exports::*;
+                        MenuVTable_static!(static VT for MenuBarWrapper);
+                    };
+                    impl sp::Menu for MenuBarWrapper {
+                        fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
+                            let Some(self_rc) = self.0.upgrade() else { return };
+                            let _self = self_rc.as_pin_ref();
+                            let model = match parent {
+                                None => #entries,
+                                Some(parent) => #sub_menu.call(&(parent.clone(),))
+                            };
+                            *result = model.iter().map(|v| v.try_into().unwrap()).collect();
+                        }
+                        fn activate(&self, entry: &sp::MenuEntry) {
+                            let Some(self_rc) = self.0.upgrade() else { return };
+                            let _self = self_rc.as_pin_ref();
+                            #activated.call(&(entry.clone(),))
+                        }
+                    }
+                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(MenuBarWrapper(_self.self_weak.get().unwrap().clone())));
+                }
+            }
+        }
         BuiltinFunction::MonthDayCount => {
             let (m, y) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))

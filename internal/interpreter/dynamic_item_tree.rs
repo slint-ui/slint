@@ -24,18 +24,17 @@ use i_slint_core::item_tree::{
     VisitChildrenResult,
 };
 use i_slint_core::items::{
-    AccessibleRole, ItemRef, ItemVTable, MenuEntry, PopupClosePolicy, PropertyAnimation,
+    AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
 };
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
-use i_slint_core::model::Repeater;
-use i_slint_core::model::{Model, RepeatedItemTree};
+use i_slint_core::model::{RepeatedItemTree, Repeater};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::properties::{ChangeTracker, InterpolatedPropertyValue};
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
 use i_slint_core::timers::Timer;
-use i_slint_core::window::{Menu, MenuVTable, WindowAdapterRc, WindowInner};
+use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
 use itertools::Either;
@@ -81,7 +80,7 @@ impl<'id> ItemTreeBox<'id> {
     }
 }
 
-type ErasedItemTreeBoxWeak = vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>;
+pub(crate) type ErasedItemTreeBoxWeak = vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>;
 
 pub(crate) struct ItemWithinItemTree {
     offset: usize,
@@ -1839,16 +1838,6 @@ impl ErasedItemTreeBox {
                 .set(v)
                 .unwrap_or_else(|_| panic!("run_setup_code called twice?"));
         }
-        if instance_ref.description.original.menu_bar.borrow().is_some() {
-            if let Ok(window) = self.window_adapter_ref() {
-                if let Some(w) = window.internal(i_slint_core::InternalToken) {
-                    if w.supports_native_menu_bar() {
-                        let self_weak = instance_ref.self_weak().get().unwrap().clone();
-                        w.setup_menubar(vtable::VBox::new(MenuWrapper(self_weak)));
-                    }
-                }
-            }
-        }
     }
 }
 impl<'id> From<ItemTreeBox<'id>> for ErasedItemTreeBox {
@@ -1858,54 +1847,6 @@ impl<'id> From<ItemTreeBox<'id>> for ErasedItemTreeBox {
         unsafe {
             ErasedItemTreeBox(core::mem::transmute::<ItemTreeBox<'id>, ItemTreeBox<'static>>(inner))
         }
-    }
-}
-
-struct MenuWrapper(ErasedItemTreeBoxWeak);
-i_slint_core::MenuVTable_static!(static MENU_WRAPPER_VTABLE for MenuWrapper);
-impl i_slint_core::window::Menu for MenuWrapper {
-    fn sub_menu(&self, parent: Option<&MenuEntry>) -> SharedVector<MenuEntry> {
-        let Some(s) = self.0.upgrade() else { return SharedVector::default() };
-        generativity::make_guard!(guard);
-        let compo_box = s.unerase(guard);
-        let instance_ref = compo_box.borrow_instance();
-        if let Some(mb) = instance_ref.description.original.menu_bar.borrow().as_ref() {
-            let res = match parent {
-                Some(parent) => {
-                    let instance_ref = eval::ComponentInstance::InstanceRef(instance_ref);
-                    eval::invoke_callback(
-                        &instance_ref,
-                        &mb.sub_menu.element(),
-                        mb.sub_menu.name(),
-                        &[parent.clone().into()],
-                    )
-                }
-                None => {
-                    eval::load_property(instance_ref, &mb.entries.element(), mb.entries.name()).ok()
-                }
-            };
-            let Some(Value::Model(model)) = res else {
-                panic!("Not a model of menu entries {res:?}")
-            };
-            return model.iter().map(|v| v.try_into().unwrap()).collect();
-        };
-        SharedVector::default()
-    }
-    fn activate(&self, entry: &MenuEntry) {
-        let Some(s) = self.0.upgrade() else { return };
-        generativity::make_guard!(guard);
-        let compo_box = s.unerase(guard);
-        let instance_ref = compo_box.borrow_instance();
-        if let Some(mb) = instance_ref.description.original.menu_bar.borrow().as_ref() {
-            let instance_ref = eval::ComponentInstance::InstanceRef(instance_ref);
-            eval::invoke_callback(
-                &instance_ref,
-                &mb.activated.element(),
-                mb.activated.name(),
-                &[entry.clone().into()],
-            )
-            .unwrap();
-        };
     }
 }
 

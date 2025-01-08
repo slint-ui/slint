@@ -49,6 +49,7 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
 
 macro_rules! declare_enums {
     ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+        #[allow(non_snake_case)]
         pub struct BuiltinEnums {
             $(pub $Name : Rc<Enumeration>),*
         }
@@ -180,7 +181,7 @@ pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-origin-y", Type::LogicalLength),
 ];
 
-fn noarg_callback_type() -> Type {
+pub fn noarg_callback_type() -> Type {
     BUILTIN.with(|types| types.noarg_callback_type.clone())
 }
 
@@ -431,6 +432,7 @@ impl TypeRegister {
                     }
                 }
             )*) => { $(
+                #[allow(non_snake_case)]
                 let $Name = Type::Struct(Rc::new(Struct{
                     fields: BTreeMap::from([
                         $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
