@@ -189,28 +189,34 @@ impl World {
                             return slint::Image::default();
                         }
 
-                        let image =
-                            match image::load_from_memory(&mut response.bytes().await.unwrap()) {
+                        let bytes = response.bytes().await.unwrap();
+                        // Use spawn_blocking to offload the image decoding to a thread as to not block the UI
+                        let buffer = tokio::task::spawn_blocking(move || {
+                            let image = match image::load_from_memory(&bytes) {
                                 Ok(image) => image,
                                 Err(err) => {
                                     eprintln!("Error reading {url}: {}", err);
-                                    return slint::Image::default();
+                                    return None;
                                 }
                             };
-                        println!("Loaded {url}");
-                        let image = image
-                            .resize(
-                                TILE_SIZE as u32,
-                                TILE_SIZE as u32,
-                                image::imageops::FilterType::Nearest,
-                            )
-                            .into_rgba8();
-                        let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
-                            image.as_raw(),
-                            image.width(),
-                            image.height(),
-                        );
-                        slint::Image::from_rgba8(buffer)
+                            println!("Loaded {url}");
+                            let image = image
+                                .resize(
+                                    TILE_SIZE as u32,
+                                    TILE_SIZE as u32,
+                                    image::imageops::FilterType::Nearest,
+                                )
+                                .into_rgba8();
+                            let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                                image.as_raw(),
+                                image.width(),
+                                image.height(),
+                            );
+                            Some(buffer)
+                        })
+                        .await
+                        .unwrap();
+                        buffer.map(|buffer| slint::Image::from_rgba8(buffer)).unwrap_or_default()
                     })
                 });
             }
