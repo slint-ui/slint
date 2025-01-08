@@ -76,6 +76,8 @@ pub enum EmbedResourcesKind {
     /// File names specified in .slint files will be loaded by the Slint compiler,
     /// optimized for use with the software renderer and embedded in the application binary.
     EmbedForSoftwareRenderer,
+    /// Same as EmbedForSoftwareRenderer, except fonts are not embedded.
+    EmbedForSoftwareRendererNoFonts,
 }
 
 impl Default for CompilerConfiguration {
@@ -159,6 +161,9 @@ impl CompilerConfiguration {
             }
             EmbedResourcesKind::EmbedForSoftwareRenderer => {
                 i_slint_compiler::EmbedResourcesKind::EmbedTextures
+            }
+            EmbedResourcesKind::EmbedForSoftwareRendererNoFonts => {
+                i_slint_compiler::EmbedResourcesKind::EmbedTexturesOnly
             }
         };
         Self { config }

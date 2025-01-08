@@ -58,6 +58,9 @@ pub enum EmbedResourcesKind {
     #[cfg(feature = "software-renderer")]
     /// Embed raw texture (process images and fonts)
     EmbedTextures,
+    #[cfg(feature = "software-renderer")]
+    /// Embed raw texture (process images)
+    EmbedTexturesOnly,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
@@ -293,7 +296,9 @@ fn prepare_for_compile(
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> typeloader::TypeLoader {
     #[cfg(feature = "software-renderer")]
-    if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
+    if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures
+        || compiler_config.embed_resources == EmbedResourcesKind::EmbedTexturesOnly
+    {
         // HACK: disable accessibility when compiling for the software renderer
         // accessibility is not supported with backend that support software renderer anyway
         compiler_config.accessibility = false;

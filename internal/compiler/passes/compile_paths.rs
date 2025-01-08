@@ -39,7 +39,9 @@ pub fn compile_paths(
         };
 
         #[cfg(feature = "software-renderer")]
-        if _embed_resources == EmbedResourcesKind::EmbedTextures {
+        if _embed_resources == EmbedResourcesKind::EmbedTextures
+            || _embed_resources == EmbedResourcesKind::EmbedTexturesOnly
+        {
             diag.push_warning(
                 "Path element is not supported with the software renderer".into(),
                 &*elem_.borrow(),

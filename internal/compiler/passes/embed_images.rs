@@ -147,7 +147,9 @@ fn embed_image(
                 #[allow(unused_mut)]
                 let mut kind = EmbeddedResourcesKind::RawData;
                 #[cfg(feature = "software-renderer")]
-                if embed_files == EmbedResourcesKind::EmbedTextures {
+                if embed_files == EmbedResourcesKind::EmbedTextures
+                    || embed_files == EmbedResourcesKind::EmbedTexturesOnly
+                {
                     match load_image(_file, _scale_factor) {
                         Ok((img, source_format, original_size)) => {
                             kind = EmbeddedResourcesKind::TextureData(generate_texture(
