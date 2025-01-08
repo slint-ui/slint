@@ -31,11 +31,16 @@ heapless = { version = "0.8", default-features = false, features = [
 tinybmp = { version = "0.5" }
 static_cell = { version = "2", optional = true }
 
+#slint = { version = "1.9.1", default-features = false, features = [
+#    "compat-1-2",
+#    "unsafe-single-threaded",
+#    "libm",
+#] }
+
 slint = { path = "../../api/rs/slint", default-features = false, features = [
     "compat-1-2",
     "unsafe-single-threaded",
     "libm",
-    "renderer-software",
 ] }
 
 embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true, features = [
