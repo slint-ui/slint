@@ -42,7 +42,8 @@ impl MudaAdapter {
                 let sub_menu =
                     muda::Submenu::with_id(id.clone(), &entry.title, true /*entry.enabled*/);
                 if depth < 15 {
-                    let sub_entries = menu.sub_menu(Some(entry));
+                    let mut sub_entries = Default::default();
+                    menu.sub_menu(Some(entry), &mut sub_entries);
                     for e in sub_entries {
                         sub_menu
                             .append(&*generate_menu_entry(menu, &e, depth + 1, map, window_id))
@@ -64,7 +65,8 @@ impl MudaAdapter {
 
         let menu = muda::Menu::new();
         let mut map = EntryMap::new();
-        let menu_entries = menubar.sub_menu(None);
+        let mut menu_entries = Default::default();
+        menubar.sub_menu(None, &mut menu_entries);
         let window_id = u64::from(winit_window.id()).to_string();
         for e in menu_entries {
             menu.append(&*generate_menu_entry(menubar.borrow(), &e, 0, &mut map, &window_id))

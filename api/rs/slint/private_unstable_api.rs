@@ -218,13 +218,10 @@ pub mod re_exports {
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
+        InputMethodRequest, Menu, MenuVTable, WindowAdapter, WindowAdapterRc, WindowInner,
     };
-    pub use i_slint_core::Color;
-    pub use i_slint_core::Coord;
-    pub use i_slint_core::ItemTreeVTable_static;
-    pub use i_slint_core::SharedString;
-    pub use i_slint_core::SharedVector;
+    pub use i_slint_core::{Color, Coord, SharedString, SharedVector};
+    pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
     pub use num_traits::float::Float;
     pub use num_traits::ops::euclid::Euclid;
     pub use once_cell::race::OnceBox;

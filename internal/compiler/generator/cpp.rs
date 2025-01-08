@@ -3602,6 +3602,20 @@ fn compile_builtin_function_call(
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))
         }
+        BuiltinFunction::SetupNativeMenuBar => {
+            let window = access_window_field(ctx);
+            let [entries, llr::Expression::PropertyReference(sub_menu), llr::Expression::PropertyReference(activated)] =
+                arguments
+            else {
+                panic!("internal error: incorrect arguments to SetupNativeMenuBar")
+            };
+            let entries = compile_expression(entries, ctx);
+            let sub_menu = access_member(sub_menu, ctx);
+            let activated = access_member(activated, ctx);
+            format!("{window}.setup_native_menu_bar(self,
+                [](auto &self, const slint::cbindgen_private::MenuEntry *parent){{ return parent ? {sub_menu}.call(*parent) : {entries}; }},
+                [](auto &self, const slint::cbindgen_private::MenuEntry &entry){{ {activated}.call(entry); }})")
+        }
         BuiltinFunction::Use24HourFormat => {
             format!("slint::cbindgen_private::slint_date_time_use_24_hour_format()")
         }

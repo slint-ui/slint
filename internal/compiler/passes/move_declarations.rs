@@ -102,11 +102,6 @@ fn do_move_declarations(component: &Rc<Component>) {
         fixup_reference(&mut t.running);
         fixup_reference(&mut t.triggered);
     });
-    if let Some(mb) = component.menu_bar.borrow_mut().as_mut() {
-        fixup_reference(&mut mb.entries);
-        fixup_reference(&mut mb.sub_menu);
-        fixup_reference(&mut mb.activated);
-    }
     component.init_code.borrow_mut().iter_mut().for_each(|expr| {
         visit_named_references_in_expression(expr, &mut fixup_reference);
     });

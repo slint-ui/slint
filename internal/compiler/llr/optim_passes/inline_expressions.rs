@@ -129,6 +129,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::ColorScheme => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
+        BuiltinFunction::SetupNativeMenuBar => isize::MAX,
         BuiltinFunction::MonthDayCount => isize::MAX,
         BuiltinFunction::MonthOffset => isize::MAX,
         BuiltinFunction::FormatDate => isize::MAX,

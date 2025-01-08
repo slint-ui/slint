@@ -313,13 +313,6 @@ pub struct Timer {
     pub running: NamedReference,
 }
 
-#[derive(Debug, Clone)]
-pub struct MenuBar {
-    pub entries: NamedReference,
-    pub sub_menu: NamedReference,
-    pub activated: NamedReference,
-}
-
 type ChildrenInsertionPoint = (ElementRc, usize, syntax_nodes::ChildrenPlaceholder);
 
 /// Used sub types for a root component
@@ -391,8 +384,6 @@ pub struct Component {
 
     pub popup_windows: RefCell<Vec<PopupWindow>>,
     pub timers: RefCell<Vec<Timer>>,
-    /// This component is a Window with a MenuBar
-    pub menu_bar: RefCell<Option<MenuBar>>,
 
     /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
     pub inherits_popup_window: Cell<bool>,
@@ -2406,11 +2397,6 @@ pub fn visit_all_named_references(
                     vis(&mut t.triggered);
                     vis(&mut t.running);
                 });
-                if let Some(mb) = compo.menu_bar.borrow_mut().as_mut() {
-                    vis(&mut mb.entries);
-                    vis(&mut mb.sub_menu);
-                    vis(&mut mb.activated);
-                };
             }
             compo
         },
