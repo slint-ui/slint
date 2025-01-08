@@ -169,15 +169,6 @@ fn init_fontdb() -> FontDatabase {
                 }
             }
         }
-        if font_db
-            .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
-            .is_none()
-        {
-            panic!(
-                "Unable to determine default font. Failed to locate font for family {}",
-                font_db.family_name(&fontdb::Family::SansSerif)
-            )
-        }
     }
 
     FontDatabase {
