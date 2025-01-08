@@ -20,25 +20,18 @@ use crate::display::RenderingRotation;
 
 pub trait FullscreenRenderer {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
-    fn is_ready_to_present(&self) -> bool;
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError>;
     fn size(&self) -> PhysicalWindowSize;
-    fn register_page_flip_handler(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError>;
 }
 
 pub struct FullscreenWindowAdapter {
     window: i_slint_core::api::Window,
     renderer: Box<dyn FullscreenRenderer>,
     redraw_requested: Cell<bool>,
-    needs_redraw_after_present: Cell<bool>,
     rotation: RenderingRotation,
 }
 
@@ -92,7 +85,6 @@ impl FullscreenWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
             renderer,
             redraw_requested: Cell::new(true),
-            needs_redraw_after_present: Cell::new(false),
             rotation,
         }))
     }
@@ -101,55 +93,41 @@ impl FullscreenWindowAdapter {
         self: Rc<Self>,
         mouse_position: Pin<&Property<Option<LogicalPosition>>>,
     ) -> Result<(), PlatformError> {
-        if !self.renderer.is_ready_to_present() {
-            return Ok(());
-        }
         if self.redraw_requested.replace(false) {
-            self.renderer.render_and_present(
-                self.rotation,
-                &|item_renderer| {
-                    if let Some(mouse_position) = mouse_position.get() {
-                        let cursor_image = mouse_cursor_image();
-                        item_renderer.save_state();
-                        item_renderer.translate(
-                            i_slint_core::lengths::logical_point_from_api(mouse_position)
-                                .to_vector(),
-                        );
-                        item_renderer.draw_image_direct(mouse_cursor_image());
-                        item_renderer.restore_state();
-                        let cursor_rect = LogicalRect::new(
-                            euclid::point2(mouse_position.x, mouse_position.y),
-                            euclid::Size2D::from_untyped(cursor_image.size().cast()),
-                        );
-                        self.renderer.as_core_renderer().mark_dirty_region(cursor_rect.into());
-                    }
-                },
-                Box::new({
-                    let self_weak = Rc::downgrade(&self);
-                    move || {
-                        let Some(this) = self_weak.upgrade() else {
-                            return;
-                        };
-                        if this.needs_redraw_after_present.replace(false) {
-                            this.request_redraw();
-                        }
-                    }
-                }),
-            )?;
+            self.renderer.render_and_present(self.rotation, &|item_renderer| {
+                if let Some(mouse_position) = mouse_position.get() {
+                    let cursor_image = mouse_cursor_image();
+                    item_renderer.save_state();
+                    item_renderer.translate(
+                        i_slint_core::lengths::logical_point_from_api(mouse_position).to_vector(),
+                    );
+                    item_renderer.draw_image_direct(mouse_cursor_image());
+                    item_renderer.restore_state();
+                    let cursor_rect = LogicalRect::new(
+                        euclid::point2(mouse_position.x, mouse_position.y),
+                        euclid::Size2D::from_untyped(cursor_image.size().cast()),
+                    );
+                    self.renderer.as_core_renderer().mark_dirty_region(cursor_rect.into());
+                }
+            })?;
             // Check once after rendering if we have running animations and
             // remember that to trigger a redraw after the frame is on the screen.
             // Timers might have been updated if the event loop is woken up
             // due to other reasons, which would also reset has_active_animations.
-            self.needs_redraw_after_present.set(self.window.has_active_animations());
+            if self.window.has_active_animations() {
+                let self_weak = Rc::downgrade(&self);
+                i_slint_core::timers::Timer::single_shot(
+                    std::time::Duration::default(),
+                    move || {
+                        let Some(this) = self_weak.upgrade() else {
+                            return;
+                        };
+                        this.request_redraw();
+                    },
+                )
+            }
         }
         Ok(())
-    }
-
-    pub fn register_event_loop(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError> {
-        self.renderer.register_page_flip_handler(event_loop_handle)
     }
 }
 

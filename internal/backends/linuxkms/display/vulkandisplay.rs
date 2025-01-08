@@ -173,6 +173,6 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
         queue_family_index,
         surface: vulkan_surface,
         size,
-        presenter: crate::display::timeranimations::TimerBasedAnimationDriver::new(),
+        presenter: crate::display::noop_presenter::NoopPresenter::new(),
     })
 }
