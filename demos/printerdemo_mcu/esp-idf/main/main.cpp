@@ -56,7 +56,7 @@ extern "C" void app_main(void)
             .panel_handle = panel_handle,
             .touch_handle = touch_handle,
             .buffer1 = buffer,
-            .color_swap_16 = true });
+            .byte_swap = true });
 
     auto printer_demo = MainWindow::create();
     printer_demo->set_ink_levels(std::make_shared<InkLevelModel>());

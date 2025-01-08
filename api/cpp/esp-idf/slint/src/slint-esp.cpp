@@ -47,7 +47,7 @@ struct EspPlatform : public slint::platform::Platform
           touch_handle(config.touch_handle),
           buffer1(config.buffer1),
           buffer2(config.buffer2),
-          color_swap(config.color_swap),
+          byte_swap(config.byte_swap),
           rotation(config.rotation)
     {
 #if !defined(SLINT_FEATURE_EXPERIMENTAL)
@@ -72,7 +72,7 @@ private:
     esp_lcd_touch_handle_t touch_handle;
     std::optional<std::span<PixelType>> buffer1;
     std::optional<std::span<PixelType>> buffer2;
-    bool color_swap;
+    bool byte_swap;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
     class EspWindowAdapter<PixelType> *m_window = nullptr;
 
@@ -122,13 +122,13 @@ extern "C" bool on_vsync_event(esp_lcd_panel_handle_t panel,
 #endif
 
 namespace {
-void swap_colors(slint::platform::Rgb565Pixel *pixel)
+void byte_swap_color(slint::platform::Rgb565Pixel *pixel)
 {
     // Swap endianness to big endian
     auto px = reinterpret_cast<uint16_t *>(pixel);
     *px = (*px << 8) | (*px >> 8);
 }
-void swap_colors(slint::Rgb8Pixel *pixel)
+void byte_swap_color(slint::Rgb8Pixel *pixel)
 {
     std::swap(pixel->r, pixel->b);
 }
@@ -240,11 +240,11 @@ void EspPlatform<PixelType>::run_event_loop()
                     auto region = m_window->m_renderer.render(buffer1.value(),
                                                               rotated ? size.height : size.width);
 
-                    if (color_swap) {
+                    if (byte_swap) {
                         for (auto [o, s] : region.rectangles()) {
                             for (int y = o.y; y < o.y + s.height; y++) {
                                 for (int x = o.x; x < o.x + s.width; x++) {
-                                    swap_colors(&buffer1.value()[y * size.width + x]);
+                                    byte_swap_color(&buffer1.value()[y * size.width + x]);
                                 }
                             }
                         }
@@ -285,10 +285,10 @@ void EspPlatform<PixelType>::run_event_loop()
                         std::span<slint::platform::Rgb565Pixel> view { lb.get(),
                                                                        line_end - line_start };
                         render_fn(view);
-                        if (color_swap) {
+                        if (byte_swap) {
                             // Swap endianness to big endian
                             std::for_each(view.begin(), view.end(),
-                                          [](auto &rgbpix) { swap_colors(&rgbpix); });
+                                          [](auto &rgbpix) { byte_swap_color(&rgbpix); });
                         }
                         esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y, line_end,
                                                   line_y + 1, lb.get());
@@ -349,8 +349,8 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
         .buffer1 = buffer1,
         .buffer2 = buffer2,
         // For compatibility with earlier versions of Slint, we compute the value of
-        // color_swap_16 the way it was implemented in Slint (slint-esp) <= 1.6.0:
-        .color_swap_16 = buffer2.has_value()
+        // byte_swap the way it was implemented in Slint (slint-esp) <= 1.6.0:
+        .byte_swap = buffer2.has_value()
     };
     slint_esp_init(config);
 }
