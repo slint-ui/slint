@@ -56,7 +56,7 @@ jobs:
               with:
                   crate: cargo-about
             - name: Prepare licenses
-              run: bash -x ../../scripts/prepare_binary_package.sh ../..
+              run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
             # Pin Python version until https://github.com/slint-ui/slint/issues/6615 is fixed.   
             - uses: actions/setup-python@v5
@@ -109,7 +109,7 @@ jobs:
               with:
                   crate: cargo-about
             - name: Prepare licenses
-              run: bash -x ../../scripts/prepare_binary_package.sh ../..
+              run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
             - name: C++ Build
               uses: lukka/run-cmake@v3.4
@@ -165,7 +165,7 @@ jobs:
               with:
                   crate: cargo-about
             - name: Prepare licenses
-              run: bash -x ../../scripts/prepare_binary_package.sh ../..
+              run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
             - name: C++ Build
               uses: lukka/run-cmake@v3.4
@@ -205,6 +205,12 @@ jobs:
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
         steps:
             - uses: actions/checkout@v4
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ../../build
+              working-directory: api/cpp/
             - name: CMake configure
               run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
             - name: CMake build
