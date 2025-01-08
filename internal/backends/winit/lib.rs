@@ -77,7 +77,7 @@ mod renderer {
 
 #[cfg(enable_accesskit)]
 mod accesskit;
-#[cfg(feature = "muda")]
+#[cfg(muda)]
 mod muda;
 
 #[cfg(target_arch = "wasm32")]
@@ -145,7 +145,7 @@ fn try_create_window_with_fallback_renderer(
             renderer_factory(),
             attrs.clone(),
             None,
-            #[cfg(any(enable_accesskit, feature = "muda"))]
+            #[cfg(any(enable_accesskit, muda))]
             _proxy.clone(),
         )
         .ok()
@@ -439,7 +439,7 @@ impl i_slint_core::platform::Platform for Backend {
             (self.renderer_factory_fn)(),
             attrs.clone(),
             self.requested_graphics_api.clone(),
-            #[cfg(any(enable_accesskit, feature = "muda"))]
+            #[cfg(any(enable_accesskit, muda))]
             self.proxy.clone(),
         )
         .or_else(|e| {

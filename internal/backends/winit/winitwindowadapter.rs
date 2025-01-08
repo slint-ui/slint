@@ -26,7 +26,7 @@ use corelib::items::{ColorScheme, MouseCursor};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
-#[cfg(any(enable_accesskit, feature = "muda"))]
+#[cfg(any(enable_accesskit, muda))]
 use crate::SlintUserEvent;
 use crate::WinitWindowEventResult;
 use corelib::api::PhysicalSize;
@@ -38,7 +38,7 @@ use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core::{self as corelib, graphics::RequestedGraphicsAPI};
 use once_cell::unsync::OnceCell;
-#[cfg(any(enable_accesskit, feature = "muda"))]
+#[cfg(any(enable_accesskit, muda))]
 use winit::event_loop::EventLoopProxy;
 use winit::window::{WindowAttributes, WindowButtons};
 
@@ -275,7 +275,7 @@ pub struct WinitWindowAdapter {
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
-    #[cfg(any(enable_accesskit, feature = "muda"))]
+    #[cfg(any(enable_accesskit, muda))]
     event_loop_proxy: EventLoopProxy<SlintUserEvent>,
 
     pub(crate) window_event_filter: Cell<
@@ -294,7 +294,7 @@ pub struct WinitWindowAdapter {
     #[cfg(not(use_winit_theme))]
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
-    #[cfg(feature = "muda")]
+    #[cfg(muda)]
     pub(crate) muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
 }
 
@@ -304,7 +304,7 @@ impl WinitWindowAdapter {
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
-        #[cfg(any(enable_accesskit, feature = "muda"))] proxy: EventLoopProxy<SlintUserEvent>,
+        #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Result<Rc<Self>, PlatformError> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
@@ -326,12 +326,12 @@ impl WinitWindowAdapter {
             requested_graphics_api,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
-            #[cfg(any(enable_accesskit, feature = "muda"))]
+            #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
             #[cfg(not(use_winit_theme))]
             xdg_settings_watcher: Default::default(),
-            #[cfg(feature = "muda")]
+            #[cfg(muda)]
             muda_adapter: Default::default(),
         });
 
@@ -1126,12 +1126,12 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             .get()
     }
 
-    #[cfg(feature = "muda")]
+    #[cfg(muda)]
     fn supports_native_menu_bar(&self) -> bool {
-        cfg!(any(target_os = "windows", target_os = "macos"))
+        true
     }
 
-    #[cfg(feature = "muda")]
+    #[cfg(muda)]
     fn setup_menubar(&self, menubar: vtable::VBox<i_slint_core::window::MenuVTable>) {
         drop(self.muda_adapter.borrow_mut().take());
         self.muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
