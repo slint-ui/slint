@@ -58,8 +58,8 @@ struct SlintPlatformConfiguration
     /// Swap the 2 bytes of RGB 565 pixels before sending to the display, or turn 24-bit RGB into
     /// BGR. Use this if your CPU is little endian but the display expects big-endian.
     union {
-        bool color_swap_16;
-        bool color_swap = false;
+        [[deprecated("Renamed to byte_swap")]] bool color_swap_16;
+        bool byte_swap = false;
     };
 };
 

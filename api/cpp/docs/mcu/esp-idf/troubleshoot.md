@@ -30,7 +30,7 @@ Make sure that the stack is big enough (~8KiB), and that all the RAM was made av
 If colors look inverted on your display, it may be an incompatibility between how RGB565 colors are ordered in little-endian
 and your display expecting a different byte order. Typically, esp32 devices are little ending and display controllers often
 expect big-endian or `esp_lcd` configures them accordingly. Therefore, by default Slint converts pixels to big-endian.
-If your display controller expects little endian, set the `color_swap_16` field in `SlintPlatformConfiguration` to `false`.
+If your display controller expects little endian, set the `byte_swap` field in `SlintPlatformConfiguration` to `false`.
 
 ## Errors about multiple symbol definitions when linking
 
