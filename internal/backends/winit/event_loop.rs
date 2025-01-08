@@ -249,7 +249,7 @@ pub enum CustomEvent {
     Exit,
     #[cfg(enable_accesskit)]
     Accesskit(accesskit_winit::Event),
-    #[cfg(feature = "muda")]
+    #[cfg(muda)]
     Muda(muda::MenuEvent),
 }
 
@@ -262,7 +262,7 @@ impl std::fmt::Debug for CustomEvent {
             Self::Exit => write!(f, "Exit"),
             #[cfg(enable_accesskit)]
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
-            #[cfg(feature = "muda")]
+            #[cfg(muda)]
             Self::Muda(e) => write!(f, "Muda({e:?})"),
         }
     }
@@ -570,7 +570,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             CustomEvent::WakeEventLoopWorkaround => {
                 event_loop.set_control_flow(ControlFlow::Poll);
             }
-            #[cfg(feature = "muda")]
+            #[cfg(muda)]
             CustomEvent::Muda(event) => {
                 if let Some((window, eid)) = event.id().0.split_once('|').and_then(|(w, e)| {
                     Some((
