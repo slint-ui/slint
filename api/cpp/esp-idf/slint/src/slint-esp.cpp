@@ -18,7 +18,6 @@ static const char *TAG = "slint_platform";
 
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
-template<typename PixelType>
 class EspWindowAdapter : public slint::platform::WindowAdapter
 {
 public:
@@ -74,7 +73,7 @@ private:
     std::optional<std::span<PixelType>> buffer2;
     bool byte_swap;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
-    class EspWindowAdapter<PixelType> *m_window = nullptr;
+    class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
     static TaskHandle_t task;
@@ -93,7 +92,7 @@ std::unique_ptr<slint::platform::WindowAdapter> EspPlatform<PixelType>::create_w
 
     auto buffer_type =
             buffer2 ? RepaintBufferType::SwappedBuffers : RepaintBufferType::ReusedBuffer;
-    auto window = std::make_unique<EspWindowAdapter<PixelType>>(buffer_type, size);
+    auto window = std::make_unique<EspWindowAdapter>(buffer_type, size);
     m_window = window.get();
     m_window->m_renderer.set_rendering_rotation(rotation);
     return window;
