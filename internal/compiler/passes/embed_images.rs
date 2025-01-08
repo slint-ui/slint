@@ -242,7 +242,9 @@ fn embed_image(
     };
 
     #[cfg(feature = "renderer-software")]
-    if embed_files == EmbedResourcesKind::EmbedTextures {
+    if embed_files == EmbedResourcesKind::EmbedTextures
+        || embed_files == EmbedResourcesKind::EmbedTexturesOnly
+    {
         return match load_image(_file, _scale_factor, _font_collection) {
             Ok((img, source_format, original_size)) => {
                 let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
@@ -586,7 +588,9 @@ fn embed_data_uri(
     };
 
     #[cfg(feature = "renderer-software")]
-    if _embed_files == EmbedResourcesKind::EmbedTextures {
+    if _embed_files == EmbedResourcesKind::EmbedTextures
+        || _embed_files == EmbedResourcesKind::EmbedTexturesOnly
+    {
         match load_image_from_bytes(
             &decoded_data,
             Some(&extension),
