@@ -15,13 +15,13 @@ repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
 
 [dependencies]
-slint = { version = "=1.9.0", path = "../../../api/rs/slint", default-features = false, features = [
+slint = { path = "../../../api/rs/slint", default-features = false, features = [
     "compat-1-2",
     "unsafe-single-threaded",
     "libm",
     "renderer-software",
 ] }
-i-slint-core-macros = { version = "=1.9.0", path = "../../../internal/core-macros" }
+i-slint-core-macros = { path = "../../../internal/core-macros" }
 
 [build-dependencies]
-slint-build = { version = "=1.9.0", path = "../../../api/rs/build" }
+slint-build = { path = "../../../api/rs/build" }
