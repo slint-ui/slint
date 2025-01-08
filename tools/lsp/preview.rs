@@ -305,11 +305,13 @@ pub fn find_component_identifiers(
     document: &syntax_nodes::Document,
     name: &str,
 ) -> Vec<syntax_nodes::DeclaredIdentifier> {
+    let name = Some(i_slint_compiler::parser::normalize_identifier(name));
+
     let mut result = vec![];
     for el in document.ExportsList() {
         if let Some(component) = el.Component() {
             let identifier = component.DeclaredIdentifier();
-            if identifier.text() == name {
+            if i_slint_compiler::parser::identifier_text(&identifier) == name {
                 result.push(identifier);
             }
         }
@@ -317,7 +319,7 @@ pub fn find_component_identifiers(
 
     for component in document.Component() {
         let identifier = component.DeclaredIdentifier();
-        if identifier.text() == name {
+        if i_slint_compiler::parser::identifier_text(&identifier) == name {
             result.push(identifier);
         }
     }
