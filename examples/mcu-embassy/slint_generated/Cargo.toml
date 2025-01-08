@@ -25,3 +25,15 @@ i-slint-core-macros = { path = "../../../internal/core-macros" }
 
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
+
+#[dependencies]
+#slint = { version = "1.9.1", default-features = false, features = [
+#    "compat-1-2",
+#    "unsafe-single-threaded",
+#    "libm",
+#    "renderer-software",
+#] }
+#i-slint-core-macros = { version = "1.9.1" }
+#
+#[build-dependencies]
+#slint-build = { version = "1.9.1" }
