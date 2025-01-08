@@ -2,20 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::api::PhysicalSize;
-use i_slint_core::platform::PlatformError;
 
 #[allow(unused)]
 pub trait Presenter {
-    fn is_ready_to_present(&self) -> bool;
-    fn register_page_flip_handler(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError>;
     // Present updated front-buffer to the screen
-    fn present_with_next_frame_callback(
-        &self,
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
 #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"))]
@@ -103,63 +94,21 @@ impl RenderingRotation {
     feature = "renderer-software",
     feature = "renderer-skia-opengl"
 ))]
-pub(crate) mod timeranimations {
-    use i_slint_core::platform::PlatformError;
-    use std::cell::Cell;
-    use std::rc::{Rc, Weak};
+pub(crate) mod noop_presenter {
+    use std::rc::Rc;
 
-    pub(crate) struct TimerBasedAnimationDriver {
-        timer: i_slint_core::timers::Timer,
-        next_animation_frame_callback: Cell<Option<Box<dyn FnOnce()>>>,
-    }
+    // Used when the underlying renderer/display takes care of the presentation to the display
+    // and (hopefully) implements vsync.
+    pub(crate) struct NoopPresenter {}
 
-    impl TimerBasedAnimationDriver {
+    impl NoopPresenter {
         pub(crate) fn new() -> Rc<Self> {
-            Rc::new_cyclic(|self_weak: &Weak<Self>| {
-                let self_weak = self_weak.clone();
-                let timer = i_slint_core::timers::Timer::default();
-                timer.start(
-                    i_slint_core::timers::TimerMode::Repeated,
-                    std::time::Duration::from_millis(16),
-                    move || {
-                        let Some(this) = self_weak.upgrade() else { return };
-                        // Stop the timer and let the callback decide if we need to continue. It will set
-                        // `needs_redraw` to true of animations should continue, render() will be called,
-                        // present_with_next_frame_callback() will be called and then the timer restarted.
-                        this.timer.stop();
-                        if let Some(next_animation_frame_callback) =
-                            this.next_animation_frame_callback.take()
-                        {
-                            next_animation_frame_callback();
-                        }
-                    },
-                );
-                // Activate it only when we present a frame.
-                timer.stop();
-
-                Self { timer, next_animation_frame_callback: Default::default() }
-            })
+            Rc::new(Self {})
         }
     }
 
-    impl crate::display::Presenter for TimerBasedAnimationDriver {
-        fn is_ready_to_present(&self) -> bool {
-            true
-        }
-
-        fn register_page_flip_handler(
-            &self,
-            _event_loop_handle: crate::calloop_backend::EventLoopHandle,
-        ) -> Result<(), PlatformError> {
-            Ok(())
-        }
-
-        fn present_with_next_frame_callback(
-            &self,
-            ready_for_next_animation_frame: Box<dyn FnOnce()>,
-        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-            self.next_animation_frame_callback.set(Some(ready_for_next_animation_frame));
-            self.timer.restart();
+    impl crate::display::Presenter for NoopPresenter {
+        fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok(())
         }
     }

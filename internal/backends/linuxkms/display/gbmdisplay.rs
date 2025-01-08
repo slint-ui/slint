@@ -44,8 +44,6 @@ impl GbmDisplay {
             )
             .map_err(|e| format!("Error creating gbm surface: {e}"))?;
 
-        drm_output.set_renderer_is_triple_buffered(true);
-
         Ok(GbmDisplay { drm_output, gbm_surface, gbm_device, surface_format })
     }
 
@@ -74,17 +72,7 @@ impl GbmDisplay {
 }
 
 impl super::Presenter for GbmDisplay {
-    fn register_page_flip_handler(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError> {
-        self.drm_output.register_page_flip_handler(event_loop_handle)
-    }
-
-    fn present_with_next_frame_callback(
-        &self,
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut front_buffer = unsafe {
             self.gbm_surface
                 .lock_front_buffer()
@@ -114,11 +102,7 @@ impl super::Presenter for GbmDisplay {
             })
             .map_err(|e| format!("Error setting userdata on gbm surface front buffer: {e}"))?;
 
-        self.drm_output.present(front_buffer, fb, ready_for_next_animation_frame)
-    }
-
-    fn is_ready_to_present(&self) -> bool {
-        self.drm_output.is_ready_to_present()
+        self.drm_output.present(front_buffer, fb)
     }
 }
 

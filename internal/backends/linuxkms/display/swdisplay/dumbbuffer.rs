@@ -20,7 +20,6 @@ impl DumbBufferDisplay {
         device_opener: &crate::DeviceOpener,
     ) -> Result<Rc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-        drm_output.set_renderer_is_triple_buffered(true);
 
         //eprintln!("mode {}/{}", width, height);
 
@@ -76,17 +75,7 @@ impl super::SoftwareBufferDisplay for DumbBufferDisplay {
 }
 
 impl crate::display::Presenter for DumbBufferDisplay {
-    fn register_page_flip_handler(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError> {
-        self.drm_output.register_page_flip_handler(event_loop_handle)
-    }
-
-    fn present_with_next_frame_callback(
-        &self,
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.drm_output.wait_for_page_flip();
 
         self.back_buffer.swap(&self.front_buffer);
@@ -104,13 +93,8 @@ impl crate::display::Presenter for DumbBufferDisplay {
         self.drm_output.present(
             self.in_flight_buffer.borrow().buffer_handle,
             self.in_flight_buffer.borrow().fb_handle,
-            ready_for_next_animation_frame,
         )?;
         Ok(())
-    }
-
-    fn is_ready_to_present(&self) -> bool {
-        self.drm_output.is_ready_to_present()
     }
 }
 
