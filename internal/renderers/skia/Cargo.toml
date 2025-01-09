@@ -44,7 +44,7 @@ raw-window-handle = { version = "0.6", features = ["std"] }
 
 skia-safe = { version = "0.78.0", features = ["textlayout", "gl"] }
 glow = { version = "0.13" }
-unicode-segmentation = { version = "1.8.0" }
+unicode-segmentation = { workspace = true }
 
 ash = { version = "^0.37.2", optional = true }
 vulkano = { version = "0.34.0", optional = true, default-features = false }
