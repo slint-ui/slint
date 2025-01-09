@@ -6,16 +6,16 @@ use std::path::Path;
 use crate::{common, util};
 
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, TextSize};
+use i_slint_compiler::parser::{
+    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
+};
 use lsp_types::Url;
 use smol_str::SmolStr;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-fn main_identifier(
-    input: &i_slint_compiler::parser::SyntaxNode,
-) -> Option<i_slint_compiler::parser::SyntaxToken> {
+fn main_identifier(input: &SyntaxNode) -> Option<SyntaxToken> {
     input.child_token(SyntaxKind::Identifier)
 }
 
@@ -139,7 +139,7 @@ fn fix_imports(
     fixup_local_use: &dyn Fn(
         &common::DocumentCache,
         &syntax_nodes::Document,
-        &i_slint_compiler::parser::TextRange,
+        &TextRange,
         &SmolStr,
         &str,
         &mut Vec<common::SingleTextEdit>,
@@ -175,7 +175,7 @@ fn fix_import_in_document(
     fixup_local_use: &dyn Fn(
         &common::DocumentCache,
         &syntax_nodes::Document,
-        &i_slint_compiler::parser::TextRange,
+        &TextRange,
         &SmolStr,
         &str,
         &mut Vec<common::SingleTextEdit>,
@@ -275,7 +275,7 @@ fn fix_exports(
     fixup_local_use: &dyn Fn(
         &common::DocumentCache,
         &syntax_nodes::Document,
-        &i_slint_compiler::parser::TextRange,
+        &TextRange,
         &SmolStr,
         &str,
         &mut Vec<common::SingleTextEdit>,
@@ -384,7 +384,7 @@ fn visit_document_structs(
 fn declaration_validity_range(
     document_node: &syntax_nodes::Document,
     identifier: &syntax_nodes::DeclaredIdentifier,
-) -> i_slint_compiler::parser::TextRange {
+) -> TextRange {
     let parent = identifier.parent().unwrap();
     let start = parent.last_token().unwrap().text_range().end() + TextSize::new(1);
 
@@ -402,7 +402,7 @@ fn declaration_validity_range(
                 match parent.kind() {
                     SyntaxKind::Component => {
                         if new_grand_parent.kind() == SyntaxKind::Component {
-                            return i_slint_compiler::parser::TextRange::new(
+                            return TextRange::new(
                                 start,
                                 new_grand_parent.last_token().unwrap().text_range().end(),
                             );
@@ -412,7 +412,7 @@ fn declaration_validity_range(
                         if [SyntaxKind::EnumDeclaration, SyntaxKind::StructDeclaration]
                             .contains(&new_grand_parent.kind())
                         {
-                            return i_slint_compiler::parser::TextRange::new(
+                            return TextRange::new(
                                 start,
                                 new_grand_parent.last_token().unwrap().text_range().end(),
                             );
@@ -425,7 +425,7 @@ fn declaration_validity_range(
         token = t.next_token();
     }
 
-    i_slint_compiler::parser::TextRange::new(start, document_node.text_range().end())
+    TextRange::new(start, document_node.text_range().end())
 }
 
 /// Rename the `DeclaredIdentifier` in a struct/component declaration
@@ -437,7 +437,7 @@ pub fn rename_identifier_from_declaration(
     fn change_local_element_type(
         document_cache: &common::DocumentCache,
         document_node: &syntax_nodes::Document,
-        validity_range: &i_slint_compiler::parser::TextRange,
+        validity_range: &TextRange,
         old_type: &SmolStr,
         new_type: &str,
         edits: &mut Vec<common::SingleTextEdit>,
@@ -458,7 +458,7 @@ pub fn rename_identifier_from_declaration(
     fn change_local_data_type(
         document_cache: &common::DocumentCache,
         document_node: &syntax_nodes::Document,
-        validity_range: &i_slint_compiler::parser::TextRange,
+        validity_range: &TextRange,
         old_type: &SmolStr,
         new_type: &str,
         edits: &mut Vec<common::SingleTextEdit>,
@@ -520,7 +520,7 @@ pub fn rename_identifier_from_declaration(
         &dyn Fn(
             &common::DocumentCache,
             &syntax_nodes::Document,
-            &i_slint_compiler::parser::TextRange,
+            &TextRange,
             &SmolStr,
             &str,
             &mut Vec<common::SingleTextEdit>,
@@ -548,7 +548,7 @@ fn rename_declared_identifier(
     fixup_local_use: &dyn Fn(
         &common::DocumentCache,
         &syntax_nodes::Document,
-        &i_slint_compiler::parser::TextRange,
+        &TextRange,
         &SmolStr,
         &str,
         &mut Vec<common::SingleTextEdit>,
