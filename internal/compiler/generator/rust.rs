@@ -2417,7 +2417,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
                 crate::expression_tree::ImageReference::AbsolutePath(path) => {
                     let path = path.as_str();
-                    quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+                    if path.starts_with("data:") {
+                        quote!(sp::Image::load_from_data_url(#path).unwrap_or_default())
+                    } else {
+                        quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+                    }
                 }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
