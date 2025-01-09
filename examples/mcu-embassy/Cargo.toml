@@ -1,6 +1,10 @@
 # Copyright © 2025 David Haig
 # SPDX-License-Identifier: MIT
 
+# A work around for an embassy-time-driver conflict with esp32-hal's embassy dependency.
+# Remove this workspace and add 'examples/mcu-embassy' as a member to the slint root Cargo.toml once this issue has been resolved
+[workspace]
+
 [package]
 name = "mcu-embassy"
 version = "0.1.0"
