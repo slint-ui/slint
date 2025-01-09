@@ -861,8 +861,8 @@ impl<T: Clone> Property<T> {
         self.get_internal()
     }
 
-    /// Get the value without registering any dependencies or executing any binding
-    fn get_internal(&self) -> T {
+    /// Get the cached value without registering any dependencies or executing any binding
+    pub fn get_internal(&self) -> T {
         self.handle.access(|_| {
             // Safety: PropertyHandle::access ensure that the value is locked
             unsafe { (*self.value.get()).clone() }
