@@ -50,7 +50,7 @@ The text that is displayed at the top of the picker.
 ### date
 <SlintProperty propName="date" typeName="struct" structName="Date">
 Set the initial displayed date.
-```slint no-test "date: { year: 2024, month: 11 };"
+```slint "date: { year: 2024, month: 11 };"
 DatePickerPopup {
     date: { year: 2024, month: 11 };
 }
@@ -62,7 +62,7 @@ DatePickerPopup {
 ### canceled()
 Invoked when the cancel button is clicked.
 
-```slint no-test {2-4}
+```slint {2-4}
 date-picker := DatePickerPopup {
     canceled() => {
         date-picker.close();
@@ -73,7 +73,7 @@ date-picker := DatePickerPopup {
 ### accepted(Date)
 Invoked when the ok button is clicked.
 
-```slint no-test {2-5}
+```slint {2-5}
 date-picker := DatePickerPopup {
     accepted(date) => {
         debug("Selected date: ", date);

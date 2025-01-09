@@ -65,7 +65,7 @@ Timer {
 ### interval
 <SlintProperty propName="interval" typeName="duration">
 The interval between timer ticks. This property is mandatory.
-```slint no-test "interval: 250ms;"
+```slint "interval: 250ms;"
 Timer {
     property <int> count: 0;
     interval: 250ms;
@@ -80,7 +80,7 @@ Timer {
 ### running
 <SlintProperty propName="running" typeName="bool" defaultValue="true">
 `true` if the timer is running.
-```slint no-test "running: false; // timer is not running"
+```slint "running: false; // timer is not running"
 Timer {
     property <int> count: 0;
     interval: 250ms;
@@ -96,7 +96,7 @@ Timer {
 
 ### triggered()
 Invoked every time the timer ticks (every `interval`).
-```slint no-test {4-6}
+```slint {4-6}
 Timer {
     property <int> count: 0;
     interval: 250ms;

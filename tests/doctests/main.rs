@@ -5,13 +5,39 @@
 
 #[cfg(test)]
 fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let compiler = slint_interpreter::Compiler::default();
-    let result = spin_on::spin_on(compiler.build_from_source(snippet.into(), path.into()));
+    let must_wrap = !snippet.contains("component ") && !snippet.contains("global ");
 
-    let diagnostics = result.diagnostics().collect::<Vec<_>>();
+    let code = if must_wrap {
+        format!(
+            "import {{
+                Button, CheckBox, ComboBox, DatePickerPopup, LineEdit, ProgressIndicator, ScrollView,
+                Slider, SpinBox, Spinner, StandardButton, StandardListView, StandardTableView,
+                Switch, TabWidget, TextEdit, TimePickerPopup}} from\"std-widgets.slint\";
+            component Example {{\n{}\n}}",
+            snippet
+        )
+    } else {
+        snippet.into()
+    };
+
+    let compiler = slint_interpreter::Compiler::default();
+    let result = spin_on::spin_on(compiler.build_from_source(code, path.into()));
+
+    let diagnostics = result
+        .diagnostics()
+        .filter(|d| {
+            let msg = d.message();
+            // It is ok if there is no components
+            msg != "No component found"
+                // Ignore warning about examples that don't inherit from Window or not exported
+                && !msg.contains(" doesn't inherit Window.")
+                && msg != "Component is implicitly marked for export. This is deprecated and it should be explicitly exported"
+
+        })
+        .collect::<Vec<_>>();
     slint_interpreter::print_diagnostics(&diagnostics);
 
-    if result.has_errors() {
+    if result.has_errors() && !diagnostics.is_empty() {
         return Err(format!("Error when loading {snippet:?} in {path:?}: {diagnostics:?}").into());
     }
     Ok(())

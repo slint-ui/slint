@@ -39,7 +39,7 @@ The size of the font of the input text.
 <SlintProperty propName="text" typeName="string" propertyVisibility="in-out" >
 The text being edited
 
-```slint no-test 'text: "Initial text";'
+```slint 'text: "Initial text";'
 TextEdit {
     text: "Initial text";
 }
@@ -89,10 +89,10 @@ The horizontal alignment of the text.
 
 Emitted when the text has changed because the user modified it
 
-```slint no-test {2-4}
+```slint {2-4}
 TextEdit {
-    accepted(text) => {
-        debug("Accepted: ", text);
+    edited(text) => {
+        debug("Edited: ", text);
     }
 }
 ```

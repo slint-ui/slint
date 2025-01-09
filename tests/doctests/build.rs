@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(true, |e| e != "md") {
+        if path.extension().map_or(true, |e| e != "md" && e != "mdx") {
             continue;
         }
 
@@ -48,9 +48,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Permit `slint,no-preview` and `slint,no-auto-preview` but skip `slint,ignore` and others.
             rest = match rest.split_once('\n') {
-                Some((",no-preview", rest)) | Some((",no-auto-preview", rest)) => rest,
-                Some(("", rest)) => rest,
-                Some((" no-test", ..)) => continue,
+                Some((",ignore", _)) => continue,
+                Some((x, _)) if x.contains("no-test") => continue,
+                Some((_, rest)) => rest,
                 _ => continue,
             };
 

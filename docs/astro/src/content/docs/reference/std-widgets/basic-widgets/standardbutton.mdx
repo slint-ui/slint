@@ -39,7 +39,7 @@ Set to true when the button currently has the focus
 <SlintProperty typeName="enum" propName="kind" default="ok" enumName="StandardButtonKind" >
 The kind of button, one of `ok` `cancel`, `apply`, `close`, `reset`, `help`, `yes`, `no,` `abort`, `retry` or `ignore`
 
-```slint no-test "kind: ok;"
+```slint "kind: ok;"
 StandardButton {
     kind: ok;
 }
@@ -57,7 +57,7 @@ Set to true when the button is pressed.
 
 Invoked when clicked: A finger or the left mouse button is pressed, then released on this element.
 
-```slint no-test {2-4}
+```slint {2-4}
 StandardButton {
     clicked() => {
         debug("Button clicked");
