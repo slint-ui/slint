@@ -60,7 +60,7 @@ The text that is displayed at the top of the picker.
 <SlintProperty propName="time" typeName="struct" structName="Time" >
 Set the initial displayed time.
 
-```slint no-test "time: { hour: 12, minute: 24 };"
+```slint "time: { hour: 12, minute: 24 };"
 TimePickerPopup {
     time: { hour: 12, minute: 24 };
 }
@@ -72,7 +72,7 @@ TimePickerPopup {
 ### canceled()
 The cancel button was clicked.
 
-```slint no-test {2-4}
+```slint {2-4}
 time-picker := TimePickerPopup {
     canceled() => {
         time-picker.close();
@@ -83,7 +83,7 @@ time-picker := TimePickerPopup {
 ### accepted(Time)
 The ok button was clicked.
 
-```slint no-test {2-5}
+```slint {2-5}
 time-picker := TimePickerPopup {
     accepted(time) => {
         debug("Selected time: ", time);

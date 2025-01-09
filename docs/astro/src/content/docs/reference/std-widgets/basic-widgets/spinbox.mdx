@@ -20,7 +20,7 @@ export component Example inherits Window {
         SpinBox {
             value: 42;
         }
-    }  
+    }
 }
 ```
 </CodeSnippetMD>
@@ -40,7 +40,7 @@ Set to true when the spinbox currently has the focus.
 ### value
 <SlintProperty propName="value" typeName="int" defaultValue="0" propertyVisibility="in-out">
 The value. Defaults to the minimum.
-```slint no-test "value: 50;"
+```slint "value: 50;"
 SpinBox {
     value: 50;
 }
@@ -50,7 +50,7 @@ SpinBox {
 ### minimum
 <SlintProperty propName="minimum" typeName="int" defaultValue="0">
 The minimum value.
-```slint no-test "minimum: 10;"
+```slint "minimum: 10;"
 SpinBox {
     minimum: 10;
     value: 11;
@@ -61,7 +61,7 @@ SpinBox {
 ### maximum
 <SlintProperty propName="maximum" typeName="int" defaultValue="100">
 The maximum value.
-```slint no-test "maximum: 10;"
+```slint "maximum: 10;"
 SpinBox {
     maximum: 10;
     value: 9;
@@ -81,12 +81,12 @@ The horizontal alignment of the text.
 
 ## Callbacks
 
-### changed(int)
+### edited(int)
 Emitted when the value has changed because the user modified it
 
-```slint no-test {2-4}
+```slint {2-4}
 SpinBox {
-    changed(value) => {
+    edited(value) => {
         debug("New value: ", value);
     }
 }

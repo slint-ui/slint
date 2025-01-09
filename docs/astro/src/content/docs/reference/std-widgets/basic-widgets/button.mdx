@@ -17,8 +17,8 @@ export component Example inherits Window {
         }
         Button {
             text: "Click Me";
-            clicked => { 
-                label.text = " Button clicked"; 
+            clicked => {
+                label.text = " Button clicked";
             }
         }
     }
@@ -36,7 +36,7 @@ A simple button. Common types of buttons can also be created with <Link type="St
 <SlintProperty propName="checkable" typeName="bool" defaultValue="false">
 Shows whether the button can be checked or not. This enables the `checked` property to possibly become true.
 
-```slint no-test "checkable: true;"
+```slint "checkable: true;"
 Button {
     text: "Checkable Button";
     checkable: true;
@@ -73,7 +73,7 @@ Set to true when the button is pressed.
 <SlintProperty propName="text" typeName="string">
 The text written in the button.
 
-```slint no-test 'text: "Button with text";'
+```slint 'text: "Button with text";'
 Button {
     text: "Button with text";
 }
@@ -96,7 +96,7 @@ If set to true, the icon will be colorized to the same color as the Button's tex
 
 Invoked when clicked: A finger or the left mouse button is pressed, then released on this element.
 
-```slint no-test {3-5}
+```slint {3-5}
 Button {
     text: "Click me";
     clicked() => {

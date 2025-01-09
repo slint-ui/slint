@@ -42,7 +42,7 @@ The index of the currently active item. -1 mean none is selected, which is the d
 <SlintProperty typeName="struct" structName="StandardListViewItem" propName="model" default="[]">
 The model.
 
-```slint no-test 'model: [{ text: "Blue" }, { text: "Red" }, { text: "Green" }];'
+```slint 'model: [{ text: "Blue" }, { text: "Red" }, { text: "Green" }];'
 StandardListView {
     model: [{ text: "Blue" }, { text: "Red" }, { text: "Green" }];
 }
@@ -59,7 +59,7 @@ Sets the current item by the specified index and brings it into view.
 ### current-item-changed(int)
 Emitted when the current item has changed because the user modified it
 
-```slint no-test {3-5}
+```slint {3-5}
 StandardListView {
     model: [{ text: "Blue" }, { text: "Red" }, { text: "Green" }];
     current-item-changed(index) => {

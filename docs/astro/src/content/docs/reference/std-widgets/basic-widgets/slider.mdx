@@ -40,7 +40,7 @@ Set to true when the slider currently has the focus
 ### value
 <SlintProperty propName="value" typeName="float" defaultValue="0" propertyVisibility="in-out">
 The value. Defaults to the minimum.
-```slint no-test "value: 50;"
+```slint "value: 50;"
 Slider {
     value: 50;
 }
@@ -50,7 +50,7 @@ Slider {
 ### step
 <SlintProperty propName="step" typeName="float" defaultValue="1">
 The change step when pressing arrow key.
-```slint no-test "step: 1;"
+```slint "step: 1;"
 Slider {
     step: 1;
 }
@@ -60,7 +60,7 @@ Slider {
 ### minimum
 <SlintProperty propName="minimum" typeName="float" defaultValue="0">
 The minimum value.
-```slint no-test "minimum: 10;"
+```slint "minimum: 10;"
 Slider {
     minimum: 10;
     value: 11;
@@ -71,7 +71,7 @@ Slider {
 ### maximum
 <SlintProperty propName="maximum" typeName="float" defaultValue="100">
 The maximum value.
-```slint no-test "maximum: 10;"
+```slint "maximum: 10;"
 Slider {
     maximum: 10;
     value: 9;
@@ -89,7 +89,7 @@ If set to true the Slider is displayed vertical.
 ### changed(float)
 The value was changed
 
-```slint no-test {2-4}
+```slint {2-4}
 Slider {
     changed(value) => {
         debug("New value: ", value);
@@ -100,7 +100,7 @@ Slider {
 ### released(float)
 Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.
 
-```slint no-test {2-4}
+```slint {2-4}
 Slider {
     released(position) => {
         debug("Released at position: ", position);
