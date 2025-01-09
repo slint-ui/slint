@@ -648,67 +648,28 @@ mod tests {
 
     use crate::common::test;
     use crate::common::text_edit;
-    use crate::preview;
 
-    /// Find the identifier that belongs to a struct of the given `name` in the `document`
-    fn find_struct_identifiers(
-        document: &syntax_nodes::Document,
-        name: &str,
-    ) -> Vec<syntax_nodes::DeclaredIdentifier> {
-        let mut result = vec![];
-        let name = i_slint_compiler::parser::normalize_identifier(name);
+    #[track_caller]
+    fn find_node_by_comment(
+        document_cache: &common::DocumentCache,
+        document_path: &Path,
+        suffix: &str,
+    ) -> i_slint_compiler::parser::SyntaxNode {
+        let document = document_cache.get_document_by_path(document_path).unwrap();
+        let document = document.node.as_ref().unwrap();
 
-        for el in document.ExportsList() {
-            for st in el.StructDeclaration() {
-                let identifier = st.DeclaredIdentifier();
-                if i_slint_compiler::parser::normalize_identifier(&identifier.text().to_string())
-                    == name
-                {
-                    result.push(identifier);
-                }
+        let offset =
+            document.text().to_string().find(&format!("<- TEST_ME{suffix} ")).unwrap() as u32;
+        let comment = document.token_at_offset(offset.into()).next().unwrap();
+        assert_eq!(comment.kind(), SyntaxKind::Comment);
+        let mut token = comment.prev_token();
+        while let Some(t) = &token {
+            if ![SyntaxKind::Comment, SyntaxKind::Whitespace].contains(&t.kind()) {
+                break;
             }
+            token = t.prev_token();
         }
-
-        for st in document.StructDeclaration() {
-            let identifier = st.DeclaredIdentifier();
-            if i_slint_compiler::parser::normalize_identifier(&identifier.text().to_string())
-                == name
-            {
-                result.push(identifier);
-            }
-        }
-
-        result.sort_by_key(|i| i.text_range().start());
-        result
-    }
-
-    /// Find the identifier that belongs to a struct of the given `name` in the `document`
-    fn find_enum_identifiers(
-        document: &syntax_nodes::Document,
-        name: &str,
-    ) -> Vec<syntax_nodes::DeclaredIdentifier> {
-        let mut result = vec![];
-
-        for el in document.ExportsList() {
-            for en in el.EnumDeclaration() {
-                let identifier = en.DeclaredIdentifier();
-                if i_slint_compiler::parser::normalize_identifier(&identifier.text().to_string())
-                    == name
-                {
-                    result.push(identifier);
-                }
-            }
-        }
-
-        for en in document.EnumDeclaration() {
-            let identifier = en.DeclaredIdentifier();
-            if identifier.text() == name {
-                result.push(identifier);
-            }
-        }
-
-        result.sort_by_key(|i| i.text_range().start());
-        result
+        token.map(|t| t.parent()).unwrap()
     }
 
     #[track_caller]
@@ -755,13 +716,13 @@ mod tests {
     }
 
     #[test]
-    fn test_rename_component_from_definition_ok() {
+    fn test_rename_component_from_definition() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
-component Foo { /* Foo 1 */  }
+component Foo /* <- TEST_ME_1 */ { @children  }
 
 export { Foo }
 
@@ -770,14 +731,15 @@ enum Xyz { Foo, Bar }
 struct Abc { Foo: Xyz }
 
 component Baz {
-    Foo /* <- TEST_ME_1 */ { }
+    Foo /* Baz */ { }
 }
 
-component Foo /* Foo 2 */ {
-    Foo /* <- TEST_ME_2 */ { }
+component Foo /* <- TEST_ME_2 */ inherits Foo {
+    Foo /* 1 */ { }
+    @children
 }
 
-export component Bar {
+export component Bar inherits Foo {
     Foo /* <- TEST_ME_3 */ { }
     Rectangle {
         Foo /* <- TEST_ME_4 */ { }
@@ -803,27 +765,23 @@ export component Bar {
             true, // Component `Foo` is replacing a component with the same name
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
-
-        let identifiers = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 2);
-
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
 
-        assert!(edited_text[0].contents.contains("component XxxYyyZzz { /* Foo 1 "));
+        assert!(edited_text[0].contents.contains("component XxxYyyZzz /* <- TEST_ME_1 "));
         // The *last* Foo gets exported!
         assert!(edited_text[0].contents.contains("export { Foo }"));
         assert!(edited_text[0].contents.contains("enum Xyz { Foo,"));
         assert!(edited_text[0].contents.contains("struct Abc { Foo:"));
-        assert!(edited_text[0].contents.contains("XxxYyyZzz /* <- TEST_ME_1 "));
-        assert!(edited_text[0].contents.contains("component Foo /* Foo 2 "));
-        assert!(edited_text[0].contents.contains("XxxYyyZzz /* <- TEST_ME_2 "));
+        assert!(edited_text[0].contents.contains("XxxYyyZzz /* Baz "));
+        assert!(edited_text[0]
+            .contents
+            .contains("component Foo /* <- TEST_ME_2 */ inherits XxxYyyZzz "));
+        assert!(edited_text[0].contents.contains("XxxYyyZzz /* 1 */"));
+        assert!(edited_text[0].contents.contains("export component Bar inherits Foo {"));
         assert!(edited_text[0].contents.contains("Foo /* <- TEST_ME_3 "));
         assert!(edited_text[0].contents.contains("Foo /* <- TEST_ME_4 "));
         assert!(edited_text[0].contents.contains("Foo := Baz {"));
@@ -833,20 +791,21 @@ export component Bar {
         assert!(edited_text[0].contents.contains("function F() { self.Foo(42); }"));
         assert!(edited_text[0].contents.contains("Foo /* <- TEST_ME_7 "));
 
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[1], "XxxYyyZzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_2").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0].contents.contains("component Foo { /* Foo 1 "));
+        assert!(edited_text[0].contents.contains("component Foo /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("export { XxxYyyZzz }"));
         assert!(edited_text[0].contents.contains("enum Xyz { Foo,"));
         assert!(edited_text[0].contents.contains("struct Abc { Foo:"));
-        assert!(edited_text[0].contents.contains("Foo /* <- TEST_ME_1 "));
-        assert!(edited_text[0].contents.contains("component XxxYyyZzz /* Foo 2 "));
-        assert!(edited_text[0].contents.contains("Foo /* <- TEST_ME_2 "));
+        assert!(edited_text[0].contents.contains("Foo /* Baz "));
+        assert!(edited_text[0]
+            .contents
+            .contains("component XxxYyyZzz /* <- TEST_ME_2 */ inherits Foo "));
+        assert!(edited_text[0].contents.contains("Foo /* 1 */"));
+        assert!(edited_text[0].contents.contains("export component Bar inherits XxxYyyZzz {"));
         assert!(edited_text[0].contents.contains("XxxYyyZzz /* <- TEST_ME_3 "));
         assert!(edited_text[0].contents.contains("XxxYyyZzz /* <- TEST_ME_4 "));
         assert!(edited_text[0].contents.contains("Foo := Baz {"));
@@ -863,27 +822,22 @@ export component Bar {
             "fluent",
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
-                format!("component Foo {{ }}\nexport component _SLINT_LivePreview inherits Foo {{ /* @lsp:ignore-node */ }}\n")
+                format!("component Foo/* <- TEST_ME_1 */{{ }}\nexport component _SLINT_LivePreview inherits Foo {{ /* @lsp:ignore-node */ }}\n")
             )]),
             true,
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
-
-        let identifiers = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        let edit = rename_identifier_from_declaration(
-            &document_cache,
-            identifiers.first().unwrap(),
-            "FooXXX",
-        )
-        .unwrap();
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
 
         assert_eq!(text_edit::EditIterator::new(&edit).count(), 1);
-        // This does not compile as the type was not changed in the _SLINT_LivePreview part!
+
+        // This does not compile as the type was not changed in the _SLINT_LivePreview part.
+        // This is inteneded as that code does not really exist in the first place!
     }
 
     #[test]
-    fn test_rename_component_from_definition_with_renaming_export_ok() {
+    fn test_rename_component_from_definition_with_renaming_export() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -901,7 +855,7 @@ export component Foo {
                 (
                     Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
-component Foo { }
+component Foo /* <- TEST_ME_1 */ { }
 
 export { Foo as FExport }
                 "#
@@ -911,17 +865,9 @@ export { Foo as FExport }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
-
-        let identifiers = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        let edit = rename_identifier_from_declaration(
-            &document_cache,
-            &identifiers.first().unwrap(),
-            "XxxYyyZzz",
-        )
-        .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("source.slint"), "_1")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
@@ -934,7 +880,7 @@ export { Foo as FExport }
     }
 
     #[test]
-    fn test_rename_component_from_definition_with_export_ok() {
+    fn test_rename_component_from_definition_with_export() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -958,7 +904,7 @@ export component Main {
                 (
                     Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
-export component Foo { }
+export component Foo /* <- TEST_ME_1 */ { }
                 "#
                     .to_string(),
                 ),
@@ -1008,16 +954,9 @@ export { Foo as User4Fxx }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
-
-        let identifier = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo")
-            .first()
-            .cloned()
-            .unwrap();
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifier, "XxxYyyZzz").unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("source.slint"), "_1")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
@@ -1029,7 +968,7 @@ export { Foo as User4Fxx }
                 assert!(ed.contents.contains("import { XxxYyyZzz as User3Fxx }"));
                 assert!(ed.contents.contains("import { User4Fxx }"));
             } else if ed_path == test::test_file_name("source.slint") {
-                assert!(ed.contents.contains("export component XxxYyyZzz {"));
+                assert!(ed.contents.contains("export component XxxYyyZzz /* <- TEST_ME_1 "));
                 assert!(!ed.contents.contains("Foo"));
             } else if ed_path == test::test_file_name("user.slint") {
                 assert!(ed.contents.contains("{ XxxYyyZzz as Bar }"));
@@ -1051,7 +990,7 @@ export { Foo as User4Fxx }
     }
 
     #[test]
-    fn test_rename_component_from_definition_with_export_and_relative_paths_ok() {
+    fn test_rename_component_from_definition_with_export_and_relative_paths() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -1075,7 +1014,7 @@ export component Main {
                 (
                     Url::from_file_path(test::test_file_name("s/source.slint")).unwrap(),
                     r#"
-export component Foo { }
+export component Foo /* <- TEST_ME_1 */ { }
                 "#
                     .to_string(),
                 ),
@@ -1125,16 +1064,10 @@ export { Foo as User4Fxx }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("s/source.slint")).unwrap();
-
-        let identifier = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo")
-            .first()
-            .cloned()
-            .unwrap();
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifier, "XxxYyyZzz").unwrap();
-
+        let id =
+            find_node_by_comment(&document_cache, &test::test_file_name("s/source.slint"), "_1")
+                .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
@@ -1146,7 +1079,7 @@ export { Foo as User4Fxx }
                 assert!(ed.contents.contains("import { XxxYyyZzz as User3Fxx }"));
                 assert!(ed.contents.contains("import { User4Fxx }"));
             } else if ed_path == test::test_file_name("s/source.slint") {
-                assert!(ed.contents.contains("export component XxxYyyZzz {"));
+                assert!(ed.contents.contains("export component XxxYyyZzz /* <- TEST_ME_1 "));
                 assert!(!ed.contents.contains("Foo"));
             } else if ed_path == test::test_file_name("u/user.slint") {
                 assert!(ed.contents.contains("{ XxxYyyZzz as Bar }"));
@@ -1168,7 +1101,7 @@ export { Foo as User4Fxx }
     }
 
     #[test]
-    fn test_rename_component_from_definition_import_confusion_ok() {
+    fn test_rename_component_from_definition_import_confusion() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -1188,14 +1121,14 @@ export component Main {
                 (
                     Url::from_file_path(test::test_file_name("user1.slint")).unwrap(),
                     r#"
-export component Foo { }
+export component Foo /* <- TEST_ME_1 */ { }
                 "#
                     .to_string(),
                 ),
                 (
                     Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
                     r#"
-export component Foo { }
+export component Foo /* <- TEST_ME_2 */ { }
                 "#
                     .to_string(),
                 ),
@@ -1203,16 +1136,9 @@ export component Foo { }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("user1.slint")).unwrap();
-
-        let identifier = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo")
-            .first()
-            .cloned()
-            .unwrap();
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifier, "XxxYyyZzz").unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("user1.slint"), "_1")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
@@ -1221,24 +1147,16 @@ export component Foo { }
                 assert!(ed.contents.contains("import { XxxYyyZzz as User1Fxx }"));
                 assert!(ed.contents.contains("import { Foo as User2Fxx }"));
             } else if ed_path == test::test_file_name("user1.slint") {
-                assert!(ed.contents.contains("export component XxxYyyZzz {"));
+                assert!(ed.contents.contains("export component XxxYyyZzz /* <- TEST_ME_1 "));
                 assert!(!ed.contents.contains("Foo"));
             } else {
                 unreachable!();
             }
         }
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("user2.slint")).unwrap();
-
-        let identifiers = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        let edit = rename_identifier_from_declaration(
-            &document_cache,
-            &identifiers.first().unwrap(),
-            "XxxYyyZzz",
-        )
-        .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("user2.slint"), "_2")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
@@ -1247,7 +1165,7 @@ export component Foo { }
                 assert!(ed.contents.contains("import { XxxYyyZzz as User2Fxx }"));
                 assert!(ed.contents.contains("import { Foo as User1Fxx }"));
             } else if ed_path == test::test_file_name("user2.slint") {
-                assert!(ed.contents.contains("export component XxxYyyZzz {"));
+                assert!(ed.contents.contains("export component XxxYyyZzz /* <- TEST_ME_2 "));
                 assert!(!ed.contents.contains("Foo"));
             } else {
                 unreachable!();
@@ -1265,7 +1183,7 @@ export component Foo { }
 struct UsedStruct { value: int, }
 enum UsedEnum { x, y }
 
-component Foo { }
+component Foo /* <- TEST_ME_1 */ { }
 
 component Baz {
     Foo { }
@@ -1284,18 +1202,14 @@ export component Bar {
             false,
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
 
-        let identifiers = preview::find_component_identifiers(doc.node.as_ref().unwrap(), "Foo");
-
-        let id = identifiers.first().unwrap();
-
-        assert!(rename_identifier_from_declaration(&document_cache, id, "Foo").is_err());
-        assert!(rename_identifier_from_declaration(&document_cache, id, "UsedStruct").is_ok());
-        assert!(rename_identifier_from_declaration(&document_cache, id, "UsedEnum").is_ok());
-        assert!(rename_identifier_from_declaration(&document_cache, id, "Baz").is_err());
+        assert!(rename_identifier_from_declaration(&document_cache, &id, "Foo").is_err());
+        assert!(rename_identifier_from_declaration(&document_cache, &id, "UsedStruct").is_ok());
+        assert!(rename_identifier_from_declaration(&document_cache, &id, "UsedEnum").is_ok());
+        assert!(rename_identifier_from_declaration(&document_cache, &id, "Baz").is_err());
         assert!(
-            rename_identifier_from_declaration(&document_cache, id, "HorizontalLayout").is_err()
+            rename_identifier_from_declaration(&document_cache, &id, "HorizontalLayout").is_err()
         );
     }
 
@@ -1341,13 +1255,13 @@ export enum EnumBar { bar }
     }
 
     #[test]
-    fn test_rename_struct_from_definition_ok() {
+    fn test_rename_struct_from_definition() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
-export struct Foo {
+export struct Foo /* <- TEST_ME_1 */ {
     test-me: bool,
 }
 
@@ -1366,29 +1280,24 @@ export component Bar {
             false,
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
-
-        let identifiers = find_struct_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 1);
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0].contents.contains("XxxYyyZzz"));
-        assert!(!edited_text[0].contents.contains("Foo"));
+        assert!(edited_text[0].contents.contains("struct XxxYyyZzz /* <- TEST_ME_1 "));
+        assert!(edited_text[0].contents.contains("property <XxxYyyZzz> baz-prop"));
+        assert!(edited_text[0].contents.contains("property <XxxYyyZzz> bar-prop"));
     }
 
     #[test]
-    fn test_rename_struct_from_definition_with_dash_ok() {
+    fn test_rename_struct_from_definition_with_dash() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
-export struct F-oo {
+export struct F-oo /* <- TEST_ME_1 */ {
     test-me: bool,
 }
 
@@ -1407,30 +1316,24 @@ export component Bar {
             false,
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
-
-        let identifiers = find_struct_identifiers(doc.node.as_ref().unwrap(), "F_oo");
-        assert_eq!(identifiers.len(), 1);
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "Xxx_Yyy-Zzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "Xxx_Yyy-Zzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0].contents.contains("export struct Xxx_Yyy-Zzz {"));
+        assert!(edited_text[0].contents.contains("export struct Xxx_Yyy-Zzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("<Xxx_Yyy-Zzz> baz-prop"));
         assert!(edited_text[0].contents.contains("<Xxx_Yyy-Zzz> bar-prop"));
     }
 
     #[test]
-    fn test_rename_struct_from_definition_with_underscore_ok() {
+    fn test_rename_struct_from_definition_with_underscore() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
-export struct F_oo {
+export struct F_oo /* <- TEST_ME_1 */ {
     test-me: bool,
 }
 
@@ -1449,24 +1352,18 @@ export component Bar {
             false,
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
-
-        let identifiers = find_struct_identifiers(doc.node.as_ref().unwrap(), "F-oo");
-        assert_eq!(identifiers.len(), 1);
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "Xxx_Yyy-Zzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "Xxx_Yyy-Zzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0].contents.contains("export struct Xxx_Yyy-Zzz {"));
+        assert!(edited_text[0].contents.contains("export struct Xxx_Yyy-Zzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("<Xxx_Yyy-Zzz> baz-prop"));
         assert!(edited_text[0].contents.contains("<Xxx_Yyy-Zzz> bar-prop"));
     }
 
     #[test]
-    fn test_rename_struct_from_definition_with_renaming_export_ok() {
+    fn test_rename_struct_from_definition_with_renaming_export() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -1484,7 +1381,7 @@ export component Foo {
                 (
                     Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
-struct Foo {
+struct Foo /* <- TEST_ME_1 */ {
     test-me: bool,
 }
 
@@ -1496,16 +1393,9 @@ export { Foo as FExport }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
-
-        let identifiers = find_struct_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 1);
-
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("source.slint"), "_1")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
@@ -1513,12 +1403,12 @@ export { Foo as FExport }
             edited_text[0].url.to_file_path().unwrap(),
             test::test_file_name("source.slint")
         );
-        assert!(edited_text[0].contents.contains("XxxYyyZzz"));
-        assert!(!edited_text[0].contents.contains("Foo"));
+        assert!(edited_text[0].contents.contains("struct XxxYyyZzz /* <- TEST_ME_1 "));
+        assert!(edited_text[0].contents.contains("export { XxxYyyZzz as FExport }"));
     }
 
     #[test]
-    fn test_rename_struct_from_definition_with_export_ok() {
+    fn test_rename_struct_from_definition_with_export() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -1545,7 +1435,7 @@ export component Main {
                 (
                     Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
-export struct Foo { test-me: bool, }
+export struct Foo /* <- TEST_ME_1 */ { test-me: bool, }
                 "#
                     .to_string(),
                 ),
@@ -1595,15 +1485,9 @@ export { Foo as User4Fxx }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
-
-        let identifiers = find_struct_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 1);
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("source.slint"), "_1")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
@@ -1615,7 +1499,7 @@ export { Foo as User4Fxx }
                 assert!(ed.contents.contains("import { XxxYyyZzz as User3Fxx }"));
                 assert!(ed.contents.contains("import { User4Fxx }"));
             } else if ed_path == test::test_file_name("source.slint") {
-                assert!(ed.contents.contains("export struct XxxYyyZzz {"));
+                assert!(ed.contents.contains("export struct XxxYyyZzz /* <- TEST_ME_1 "));
                 assert!(!ed.contents.contains("Foo"));
             } else if ed_path == test::test_file_name("user.slint") {
                 assert!(ed.contents.contains("{ XxxYyyZzz as Bar }"));
@@ -1637,7 +1521,7 @@ export { Foo as User4Fxx }
     }
 
     #[test]
-    fn test_rename_enum_from_definition_ok() {
+    fn test_rename_enum_from_definition() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
@@ -1645,11 +1529,11 @@ export { Foo as User4Fxx }
                 r#"
     export { Foo }
 
-    enum Foo /* Foo 1 */ {
+    enum Foo /* <- TEST_ME_1 */ {
         M1, M2,
     }
 
-    enum Foo /* Foo 3 */ {
+    enum Foo /* <- TEST_ME_2 */ {
         test,
     }
 
@@ -1668,52 +1552,49 @@ export { Foo as User4Fxx }
             true, // redefinition of type warning
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
-
-        let identifiers = find_enum_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 2);
-
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
         assert!(edited_text[0].contents.contains("export { Foo }"));
-        assert!(edited_text[0].contents.contains("enum XxxYyyZzz /* Foo 1 "));
-        assert!(edited_text[0].contents.contains("enum Foo /* Foo 3 "));
+        assert!(edited_text[0].contents.contains("enum XxxYyyZzz /* <- TEST_ME_1 "));
+        assert!(edited_text[0].contents.contains("M1, M2,"));
+        assert!(edited_text[0].contents.contains("enum Foo /* <- TEST_ME_2 "));
+        assert!(edited_text[0].contents.contains("test,"));
         assert!(edited_text[0].contents.contains("property <Foo> baz-prop"));
         assert!(edited_text[0].contents.contains("baz-prop: Foo.test;"));
         assert!(edited_text[0].contents.contains("property <Foo> bar-prop"));
 
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[1], "XxxYyyZzz")
-                .unwrap();
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_2").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
         assert!(edited_text[0].contents.contains("export { XxxYyyZzz }"));
-        assert!(edited_text[0].contents.contains("enum Foo /* Foo 1 "));
-        assert!(edited_text[0].contents.contains("enum XxxYyyZzz /* Foo 3 "));
+        assert!(edited_text[0].contents.contains("enum Foo /* <- TEST_ME_1 "));
+        assert!(edited_text[0].contents.contains("M1, M2,"));
+        assert!(edited_text[0].contents.contains("enum XxxYyyZzz /* <- TEST_ME_2 "));
+        assert!(edited_text[0].contents.contains("test,"));
         assert!(edited_text[0].contents.contains("property <XxxYyyZzz> baz-prop"));
         assert!(edited_text[0].contents.contains("baz-prop: XxxYyyZzz.test;"));
         assert!(edited_text[0].contents.contains("property <XxxYyyZzz> bar-prop"));
     }
 
     #[test]
-    fn test_rename_enum_from_definition_with_struct_ok() {
+    fn test_rename_enum_from_definition_with_struct() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
-    enum Foo /* Foo 1 */ {
+    enum Foo /* <- TEST_ME_1 */ {
         M1, M2,
     }
 
     export { Foo }
 
-    struct Foo /* Foo 2 */ {
+    struct Foo /* <- TEST_ME_2 */ {
         test: Foo,
     }
 
@@ -1732,43 +1613,33 @@ export { Foo as User4Fxx }
             true, // redefinition of type warning
         );
 
-        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
-
-        let identifiers = find_enum_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 1);
-
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_1").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0].contents.contains("enum XxxYyyZzz /* Foo 1 */"));
-        assert!(edited_text[0].contents.contains("struct Foo /* Foo 2 */"));
+        assert!(edited_text[0].contents.contains("enum XxxYyyZzz /* <- TEST_ME_1 */ "));
+        assert!(edited_text[0].contents.contains("struct Foo /* <- TEST_ME_2 */ "));
         assert!(edited_text[0].contents.contains("export { Foo }"));
         assert!(edited_text[0].contents.contains("test: XxxYyyZzz,"));
         assert!(edited_text[0].contents.contains("property <Foo> baz-prop"));
         assert!(edited_text[0].contents.contains("property <Foo> bar-prop"));
 
-        let identifiers = find_struct_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 1);
-
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
+        let id = find_node_by_comment(&document_cache, &test::main_test_file_name(), "_2").into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
-        assert!(edited_text[0].contents.contains("enum Foo /* Foo 1 */"));
+        assert!(edited_text[0].contents.contains("enum Foo /* <- TEST_ME_1 */ "));
         assert!(edited_text[0].contents.contains("export { XxxYyyZzz }"));
-        assert!(edited_text[0].contents.contains("struct XxxYyyZzz /* Foo 2 */"));
+        assert!(edited_text[0].contents.contains("struct XxxYyyZzz /* <- TEST_ME_2 */ "));
         assert!(edited_text[0].contents.contains("test: Foo,"));
         assert!(edited_text[0].contents.contains("property <XxxYyyZzz> baz-prop"));
         assert!(edited_text[0].contents.contains("property <XxxYyyZzz> bar-prop"));
     }
 
     #[test]
-    fn test_rename_enum_from_definition_with_renaming_export_ok() {
+    fn test_rename_enum_from_definition_with_renaming_export() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -1786,7 +1657,7 @@ export { Foo as User4Fxx }
                 (
                     Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
-    export enum Foo {
+    export enum Foo /* <- TEST_ME_1 */ {
         OM1, OM2,
     }
 
@@ -1798,15 +1669,9 @@ export { Foo as User4Fxx }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
-
-        let identifiers = find_enum_identifiers(doc.node.as_ref().unwrap(), "Foo");
-        assert_eq!(identifiers.len(), 1);
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("source.slint"), "_1")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
@@ -1814,13 +1679,13 @@ export { Foo as User4Fxx }
             edited_text[0].url.to_file_path().unwrap(),
             test::test_file_name("source.slint")
         );
-        assert!(edited_text[0].contents.contains("XxxYyyZzz"));
+        assert!(edited_text[0].contents.contains("export enum XxxYyyZzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("export { XxxYyyZzz as FExport"));
         assert!(!edited_text[0].contents.contains("Foo"));
     }
 
     #[test]
-    fn test_rename_enum_from_definition_with_export_ok() {
+    fn test_rename_enum_from_definition_with_export() {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -1847,7 +1712,7 @@ export { Foo as User4Fxx }
                 (
                     Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
-    export enum F_o-o { M1, M2, }
+    export enum F_o-o /* <- TEST_ME_1 */ { M1, M2, }
                     "#
                     .to_string(),
                 ),
@@ -1897,15 +1762,9 @@ export { Foo as User4Fxx }
             false,
         );
 
-        let doc =
-            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
-
-        let identifiers = find_enum_identifiers(doc.node.as_ref().unwrap(), "F-o-o");
-        assert_eq!(identifiers.len(), 1);
-        let edit =
-            rename_identifier_from_declaration(&document_cache, &identifiers[0], "XxxYyyZzz")
-                .unwrap();
-
+        let id = find_node_by_comment(&document_cache, &test::test_file_name("source.slint"), "_1")
+            .into();
+        let edit = rename_identifier_from_declaration(&document_cache, &id, "XxxYyyZzz").unwrap();
         let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
@@ -1926,7 +1785,7 @@ export { Foo as User4Fxx }
                     .contains("property <User3Fxx> main-prop4 <=> uc.user-component-prop;"));
                 assert!(ed.contents.contains("uc := UserComponent"));
             } else if ed_path == test::test_file_name("source.slint") {
-                assert!(ed.contents.contains("export enum XxxYyyZzz {"));
+                assert!(ed.contents.contains("export enum XxxYyyZzz /* <- TEST_ME_1 "));
             } else if ed_path == test::test_file_name("user.slint") {
                 assert!(ed.contents.contains("import { XxxYyyZzz as B_a-r }"));
                 assert!(ed.contents.contains("property <B_a-r> user-component-prop"));
