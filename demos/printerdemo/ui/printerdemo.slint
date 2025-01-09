@@ -16,6 +16,7 @@ import "./fonts/NotoSans-Bold.ttf";
 component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
     in-out property <image> icon <=> i.source;
+    in-out property <brush> icon-colorize <=> i.colorize;
 
     callback activate;
     width: DemoPalette.side-bar-width;
@@ -176,18 +177,10 @@ export component MainWindow inherits Window {
                 DemoPalette.dark-mode = !DemoPalette.dark-mode;
             }
 
-            y: sidebar.icon-y(4);
-            x: 16px;
-            height: 35px;
-            width: 30px;
+            icon: DemoPalette.dark-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
+            icon-colorize: DemoPalette.dark-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
 
-            Image {
-                colorize: DemoPalette.dark-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
-                source: DemoPalette.dark-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
-                image-fit: contain;
-                width: 100%;
-                height: 100%;
-            }
+            y: sidebar.icon-y(4) - 17px;
         }
     }
 }
