@@ -206,6 +206,8 @@ async fn main_task(
     let main_window = MainWindow::new().unwrap();
     main_window.show().expect("unable to show main window");
 
+    info!("press LEFT SHIFT to simulate a hardware button press");
+
     let hardware = HardwareSim {};
 
     // run the gui controller loop

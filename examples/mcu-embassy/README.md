@@ -67,11 +67,17 @@ Hardware like leds and buttons are emulated in the hardware module.
 
 To install SDL2 follow the instructions here: https://github.com/Rust-SDL2/rust-sdl2
 
-To run the simulator:
+To run the simulator on a pc:
 ```bash
-cargo run --bin ui_simulator --release --features=simulator
+# for linux
+cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-unknown-linux-gnu
+# for windows
+cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-pc-windows-msvc
+# for mac 
+cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-apple-darwin
 ```
 
+Note: Instead of specifying a target you can simply remove the arm target in .cargo/config.toml and cargo will use the host by default
 
 Troubleshooting:
 
