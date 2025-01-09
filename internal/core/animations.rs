@@ -16,6 +16,7 @@ mod cubic_bezier {
     type S = f32;
     use euclid::default::Point2D as Point;
     #[cfg(not(feature = "std"))]
+    #[allow(unused)]
     use num_traits::Float;
     trait Scalar {
         const ONE: f32 = 1.;
