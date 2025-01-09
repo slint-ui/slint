@@ -346,17 +346,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                     .err();
             }
             WindowEvent::Focused(have_focus) => {
-                let have_focus = have_focus || window.input_method_focused();
-                // We don't render popups as separate windows yet, so treat
-                // focus to be the same as being active.
-                if have_focus != runtime_window.active() {
-                    self.loop_error = window
-                        .window()
-                        .try_dispatch_event(corelib::platform::WindowEvent::WindowActiveChanged(
-                            have_focus,
-                        ))
-                        .err();
-                }
+                self.loop_error = window.activation_changed(have_focus).err();
             }
 
             WindowEvent::KeyboardInput { event, is_synthetic, .. } => {

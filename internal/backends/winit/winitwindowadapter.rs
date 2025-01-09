@@ -685,6 +685,31 @@ impl WinitWindowAdapter {
             })
             .ok()
     }
+
+    pub fn activation_changed(&self, is_active: bool) -> Result<(), PlatformError> {
+        let have_focus = is_active || self.input_method_focused();
+        let slint_window = self.window();
+        let runtime_window = WindowInner::from_pub(slint_window);
+        // We don't render popups as separate windows yet, so treat
+        // focus to be the same as being active.
+        if have_focus != runtime_window.active() {
+            slint_window.try_dispatch_event(
+                corelib::platform::WindowEvent::WindowActiveChanged(have_focus),
+            )?;
+        }
+
+        #[cfg(all(feature = "muda", target_os = "macos"))]
+        {
+            if self.muda_adapter.borrow().is_none() {
+                *self.muda_adapter.borrow_mut() =
+                    Some(crate::muda::MudaAdapter::setup_default_menu()?);
+            }
+
+            self.muda_adapter.borrow().as_ref().unwrap().window_activation_changed(is_active);
+        }
+
+        Ok(())
+    }
 }
 
 impl WindowAdapter for WinitWindowAdapter {

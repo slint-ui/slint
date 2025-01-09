@@ -8,7 +8,7 @@ use winit::window::Window;
 
 pub struct MudaAdapter {
     entries: Vec<i_slint_core::items::MenuEntry>,
-    menubar: vtable::VBox<MenuVTable>,
+    menubar: Option<vtable::VBox<MenuVTable>>,
     // We need to keep menu alive, otherwise muda segfaults
     _menu: muda::Menu,
 }
@@ -89,11 +89,49 @@ impl MudaAdapter {
             menu.init_for_nsapp();
         }
 
-        Self { entries: map, menubar, _menu: menu }
+        Self { entries: map, menubar: Some(menubar), _menu: menu }
     }
 
     pub fn invoke(&self, entry_id: usize) {
         let Some(entry) = &self.entries.get(entry_id) else { return };
-        self.menubar.activate(entry);
+        let Some(menubar) = self.menubar.as_ref() else { return };
+        menubar.activate(entry);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn setup_default_menu() -> Result<Self, i_slint_core::api::PlatformError> {
+        let menu = muda::Menu::new();
+
+        let app_menu = muda::Submenu::new("App", true);
+        menu.append(&app_menu)
+            .and_then(|_| {
+                app_menu.append_items(&[
+                    &muda::PredefinedMenuItem::about(None, None),
+                    &muda::PredefinedMenuItem::separator(),
+                    &muda::PredefinedMenuItem::services(None),
+                    &muda::PredefinedMenuItem::separator(),
+                    &muda::PredefinedMenuItem::hide(None),
+                    &muda::PredefinedMenuItem::hide_others(None),
+                    &muda::PredefinedMenuItem::show_all(None),
+                    &muda::PredefinedMenuItem::separator(),
+                    &muda::PredefinedMenuItem::quit(None),
+                ])
+            })
+            .map_err(|menu_bar_err| {
+                i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
+            })?;
+
+        menu.init_for_nsapp();
+
+        Ok(Self { entries: vec![], menubar: None, _menu: menu })
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn window_activation_changed(&self, is_active: bool) {
+        if is_active {
+            self._menu.init_for_nsapp();
+        } else {
+            self._menu.remove_for_nsapp();
+        }
     }
 }

@@ -235,8 +235,16 @@ impl BackendBuilder {
     /// slint::platform::set_platform(Box::new(backend));
     /// ```
     pub fn build(self) -> Result<Backend, PlatformError> {
-        let event_loop_builder =
-            self.event_loop_builder.unwrap_or_else(winit::event_loop::EventLoop::with_user_event);
+        let event_loop_builder = self.event_loop_builder.unwrap_or_else(|| {
+            #[allow(unused_mut)]
+            let mut default_builder = winit::event_loop::EventLoop::with_user_event();
+            #[cfg(all(feature = "muda", target_os = "macos"))]
+            winit::platform::macos::EventLoopBuilderExtMacOS::with_default_menu(
+                &mut default_builder,
+                false,
+            );
+            default_builder
+        });
 
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
 
