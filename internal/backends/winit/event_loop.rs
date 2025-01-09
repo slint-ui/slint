@@ -340,16 +340,22 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                 window.window_state_event();
             }
             WindowEvent::CloseRequested => {
-                window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);
+                self.loop_error = window
+                    .window()
+                    .try_dispatch_event(corelib::platform::WindowEvent::CloseRequested)
+                    .err();
             }
             WindowEvent::Focused(have_focus) => {
                 let have_focus = have_focus || window.input_method_focused();
                 // We don't render popups as separate windows yet, so treat
                 // focus to be the same as being active.
                 if have_focus != runtime_window.active() {
-                    window.window().dispatch_event(
-                        corelib::platform::WindowEvent::WindowActiveChanged(have_focus),
-                    );
+                    self.loop_error = window
+                        .window()
+                        .try_dispatch_event(corelib::platform::WindowEvent::WindowActiveChanged(
+                            have_focus,
+                        ))
+                        .err();
                 }
             }
 
@@ -384,28 +390,31 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             }
                 let text = i_slint_common::for_each_special_keys!(winit_key_to_char);
 
-                window.window().dispatch_event(match event.state {
-                    winit::event::ElementState::Pressed if event.repeat => {
-                        corelib::platform::WindowEvent::KeyPressRepeated { text }
-                    }
-                    winit::event::ElementState::Pressed => {
-                        if is_synthetic {
-                            // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
-                            // Don't forward these keys other than modifiers to the app
-                            use winit::keyboard::{Key::Named, NamedKey as N};
-                            if !matches!(
-                                key_code,
-                                Named(N::Control | N::Shift | N::Super | N::Alt | N::AltGraph),
-                            ) {
-                                return;
-                            }
+                self.loop_error = window
+                    .window()
+                    .try_dispatch_event(match event.state {
+                        winit::event::ElementState::Pressed if event.repeat => {
+                            corelib::platform::WindowEvent::KeyPressRepeated { text }
                         }
-                        corelib::platform::WindowEvent::KeyPressed { text }
-                    }
-                    winit::event::ElementState::Released => {
-                        corelib::platform::WindowEvent::KeyReleased { text }
-                    }
-                });
+                        winit::event::ElementState::Pressed => {
+                            if is_synthetic {
+                                // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
+                                // Don't forward these keys other than modifiers to the app
+                                use winit::keyboard::{Key::Named, NamedKey as N};
+                                if !matches!(
+                                    key_code,
+                                    Named(N::Control | N::Shift | N::Super | N::Alt | N::AltGraph),
+                                ) {
+                                    return;
+                                }
+                            }
+                            corelib::platform::WindowEvent::KeyPressed { text }
+                        }
+                        winit::event::ElementState::Released => {
+                            corelib::platform::WindowEvent::KeyReleased { text }
+                        }
+                    })
+                    .err();
             }
             WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = KeyEvent {
@@ -521,11 +530,12 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
-                    window.window().dispatch_event(
-                        corelib::platform::WindowEvent::ScaleFactorChanged {
+                    self.loop_error = window
+                        .window()
+                        .try_dispatch_event(corelib::platform::WindowEvent::ScaleFactorChanged {
                             scale_factor: scale_factor as f32,
-                        },
-                    );
+                        })
+                        .err();
                     // TODO: send a resize event or try to keep the logical size the same.
                     //window.resize_event(inner_size_writer.???)?;
                 }

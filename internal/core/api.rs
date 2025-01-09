@@ -554,8 +554,24 @@ impl Window {
     ///
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
-    // TODO: Return a Result<(), PlatformError>
+    ///
+    /// This function panics if there is an error processing the event.
+    /// Use [`Self::try_dispatch_event()`] to handle the error.
+    #[track_caller]
     pub fn dispatch_event(&self, event: crate::platform::WindowEvent) {
+        self.try_dispatch_event(event).unwrap()
+    }
+
+    /// Dispatch a window event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// Any position fields in the event must be in the logical pixel coordinate system relative to
+    /// the top left corner of the window.
+    pub fn try_dispatch_event(
+        &self,
+        event: crate::platform::WindowEvent,
+    ) -> Result<(), PlatformError> {
         match event {
             crate::platform::WindowEvent::PointerPressed { position, button } => {
                 self.0.process_mouse_input(MouseEvent::Pressed {
@@ -615,19 +631,16 @@ impl Window {
             }
             crate::platform::WindowEvent::Resized { size } => {
                 self.0.set_window_item_geometry(size.to_euclid());
-                self.0
-                    .window_adapter()
-                    .renderer()
-                    .resize(size.to_physical(self.scale_factor()))
-                    .unwrap()
+                self.0.window_adapter().renderer().resize(size.to_physical(self.scale_factor()))?;
             }
             crate::platform::WindowEvent::CloseRequested => {
                 if self.0.request_close() {
-                    self.hide().unwrap();
+                    self.hide()?;
                 }
             }
             crate::platform::WindowEvent::WindowActiveChanged(bool) => self.0.set_active(bool),
-        }
+        };
+        Ok(())
     }
 
     /// Returns true if there is an animation currently active on any property in the Window; false otherwise.

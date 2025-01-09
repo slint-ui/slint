@@ -49,20 +49,20 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
 ///
 /// - When receiving messages from the windowing system about state changes, such as the window being resized,
 ///   the user requested the window to be closed, input being received, etc. you need to create a
-///   [`crate::platform::WindowEvent`](enum.WindowEvent.html) and send it to Slint via [`create::Window::dispatch_event()`](../struct.Window.html#method.dispatch_event).
+///   [`WindowEvent`](crate::platform::WindowEvent) and send it to Slint via [`Window::try_dispatch_event()`].
 ///
 /// - Slint sends requests to change visibility, position, size, etc. via functions such as [`Self::set_visible`],
 ///   [`Self::set_size`], [`Self::set_position`], or [`Self::update_window_properties()`]. Re-implement these functions
 ///   and delegate the requests to the windowing system.
 ///
 /// If the implementation of this bi-directional message passing protocol is incomplete, the user may
-/// experience unexpected behavior, or the intention of the developer calling functions on the [`crate::Window`](struct.Window.html)
+/// experience unexpected behavior, or the intention of the developer calling functions on the [`Window`]
 /// API may not be fulfilled.
 ///
-/// Your implementation must hold a renderer, such as [`crate::software_renderer::SoftwareRenderer`].
+/// Your implementation must hold a renderer, such as [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer).
 /// In the [`Self::renderer()`] function, you must return a reference to it.
 ///
-/// It is also required to hold a [`crate::Window`](struct.Window.html) and return a reference to it in your
+/// It is also required to hold a [`Window`] and return a reference to it in your
 /// implementation of [`Self::window()`].
 ///
 /// See also [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow)
