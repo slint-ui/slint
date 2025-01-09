@@ -363,7 +363,7 @@ fn generate_shared_globals(
     let apply_constant_scale_factor = if !compiler_config.const_scale_factor.approx_eq(&1.0) {
         let factor = compiler_config.const_scale_factor as f32;
         Some(
-            quote!(adapter.window().dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged{ scale_factor: #factor });),
+            quote!(adapter.window().try_dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged{ scale_factor: #factor })?;),
         )
     } else {
         None

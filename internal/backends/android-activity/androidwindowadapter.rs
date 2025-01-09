@@ -69,7 +69,7 @@ impl WindowAdapter for AndroidWindowAdapter {
     fn update_window_properties(&self, properties: WindowProperties<'_>) {
         let f = properties.is_fullscreen();
         if self.fullscreen.replace(f) != f {
-            self.resize();
+            self.resize().unwrap();
         }
     }
 
@@ -202,9 +202,7 @@ impl AndroidWindowAdapter {
             }
         }
         match event {
-            PollEvent::Main(MainEvent::InputAvailable) => {
-                self.process_inputs().map_err(|e| PlatformError::Other(e.to_string()))?
-            }
+            PollEvent::Main(MainEvent::InputAvailable) => self.process_inputs()?,
             PollEvent::Main(MainEvent::InitWindow { .. }) => {
                 if let Some(w) = self.app.native_window() {
                     let size = PhysicalSize { width: w.width() as u32, height: w.height() as u32 };
@@ -214,7 +212,7 @@ impl AndroidWindowAdapter {
 
                     if (scale_factor - self.window.scale_factor()).abs() > f32::EPSILON {
                         self.window
-                            .dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
+                            .try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
                     }
 
                     self.renderer.set_window_handle(
@@ -223,7 +221,7 @@ impl AndroidWindowAdapter {
                         size,
                         None,
                     )?;
-                    self.resize();
+                    self.resize()?;
 
                     // Fixes a problem for old Android versions: the soft input always prompt out on startup.
                     #[cfg(feature = "native-activity")]
@@ -234,26 +232,27 @@ impl AndroidWindowAdapter {
             }
             PollEvent::Main(
                 MainEvent::WindowResized { .. } | MainEvent::ContentRectChanged { .. },
-            ) => self.resize(),
+            ) => self.resize()?,
             PollEvent::Main(MainEvent::RedrawNeeded { .. }) => {
                 self.pending_redraw.set(false);
                 self.do_render()?;
             }
             PollEvent::Main(MainEvent::GainedFocus) => {
-                self.window.dispatch_event(WindowEvent::WindowActiveChanged(true));
+                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(true))?;
             }
             PollEvent::Main(MainEvent::LostFocus) => {
-                self.window.dispatch_event(WindowEvent::WindowActiveChanged(true));
+                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(true))?;
             }
             PollEvent::Main(MainEvent::ConfigChanged { .. }) => {
                 let scale_factor =
                     self.app.config().density().map(|dpi| dpi as f32 / 160.0).unwrap_or(1.0);
 
                 if (scale_factor - self.window.scale_factor()).abs() > f32::EPSILON {
-                    self.window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
-                    self.window.dispatch_event(WindowEvent::Resized {
+                    self.window
+                        .try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
+                    self.window.try_dispatch_event(WindowEvent::Resized {
                         size: self.size().to_logical(scale_factor),
-                    });
+                    })?;
                 }
             }
             PollEvent::Main(MainEvent::Destroy) => {
@@ -264,21 +263,22 @@ impl AndroidWindowAdapter {
         Ok(ControlFlow::Continue(()))
     }
 
-    fn process_inputs(&self) -> Result<(), android_activity::error::AppError> {
-        let mut iter = self.app.input_events_iter()?;
-
+    fn process_inputs(&self) -> Result<(), PlatformError> {
+        let mut iter =
+            self.app.input_events_iter().map_err(|e| PlatformError::Other(e.to_string()))?;
         loop {
+            let mut result = Ok(());
             let read_input = iter.next(|event| match event {
                 InputEvent::KeyEvent(key_event) => match map_key_event(key_event) {
                     Some(ev) => {
-                        self.window.dispatch_event(ev);
+                        result = self.window.try_dispatch_event(ev);
                         InputStatus::Handled
                     }
                     None => InputStatus::Unhandled,
                 },
                 InputEvent::MotionEvent(motion_event) => match motion_event.action() {
                     MotionAction::ButtonPress => {
-                        self.window.dispatch_event(WindowEvent::PointerPressed {
+                        result = self.window.try_dispatch_event(WindowEvent::PointerPressed {
                             position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
                             button: button_for_event(motion_event, &self.last_pressed_state),
@@ -298,14 +298,14 @@ impl AndroidWindowAdapter {
                             long_press_timeout,
                         );
                         self.long_press.replace(Some(LongPressDetection { position, _timer }));
-                        self.window.dispatch_event(WindowEvent::PointerPressed {
+                        result = self.window.try_dispatch_event(WindowEvent::PointerPressed {
                             position,
                             button: PointerEventButton::Left,
                         });
                         InputStatus::Handled
                     }
                     MotionAction::ButtonRelease => {
-                        self.window.dispatch_event(WindowEvent::PointerReleased {
+                        result = self.window.try_dispatch_event(WindowEvent::PointerReleased {
                             position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
                             button: button_for_event(motion_event, &self.last_pressed_state),
@@ -314,13 +314,18 @@ impl AndroidWindowAdapter {
                     }
                     MotionAction::Up => {
                         self.long_press.take();
-                        self.window.dispatch_event(WindowEvent::PointerReleased {
-                            position: position_for_event(motion_event, self.offset.get())
-                                .to_logical(self.window.scale_factor()),
-                            button: PointerEventButton::Left,
-                        });
-                        // Also send exit to avoid remaining hover state
-                        self.window.dispatch_event(WindowEvent::PointerExited);
+                        result = self
+                            .window
+                            .try_dispatch_event(WindowEvent::PointerReleased {
+                                position: position_for_event(motion_event, self.offset.get())
+                                    .to_logical(self.window.scale_factor()),
+                                button: PointerEventButton::Left,
+                            })
+                            .and_then(|()| {
+                                // Also send exit to avoid remaining hover state
+                                self.window.try_dispatch_event(WindowEvent::PointerExited)
+                            });
+
                         InputStatus::Handled
                     }
                     MotionAction::Move | MotionAction::HoverMove => {
@@ -333,12 +338,13 @@ impl AndroidWindowAdapter {
                         }) {
                             *lp = None;
                         }
-                        self.window.dispatch_event(WindowEvent::PointerMoved { position });
+                        result =
+                            self.window.try_dispatch_event(WindowEvent::PointerMoved { position });
                         InputStatus::Handled
                     }
                     MotionAction::Cancel | MotionAction::Outside => {
                         self.long_press.take();
-                        self.window.dispatch_event(WindowEvent::PointerExited);
+                        result = self.window.try_dispatch_event(WindowEvent::PointerExited);
                         InputStatus::Handled
                     }
                     MotionAction::Scroll => todo!(),
@@ -382,14 +388,16 @@ impl AndroidWindowAdapter {
                 _ => InputStatus::Unhandled,
             });
 
+            result?;
+
             if !read_input {
                 return Ok(());
             }
         }
     }
 
-    fn resize(&self) {
-        let Some(win) = self.app.native_window() else { return };
+    fn resize(&self) -> Result<(), PlatformError> {
+        let Some(win) = self.app.native_window() else { return Ok(()) };
         let (offset, size) = if self.fullscreen.get() {
             (
                 Default::default(),
@@ -399,10 +407,11 @@ impl AndroidWindowAdapter {
             self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e))
         };
 
-        self.window.dispatch_event(WindowEvent::Resized {
+        self.window.try_dispatch_event(WindowEvent::Resized {
             size: size.to_logical(self.window.scale_factor()),
-        });
+        })?;
         self.offset.set(offset);
+        Ok(())
     }
 
     pub fn do_render(&self) -> Result<(), PlatformError> {

@@ -347,7 +347,7 @@ impl WinitWindowAdapter {
             .and_then(|x| x.parse::<f32>().ok())
             .filter(|f| *f > 0.)
             .unwrap_or_else(|| winit_window.scale_factor() as f32);
-        self_rc.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
+        self_rc.window().try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
         Ok(self_rc)
     }
@@ -553,9 +553,9 @@ impl WinitWindowAdapter {
             let physical_size = physical_size_to_slint(&size);
             self.size.set(physical_size);
             let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
-            self.window().dispatch_event(WindowEvent::Resized {
+            self.window().try_dispatch_event(WindowEvent::Resized {
                 size: physical_size.to_logical(scale_factor),
-            });
+            })?;
 
             // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
             // with the width/height attribute (the size of the viewport/GL surface)
@@ -925,9 +925,11 @@ impl WindowAdapter for WinitWindowAdapter {
         }
 
         if must_resize {
-            self.window().dispatch_event(WindowEvent::Resized {
-                size: i_slint_core::api::LogicalSize::new(width, height),
-            });
+            self.window()
+                .try_dispatch_event(WindowEvent::Resized {
+                    size: i_slint_core::api::LogicalSize::new(width, height),
+                })
+                .unwrap();
         }
 
         let m = properties.is_fullscreen();

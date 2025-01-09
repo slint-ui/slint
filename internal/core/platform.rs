@@ -280,7 +280,7 @@ pub use crate::input::PointerEventButton;
 /// A event that describes user input or windowing system events.
 ///
 /// Slint backends typically receive events from the windowing system, translate them to this
-/// enum and deliver them to the scene of items via [`slint::Window::dispatch_event()`](`crate::api::Window::dispatch_event()`).
+/// enum and deliver them to the scene of items via [`slint::Window::try_dispatch_event()`](`crate::api::Window::try_dispatch_event()`).
 ///
 /// The pointer variants describe events originating from an input device such as a mouse
 /// or a contact point on a touch-enabled surface.
