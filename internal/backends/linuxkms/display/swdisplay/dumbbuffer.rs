@@ -10,9 +10,12 @@ use i_slint_core::platform::PlatformError;
 
 pub struct DumbBufferDisplay {
     drm_output: DrmOutput,
-    front_buffer: RefCell<DumbBuffer>,     // Currently displayed
-    back_buffer: RefCell<DumbBuffer>,      // Next to be rendered into
-    in_flight_buffer: RefCell<DumbBuffer>, // Buffer currently on the way to the display, to become front_buffer
+    /// Currently displayed buffer
+    front_buffer: RefCell<DumbBuffer>,
+    /// Buffer next to be rendered into
+    back_buffer: RefCell<DumbBuffer>,
+    /// Buffer currently on the way to the display, to become front_buffer
+    in_flight_buffer: RefCell<DumbBuffer>,
 }
 
 impl DumbBufferDisplay {
