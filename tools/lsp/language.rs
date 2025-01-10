@@ -32,9 +32,9 @@ use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
     DocumentSymbol, DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
-    PrepareRenameResponse, PublishDiagnosticsParams, RenameOptions, SemanticTokensFullOptions,
-    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities, ServerInfo,
-    TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
+    PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
+    Url, WorkDoneProgressOptions,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -86,6 +86,10 @@ fn create_populate_command(
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
     let document_cache = ctx.document_cache.borrow();
 
+    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
+        config: ctx.preview_config.borrow().clone(),
+    });
+
     for (url, node) in document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
@@ -97,9 +101,11 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
             contents: node.text().to_string(),
         })
     }
-    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
-        config: ctx.preview_config.borrow().clone(),
+
+    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::CommitConfiguration {
+        unused: false,
     });
+
     if let Some(c) = ctx.to_show.borrow().clone() {
         ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c))
     }
@@ -726,7 +732,7 @@ pub(crate) async fn reload_document_impl(
     url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
-) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
+) -> (HashSet<PathBuf>, BuildDiagnostics) {
     enum FileAction {
         ProcessContent(String),
         IgnoreFile,
@@ -787,24 +793,13 @@ pub(crate) async fn reload_document_impl(
         }
     }
 
-    // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
-    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> =
-        core::iter::once(Url::from_file_path(&path).unwrap())
-            .chain(dependencies.iter().cloned())
-            .chain(diag.all_loaded_files.iter().filter_map(|p| Url::from_file_path(&p).ok()))
-            .map(|uri| (uri, Default::default()))
-            .collect();
+    let extra_files = dependencies
+        .iter()
+        .filter_map(|url| common::uri_to_file(url))
+        .chain(core::iter::once(path))
+        .collect();
 
-    for d in diag.into_iter() {
-        #[cfg(not(target_arch = "wasm32"))]
-        if d.source_file().unwrap().is_relative() {
-            continue;
-        }
-        let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
-    }
-
-    lsp_diags
+    (extra_files, diag)
 }
 
 pub async fn open_document(
@@ -831,18 +826,56 @@ pub async fn reload_document(
     version: Option<i32>,
     document_cache: &mut common::DocumentCache,
 ) -> common::Result<()> {
-    let lsp_diags =
+    let (extra_files, diag) =
         reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
-    for (uri, diagnostics) in lsp_diags {
-        let version = document_cache.document_version(&uri);
-
-        ctx.server_notifier.send_notification::<lsp_types::notification::PublishDiagnostics>(
-            PublishDiagnosticsParams { uri, diagnostics, version },
-        )?;
-    }
+    send_diagnostics(&ctx.server_notifier, document_cache, &extra_files, diag);
 
     Ok(())
+}
+
+pub fn convert_diagnostics(
+    extra_files: &HashSet<PathBuf>,
+    diag: BuildDiagnostics,
+) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
+    // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
+    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = extra_files
+        .iter()
+        .chain(diag.all_loaded_files.iter())
+        .filter_map(|p| Url::from_file_path(p).ok())
+        .map(|uri| (uri, Default::default()))
+        .collect();
+
+    for d in diag.into_iter() {
+        #[cfg(not(target_arch = "wasm32"))]
+        if d.source_file().unwrap().is_relative() {
+            continue;
+        }
+        let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
+        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
+    }
+
+    lsp_diags
+}
+
+fn send_diagnostics(
+    _server_notifier: &crate::ServerNotifier,
+    document_cache: &common::DocumentCache,
+    extra_files: &HashSet<PathBuf>,
+    diag: BuildDiagnostics,
+) {
+    let lsp_diags = convert_diagnostics(extra_files, diag);
+    for (uri, _diagnostics) in lsp_diags {
+        let _version = document_cache.document_version(&uri);
+
+        #[cfg(feature = "preview-engine")]
+        let _ = common::lsp_to_editor::notify_lsp_diagnostics(
+            _server_notifier,
+            uri,
+            _version,
+            _diagnostics,
+        );
+    }
 }
 
 pub async fn invalidate_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
@@ -1507,6 +1540,24 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
     *ctx.preview_config.borrow_mut() = config.clone();
     ctx.server_notifier
         .send_message_to_preview(common::LspToPreviewMessage::SetConfiguration { config });
+
+    let mut diag = BuildDiagnostics::default();
+    let all_urls = document_cache.all_urls().collect::<Vec<_>>();
+    for url in &all_urls {
+        document_cache.reload_cached_file(url, &mut diag).await;
+    }
+
+    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::CommitConfiguration {
+        unused: false,
+    });
+
+    send_diagnostics(
+        &ctx.server_notifier,
+        document_cache,
+        &all_urls.iter().filter_map(|url| common::uri_to_file(url)).collect(),
+        diag,
+    );
+
     Ok(())
 }
 
@@ -1535,7 +1586,7 @@ pub mod tests {
         let (_, url, diag) =
             loaded_document_cache(r#"export component Main inherits Rectangle { }"#.into());
 
-        assert!(diag.len() == 1); // Only one URL is known
+        assert_eq!(diag.len(), 1); // Only one URL is known
         let diagnostics = diag.get(&url).expect("URL not found in result");
         assert!(diagnostics.is_empty());
     }

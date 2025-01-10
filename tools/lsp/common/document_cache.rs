@@ -231,6 +231,14 @@ impl DocumentCache {
         self.type_loader.global_type_registry.borrow()
     }
 
+    fn invalidate_everything(&mut self) {
+        let all_files = self.type_loader.all_files().cloned().collect::<Vec<_>>();
+
+        for path in all_files {
+            self.type_loader.invalidate_document(&path);
+        }
+    }
+
     pub async fn reconfigure(
         &mut self,
         style: Option<String>,
@@ -256,6 +264,8 @@ impl DocumentCache {
         if let Some(lp) = library_paths {
             self.type_loader.compiler_config.library_paths = lp;
         }
+
+        self.invalidate_everything();
 
         self.preload_builtins().await;
 
