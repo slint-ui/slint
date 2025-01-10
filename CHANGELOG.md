@@ -7,11 +7,11 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - Improved support for bazel build
- - Expose PopupWindow in the accessibility tree
- - Fixed support for older android version (Android 6)
- - Fixed Flickable hard to scroll when starting slow (#7152)
- - LinuxKMS backenbd: implemented triple-buffering
+ - Improved support for building Slint with Bazel; added an example in `examples/bazel_build`.
+ - Expose `PopupWindow` in the accessibility tree.
+ - Fixed support for older android versions (Android 6).
+ - Fixed `Flickable` not scrolling when starting slow (#7152).
+ - LinuxKMS backend: Fix support for triple-buffering with DRM outputs.
  - Fixed panic with FemtoVG and Skia renderers for certain drop shadows.
 
 ### Slint Language
@@ -19,32 +19,32 @@ All notable changes to this project are documented in this file.
  - Added `AccessibleRole::tab-panel` and fixed accessibility on `TabWidget` (#7270)
  - Added `AccessibleRole::group-box` and fixed accessibility on on `GroupBox`
  - Better error recovery when element name is missing.
- - Added warning when a type name overwrite another.
- - Added `Path::anti-alias` property
- - Fixed compiler panic with  `Row{ @children }`
- - Skip UTF-8 Byte order mark (BOM) at the beginning of a file (#7291)
+ - Added warning when a type name overwrites another.
+ - Added `Path::anti-alias` property.
+ - Fixed compiler panic with  `Row{ @children }`.
+ - Skip UTF-8 Byte order mark (BOM) at the beginning of a file (#7291).
 
 ### Widgets
 
- - Fixed StandardButton not focusable (#7230)
+ - Fixed `StandardButton` not being focusable (#7230).
 
 ### C++
 
- - Updated corrosion dependency, fixing build with Rustup 1.28
- - Added armhf/arm64 Linux binary packages to release
+ - Updated corrosion dependency, fixing build with Rustup 1.28.
+ - Added armhf/arm64 Linux binary packages to release.
 
 ### Rust
 
- - Added `Window::try_dispatch_event` which is a non-panicking version of `dispatch_event`
+ - Added `Window::try_dispatch_event` which is a non-panicking version of `dispatch_event`.
 
 ### Tools
 
- - Binary packages: Disabled Qt backend
- - LSP: Fix ranges in textDocument/documentSymbol
- - LSP: Fixed panic in autocompletion of file patch with unicode
- - LSP: Added ability to rename struct and enums
- - LSP: Fixed error reporting when opening the live-preview fails (#7255)
- - Viewer: struct are now supported in callback argument (passed as JSON) (#7206)
+ - Binary packages: Disabled Qt backend.
+ - LSP: Fix ranges in textDocument/documentSymbol.
+ - LSP: Fixed panic in autocompletion of file patch with unicode.
+ - LSP: Added ability to rename struct and enums.
+ - LSP: Fixed error reporting when opening the live-preview fails (#7255).
+ - Viewer: struct are now supported in callback argument (passed as JSON) (#7206).
 
 ## 1.9.1 - 2024-12-21
 
