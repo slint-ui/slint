@@ -179,11 +179,13 @@ function startClient(
                         const location = new vscode.TelemetryTrustedValue(
                             lines[1],
                         );
-                        const message = lines.slice(2).join("\n");
+                        const backtrace = lines[2];
+                        const message = lines.slice(3).join("\n");
                         telemetryLogger.logError("lsp-panic", {
                             version: version,
                             location: location,
                             message: message,
+                            backtrace: backtrace,
                         });
                         vscode.workspace.fs.delete(slint_lsp_panic_file);
                     });
