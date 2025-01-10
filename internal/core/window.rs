@@ -618,7 +618,7 @@ impl WindowInner {
                 PopupClosePolicy::CloseOnClickOutside => !mouse_inside_popup() && pressed_event,
                 PopupClosePolicy::NoAutoClose => false,
             }
-            .then(|| popup.popup_id)
+            .then_some(popup.popup_id)
         });
 
         mouse_input_state = if let Some(mut event) =
