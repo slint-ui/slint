@@ -335,7 +335,7 @@ assert_eq(instance.get_click_count(), 3);
 assert_eq(instance.get_popup_clicked(), 2001);
 ```
 
-```disable-because-nodejs-runs-with-qt-and-send-mouse-click-wont-send-to-popup-qwindow
+```js
 var instance = new slint.TestCase({});
 
 assert.equal(instance.click_count, 0);

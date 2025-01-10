@@ -650,10 +650,26 @@ fn call_builtin_function(
 
             if let Expression::ElementReference(popup_window) = &arguments[0] {
                 let popup_window = popup_window.upgrade().unwrap();
+                let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
+                let parent_component = pop_comp
+                    .parent_element
+                    .upgrade()
+                    .unwrap()
+                    .borrow()
+                    .enclosing_component
+                    .upgrade()
+                    .unwrap();
+                let popup_list = parent_component.popup_windows.borrow();
+                let popup =
+                    popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
+
+                generativity::make_guard!(guard);
+                let enclosing_component =
+                    enclosing_component_for_element(&popup.parent_element, component, guard);
                 crate::dynamic_item_tree::close_popup(
                     popup_window,
-                    component,
-                    component.window_adapter(),
+                    enclosing_component,
+                    enclosing_component.window_adapter(),
                 );
 
                 Value::Void
