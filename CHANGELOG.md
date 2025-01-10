@@ -11,12 +11,18 @@ All notable changes to this project are documented in this file.
  - Expose PopupWindow in the accessibility tree
  - Fixed support for older android version (Android 6)
  - Fixed Flickable hard to scroll when starting slow (#7152)
+ - LinuxKMS backenbd: implemented triple-buffering
+ - Fixed panic with FemtoVG and Skia renderers for certain drop shadows.
 
 ### Slint Language
 
- - Added `AccessibleRole::tab-panel` and fixed accessibility on TabWidget (#7270)
+ - Added `AccessibleRole::tab-panel` and fixed accessibility on `TabWidget` (#7270)
+ - Added `AccessibleRole::group-box` and fixed accessibility on on `GroupBox`
  - Better error recovery when element name is missing.
  - Added warning when a type name overwrite another.
+ - Added `Path::anti-alias` property
+ - Fixed compiler panic with  `Row{ @children }`
+ - Skip UTF-8 Byte order mark (BOM) at the beginning of a file (#7291)
 
 ### Widgets
 
@@ -25,12 +31,19 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Updated corrosion dependency, fixing build with Rustup 1.28
+ - Added armhf/arm64 Linux binary packages to release
+
+### Rust
+
+ - Added `Window::try_dispatch_event` which is a non-panicking version of `dispatch_event`
 
 ### Tools
 
- - LSP: Fix ranges in textDocument/documentSymbol
  - Binary packages: Disabled Qt backend
- - LSP: fixed panic in autocompletion of file patch with unicode
+ - LSP: Fix ranges in textDocument/documentSymbol
+ - LSP: Fixed panic in autocompletion of file patch with unicode
+ - LSP: Added ability to rename struct and enums
+ - LSP: Fixed error reporting when opening the live-preview fails (#7255)
  - Viewer: struct are now supported in callback argument (passed as JSON) (#7206)
 
 ## 1.9.1 - 2024-12-21
