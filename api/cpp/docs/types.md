@@ -23,7 +23,7 @@ The follow table summarizes the entire mapping:
  structure                   A :code:`class` of the same name     The order of the data member are in the same as in the slint declaration
  anonymous object            A :code:`std::tuple`                 The fields are in alphabetical order.
  enum                        An :code:`enum class`                The values are always converted to CamelCase. The order of the values is the same as in the declaration.
- :code:`Point`               :cpp:class:`slint::LogicalPosition`  A struct with :code:`x` and :code:`y` fields, representing logical coordinates. 
+ :code:`Point`               :cpp:class:`slint::LogicalPosition`  A struct with :code:`x` and :code:`y` fields, representing logical coordinates.
 ===========================  ===================================  =======================================================================================================================================
 ```
 ## Structures

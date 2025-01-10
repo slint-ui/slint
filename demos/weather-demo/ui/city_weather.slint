@@ -150,7 +150,7 @@ component CityWeatherList inherits Flickable {
                     alternative-background: Math.mod(index, 2) == 0;
                 }
             }
-            
+
         Rectangle {
             // spacing
             min-height: WindowInfo.is-portrait ? 25px : 10px;
@@ -196,7 +196,7 @@ export component CityListView inherits PageBase {
             }
         ]
     }
-    
+
     expanded-tile := ExpandedCityWeatherTile {
         city-weather-info: CityWeather.city-weather[root.selected-tile.index];
         alternative-background: Math.mod(root.selected-tile.index, 2) == 0;

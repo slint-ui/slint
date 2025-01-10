@@ -75,7 +75,7 @@ export component RainInfo inherits Rectangle {
     if !root.minimal: Rectangle {
         x: parent.width - self.width;
         y: parent.height - self.height;
-        
+
         width: 3px;
         height: (parent.height - parent.padding-top - parent.padding-bottom) *
                     Math.min(root.volume, root.max-bar-volume) / root.max-bar-volume * 100%;

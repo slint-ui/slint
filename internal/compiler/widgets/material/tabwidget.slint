@@ -121,11 +121,11 @@ export component TabBarImpl inherits TabBarBase {
     accessible-item-count: root.num-tabs;
 
     Flickable {
-        HorizontalLayout {            
+        HorizontalLayout {
             @children
         }
     }
-   
+
     i-focus-scope := FocusScope {
         property <int> focused-tab: 0;
 

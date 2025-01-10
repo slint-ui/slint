@@ -7,9 +7,9 @@ import { Api, SelectionStackFrame, SelectionStackFilter } from "../api.slint";
 import { Icons } from "styling.slint";
 
 component FilterList {
-    public function show() { pop.show(); } 
+    public function show() { pop.show(); }
     public function close() { pop.close(); }
-    
+
     out property <SelectionStackFilter> filter: {
         if (!self.filter-layout && !self.filter-interactive && self.filter-other) {
             return SelectionStackFilter.Others;
@@ -42,7 +42,7 @@ component FilterList {
         height: self.preferred-height;
 
         close-policy: PopupClosePolicy.close-on-click-outside;
-        
+
         Rectangle {
             border-color: Palette.border;
             border-width: 1px;

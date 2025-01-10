@@ -40,7 +40,7 @@ export component AppWindow inherits Window {
         model: ["Demo 1", "Demo 2", "Demo 3", "Demo 4"];
         current-value: "Demo 1";
     }
-    
+
 
     if cb.current-value == "Demo 1": Rectangle {
         Orbiter {
@@ -80,7 +80,7 @@ export component AppWindow inherits Window {
             colorize: white.mix(black, self.scale);
         }
     }
-   
+
 
     if cb.current-value != "Demo 4":Image {
         source: @image-url("images/sphere.png");
@@ -96,7 +96,7 @@ export component AppWindow inherits Window {
     if cb.current-value == "Demo 1": Rectangle {
         Orbiter {
             state: front;
-            orbit-rotation: orbit-animation; 
+            orbit-rotation: orbit-animation;
             orbit-attack: 45deg;
         }
     }
@@ -129,5 +129,5 @@ export component AppWindow inherits Window {
             colorize: white.mix(black, self.scale);
         }
     }
-    
+
 }

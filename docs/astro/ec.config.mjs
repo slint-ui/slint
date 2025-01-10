@@ -20,7 +20,7 @@ function sideBorder() {
             border-left-style: solid;
             border-color: #2479f4;
             border-top-left-radius: 0.4rem;
-            border-bottom-left-radius: 0.4rem; 
+            border-bottom-left-radius: 0.4rem;
         }
         `,
         hooks: {

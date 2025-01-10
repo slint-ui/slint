@@ -52,7 +52,7 @@ export component SampleComponent inherits Window {
     // note that dashes will be replaced by underscores in the generated code
     in-out property<string> user_name;
     callback hello;
-    public function do-something(x: int) -> bool { return x > 0; } 
+    public function do-something(x: int) -> bool { return x > 0; }
     // ... maybe more elements here
 }
 

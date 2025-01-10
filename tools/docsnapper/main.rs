@@ -110,7 +110,7 @@ fn wrap_code(code: &str, size: Option<(usize, usize)>) -> String {
     background: #0000;
     {sizing_lines}VerticalLayout {{
         Rectangle {{
-        {code}  
+        {code}
         }}
     }}
 }}"#

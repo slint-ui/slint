@@ -18,7 +18,7 @@ updates:
           - "*"  # Group all Actions updates into a single larger pull request
     ignore:
       - dependency-name: "lukka/run-cmake"
-    
+
 
   - package-ecosystem: "npm" # See documentation for possible values
     open-pull-requests-limit: 20

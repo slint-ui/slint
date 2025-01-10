@@ -7,7 +7,7 @@
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
 Slint is a declarative GUI toolkit to build native user interfaces for embedded,
-desktop, and mobile applications written in Rust, C++, JavaScript, or Python. 
+desktop, and mobile applications written in Rust, C++, JavaScript, or Python.
 
 The name *Slint* is derived from our design goals:
 
@@ -220,7 +220,7 @@ located remotely in Germany.
 - Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn.
 - Follow [@slint.dev](https://bsky.app/profile/slint.dev) on Bluesky
 - Subscribe to our [YouTube channel](https://www.youtube.com/@Slint-UI)
- 
+
 ### Contact us
 
 Feel free to join [Github discussions](https://github.com/slint-ui/slint/discussions)

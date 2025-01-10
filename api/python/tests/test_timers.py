@@ -15,7 +15,7 @@ def test_timer():
         if counter == 2:
             native.quit_event_loop()
 
-    test_timer = native.Timer()        
+    test_timer = native.Timer()
     test_timer.start(native.TimerMode.Repeated, timedelta(milliseconds=100), quit_after_two_invocations)
     native.run_event_loop()
     test_timer.stop()

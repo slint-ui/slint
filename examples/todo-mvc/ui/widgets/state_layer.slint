@@ -12,7 +12,7 @@ export component StateLayer {
     in property <bool> has-hover;
     in property <bool> has-focus;
     in property <length> focus-padding: 2px;
-    
+
     focus-border := Rectangle {
         x: (root.width - self.width) / 2;
         y: (root.height - self.height) / 2;
@@ -33,7 +33,7 @@ export component StateLayer {
             duration: AnimationSettings.color-duration;
         }
     }
-    
+
     state-layer := Rectangle {
         width: 100%;
         height: 100%;

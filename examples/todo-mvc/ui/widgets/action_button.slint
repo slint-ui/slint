@@ -27,14 +27,14 @@ export component ActionButton {
             root.clicked();
         }
     }
-    
+
     background-layer := Rectangle {
         width: 100%;
         height: 100%;
         background: TodoPalette.accent-background;
         border-radius: self.height / 2;
     }
-    
+
     StateLayer {
         width: 100%;
         height: 100%;
@@ -52,6 +52,6 @@ export component ActionButton {
             height: SizeSettings.control-icon-big-height;
             y: (parent.height - self.height) / 2;
             colorize: TodoPalette.accent-foreground;
-        }        
+        }
    }
 }

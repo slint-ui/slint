@@ -23,13 +23,13 @@ export component FocusTouchArea {
             if !root.enabled {
                 return reject;
             }
-            
+
             if (event.text == " " || event.text == "\n") && !root.enter-pressed {
                 root.enter-pressed = true;
                 touch-area.clicked();
                 return accept;
             }
-            
+
             reject
         }
 
@@ -37,7 +37,7 @@ export component FocusTouchArea {
             if !root.enabled {
                 return reject;
             }
-            
+
             if (event.text == " " || event.text == "\n") && root.enter-pressed {
                 root.enter-pressed = false;
                 return accept;

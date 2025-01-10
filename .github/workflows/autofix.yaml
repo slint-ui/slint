@@ -37,9 +37,9 @@ jobs:
                   components: rustfmt
                   target: aarch64-linux-android
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh    
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Setup Biome CLI
-              uses: biomejs/setup-biome@v2                  
+              uses: biomejs/setup-biome@v2
             - name: Rust format
               run: cargo fmt --
             - name: C++ format
@@ -69,4 +69,4 @@ jobs:
             - run: sudo apt-get install pipx
             - run: pipx install reuse
             - name: Check reuse compliance
-              run: cargo xtask check_reuse_compliance    
+              run: cargo xtask check_reuse_compliance

@@ -113,14 +113,14 @@ export component Button {
         drop-shadow-offset-y: 1px;
     }
 
-    layout := HorizontalLayout {    
+    layout := HorizontalLayout {
         base := MaterialButtonBase {
             layout-padding-left: 24px;
             layout-padding-right: 24px;
             border-radius: background.border-radius;
             text-color: root.primary ? MaterialPalette.accent-foreground : MaterialPalette.control-foreground;
             text-opacity: 1.0;
-    
+
             clicked => {
                 if root.checkable {
                     root.checked = !root.checked;

@@ -249,7 +249,7 @@ message TakeSnapshotResponse {
     bytes window_contents_as_png = 1;
 }
 
-message ElementClickResponse {    
+message ElementClickResponse {
 }
 
 message DispatchWindowEventResponse {

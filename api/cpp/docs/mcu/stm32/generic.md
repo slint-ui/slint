@@ -42,19 +42,19 @@ as well as the peripherals of our board.
     ```cmake
     # Locate Slint
     find_package(Slint)
-    
+
     # Compile app-window.slint to app-window.h and app-window.cpp
     slint_target_sources(your-target app-window.slint)
 
-    # Embed images and fonts in the binary  
+    # Embed images and fonts in the binary
     set_target_properties(your-target PROPERTIES SLINT_EMBED_RESOURCES embed-for-software-renderer)
-    
+
     # Replace $BSP_NAME with the name of your concrete BSP,
     # for example stm32h735g_discovery.
     target_compile_definitions(your-target PRIVATE
         SLINT_STM32_BSP_NAME=$BSP_NAME
     )
-    
+
     # Link Slint run-time library
     target_link_libraries(your-target PRIVATE
         Slint::Slint
@@ -68,7 +68,7 @@ as well as the peripherals of our board.
     #include <stdio.h>
     #include <stm32h735g_discovery.h>
     #include <stm32h735g_discovery_lcd.h>
-    #include <stm32h735g_discovery_ts.h>    
+    #include <stm32h735g_discovery_ts.h>
 
     #include "app-window.h"
 

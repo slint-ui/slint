@@ -32,7 +32,7 @@ export component Switch {
     accessible-action-default => {
         root.checked = !root.checked;
         root.toggled();
-    }    
+    }
 
     states [
         disabled-selected when !root.enabled && root.checked  : {

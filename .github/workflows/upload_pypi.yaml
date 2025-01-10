@@ -41,7 +41,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
-              if: runner.os == 'Linux'              
+              if: runner.os == 'Linux'
             - uses: actions/setup-python@v5
               with:
                 python-version: '3.10'
@@ -52,7 +52,7 @@ jobs:
                 perl -pi -e 's,^default =.*,,' Cargo.toml
                 perl -pi -e 's,# binaries:,,' Cargo.toml
                 echo "New defaults:"
-                grep "^\s*default =" Cargo.toml  
+                grep "^\s*default =" Cargo.toml
             - name: Build a binary wheel
               uses: PyO3/maturin-action@v1
               with:
@@ -64,7 +64,7 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                 name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
-                path: api/python/wheelhouse/*.whl             
+                path: api/python/wheelhouse/*.whl
 
     build_source_package:
         name: Build source package
@@ -88,7 +88,7 @@ jobs:
             - uses: actions/upload-artifact@v4
               with:
                 name: python-package-distributions-source
-                path: api/python/dist/*.tar.gz                
+                path: api/python/dist/*.tar.gz
 
     publish-to-test-pypi:
         if: ${{ github.event.inputs.release != 'true' }}
@@ -100,13 +100,13 @@ jobs:
             name: testpypi
             url: https://test.pypi.org/p/slint
         permissions:
-            id-token: write  # IMPORTANT: mandatory for trusted publishing                
+            id-token: write  # IMPORTANT: mandatory for trusted publishing
         steps:
             - uses: actions/download-artifact@v4
-              with:              
+              with:
                 pattern: python-package-distributions-*
                 path: dist
-                merge-multiple: true            
+                merge-multiple: true
             - name: Publish distribution 📦 to Test PyPI
               uses: pypa/gh-action-pypi-publish@release/v1
               with:
@@ -122,13 +122,13 @@ jobs:
           name: pypi
           url: https://test.pypi.org/p/slint
       permissions:
-          id-token: write  # IMPORTANT: mandatory for trusted publishing                
+          id-token: write  # IMPORTANT: mandatory for trusted publishing
       steps:
           - uses: actions/download-artifact@v4
-            with:              
+            with:
               pattern: python-package-distributions-*
               path: dist
-              merge-multiple: true            
+              merge-multiple: true
           - name: Publish distribution 📦 to PyPI
             uses: pypa/gh-action-pypi-publish@release/v1
-          
+

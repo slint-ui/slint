@@ -9,7 +9,7 @@ export component IconButton {
     in property <image> icon <=> icon-image.source;
 
     callback clicked <=> touch-area.clicked;
-    
+
     min-width: content-layer.min-width;
     min-height: content-layer.min-height;
 
@@ -27,7 +27,7 @@ export component IconButton {
         pressed: touch-area.pressed;
         has-hover: touch-area.has-hover;
     }
-        
+
     content-layer := HorizontalLayout {
         icon-image := Image {
             width: EditorSizeSettings.default-icon-width;

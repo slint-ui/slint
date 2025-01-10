@@ -6,7 +6,7 @@ description: Reactivity
 
 ## Reactivity
 
-Reactivity is core concept within Slint. It allows the creation of complex dynamic user interfaces with a fraction of the code. 
+Reactivity is core concept within Slint. It allows the creation of complex dynamic user interfaces with a fraction of the code.
 The following examples will help you understand the basics of reactivity.
 
 ```slint playground
@@ -16,7 +16,7 @@ export component MyComponent {
     Rectangle {
         background: #151515;
     }
-    
+
     ta := TouchArea {}
 
     myRect := Rectangle {
@@ -50,14 +50,14 @@ to changes. The above example looks simple, but when run it does several things:
 
 The 'magic' here is built into the Slint language directly. There is no need to opt into this or define
 specific stateful items. The `Rectangle` will automatically updates because it's `x` and `y` properties
-are bound to the `mouse-x` and `mouse-y` properties of the `TouchArea` element. This was done by giving 
+are bound to the `mouse-x` and `mouse-y` properties of the `TouchArea` element. This was done by giving
 the `TouchArea` a name to identify it `ta` and then using the name in what Slint calls an `expression`
 to track values. Its as simples as `x: ta.mouse-x;` and `y: ta.mouse-y;`. The mouse-x and mouse-y properties
 are built into the `TouchArea` and automatically update as the cursor moves over them.
 
 The `TouchArea` also has a `pressed` property that is only `true` when the cursor is pressed or clicked down.
 So the ternary expression `background: ta.pressed ? orange : white;` will change the background color of the `Rectangle`
-to orange when `ta.pressed` is true, or white when it isn't. 
+to orange when `ta.pressed` is true, or white when it isn't.
 
 Similarly the 2 text items are updating by tracking the rectangle's `x` and `y` position.
 
@@ -81,7 +81,7 @@ Expressions can vary in complexity:
 
 ```slint no-test
 // Tracks the `x` value of an element called foo
-x: foo.x; 
+x: foo.x;
 
 // Tracks the value, but sets it to 0px or 400px based on if
 // foo.x is greater than 400px
@@ -105,7 +105,7 @@ export component MyComponent {
     Rectangle {
         background: #151515;
     }
-    
+
     ta := TouchArea {}
 
     myRect := Rectangle {
@@ -115,7 +115,7 @@ export component MyComponent {
         height: 40px;
         background: ta.pressed ? orange : white;
     }
-    
+
     Text {
         x: 5px; y: 5px;
         text: "x: " + lengthToInt(myRect.x);

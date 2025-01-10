@@ -40,8 +40,8 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 15phx && rect1.y == 0phx; 
-    property <bool> rect2_pos_ok: rect2.x == 15phx && rect2.y == 15phx; 
+    property <bool> rect1_pos_ok: rect1.x == 15phx && rect1.y == 0phx;
+    property <bool> rect2_pos_ok: rect2.x == 15phx && rect2.y == 15phx;
 
     Rectangle {
         width: 300phx;
@@ -80,9 +80,9 @@ TestCase := Rectangle {
         }
     }
 
-    property <bool> rect3_pos_ok: rect3.x == 25phx && rect3.y == 0phx; 
-    property <bool> rect4_pos_ok: rect4.x == 25phx && rect4.y == 35phx; 
-    
+    property <bool> rect3_pos_ok: rect3.x == 25phx && rect3.y == 0phx;
+    property <bool> rect4_pos_ok: rect4.x == 25phx && rect4.y == 35phx;
+
     out property <bool> test: rect1_pos_ok && rect2_pos_ok &&rect3_pos_ok && rect4_pos_ok;
 }
 

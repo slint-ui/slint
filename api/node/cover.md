@@ -182,7 +182,7 @@ await demo.run();
 
 This is your main TypeScript entry point:
 
-* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. 
+* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module.
 * Invoke `loadFile()` to compile and load the `.slint` file.
 * Instantiate the `Demo` component declared in `main.slint`.
 * Run it by showing it on the screen and reacting to user input.

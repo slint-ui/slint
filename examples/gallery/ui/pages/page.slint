@@ -33,7 +33,7 @@ export component Page inherits VerticalBox {
             horizontal-stretch: 0;
             text: @tr("Dark Mode");
             checked: Palette.color-scheme == ColorScheme.dark;
-            toggled => {                
+            toggled => {
                 Palette.color-scheme = self.checked ? ColorScheme.dark : ColorScheme.light;
             }
         }
