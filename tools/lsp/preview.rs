@@ -42,6 +42,20 @@ mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
+/// The state of the preview engine:
+///
+/// ```text
+///                               ┌─────────────┐
+///                            ┌──│ NeedsReload │◄─┐
+///                            │  └─────────────┘  │
+///                            ▼                   │
+/// ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+/// │ Pending     │────►│ PreLoading  │────►│ Loading     │
+/// └─────────────┘     └─────────────┘     └─────────────┘
+///        ▲                                       │
+///        │                                       │
+///        └───────────────────────────────────────┘
+/// ```
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
 enum PreviewFutureState {
     /// The preview future is currently no running
@@ -1066,27 +1080,26 @@ fn finish_parsing(preview_url: &Url, ok: bool) {
 }
 
 fn config_changed(config: PreviewConfig) {
-    if let Some(cache) = CONTENT_CACHE.get() {
-        let mut cache = cache.lock().unwrap();
-        if cache.config != config {
-            cache.config = config.clone();
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
-            let current = cache.current_component();
-            let ui_is_visible = cache.ui_is_visible;
-            let hide_ui = cache.config.hide_ui;
+    if cache.config != config {
+        cache.config = config.clone();
 
-            drop(cache);
+        let current = cache.current_component();
+        let ui_is_visible = cache.ui_is_visible;
+        let hide_ui = cache.config.hide_ui;
 
-            if ui_is_visible {
-                if let Some(hide_ui) = hide_ui {
-                    set_show_preview_ui(!hide_ui);
-                }
-                if let Some(current) = current {
-                    load_preview(current, LoadBehavior::Reload);
-                }
+        drop(cache);
+
+        if ui_is_visible {
+            if let Some(hide_ui) = hide_ui {
+                set_show_preview_ui(!hide_ui);
+            }
+            if let Some(current) = current {
+                load_preview(current, LoadBehavior::Reload);
             }
         }
-    };
+    }
 }
 
 /// If the file is in the cache, returns it.
@@ -1151,6 +1164,7 @@ async fn reload_timer_function() {
             cache.clear_style_of_component();
 
             assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
+
             if !cache.ui_is_visible && behavior == LoadBehavior::Reload {
                 cache.loading_state = PreviewFutureState::Pending;
                 return;
@@ -1182,12 +1196,11 @@ async fn reload_timer_function() {
                 cache.loading_state = PreviewFutureState::Pending;
                 break;
             }
-            PreviewFutureState::Pending => unreachable!(),
-            PreviewFutureState::PreLoading => unreachable!(),
             PreviewFutureState::NeedsReload => {
                 cache.loading_state = PreviewFutureState::PreLoading;
                 continue;
             }
+            PreviewFutureState::Pending | PreviewFutureState::PreLoading => unreachable!(),
         };
     }
 
@@ -1230,6 +1243,7 @@ async fn reload_timer_function() {
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+
         match behavior {
             LoadBehavior::Reload => {
                 if !cache.ui_is_visible {
@@ -1244,13 +1258,14 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         cache.current_load_behavior = Some(behavior);
 
         match cache.loading_state {
-            PreviewFutureState::Pending => (),
-            PreviewFutureState::PreLoading => return,
+            PreviewFutureState::Pending => {}
             PreviewFutureState::Loading => {
                 cache.loading_state = PreviewFutureState::NeedsReload;
                 return;
             }
-            PreviewFutureState::NeedsReload => return,
+            PreviewFutureState::NeedsReload | PreviewFutureState::PreLoading => {
+                return;
+            }
         }
         cache.loading_state = PreviewFutureState::PreLoading;
     };
