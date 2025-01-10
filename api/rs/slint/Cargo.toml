@@ -187,6 +187,8 @@ log = { workspace = true, optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 
+unicode-segmentation = "1.12.0"
+
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
 # end even then wouldn't work because it can't load fonts

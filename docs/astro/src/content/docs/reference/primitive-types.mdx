@@ -20,6 +20,11 @@ boolean whose value can be either `true` or `false`.
 <SlintProperty propName="string" typeName="string" defaultValue='""'>
 Any sequence of utf-8 encoded characters surrounded by quotes is a `string`: `"foo"`.
 
+```slint
+export component Example inherits Text {
+    text: "hello";
+}
+```
 Escape sequences may be embedded into strings to insert characters that would
 be hard to insert otherwise:
 
@@ -33,15 +38,36 @@ be hard to insert otherwise:
 
 Anything else following an unescaped `\` is an error.
 
-```slint
-export component Example inherits Text {
-    text: "hello";
-}
-```
-
 :::note[Note]
   The `\{...}` syntax is not valid within the `slint!` macro in Rust.
 :::
+
+
+`is-empty` property is true when `string` doesn't contain anything.
+
+```slint
+export component LengthOfString {
+    property<bool> empty: "".is-empty; // true
+    property<bool> not-empty: "hello".is-empty; // false
+}
+```
+
+`character-count` property returns the number of [grapheme clusters](https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries).
+
+```slint
+export component CharacterCountOfString {
+    property<int> empty: "".character-count; // 0
+    property<int> hello: "hello".character-count; // 5
+    property<int> hiragana: "あいうえお".character-count; // 5
+    property<int> surrogate-pair: "😊𩸽".character-count; // 2
+    property<int> variation-selectors: "👍🏿".character-count; // 1
+    property<int> combining-character: "パ".character-count; // 1
+    property<int> zero-width-joiner: "👨‍👩‍👧‍👦".character-count; // 1
+    property<int> region-indicator-character: "🇦🇿🇿🇦".character-count; // 2
+    property<int> emoji-tag-sequences: "🏴󠁧󠁢󠁥󠁮󠁧󠁿".character-count; // 1
+}
+```
+
 </SlintProperty>
 
 ## Numeric Types
