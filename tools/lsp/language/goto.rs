@@ -232,16 +232,18 @@ fn test_goto_definition_multi_files() {
     "#,
         url1 = url1.to_file_path().unwrap().display()
     );
-    let diags = spin_on::spin_on(crate::language::reload_document_impl(
+    let (extra_files, diag) = spin_on::spin_on(crate::language::reload_document_impl(
         None,
         source2.clone(),
         url2.clone(),
         Some(43),
         &mut dc,
     ));
-    for (u, ds) in diags {
+    let diag = common::convert_diagnostics(&extra_files, diag);
+    for (u, ds) in diag {
         assert_eq!(ds, vec![], "errors in {u}");
     }
+
     let doc2 = dc.get_document(&url2).unwrap().node.clone().unwrap();
 
     let offset: TextSize = (source2.find("h := Hello").unwrap() as u32).into();
