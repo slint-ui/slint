@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// https://github.com/slint-ui/slint/issues/7322
+// A PopupWindow with the default close-on-click policy should close when clicked, even if the click open a nested popup
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    in-out property <int> popup1-clicked;
+    in-out property <int> popup2-clicked;
+    in-out property <int> root-clicked;
+
+    popup1 := PopupWindow {
+        Rectangle {
+            background: yellow;
+        }
+
+        x: 10px;
+        y: 10px;
+        height: 50px;
+        width: 50px;
+
+        TouchArea {
+            clicked => {
+                popup1-clicked += 1;
+                popup2.show();
+            }
+        }
+    }
+
+    popup2 := PopupWindow {
+        Rectangle {
+            background: red;
+        }
+
+        x: 40px;
+        y: 40px;
+        height: 50px;
+        width: 50px;
+
+        TouchArea {
+            clicked => {
+                popup2-clicked += 1;
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            root-clicked += 1;
+            popup1.show();
+        }
+    }
+}
+
+/*
+
+```rust
+
+let instance = TestCase::new().unwrap();
+
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_root_clicked(), 1);
+assert_eq!(instance.get_popup1_clicked(), 0);
+assert_eq!(instance.get_popup2_clicked(), 0);
+
+// popup1 is open
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_root_clicked(), 1);
+assert_eq!(instance.get_popup1_clicked(), 1);
+assert_eq!(instance.get_popup2_clicked(), 0);
+
+// popup2 is open, popup1 is closed
+
+slint_testing::send_mouse_click(&instance, 45., 45.);
+assert_eq!(instance.get_root_clicked(), 1);
+assert_eq!(instance.get_popup1_clicked(), 1);
+assert_eq!(instance.get_popup2_clicked(), 1);
+
+// all popup closed
+
+slint_testing::send_mouse_click(&instance, 45., 45.);
+assert_eq!(instance.get_root_clicked(), 2);
+assert_eq!(instance.get_popup1_clicked(), 1);
+assert_eq!(instance.get_popup2_clicked(), 1);
+
+// popup1 is open
+// click where popup2 will be
+
+slint_testing::send_mouse_click(&instance, 45., 45.);
+assert_eq!(instance.get_root_clicked(), 2);
+assert_eq!(instance.get_popup1_clicked(), 2);
+assert_eq!(instance.get_popup2_clicked(), 1);
+
+// popup2 is open, popup1 is closed
+
+slint_testing::send_mouse_click(&instance, 45., 45.);
+assert_eq!(instance.get_root_clicked(), 2);
+assert_eq!(instance.get_popup1_clicked(), 2);
+assert_eq!(instance.get_popup2_clicked(), 2);
+
+// all popup closed
+
+slint_testing::send_mouse_click(&instance, 45., 45.);
+assert_eq!(instance.get_root_clicked(), 3);
+assert_eq!(instance.get_popup1_clicked(), 2);
+assert_eq!(instance.get_popup2_clicked(), 2);
+
+```
+
+*/

@@ -158,17 +158,23 @@ cpp! {{
             isMouseButtonDown = false;
 
             void *parent_of_popup_to_close = nullptr;
+            int popup_id_to_close = 0;
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
                 while (auto pp = dynamic_cast<const SlintWidget*>(p->parent())) {
                     p = pp;
                 }
                 void *parent_window = p->rust_window;
                 bool inside = rect().contains(event->pos());
-                bool close_on_click = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", inside: bool as "bool"] -> bool as "bool" {
-                    let close_policy = parent_window.top_close_policy();
-                    close_policy == PopupClosePolicy::CloseOnClick || (close_policy == PopupClosePolicy::CloseOnClickOutside && !inside)
+                popup_id_to_close = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", inside: bool as "bool"] -> u32 as "int" {
+                    let active_popups = WindowInner::from_pub(&parent_window.window).active_popups();
+                    if let Some(popup) = active_popups.last() {
+                        if popup.close_policy == PopupClosePolicy::CloseOnClick || (popup.close_policy == PopupClosePolicy::CloseOnClickOutside && !inside) {
+                            return popup.popup_id.get();
+                        }
+                    }
+                    0
                 });
-                if (close_on_click) {
+                if (popup_id_to_close) {
                     parent_of_popup_to_close = parent_window;
                 }
             }
@@ -180,9 +186,9 @@ cpp! {{
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0 })
             });
-            if (parent_of_popup_to_close) {
-                rust!(Slint_mouseReleaseEventClosePopup [parent_of_popup_to_close: &QtWindow as "void*"] {
-                    parent_of_popup_to_close.close_top_popup();
+            if (popup_id_to_close) {
+                rust!(Slint_mouseReleaseEventClosePopup [parent_of_popup_to_close: &QtWindow as "void*", popup_id_to_close: std::num::NonZeroU32 as "int"] {
+                    WindowInner::from_pub(&parent_of_popup_to_close.window).close_popup(popup_id_to_close);
                 });
             }
         }
@@ -1748,14 +1754,6 @@ impl QtWindow {
         self.window.dispatch_event(event);
 
         timer_event();
-    }
-
-    fn close_top_popup(&self) {
-        WindowInner::from_pub(&self.window).close_top_popup();
-    }
-
-    fn top_close_policy(&self) -> PopupClosePolicy {
-        WindowInner::from_pub(&self.window).top_close_policy()
     }
 
     fn window_state_event(&self) {
