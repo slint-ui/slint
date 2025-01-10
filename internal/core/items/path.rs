@@ -45,6 +45,7 @@ pub struct Path {
     pub viewbox_width: Property<f32>,
     pub viewbox_height: Property<f32>,
     pub clip: Property<bool>,
+    pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

@@ -727,16 +727,18 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
         self.canvas.translate((physical_offset.x, physical_offset.y));
 
+        let anti_alias = path.anti_alias();
+
         if let Some(mut fill_paint) =
             self.brush_to_paint(path.fill(), geometry.width_length(), geometry.height_length())
         {
-            fill_paint.set_anti_alias(true);
+            fill_paint.set_anti_alias(anti_alias);
             self.canvas.draw_path(&skpath, &fill_paint);
         }
         if let Some(mut border_paint) =
             self.brush_to_paint(path.stroke(), geometry.width_length(), geometry.height_length())
         {
-            border_paint.set_anti_alias(true);
+            border_paint.set_anti_alias(anti_alias);
             border_paint.set_stroke_width((path.stroke_width() * self.scale_factor).get());
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
