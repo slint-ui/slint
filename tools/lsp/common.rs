@@ -485,6 +485,7 @@ pub enum LspToPreviewMessage {
     ForgetFile { url: lsp_types::Url },
     SetContents { url: VersionedUrl, contents: String },
     SetConfiguration { config: PreviewConfig },
+    CommitConfiguration { unused: bool },
     ShowPreview(PreviewComponent),
     HighlightFromEditor { url: Option<Url>, offset: u32 },
 }
