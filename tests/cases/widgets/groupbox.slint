@@ -26,7 +26,7 @@ let instance = TestCase::new().unwrap();
 let mut gb_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::gb");
 let gb = gb_search.next().unwrap();
 
-assert_eq!(gb.accessible_role(), Some(AccessibleRole::GroupBox));
+assert_eq!(gb.accessible_role(), Some(AccessibleRole::Groupbox));
 assert_eq!(gb.accessible_label(), Some(SharedString::from("Group Title")));
 assert_eq!(gb.accessible_enabled(), Some(true));
 

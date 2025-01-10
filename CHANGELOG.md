@@ -17,7 +17,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
  - Added `AccessibleRole::tab-panel` and fixed accessibility on `TabWidget` (#7270)
- - Added `AccessibleRole::group-box` and fixed accessibility on on `GroupBox`
+ - Added `AccessibleRole::groupbox` and fixed accessibility on on `GroupBox`
  - Better error recovery when element name is missing.
  - Added warning when a type name overwrite another.
  - Added `Path::anti-alias` property
