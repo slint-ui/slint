@@ -245,6 +245,7 @@ fn main() {
                 } else {
                     writeln!(file, "unknown location")
                 };
+                let _ = writeln!(file, "{:?}", std::backtrace::Backtrace::force_capture());
                 let _ = writeln!(file, "{info}");
             }
             default_hook(info);
