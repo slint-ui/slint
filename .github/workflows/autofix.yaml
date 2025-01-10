@@ -53,6 +53,8 @@ jobs:
                   pnpm lint
             - name: Check license headers
               run: cargo xtask check_license_headers --fix-it
+            - name: remove trailing whitespace
+              run: git grep -I -l -O'sed -i "s/[[:space:]]*$//"' -e '' -- ':!*.patch'
             - name: Suggest format changes
               uses: autofix-ci/action@ff86a557419858bb967097bfc916833f5647fa8c
             - name: Build wasm-interpreter before type check
