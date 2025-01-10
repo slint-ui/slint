@@ -31,7 +31,11 @@
  *  display controller. Use line-by-line rendering if you don't have sufficient memory or rendering
  *  to internal memory (MALLOC_CAP_INTERNAL) and flushing to the display is faster than rendering
  *  into memory buffers that may be slower to access for the CPU.
+ *
+ *  The data structure is a template where the pixel type is configurable. The default is for
+ *  RGB565 displays, but you can also use `slint::Rgb8Pixel` if you're targeting an RGB888 display.
  */
+template<typename PixelType = slint::platform::Rgb565Pixel>
 struct SlintPlatformConfiguration
 {
     /// The size of the screen in pixels.
@@ -44,17 +48,23 @@ struct SlintPlatformConfiguration
     esp_lcd_touch_handle_t touch_handle = nullptr;
     /// The buffer Slint will render into. It must have have the size of at least one frame. Slint
     /// calls esp_lcd_panel_draw_bitmap to flush the buffer to the screen.
-    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1 = {};
+    std::optional<std::span<PixelType>> buffer1 = {};
     /// If specified, this is a second buffer that will be used for double-buffering. Use this if
     /// your LCD panel supports double buffering: Call `esp_lcd_rgb_panel_get_frame_buffer` to
     /// obtain two buffers and set `buffer` and `buffer2` in this data structure.
-    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {};
+    std::optional<std::span<PixelType>> buffer2 = {};
     slint::platform::SoftwareRenderer::RenderingRotation rotation =
             slint::platform::SoftwareRenderer::RenderingRotation::NoRotation;
-    /// Swap the 2 bytes of RGB 565 pixels before sending to the display. Use this
-    /// if your CPU is little endian but the display expects big-endian.
-    bool color_swap_16 = false;
+    /// Swap the 2 bytes of RGB 565 pixels before sending to the display, or turn 24-bit RGB into
+    /// BGR. Use this if your CPU is little endian but the display expects big-endian.
+    union {
+        [[deprecated("Renamed to byte_swap")]] bool color_swap_16;
+        bool byte_swap = false;
+    };
 };
+
+template<typename... Args>
+SlintPlatformConfiguration(Args...) -> SlintPlatformConfiguration<>;
 
 /**
  * Initialize the Slint platform for ESP-IDF
@@ -92,4 +102,5 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
  *
  * This must be called before any other call to the Slint library.
  */
-void slint_esp_init(const SlintPlatformConfiguration &config);
+void slint_esp_init(const SlintPlatformConfiguration<slint::platform::Rgb565Pixel> &config);
+void slint_esp_init(const SlintPlatformConfiguration<slint::Rgb8Pixel> &config);

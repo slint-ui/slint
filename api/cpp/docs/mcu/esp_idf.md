@@ -80,7 +80,7 @@ extern "C" void app_main(void)
             .panel_handle = panel_handle,
             .touch_handle = touch_handle,
             .buffer1 = buffer,
-            .color_swap_16 = true });
+            .byte_swap = true });
 
     /* Instantiate the UI */
     auto ui = AppWindow::create();
