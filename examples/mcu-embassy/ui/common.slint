@@ -1,0 +1,111 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
+export global Globals {
+    in property <bool> hardware-user-btn-pressed;
+    callback toggle-btn(bool);
+}
+
+global Palette {
+    out property <color> neutralSecondaryAlt: #8a8886;
+    out property <color> neutralLight:  #edebe9;
+    out property <color> white:  #ffffff;
+    out property <color> black:  #000000;
+    out property <color> neutralDark:  #201f1e;
+}
+
+export global Theme {
+    out property <color> page-background-color: Palette.white;
+    out property <color> text-foreground-color: Palette.black;
+    out property <length> font-size-standard: 24px;
+    out property <length> page-width: 800px;
+    out property <length> page-height: 480px;
+}
+
+export component Button {
+    callback clicked;
+    in property <string> text <=> text.text;
+    out property <bool> pressed: touch.pressed;
+    in property <bool> checkable;
+    in-out property <bool> checked;
+    in property <length> font-size <=> text.font-size;
+    in property <color> background: Palette.white;
+    Rectangle {
+        border-width: 1px;
+        border-radius: 2px;
+        border-color: Palette.neutralSecondaryAlt;
+        background: (touch.pressed || root.checked) ? Palette.neutralLight : root.background;
+    }
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-height: max(32px, l.min-height);
+    l := HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        text := Text {
+            color: Palette.neutralDark;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            font-size: Theme.font-size-standard;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            if (root.checkable) {
+                root.checked = !root.checked;
+            }
+            root.clicked();
+        }
+    }
+
+    @children
+}
+
+export component Toggle inherits Rectangle {
+    callback clicked();
+    in-out property <bool> on;
+    width: 100px;
+    height: 40px;
+
+    Rectangle {
+        width: 100px;
+        height: 40px;
+        background: on ? blue : gray;
+        animate background {
+            duration: 100ms;
+            easing: ease;
+        }
+        border-radius: 20px;
+
+        Text {
+            text: on ? "On" : "Off";
+            x: on ? 8px : parent.width - 50px;
+            color: white;
+            font-size: Theme.font-size-standard;
+        }
+
+        Rectangle {
+            width: parent.height - 4px;
+            height: parent.height - 4px;
+            x: on ? parent.width - (parent.height - 2px) : 2px;
+            animate x {
+                duration: 100ms;
+                easing: ease;
+            }
+            y: 2px;
+            background: white;
+            border-radius: (parent.height - 4px) / 2;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            on = !on;
+            root.clicked();
+        }
+    }
+}

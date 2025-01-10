@@ -1,0 +1,65 @@
+// Copyright © 2025 David Haig
+// SPDX-License-Identifier: MIT
+
+import { Globals, Button, Theme, Toggle } from "common.slint";
+
+export { Globals }
+
+export component MainWindow inherits Window {
+    width: 800px;
+    height: 480px;
+
+    HorizontalLayout {
+        alignment: center;
+        VerticalLayout {
+            alignment: center;
+            spacing: 50px;
+
+            Button {
+                text: "Hello, World";
+                font-size: Theme.font-size-standard;
+                height: 50px;
+                animate height {
+                    duration: 100ms;
+                    easing: ease-in;
+                }
+                states [
+                    left-aligned when self.pressed: {
+                        height: 80px;
+                    }
+                ]
+            }
+
+            HorizontalLayout {
+                Text {
+                    width: 300px;
+                    text: "Hardware Green Led";
+                    font-size: Theme.font-size-standard;
+                }
+
+                Toggle {
+                    width: 100px;
+                    clicked => {
+                        Globals.toggle-btn(self.on);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                Text {
+                    width: 300px;
+                    vertical-alignment: center;
+                    text: "Hardware User Button";
+                    font-size: Theme.font-size-standard;
+                }
+
+                Rectangle {
+                    width: 100px;
+                    height: 100px;
+                    background: Globals.hardware-user-btn-pressed ? blue : lightgray;
+                    border-radius: 100px;
+                }
+            }
+        }
+    }
+}
