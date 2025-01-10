@@ -24,12 +24,12 @@ to understand how a React app behaves.
 Slint is much simpler and uses fine-grained reactivity: Components update, but they aren't destroyed and recreated. There is no equivalent of
 `useMemo()` and `useCallback()` as they are unnecessary.
 
-### State 
+### State
 
 React.js refers to properties that update and re-render the component as state. They are opt-in and by
 default are not tracked.
 
-```jsx 
+```jsx
 function Counter() {
   const [count, setCount] = useState(0);
   return <button onClick={() => {

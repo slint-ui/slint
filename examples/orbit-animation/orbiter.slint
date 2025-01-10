@@ -11,7 +11,7 @@ export component Orbiter {
     in property <angle> offset: 45deg;
     in property <length> radius: 220px;
     property <angle> internal-rotation: orbit-rotation + offset;
-    in property <angle> orbit-attack: 180deg;      
+    in property <angle> orbit-attack: 180deg;
     in property <length> ball-size: 60px;
     property <length> zPos: sin(internal-rotation) * radius;
     out property <float> scale: 0.3 + 0.7 * (zPos + radius) / (2 * radius);
@@ -31,10 +31,10 @@ export component Orbiter {
         x: cos(orbit-attack) * cos(internal-rotation) * radius;
         y: sin(orbit-attack) * cos(internal-rotation) * radius;
         img := Image {
-            width: root.ball-size * scale; 
+            width: root.ball-size * scale;
             height: root.ball-size * scale;
             source: @image-url("images/sphere-small.png");
         }
     }
-   
+
 }

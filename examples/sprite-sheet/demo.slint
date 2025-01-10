@@ -31,7 +31,7 @@ export component AppWindow inherits Window {
     if cb.current-value == "Boing Ball":  ball := SpriteSheet {
         property <int> frameTick: animation-tick() / 16ms;
         function updateX(){
-       
+
             if ball.x > root.width - ball.width {
                 travel-direction = TravelDirection.left;
                 ball.x = 0;
@@ -41,7 +41,7 @@ export component AppWindow inherits Window {
                 ball.x = root.width;
             }
         }
-        
+
         source: @image-url("images/sprite.png");
         frames-wide: 5;
         frames-high: 5;

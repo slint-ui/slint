@@ -18,11 +18,11 @@ This section gives you an insight into the thinking behind the language and the 
 
 The Slint language describes your application's User Interface in a declarative way.
 
-A User Interface is quite different from abstract code. It's made up 
+A User Interface is quite different from abstract code. It's made up
 of text, images, colors, animations, and so on. Even though it's a mirage, the buttons and elements do not
 really exist in the physical world, it's meant to look and behave as if it does. Buttons have pressed effects,
 lists can be flicked and behave as if they had real inertia. When being designed they are described in terms
-of UI components, forms, and views. 
+of UI components, forms, and views.
 
 Meanwhile the world of code is a quite different abstraction. It's made up of functions, variables, and so on.
 Even when some aspects of a UI exist such as buttons and menus they also go hand in hand with a lot of code to
@@ -85,11 +85,11 @@ struct ContentView: View {
 }
 ```
 
-These languages take normal code and let it be used in a declarative way. But it's 
+These languages take normal code and let it be used in a declarative way. But it's
 still functions with arguments that act as properties. It is simpler and behavior
 such as parent child relationships can be inferred.
 
-For Slint, instead of tweaking a normal language to be more declarative, we 
+For Slint, instead of tweaking a normal language to be more declarative, we
 created a pure declarative language from the ground up.
 
 
@@ -97,12 +97,12 @@ created a pure declarative language from the ground up.
 
 One attempt to solve the problem of describing a UI in code has been to create a separate static markup language.
 Platforms such as Android and [WPF](https://docs.microsoft.com/en-us/dotnet/desktop/wpf/) have done this. The UI
-is described in an XML-like format. While the rest of the code is written in both a separate language and also 
-separate files. Known as a code behind file. The issue here is that XML, despite claims to the contrary, is not 
+is described in an XML-like format. While the rest of the code is written in both a separate language and also
+separate files. Known as a code behind file. The issue here is that XML, despite claims to the contrary, is not
 human readable or editable. It's also too static and rigid and it can be frustrating to jump between the UI file
 and the separate code behind file to describe the behavior of the UI.
 
-Meanwhile the React web framework has solved this problem by using JSX. HTML, CSS and JavaScript can be mixed 
+Meanwhile the React web framework has solved this problem by using JSX. HTML, CSS and JavaScript can be mixed
 together in a single file. On one hand this is great as it means you can use the same language to describe the UI
 layout and behavior. On the other hand there is no limit to what code you can put in a JSX file. Logic for handling
 network requests, processing data and pretty much anything quickly ends up mixed in with UI code. It leads to the
@@ -125,7 +125,7 @@ Rectangle {
 ```
 
 If you can understand this Slint code — you've already grasped a majority of how simple to use the language is.
-On line 2 we declare a `Button`. On line 3 we set its `text` property to `"Click me!"` and on line 4 
+On line 2 we declare a `Button`. On line 3 we set its `text` property to `"Click me!"` and on line 4
 we set a callback to print out "Button clicked!" to the console via the built in `debug` function.
 
 The Slint compiler will take this code and see that it needs to generate a Rectangle that has a Button as a child.
@@ -136,7 +136,7 @@ With the Slint language you can think much more closely to how a user interface 
 describing the 'how', the how should the details be implemented in traditional code, you "declare" how
 the interface should look and behave. Hence Slint being a 'declarative UI language'.
 
-It's not only simpler for software developers to use, it's also now something designers can potentially edit or 
+It's not only simpler for software developers to use, it's also now something designers can potentially edit or
 more easily contribute to.
 
 Slint isn't the first declarative UI language, but it takes advantage of being able to learn from earlier more

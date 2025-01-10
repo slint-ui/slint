@@ -884,7 +884,7 @@ test("wrong callback return type ", (t) => {
   export struct Person {
     name: string,
     age: int,
-    
+
   }
   export component App {
     callback get-string() -> string;
@@ -938,7 +938,7 @@ test("wrong global callback return type ", (t) => {
             name: string,
             age: int,
         }
-        export global Global {   
+        export global Global {
             callback get-string() -> string;
             callback get-int() -> int;
             callback get-bool() -> bool;

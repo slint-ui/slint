@@ -271,7 +271,7 @@ test("loadFile enum", (t) => {
 
 test("file loader", (t) => {
     const testSource = `export component Test {
-       in-out property <string> text: "Hello World"; 
+       in-out property <string> text: "Hello World";
     }`;
     const demo = loadFile(
         path.join(dirname, "resources/test-fileloader.slint"),

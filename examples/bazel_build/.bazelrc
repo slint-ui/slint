@@ -48,7 +48,7 @@ common:workflows --experimental_remote_cache_compression_threshold=100
 common --incompatible_enable_cc_toolchain_resolution
 common --incompatible_enable_proto_toolchain_resolution
 
-# Don't leak PATH and LD_LIBRARY_PATH into the build. 
+# Don't leak PATH and LD_LIBRARY_PATH into the build.
 build --incompatible_strict_action_env
 
 build --sandbox_default_allow_network=true # re-enabled to allow skia-bindings to download
@@ -93,7 +93,7 @@ build:check --output_groups=build_metadata
 build:clippy --output_groups=+clippy_checks
 
 # Stricter linting on top of the default checks by Clippy
-build:pedantic --config=clippy --@rules_rust//:clippy_flags="-Wclippy::pedantic,-Dclippy::perf,-Dclippy::correctness,-Wclippy::suspicious,-Dclippy::complexity,-Dclippy::style,-Aclippy::missing_errors_doc,-Aclippy::missing_panics_doc,-Aclippy::semicolon_if_nothing_returned" --@rules_rust//:clippy.toml=//:clippy.toml 
+build:pedantic --config=clippy --@rules_rust//:clippy_flags="-Wclippy::pedantic,-Dclippy::perf,-Dclippy::correctness,-Wclippy::suspicious,-Dclippy::complexity,-Dclippy::style,-Aclippy::missing_errors_doc,-Aclippy::missing_panics_doc,-Aclippy::semicolon_if_nothing_returned" --@rules_rust//:clippy.toml=//:clippy.toml
 
 # Historical shortcut used in an old version of the script in `./rust_analyzer`
 build:lint_file --@rules_rust//:error_format=json --config=clippy --compile_one_dependency
@@ -102,12 +102,12 @@ build:lint_file --@rules_rust//:error_format=json --config=clippy --compile_one_
 # Checks #
 ##########
 
-# Combination of checks by Clippy and Rustfmt 
+# Combination of checks by Clippy and Rustfmt
 build:lint --config=rustfmt --config=clippy
 
 #############
 # Debugging #
-#############  
+#############
 
 build:debug -c dbg
 

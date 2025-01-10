@@ -68,7 +68,7 @@
 //! ```sh
 //! cargo install cargo-apk
 //! ```
-//!  
+//!
 //! Build and run your application with the following command:
 //!
 //! ```sh

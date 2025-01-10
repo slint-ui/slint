@@ -13,7 +13,7 @@ component RayThick {
         height: self.source.height * sizeMultiplier;
         source: @image-url("images/line.png");
     }
-    
+
 }
 
 component RayThin {
@@ -28,7 +28,7 @@ component RayThin {
         height: self.source.height * sizeMultiplier;
         source: @image-url("images/line.png");
     }
-    
+
 }
 
 
@@ -56,7 +56,7 @@ component SunIcon {
             colorize: root.color;
             x: (sun-size / 2 + gap) * scale * angle.cos();
             y: (sun-size / 2 + gap) * scale * angle.sin();
-            
+
             rotation: angle;
         }
         for i in rays: RayThin {
@@ -85,7 +85,7 @@ export component DarkModeSwitch {
     sun := SunIcon {
         x: 10px;
     }
-    
+
     frameBacker := Rectangle {
         width: parent.width;
         height: parent.height;
@@ -140,7 +140,7 @@ export component DarkModeSwitch {
                     easing: ease-out-elastic;
                 }
             }
-        
+
         }
         lightMode when root.theme == Theme.light: {
             thumb.x: frame.width - thumb.width - thumb.y;

@@ -6,8 +6,8 @@ These examples demonstrate the main features of Slint and how to use them in dif
 
 
 
-| Thumbnail  | Description | Example | 
-| --- | --- | --- | 
+| Thumbnail  | Description | Example |
+| --- | --- | --- |
 | [Widget Gallery ![Gallery demo image](https://github.com/user-attachments/assets/e37ad016-475a-4c01-8d1b-1326ee7aa733 "Gallery demo image")](./gallery/) |  A simple application showing the different widgets. <br/> [Project...](./gallery) | [Wasm Demo](https://slint.dev/snapshots/master/demos/gallery/) |
 | [Energy Meter![Energy meter demo image](https://github.com/user-attachments/assets/abfe03e3-ded6-4ddc-82b7-8303ee45515c "Energy meter demo image")](./energy-monitor/) |  A fictional user interface of a device that monitors energy consumption in a building. <br/> [Project...](./energy-monitor) | [Wasm Demo](https://slint.dev/snapshots/master/demos/energy-monitor/) |
 | [Todo app![Todo demo image](https://github.com/user-attachments/assets/e534736b-3f64-4631-8b9a-80ccd985e9de "Todo demo image")](./todo/) |  A simple todo application. <br/> [Project...](./todo)<br><br>A simple todo application based on the [Model View Controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) pattern. <br/> [Project...](./todo-mvc) | [Wasm Demo](https://slint.dev/snapshots/master/demos/todo/)<br><br>[Wasm MVC Demo](https://slint.dev/snapshots/master/demos/todo-mvc/)   |
@@ -28,7 +28,7 @@ These examples demonstrate the main features of Slint and how to use them in dif
 #### External examples
 | Thumbnail  | Description |
 | --- | --- |
-| [Cargo UI![Cargo UI image](https://raw.githubusercontent.com/slint-ui/cargo-ui/master/screenshots/deptree.png "Cargo UI image")](https://github.com/slint-ui/cargo-ui) | A rust application that makes use of threads in the background. <br/> [Project...](https://github.com/slint-ui/cargo-ui) | 
+| [Cargo UI![Cargo UI image](https://raw.githubusercontent.com/slint-ui/cargo-ui/master/screenshots/deptree.png "Cargo UI image")](https://github.com/slint-ui/cargo-ui) | A rust application that makes use of threads in the background. <br/> [Project...](https://github.com/slint-ui/cargo-ui) |
 
 
 ---

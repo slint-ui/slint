@@ -50,7 +50,7 @@ Is `true` when the element has keyboard focus.
 ## Functions
 
 ### focus()
-Call this function to transfer keyboard focus to this `FocusScope`, to receive future <Link type="KeyEvent" />s.  
+Call this function to transfer keyboard focus to this `FocusScope`, to receive future <Link type="KeyEvent" />s.
 
 ### clear-focus()
 Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also <Link type="FocusHandling" />.
@@ -58,11 +58,11 @@ Call this function to remove keyboard focus from this `FocusScope` if it current
 ## Callbacks
 
 ### key-pressed(KeyEvent) -> EventResult
-Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult` 
+Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult`
 indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### key-released(KeyEvent) -> EventResult
-Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult` 
+Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult`
 indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### focus-changed-event()

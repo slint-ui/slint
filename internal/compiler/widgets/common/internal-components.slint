@@ -13,7 +13,7 @@ export component StateLayer inherits Rectangle {
             root.background: root.state-brush.with_alpha(0.12);
         }
         hovered when root.enabled && root.has-hover : {
-            root.background: root.state-brush.with_alpha(0.08);   
+            root.background: root.state-brush.with_alpha(0.08);
         }
     ]
 }
@@ -29,19 +29,19 @@ export component FocusTouchArea {
     out property <bool> pressed <=> touch-area.pressed;
     out property <bool> has-hover <=> touch-area.has-hover;
     out property <bool> has-focus <=> focus-scope.has-focus;
-    
+
     callback clicked <=> touch-area.clicked;
 
     forward-focus: focus-scope;
-    
+
     touch-area := TouchArea {
         enabled: root.enabled;
     }
-    
+
     focus-scope := FocusScope {
         width: 0px;
         enabled: root.enabled;
-        
+
         key-pressed(event) => {
             if (event.text == " " || event.text == "\n") {
                 touch-area.clicked();
@@ -71,7 +71,7 @@ export component IconButton {
         height: 100%;
         enabled: root.enabled;
     }
-    
+
     state-layer := StateLayer {
         enabled: root.enabled;
         pressed: touch-area.pressed;
@@ -90,7 +90,7 @@ export component IconButton {
             colorize: root.style.foreground;
         }
     }
-    
+
     states [
         disabled when !root.enabled : {
             root.opacity: 0.38;
@@ -114,7 +114,7 @@ export component SelectionButton {
     in-out property <bool> checked;
 
     callback clicked();
-   
+
     min-width: content-layer.min-width;
     min-height: max(40px, content-layer.min-height);
     accessible-label: root.text;
@@ -123,7 +123,7 @@ export component SelectionButton {
     accessible-checked: root.checked;
     accessible-action-default => { touch-area.clicked(); }
     forward-focus: touch-area;
-    
+
     touch-area := FocusTouchArea {
         width: 100%;
         height: 100%;
@@ -134,7 +134,7 @@ export component SelectionButton {
             root.clicked();
         }
     }
-    
+
     state-layer := StateLayer {
         enabled: root.enabled;
         pressed: touch-area.pressed;

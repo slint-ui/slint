@@ -61,7 +61,7 @@ export component HomePage inherits Page {
         { name: @tr("USB"), id: SubPage.Usb, icon: @image-url("images/usb.svg") },
     ]: ActionButton {
         x: mod(idx, 2) * (DemoPalette.button-width + root.button-spacing);
-        y: floor(idx / 2) * (DemoPalette.button-height + root.button-spacing) 
+        y: floor(idx / 2) * (DemoPalette.button-height + root.button-spacing)
             + /* header row height */ 46px
             + /* top-padding of printer queue */ 27px;
         icon: action.icon;

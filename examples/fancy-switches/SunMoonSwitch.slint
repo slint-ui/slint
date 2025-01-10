@@ -9,8 +9,8 @@ global Utils {
 component SunMoonThumb {
     in property <float> scale: 1;
     in property <length> thumb-position: 50px * scale;
-   
-   
+
+
     Rectangle {
         width: 200px * scale;
         height: 100px * scale;
@@ -83,7 +83,7 @@ export component SunMoonSwitch {
         border-radius: self.height / 2;
     }
 
-    
+
     Rectangle {
         width: parent.width;
         height: parent.height;
@@ -110,8 +110,8 @@ export component SunMoonSwitch {
             source: @image-url("images/stars.png");
         }
     }
-    
-    
+
+
 
     Image {
         x: -1px * scale;
@@ -178,5 +178,5 @@ export component SunMoonSwitch {
                 }
             }
         }
-    ] 
+    ]
 }

@@ -5,7 +5,7 @@
                 "classification": "EndUserPseudonymizedInformation",
                 "purpose": "FeatureInsight",
                 "comment": "The programming languages used in the project"
-            }			
+            }
 		},
         "lsp-panic": {
             "version": {

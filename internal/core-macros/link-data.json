@@ -167,7 +167,7 @@
     "QtBackend": {
         "href": "guide/backends-and-renderers/backend_qt"
     },
-    "Window": { 
+    "Window": {
         "href": "reference/window/window"
     },
     "WinitBackend": {

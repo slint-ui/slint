@@ -9,7 +9,7 @@ on:
         inputs:
             tag:
                 type: string
-                description: tree sitter release tag to use            
+                description: tree sitter release tag to use
             latest:
                 type: boolean
                 description: Use the latest tree-sitter release

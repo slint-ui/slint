@@ -466,7 +466,7 @@ jobs:
               if: github.event.inputs.release == 'true'
               working-directory: www-releases/releases
               run: cat versions.json
-      
+
             - name: Update version in versions.json
               if: github.event.inputs.release == 'true'
               working-directory: www-releases/releases

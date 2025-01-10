@@ -71,7 +71,7 @@ export global DemoPalette  {
         pressed: root.secondary-push-button-base.darker(40%),
         hovered: root.secondary-push-button-base.darker(20%),
     };
-    
+
     out property <length> base-font-size: 16px;
     out property <length> button-width: 130px;
     out property <length> button-height: button-width + 30px;
@@ -92,7 +92,7 @@ export component Page inherits Rectangle {
 
     TouchArea { } // protect underneath controls
 
-    
+
 
     if (root.has-back-button) : Image {
         x:0;
@@ -268,7 +268,7 @@ export component ComboBox inherits Rectangle {
                 // if hashover {
                     return DemoPalette.text-primary;
                 // }
-                
+
             }
 
             for value[idx] in root.choices: Rectangle {

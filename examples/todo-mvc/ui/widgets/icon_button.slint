@@ -15,7 +15,7 @@ export component IconButton {
     forward-focus: touch-area;
     width: self.height;
     height: SizeSettings.control-height;
-    
+
     accessible-role: button;
     accessible-action-default => { touch-area.clicked(); }
 
@@ -27,7 +27,7 @@ export component IconButton {
             root.clicked();
         }
     }
-        
+
     StateLayer {
         width: 100%;
         height: 100%;
@@ -45,6 +45,6 @@ export component IconButton {
             height: SizeSettings.control-icon-height;
             y: (parent.height - self.height) / 2;
             colorize: TodoPalette.foreground;
-        }        
+        }
     }
 }

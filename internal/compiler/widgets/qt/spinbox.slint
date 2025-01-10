@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component SpinBox inherits NativeSpinBox {    
+export component SpinBox inherits NativeSpinBox {
     value: root.minimum;
     accessible-role: spinbox;
     accessible-enabled: root.enabled;
@@ -13,7 +13,7 @@ export component SpinBox inherits NativeSpinBox {
     accessible-action-set-value(v) => { if v.is-float() {update-value(v.to-float());} }
     accessible-action-increment => { root.increment(); }
     accessible-action-decrement => { root.decrement(); }
-    
+
     function increment() {
         root.update-value(root.value + root.step-size);
     }

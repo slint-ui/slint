@@ -9,11 +9,11 @@ export component ListViewPage inherits Page {
     title: @tr("ListView");
     show-enable-switch: false;
     description: @tr("ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\"");
-    
+
     GroupBox {
         vertical-stretch: 0;
         title: @tr("Scroll Bar Policy:");
-        
+
         function policy-from-index(index: int) -> ScrollBarPolicy
         {
             if (index == 1) {

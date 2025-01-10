@@ -13,7 +13,7 @@ Slint is a statically typed language and offers a rich range of primitive types.
 
 ### bool
 <SlintProperty propName="bool" typeName="bool" defaultValue='false'>
-boolean whose value can be either `true` or `false`.  
+boolean whose value can be either `true` or `false`.
 </SlintProperty>
 
 ### string
@@ -48,57 +48,57 @@ export component Example inherits Text {
 
 ### angle
 <SlintProperty propName="angle" typeName="angle" defaultValue='0deg'>
-Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0 25turn`  
+Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0 25turn`
 </SlintProperty>
 
 ### duration
 <SlintProperty propName="duration" typeName="duration" defaultValue='0ms'>
-Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision. 
+Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision.
 </SlintProperty>
 
 ### float
 <SlintProperty propName="float" typeName="float" defaultValue='0'>
-Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`.  
+Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`.
 </SlintProperty>
 
 ### int
 <SlintProperty propName="int" typeName="int" defaultValue='0'>
-Signed integral number.  
+Signed integral number.
 </SlintProperty>
 
 ### length
 <SlintProperty propName="length" typeName="length" defaultValue='0px'>
-The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio.  
+The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio.
 </SlintProperty>
 
 ### percent
 <SlintProperty propName="percent" typeName="percent" defaultValue='0%'>
-Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix.  
+Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix.
 </SlintProperty>
 
-### physical-length 
+### physical-length
 <SlintProperty propName="physical-length" typeName="physical-length" defaultValue='0phx'>
-This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`. Or to convert from a length to a float, one can divide by `1phx`.  
+This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`. Or to convert from a length to a float, one can divide by `1phx`.
 </SlintProperty>
 
 ### relative-font-size
 <SlintProperty propName="relative-font-size" typeName="relative-font-size" defaultValue='0rem'>
-Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`.  
+Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`.
 </SlintProperty>
 
-                                                                                                                                                                               
+
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
 ## Color and Brush Types
 ### brush
 <SlintProperty propName="brush" typeName="brush" defaultValue='transparent'>
-A brush is a special type that can be either initialized from a `color` or a `gradient`. See <Link type="ColorsRef" label="Colors & Brushes" />.  
+A brush is a special type that can be either initialized from a `color` or a `gradient`. See <Link type="ColorsRef" label="Colors & Brushes" />.
 </SlintProperty>
 
 ### color
 <SlintProperty propName="color" typeName="color" defaultValue='transparent'>
-RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as #RRGGBBAA or #RGB. See <Link type="ColorsRef" label="Colors & Brushes" />.  
+RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as #RRGGBBAA or #RGB. See <Link type="ColorsRef" label="Colors & Brushes" />.
 </SlintProperty>
 
 ## Images

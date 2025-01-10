@@ -26,7 +26,7 @@ In our written communication we aim to be:
    - Avoid: "Please install XYZ ..."
    - Use: "Install XYZ"
    - Rational: The user is reading this to get instructions, there's no need to beat around the bush.
-   
+
  3. Write actionable:
    - Avoid: "Element XYZ makes it possible to set the background color."
    - Use: "Use element XYZ to set the background color."

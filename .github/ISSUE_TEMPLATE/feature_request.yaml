@@ -24,8 +24,8 @@ body:
       Be as detailed as possible:
       - What problem does this feature solve, or what use case does it address?
       - How would this feature improve your workflow or product?
-      
-      Feel free to add code sample. You can format it in markdown within ```` ```slint ```` tags.   
+
+      Feel free to add code sample. You can format it in markdown within ```` ```slint ```` tags.
   validations:
     required: true
 

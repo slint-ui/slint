@@ -27,7 +27,7 @@ An `Image` can be used to represent an image loaded from a file. Supported image
 ## Properties
 
 ### colorize
-<SlintProperty propName="colorize" typeName="brush"> 
+<SlintProperty propName="colorize" typeName="brush">
 When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
 <CodeSnippetMD imagePath="/src/assets/generated/image-colorize.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
 ```slint
@@ -123,7 +123,7 @@ Image {
 </CodeSnippetMD>
 
 <CodeSnippetMD imagePath="/src/assets/generated/image-contain.png"  imageWidth="300" imageHeight="200"  imageAlt='image contain example'>
-```slint 
+```slint
 Image {
     width: 250px; height: 40px;
     source: @image-url("mini-banner.png");
@@ -169,7 +169,7 @@ Image {
 <CodeSnippetMD imagePath="/src/assets/generated/image-pixelated.png"  imageWidth="300" imageHeight="300"  imageAlt='image pixelated example'>
 ```slint
 Image {
-    width: 800px; 
+    width: 800px;
     source: @image-url("mini-banner.png");
     image-rendering: pixelated;
 }
@@ -248,12 +248,12 @@ Use the `@image-url("...")` macro to specify the location of the image.
 
 ### source-clip-x
 <SlintProperty propName="source-clip-x" typeName="int"/>
-### source-clip-y  
+### source-clip-y
 <SlintProperty propName="source-clip-y" typeName="int"/>
-### source-clip-width 
+### source-clip-width
 <SlintProperty propName="source-clip-width" typeName="int" defaultValue="source.width - source.clip-x"/>
 ### source-clip-height
 <SlintProperty propName="source-clip-height" typeName="int" defaultValue="source.height - source.clip-y"/>
 
-Properties in source image coordinates that define the region of the source image that is rendered. 
+Properties in source image coordinates that define the region of the source image that is rendered.
 By default the entire source image is visible:

@@ -68,7 +68,7 @@
 #                       ^^^ entity.name.type
 #                            ^^^^^^^^^^^ variable.parameter
 #                                         ^ constant.numeric
-  
+
       callback activate;
 #     ^^^^^^^^ entity.name.function
 #              ^^^^^^^^ entity.name.type
@@ -78,7 +78,7 @@
       height: 72px;
 #     ^^^^^^ variable.parameter
 #             ^^^^ constant.numeric
-  
+
       if true: Rectangle {
 #     ^^ keyword.control
 #        ^^^^ variable.parameter
@@ -99,12 +99,12 @@
           @image-url("images/home.svg"),
 #                    ^^^^^^^^^^^^^^^^^ string.quoted.double
       ]: SideBarIcon { }
-  
+
       states [
 #     ^^^^^^ keyword.other
           expanded when root.expanded : {
               height: layout.min-height;
-  
+
               in {
 #             ^^ keyword.other
                   animate height { duration: 200rem; easing: ease; }
@@ -120,4 +120,4 @@
           }
       ]
   }
-  
+
