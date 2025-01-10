@@ -97,9 +97,11 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
             contents: node.text().to_string(),
         })
     }
+
     ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
         config: ctx.preview_config.borrow().clone(),
     });
+
     if let Some(c) = ctx.to_show.borrow().clone() {
         ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c))
     }
@@ -853,21 +855,21 @@ pub fn convert_diagnostics(
 }
 
 fn send_diagnostics(
-    server_notifier: &crate::ServerNotifier,
+    _server_notifier: &crate::ServerNotifier,
     document_cache: &common::DocumentCache,
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,
 ) {
     let lsp_diags = convert_diagnostics(extra_files, diag);
-    for (uri, diagnostics) in lsp_diags {
-        let version = document_cache.document_version(&uri);
+    for (uri, _diagnostics) in lsp_diags {
+        let _version = document_cache.document_version(&uri);
 
         #[cfg(feature = "preview-engine")]
         let _ = common::lsp_to_editor::notify_lsp_diagnostics(
-            server_notifier,
+            _server_notifier,
             uri,
-            version,
-            diagnostics,
+            _version,
+            _diagnostics,
         );
     }
 }
@@ -1532,14 +1534,14 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         library_paths: cc.library_paths.clone(),
     };
     *ctx.preview_config.borrow_mut() = config.clone();
-    ctx.server_notifier
-        .send_message_to_preview(common::LspToPreviewMessage::SetConfiguration { config });
-
     let mut diag = BuildDiagnostics::default();
-    let all_urls = document_cache.all_urls().collect::<HashSet<_>>();
+    let all_urls = document_cache.all_urls().collect::<Vec<_>>();
     for url in &all_urls {
         document_cache.reload_cached_file(url, &mut diag).await;
     }
+
+    ctx.server_notifier
+        .send_message_to_preview(common::LspToPreviewMessage::SetConfiguration { config });
 
     send_diagnostics(
         &ctx.server_notifier,

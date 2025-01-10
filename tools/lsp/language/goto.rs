@@ -239,7 +239,7 @@ fn test_goto_definition_multi_files() {
         Some(43),
         &mut dc,
     ));
-    let diag = common::convert_diagnostics(&extra_files, diag);
+    let diag = crate::language::convert_diagnostics(&extra_files, diag);
     for (u, ds) in diag {
         assert_eq!(ds, vec![], "errors in {u}");
     }
