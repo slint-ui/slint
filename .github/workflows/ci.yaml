@@ -103,8 +103,6 @@ jobs:
 
     node_test:
         env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-            QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_INCREMENTAL: false
@@ -118,13 +116,6 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Qt
-              if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v4
-              with:
-                  version: "5.15.2"
-                  setup-python: false
-                  cache: true
             - name: Upgrade LLVM for Skia build on Windows
               if: runner.os == 'Windows'
               run: choco upgrade llvm

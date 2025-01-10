@@ -458,7 +458,7 @@ slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_click_count(), 2);
 ```
 
-```disable-because-nodejs-runs-with-qt-and-send-mouse-click-wont-send-to-popup-qwindow
+```js
 var instance = new slint.TestCase({});
 
 assert.equal(instance.click_count, 0);
@@ -508,41 +508,41 @@ assert.equal(instance.click_count, 3);
 
 
 // --------- Close outside click  popup
-instance.set_popup_selector(3);
-instance.set_popup_created(false);
-instance.set_click_count(0);
+instance.popup_selector = 3;
+instance.popup_created = false;
+instance.click_count = 0;
 slintlib.private_api.send_mouse_click(instance, 15., 15.);
-assert.equal(instance.get_click_count(), 1);
-assert.equal(instance.get_popup_created(), true);
-assert.equal(instance.get_popup_clicked(), 2001);
+assert.equal(instance.click_count, 1);
+assert.equal(instance.popup_created, true);
+assert.equal(instance.popup_clicked, 2001);
 
 // click inside
 slintlib.private_api.send_mouse_click(instance, 15., 15.);
-assert.equal(instance.get_popup_clicked(), 2003);
+assert.equal(instance.popup_clicked, 2003);
 
 // Click outside to close
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
-assert.equal(instance.get_click_count(), 1);
+assert.equal(instance.click_count, 1);
 // Subsequent click to verify that it was closed
 slintlib.private_api.send_mouse_click(instance, 15., 15.);
-assert.equal(instance.get_click_count(), 2);
-assert.equal(instance.get_popup_clicked(), 2003);
+assert.equal(instance.click_count, 2);
+assert.equal(instance.popup_clicked, 2003);
 
 
 // --------- Close outside click popup by esc
-instance.set_popup_selector(3);
-instance.set_click_count(0);
+instance.popup_selector = 3;
+instance.click_count = 0;
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
-assert.equal(instance.get_click_count(), 1);
+assert.equal(instance.click_count, 1);
 
 // click inside
 slintlib.private_api.send_mouse_click(instance, 15., 15.);
-assert.equal(instance.get_popup_clicked(), 2005);
+assert.equal(instance.popup_clicked, 2005);
 
 // close by esc
 slintlib.private_api.send_keyboard_string_sequence(instance, "\u{001b}");
 slintlib.private_api.send_mouse_click(instance, 15., 15.);
-assert.equal(instance.get_click_count(), 2);
+assert.equal(instance.click_count, 2);
 ```
 
 */

@@ -27,7 +27,7 @@ runs:
           if: runner.os == 'Linux'
           run: |
               sudo apt-get update
-              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libudev-dev libinput-dev libfontconfig-dev ${{ inputs.extra-packages }}
+              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev ${{ inputs.extra-packages }}
           shell: bash
         - name: Install Linux dependencies
           if: ${{ runner.os == 'Linux' && (inputs.old-ubuntu != 'true')}}
