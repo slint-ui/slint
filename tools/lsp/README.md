@@ -18,7 +18,7 @@ cargo install slint-lsp
 ```
 
 This makes the latest released version available in `$HOME/.cargo/bin`. If you would like to try a development version, you can also point `cargo install` to the git repository:
-for the released version. Or, to install the develoment version:
+for the released version. Or, to install the development version:
 
 ```sh
 cargo install slint-lsp --git https://github.com/slint-ui/slint --force

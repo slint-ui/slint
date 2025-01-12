@@ -227,7 +227,7 @@ fn extract_code_from_text(text: &str, size: Option<(usize, usize)>) -> Result<St
     }
 
     let Some(first_line_end) = without_leading.find('\n') else {
-        return Err("text in CodeSnippetMD tag is one line only, so ot a proper code block".into());
+        return Err("text in CodeSnippetMD tag is one line only, so not a proper code block".into());
     };
 
     let code = &without_leading[first_line_end..];

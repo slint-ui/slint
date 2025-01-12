@@ -70,7 +70,7 @@ export interface Window {
     /** Gets or sets the window's maximized state **/
     maximized: boolean;
 
-    /** Gets or sets teh window's minimized state **/
+    /** Gets or sets the window's minimized state **/
     minimized: boolean;
 
     /**

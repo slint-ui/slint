@@ -12,7 +12,7 @@ The syntax tests are located in [internal/compiler/tests/syntax/](../internal/co
 
 In summary, each .slint files have comments with `^error` like so:
 
-```ingore
+```ignore
 foo bar
 //  ^error{parse error}
 ```
@@ -61,7 +61,7 @@ export component Foo inherits Rectangle {
 
 The rust driver will compile each snippet of code and put it in a `slint!` macro in its own module
 In addition, if there are ```` ```rust ```` blocks in a comment, they are extracted into a `#[test]`
-function in the same module. This is usefull to test the rust api.
+function in the same module. This is useful to test the rust api.
 This is all compiled in a while program, so the `SLINT_TEST_FILTER` environment variable can be
 set while building to only build the test that matches the filter.
 Example: to test all the layout test:

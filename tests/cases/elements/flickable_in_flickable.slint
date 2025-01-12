@@ -93,7 +93,7 @@ slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_inner_x(), 80.);
 assert_eq!(instance.get_outer_y(), 500.);
 
-// Scolling up still work as the outer flickable now intersepcts it, and then the inner one lost
+// Scrolling up still work as the outer flickable now intersepcts it, and then the inner one lost
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(10.0, 190.0) });
 slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_inner_x(), 80.);

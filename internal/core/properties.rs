@@ -1325,7 +1325,7 @@ struct StateInfoBinding<F> {
 
 unsafe impl<F: Fn() -> i32> crate::properties::BindingCallable for StateInfoBinding<F> {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
-        // Safety: We should ony set this binding on a property of type StateInfo
+        // Safety: We should only set this binding on a property of type StateInfo
         let value = &mut *(value as *mut StateInfo);
         let new_state = (self.binding)();
         let timestamp = self.dirty_time.take();

@@ -49,7 +49,7 @@ fn project_data_dir() -> Option<PathBuf> {
                 }
             }
             Err(_e) => {
-                log::warn!("Cannot read ANDROID_DATA, persistence not avaialble.");
+                log::warn!("Cannot read ANDROID_DATA, persistence not available.");
                 return None;
             }
         }

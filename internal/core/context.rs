@@ -56,7 +56,7 @@ impl SlintContext {
     }
 
     /// Return an event proxy
-    // FIXME: Make EvenLoopProxy clonable, and maybe wrap in a struct
+    // FIXME: Make EvenLoopProxy cloneable, and maybe wrap in a struct
     pub fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         self.0.platform.new_event_loop_proxy()
     }

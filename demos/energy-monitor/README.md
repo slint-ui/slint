@@ -18,7 +18,7 @@ You can run the demo on a desktop or embedded Linux environment with the followi
 cargo run -p energy-monitor
 ```
 
-### Microcontrolers (MCU)
+### Microcontrollers (MCU)
 
 Refer to the [MCU backend Readme](../mcu-board-support) for instructions on how to run the demo on smaller devices like the Raspberry Pi Pico.
 

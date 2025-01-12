@@ -126,7 +126,7 @@ This minimal implementation needs to cover two functions:
    that implements this trait.
  * `fn duration_since_start(&self) -> Duration`: For animations in `.slint` design files to change properties correctly, Slint needs to know
    how much time has elapsed between two rendered frames. In a bare metal environment you need to provide a source of time. Often the HAL crate of your
-   device provides a system timer API for this, which you can query in your impementation.
+   device provides a system timer API for this, which you can query in your implementation.
 
 You may override more functions of this trait, for example to handle debug output, to delegate the event loop,
 or to deliver events in multi-threaded environments.

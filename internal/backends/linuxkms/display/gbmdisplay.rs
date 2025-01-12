@@ -51,7 +51,7 @@ impl GbmDisplay {
         let mut config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
         // Some drivers (like mali) report BAD_MATCH when trying to create a window surface for an xrgb backed
-        // gbm surface with an EGL config that has an alpha size of 8. Disable alpha explicitly to accomodate.
+        // gbm surface with an EGL config that has an alpha size of 8. Disable alpha explicitly to accommodate.
         if matches!(self.surface_format, drm::buffer::DrmFourcc::Xrgb8888) {
             config_template_builder =
                 config_template_builder.with_transparency(false).with_alpha_size(0);

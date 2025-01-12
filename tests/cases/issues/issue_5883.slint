@@ -47,10 +47,10 @@ export component TestCases inherits Window {
         }
         search-field.text = "";
         root.current-searched-protocols = root.current-displayed-protocols;
-        protcol-list.viewport-y = 0px;
+        protocol-list.viewport-y = 0px;
     }
 
-    protcol-list := ListView {}
+    protocol-list := ListView {}
     search-field := LineEdit { }
 
     in-out property <string> current-selected-protocol-type;

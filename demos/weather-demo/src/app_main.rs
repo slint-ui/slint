@@ -36,7 +36,7 @@ impl AppHandler {
         }
 
         let data_controller = match data_controller_opt {
-            Some(data_contoller_some) => data_contoller_some,
+            Some(data_controller_some) => data_controller_some,
             None => {
                 log::info!("Weather API key not provided. Using dummy data.");
                 Box::new(DummyWeatherController::new())

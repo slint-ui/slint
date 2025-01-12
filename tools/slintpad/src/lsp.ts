@@ -29,7 +29,7 @@ export { ResourceUrlMapperFunction };
 
 export type ShowDocumentCallback = (
     _uri: string,
-    _posiiton: LspPosition,
+    _position: LspPosition,
 ) => boolean;
 
 function createLanguageClient(

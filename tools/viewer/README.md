@@ -66,7 +66,7 @@ It is possible to make the `open-url` callback to execute a command by doing
 slint-viewer --on open-url 'xdg-open $1' myfile.slint
 ```
 
-Be carefull to use single quote or to escape the `$` so that the shell don't expand the `$1`
+Be careful to use single quote or to escape the `$` so that the shell don't expand the `$1`
 
 
 ## Dialogs

@@ -112,7 +112,7 @@ assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
 assert_eq!(instance.get_result(), "");
 
 
-// Without TouhArea
+// Without TouchArea
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0 + 100.0, 100.0) });
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(200.0 + 100.0, 100.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(200);
@@ -182,7 +182,7 @@ assert_eq!(instance.get_swiping_sgh_wo_ta(), false);
 assert_eq!(instance.get_swiping_sgh_disabled_ta(), false);
 assert_eq!(instance.get_result(), "");
 
-// Do ther click, now.
+// Do the click, now.
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(200);

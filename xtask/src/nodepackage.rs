@@ -106,7 +106,7 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
         features_table.remove("testing");
     }
 
-    // Remove all `path = ` entries from dependencies and subsitute workspace = true
+    // Remove all `path = ` entries from dependencies and substitute workspace = true
     for dep_key in ["dependencies", "build-dependencies"].iter() {
         let dep_table = match toml[dep_key].as_table_mut() {
             Some(table) => table,

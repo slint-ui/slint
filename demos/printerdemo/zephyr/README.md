@@ -70,7 +70,7 @@ Before you can run this example, make sure you have done the following:
 
 ## Build and Run the Example in the Simulator
 
-Once you have the prerequisites, navigate to this directory and execute the following comands:
+Once you have the prerequisites, navigate to this directory and execute the following commands:
 
 ```bash
 # Build

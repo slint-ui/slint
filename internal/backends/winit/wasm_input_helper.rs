@@ -243,7 +243,7 @@ impl WasmInputHelper {
         h
     }
 
-    /// Returns wether the fake input element has focus
+    /// Returns whether the fake input element has focus
     pub fn has_focus(&self) -> bool {
         self.input.matches(":focus").unwrap_or(false)
     }

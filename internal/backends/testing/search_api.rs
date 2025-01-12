@@ -673,7 +673,7 @@ impl ElementHandle {
     }
 
     /// Returns the opacity that is applied when rendering this element. This is the product of
-    /// the opacity property multipled with any opacity specified by parent elements. Returns zero
+    /// the opacity property multiplied with any opacity specified by parent elements. Returns zero
     /// if the element is not valid.
     pub fn computed_opacity(&self) -> f32 {
         self.item

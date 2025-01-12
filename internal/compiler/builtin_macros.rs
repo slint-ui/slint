@@ -101,7 +101,7 @@ fn clamp_macro(
 ) -> Expression {
     if args.len() != 3 {
         diag.push_error(
-            "`clamp` needs three values: the `value` to clamp, the `minimun` and the `maximum`"
+            "`clamp` needs three values: the `value` to clamp, the `minimum` and the `maximum`"
                 .into(),
             &node,
         );

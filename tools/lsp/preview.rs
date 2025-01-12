@@ -1385,7 +1385,7 @@ async fn reload_preview_impl(
     Ok(())
 }
 
-/// Sends a notification back to the editor when the preview fails to load because of a slint::PlatormError.
+/// Sends a notification back to the editor when the preview fails to load because of a slint::PlatformError.
 fn send_platform_error_notification(platform_error_str: &str) {
     let message = format!("Error displaying the Slint preview window: {platform_error_str}");
     // Also output the message in the console in case the user missed the notification in the editor

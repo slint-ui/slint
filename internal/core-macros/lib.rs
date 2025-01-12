@@ -197,7 +197,7 @@ pub fn slint_doc(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote!(#item).into()
 }
 
-/// Same as `slint_doc` but for string literals instead of doc coments (useful for crate level documentation that cannot have an attribute)
+/// Same as `slint_doc` but for string literals instead of doc comments (useful for crate level documentation that cannot have an attribute)
 #[proc_macro]
 pub fn slint_doc_str(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::LitStr);

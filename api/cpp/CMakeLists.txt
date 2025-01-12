@@ -85,7 +85,7 @@ define_renderer_winit_compat_option(skia-opengl)
 define_renderer_winit_compat_option(skia-vulkan)
 define_renderer_winit_compat_option(software)
 
-define_cargo_dependent_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(interpreter "Enable support for the Slint interpreter to load .slint files at run-time" ON "NOT SLINT_FEATURE_FREESTANDING")
 
 define_cargo_dependent_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF "NOT SLINT_FEATURE_FREESTANDING")
@@ -149,7 +149,7 @@ if (SLINT_BUILD_RUNTIME)
     if (APPLE AND SLINT_IS_TOPLEVEL_BUILD AND BUILD_SHARED_LIBS)
         # corrosion could provide the Cargo.toml package version as a CMake target property.
         corrosion_add_target_local_rustflags(slint_cpp -Clink-arg=-Wl,-install_name,@rpath/libslint_cpp.dylib,-current_version,${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR},-compatibility_version,${PROJECT_VERSION_MAJOR}.0)
-        # Set this one to false again explicitely because Corrosion will starting setting this property to true by default.
+        # Set this one to false again explicitly because Corrosion will starting setting this property to true by default.
         set_target_properties(slint_cpp-shared PROPERTIES IMPORTED_NO_SONAME 0)
         set_target_properties(slint_cpp-shared PROPERTIES IMPORTED_SONAME libslint_cpp.dylib)
     endif()

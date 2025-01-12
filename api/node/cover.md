@@ -170,7 +170,7 @@ export component Demo inherits Window {
 
 This file declares the user interface.
 
-4. Clear the conent of`index.ts` and add the following code:
+4. Clear the content of `index.ts` and add the following code:
 
 ```ts
 import * as slint from "slint-ui";
@@ -357,7 +357,7 @@ component.person = new ui.Person({ name: "Tim", age: 30 });
 
 ### enums
 
-A value of an exported enum can be set as string or by usign the value from the exported enum.
+A value of an exported enum can be set as string or by using the value from the exported enum.
 
 **`my-component.slint`**
 

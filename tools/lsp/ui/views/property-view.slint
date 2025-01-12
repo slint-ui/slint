@@ -201,7 +201,7 @@ component SecondaryContent inherits Rectangle {
     clip: true;
     height: open ? content.preferred-height : 0px;
 
-    animate height { duration: EditorAnimationSettings.roation-duration; }
+    animate height { duration: EditorAnimationSettings.rotation-duration; }
 
     content := HorizontalLayout {
         Rectangle {
@@ -692,7 +692,7 @@ component ExpandableGroup {
                             }
                         ]
 
-                        animate rotation-angle { duration: EditorAnimationSettings.roation-duration; }
+                        animate rotation-angle { duration: EditorAnimationSettings.rotation-duration; }
                     }
 
                     BodyStrongText {

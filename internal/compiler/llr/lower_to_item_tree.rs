@@ -853,7 +853,7 @@ fn lower_global_expressions(
     state: &mut LoweringState,
     lowered: &mut GlobalComponent,
 ) {
-    // Note that this mapping doesn't contain anything usefull, everything is in the state
+    // Note that this mapping doesn't contain anything useful, everything is in the state
     let mapping = LoweredSubComponentMapping::default();
     let ctx = ExpressionContext { mapping: &mapping, state, parent: None, component: global };
 

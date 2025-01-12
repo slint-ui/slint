@@ -428,7 +428,7 @@ fn declaration_validity_range(
     i_slint_compiler::parser::TextRange::new(start, document_node.text_range().end())
 }
 
-/// Rename the `DeclaredIdentifier` in a struct/component declartation
+/// Rename the `DeclaredIdentifier` in a struct/component declaration
 pub fn rename_identifier_from_declaration(
     document_cache: &common::DocumentCache,
     identifier: &syntax_nodes::DeclaredIdentifier,

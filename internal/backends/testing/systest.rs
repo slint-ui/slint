@@ -635,19 +635,19 @@ fn convert_window_event(
 
 #[test]
 fn test_accessibility_role_mapping_complete() {
-    macro_rules! test_accessiblity_enum_mapping_inner {
+    macro_rules! test_accessibility_enum_mapping_inner {
         (AccessibleRole, $($Value:ident,)*) => {
             $(assert!(convert_to_proto_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
         };
         ($_:ident, $($Value:ident,)*) => {};
     }
 
-    macro_rules! test_accessiblity_enum_mapping {
+    macro_rules! test_accessibility_enum_mapping {
         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $(
-                test_accessiblity_enum_mapping_inner!($Name, $($Value,)*);
+                test_accessibility_enum_mapping_inner!($Name, $($Value,)*);
             )*
         };
     }
-    i_slint_common::for_each_enums!(test_accessiblity_enum_mapping);
+    i_slint_common::for_each_enums!(test_accessibility_enum_mapping);
 }
