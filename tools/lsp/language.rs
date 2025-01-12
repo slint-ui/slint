@@ -634,7 +634,7 @@ pub async fn populate_command(
         )
         .map_err(|_| LspError {
             code: LspErrorCode::InvalidParameter,
-            message: "First paramater is not a OptionalVersionedTextDocumentIdentifier".into(),
+            message: "First parameter is not a OptionalVersionedTextDocumentIdentifier".into(),
         })?;
     let new_text = serde_json::from_value::<String>(
         params

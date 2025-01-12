@@ -417,7 +417,7 @@ fn with_insert_text(
     c
 }
 
-/// This is different than the properies in resolve_element_scope, because it also include the "out" properties
+/// This is different than the properties in resolve_element_scope, because it also include the "out" properties
 fn properties_for_changed_callbacks(
     mut node: SyntaxNode,
     document_cache: &mut DocumentCache,

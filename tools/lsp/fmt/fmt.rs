@@ -1279,7 +1279,7 @@ fn format_member_access(
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
     let n = syntax_nodes::MemberAccess::from(node.clone());
-    // Special case fo things like `42 .mod(x)` where a space is needed otherwise it lexes differently
+    // Special case of things like `42 .mod(x)` where a space is needed otherwise it lexes differently
     let need_space = n.Expression().child_token(SyntaxKind::NumberLiteral).is_some_and(|nl| {
         !nl.text().contains('.') && nl.text().chars().last().is_some_and(|c| c.is_numeric())
     });

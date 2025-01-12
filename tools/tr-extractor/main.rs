@@ -71,7 +71,7 @@ fn main() -> std::io::Result<()> {
             content_transfer_encoding: "8bit".into(),
             language: String::new(),
             plural_rules: Default::default(),
-            // "Report-Msgid-Bugs-To: {address}" addess = output_details.bugs_address
+            // "Report-Msgid-Bugs-To: {address}" address = output_details.bugs_address
         };
 
         Messages::new(metadata)

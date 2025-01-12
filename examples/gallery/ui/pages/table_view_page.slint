@@ -20,7 +20,7 @@ export global TableViewPageAdapter  {
 
 export component TableViewPage inherits Page {
     property <int> sort-index: -1;
-    property <bool> sort-acending;
+    property <bool> sort-ascending;
 
     title: @tr("TableView");
     show-enable-switch: false;
@@ -39,12 +39,12 @@ export component TableViewPage inherits Page {
                 StandardTableView {
                     sort-ascending(index) => {
                         root.sort-index = index;
-                        root.sort-acending = true;
+                        root.sort-ascending = true;
                     }
 
                     sort-descending(index) => {
                         root.sort-index = index;
-                        root.sort-acending = false;
+                        root.sort-ascending = false;
                     }
 
                     columns: [
@@ -53,7 +53,7 @@ export component TableViewPage inherits Page {
                         { title: @tr("Header 3") },
                         { title: @tr("Header 4") },
                     ];
-                    rows: TableViewPageAdapter.filter_sort_model(TableViewPageAdapter.row_data, filter-edit.text, root.sort-index, root.sort-acending);
+                    rows: TableViewPageAdapter.filter_sort_model(TableViewPageAdapter.row_data, filter-edit.text, root.sort-index, root.sort-ascending);
                 }
 
                 VerticalLayout {

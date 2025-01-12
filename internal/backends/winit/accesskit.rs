@@ -27,7 +27,7 @@ use winit::event_loop::EventLoopProxy;
 /// The entire item tree is mapped to accesskit's node tree. Any changes to an individual accessible item results
 /// in an access kit tree update with just changed nodes. Any changes in the tree structure result in a complete
 /// tree rebuild. This could be implemented more efficiently, but that isn't essential; AccessKit will avoid firing
-/// gratuitious events for full-tree updates as long as the node IDs are stable.
+/// gratuitous events for full-tree updates as long as the node IDs are stable.
 ///
 /// For unix it's necessary to inform accesskit about any changes to the position or size of the window, hence
 /// the `on_event` function that needs calling.

@@ -170,11 +170,11 @@ exists under the `language` server section:
 
 Follow step 1. of the Vim section to get support for `.slint` files.
 
-The easist way to use the language server itself in Neovim is via the `neovim/nvim-lspconfig`
+The easiest way to use the language server itself in Neovim is via the `neovim/nvim-lspconfig`
 and `williamboman/nvim-lsp-installer` plugins. Once these are installed
 you can run `:LspInstall slint_lsp` to install the lsp binary (on Windows, Linux, and macOS).
 
-Once the slint_lsp language server is installed and running, you can triggger the live preview
+Once the slint_lsp language server is installed and running, you can trigger the live preview
 via the code actions. Unfortunately there are several ways to trigger these, so please check your
 configuration.
 

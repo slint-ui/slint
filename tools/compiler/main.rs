@@ -118,7 +118,7 @@ fn main() -> std::io::Result<()> {
                 config.header_include = args.output.to_string_lossy().to_string();
             }
             _ => {
-                eprintln!("C++ files option was set but the output format is not C++ - ignorning");
+                eprintln!("C++ files option was set but the output format is not C++ - ignoring");
             }
         }
     }

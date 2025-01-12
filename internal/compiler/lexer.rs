@@ -430,7 +430,7 @@ fn test_locate_rust_macro() {
 /// within the program.
 ///
 /// Note that the slint compiler considers Start-of-Text and End-of-Text as whitespace and will treat them
-/// accodingly.
+/// accordingly.
 pub fn extract_rust_macro(rust_source: String) -> Option<String> {
     let core::ops::Range { start, end } = locate_slint_macro(&rust_source).next()?;
     let mut bytes = rust_source.into_bytes();

@@ -2172,7 +2172,7 @@ extern "C" fn supported_accessibility_actions(
         .accessibility_props
         .0
         .keys()
-        .filter_map(|x| x.strip_prefix("acessible-action-"))
+        .filter_map(|x| x.strip_prefix("accessible-action-"))
         .fold(SupportedAccessibilityAction::default(), |acc, value| {
             SupportedAccessibilityAction::from_name(&i_slint_compiler::generator::to_pascal_case(
                 value,

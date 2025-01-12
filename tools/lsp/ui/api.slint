@@ -14,7 +14,7 @@ export struct ComponentItem {
 
 /// A `category` with a lost of `ComponentItem`s that belong into it.
 ///
-/// Fiel url is either an empty string or a URL to some document
+/// File url is either an empty string or a URL to some document
 export struct ComponentListItem {
     category: string,
     file_url: string,
@@ -397,7 +397,7 @@ export global Api {
 
     // ## Component life-cycle:
 
-    // Create a new componnet
+    // Create a new component
     callback add-new-component();
 
     // Add an existing component
@@ -426,7 +426,7 @@ export global Api {
 
     // ## Change Editor:
 
-    // Show a conponent in the editor
+    // Show a component in the editor
     callback show-component(name: string, url: string);
     // Show a position consisting of `line` and `column` in a `file` in the editor
     callback show-document(file: string, line: int, column: int);
@@ -443,7 +443,7 @@ export global Api {
     pure callback test-string-binding(element-url: string, element-version: int, element-offset: int, property-name: string, value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> bool;
     callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string);
     callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
-    callback set-string-binding(element-url: string, element-version: int, element-offset: int, property-name: string, value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_exprression: string);
+    callback set-string-binding(element-url: string, element-version: int, element-offset: int, property-name: string, value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string);
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;

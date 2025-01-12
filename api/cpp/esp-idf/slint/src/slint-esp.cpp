@@ -226,7 +226,7 @@ void EspPlatform::run_event_loop()
                         for (auto [o, s] : region.rectangles()) {
                             for (int y = o.y; y < o.y + s.height; y++) {
                                 for (int x = o.x; x < o.x + s.width; x++) {
-                                    // Swap endianess to big endian
+                                    // Swap endianness to big endian
                                     auto px = reinterpret_cast<uint16_t *>(
                                             &buffer1.value()[y * size.width + x]);
                                     *px = (*px << 8) | (*px >> 8);
@@ -271,7 +271,7 @@ void EspPlatform::run_event_loop()
                                                                        line_end - line_start };
                         render_fn(view);
                         if (color_swap_16) {
-                            // Swap endianess to big endian
+                            // Swap endianness to big endian
                             std::for_each(view.begin(), view.end(), [](auto &rgbpix) {
                                 auto px = reinterpret_cast<uint16_t *>(&rgbpix);
                                 *px = (*px << 8) | (*px >> 8);

@@ -12,7 +12,7 @@ use num_traits::Float;
 enum AnimationState {
     Delaying,
     Animating { current_iteration: u64 },
-    Done { interation_count: u64 },
+    Done { iteration_count: u64 },
 }
 
 pub(super) struct PropertyValueAnimationData<T> {
@@ -68,7 +68,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             }
             AnimationState::Animating { mut current_iteration } => {
                 if self.details.duration <= 0 || self.details.iteration_count == 0. {
-                    self.state = AnimationState::Done { interation_count: 0 };
+                    self.state = AnimationState::Done { iteration_count: 0 };
                     return self.compute_interpolated_value();
                 }
 
@@ -101,12 +101,12 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                     (val, false)
                 } else {
                     self.state =
-                        AnimationState::Done { interation_count: current_iteration.max(1) - 1 };
+                        AnimationState::Done { iteration_count: current_iteration.max(1) - 1 };
                     self.compute_interpolated_value()
                 }
             }
-            AnimationState::Done { interation_count } => {
-                if reversed(interation_count) {
+            AnimationState::Done { iteration_count } => {
+                if reversed(iteration_count) {
                     (self.from_value.clone(), true)
                 } else {
                     (self.to_value.clone(), true)
@@ -526,7 +526,7 @@ mod animation_tests {
     }
 
     #[test]
-    fn properties_test_delayed_animation_fractual_interation_triggered_by_set() {
+    fn properties_test_delayed_animation_fractual_iteration_triggered_by_set() {
         let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {

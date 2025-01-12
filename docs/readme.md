@@ -4,7 +4,7 @@
 
 ```
 docs/
-├── astro/          # The Astro project that builds the Slint langauge docs
+├── astro/          # The Astro project that builds the Slint language docs
 ├── README.md       # This file
 ├── building.md     # How to build Slint
 ├── development.md  # How to develop Slint

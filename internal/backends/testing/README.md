@@ -45,7 +45,7 @@ code does not require an event loop. Note that system time is also mocked in thi
 
 ## Preliminary User Interface Testing API
 
-We're developing APIs to faciliate the creation of automated tests for Slint based UIs. A building block
+We're developing APIs to facilitate the creation of automated tests for Slint based UIs. A building block
 is the ability to introspect and modify the state from within what would be a regular application process.
 
 A regular application might have a `main()` entry-point like so:
@@ -62,10 +62,10 @@ fn main() -> Result<(), slint::PlatformError>
 ```
 
 In addition, it may be desirable to create an integration test that verifies how the application behaves when simulating user input.
-The objective of the user interface testing API provided in this crate is to faciliate locating, mutation, and verifying state of
+The objective of the user interface testing API provided in this crate is to facilitate locating, mutation, and verifying state of
 elements in your UI. [`ElementHandle`] provides a view for these elements.
 
-The example below assumes that somehwere in the UI you have declared a `Button` with the text "Submit" and you may want to verify
+The example below assumes that somewhere in the UI you have declared a `Button` with the text "Submit" and you may want to verify
 how the application behaves when simulation the activation. This is done by locating and triggering it via its accessibility interface,
 that every `Button` implements.
 

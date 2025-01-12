@@ -169,7 +169,7 @@ All notable changes to this project are documented in this file.
    to the size of the Flickable instead of that of the viewport (#4163)
  - Path: Fix compiler panic when accessing path.commands in expressions (#5564)
  - The `mod` function was changed to always return a positive value (#6178)
- - Added `AccesssibleRole.list-item` and used it where relevant
+ - Added `AccessibleRole.list-item` and used it where relevant
  - Added `PointerEventButton.back` and `PointerEventButton.forward` (#6043)
 
 ### Widgets
@@ -246,7 +246,7 @@ All notable changes to this project are documented in this file.
 
  - `debug()` is now consistently routed through Platform's `debug_log`, meaning it uses stderr by default instead of stdout previously with C++ and Rust code generator. (#5718)
  - Comparison between float is now using less precision so to float compare equal if they are approximately the same.
- - Conversion from float to a `int` property now always truncates (instead of rounding with the interpreter, or being inconsistant with the code generators)
+ - Conversion from float to a `int` property now always truncates (instead of rounding with the interpreter, or being inconsistent with the code generators)
 
 ### Widgets
 
@@ -303,8 +303,8 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Several compiler bugfixes. (#5260, #5246, #5220, #5259, #5249, #5430)
- - Android: fix cursor handle being visible despite inut loses focus. (#5233)
- - Android: fix keyboard poping up when application moved to foreground without input focus. (#5235)
+ - Android: fix cursor handle being visible despite input loses focus. (#5233)
+ - Android: fix keyboard popping up when application moved to foreground without input focus. (#5235)
  - Gettext translation: clear internal gettext cache when changing translations at runtime.
  - Winit backend: Fixed setting the size with set_size before showing the window. (#6489)
  - Winit backend: upgraded to winit 0.30, accesskit 0.16, glutin.
@@ -517,7 +517,7 @@ All notable changes to this project are documented in this file.
  - C++: Permit passing a value to VectorModel::set_vector by value (#4491)
  - slint-viewer: re-render after reloading when using software renderer.
  - Fixed panic in the software renderer when using the Qt style.
- - Rust: fix slint-build's formater when source contains `\"` in a string. (#4520)
+ - Rust: fix slint-build's formatter when source contains `\"` in a string. (#4520)
 
 ## [1.4.0] - 2024-01-31
 
@@ -531,7 +531,7 @@ All notable changes to this project are documented in this file.
  - Fixed TextInput on Plasma/Wayland receiving many empty events causing selection to be cleared (#4148)
  - Added API to programmatically show a window in fullscreen mode (C++/Rust: `Window::set_fullscreen(bool)`, Node.js: `window.fullscreen`).
  - Added API to keep the event loop alive when the last window is closed (#1499). (Rust: `slint::run_event_loop_until_quit()`; C++: argument to `slint::run_event_loop()`; Node: argument to `runEventLoop`).
- - Fixed linear gradiant rendering in non square rectangles (#3730).
+ - Fixed linear gradient rendering in non square rectangles (#3730).
  - LinuxKMS backend: Added support rendering output rotation via the `SLINT_KMS_ROTATION` environment variable.
  - LinuxKMS backend: Added support for `backend-linuxkms-noseat` feature to compile without libseat.
  - LinuxKMS backend: Added support for software rendering with Skia.
@@ -618,7 +618,7 @@ All notable changes to this project are documented in this file.
 
 ### Slint Language
 
- - Added `clamp` function that takes a `value`, `minimum` and `maxium` and will return
+ - Added `clamp` function that takes a `value`, `minimum` and `maximum` and will return
    `maximum` if `value > maximum`, `minimum` if `value < minimum` or `value` otherwise.
  - Throw Slint error when returning no value when one is expected instead of generating invalid code. (#3962)
  - Fixed compiler panic when a component is called `Window`. (#3916)
@@ -968,7 +968,7 @@ All notable changes to this project are documented in this file.
 
  - The old syntax that declares component with `:=` is now deprecated
  - `Flickable`: don't forward events if the flickable is dragged in a direction that can be dragged, even if at the bounds.
- - The `TextEdit` and `LineEdit` elements now correctly handle double click and tripple click to select words or lines,
+ - The `TextEdit` and `LineEdit` elements now correctly handle double click and triple click to select words or lines,
    as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste).
 
 ### Rust

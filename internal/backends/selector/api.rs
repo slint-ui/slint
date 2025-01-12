@@ -9,7 +9,7 @@ use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
 
 #[i_slint_core_macros::slint_doc]
 /// Use the BackendSelector to configure one of Slint's built-in [backends with a renderer](slint:backends_and_renderers)
-/// to accomodate specific needs of your application. This is a programmatic substitute for
+/// to accommodate specific needs of your application. This is a programmatic substitute for
 /// the `SLINT_BACKEND` environment variable.
 ///
 /// For example, to configure Slint to use a renderer that supports OpenGL ES 3.0, configure

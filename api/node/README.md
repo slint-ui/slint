@@ -312,7 +312,7 @@ component.person = new ui.Person({ name: "Tim", age: 30 });
 
 ### enums
 
-A value of an exported enum can be set as string or by usign the value from the exported enum.
+A value of an exported enum can be set as string or by using the value from the exported enum.
 
 **`my-component.slint`**
 

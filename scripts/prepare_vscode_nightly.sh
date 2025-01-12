@@ -4,7 +4,7 @@
 
 cd `dirname $0`/../editors/vscode
 
-# The version number is a shortend time stamp of the last commit
+# The version number is a shortened time stamp of the last commit
 nightly_version=`git log -1 --format=%cd --date="format:%Y.%-m.%-d%H"`
 last_commit=`git log -1 --format=%H`
 

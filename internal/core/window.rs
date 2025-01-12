@@ -1011,7 +1011,7 @@ impl WindowInner {
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
-    /// Return wether the platform supports native menu bars
+    /// Return whether the platform supports native menu bars
     pub fn supports_native_menu_bar(&self) -> bool {
         self.window_adapter()
             .internal(crate::InternalToken)
@@ -1678,7 +1678,7 @@ pub mod ffi {
         window_adapter.window().set_size(crate::api::LogicalSize::new(size.width, size.height));
     }
 
-    /// Return wether the style is using a dark theme
+    /// Return whether the style is using a dark theme
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_color_scheme(
         handle: *const WindowAdapterRcOpaque,
@@ -1689,7 +1689,7 @@ pub mod ffi {
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
-    /// Return wether the platform supports native menu bars
+    /// Return whether the platform supports native menu bars
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_supports_native_menu_bar(
         handle: *const WindowAdapterRcOpaque,
