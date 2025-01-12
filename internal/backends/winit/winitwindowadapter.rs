@@ -13,8 +13,6 @@ use std::rc::Weak;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
-use winit::platform::windows::WindowAttributesExtWindows;
-#[cfg(target_family = "windows")]
 use winit::platform::windows::WindowExtWindows;
 
 use crate::renderer::WinitCompatibleRenderer;
