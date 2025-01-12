@@ -387,7 +387,8 @@ jobs:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/setup-rust
             - name: Check
-              run: cargo check -p mcu_embassy --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
+              working-directory: examples/mcu-embassy
+              run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
 
     mcu_esp:
         env:
