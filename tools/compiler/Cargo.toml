@@ -29,3 +29,6 @@ clap = { workspace = true }
 proc-macro2 = "1.0.11"
 spin_on = { workspace = true }
 itertools = { workspace = true }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = { workspace = true }

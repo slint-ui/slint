@@ -7,6 +7,13 @@ use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::{BufWriter, Write};
 
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Embedding {
     /// Embed resources using absolute paths on the build system (alias: false)
