@@ -11,7 +11,6 @@ mod semantic_tokens;
 mod signature_help;
 #[cfg(test)]
 pub mod test;
-pub mod token_info;
 
 use crate::common;
 use crate::util;

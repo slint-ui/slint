@@ -18,6 +18,7 @@ pub mod rename_component;
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
 pub mod text_edit;
+pub mod token_info;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
