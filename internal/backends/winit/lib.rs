@@ -79,6 +79,8 @@ mod renderer {
 mod accesskit;
 #[cfg(muda)]
 mod muda;
+#[cfg(not(use_winit_theme))]
+mod xdg_color_scheme;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;

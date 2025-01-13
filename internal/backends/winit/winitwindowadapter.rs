@@ -653,32 +653,10 @@ impl WinitWindowAdapter {
         window_inner
             .context()
             .spawn_local(async move {
-                let Ok(settings) = ashpd::desktop::settings::Settings::new().await else { return };
-
-                let Ok(initial_color_scheme_value) = settings.color_scheme().await else { return };
-
-                let convert = |ashpd_color_scheme| match ashpd_color_scheme {
-                    ashpd::desktop::settings::ColorScheme::NoPreference => ColorScheme::Unknown,
-                    ashpd::desktop::settings::ColorScheme::PreferDark => ColorScheme::Dark,
-                    ashpd::desktop::settings::ColorScheme::PreferLight => ColorScheme::Light,
-                };
-
-                if let Some(window) = self_weak.upgrade() {
-                    window.set_color_scheme(convert(initial_color_scheme_value));
-                }
-
-                let Ok(mut color_scheme_stream) = settings.receive_color_scheme_changed().await
-                else {
-                    return;
-                };
-
-                loop {
-                    use futures::stream::StreamExt;
-
-                    let Some(new_scheme) = color_scheme_stream.next().await else { break };
-                    if let Some(window) = self_weak.upgrade() {
-                        window.set_color_scheme(convert(new_scheme));
-                    }
+                if let Err(err) =
+                    crate::xdg_color_scheme::watch(self_weak).await
+                {
+                    i_slint_core::debug_log!("Error watching for xdg color schemes: {}", err);
                 }
             })
             .ok()
