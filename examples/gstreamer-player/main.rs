@@ -6,6 +6,7 @@ slint::include_modules!();
 use anyhow::{bail, Result};
 
 use gst::prelude::*;
+use gst_video::video_frame::VideoFrameExt;
 
 fn try_gstreamer_video_frame_to_pixel_buffer(
     frame: &gst_video::VideoFrame<gst_video::video_frame::Readable>,
