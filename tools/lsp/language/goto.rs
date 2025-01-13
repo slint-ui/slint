@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common;
-use crate::language::token_info::{token_info, TokenInfo};
+use crate::common::{
+    self,
+    token_info::{token_info, TokenInfo},
+};
 use crate::util;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
