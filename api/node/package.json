@@ -27,9 +27,8 @@
     "ava": "6.2.0",
     "capture-console": "1.0.2",
     "jimp": "1.6.0",
-    "ts-node": "10.9.2",
     "typedoc": "0.27",
-    "typescript": "5.2.2"
+    "typescript": "5.7.3"
   },
   "engines": {
     "node": ">= 10"
@@ -48,19 +47,19 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
-    "test": "ava"
+    "test": "tsc --build __test__/tsconfig.json && ava"
   },
   "ava": {
-    "extensions": {
-      "mts": "module"
+    "typescript": {
+      "rewritePaths": {
+        "__test__/": "build/"
+      },
+      "compile": false,
+      "extensions": [
+        "mts"
+      ]
     },
-    "nodeArguments": [
-      "--loader=ts-node/esm"
-    ],
     "timeout": "2m",
-    "environmentVariables": {
-      "TS_NODE_PROJECT": "./__test__/tsconfig.json"
-    },
     "workerThreads": false
   },
   "dependencies": {
