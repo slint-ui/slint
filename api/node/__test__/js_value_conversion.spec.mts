@@ -790,7 +790,9 @@ test("model from array", (t) => {
     t.not(instance, null);
 
     instance!.setProperty("int-array", [10, 9, 8]);
-    const wrapped_int_model = instance!.getProperty("int-array");
+    const wrapped_int_model = instance!.getProperty(
+        "int-array",
+    ) as Model<number>;
     t.deepEqual(Array.from(wrapped_int_model), [10, 9, 8]);
     t.deepEqual(wrapped_int_model.rowCount(), 3);
     t.deepEqual(wrapped_int_model.rowData(0), 10);
@@ -805,7 +807,9 @@ test("model from array", (t) => {
         "Tobias",
         "Florian",
     ]);
-    const wrapped_string_model = instance!.getProperty("string-array");
+    const wrapped_string_model = instance!.getProperty(
+        "string-array",
+    ) as Model<string>;
     t.deepEqual(wrapped_string_model.rowCount(), 5);
     t.deepEqual(wrapped_string_model.rowData(0), "Simon");
     t.deepEqual(wrapped_string_model.rowData(1), "Olivier");
