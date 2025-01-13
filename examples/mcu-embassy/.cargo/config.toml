@@ -1,3 +1,6 @@
+# Copyright © 2025 David Haig
+# SPDX-License-Identifier: MIT
+
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 rustflags = [
     "-C",
