@@ -480,6 +480,7 @@ impl ElementType {
                         .borrow()
                         .property_declarations
                         .iter()
+                        .filter(|(_, d)| d.visibility != PropertyVisibility::Private)
                         .map(|(k, d)| (k.clone(), d.property_type.clone())),
                 );
                 r
