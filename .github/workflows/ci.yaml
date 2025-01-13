@@ -386,6 +386,8 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/setup-rust
+              with:
+                  target: thumbv8m.main-none-eabihf            
             - name: Check
               working-directory: examples/mcu-embassy
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
