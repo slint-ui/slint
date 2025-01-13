@@ -4,7 +4,7 @@
         "ignore": ["rust-module.d.cts", "rust-module.cjs", "dist/", "docs/"]
     },
     "linter": {
-        "ignore": ["rust-module.d.cts", "rust-module.cjs", "dist/", "docs/"],
+        "ignore": ["dist/", "docs/"],
         "rules": {
             "complexity": {
                 "useArrowFunction": "off",
