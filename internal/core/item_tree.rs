@@ -330,8 +330,13 @@ impl ItemRc {
     /// false for `Clip` elements with the `clip` property evaluating to true.
     pub fn is_visible(&self) -> bool {
         let (clip, geometry) = self.absolute_clip_rect_and_geometry();
-        let intersection = geometry.intersection(&clip).unwrap_or_default();
-        !intersection.is_empty() || (geometry.is_empty() && clip.contains(geometry.center()))
+        let clip = clip.to_box2d();
+        let geometry = geometry.to_box2d();
+        !clip.is_empty()
+            && clip.max.x >= geometry.min.x
+            && clip.max.y >= geometry.min.y
+            && clip.min.x <= geometry.max.x
+            && clip.min.y <= geometry.max.y
     }
 
     /// Returns the clip rect that applies to this item (in window coordinates) as well as the

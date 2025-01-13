@@ -1251,7 +1251,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let inner = self.0.inner.borrow();
         inner
             .instances
-            .get(index - inner.offset)
+            .get(index.checked_sub(inner.offset)?)
             .map(|c| c.1.clone().expect("That was updated before!"))
     }
 
