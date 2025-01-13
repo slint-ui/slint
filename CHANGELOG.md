@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## 1.9.2 - Unreleased
+## 1.9.2 - 2025-01-13
 
 ### General
 
@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
  - Fixed `Flickable` not scrolling when starting slow (#7152).
  - LinuxKMS backend: Fix support for triple-buffering with DRM outputs.
  - Fixed panic with FemtoVG and Skia renderers for certain drop shadows.
+ - Fixed closing PopupWindow when the click opens another PopupWindow (#7322)
+ - Fixed popup.close() not working in the interpreter (#7318)
 
 ### Slint Language
 
