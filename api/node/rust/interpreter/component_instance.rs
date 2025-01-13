@@ -281,7 +281,7 @@ impl JsComponentInstance {
         &self,
         env: Env,
         callback_name: String,
-        arguments: Vec<JsUnknown>,
+        callback_arguments: Vec<JsUnknown>,
     ) -> Result<JsUnknown> {
         let ty = self
             .inner
@@ -297,7 +297,7 @@ impl JsComponentInstance {
 
         let args = match ty {
             Type::Callback(function) | Type::Function(function) => {
-                Self::invoke_args(env, &callback_name, arguments, &function.args)?
+                Self::invoke_args(env, &callback_name, callback_arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
@@ -319,7 +319,7 @@ impl JsComponentInstance {
         env: Env,
         global_name: String,
         callback_name: String,
-        arguments: Vec<JsUnknown>,
+        callback_arguments: Vec<JsUnknown>,
     ) -> Result<JsUnknown> {
         let ty = self
             .inner
@@ -340,7 +340,7 @@ impl JsComponentInstance {
 
         let args = match ty {
             Type::Callback(function) | Type::Function(function) => {
-                Self::invoke_args(env, &callback_name, arguments, &function.args)?
+                Self::invoke_args(env, &callback_name, callback_arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
