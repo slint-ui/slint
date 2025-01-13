@@ -746,7 +746,18 @@ impl WindowInner {
             && event.text.starts_with(key_codes::Escape)
         {
             // Closes top most popup on esc key pressed when policy is not no-auto-close
-            let close_on_escape = if let Some(popup) = self.active_popups.borrow().last() {
+
+            // Try to get the parent window in case `self` is the popup itself
+            let mut adapter = self.window_adapter();
+            let item_tree = self.component();
+            let mut a = None;
+            ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut a);
+            if let Some(a) = a {
+                adapter = a;
+            }
+            let window = WindowInner::from_pub(adapter.window());
+
+            let close_on_escape = if let Some(popup) = window.active_popups.borrow().last() {
                 popup.close_policy == PopupClosePolicy::CloseOnClick
                     || popup.close_policy == PopupClosePolicy::CloseOnClickOutside
             } else {
@@ -754,7 +765,7 @@ impl WindowInner {
             };
 
             if close_on_escape {
-                self.close_top_popup();
+                window.close_top_popup();
             }
         }
         crate::properties::ChangeTracker::run_change_handlers();
