@@ -102,8 +102,8 @@
 
 .site-title {
     font-size: 1.3rem;
-    text-transform: uppercase;
     color: #fff;
+    margin-top: -4px;
 }
 
 span {
