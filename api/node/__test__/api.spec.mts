@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import { loadFile, loadSource, CompileError } from "../dist/index.js";
 
-const dirname = path.dirname(fileURLToPath(import.meta.url));
+const dirname = path.dirname(
+    fileURLToPath(import.meta.url).replace("build", "__test__"),
+);
 
 // loadFile api
 test("loadFile", (t) => {

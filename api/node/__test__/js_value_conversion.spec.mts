@@ -14,7 +14,7 @@ import {
     type Model,
 } from "../dist/index.js";
 
-const filename = fileURLToPath(import.meta.url);
+const filename = fileURLToPath(import.meta.url).replace("build", "__test__");
 const dirname = path.dirname(filename);
 
 test("get/set string properties", (t) => {
