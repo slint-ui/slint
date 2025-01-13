@@ -1928,7 +1928,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn draw_text(
         &mut self,
         text: Pin<&dyn crate::item_rendering::RenderText>,
-        _: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
@@ -1941,7 +1941,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             return;
         }
 
-        let font_request = text.font_request(self.window);
+        let font_request = text.font_request(self_rc);
 
         let color = self.alpha_color(text.color().color());
         let max_size = (geom.size.cast() * self.scale_factor).cast();
@@ -2003,7 +2003,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn draw_text_input(
         &mut self,
         text_input: Pin<&crate::items::TextInput>,
-        _: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let geom = LogicalRect::from(size);
@@ -2011,7 +2011,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             return;
         }
 
-        let font_request = text_input.font_request(&self.window.window_adapter());
+        let font_request = text_input.font_request(self_rc);
         let max_size = (geom.size.cast() * self.scale_factor).cast();
 
         // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
