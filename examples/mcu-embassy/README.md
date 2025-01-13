@@ -1,3 +1,5 @@
+<!-- Copyright © 2025 David Haig ; SPDX-License-Identifier: MIT -->
+
 # Embassy Slint stm32u5g9j-dk2 Demo
 
 An embedded async Slint GUI demo using Embassy and an stm32u5g9j-dk2 development kit. This demo was written to run on a resource constrained device, not a PC or laptop. 
