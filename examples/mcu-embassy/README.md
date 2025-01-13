@@ -2,7 +2,7 @@
 
 # Embassy Slint stm32u5g9j-dk2 Demo
 
-An embedded async Slint GUI demo using Embassy and an stm32u5g9j-dk2 development kit. This demo was written to run on a resource constrained device, not a PC or laptop. 
+An embedded async Slint GUI demo using Embassy and an stm32u5g9j-dk2 development kit. This demo was written to run on a resource constrained device, not a PC or laptop.
 The simulator can run on a PC if you do not have the dev kit on hand but it is not meant to be a reference design for an async GUI implementation on a PC.
 
 The stm32u5g9j-dk2 was chosen because of its availability and price point and has enough onboard ram (3MB) and flash (4MB) to run Slint without external psram and flash, reducing setup complexity.
@@ -24,7 +24,7 @@ Install the cross compilation target for the mcu:
  rustup target add thumbv8m.main-none-eabihf
 ```
 
-You need software to be able to flash the firmware to the dev kit. 
+You need software to be able to flash the firmware to the dev kit.
 
 ```bash
 cargo install --force --locked probe-rs-tools
@@ -53,7 +53,7 @@ target = "thumbv8m.main-none-eabihf"
 If using vscode then make sure `rust-analyzer.cargo.features` is set to `mcu` in `.vscode/settings.json`
 
 You may be wondering why you get the following message in the logs: `invalid location: defmt frame-index`
-In the Slint workspace `Cargo.toml` file overrides the `Cargo.toml` file in this crate so make sure the release profile is as follows in that workspace file: 
+In the Slint workspace `Cargo.toml` file overrides the `Cargo.toml` file in this crate so make sure the release profile is as follows in that workspace file:
 ```toml
 [profile.release]
 debug = true    # required for decent panic messages and log line locations
@@ -75,7 +75,7 @@ To run the simulator on a pc:
 cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-unknown-linux-gnu
 # for windows
 cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-pc-windows-msvc
-# for mac 
+# for mac
 cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-apple-darwin
 ```
 
