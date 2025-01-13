@@ -1187,7 +1187,7 @@ mod tests {
         }
         "#;
         let in_expr2 = r#"
-        component Bar { in property <string> super_property-1; }
+        component Bar { in property <string> super_property-1; property <string> nope; }
         component Foo {
             property <int> nope;
             Bar {
@@ -1377,26 +1377,28 @@ mod tests {
 
     #[test]
     fn changed_completion() {
-        let source1 = " component Foo { TextInput { property<int> xyz; changed 🔺 => {} } } ";
-        let source2 = " component Foo { TextInput { property<int> xyz; changed 🔺 } } ";
-        let source3 = " component Foo { TextInput { property<int> xyz; changed t🔺 } } ";
-        let source4 = " component Foo { TextInput { property<int> xyz; changed t🔺 => {} } } ";
-        let source5 =
-            " component Foo { TextInput { property<int> xyz; changed 🔺 \n enabled: true; } } ";
-        let source6 =
-            " component Foo { TextInput { property<int> xyz; changed t🔺 \n enabled: true; } } ";
-        for s in [source1, source2, source3, source4, source5, source6] {
+        let source1 = "{ property<int> xyz; changed 🔺 => {} }  ";
+        let source2 = "{ property<int> xyz; changed 🔺 }  ";
+        let source3 = "{ property<int> xyz; changed t🔺 }  ";
+        let source4 = "{ property<int> xyz; changed t🔺 => {} }  ";
+        let source5 = "{ property<int> xyz; changed 🔺 \n enabled: true; }  ";
+        let source6 = "{ property<int> xyz; changed t🔺 \n enabled: true; }  ";
+        let source7 = "{ changed t🔺 => {} property<int> xyz; ";
+        for s in [source1, source2, source3, source4, source5, source6, source7] {
             eprintln!("changed_completion: {s:?}");
-            let res = get_completions(s).unwrap();
+            let s = format!("component Bar inherits TextInput {{ property <int> nope; out property <int> from_bar; }} component Foo {{ Bar {s} }}");
+            let res = get_completions(&s).unwrap();
             res.iter().find(|ci| ci.label == "text").unwrap();
             res.iter().find(|ci| ci.label == "has-focus").unwrap();
             res.iter().find(|ci| ci.label == "width").unwrap();
             res.iter().find(|ci| ci.label == "y").unwrap();
             res.iter().find(|ci| ci.label == "xyz").unwrap();
+            res.iter().find(|ci| ci.label == "from_bar").unwrap();
 
             assert!(res.iter().find(|ci| ci.label == "Text").is_none());
             assert!(res.iter().find(|ci| ci.label == "edited").is_none());
             assert!(res.iter().find(|ci| ci.label == "focus").is_none());
+            assert!(res.iter().find(|ci| ci.label == "nope").is_none());
         }
     }
 
