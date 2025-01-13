@@ -1,10 +1,10 @@
 {
     "extends": ["../../biome.json"],
     "formatter": {
-        "ignore": ["rust-module.d.ts", "rust-module.cjs", "dist/", "docs/"]
+        "ignore": ["rust-module.d.cts", "rust-module.cjs", "dist/", "docs/"]
     },
     "linter": {
-        "ignore": ["rust-module.d.ts", "rust-module.cjs", "dist/", "docs/"],
+        "ignore": ["rust-module.d.cts", "rust-module.cjs", "dist/", "docs/"],
         "rules": {
             "complexity": {
                 "useArrowFunction": "off",
