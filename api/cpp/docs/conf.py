@@ -23,7 +23,7 @@ import json
 # -- Project information -----------------------------------------------------
 
 # The full version, including alpha/beta/rc tags
-version = "1.9.2"
+version = "1.10.0"
 
 project = f'Slint {version} C++ API'
 copyright = "SixtyFPS GmbH"
