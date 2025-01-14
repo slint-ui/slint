@@ -235,7 +235,7 @@ impl TestingClient {
                 buffer.as_bytes(),
                 buffer.width(),
                 buffer.height(),
-                image::ColorType::Rgba8,
+                image::ColorType::Rgba8.into(),
             )
             .map_err(|encode_err| {
                 format!("error encoding png image after screenshot: {encode_err}")

@@ -36,6 +36,7 @@ software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue", "softw
 software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]
+image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "shared-fontdb"]
 
 box-shadow-cache = []
@@ -107,7 +108,7 @@ web-sys = { workspace = true, features = [ "HtmlImageElement" ] }
 fontdb = { workspace = true, optional = true, default-features = true }
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-10"] }
 i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }

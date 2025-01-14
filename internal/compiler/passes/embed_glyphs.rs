@@ -521,7 +521,7 @@ fn generate_sdf_for_glyph(
 
     // Set up the resulting image and generate the distance field:
 
-    let mut sdf = image_fdsm::GrayImage::new(width, height);
+    let mut sdf = image::GrayImage::new(width, height);
     fdsm::generate::generate_sdf(&prepared_shape, range, &mut sdf);
     fdsm::render::correct_sign_sdf(
         &mut sdf,

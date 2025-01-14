@@ -142,7 +142,7 @@ euclid = { version = "0.22.1", default-features = false }
 fontdb = { version = "0.22.0", default-features = false }
 fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
-image = { version = "0.24", default-features = false, features = [ "png", "jpeg" ] }
+image = { version = "0.25", default-features = false, features = [ "png", "jpeg" ] }
 itertools = { version = "0.14" }
 log = { version = "0.4.17" }
 resvg = { version= "0.44.0", default-features = false, features = ["text"] }

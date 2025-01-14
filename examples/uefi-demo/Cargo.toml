@@ -18,7 +18,7 @@ uefi = { version = "0.33", features = ["panic_handler", "global_allocator"] }
 minipng = "=0.1.1"
 
 slint = { path = "../../api/rs/slint", default-features = false, features = [
-    "compat-1-2",
+    "compat-1-10",
     "renderer-software",
     "libm",
     "log",

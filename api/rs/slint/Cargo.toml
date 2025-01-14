@@ -25,16 +25,18 @@ default = [
   "backend-default",
   "renderer-femtovg",
   "renderer-software",
+  "image-default-formats",
   "accessibility",
-  "compat-1-2",
+  "compat-1-10",
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.2
+## This feature is required to keep the compatibility with Slint 1.10
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
-"compat-1-2" = []
+"compat-1-10" = []
+"compat-1-2" = ["compat-1-10", "image-default-formats"]
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
@@ -83,6 +85,12 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
 ## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
 raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
+
+## Enable the default image formats from the `image` crate, to support additional image formats in [`Image::load_from_path`]
+## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
+## the following image formats are supported:
+## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
+image-default-formats = ["i-slint-core/image-default-formats"]
 
 #! ### Backends
 
