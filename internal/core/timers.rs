@@ -716,6 +716,9 @@ assert_eq!(state.borrow().timer_200_called, 7015);
 assert_eq!(state.borrow().timer_once_called, 3);
 assert_eq!(state.borrow().timer_500_called, 3006);
 
+state.borrow().timer_200.stop();
+state.borrow().timer_500.stop();
+
 state.borrow_mut().timer_once.restart();
 for _ in 0..4 {
     i_slint_core::tests::slint_mock_elapsed_time(100);
@@ -726,6 +729,12 @@ for _ in 0..4 {
 }
 assert_eq!(state.borrow().timer_once_called, 4);
 
+state.borrow_mut().timer_once.stop();
+i_slint_core::tests::slint_mock_elapsed_time(1000);
+
+assert_eq!(state.borrow().timer_200_called, 7015);
+assert_eq!(state.borrow().timer_once_called, 4);
+assert_eq!(state.borrow().timer_500_called, 3006);
 ```
  */
 #[cfg(doctest)]
@@ -1138,6 +1147,9 @@ assert!(!later_timer.running());
 i_slint_core::tests::slint_mock_elapsed_time(800);
 assert_eq!(later_timer_expiration_count.get(), 0);
 assert!(!later_timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(800);
+i_slint_core::tests::slint_mock_elapsed_time(800);
+assert_eq!(later_timer_expiration_count.get(), 0);
 ```
  */
 #[cfg(doctest)]
