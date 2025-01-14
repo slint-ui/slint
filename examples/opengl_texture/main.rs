@@ -103,7 +103,7 @@ impl DemoTexture {
             0,
             glow::RGBA as _,
             glow::UNSIGNED_BYTE as _,
-            None,
+            glow::PixelUnpackData::Slice(None),
         );
 
         let _saved_fbo_binding = ScopedFrameBufferBinding::new(gl, Some(fbo));

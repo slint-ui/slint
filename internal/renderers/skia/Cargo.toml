@@ -43,7 +43,7 @@ scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 
 skia-safe = { version = "0.78.0", features = ["textlayout", "gl"] }
-glow = { version = "0.13" }
+glow = { version = "0.16" }
 unicode-segmentation = { workspace = true }
 
 ash = { version = "^0.37.2", optional = true }
