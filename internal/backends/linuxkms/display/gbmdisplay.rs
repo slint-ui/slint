@@ -95,12 +95,10 @@ impl super::Presenter for GbmDisplay {
             .add_planar_framebuffer(&front_buffer, flags)
             .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
-        front_buffer
-            .set_userdata(OwnedFramebufferHandle {
-                handle: fb,
-                device: self.drm_output.drm_device.clone(),
-            })
-            .map_err(|e| format!("Error setting userdata on gbm surface front buffer: {e}"))?;
+        front_buffer.set_userdata(OwnedFramebufferHandle {
+            handle: fb,
+            device: self.drm_output.drm_device.clone(),
+        });
 
         self.drm_output.present(front_buffer, fb)
     }
