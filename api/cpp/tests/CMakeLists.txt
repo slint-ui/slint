@@ -27,8 +27,8 @@ macro(slint_test NAME)
         target_compile_options(test_${NAME} PRIVATE -Wall -Wextra -Werror)
     endif()
 
-    if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
-        # that warning has false positives
+    if(CMAKE_CXX_COMPILER_ID STREQUAL GNU AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14)
+        # that warning has false positives in GCC 11  https://github.com/slint-ui/slint/issues/7358
         target_compile_options(test_${NAME} PRIVATE -Wno-maybe-uninitialized)
     endif()
 endmacro(slint_test)
