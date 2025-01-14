@@ -36,7 +36,7 @@ unicode-script = { version = "0.5.4" } # Use the same version was femtovg's rust
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
-glow = { version = "0.16" }
+glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
