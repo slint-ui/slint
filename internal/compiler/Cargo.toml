@@ -52,7 +52,6 @@ lyon_path = { version = "1.0" }
 lyon_extra = "1.0.1"
 by_address = { workspace = true }
 itertools = { workspace = true }
-once_cell = "1"
 url = "2.2.1"
 linked_hash_set = "0.1.4"
 

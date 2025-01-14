@@ -195,9 +195,9 @@ impl Default for GlobalEventLoopProxyOrEventQueue {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) static GLOBAL_PROXY: once_cell::sync::OnceCell<
+pub(crate) static GLOBAL_PROXY: std::sync::OnceLock<
     std::sync::Mutex<GlobalEventLoopProxyOrEventQueue>,
-> = once_cell::sync::OnceCell::new();
+> = std::sync::OnceLock::new();
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {

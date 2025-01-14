@@ -9,10 +9,9 @@ use super::PreviewState;
 use crate::common::{PreviewToLspMessage, SourceFileVersion};
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
-use once_cell::sync::Lazy;
 use slint_interpreter::ComponentHandle;
 use std::future::Future;
-use std::sync::{Condvar, Mutex};
+use std::sync::{Condvar, LazyLock, Mutex};
 
 #[derive(PartialEq, Debug)]
 enum RequestedGuiEventLoopState {
@@ -29,9 +28,9 @@ enum RequestedGuiEventLoopState {
     InitializationError(String),
 }
 
-static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(Condvar::new);
-static GUI_EVENT_LOOP_STATE_REQUEST: Lazy<Mutex<RequestedGuiEventLoopState>> =
-    Lazy::new(|| Mutex::new(RequestedGuiEventLoopState::Uninitialized));
+static GUI_EVENT_LOOP_NOTIFIER: LazyLock<Condvar> = LazyLock::new(Condvar::new);
+static GUI_EVENT_LOOP_STATE_REQUEST: LazyLock<Mutex<RequestedGuiEventLoopState>> =
+    LazyLock::new(|| Mutex::new(RequestedGuiEventLoopState::Uninitialized));
 
 thread_local! {static CLI_ARGS: std::cell::OnceCell<crate::Cli> = Default::default();}
 
