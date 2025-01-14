@@ -39,7 +39,7 @@ crate = use_extension(
     "crate",
 )
 
-crate.spec(package = "slint", git = "https://github.com/slint-ui/slint", branch = "master", default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-2"])
+crate.spec(package = "slint", git = "https://github.com/slint-ui/slint", branch = "master", default_features = False, features = ["std","backend-winit", "renderer-skia-opengl", "compat-1-10"])
 crate.spec(package = "slint-build", git = "https://github.com/slint-ui/slint", branch = "master")
 
 crate.annotation(

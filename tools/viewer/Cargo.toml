@@ -53,7 +53,7 @@ default = ["backend-default", "renderer-femtovg", "renderer-software"]
 [dependencies]
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
-slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility"] }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-10", "internal", "accessibility", "image-default-formats"] }
 i-slint-backend-selector = { workspace = true }
 
 clap = { workspace = true }
@@ -66,9 +66,6 @@ spin_on = { workspace = true }
 env_logger = "0.11.0"
 itertools = { workspace = true }
 smol_str = { workspace = true }
-
-# Enable image-rs' default features to make all image formats available for preview
-image = { workspace = true, features = ["default"] }
 
 [[bin]]
 name = "slint-viewer"

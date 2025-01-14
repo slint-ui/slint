@@ -44,7 +44,7 @@ gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
 
-std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
+std = ["i-slint-core/default", "i-slint-core/image-default-formats", "i-slint-backend-selector"]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
 experimental = []
 
@@ -55,10 +55,8 @@ i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["ffi"] }
 i-slint-renderer-skia = {  workspace = true, features = ["default", "x11", "wayland"], optional = true }
 i-slint-core = { workspace = true, features = ["ffi"] }
-slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
+slint-interpreter = { workspace = true, features = ["ffi", "compat-1-10"], optional = true }
 raw-window-handle = { version = "0.6", optional = true }
-# Enable image-rs' default features to make all image formats to C++ users
-image = { workspace = true, optional = true, features = ["default"] }
 
 esp-backtrace = { version = "0.14.0", features = ["panic-handler", "println"], optional = true }
 esp-println = { version = "0.12.0", default-features = false, features = ["uart"], optional = true }
