@@ -115,7 +115,7 @@ wasm-bindgen-futures = "0.4.30"
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 i-slint-backend-winit = { workspace = true, optional = true }
-muda = { version = "0.14.1", optional = true }
+muda = { version = "0.15.3", optional = true }
 objc2-foundation = { version = "0.2.2", optional = true }
 
 [dev-dependencies]
