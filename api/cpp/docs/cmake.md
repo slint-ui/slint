@@ -49,7 +49,7 @@ In the next section you will learn how to use the installed library in your appl
 First you need to install the prerequisites:
 
 * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.77 or newer. You can check which version you have installed
+  have Rust installed, make sure that it's at least version 1.82 or newer. You can check which version you have installed
   by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
 
 You can either choose to compile Slint from source along with your application or include Slint as an external CMake package.

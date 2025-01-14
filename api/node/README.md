@@ -33,7 +33,7 @@ You need to install the following components:
 
   * **[Node.js](https://nodejs.org/download/release/)** (v16. or newer)
   * **[pnpm](https://www.pnpm.io/)**
-  * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.77 or newer)
+  * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.82 or newer)
 
 You will also need a few more dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
 

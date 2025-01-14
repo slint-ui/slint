@@ -105,7 +105,7 @@ homepage = "https://slint.dev"
 keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 repository = "https://github.com/slint-ui/slint"
-rust-version = "1.77"
+rust-version = "1.82"
 version = "1.10.0"
 
 [workspace.dependencies]

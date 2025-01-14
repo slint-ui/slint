@@ -3,6 +3,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 1.10.0 - Unreleased
+
+### General
+
+ - Minimum Supported Rust Version (MSRV) is 1.82.
+
 ## 1.9.2 - 2025-01-13
 
 ### General
