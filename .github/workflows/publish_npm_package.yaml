@@ -27,8 +27,6 @@ jobs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
             - uses: actions/checkout@v4
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/setup-rust
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v4
               with:
