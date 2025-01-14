@@ -37,7 +37,7 @@ use std::rc::{Rc, Weak};
 
 use crate::key_generated;
 use i_slint_core::renderer::Renderer;
-use once_cell::unsync::OnceCell;
+use std::cell::OnceCell;
 
 cpp! {{
     #include <QtWidgets/QtWidgets>

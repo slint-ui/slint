@@ -35,7 +35,7 @@ use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core::{self as corelib, graphics::RequestedGraphicsAPI};
-use once_cell::unsync::OnceCell;
+use std::cell::OnceCell;
 #[cfg(any(enable_accesskit, muda))]
 use winit::event_loop::EventLoopProxy;
 use winit::window::{WindowAttributes, WindowButtons};
@@ -305,7 +305,7 @@ impl WinitWindowAdapter {
         #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Result<Rc<Self>, PlatformError> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
-            window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
+            window: OnceCell::from(corelib::api::Window::new(self_weak.clone() as _)),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
             color_scheme: Default::default(),

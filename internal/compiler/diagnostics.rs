@@ -71,7 +71,7 @@ pub struct SourceFileInner {
     source: Option<String>,
 
     /// The offset of each linebreak
-    line_offsets: once_cell::unsync::OnceCell<Vec<usize>>,
+    line_offsets: std::cell::OnceCell<Vec<usize>>,
 }
 
 impl std::fmt::Debug for SourceFileInner {
