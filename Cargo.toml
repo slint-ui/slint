@@ -131,6 +131,7 @@ vtable = { version = "0.2", path = "helper_crates/vtable", default-features = fa
 
 by_address = { version = "1.0.4" }
 bytemuck = { version = "1.13.1" }
+# Not updated because of https://github.com/mozilla/cbindgen/issues/993
 cbindgen = { version = "0.26", default-features = false }
 cfg_aliases = { version = "0.2.0" }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
@@ -142,10 +143,10 @@ fontdb = { version = "0.22.0", default-features = false }
 fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.24", default-features = false, features = [ "png", "jpeg" ] }
-itertools = { version = "0.13" }
+itertools = { version = "0.14" }
 log = { version = "0.4.17" }
 resvg = { version= "0.44.0", default-features = false, features = ["text"] }
-rowan = { version = "0.15" }
+rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
@@ -155,7 +156,6 @@ spin_on = { version = "0.1" }
 strum = { version = "0.26.1", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.22.7" }
 ttf-parser = { version = "0.25" }
-# web-sys needs to be >= 0.3.72 for set_fill_style_str
 web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
 rayon = { version = "1.10.0", default-features = false }

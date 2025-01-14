@@ -130,7 +130,7 @@ fn get_key_press() -> Option<char> {
 }
 
 fn wait_for_input(max_timeout: Option<Duration>) {
-    use uefi::table::boot::*;
+    use uefi::boot::*;
 
     let watchdog_timeout = Duration::from_secs(120);
     let timeout = watchdog_timeout.min(max_timeout.unwrap_or(watchdog_timeout));
@@ -244,7 +244,7 @@ impl slint::platform::Platform for Platform {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        use uefi::{proto::console::gop::*, table::boot::*};
+        use uefi::{proto::console::gop::*, boot::*};
 
         let gop_handle = uefi::boot::get_handle_for_protocol::<GraphicsOutput>().unwrap();
 
@@ -429,7 +429,7 @@ fn main() -> Status {
     ui.set_uefi_version(uefi::system::uefi_revision().to_string().into());
 
     let mut buf = [0u8; 1];
-    let guid = uefi::table::runtime::VariableVendor::GLOBAL_VARIABLE;
+    let guid = uefi::runtime::VariableVendor::GLOBAL_VARIABLE;
     let sb = uefi::runtime::get_variable(cstr16!("SecureBoot"), &guid, &mut buf);
     ui.set_secure_boot(if sb.is_ok() { buf[0] == 1 } else { false });
 
