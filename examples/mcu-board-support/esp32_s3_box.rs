@@ -5,7 +5,6 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
 use core::mem::MaybeUninit;
-use display_interface_spi::SPIInterface;
 use embedded_graphics_core::geometry::OriginDimensions;
 use embedded_hal::digital::OutputPin;
 use esp_alloc as _;
@@ -91,8 +90,8 @@ impl slint::platform::Platform for EspBackend {
         let rst = Output::new(peripherals.GPIO48, Level::Low);
 
         let spi = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(spi, cs).unwrap();
-
-        let di = SPIInterface::new(spi, dc);
+        let mut buffer = [0u8; 512];
+        let di = mipidsi::interface::SpiInterface::new(spi, dc, &mut buffer);
         let display = mipidsi::Builder::new(mipidsi::models::ILI9342CRgb565, di)
             .reset_pin(rst)
             .orientation(Orientation::new().rotate(mipidsi::options::Rotation::Deg180))
@@ -187,7 +186,7 @@ struct DrawBuffer<'a, Display> {
 }
 
 impl<
-        DI: display_interface::WriteOnlyDataCommand,
+        DI: mipidsi::interface::Interface<Word = u8>,
         RST: OutputPin<Error = core::convert::Infallible>,
     > slint::platform::software_renderer::LineBufferProvider
     for &mut DrawBuffer<'_, Display<DI, mipidsi::models::ILI9342CRgb565, RST>>

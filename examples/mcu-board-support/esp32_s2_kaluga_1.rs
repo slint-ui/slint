@@ -4,7 +4,6 @@
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::{cell::RefCell, convert::Infallible, mem::MaybeUninit};
-use display_interface_spi::SPIInterface;
 use embedded_hal::digital::OutputPin;
 use esp_alloc as _;
 pub use esp_hal::entry;
@@ -80,7 +79,7 @@ impl slint::platform::Platform for EspBackend {
         let mosi = peripherals.GPIO9;
         let cs = Output::new(peripherals.GPIO11, Level::Low);
         let rst = Output::new(peripherals.GPIO16, Level::Low);
-        let dc = peripherals.GPIO13;
+        let dc = Output::new(peripherals.GPIO13, Level::Low);
         let sck = peripherals.GPIO15;
         let miso = peripherals.GPIO8;
 
@@ -92,7 +91,8 @@ impl slint::platform::Platform for EspBackend {
         .with_mosi(mosi)
         .with_miso(miso);
         let spi = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(spi, cs).unwrap();
-        let di = SPIInterface::new(spi, Output::new(dc, Level::Low));
+        let mut buffer = [0u8; 512];
+        let di = mipidsi::interface::SpiInterface::new(spi, dc, &mut buffer);
         let display = mipidsi::Builder::new(mipidsi::models::ST7789, di)
             .reset_pin(rst)
             .orientation(
@@ -129,7 +129,7 @@ struct DrawBuffer<'a, Display> {
     buffer: &'a mut [slint::platform::software_renderer::Rgb565Pixel],
 }
 
-impl<DI: display_interface::WriteOnlyDataCommand, RST: OutputPin<Error = Infallible>>
+impl<DI: mipidsi::interface::Interface<Word = u8>, RST: OutputPin<Error = Infallible>>
     slint::platform::software_renderer::LineBufferProvider
     for &mut DrawBuffer<'_, Display<DI, RST>>
 {
