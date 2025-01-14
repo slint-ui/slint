@@ -24,6 +24,10 @@ gst-audio = {package = "gstreamer-audio", version = "0.23.0" }
 gst-video = {package = "gstreamer-video", version = "0.23.0" }
 gst-app = {package = "gstreamer-app", version = "0.23.0" }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+gst-gl = { package = "gstreamer-gl", version = "0.23.0" }
+gst-gl-egl = { package = "gstreamer-gl-egl", version = "0.23.0" }
+glutin_egl_sys = "0.7.1"
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
