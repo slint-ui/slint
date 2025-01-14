@@ -244,7 +244,7 @@ impl slint::platform::Platform for Platform {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        use uefi::{proto::console::gop::*, boot::*};
+        use uefi::{boot::*, proto::console::gop::*};
 
         let gop_handle = uefi::boot::get_handle_for_protocol::<GraphicsOutput>().unwrap();
 
