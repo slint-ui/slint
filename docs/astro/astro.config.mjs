@@ -12,6 +12,7 @@ import { BASE_PATH, BASE_URL } from "./src/utils/site-config";
 export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
+    trailingSlash: "always",
     markdown: {
         rehypePlugins: [
             [
