@@ -86,8 +86,10 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
 raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
 
-## Enable all formats from the `image` crate. To increase what is supported from [`Image::load_from_path`]
-## or in `@image-url`. Without this feature, only PNG and JPEG are supported.
+## Enable the default image formats from the `image` crate, to support additional image formats in [`Image::load_from_path`]
+## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
+## the following image formats are supported:
+## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
 #! ### Backends
