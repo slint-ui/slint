@@ -53,6 +53,8 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
             - uses: actions/setup-python@v5
               with:
                 python-version: '3.10'
@@ -69,9 +71,6 @@ jobs:
             - name: Install gstreamer and libunwind (Linux)
               if: runner.os == 'Linux'
               run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-            - name: Upgrade LLVM for Skia build on Windows
-              if: runner.os == 'Windows'
-              run: choco upgrade llvm
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v3
             - uses: ./.github/actions/setup-rust
@@ -116,9 +115,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Upgrade LLVM for Skia build on Windows
-              if: runner.os == 'Windows'
-              run: choco upgrade llvm
+            - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v3
             - uses: actions/setup-node@v4
