@@ -653,9 +653,7 @@ impl WinitWindowAdapter {
         window_inner
             .context()
             .spawn_local(async move {
-                if let Err(err) =
-                    crate::xdg_color_scheme::watch(self_weak).await
-                {
+                if let Err(err) = crate::xdg_color_scheme::watch(self_weak).await {
                     i_slint_core::debug_log!("Error watching for xdg color schemes: {}", err);
                 }
             })
