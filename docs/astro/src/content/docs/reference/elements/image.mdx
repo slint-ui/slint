@@ -6,6 +6,7 @@ description: Image element api.
 
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import Link from '/src/components/Link.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
 ```slint
@@ -15,14 +16,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-An `Image` can be used to represent an image loaded from a file. Supported image formats are:
-
-| Format    | Extensions |
-| -------- | ------- |
-| PNG  | .png    |
-| JPEG | .jpg, .jpeg     |
-| SVG    | .svg    |
-
+Use the `Image` element to display an <Link type="ImageType" label="image" />.
 
 ## Properties
 
@@ -242,7 +236,7 @@ export component Example inherits Window {
 }
 ```
 
-Use the `@image-url("...")` macro to specify the location of the image.
+Use the <Link type="ImageType" label="`@image-url` macro" /> to specify the image's path.
 </SlintProperty>
 
 
