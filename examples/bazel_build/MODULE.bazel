@@ -52,6 +52,18 @@ crate.annotation(
     patches = ["@//external_crate_builds:0001-Fix-use-with-Bazel.patch"],
     patch_args = ["-p1"],
 )
+# rav1e uses the built crate, which panics when CARGO_PKG_AUTHORS, etc. are not set.
+crate.annotation(
+    crate = "rav1e",
+    build_script_env = {
+        "CARGO_PKG_AUTHORS": "Thomas Daede <tdaede@xiph.org>",
+	"CARGO_PKG_DESCRIPTION": "The fastest and safest AV1 encoder",
+	"CARGO_PKG_HOMEPAGE": "https://github.com/xiph/rav1e/",
+	"CARGO_PKG_REPOSITORY": "https://github.com/xiph/rav1e/",
+	"CARGO_PKG_LICENSE": "BSD-2-Clause",
+	"RUSTDOC": "rustdoc",
+    },
+)
 
 CRATES_REPOSITORY_NAME = "crates"
 crate.from_specs(name = CRATES_REPOSITORY_NAME)
