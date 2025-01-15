@@ -48,6 +48,7 @@ updates:
           - "astro"
           - "@astro*"
           - "starlight*"
+          - "@expressive-code/plugin-line-numbers"
       playwright:
         patterns:
           - "playwright*"
