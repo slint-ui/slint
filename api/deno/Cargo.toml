@@ -1,0 +1,37 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-deno"
+description = "Internal Slint Runtime Library for TypeScript and JavaScript based on Deno runtime."
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "development-tools"]
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "rust/lib.rs"
+name = "slint_deno_lib"
+
+[[bin]]
+path = "rust/main.rs"
+name = "slint_deno"
+
+[dependencies]
+i-slint-compiler = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
+i-slint-backend-selector = { workspace = true }
+slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2", "backend-winit", "internal", "renderer-femtovg"] }
+deno_runtime = "0.193"
+deno_core = { version = "0.330.0" }
+deno_fs = "0.95"
+smol = "2.0"
+deno_resolver = { version = "0.16.0", features = ["sync"] }
+sys_traits = "0.1"
