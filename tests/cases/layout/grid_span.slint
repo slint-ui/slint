@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 400phx;
     height: 400phx;
 
@@ -44,12 +44,17 @@ TestCase := Window {
             horizontal_stretch: 10;
             vertical_stretch: 10;
         }
+        zero2 := Rectangle {
+            col: 5;
+            colspan: 0;
+        }
     }
 
-    property <bool> test: {
+    out property <bool> test: {
         rr.x == 50phx && rr.y == 50phx && rr.width == 30phx && rr.height == (200phx - 10phx) / 2 &&
         rb.width == 40phx && rg.width == 20phx && rg.height == (400phx - 200phx - 100phx - 20phx) / 2 &&
-        zero.height == 0 && zero.width == rb.width && zero.x == rb.x && zero.y == rg.y
+        zero.height == 0 && zero.width == rb.width && zero.x == rb.x && zero.y == rg.y &&
+        zero2.height == rg.height && zero2.width == 0 && zero2.x > rb.x && zero2.y == rg.y
 
     }
 
