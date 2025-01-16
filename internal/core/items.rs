@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
-use crate::graphics::{Brush, Color, Point};
+use crate::graphics::{Brush, Color};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
     KeyEventType, MouseEvent,
@@ -65,7 +65,7 @@ pub type VoidArg = ();
 pub type KeyEventArg = (KeyEvent,);
 type PointerEventArg = (PointerEvent,);
 type PointerScrollEventArg = (PointerScrollEvent,);
-type PointArg = (Point,);
+type PointArg = (crate::api::LogicalPosition,);
 type MenuEntryArg = (MenuEntry,);
 type MenuEntryModel = crate::model::ModelRc<MenuEntry>;
 
@@ -1069,6 +1069,7 @@ pub struct ContextMenu {
     //pub entries: Property<crate::model::ModelRc<MenuEntry>>,
     pub sub_menu: Callback<MenuEntryArg, MenuEntryModel>,
     pub activated: Callback<MenuEntryArg>,
+    pub show: Callback<PointArg>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1089,25 +1090,37 @@ impl Item for ContextMenu {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        InputEventFilterResult::ForwardAndIgnore
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
         self: Pin<&Self>,
-        _event: MouseEvent,
+        event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
-        InputEventResult::EventIgnored
+        if let MouseEvent::Pressed { position, button: PointerEventButton::Right, .. } = event {
+            self.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::EventIgnored
+        }
     }
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        event: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
-        KeyEventResult::EventIgnored
+        if event.event_type == KeyEventType::KeyPressed
+            && event.text.starts_with(crate::input::key_codes::Menu)
+        {
+            self.show.call(&(Default::default(),));
+            KeyEventResult::EventAccepted
+        } else {
+            KeyEventResult::EventIgnored
+        }
     }
 
     fn focus_event(

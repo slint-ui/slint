@@ -478,20 +478,14 @@ impl TypeRegister {
                 popup.properties.get_mut("close-policy").unwrap().property_visibility =
                     PropertyVisibility::Constexpr;
             }
-
             _ => unreachable!(),
         };
 
         match &mut register.elements.get_mut("ContextMenu").unwrap() {
             ElementType::Builtin(ref mut b) => {
                 let b = Rc::get_mut(b).unwrap();
-                b.properties.insert(
-                    "show".into(),
-                    BuiltinPropertyInfo::new(Type::Function(BuiltinFunction::ShowPopupMenu.ty())),
-                );
-                b.member_functions.insert("show".into(), BuiltinFunction::ShowPopupMenu);
+                Rc::get_mut(&mut b.native_class).unwrap().properties.remove("entries");
             }
-
             _ => unreachable!(),
         };
 
@@ -573,6 +567,13 @@ impl TypeRegister {
                     .additional_accepted_child_types
                     .remove("MenuBar")
                     .expect("MenuBar is an experimental type");
+            }
+            _ => panic!("Window is a builtin type"),
+        };
+        register.context_restricted_types.remove("MenuBar");
+        match register.elements.get_mut("ContextMenu").unwrap() {
+            &mut ElementType::Builtin(ref mut b) => {
+                Rc::get_mut(b).unwrap().is_internal = true;
             }
             _ => panic!("Window is a builtin type"),
         };
