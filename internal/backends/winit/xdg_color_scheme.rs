@@ -25,7 +25,7 @@ pub async fn watch(window_weak: Weak<WinitWindowAdapter>) -> zbus::Result<()> {
         .await?;
 
     let initial_value: zbus::zvariant::OwnedValue =
-        settings_proxy.call("Read", &("org.freedesktop.appearance", "color-scheme")).await?;
+        settings_proxy.call("ReadOne", &("org.freedesktop.appearance", "color-scheme")).await?;
 
     if let Some(window) = window_weak.upgrade() {
         window.set_color_scheme(xdg_color_scheme_to_slint(initial_value));
