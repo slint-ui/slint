@@ -1763,6 +1763,10 @@ fn generate_item_tree(
     // And in PopupWindow this is also called by the runtime
     if parent_ctx.is_none() {
         create_code.push("self->user_init();".to_string());
+        if !is_popup_menu {
+            // initialize the Window in this point to be consistent with Rust
+            create_code.push("self->window();".to_string())
+        }
     }
 
     create_code

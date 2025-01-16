@@ -964,9 +964,10 @@ impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         generativity::make_guard!(guard);
-        Ok(ComponentInstance {
-            inner: self.inner.unerase(guard).clone().create(Default::default())?,
-        })
+        let instance = self.inner.unerase(guard).clone().create(Default::default())?;
+        // Make sure the window adapter is created so call to `window()` do not panic later.
+        instance.window_adapter_ref()?;
+        Ok(ComponentInstance { inner: instance })
     }
 
     /// Creates a new instance of the component and returns a shared handle to it.
