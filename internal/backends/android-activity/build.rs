@@ -6,6 +6,9 @@ use std::process::Command;
 use std::{env, fs};
 
 fn main() {
+    // unit test: `#[test]` fn are not run in build.rs, so we need to call it manually
+    test_parse_version();
+
     if !env::var("TARGET").unwrap().contains("android") {
         return;
     }
@@ -55,12 +58,7 @@ fn main() {
         // old version of java used stderr
         version_output = String::from_utf8_lossy(&o.stderr);
     }
-    let version = version_output.split_whitespace().nth(1).unwrap_or_default();
-    let mut java_ver: i32 = version.split('.').next().unwrap_or("0").parse().unwrap_or(0);
-    if java_ver == 1 {
-        // Before java 9, the version was something like javac 1.8
-        java_ver = version.split('.').nth(1).unwrap_or("0").parse().unwrap_or(0);
-    }
+    let java_ver = parse_javac_version_output(&version_output);
     if java_ver < 8 {
         panic!("The detected Java version is too old. The minimum required version is Java 8. Your Java version: {version_output:?} (parsed as {java_ver})")
     }
@@ -116,15 +114,40 @@ fn main() {
 
     if !o.status.success() {
         eprintln!("Dex conversion failed: {}", String::from_utf8_lossy(&o.stderr));
+
         if java_ver >= 21 {
-            eprintln!("WARNING: JDK version 21 is known to cause an error.");
+            eprintln!("WARNING: JDK version 21 is known to cause an error with older android SDK");
             eprintln!("See https://github.com/slint-ui/slint/issues/4973");
-            eprintln!("Try downgrading your version of Java to something like JDK 17.");
+            eprintln!("Try downgrading your version of Java to something like JDK 17, or upgrade to the SDK build tools 35");
         }
         panic!("Dex conversion failed");
     }
 
     println!("cargo:rerun-if-changed=java/{java_class}");
+}
+
+fn parse_javac_version_output(version_output: &str) -> i32 {
+    let version = version_output
+        .split_whitespace()
+        .nth(1)
+        .and_then(|v| v.split('-').next())
+        .unwrap_or_default();
+    let mut java_ver: i32 = version.split('.').next().unwrap_or("0").parse().unwrap_or(0);
+    if java_ver == 1 {
+        // Before java 9, the version was something like javac 1.8
+        java_ver = version.split('.').nth(1).unwrap_or("0").parse().unwrap_or(0);
+    }
+    java_ver
+}
+
+//#[test] doesn't work in build.rs so it is called from main. Impact on build time should be negligible
+fn test_parse_version() {
+    assert_eq!(parse_javac_version_output("javac 1.8.0_292"), 8);
+    assert_eq!(parse_javac_version_output("javac 17.0.13"), 17);
+    assert_eq!(parse_javac_version_output("javac 21.0.5"), 21);
+    assert_eq!(parse_javac_version_output("javac 24-ea"), 24);
+    assert_eq!(parse_javac_version_output("error"), 0);
+    assert_eq!(parse_javac_version_output("javac error"), 0);
 }
 
 fn env_var(var: &str) -> Result<String, env::VarError> {
