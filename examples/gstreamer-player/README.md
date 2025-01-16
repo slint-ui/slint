@@ -5,7 +5,6 @@
 This example application demonstrates a way to use gstreamer (with Rust bindings) to display a video stream in Slint.
 
 Current Status: This started as a fork of the ffmpeg example, but doesn't implement everything in the ffmpeg example yet:
-* Play/Pause functionality has not been implemented.
 * The code has so far only been tested on Ubuntu.
 * We use gstreamer's test source instead of streaming a video off the internet to save bandwidth and make the example more self contained.
 

@@ -84,9 +84,45 @@ fn main() {
             .build(),
     );
 
-    pipeline
-        .set_state(gst::State::Playing)
-        .expect("Unable to set the pipeline to the `Playing` state");
+    let result = pipeline.set_state(gst::State::Playing);
+    match result {
+        Ok(_) => {
+            app.set_playing(true);
+        }
+        Err(err) => {
+            eprintln!("Failed to set pipeline state to Playing: {}", err);
+        }
+    }
+
+    let pipeline_weak_for_callback = pipeline.downgrade();
+    let app_weak = app.as_weak();
+    app.on_toggle_pause_play(move || {
+        if let Some(pipeline) = pipeline_weak_for_callback.upgrade() {
+            let current_state = pipeline.state(gst::ClockTime::NONE).1;
+            let result;
+            let new_state = match current_state {
+                gst::State::Playing => {
+                    result = false;
+                    gst::State::Paused
+                }
+                _ => {
+                    result = true;
+                    gst::State::Playing
+                }
+            };
+
+            // Attempt to set the state of the pipeline
+            let state_result = pipeline.set_state(new_state);
+            match state_result {
+                Ok(_) => {
+                    app_weak.upgrade_in_event_loop(move |app| app.set_playing(result)).unwrap();
+                }
+                Err(err) => {
+                    eprintln!("Failed to set pipeline state to {:?}: {}", new_state, err);
+                }
+            }
+        }
+    });
 
     app.run().unwrap();
 }
