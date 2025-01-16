@@ -303,6 +303,7 @@ fn rename_local_symbols(
                 SyntaxKind::InternalName,
                 SyntaxKind::ExportIdentifier,
                 SyntaxKind::ExportName,
+                SyntaxKind::PropertyDeclaration,
             ]
             .contains(&current.parent().kind())
                 && query.is_same_symbol(document_cache, current.clone())
@@ -565,6 +566,25 @@ impl DeclarationNodeQuery {
                 common::token_info::TokenInfo::ElementRc(s),
                 common::token_info::TokenInfo::ElementRc(o),
             ) => Rc::ptr_eq(s, o),
+            (
+                common::token_info::TokenInfo::LocalProperty(s),
+                common::token_info::TokenInfo::LocalProperty(o),
+            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            (
+                common::token_info::TokenInfo::NamedReference(nl),
+                common::token_info::TokenInfo::NamedReference(nr),
+            ) => Rc::ptr_eq(&nl.element(), &nr.element()) && nl.name() == nr.name(),
+            (
+                common::token_info::TokenInfo::NamedReference(nr),
+                common::token_info::TokenInfo::LocalProperty(s),
+            )
+            | (
+                common::token_info::TokenInfo::LocalProperty(s),
+                common::token_info::TokenInfo::NamedReference(nr),
+            ) => nr.element().borrow().debug.iter().any(|di| {
+                di.node.source_file.path() == s.source_file.path()
+                    && di.node.PropertyDeclaration().any(|pd| pd.text_range() == s.text_range())
+            }),
             (_, _) => false,
         }
     }
@@ -2656,5 +2676,157 @@ export { XxxYyyZzz as Foo }
                 panic!("Unexpected file!");
             }
         }
+    }
+
+    #[test]
+    fn test_rename_property_from_definition() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+
+component re_name-me {
+    property <bool> re_name-me /* <- TEST_ME_1 */: true;
+
+    function re_name-me_(re-name_me: int) { /* 1 */ self.re-name_me = re-name_me >= 42; }
+}
+
+export component Bar {
+    property <bool> re_name-me /* <- TEST_ME_2 */: true;
+
+    function re_name-me_(re-name_me: int) { /* 2 */ self.re-name_me = re-name_me >= 42; }
+
+    re_name-me { }
+}
+                
+
+                "#
+                .to_string(),
+            )]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+        assert_eq!(edited_text.len(), 1);
+
+        assert_eq!(edited_text.len(), 1);
+        assert!(edited_text[0].contents.contains("component re_name-me {"));
+        assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* <- TEST_ME_1 "));
+        assert!(edited_text[0].contents.contains(" <- TEST_ME_1 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
+        assert!(edited_text[0].contents.contains("/* 1 */ self.XxxYyyZzz = re-name_me >= 42;"));
+
+        assert!(edited_text[0].contents.contains("export component Bar {"));
+        assert!(edited_text[0].contents.contains("property <bool> re_name-me /* <- TEST_ME_2 "));
+        assert!(edited_text[0].contents.contains(" <- TEST_ME_2 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
+        assert!(edited_text[0].contents.contains("/* 2 */ self.re-name_me = re-name_me >= 42;"));
+        assert!(edited_text[0].contents.contains("re_name-me { }"));
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_2");
+        assert_eq!(edited_text.len(), 1);
+
+        assert_eq!(edited_text.len(), 1);
+        assert!(edited_text[0].contents.contains("component re_name-me {"));
+        assert!(edited_text[0].contents.contains("property <bool> re_name-me /* <- TEST_ME_1 "));
+        assert!(edited_text[0].contents.contains(" <- TEST_ME_1 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
+        assert!(edited_text[0].contents.contains("/* 1 */ self.re-name_me = re-name_me >= 42;"));
+
+        assert!(edited_text[0].contents.contains("export component Bar {"));
+        assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* <- TEST_ME_2 "));
+        assert!(edited_text[0].contents.contains(" <- TEST_ME_2 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
+        assert!(edited_text[0].contents.contains("/* 2 */ self.XxxYyyZzz = re-name_me >= 42;"));
+        assert!(edited_text[0].contents.contains("re_name-me { }"));
+    }
+
+    #[test]
+    fn test_rename_property_from_use() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+
+component re_name-me {
+    property <bool> re_name-me /* 1 */: true;
+
+    function re_name-me_(re-name_me: int) { /* 1 */ self.re-name_me /* <- TEST_ME_1 */ = re-name_me >= 42; }
+}
+
+export component Bar {
+    property <bool> re_name-me /* 2 */: true;
+
+    function re_name-me_(re-name_me: int) { /* 2 */ self.re-name_me /* <- TEST_ME_2 */ = re-name_me >= 42; }
+
+    re_name-me { }
+}
+                
+
+                "#
+                .to_string(),
+            )]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+        assert_eq!(edited_text.len(), 1);
+
+        assert_eq!(edited_text.len(), 1);
+        assert!(edited_text[0].contents.contains("component re_name-me {"));
+        assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* 1 */"));
+        assert!(edited_text[0].contents.contains(" 1 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
+        assert!(edited_text[0]
+            .contents
+            .contains("/* 1 */ self.XxxYyyZzz /* <- TEST_ME_1 */ = re-name_me >= 42;"));
+
+        assert!(edited_text[0].contents.contains("export component Bar {"));
+        assert!(edited_text[0].contents.contains("property <bool> re_name-me /* 2 "));
+        assert!(edited_text[0].contents.contains(" 2 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
+        assert!(edited_text[0]
+            .contents
+            .contains("/* 2 */ self.re-name_me /* <- TEST_ME_2 */ = re-name_me >= 42;"));
+        assert!(edited_text[0].contents.contains("re_name-me { }"));
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_2");
+        assert_eq!(edited_text.len(), 1);
+
+        assert_eq!(edited_text.len(), 1);
+        assert!(edited_text[0].contents.contains("component re_name-me {"));
+        assert!(edited_text[0].contents.contains("property <bool> re_name-me /* 1 "));
+        assert!(edited_text[0].contents.contains(" 1 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 1 */"));
+        assert!(edited_text[0]
+            .contents
+            .contains("/* 1 */ self.re-name_me /* <- TEST_ME_1 */ = re-name_me >= 42;"));
+
+        assert!(edited_text[0].contents.contains("export component Bar {"));
+        assert!(edited_text[0].contents.contains("property <bool> XxxYyyZzz /* 2 "));
+        assert!(edited_text[0].contents.contains(" 2 */: true;"));
+        assert!(edited_text[0]
+            .contents
+            .contains("function re_name-me_(re-name_me: int) { /* 2 */"));
+        assert!(edited_text[0]
+            .contents
+            .contains("/* 2 */ self.XxxYyyZzz /* <- TEST_ME_2 */ = re-name_me >= 42;"));
+        assert!(edited_text[0].contents.contains("re_name-me { }"));
     }
 }

@@ -179,7 +179,9 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                 return None;
             }
             let parent = node.parent()?;
-            if parent.kind() == SyntaxKind::PropertyChangedCallback {
+            if [SyntaxKind::PropertyChangedCallback, SyntaxKind::PropertyDeclaration]
+                .contains(&parent.kind())
+            {
                 let prop_name = i_slint_compiler::parser::normalize_identifier(token.text());
                 let element = syntax_nodes::Element::new(parent.parent()?)?;
                 if let Some(p) = element.PropertyDeclaration().find_map(|p| {
