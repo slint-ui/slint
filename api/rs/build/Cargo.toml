@@ -22,7 +22,6 @@ default = []
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer", "bundle-translations"] }
-i-slint-core-macros = { workspace = true }
 
 spin_on = { workspace = true }
 toml_edit = { workspace = true }
