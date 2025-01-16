@@ -1,0 +1,53 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 700px;
+    height: 700px;
+    ContextMenu {
+        entries: [
+            { title: "Entry1" },
+            { title: "Entry2", has-sub-menu: true },
+        ];
+        sub-menu(entry) => {
+            if entry.title == "Entry2" {
+                return [
+                    { title: "New" },
+                    { title: "Open" },
+                    { title: "Xxx",  has-sub-menu: true},
+                ];
+            } else if entry.title == "Xxx" {
+                return [
+                    { title: "Aaa" },
+                    { title: "Xxx", has-sub-menu: true },
+                    { title: "Yyy" },
+                ];
+            } else {
+                return [];
+            }
+        }
+        activated(entry) => {
+            debug("Activated", entry);
+        }
+
+        // When this focus scope has the focus, the ContextMenu can handle the Menu key
+        FocusScope {}
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/

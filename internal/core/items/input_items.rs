@@ -503,7 +503,7 @@ impl Item for SwipeGestureHandler {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _event: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

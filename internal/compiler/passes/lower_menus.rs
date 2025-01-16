@@ -3,8 +3,69 @@
 
 //! Passe lower the `MenuBar` and `ContextMenu` as well as all their contents
 //!
-//! Must be done before inlining and many other passes because the lowered code must
-//! be further inlined as it may expends to native widget that needs inlining
+//! We can't have properties of type model because that is not binary compatible with C++,
+//! so all the code that handle model of MenuEntry need to be handle by code in the generated code
+//! and transformed into a `SharedVector<MenuEntry>` that is passed to Slint runtime.
+//!
+//! ## MenuBar
+//!
+//! ```slint
+//! Window {
+//!      menu-bar := MenuBar {
+//!           entries: [...]
+//!           sub-menu => ...
+//!           activated => ...
+//!      }
+//!      content := ...
+//! }
+//! ```
+//! Is transformed to
+//! ```slint
+//! Window {
+//!     menu-bar := VerticalLayout {
+//!        property <[MenuEntry]> entries : ...
+//!        callback sub-menu => { ... }
+//!        callback activated => { ... }
+//!        if !Builtin.supports_native_menu_bar() : MenuBarImpl {
+//!           entries: parent.entries
+//!           sub-menu(..) => { parent.sub-menu(..) }
+//!           activated(..) => { parent.activated(..) }
+//!        }
+//!        Empty {
+//!           content := ...
+//!        }
+//!    }
+//!    init => {
+//!        // ... rest of init ...
+//!        Builtin.setup_native_menu_bar(menu-bar.entries, menu-bar.sub-menu, menu-bar.activated)
+//!    }
+//! }
+//! ```
+//!
+//! ## ContextMenu
+//!
+//! ```slint
+//! menu := ContextMenu {
+//!     entries: [...]
+//!     sub-menu => ...
+//!     activated => ...
+//! }
+//! Button { clicked => {menu.show({x: 0, y: 0;})} }
+//! ```
+//! Is transformed to
+//!
+//! ```slint
+//! menu := ContextMenu {
+//!    property <[MenuEntry]> entries : ...
+//!    sub-menu => { ... }
+//!    activated => { ... }
+//!
+//!    // show is actually a callback called by the native code when right clicking
+//!    callback show(point) => { Builtin.show_context_menu(entries, sub-menu, activated, point) }
+//! }
+//!
+//!
+//!
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BuiltinFunction, Expression, NamedReference};
@@ -12,11 +73,19 @@ use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
 use smol_str::{format_smolstr, SmolStr};
+use std::rc::Rc;
+
+const HEIGHT: &str = "height";
+const ENTRIES: &str = "entries";
+const SUB_MENU: &str = "sub-menu";
+const ACTIVATE: &str = "activated";
+const SHOW: &str = "show";
 
 struct UsefulMenuComponents {
     menubar_impl: ElementType,
     vertical_layout: ElementType,
     empty: ElementType,
+    menu_entry: Type,
 }
 
 pub async fn lower_menus(
@@ -39,7 +108,9 @@ pub async fn lower_menus(
             .lookup_builtin_element("VerticalLayout")
             .expect("VerticalLayout is a builtin type"),
         empty: type_loader.global_type_registry.borrow().empty_type(),
+        menu_entry: type_loader.global_type_registry.borrow().lookup("MenuEntry"),
     };
+    assert!(matches!(&useful_menu_component.menu_entry, Type::Struct(..)));
 
     let mut has_menu = false;
 
@@ -76,21 +147,50 @@ pub async fn lower_menus(
                 process_context_menu(elem, &useful_menu_component, diag);
             }
         });
-        recurse_elem_including_sub_components_no_borrow(&menubar_impl, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "ContextMenu") {
-                process_context_menu(elem, &useful_menu_component, diag);
-            }
-        });
         doc.popup_menu_impl = popup_menu_impl.into();
     }
 }
 
 fn process_context_menu(
-    _context_menu_elem: &ElementRc,
-    _useful_menu_components: &UsefulMenuComponents,
-    _diag: &mut BuildDiagnostics,
+    context_menu_elem: &ElementRc,
+    components: &UsefulMenuComponents,
+    diag: &mut BuildDiagnostics,
 ) -> bool {
-    // TODO:
+    // Materialize the entries property
+    context_menu_elem.borrow_mut().property_declarations.insert(
+        SmolStr::new_static(ENTRIES),
+        Type::Array(components.menu_entry.clone().into()).into(),
+    );
+
+    // generate the show callback
+    let source_location = Some(context_menu_elem.borrow().to_source_location());
+    let expr = Expression::FunctionCall {
+        function: Expression::BuiltinFunctionReference(
+            BuiltinFunction::ShowPopupMenu,
+            source_location.clone(),
+        )
+        .into(),
+        arguments: vec![
+            Expression::ElementReference(Rc::downgrade(context_menu_elem)),
+            Expression::PropertyReference(NamedReference::new(
+                &context_menu_elem,
+                SmolStr::new_static(ENTRIES),
+            )),
+            Expression::FunctionParameterReference {
+                index: 0,
+                ty: crate::typeregister::logical_point_type(),
+            },
+        ],
+        source_location,
+    };
+    let old = context_menu_elem
+        .borrow_mut()
+        .bindings
+        .insert(SmolStr::new_static(SHOW), RefCell::new(expr.into()));
+    if let Some(old) = old {
+        diag.push_error("'show' is not a callback in ContextMenu".into(), &old.borrow().span);
+    }
+
     true
 }
 
@@ -170,12 +270,7 @@ fn process_window(
     }
     .make_rc();
 
-    const HEIGHT: &str = "height";
     let child_height = NamedReference::new(&child, SmolStr::new_static(HEIGHT));
-
-    const ENTRIES: &str = "entries";
-    const SUB_MENU: &str = "sub-menu";
-    const ACTIVATE: &str = "activated";
 
     let source_location = Some(menu_bar.borrow().to_source_location());
 
@@ -251,6 +346,5 @@ fn process_window(
     win.borrow_mut().geometry_props.as_mut().unwrap().height = win_height;
 
     component.init_code.borrow_mut().constructor_code.push(setup_menubar.into());
-
     true
 }

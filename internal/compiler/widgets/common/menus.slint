@@ -41,7 +41,8 @@ export component PopupMenuImpl inherits Window {
                 ita := TouchArea {
                     clicked => {
                         if entry.has-sub-menu {
-                            subMenu.show(sub-menu(entry), {
+                            subMenu.entries = root.sub-menu(entry);
+                            subMenu.show({
                                 x: root.width,
                                 y: self.absolute-position.y - subMenu.absolute-position.y,
                             });
@@ -88,7 +89,8 @@ export component MenuBarImpl {
             }
             ta := TouchArea {
                 clicked => {
-                    cm.show(sub-menu(entry), { x: e.x, y: root.height });
+                    cm.entries = root.sub-menu(entry);
+                    cm.show({ x: e.x, y: root.height });
                 }
             }
         }

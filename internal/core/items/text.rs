@@ -1280,15 +1280,16 @@ impl TextInput {
     ) {
         self.cursor_position_byte_offset.set(new_position);
         if new_position >= 0 {
-            let pos = self
-                .cursor_rect_for_byte_offset(new_position as usize, window_adapter)
-                .origin
-                .to_untyped();
+            let pos =
+                self.cursor_rect_for_byte_offset(new_position as usize, window_adapter).origin;
             if reset_preferred_x_pos {
                 self.preferred_x_pos.set(pos.x);
             }
             if trigger_callbacks == TextChangeNotify::TriggerCallbacks {
-                Self::FIELD_OFFSETS.cursor_position_changed.apply_pin(self).call(&(pos,));
+                Self::FIELD_OFFSETS
+                    .cursor_position_changed
+                    .apply_pin(self)
+                    .call(&(crate::api::LogicalPosition::from_euclid(pos),));
                 self.update_ime(window_adapter, self_rc);
             }
         }

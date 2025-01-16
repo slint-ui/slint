@@ -183,7 +183,7 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-// Lowered to MenuBarImpl from the style
+// Lowered in lower_menus pass. See that pass documentation for more info
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
@@ -193,19 +193,19 @@ component MenuBar {
     callback sub-menu(entry: MenuEntry) -> [MenuEntry];
 
     // Currently experimental
-    //-is_internal
 }
 
-// Lowered to a call that generate a ContextMenuImpl
+// Lowered in lower_menus pass. See that pass documentation for more info
 export component ContextMenu {
-    function show() {}
-    //in property <[MenuEntry]> entries;
+    // This is actually function as part of out interface, but a callback as much is the runtime concerned
+    callback show(position: Point);
+    // Note that this property is not in the native item
+    in property <[MenuEntry]> entries;
     callback activated(entry: MenuEntry);
     callback sub-menu(entry: MenuEntry) -> [MenuEntry];
     //-default_size_binding:expands_to_parent_geometry
 
     // Currently experimental
-    //-is_internal
 }
 
 component WindowItem {
