@@ -33,5 +33,6 @@ deno_runtime = "0.193"
 deno_core = { version = "0.330.0" }
 deno_fs = "0.95"
 smol = "2.0"
+tokio = "1.43.0"
 deno_resolver = { version = "0.16.0", features = ["sync"] }
 sys_traits = "0.1"

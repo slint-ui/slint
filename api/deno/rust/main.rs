@@ -68,8 +68,12 @@ pub fn main() -> Result<(), AnyError> {
                 ..Default::default()
             },
         );
+
+        // let runtime = tokio::runtime::Runtime::new().unwrap();
+        // let _task = runtime.spawn(async move {
         let _ = worker.execute_main_module(&main_module).await;
         worker.run_event_loop(false).await.unwrap();
+        // });
     });
 
     let slint_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/simple.slint");

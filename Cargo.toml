@@ -10,6 +10,7 @@ members = [
     'api/rs/slint',
     'api/python',
     'api/wasm-interpreter',
+    'api/deno',
     'examples/7guis',
     'examples/gallery',
     'examples/imagefilter/rust',
@@ -64,7 +65,7 @@ members = [
     'tools/updater',
     'tools/viewer',
     'tools/tr-extractor',
-    'xtask',
+    'xtask'
 ]
 
 default-members = [
