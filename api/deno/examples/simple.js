@@ -14,6 +14,8 @@ async function connect() {
     console.log(connect);
 }
 
-connect();
+// connect();
+
+Extension.load_slint();
 
 // asyncCall();

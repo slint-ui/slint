@@ -9,6 +9,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use deno_core::op2;
 use slint_interpreter::ComponentHandle;
 
 use deno_core::error::AnyError;
@@ -25,17 +26,27 @@ use slint_interpreter::Compiler;
 use slint_interpreter::EventLoopError;
 use slint_interpreter::JoinHandle;
 
-// #[op2(fast)]
-// fn op_hello(#[string] text: &str) {
-//   println!("Hello {} from an op!", text);
-// }
+#[op2(fast)]
+fn op_load_slint() {
+    let slint_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/simple.slint");
 
-// deno_core::extension!(
-//   hello_runtime,
-//   ops = [op_hello],
-//   esm_entry_point = "ext:hello_runtime/bootstrap.js",
-//   esm = [dir "examples/extension", "bootstrap.js"]
-// );
+    let compiler = Compiler::new();
+    let r = smol::block_on(compiler.build_from_path(slint_path));
+
+    let definitions: Vec<slint_interpreter::ComponentDefinition> = r.components().collect();
+
+    let definition = definitions.first().unwrap();
+
+    let instance = definition.create().unwrap();
+    instance.show().unwrap();
+}
+
+deno_core::extension!(
+  slint_runtime,
+  ops = [op_load_slint],
+  esm_entry_point = "ext:slint_runtime/bootstrap.js",
+  esm = [dir "examples", "bootstrap.js"]
+);
 
 pub fn main() -> Result<(), AnyError> {
     let deno_future = async move {
@@ -63,30 +74,17 @@ pub fn main() -> Result<(), AnyError> {
                 fs,
             },
             WorkerOptions {
-                // extensions: vec![hello_runtime::init_ops_and_esm()],
-                extensions: vec![],
+                extensions: vec![slint_runtime::init_ops_and_esm()],
                 ..Default::default()
             },
         );
 
         let _ = worker.execute_main_module(&main_module).await;
         worker.run_event_loop(false).await.unwrap();
-        slint_interpreter::quit_event_loop().unwrap();
+        // slint_interpreter::quit_event_loop().unwrap();
     };
 
     slint_interpreter::spawn_local(async_compat::Compat::new(deno_future)).unwrap();
-
-    let slint_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/simple.slint");
-
-    let compiler = Compiler::new();
-    let r = smol::block_on(compiler.build_from_path(slint_path));
-
-    let definitions: Vec<slint_interpreter::ComponentDefinition> = r.components().collect();
-
-    let definition = definitions.first().unwrap();
-
-    let instance = definition.create()?;
-    instance.show()?;
 
     slint_interpreter::run_event_loop().unwrap();
 
