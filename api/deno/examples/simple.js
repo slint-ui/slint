@@ -10,8 +10,8 @@ async function asyncCall() {
 }
 
 async function connect() {
-    // const connect = await Deno.connect({ hostname: "slint.dev", port: 80 });
-    console.log("test");
+    const connect = await Deno.connect({ hostname: "slint.dev", port: 80 });
+    console.log(connect);
 }
 
 connect();

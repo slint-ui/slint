@@ -38,7 +38,7 @@ use slint_interpreter::JoinHandle;
 // );
 
 pub fn main() -> Result<(), AnyError> {
-    let _deno_task = slint_interpreter::spawn_local(async move {
+    let deno_future = async move {
         let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/simple.js");
         let main_module = ModuleSpecifier::from_file_path(js_path).unwrap();
         eprintln!("Running {main_module}...");
@@ -69,12 +69,12 @@ pub fn main() -> Result<(), AnyError> {
             },
         );
 
-        // let runtime = tokio::runtime::Runtime::new().unwrap();
-        // let _task = runtime.spawn(async move {
         let _ = worker.execute_main_module(&main_module).await;
         worker.run_event_loop(false).await.unwrap();
-        // });
-    });
+        slint_interpreter::quit_event_loop().unwrap();
+    };
+
+    slint_interpreter::spawn_local(async_compat::Compat::new(deno_future)).unwrap();
 
     let slint_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/simple.slint");
 
@@ -88,7 +88,7 @@ pub fn main() -> Result<(), AnyError> {
     let instance = definition.create()?;
     instance.show()?;
 
-    slint_interpreter::run_event_loop()?;
+    slint_interpreter::run_event_loop().unwrap();
 
     Ok(())
 }

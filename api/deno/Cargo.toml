@@ -36,3 +36,4 @@ smol = "2.0"
 tokio = "1.43.0"
 deno_resolver = { version = "0.16.0", features = ["sync"] }
 sys_traits = "0.1"
+async-compat = "0.2"
