@@ -19,7 +19,7 @@ categories = ["gui", "development-tools", "no-std"]
 path = "lib.rs"
 
 [features]
-ffi = [] # Expose C ABI
+ffi = ["dep:static_assertions"] # Expose C ABI
 libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
@@ -72,7 +72,7 @@ rgb = "0.8.27"
 scoped-tls-hkt = { version = "0.1", optional = true }
 scopeguard =  { version = "1.1.0", default-features = false }
 slab = { version = "0.4.3", default-features = false }
-static_assertions = "1.1"
+static_assertions = { version = "1.1", optional = true }
 strum = { workspace = true }
 unicode-segmentation = { workspace = true }
 unicode-linebreak = { version = "0.1.5", optional = true }
