@@ -447,6 +447,16 @@ macro_rules! for_each_enums {
                 /// Does not close the `PopupWindow` automatically when user clicks.
                 NoAutoClose,
             }
+
+            /// This enum describes the appearance of the ends of stroked paths.
+            enum LineCap {
+                /// The stroke ends with a flat edge that is perpendicular to the path.
+                Butt,
+                /// The stroke ends with a rounded edge.
+                Round,
+                /// The stroke ends with a square projection beyond the path.
+                Square,
+            }
         ];
     };
 }
