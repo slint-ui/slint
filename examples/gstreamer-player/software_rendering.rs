@@ -5,15 +5,16 @@ use anyhow::bail;
 use gst::prelude::*;
 use gst_video::video_frame::VideoFrameExt;
 
-use slint::ComponentHandle;
-
-pub fn init(
-    app: &crate::App,
-    pipeline_builder: gst::element_factory::ElementBuilder<'_>,
-) -> anyhow::Result<gst::Pipeline> {
+pub fn init<App: slint::ComponentHandle + 'static>(
+    app: &App,
+    pipeline: &gst::Pipeline,
+    new_frame_callback: fn(App, slint::Image),
+) -> anyhow::Result<()> {
     let appsink = gst_app::AppSink::builder()
         .caps(&gst_video::VideoCapsBuilder::new().format(gst_video::VideoFormat::Rgb).build())
         .build();
+
+    pipeline.set_property("video-sink", &appsink);
 
     let app_weak = app.as_weak();
 
@@ -31,8 +32,8 @@ pub fn init(
                     .expect("Unable to convert the video frame to a slint video frame!");
 
                 app_weak
-                    .upgrade_in_event_loop(|app| {
-                        app.set_video_frame(slint::Image::from_rgb8(slint_frame))
+                    .upgrade_in_event_loop(move |app| {
+                        new_frame_callback(app, slint::Image::from_rgb8(slint_frame))
                     })
                     .unwrap();
 
@@ -41,17 +42,11 @@ pub fn init(
             .build(),
     );
 
-    let pipeline = pipeline_builder
-        .property("video-sink", appsink)
-        .build()?
-        .downcast::<gst::Pipeline>()
-        .unwrap();
-
     pipeline
         .set_state(gst::State::Playing)
         .expect("Unable to set the pipeline to the `Playing` state");
 
-    Ok(pipeline)
+    Ok(())
 }
 
 fn try_gstreamer_video_frame_to_pixel_buffer(

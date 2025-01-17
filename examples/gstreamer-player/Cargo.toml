@@ -31,4 +31,5 @@ glutin_egl_sys = "0.7.1"
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
+cfg_aliases = { workspace = true }
 

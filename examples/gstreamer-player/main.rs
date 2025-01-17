@@ -5,9 +5,9 @@ slint::include_modules!();
 
 use gst::prelude::*;
 
-#[cfg(target_os = "linux")]
+#[cfg(slint_gstreamer_egl)]
 mod egl_integration;
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(slint_gstreamer_egl))]
 mod software_rendering;
 
 fn main() -> anyhow::Result<()> {
@@ -21,13 +21,20 @@ fn main() -> anyhow::Result<()> {
 
     gst::init().unwrap();
 
-    let playbin_builder = gst::ElementFactory::make("playbin")
-        .property("uri", "https://gstreamer.freedesktop.org/data/media/sintel_trailer-480p.webm");
+    let pipeline = gst::ElementFactory::make("playbin")
+        .property("uri", "https://gstreamer.freedesktop.org/data/media/sintel_trailer-480p.webm")
+        .build()?
+        .downcast::<gst::Pipeline>()
+        .unwrap();
 
-    #[cfg(not(target_os = "linux"))]
-    let pipeline = software_rendering::init(&app, playbin_builder)?;
-    #[cfg(target_os = "linux")]
-    let pipeline = egl_integration::init(&app, playbin_builder)?;
+    let new_frame_callback = |app: App, new_frame| {
+        app.set_video_frame(new_frame);
+    };
+
+    #[cfg(not(slint_gstreamer_egl))]
+    software_rendering::init(&app, &pipeline, new_frame_callback)?;
+    #[cfg(slint_gstreamer_egl)]
+    egl_integration::init(&app, &pipeline, new_frame_callback)?;
 
     let pipeline_weak_for_callback = pipeline.downgrade();
     let app_weak = app.as_weak();
@@ -60,6 +67,8 @@ fn main() -> anyhow::Result<()> {
     });
 
     app.run().unwrap();
+
+    let _ = pipeline.set_state(gst::State::Null);
 
     Ok(())
 }
