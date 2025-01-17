@@ -57,7 +57,7 @@ jobs:
                     - os: ubuntu-20.04
                       rust-target: x86_64-unknown-linux-gnu
                       napi-rs-target: linux-x64-gnu
-                    - os: ubicloud-standard-2-arm
+                    - os: ubuntu-22.04-arm
                       rust-target: aarch64-unknown-linux-gnu
                       napi-rs-target: linux-arm64-gnu
                     - os: macos-13
