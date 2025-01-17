@@ -162,7 +162,7 @@ impl i_slint_core::platform::Platform for Backend {
                 .seat
                 .borrow_mut()
                 .open_device(&device)
-                .map_err(|e| format!("Error opening device: {e}"))?;
+                .map_err(|e| format!("Error opening device {device}: {e}"))?;
 
             // For polling for drm::control::Event::PageFlip we need a blocking FD. Would be better to do this non-blocking
             let fd = device.as_fd().as_raw_fd();
