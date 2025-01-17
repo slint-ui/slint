@@ -6,31 +6,25 @@ use std::sync::{Arc, Mutex};
 use gst::prelude::*;
 use gst_gl::prelude::*;
 
-use slint::ComponentHandle;
+pub fn init<App: slint::ComponentHandle + 'static>(
+    app: &App,
+    pipeline: &gst::Pipeline,
+    new_frame_callback: fn(App, slint::Image),
+) -> anyhow::Result<()> {
+    let mut slint_sink = SlintOpenGLSink::new();
 
-pub fn init(
-    app: &crate::App,
-    pipeline_builder: gst::element_factory::ElementBuilder<'_>,
-) -> anyhow::Result<gst::Pipeline> {
-    let mut frame_converter = VideoFrameConverter::new();
-
-    let pipeline = pipeline_builder
-        .property("video-sink", frame_converter.glsink.clone())
-        .build()?
-        .downcast::<gst::Pipeline>()
-        .unwrap();
-
-    let app_weak = app.as_weak();
+    pipeline.set_property("video-sink", slint_sink.video_sink());
 
     app.window().set_rendering_notifier({
         let pipeline = pipeline.clone();
+        let app_weak = app.as_weak();
 
         move |state, graphics_api| match state {
             slint::RenderingState::RenderingSetup => {
                 let app_weak = app_weak.clone();
-                frame_converter.setup(
+                slint_sink.connect(
                     graphics_api,
-                    pipeline.clone(),
+                    &pipeline.bus().unwrap(),
                     Box::new(move || {
                         app_weak
                             .upgrade_in_event_loop(move |app| {
@@ -39,33 +33,35 @@ pub fn init(
                             .ok();
                     }),
                 );
+                pipeline
+                    .set_state(gst::State::Playing)
+                    .expect("Unable to set the pipeline to the `Playing` state");
             }
             slint::RenderingState::RenderingTeardown => {
-                frame_converter.deactivate_and_pause();
+                slint_sink.deactivate_and_pause();
             }
             slint::RenderingState::BeforeRendering => {
-                if let Some(next_frame) = frame_converter.fetch_next_frame() {
-                    app_weak.unwrap().set_video_frame(next_frame);
+                if let Some(next_frame) = slint_sink.fetch_next_frame() {
+                    new_frame_callback(app_weak.unwrap(), next_frame)
                 }
             }
             _ => {}
         }
     })?;
 
-    Ok(pipeline)
+    Ok(())
 }
 
-struct VideoFrameConverter {
+pub struct SlintOpenGLSink {
     appsink: gst_app::AppSink,
     glsink: gst::Element,
-    pipeline: Option<gst::Pipeline>,
     next_frame: Arc<Mutex<Option<(gst_video::VideoInfo, gst::Buffer)>>>,
     current_frame: Mutex<Option<gst_gl::GLVideoFrame<gst_gl::gl_video_frame::Readable>>>,
     gst_gl_context: Option<gst_gl::GLContext>,
 }
 
-impl VideoFrameConverter {
-    fn new() -> Self {
+impl SlintOpenGLSink {
+    pub fn new() -> Self {
         let appsink = gst_app::AppSink::builder()
             .caps(
                 &gst_video::VideoCapsBuilder::new()
@@ -84,20 +80,23 @@ impl VideoFrameConverter {
             .build()
             .expect("Fatal: Unable to create glsink");
 
-        VideoFrameConverter {
+        Self {
             appsink,
             glsink,
-            pipeline: None,
             next_frame: Default::default(),
             current_frame: Default::default(),
             gst_gl_context: None,
         }
     }
 
-    fn setup(
+    pub fn video_sink(&self) -> gst::Element {
+        self.glsink.clone().into()
+    }
+
+    pub fn connect(
         &mut self,
         graphics_api: &slint::GraphicsAPI<'_>,
-        pipeline: gst::Pipeline,
+        bus: &gst::Bus,
         next_frame_available_notifier: Box<dyn Fn() + Send>,
     ) {
         let egl = match graphics_api {
@@ -133,7 +132,6 @@ impl VideoFrameConverter {
 
         self.gst_gl_context = Some(gst_gl_context.clone());
 
-        let bus = pipeline.bus().unwrap();
         bus.set_sync_handler({
             let gst_gl_context = gst_gl_context.clone();
             move |_, msg| {
@@ -217,15 +215,9 @@ impl VideoFrameConverter {
                 })
                 .build(),
         );
-
-        pipeline
-            .set_state(gst::State::Playing)
-            .expect("Unable to set the pipeline to the `Playing` state");
-
-        self.pipeline = Some(pipeline);
     }
 
-    fn fetch_next_frame(&mut self) -> Option<slint::Image> {
+    pub fn fetch_next_frame(&self) -> Option<slint::Image> {
         if let Some((info, buffer)) = self.next_frame.lock().unwrap().take() {
             let sync_meta = buffer.meta::<gst_gl::GLSyncMeta>().unwrap();
             sync_meta.wait(self.gst_gl_context.as_ref().unwrap());
@@ -255,12 +247,10 @@ impl VideoFrameConverter {
             })
     }
 
-    fn deactivate_and_pause(&mut self) {
+    pub fn deactivate_and_pause(&self) {
         self.current_frame.lock().unwrap().take();
         self.next_frame.lock().unwrap().take();
-        if let Some(pipeline) = self.pipeline.take() {
-            let _ = pipeline.set_state(gst::State::Null);
-        }
+
         if let Some(context) = &self.gst_gl_context {
             context.activate(false).expect("could not activate GStreamer GL context");
         }
