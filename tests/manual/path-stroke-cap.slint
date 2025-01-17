@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+component Line {
+    in property <LineCap> stroke-line-cap <=> p.stroke-line-cap;
+
+    p := Path {
+        viewbox-width: 6;
+        viewbox-height: 6;
+
+        stroke: Palette.foreground;
+        stroke-width: 20px;
+
+        MoveTo {
+            x: 1;
+            y: 1;
+        }
+
+        LineTo {
+            x: 5;
+            y: 1;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    preferred-width: 300px;
+    preferred-height: 300px;
+
+    Line {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: 50px;
+
+        stroke-line-cap: butt;
+    }
+
+    Line {
+        x: 10px;
+        y: 50px;
+        width: parent.width - 20px;
+        height: 50px;
+
+        stroke-line-cap: round;
+    }
+
+    Line {
+        x: 10px;
+        y: 100px;
+        width: parent.width - 20px;
+        height: 50px;
+
+        stroke-line-cap: square;
+    }
+
+    /*
+      <line x1="1" y1="1" x2="5" y2="1" stroke="black" stroke-linecap="butt" />
+
+  <!-- Effect of the "round" value -->
+  <line x1="1" y1="3" x2="5" y2="3" stroke="black" stroke-linecap="round" />
+
+  <!-- Effect of the "square" value -->
+  <line x1="1" y1="5" x2="5" y2="5" stroke="black" stroke-linecap="square" />
+*/
+}

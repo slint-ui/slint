@@ -740,6 +740,11 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         {
             border_paint.set_anti_alias(anti_alias);
             border_paint.set_stroke_width((path.stroke_width() * self.scale_factor).get());
+            border_paint.set_stroke_cap(match path.stroke_line_cap() {
+                i_slint_core::items::LineCap::Butt => skia_safe::PaintCap::Butt,
+                i_slint_core::items::LineCap::Round => skia_safe::PaintCap::Round,
+                i_slint_core::items::LineCap::Square => skia_safe::PaintCap::Square,
+            });
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
         }

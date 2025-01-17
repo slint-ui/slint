@@ -637,6 +637,11 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let border_paint = self.brush_to_paint(path.stroke(), &femtovg_path).map(|mut paint| {
             paint.set_line_width((path.stroke_width() * self.scale_factor).get());
+            paint.set_line_cap(match path.stroke_line_cap() {
+                items::LineCap::Butt => femtovg::LineCap::Butt,
+                items::LineCap::Round => femtovg::LineCap::Round,
+                items::LineCap::Square => femtovg::LineCap::Square,
+            });
             paint.set_anti_alias(anti_alias);
             paint
         });

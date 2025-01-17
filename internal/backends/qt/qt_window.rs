@@ -17,8 +17,9 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
-    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
-    PointerEventButton, PopupClosePolicy, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
+    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, MouseCursor,
+    Opacity, PointerEventButton, PopupClosePolicy, RenderingResult, TextOverflow, TextStrokeStyle,
+    TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -989,6 +990,11 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let fill_brush: qttypes::QBrush = into_qbrush(path.fill(), rect.width, rect.height);
         let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke(), rect.width, rect.height);
         let stroke_width: f32 = path.stroke_width().get();
+        let stroke_pen_cap_style: i32 = match path.stroke_line_cap() {
+            LineCap::Butt => 0x00,
+            LineCap::Round => 0x20,
+            LineCap::Square => 0x10,
+        };
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
 
@@ -1034,11 +1040,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 fill_brush as "QBrush",
                 stroke_brush as "QBrush",
                 stroke_width as "float",
+                stroke_pen_cap_style as "int",
                 anti_alias as "bool"] {
             (*painter)->save();
             auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->translate(pos);
-            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width) : Qt::NoPen);
+            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style)) : Qt::NoPen);
             (*painter)->setBrush(fill_brush);
             (*painter)->setRenderHint(QPainter::Antialiasing, anti_alias);
             (*painter)->drawPath(painter_path);
