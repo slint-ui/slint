@@ -2699,7 +2699,7 @@ export component Bar {
 
     re_name-me { }
 }
-                
+
 
                 "#
                 .to_string(),
@@ -2771,7 +2771,7 @@ export component Bar {
 
     re_name-me { }
 }
-                
+
 
                 "#
                 .to_string(),
