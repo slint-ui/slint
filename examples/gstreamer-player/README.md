@@ -4,9 +4,8 @@
 
 This example application demonstrates a way to use gstreamer (with Rust bindings) to display a video stream in Slint.
 
-Current Status: This started as a fork of the ffmpeg example, but doesn't implement everything in the ffmpeg example yet:
-* The code has so far only been tested on Ubuntu.
-* We use gstreamer's test source instead of streaming a video off the internet to save bandwidth and make the example more self contained.
+Current Status:
+* The code has so far only been tested on Ubuntu and Windows.
 
 ## Building and Running
 
@@ -29,5 +28,17 @@ On Opensuse you can use:
 $ zypper in zypper in gstreamer-plugins-bad-devel gstreamer-devel gstreamer-plugins-base-devel \
       gstreamer-plugins-good
 ```
+
+On windows:
+- Install gstreamer using [official binaries](https://gstreamer.freedesktop.org/data/pkg/windows/) (we need to install both, e.g. `gstreamer-1.0-msvc-x86_64-1.24.11.msi` and `gstreamer-1.0-devel-msvc-x86_64-1.24.11.msi`), make sure to install full gstreamer in installer.
+- And export it to path:
+```bash
+# For a UNIX-style shell:
+$ export PATH="c:/gstreamer/1.0/msvc_x86_64/bin${PATH:+:$PATH}"
+
+# For cmd.exe:
+$ set PATH=C:\gstreamer\1.0\msvc_x86_64\bin;%PATH%
+```
+
 
 Once you have a working gstreamer-rs and slint install, `cargo run` should work.
