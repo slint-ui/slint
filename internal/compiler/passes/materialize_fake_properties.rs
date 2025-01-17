@@ -121,7 +121,7 @@ fn should_materialize(
 
 /// Returns true if the property is declared in this element or parent
 /// (as opposed to being implicitly declared)
-fn has_declared_property(elem: &Element, prop: &str) -> bool {
+pub fn has_declared_property(elem: &Element, prop: &str) -> bool {
     if elem.property_declarations.contains_key(prop) {
         return true;
     }
