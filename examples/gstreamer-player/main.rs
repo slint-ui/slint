@@ -115,7 +115,7 @@ fn main() {
             let state_result = pipeline.set_state(new_state);
             match state_result {
                 Ok(_) => {
-                    app_weak.upgrade_in_event_loop(move |app| app.set_playing(result)).unwrap();
+                    app_weak.unwrap().set_playing(result);
                 }
                 Err(err) => {
                     eprintln!("Failed to set pipeline state to {:?}: {}", new_state, err);
