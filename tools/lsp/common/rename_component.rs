@@ -22,52 +22,51 @@ fn is_symbol_name_exported(
     document_cache: &common::DocumentCache,
     document_node: &syntax_nodes::Document,
     query: &DeclarationNodeQuery,
-) -> bool {
+) -> Option<SmolStr> {
     for export in document_node.ExportsList() {
         for specifier in export.ExportSpecifier() {
-            if let Some(export_name) = specifier.ExportName() {
-                if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
-                    == Some(&query.name)
-                    && query.is_same_symbol(document_cache, main_identifier(&export_name).unwrap())
-                {
-                    return true;
-                }
-            } else {
-                let export_id = specifier.ExportIdentifier();
-                if i_slint_compiler::parser::identifier_text(&export_id).as_ref()
-                    == Some(&query.name)
-                    && query.is_same_symbol(document_cache, main_identifier(&export_id).unwrap())
-                {
-                    return true;
-                }
+            let external = specifier
+                .ExportName()
+                .and_then(|en| i_slint_compiler::parser::identifier_text(&en));
+
+            let export_id = specifier.ExportIdentifier();
+            let export_id_str = i_slint_compiler::parser::identifier_text(&export_id);
+
+            if export_id_str.as_ref() == Some(&query.name)
+                && query.is_same_symbol(document_cache, main_identifier(&export_id).unwrap())
+            {
+                return external.or(export_id_str);
             }
         }
         if let Some(component) = export.Component() {
             let identifier = component.DeclaredIdentifier();
-            if i_slint_compiler::parser::identifier_text(&identifier).as_ref() == Some(&query.name)
+            let identifier_str = i_slint_compiler::parser::identifier_text(&identifier);
+
+            if identifier_str.as_ref() == Some(&query.name)
                 && query.is_same_symbol(document_cache, main_identifier(&identifier).unwrap())
             {
-                return true;
+                return identifier_str;
             }
         }
         for structs in export.StructDeclaration() {
             let identifier = structs.DeclaredIdentifier();
-            if i_slint_compiler::parser::identifier_text(&identifier).as_ref() == Some(&query.name)
+            let identifier_str = i_slint_compiler::parser::identifier_text(&identifier);
+
+            if identifier_str.as_ref() == Some(&query.name)
                 && query.is_same_symbol(document_cache, main_identifier(&identifier).unwrap())
             {
-                return true;
+                return identifier_str;
             }
         }
         for enums in export.EnumDeclaration() {
-            if i_slint_compiler::parser::identifier_text(&enums.DeclaredIdentifier()).as_ref()
-                == Some(&query.name)
-            {
-                return true;
+            let enum_name = i_slint_compiler::parser::identifier_text(&enums.DeclaredIdentifier());
+            if enum_name.as_ref() == Some(&query.name) {
+                return enum_name;
             }
         }
     }
 
-    false
+    None
 }
 
 fn fix_imports(
@@ -198,7 +197,7 @@ fn fix_import_in_document(
             };
 
             // Change exports
-            fix_exports(document_cache, document_node, &sub_query, new_type, edits);
+            fix_export_lists(document_cache, document_node, &sub_query, new_type, edits);
 
             // Change all local usages:
             rename_local_symbols(document_cache, document_node, &sub_query, new_type, edits);
@@ -206,13 +205,13 @@ fn fix_import_in_document(
     }
 }
 
-fn fix_exports(
+fn fix_export_lists(
     document_cache: &common::DocumentCache,
     document_node: &syntax_nodes::Document,
     query: &DeclarationNodeQuery,
     new_type: &str,
     edits: &mut Vec<common::SingleTextEdit>,
-) {
+) -> Option<SmolStr> {
     let normalized_new_type = i_slint_compiler::parser::normalize_identifier(new_type);
 
     for export in document_node.ExportsList() {
@@ -279,10 +278,12 @@ fn fix_exports(
                 if let Some(sub_query) = sub_query {
                     let my_path = document_node.source_file.path();
                     fix_imports(document_cache, &sub_query, my_path, new_type, edits);
+                    return Some(sub_query.name);
                 }
             }
         }
     }
+    None
 }
 
 /// Rename all local non import/export related identifiers
@@ -393,7 +394,9 @@ fn rename_internal_name(
     }
 
     // Change exports
-    fix_exports(document_cache, document_node, &query, new_type, &mut edits);
+    if is_symbol_name_exported(document_cache, document_node, query).is_some() {
+        fix_export_lists(document_cache, document_node, &query, new_type, &mut edits);
+    }
 
     // Change all local usages:
     rename_local_symbols(document_cache, document_node, &query, new_type, &mut edits);
@@ -550,7 +553,7 @@ impl DeclarationNodeQuery {
     }
 
     fn is_same_symbol(&self, document_cache: &common::DocumentCache, token: SyntaxToken) -> bool {
-        let Some(info) = common::token_info::token_info(document_cache, token) else {
+        let Some(info) = common::token_info::token_info(document_cache, token.clone()) else {
             return false;
         };
 
@@ -574,6 +577,28 @@ impl DeclarationNodeQuery {
                 common::token_info::TokenInfo::NamedReference(nl),
                 common::token_info::TokenInfo::NamedReference(nr),
             ) => Rc::ptr_eq(&nl.element(), &nr.element()) && nl.name() == nr.name(),
+            (
+                common::token_info::TokenInfo::ElementType(
+                    i_slint_compiler::langtype::ElementType::Component(c),
+                ),
+                common::token_info::TokenInfo::ElementRc(e),
+            )
+            | (
+                common::token_info::TokenInfo::ElementRc(e),
+                common::token_info::TokenInfo::ElementType(
+                    i_slint_compiler::langtype::ElementType::Component(c),
+                ),
+            ) => {
+                if let Some(ce) = c.node.as_ref().and_then(|cn| cn.child_node(SyntaxKind::Element))
+                {
+                    e.borrow().debug.iter().any(|di| {
+                        Some(di.node.source_file.path()) == ce.source_file().map(|sf| sf.path())
+                            && di.node.text_range() == ce.text_range()
+                    })
+                } else {
+                    false
+                }
+            }
             (
                 common::token_info::TokenInfo::NamedReference(nr),
                 common::token_info::TokenInfo::LocalProperty(s),
@@ -748,11 +773,10 @@ fn rename_declared_identifier(
     // Change all local usages:
     rename_local_symbols(document_cache, document_node, query, new_type, &mut edits);
 
-    // Change exports (if the type lives till the end of the document!)
-    fix_exports(document_cache, document_node, query, new_type, &mut edits);
-
-    if is_symbol_name_exported(document_cache, document_node, query) {
-        fix_imports(document_cache, query, source_file.path(), new_type, &mut edits);
+    if is_symbol_name_exported(document_cache, document_node, query).is_some() {
+        if fix_export_lists(document_cache, document_node, query, new_type, &mut edits).is_none() {
+            fix_imports(document_cache, query, source_file.path(), new_type, &mut edits);
+        }
     }
 
     Ok(common::create_workspace_edit_from_single_text_edits(edits))
@@ -1161,7 +1185,6 @@ export component Foo {
                 (
                     Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
-
 enum Foo {
     foo, bar
 }
@@ -2828,5 +2851,125 @@ export component Bar {
             .contents
             .contains("/* 2 */ self.XxxYyyZzz /* <- TEST_ME_2 */ = re-name_me >= 42;"));
         assert!(edited_text[0].contents.contains("re_name-me { }"));
+    }
+
+    #[test]
+    fn test_rename_globals_from_definition() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+export { Foo }
+
+global Foo /* <- TEST_ME_1 */ {
+    in property <bool> test-property: true;
+}
+
+export component Bar {
+    function baz(bar: int) -> bool { return Foo.test_property && bar >= 42; }
+}
+                "#
+                .to_string(),
+            )]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 1);
+        assert!(edited_text[0].contents.contains("export { XxxYyyZzz }"));
+        assert!(edited_text[0].contents.contains("global XxxYyyZzz /* <- TEST_ME_1 "));
+        assert!(edited_text[0].contents.contains("in property <bool> test-property: true;"));
+        assert!(edited_text[0].contents.contains("function baz(bar: int)"));
+        assert!(edited_text[0]
+            .contents
+            .contains("int) -> bool { return XxxYyyZzz.test_property && bar >= 42"));
+    }
+
+    #[test]
+    fn test_rename_globals_from_use() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+export { Foo }
+
+global Foo {
+    in property <bool> test-property: true;
+}
+
+export component Bar {
+    function baz(bar: int) -> bool { return Foo /* <- TEST_ME_1 */.test_property && bar >= 42; }
+}
+                "#
+                .to_string(),
+            )]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 1);
+        assert!(edited_text[0].contents.contains("export { XxxYyyZzz }"));
+        assert!(edited_text[0].contents.contains("global XxxYyyZzz {"));
+        assert!(edited_text[0].contents.contains("in property <bool> test-property: true;"));
+        assert!(edited_text[0].contents.contains("function baz(bar: int)"));
+        assert!(edited_text[0].contents.contains(
+            "int) -> bool { return XxxYyyZzz /* <- TEST_ME_1 */.test_property && bar >= 42"
+        ));
+    }
+
+    #[test]
+    fn test_rename_globals_from_use_with_export() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+import { Foo } from "source.slint";
+
+export component Bar {
+    function baz(bar: int) -> bool { return Foo /* <- TEST_ME_1 */.test_property && bar >= 42; }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+export { Foo }
+
+global Foo {
+    in property <bool> test-property: true;
+}
+                "#
+                    .to_string(),
+                ),
+            ]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 2);
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("import { XxxYyyZzz } from \"source.slint\";"));
+                assert!(ed.contents.contains("function baz(bar: int)"));
+                assert!(ed.contents.contains(
+                    "int) -> bool { return XxxYyyZzz /* <- TEST_ME_1 */.test_property && bar >= 42"
+                ));
+            } else if ed_path == test::test_file_name("source.slint") {
+                assert!(ed.contents.contains("export { XxxYyyZzz }"));
+                assert!(ed.contents.contains("global XxxYyyZzz {"));
+                assert!(ed.contents.contains("in property <bool> test-property: true;"));
+            } else {
+                panic!("Unexpected file!");
+            }
+        }
     }
 }
