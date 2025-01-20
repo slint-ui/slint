@@ -19,7 +19,12 @@
     out property <bool> test2: test_sqrt2 && test_abs2 && test_log2 && test_pow2;
     out property <bool> test1: test_sqrt && test_abs && test_log && test_pow;
 
-    out property <bool> test: test1 && test2 && (test_div_zero) > -1;
+    in-out property <int> high-number1: 80000000;
+    in-out property <int> high-number2: 80000001;
+    out property <bool> test-high-number: high-number1 != high-number2 && high-number2 == 80000001 && high-number1 + 1 == high-number2;
+
+
+    out property <bool> test: test1 && test2 && (test_div_zero) > -1 && test-high-number;
 }
 /*
 ```cpp

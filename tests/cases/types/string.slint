@@ -7,13 +7,14 @@ export component TestCase  {
     in-out property<string> p3: "with\"quote\\\"\u{8}";
     in-out property<bool> e1: p2 == "fox:🦊";
     in-out property<bool> e2: p2 == "fox:🦍";
+    in-out property<int> big-number: 800000005;
 
     // conversion from float
     in property<float> value: 98.7654321;
     in property<float> increment: 0.1;
     out property <string> converted_value: round(value * 100)/100;
     out property <string> ten_dot_one: 10 + increment;
-    out property <bool> test: e1 && !e2 && converted_value == "98.77" && ten_dot_one == "10.1";
+    out property <bool> test: e1 && !e2 && converted_value == "98.77" && ten_dot_one == "10.1" && big-number == "800000005";
 }
 
 /*
