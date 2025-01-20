@@ -11,9 +11,10 @@
 //! binding reference to fake properties
 
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference};
-use crate::langtype::{ElementType, NativeClass};
+use crate::langtype::{ElementType, NativeClass, Type};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
+use core::cell::RefCell;
 use smol_str::{format_smolstr, SmolStr};
 use std::rc::Rc;
 
@@ -43,6 +44,46 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
 
 fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>) {
     let children = std::mem::take(&mut flickable.borrow_mut().children);
+    let is_listview = children
+        .iter()
+        .any(|c| c.borrow().repeated.as_ref().is_some_and(|r| r.is_listview.is_some()));
+
+    if is_listview {
+        // Fox Listview, we don't bind the y property to the geometry because for large listview, we want to support coordinate with more precision than f32
+        // so the actual geometry is relative to the Flickable instead of the viewport
+        // We still assign a binding to the y property in case it is read by someone
+        for c in &children {
+            if c.borrow().repeated.is_none() {
+                // Normally should not happen, listview should only have one children, and it should be repeated
+                continue;
+            }
+            let ElementType::Component(base) = c.borrow().base_type.clone() else { continue };
+            let inner_elem = &base.root_element;
+            let new_y = crate::layout::create_new_prop(
+                inner_elem,
+                SmolStr::new_static("actual-y"),
+                Type::LogicalLength,
+            );
+            new_y.mark_as_set();
+            inner_elem.borrow_mut().bindings.insert(
+                "y".into(),
+                RefCell::new(
+                    Expression::BinaryExpression {
+                        lhs: Expression::PropertyReference(new_y.clone()).into(),
+                        rhs: Expression::PropertyReference(NamedReference::new(
+                            flickable,
+                            SmolStr::new_static("viewport-y"),
+                        ))
+                        .into(),
+                        op: '-',
+                    }
+                    .into(),
+                ),
+            );
+            inner_elem.borrow_mut().geometry_props.as_mut().unwrap().y = new_y;
+        }
+    }
+
     let viewport = Element::make_rc(Element {
         id: format_smolstr!("{}-viewport", flickable.borrow().id),
         base_type: ElementType::Native(native_empty.clone()),
@@ -53,8 +94,12 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
     });
     let element_type = flickable.borrow().base_type.clone();
     for prop in element_type.as_builtin().properties.keys() {
+        // bind the viewport's property to the flickable property, such as:  `width <=> parent.viewport-width`
         if let Some(vp_prop) = prop.strip_prefix("viewport-") {
-            // bind the viewport's property to the flickable property, such as:  `width <=> parent.viewport-width`
+            if is_listview && matches!(vp_prop, "y" | "height") {
+                //don't bind viewport-y for ListView because the layout is handled by the runtime
+                continue;
+            }
             viewport.borrow_mut().bindings.insert(
                 vp_prop.into(),
                 BindingExpression::new_two_way(NamedReference::new(flickable, prop.clone())).into(),

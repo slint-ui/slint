@@ -1,0 +1,130 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// As of now, the C++ optimization doesn't optimize hidden item of Listview so this test would take forever
+//ignore:cpp
+
+import { ListView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    preferred-width: 300px;
+    preferred-height: 300px;
+
+    in-out property <string> result;
+    callback clicked(int);
+    in-out property <length> viewport-y <=> lv.viewport-y;
+
+    lv := ListView {
+        for _[num] in 2130000000: Rectangle {
+            height: 20px;
+            border-width: 1px;
+            border-color: red;
+            Text { text: num; }
+            TouchArea {
+                clicked => { result = "|"+num; root.clicked(num) }
+            }
+        }
+    }
+}
+
+
+/*
+
+
+```rust
+let instance = TestCase::new().unwrap();
+let clicked = std::rc::Rc::new(std::cell::RefCell::new(Vec::<i32>::new()));
+let clicked2 = clicked.clone();
+instance.on_clicked(move |x| clicked2.borrow_mut().push(x) );
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert_eq!(clicked.borrow().as_slice(), &[12]);
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert_eq!(clicked.borrow().as_slice(), &[12, 13, 11]);
+
+instance.set_viewport_y(-20. * 1000.);
+clicked.borrow_mut().clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert_eq!(clicked.borrow().as_slice(), &[1012]);
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert_eq!(clicked.borrow().as_slice(), &[1012, 1013, 1011]);
+
+instance.set_viewport_y(-20. * 100000.);
+clicked.borrow_mut().clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert_eq!(clicked.borrow().as_slice(), &[100012]);
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert_eq!(clicked.borrow().as_slice(), &[100012, 100013, 100011]);
+
+instance.set_viewport_y(-20. * 10000000.);
+clicked.borrow_mut().clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert_eq!(clicked.borrow().as_slice(), &[10000012]);
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert_eq!(clicked.borrow().as_slice(), &[10000012, 10000013, 10000011]);
+
+instance.set_viewport_y(-20. * 210000000.);
+clicked.borrow_mut().clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert_eq!(clicked.borrow().as_slice(), &[210000012]);
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert_eq!(clicked.borrow().as_slice(), &[210000012, 210000013, 210000011]);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto clicked = std::make_shared<std::vector<int>>();
+instance.on_clicked([clicked](int x) { clicked->push_back(x); });
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert(*clicked == std::vector<int>{12});
+```
+
+```js
+var instance = new slint.TestCase();
+var clicked = new Array();
+instance.clicked = function(x) { clicked.push(x); };
+slintlib.private_api.send_mouse_click(instance, 5., 250.);
+assert.deepEqual(clicked, [12]);
+slintlib.private_api.send_mouse_click(instance, 5., 263.);
+slintlib.private_api.send_mouse_click(instance, 5., 239.);
+assert.deepEqual(clicked, [12, 13, 11]);
+
+instance.viewport_y=(-20. * 1000.);
+clicked.length = 0;
+slintlib.private_api.send_mouse_click(instance, 5., 250.);
+assert.deepEqual(clicked, [1012]);
+slintlib.private_api.send_mouse_click(instance, 5., 263.);
+slintlib.private_api.send_mouse_click(instance, 5., 239.);
+assert.deepEqual(clicked, [1012, 1013, 1011]);
+
+instance.viewport_y=(-20. * 100000.);
+clicked.length = 0;
+slintlib.private_api.send_mouse_click(instance, 5., 250.);
+assert.deepEqual(clicked, [100012]);
+slintlib.private_api.send_mouse_click(instance, 5., 263.);
+slintlib.private_api.send_mouse_click(instance, 5., 239.);
+assert.deepEqual(clicked, [100012, 100013, 100011]);
+
+instance.viewport_y=(-20. * 10000000.);
+clicked.length = 0;
+slintlib.private_api.send_mouse_click(instance, 5., 250.);
+assert.deepEqual(clicked, [10000012]);
+slintlib.private_api.send_mouse_click(instance, 5., 263.);
+slintlib.private_api.send_mouse_click(instance, 5., 239.);
+assert.deepEqual(clicked, [10000012, 10000013, 10000011]);
+
+instance.viewport_y=(-20. * 210000000.);
+clicked.length = 0;
+slintlib.private_api.send_mouse_click(instance, 5., 250.);
+assert.deepEqual(clicked, [210000012]);
+slintlib.private_api.send_mouse_click(instance, 5., 263.);
+slintlib.private_api.send_mouse_click(instance, 5., 239.);
+assert.deepEqual(clicked, [210000012, 210000013, 210000011]);
+```
+
+
+*/

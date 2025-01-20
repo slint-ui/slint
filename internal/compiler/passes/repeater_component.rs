@@ -85,8 +85,6 @@ fn create_repeater_components(component: &Rc<Component>) {
                     RefCell::new(Expression::PropertyReference(listview.listview_width).into()),
                 );
             }
-
-            NamedReference::new(&comp.root_element, SmolStr::new_static("y")).mark_as_set();
         }
 
         let weak = Rc::downgrade(&comp);
