@@ -2361,7 +2361,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 
             if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
-                quote!(#maybe_negate sp::ApproxEq::<f32>::approx_eq(&(#lhs as f32), &(#rhs as f32)))
+                quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
             } else {
                 let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
                     OperatorClass::ArithmeticOp => match lhs_ty {
