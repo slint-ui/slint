@@ -1073,6 +1073,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             (inner.offset, first_item_y + vp_y)
         };
 
+        let mut loop_count = 0;
         loop {
             // If there is a gap before the new_offset and the beginning of the visible viewport,
             // try to fill it with items. First look at items that are before new_offset in the
@@ -1154,15 +1155,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                 inner.instances.push((RepeatedInstanceState::Clean, Some(new_instance)));
                 idx += 1;
             }
-            if y < listview_height && vp_y < zero {
+            if y < listview_height && vp_y < zero && loop_count < 3 {
                 assert!(idx >= row_count);
                 // we reached the end of the model, and we still have room. scroll a bit up.
-                let new_vp_y = vp_y + (listview_height - y);
-                // check that we actually did scroll (for very large lists we can exceed the precision of f32 and have an infinite loop)
-                if new_vp_y != vp_y {
-                    vp_y = new_vp_y;
-                    continue;
-                }
+                vp_y += listview_height - y;
+                loop_count += 1;
+                continue;
             }
 
             // Let's cleanup the instances that are not shown.
