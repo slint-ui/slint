@@ -191,7 +191,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::format!("{}", n as f32))
+                    Value::String(i_slint_core::string::shared_string_from_number(n))
                 }
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),

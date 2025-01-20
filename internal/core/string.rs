@@ -306,6 +306,16 @@ where
     }
 }
 
+/// Convert a f62 to a SharedString
+pub fn shared_string_from_number(n: f64) -> SharedString {
+    // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
+    if n < 16777216. {
+        crate::format!("{}", n as f32)
+    } else {
+        crate::format!("{}", n)
+    }
+}
+
 #[test]
 fn simple_test() {
     let x = SharedString::from("hello world!");
@@ -417,7 +427,7 @@ pub(crate) mod ffi {
     /// The resulting structure must be passed to slint_shared_string_drop
     #[no_mangle]
     pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
-        let str = crate::format!("{}", n as f32);
+        let str = shared_string_from_number(n);
         core::ptr::write(out, str);
     }
 
