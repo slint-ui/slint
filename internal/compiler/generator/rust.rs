@@ -2382,7 +2382,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                                 | Type::Rem
                         ) =>
                     {
-                        (Some(quote!(as f32)), Some(quote!(as f32)))
+                        (Some(quote!(as f64)), Some(quote!(as f64)))
                     }
                     _ => (None, None),
                 };

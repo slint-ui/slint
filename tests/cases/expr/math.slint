@@ -21,7 +21,7 @@
 
     in-out property <int> high-number1: 80000000;
     in-out property <int> high-number2: 80000001;
-    out property <bool> test-high-number: high-number1 != high-number2 && high-number2 == 80000001 && high-number1 + 1 == high-number2;
+    out property <bool> test-high-number: high-number1 != high-number2 && high-number2 == 80000001 && high-number1 + 1 == high-number2 && high-number1 < high-number2 && high-number2 > high-number1 && !(high-number1 >= high-number2);
 
 
     out property <bool> test: test1 && test2 && (test_div_zero) > -1 && test-high-number;
