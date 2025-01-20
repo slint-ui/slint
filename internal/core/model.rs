@@ -974,23 +974,24 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         viewport_width.set(listview_width);
         let model = self.model();
         let row_count = model.row_count();
+        let zero = LogicalLength::zero();
         if row_count == 0 {
             self.0.inner.borrow_mut().instances.clear();
-            viewport_height.set(LogicalLength::zero());
-            viewport_y.set(LogicalLength::zero());
+            viewport_height.set(zero);
+            viewport_y.set(zero);
 
             return;
         }
 
         let listview_height = listview_height.get();
-        let mut vp_y = viewport_y.get().min(LogicalLength::zero());
+        let mut vp_y = viewport_y.get().min(zero);
 
         // We need some sort of estimation of the element height
         let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
-        let element_height = if cached_item_height > LogicalLength::zero() {
+        let element_height = if cached_item_height > zero {
             cached_item_height
         } else {
-            let total_height = Cell::new(LogicalLength::zero());
+            let total_height = Cell::new(zero);
             let count = Cell::new(0);
             let get_height_visitor = |x: &ItemTreeRc<C>| {
                 let height = x.as_pin_ref().item_geometry(0).height_length();
@@ -1042,12 +1043,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             // We are jumping more than 1.5 screens, consider this as a random seek.
             inner.instances.clear();
             inner.offset = ((-vp_y / element_height).get().floor() as usize).min(row_count - 1);
-            (inner.offset, -vp_y)
+            (inner.offset, zero)
         } else if vp_y < inner.previous_viewport_y {
             // we scrolled down, try to find out the new offset.
-            let mut it_y = first_item_y;
+            let mut it_y = first_item_y + vp_y;
             let mut new_offset = inner.offset;
-            debug_assert!(it_y <= -vp_y); // we scrolled down, the anchor should be hidden
+            debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
             for (i, c) in inner.instances.iter_mut().enumerate() {
                 if c.0 == RepeatedInstanceState::Dirty {
                     if c.1.is_none() {
@@ -1060,7 +1061,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     c.0 = RepeatedInstanceState::Clean;
                 }
                 let h = c.1.as_ref().unwrap().as_pin_ref().item_geometry(0).height_length();
-                if it_y + h >= -vp_y || new_offset + 1 >= row_count {
+                if it_y + h >= zero || new_offset + 1 >= row_count {
                     break;
                 }
                 it_y += h;
@@ -1069,14 +1070,14 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             (new_offset, it_y)
         } else {
             // We scrolled up, we'll instantiate items before offset in the loop
-            (inner.offset, first_item_y)
+            (inner.offset, first_item_y + vp_y)
         };
 
         loop {
             // If there is a gap before the new_offset and the beginning of the visible viewport,
             // try to fill it with items. First look at items that are before new_offset in the
             // inner.instances, if any.
-            while new_offset > inner.offset && new_offset_y > -vp_y {
+            while new_offset > inner.offset && new_offset_y > zero {
                 new_offset -= 1;
                 new_offset_y -= inner.instances[new_offset - inner.offset]
                     .1
@@ -1088,7 +1089,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             }
             // If there is still a gap, fill it with new instances before
             let mut new_instances = Vec::new();
-            while new_offset > 0 && new_offset_y > -vp_y {
+            while new_offset > 0 && new_offset_y > zero {
                 new_offset -= 1;
                 let new_instance = init();
                 if let Some(data) = model.row_data(new_offset) {
@@ -1137,13 +1138,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     x.as_pin_ref().listview_layout(&mut y, viewport_width);
                 }
                 idx += 1;
-                if y >= -vp_y + listview_height {
+                if y >= listview_height {
                     break;
                 }
             }
 
             // create more items until there is no more room.
-            while y < -vp_y + listview_height && idx < row_count {
+            while y < listview_height && idx < row_count {
                 let new_instance = init();
                 if let Some(data) = model.row_data(idx) {
                     new_instance.update(idx, data);
@@ -1153,11 +1154,15 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                 inner.instances.push((RepeatedInstanceState::Clean, Some(new_instance)));
                 idx += 1;
             }
-            if y < -vp_y + listview_height && vp_y < LogicalLength::zero() {
+            if y < listview_height && vp_y < zero {
                 assert!(idx >= row_count);
                 // we reached the end of the model, and we still have room. scroll a bit up.
-                vp_y = listview_height - y;
-                continue;
+                let new_vp_y = vp_y + (listview_height - y);
+                // check that we actually did scroll (for very large lists we can exceed the precision of f32 and have an infinite loop)
+                if new_vp_y != vp_y {
+                    vp_y = new_vp_y;
+                    continue;
+                }
             }
 
             // Let's cleanup the instances that are not shown.
@@ -1187,7 +1192,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             inner.cached_item_height = (y - new_offset_y) / inner.instances.len() as Coord;
             inner.anchor_y = inner.cached_item_height * inner.offset as Coord;
             viewport_height.set(inner.cached_item_height * row_count as Coord);
-            let new_viewport_y = -inner.anchor_y + vp_y + new_offset_y;
+            let new_viewport_y = -inner.anchor_y + new_offset_y;
             viewport_y.set(new_viewport_y);
             inner.previous_viewport_y = new_viewport_y;
             break;

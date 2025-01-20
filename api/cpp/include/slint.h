@@ -1190,13 +1190,13 @@ public:
     void ensure_updated_listview(const Parent *parent,
                                  const private_api::Property<float> *viewport_width,
                                  const private_api::Property<float> *viewport_height,
-                                 [[maybe_unused]] const private_api::Property<float> *viewport_y,
+                                 const private_api::Property<float> *viewport_y,
                                  float listview_width, [[maybe_unused]] float listview_height) const
     {
         // TODO: the rust code in model.rs try to only allocate as many items as visible items
         ensure_updated(parent);
 
-        float h = compute_layout_listview(viewport_width, listview_width);
+        float h = compute_layout_listview(viewport_width, listview_width, viewport_y->get());
         viewport_height->set(h);
     }
 
@@ -1234,9 +1234,9 @@ public:
     }
 
     float compute_layout_listview(const private_api::Property<float> *viewport_width,
-                                  float listview_width) const
+                                  float listview_width, float viewport_y) const
     {
-        float offset = 0;
+        float offset = viewport_y;
         viewport_width->set(listview_width);
         if (!inner)
             return offset;
