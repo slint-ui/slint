@@ -729,11 +729,10 @@ pub trait RepeatedItemTree:
     ///
     /// offset_y is the `y` position where this item should be placed.
     /// it should be updated to be to the y position of the next item.
-    fn listview_layout(
-        self: Pin<&Self>,
-        _offset_y: &mut LogicalLength,
-        _viewport_width: Pin<&Property<LogicalLength>>,
-    ) {
+    ///
+    /// Returns the item width
+    fn listview_layout(self: Pin<&Self>, _offset_y: &mut LogicalLength) -> LogicalLength {
+        LogicalLength::default()
     }
 
     /// Returns what's needed to perform the layout if this ItemTrees is in a box layout
@@ -971,7 +970,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self.data().project_ref().is_dirty.get();
         self.data().project_ref().is_dirty.set(false);
 
-        viewport_width.set(listview_width);
+        let mut vp_width = listview_width;
         let model = self.model();
         let row_count = model.row_count();
         let zero = LogicalLength::zero();
@@ -979,7 +978,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             self.0.inner.borrow_mut().instances.clear();
             viewport_height.set(zero);
             viewport_y.set(zero);
-
+            viewport_width.set(vp_width);
             return;
         }
 
@@ -1136,7 +1135,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     c.0 = RepeatedInstanceState::Clean;
                 }
                 if let Some(x) = c.1.as_ref() {
-                    x.as_pin_ref().listview_layout(&mut y, viewport_width);
+                    vp_width = vp_width.max(x.as_pin_ref().listview_layout(&mut y));
                 }
                 idx += 1;
                 if y >= listview_height {
@@ -1150,7 +1149,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                 if let Some(data) = model.row_data(idx) {
                     new_instance.update(idx, data);
                 }
-                new_instance.as_pin_ref().listview_layout(&mut y, viewport_width);
+                vp_width = vp_width.max(new_instance.as_pin_ref().listview_layout(&mut y));
                 indices_to_init.push(inner.instances.len());
                 inner.instances.push((RepeatedInstanceState::Clean, Some(new_instance)));
                 idx += 1;
@@ -1190,6 +1189,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             inner.cached_item_height = (y - new_offset_y) / inner.instances.len() as Coord;
             inner.anchor_y = inner.cached_item_height * inner.offset as Coord;
             viewport_height.set(inner.cached_item_height * row_count as Coord);
+            viewport_width.set(vp_width);
             let new_viewport_y = -inner.anchor_y + new_offset_y;
             viewport_y.set(new_viewport_y);
             inner.previous_viewport_y = new_viewport_y;

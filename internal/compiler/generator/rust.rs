@@ -1773,16 +1773,11 @@ fn generate_repeated_component(
             fn listview_layout(
                 self: core::pin::Pin<&Self>,
                 offset_y: &mut sp::LogicalLength,
-                viewport_width: core::pin::Pin<&sp::Property<sp::LogicalLength>>,
-            ) {
+            ) -> sp::LogicalLength {
                 let _self = self;
-                let vp_w = viewport_width.get();
                 #p_y.set(*offset_y);
                 *offset_y += #p_height.get();
-                let w = #p_width.get();
-                if vp_w < w {
-                    viewport_width.set(w);
-                }
+                #p_width.get()
             }
         }
     } else {
