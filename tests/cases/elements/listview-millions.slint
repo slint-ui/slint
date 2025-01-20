@@ -72,6 +72,10 @@ assert_eq!(clicked.borrow().as_slice(), &[210000012]);
 slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert_eq!(clicked.borrow().as_slice(), &[210000012, 210000013, 210000011]);
+
+// go all the way to the end, it shouldn't crash or loop forever
+instance.set_viewport_y(-20. * (2130000000. - 5.));
+slint_testing::send_mouse_click(&instance, 5., 250.);
 ```
 
 ```cpp
@@ -124,6 +128,10 @@ assert.deepEqual(clicked, [210000012]);
 slintlib.private_api.send_mouse_click(instance, 5., 263.);
 slintlib.private_api.send_mouse_click(instance, 5., 239.);
 assert.deepEqual(clicked, [210000012, 210000013, 210000011]);
+
+// go all the way to the end, it shouldn't crash or loop forever
+instance.viewport_y=(-20. * (2130000000. - 5.));
+slintlib.private_api.send_mouse_click(instance, 5., 250.);
 ```
 
 
