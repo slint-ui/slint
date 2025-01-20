@@ -138,11 +138,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         self.run_setup_code();
     }
 
-    fn listview_layout(
-        self: Pin<&Self>,
-        offset_y: &mut LogicalLength,
-        viewport_width: Pin<&Property<LogicalLength>>,
-    ) {
+    fn listview_layout(self: Pin<&Self>, offset_y: &mut LogicalLength) -> LogicalLength {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
 
@@ -177,10 +173,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         let h = LogicalLength::new(h);
         let w = LogicalLength::new(w);
         *offset_y += h;
-        let vp_w = viewport_width.get();
-        if vp_w < w {
-            viewport_width.set(w);
-        }
+        w
     }
 
     fn box_layout_data(self: Pin<&Self>, o: Orientation) -> BoxLayoutCellData {

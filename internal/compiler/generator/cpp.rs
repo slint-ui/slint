@@ -2493,18 +2493,12 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             Declaration::Function(Function {
                 name: "listview_layout".into(),
-                signature:
-                    "(float *offset_y, const slint::private_api::Property<float> *viewport_width) const -> void"
-                        .to_owned(),
+                signature: "(float *offset_y) const -> float".to_owned(),
                 statements: Some(vec![
                     "[[maybe_unused]] auto self = this;".into(),
-                    "float vp_w = viewport_width->get();".to_owned(),
-
-                    format!("{}.set(*offset_y);", p_y), // FIXME: shouldn't that be handled by apply layout?
+                    format!("{}.set(*offset_y);", p_y),
                     format!("*offset_y += {}.get();", p_height),
-                    format!("float w = {}.get();", p_width),
-                    "if (vp_w < w)".to_owned(),
-                    "    viewport_width->set(w);".to_owned(),
+                    format!("return {}.get();", p_width),
                 ]),
                 ..Function::default()
             }),

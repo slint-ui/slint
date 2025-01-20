@@ -1237,12 +1237,13 @@ public:
                                   float listview_width, float viewport_y) const
     {
         float offset = viewport_y;
-        viewport_width->set(listview_width);
+        auto vp_width = listview_width;
         if (!inner)
             return offset;
         for (auto &x : inner->data) {
-            (*x.ptr)->listview_layout(&offset, viewport_width);
+            vp_width = std::max(vp_width, (*x.ptr)->listview_layout(&offset));
         }
+        viewport_width->set(vp_width);
         return offset;
     }
 
