@@ -19,8 +19,8 @@
   },
   "dependencies": {
     "@astrojs/check": "0.9.4",
-    "@astrojs/starlight": "0.31.0",
-    "@expressive-code/plugin-line-numbers": "0.40.0",
+    "@astrojs/starlight": "0.31.1",
+    "@expressive-code/plugin-line-numbers": "0.40.1",
     "@types/node": "20.16.10",
     "astro": "5.1.7",
     "playwright": "1.49.1",
