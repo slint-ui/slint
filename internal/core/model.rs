@@ -1060,7 +1060,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     c.0 = RepeatedInstanceState::Clean;
                 }
                 let h = c.1.as_ref().unwrap().as_pin_ref().item_geometry(0).height_length();
-                if it_y + h >= zero || new_offset + 1 >= row_count {
+                if it_y + h > zero || new_offset + 1 >= row_count {
                     break;
                 }
                 it_y += h;
