@@ -2487,7 +2487,6 @@ fn generate_repeated_component(
     if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx);
         let p_height = access_member(&listview.prop_height, &ctx);
-        let p_width = access_member(&listview.prop_width, &ctx);
 
         repeater_struct.members.push((
             Access::Public, // Because Repeater accesses it
@@ -2498,7 +2497,7 @@ fn generate_repeated_component(
                     "[[maybe_unused]] auto self = this;".into(),
                     format!("{}.set(*offset_y);", p_y),
                     format!("*offset_y += {}.get();", p_height),
-                    format!("return {}.get();", p_width),
+                    "return layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, slint::cbindgen_private::Orientation::Horizontal).min;".into(),
                 ]),
                 ..Function::default()
             }),

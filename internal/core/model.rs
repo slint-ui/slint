@@ -730,7 +730,7 @@ pub trait RepeatedItemTree:
     /// offset_y is the `y` position where this item should be placed.
     /// it should be updated to be to the y position of the next item.
     ///
-    /// Returns the item width
+    /// Returns the minimum item width which will be used to compute the listview's viewport width
     fn listview_layout(self: Pin<&Self>, _offset_y: &mut LogicalLength) -> LogicalLength {
         LogicalLength::default()
     }

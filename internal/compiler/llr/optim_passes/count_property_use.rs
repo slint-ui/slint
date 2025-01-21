@@ -79,7 +79,6 @@ pub fn count_property_use(root: &CompilationUnit) {
                     Some(ParentCtx::new(ctx, Some(idx as u32))),
                 );
                 visit_property(&lv.prop_y, &rep_ctx);
-                visit_property(&lv.prop_width, &rep_ctx);
                 visit_property(&lv.prop_height, &rep_ctx);
             }
             for idx in r.data_prop.iter().chain(r.index_prop.iter()) {
