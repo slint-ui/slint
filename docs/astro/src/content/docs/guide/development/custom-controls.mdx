@@ -445,32 +445,6 @@ export component Recipe inherits Window {
 In Rust you can set the callback like this:
 
 ```rust
-slint::slint!{
-import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
-
-export global Logic {
-    pure callback to-upper-case(string) -> string;
-    // You can collect other global properties here
-}
-
-export component Recipe inherits Window {
-    VerticalBox {
-        input := LineEdit {
-            text: "Text to be transformed";
-        }
-        HorizontalBox {
-            Text { text: "Transformed:"; }
-            // Callback invoked in binding expression
-            Text {
-                text: {
-                    Logic.to-upper-case(input.text);
-                }
-            }
-        }
-    }
-}
-}
-
 fn main() {
     let recipe = Recipe::new().unwrap();
     recipe.global::<Logic>().on_to_upper_case(|string| {
