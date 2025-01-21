@@ -152,7 +152,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         )
         .expect("cannot set y");
 
-        let h: f32 = crate::eval::load_property(
+        let h: LogicalLength = crate::eval::load_property(
             s.borrow_instance(),
             &geom.height.element(),
             geom.height.name(),
@@ -161,19 +161,8 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         .try_into()
         .expect("height not the right type");
 
-        let w: f32 = crate::eval::load_property(
-            s.borrow_instance(),
-            &geom.width.element(),
-            geom.width.name(),
-        )
-        .expect("missing width")
-        .try_into()
-        .expect("width not the right type");
-
-        let h = LogicalLength::new(h);
-        let w = LogicalLength::new(w);
         *offset_y += h;
-        w
+        LogicalLength::new(self.borrow().as_ref().layout_info(Orientation::Horizontal).min)
     }
 
     fn box_layout_data(self: Pin<&Self>, o: Orientation) -> BoxLayoutCellData {

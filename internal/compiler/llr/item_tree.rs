@@ -132,8 +132,6 @@ pub struct ListViewInfo {
     // In the repeated component context
     pub prop_y: PropertyReference,
     // In the repeated component context
-    pub prop_width: PropertyReference,
-    // In the repeated component context
     pub prop_height: PropertyReference,
 }
 

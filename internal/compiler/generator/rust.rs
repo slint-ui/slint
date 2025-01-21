@@ -1768,16 +1768,15 @@ fn generate_repeated_component(
     let extra_fn = if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx).unwrap();
         let p_height = access_member(&listview.prop_height, &ctx).unwrap();
-        let p_width = access_member(&listview.prop_width, &ctx).unwrap();
         quote! {
             fn listview_layout(
-                self: core::pin::Pin<&Self>,
+                self: ::core::pin::Pin<&Self>,
                 offset_y: &mut sp::LogicalLength,
             ) -> sp::LogicalLength {
                 let _self = self;
                 #p_y.set(*offset_y);
                 *offset_y += #p_height.get();
-                #p_width.get()
+                sp::LogicalLength::new(self.as_ref().layout_info(sp::Orientation::Horizontal).min)
             }
         }
     } else {
