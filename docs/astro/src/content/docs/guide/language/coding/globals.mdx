@@ -4,6 +4,7 @@ title: Globals
 description: Globals
 ---
 import Link from '/src/components/Link.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Declare a global singleton with `global Name { /* .. properties or callbacks .. */ }` to
 make properties and callbacks available throughout the entire project. Access them using `Name.property`.
@@ -34,9 +35,8 @@ export global Logic  {
 }
 // ...
 ```
-
-<details data-snippet-language="rust">
-<summary>Usage from Rust</summary>
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
 
 ```rust
 slint::slint!{
@@ -61,10 +61,8 @@ fn main() {
 }
 ```
 
-</details>
-
-<details data-snippet-language="cpp">
-<summary>Usage from C++</summary>
+</TabItem>
+<TabItem label="C++">
 
 ```cpp
 #include "app.h"
@@ -78,11 +76,8 @@ fn main() {
     // ...
 }
 ```
-
-</details>
-
-<details data-snippet-language="javascript">
-<summary>Usage from JavaScript</summary>
+</TabItem>
+<TabItem label="NodeJS">
 
 ```js
 let slint = require("slint-ui");
@@ -94,8 +89,8 @@ app.Logic.magic_operation = (value) => {
 app.Logic.the_value = 42;
 // ...
 ```
-
-</details>
+</TabItem>
+</Tabs>
 
 It's possible to re-expose a callback or properties from a global using the two way binding syntax.
 

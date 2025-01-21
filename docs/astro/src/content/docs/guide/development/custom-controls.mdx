@@ -5,6 +5,7 @@ title: Custom Controls
 description: Custom Controls
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 # Custom Control Introduction
 
@@ -76,8 +77,8 @@ In Slint, `-` and `_` are equivalent and interchangeable in all identifiers.
 This is different in native code: Most programming languages forbid `-` in
 identifiers, so `-` is replaced with `_`.
 
-<details data-snippet-language="rust">
-<summary>Rust code</summary>
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
 
 For technical reasons, this example uses `export {Recipe}` in the `slint!` macro.
 In real code, you can put the whole Slint code in the `slint!` macro, or use
@@ -113,10 +114,10 @@ can move into the callback.
 We can't use a strong handle here, because that would form a cycle: The component
 handle has ownership of the callback, which itself has ownership of the
 closure's captured variables.
-</details>
 
-<details data-snippet-language="cpp">
-<summary>C++ code</summary>
+</TabItem>
+<TabItem label="C++">
+
 In C++ you can write
 
 ```cpp
@@ -143,7 +144,8 @@ for each accessible callback in `Recipe`. In this case we will have `get_counter
 `set_counter` to access the `counter` property and `on_button_pressed` to
 set up the callback.
 
-</details>
+</TabItem>
+</Tabs>
 
 ## Use Property Bindings to Synchronize Controls
 
@@ -437,9 +439,9 @@ export component Recipe inherits Window {
     }
 }
 ```
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
 
-<details  data-snippet-language="rust">
-<summary>Rust code</summary>
 In Rust you can set the callback like this:
 
 ```rust
@@ -477,9 +479,8 @@ fn main() {
     // ...
 }
 ```
-</details>
-
-<details  data-snippet-language="cpp">
+</TabItem>
+<TabItem label="C++">
 <summary>C++ code</summary>
 In C++ you can set the callback like this:
 
@@ -495,10 +496,10 @@ int main(int argc, char **argv)
     // ...
 }
 ```
-</details>
+</TabItem>
+<TabItem label="NodeJS">
 
-<details  data-snippet-language="javascript">
-<summary>JavaScript code</summary>
+
 In JavaScript you can set the callback like this:
 
 ```js
@@ -510,7 +511,8 @@ recipe.Logic.to_upper_case = (str) => {
 };
 // ...
 ```
-</details>
+</TabItem>
+</Tabs>
 
 # Custom Widgets
 
