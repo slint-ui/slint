@@ -7,7 +7,7 @@ use std::rc::Rc;
 use crate::{common, util};
 
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextRange};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use lsp_types::Url;
 use smol_str::SmolStr;
 
@@ -88,20 +88,132 @@ fn fix_imports(
     }
 }
 
-fn import_path(
-    document_directory: &Path,
-    import_specifier: &syntax_nodes::ImportSpecifier,
-) -> Option<PathBuf> {
-    let import = import_specifier
-        .child_token(SyntaxKind::StringLiteral)
-        .map(|t| t.text().trim_matches('"').to_string())?;
+fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<PathBuf> {
+    assert!([SyntaxKind::ImportSpecifier, SyntaxKind::ExportModule].contains(&specifier.kind()));
 
-    if import == "std-widgets.slint" || import.starts_with("@") {
+    let import = specifier
+        .child_token(SyntaxKind::StringLiteral)
+        .and_then(|t| i_slint_compiler::literals::unescape_string(t.text()))?;
+
+    if import == SmolStr::from("std-widgets.slint") || import.starts_with("@") {
         return None; // No need to ever look at this!
     }
 
     // Do not bother with the TypeLoader: It will check the FS, which we do not use:-/
     Some(i_slint_compiler::pathutils::clean_path(&document_directory.join(import)))
+}
+
+/// Fix up `Type as OtherType` like specifiers found in import and export lists
+fn fix_specifier(
+    document_cache: &common::DocumentCache,
+    query: &DeclarationNodeQuery,
+    new_type: &str,
+    type_name: SyntaxToken,
+    renamed_to: Option<SyntaxToken>,
+    edits: &mut Vec<common::SingleTextEdit>,
+) -> Option<DeclarationNodeQuery> {
+    fn replace_x_as_y_with_newtype(
+        document_cache: &common::DocumentCache,
+        source_file: &i_slint_compiler::diagnostics::SourceFile,
+        x: &SyntaxToken,
+        y: &SyntaxToken,
+        new_type: &str,
+    ) -> common::SingleTextEdit {
+        let start_position = util::text_size_to_lsp_position(source_file, x.text_range().start());
+        let end_position = util::text_size_to_lsp_position(source_file, y.text_range().end());
+        common::SingleTextEdit::from_path(
+            document_cache,
+            source_file.path(),
+            lsp_types::TextEdit {
+                range: lsp_types::Range::new(start_position, end_position),
+                new_text: new_type.to_string(),
+            },
+        )
+        .expect("URL conversion can not fail here")
+    }
+
+    let Some(source_file) = type_name.source_file() else {
+        return None;
+    };
+
+    if i_slint_compiler::parser::normalize_identifier(type_name.text()) == query.name {
+        if let Some(renamed_to) = renamed_to {
+            if i_slint_compiler::parser::normalize_identifier(&renamed_to.text())
+                == i_slint_compiler::parser::normalize_identifier(new_type)
+            {
+                // `Old as New` => `New`
+                edits.push(replace_x_as_y_with_newtype(
+                    document_cache,
+                    source_file,
+                    &type_name,
+                    &renamed_to,
+                    new_type,
+                ));
+            } else {
+                // `Old as Foo` => `New as Foo`
+                edits.push(
+                    common::SingleTextEdit::from_path(
+                        document_cache,
+                        source_file.path(),
+                        lsp_types::TextEdit {
+                            range: util::token_to_lsp_range(&type_name),
+                            new_text: new_type.to_string(),
+                        },
+                    )
+                    .expect("URL conversion can not fail here"),
+                );
+            }
+            // Nothing else to change: We still use the old name everywhere.
+            return None;
+        } else {
+            // `Old` => `New`
+            edits.push(
+                common::SingleTextEdit::from_path(
+                    document_cache,
+                    source_file.path(),
+                    lsp_types::TextEdit {
+                        range: util::token_to_lsp_range(&type_name),
+                        new_text: new_type.to_string(),
+                    },
+                )
+                .expect("URL conversion can not fail here"),
+            );
+        }
+
+        return query.sub_query(type_name);
+    }
+    if let Some(renamed_to) = renamed_to {
+        if i_slint_compiler::parser::normalize_identifier(renamed_to.text()) == query.name {
+            if i_slint_compiler::parser::normalize_identifier(type_name.text())
+                == i_slint_compiler::parser::normalize_identifier(new_type)
+            {
+                // `New as Old` => `New`
+                edits.push(replace_x_as_y_with_newtype(
+                    document_cache,
+                    source_file,
+                    &type_name,
+                    &renamed_to,
+                    new_type,
+                ));
+            } else {
+                // `Foo as Old` => `Foo as New`
+                edits.push(
+                    common::SingleTextEdit::from_path(
+                        document_cache,
+                        source_file.path(),
+                        lsp_types::TextEdit {
+                            range: util::token_to_lsp_range(&renamed_to),
+                            new_text: new_type.to_string(),
+                        },
+                    )
+                    .expect("URL conversion can not fail here"),
+                );
+            }
+            return query.sub_query(renamed_to);
+        }
+    }
+
+    None
 }
 
 fn fix_import_in_document(
@@ -132,75 +244,69 @@ fn fix_import_in_document(
         };
 
         for identifier in list.ImportIdentifier() {
-            let Some(external) = main_identifier(&identifier.ExternalName()) else {
-                continue;
-            };
-            if i_slint_compiler::parser::normalize_identifier(external.text()) != query.name {
-                continue;
-            }
-            let Some(source_file) = external.source_file() else {
-                continue;
-            };
+            if let Some(sub_query) = fix_specifier(
+                document_cache,
+                query,
+                new_type,
+                main_identifier(&identifier.ExternalName()).unwrap(),
+                identifier.InternalName().map(|internal| main_identifier(&internal).unwrap()),
+                edits,
+            ) {
+                // Change exports
+                fix_export_lists(document_cache, document_node, &sub_query, new_type, edits);
 
-            if let Some(internal) = identifier.InternalName().and_then(|i| main_identifier(&i)) {
-                if i_slint_compiler::parser::normalize_identifier(&internal.text())
-                    == i_slint_compiler::parser::normalize_identifier(new_type)
-                {
-                    // `Old as New` => `New`
-                    let start_position =
-                        util::text_size_to_lsp_position(source_file, external.text_range().start());
-                    let end_position =
-                        util::text_size_to_lsp_position(source_file, identifier.text_range().end());
-                    edits.push(
-                        common::SingleTextEdit::from_path(
-                            document_cache,
-                            source_file.path(),
-                            lsp_types::TextEdit {
-                                range: lsp_types::Range::new(start_position, end_position),
-                                new_text: new_type.to_string(),
-                            },
-                        )
-                        .expect("URL conversion can not fail here"),
+                // Change all local usages:
+                rename_local_symbols(document_cache, document_node, &sub_query, new_type, edits);
+            }
+        }
+    }
+
+    // Find export modules!
+    for export_item in document_node.ExportsList() {
+        let Some(module) = export_item.ExportModule() else {
+            continue;
+        };
+
+        let Some(import_path) = import_path(&document_directory, &module) else {
+            continue;
+        };
+
+        if import_path != exporter_path {
+            continue;
+        }
+
+        if module.child_token(SyntaxKind::Star).is_some() {
+            // Change upstream imports
+            fix_imports(document_cache, &query, document_node.source_file.path(), new_type, edits);
+        } else {
+            for specifier in export_item.ExportSpecifier() {
+                if let Some(sub_query) = fix_specifier(
+                    document_cache,
+                    query,
+                    new_type,
+                    main_identifier(&specifier.ExportIdentifier()).unwrap(),
+                    specifier.ExportName().map(|export| main_identifier(&export).unwrap()),
+                    edits,
+                ) {
+                    // Change upstream imports
+                    fix_imports(
+                        document_cache,
+                        &sub_query,
+                        document_node.source_file.path(),
+                        new_type,
+                        edits,
                     );
-                } else {
-                    // `Old as New` => `New`
-                    edits.push(
-                        common::SingleTextEdit::from_path(
-                            document_cache,
-                            source_file.path(),
-                            lsp_types::TextEdit {
-                                range: util::token_to_lsp_range(&external),
-                                new_text: new_type.to_string(),
-                            },
-                        )
-                        .expect("URL conversion can not fail here"),
+
+                    // Change all local usages:
+                    rename_local_symbols(
+                        document_cache,
+                        document_node,
+                        &sub_query,
+                        new_type,
+                        edits,
                     );
                 }
-                // Nothing else to change: We still use the old internal name.
-                continue;
-            } else {
-                edits.push(
-                    common::SingleTextEdit::from_path(
-                        document_cache,
-                        source_file.path(),
-                        lsp_types::TextEdit {
-                            range: util::token_to_lsp_range(&external),
-                            new_text: new_type.to_string(),
-                        },
-                    )
-                    .expect("URL conversion can not fail here"),
-                );
             }
-
-            let Some(sub_query) = query.sub_query(external) else {
-                continue;
-            };
-
-            // Change exports
-            fix_export_lists(document_cache, document_node, &sub_query, new_type, edits);
-
-            // Change all local usages:
-            rename_local_symbols(document_cache, document_node, &sub_query, new_type, edits);
         }
     }
 }
@@ -212,74 +318,24 @@ fn fix_export_lists(
     new_type: &str,
     edits: &mut Vec<common::SingleTextEdit>,
 ) -> Option<SmolStr> {
-    let normalized_new_type = i_slint_compiler::parser::normalize_identifier(new_type);
-
     for export in document_node.ExportsList() {
+        if export.ExportModule().is_some() {
+            // Import already covers these!
+            continue;
+        }
+
         for specifier in export.ExportSpecifier() {
-            let Some(identifier) = main_identifier(&specifier.ExportIdentifier()) else {
-                continue;
-            };
-
-            if i_slint_compiler::parser::normalize_identifier(identifier.text()) == query.name
-                && query.is_same_symbol(document_cache, identifier.clone())
-            {
-                let Some(source_file) = identifier.source_file().cloned() else {
-                    continue;
-                };
-
-                edits.push(
-                    common::SingleTextEdit::from_path(
-                        document_cache,
-                        source_file.path(),
-                        lsp_types::TextEdit {
-                            range: util::token_to_lsp_range(&identifier),
-                            new_text: new_type.to_string(),
-                        },
-                    )
-                    .expect("URL conversion can not fail here"),
-                );
-
-                let sub_query = if let Some(export_name) = specifier.ExportName() {
-                    // Remove "as Foo"
-                    if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
-                        == Some(&normalized_new_type)
-                    {
-                        let start_position = util::text_size_to_lsp_position(
-                            &source_file,
-                            identifier
-                                .text_range()
-                                .end()
-                                .checked_add(1.into())
-                                .expect("There are more tokens"),
-                        );
-                        let end_position = util::text_size_to_lsp_position(
-                            &source_file,
-                            export_name.text_range().end(),
-                        );
-                        edits.push(
-                            common::SingleTextEdit::from_path(
-                                document_cache,
-                                source_file.path(),
-                                lsp_types::TextEdit {
-                                    range: lsp_types::Range::new(start_position, end_position),
-                                    new_text: String::new(),
-                                },
-                            )
-                            .expect("URL conversion can not fail here"),
-                        );
-                        query.sub_query(identifier)
-                    } else {
-                        None
-                    }
-                } else {
-                    query.sub_query(identifier)
-                };
-
-                if let Some(sub_query) = sub_query {
-                    let my_path = document_node.source_file.path();
-                    fix_imports(document_cache, &sub_query, my_path, new_type, edits);
-                    return Some(sub_query.name);
-                }
+            if let Some(sub_query) = fix_specifier(
+                document_cache,
+                query,
+                new_type,
+                main_identifier(&specifier.ExportIdentifier()).unwrap(),
+                specifier.ExportName().and_then(|en| main_identifier(&en)),
+                edits,
+            ) {
+                let my_path = document_node.source_file.path();
+                fix_imports(document_cache, &sub_query, my_path, new_type, edits);
+                return Some(sub_query.name);
             }
         }
     }
@@ -329,7 +385,7 @@ fn rename_local_symbols(
 
 /// Rename an InternalName in an impoort statement
 ///
-/// The ExternalName is different form our name, which is why we ended up here.
+/// The ExternalName is different from our name, which is why we ended up here.
 ///
 /// Change the InternalName, fix up local usage and then fix up exports. If exports
 /// change something, also fix all the necessary imports.
@@ -339,9 +395,6 @@ fn rename_internal_name(
     internal_name: &syntax_nodes::InternalName,
     new_type: &str,
 ) -> lsp_types::WorkspaceEdit {
-    let Some(old_type) = i_slint_compiler::parser::identifier_text(&internal_name) else {
-        return Default::default();
-    };
     let Some(document) = document_cache.get_document_for_source_file(&internal_name.source_file)
     else {
         return Default::default();
@@ -354,52 +407,18 @@ fn rename_internal_name(
 
     let parent: syntax_nodes::ImportIdentifier = internal_name.parent().unwrap().into();
     let external_name = parent.ExternalName();
-    let external_name_token = main_identifier(&external_name).unwrap();
-    let external_str = i_slint_compiler::parser::normalize_identifier(external_name_token.text());
 
-    let normalized_new_type = i_slint_compiler::parser::normalize_identifier(new_type);
-
-    if external_str == normalized_new_type {
-        // `New as Old` -> `New`
-        edits.push(
-            common::SingleTextEdit::from_path(
-                document_cache,
-                query.token.source_file.path(),
-                lsp_types::TextEdit {
-                    range: util::text_range_to_lsp_range(
-                        &external_name_token.source_file,
-                        TextRange::new(
-                            external_name_token.next_token().unwrap().text_range().start(),
-                            query.token.text_range().end(),
-                        ),
-                    ),
-                    new_text: String::new(),
-                },
-            )
-            .expect("URL conversion can not fail here"),
-        )
-    } else if old_type != normalized_new_type {
-        // `Some as Old` -> `Some as New`
-        edits.push(
-            common::SingleTextEdit::from_path(
-                document_cache,
-                query.token.source_file.path(),
-                lsp_types::TextEdit {
-                    range: util::token_to_lsp_range(&main_identifier(&internal_name).unwrap()),
-                    new_text: new_type.to_string(),
-                },
-            )
-            .expect("URL conversion can not fail here"),
-        );
+    if let Some(sub_query) = fix_specifier(
+        document_cache,
+        query,
+        new_type,
+        main_identifier(&external_name).unwrap(),
+        main_identifier(&internal_name),
+        &mut edits,
+    ) {
+        rename_local_symbols(document_cache, document_node, &sub_query, new_type, &mut edits);
+        fix_export_lists(document_cache, document_node, &sub_query, new_type, &mut edits);
     }
-
-    // Change exports
-    if is_symbol_name_exported(document_cache, document_node, query).is_some() {
-        fix_export_lists(document_cache, document_node, &query, new_type, &mut edits);
-    }
-
-    // Change all local usages:
-    rename_local_symbols(document_cache, document_node, &query, new_type, &mut edits);
 
     common::create_workspace_edit_from_single_text_edits(edits)
 }
@@ -417,37 +436,27 @@ fn rename_export_name(
     let mut edits = vec![];
 
     let specifier: syntax_nodes::ExportSpecifier = export_name.parent().unwrap().into();
-    let internal_name = specifier.ExportIdentifier();
-    if i_slint_compiler::parser::identifier_text(&internal_name).as_ref()
-        == Some(&i_slint_compiler::parser::normalize_identifier(new_type))
-    {
-        edits.push(
-            common::SingleTextEdit::from_path(
-                document_cache,
-                export_name.source_file.path(),
-                lsp_types::TextEdit {
-                    range: util::node_to_lsp_range(&specifier),
-                    new_text: new_type.to_string(),
-                },
-            )
-            .expect("URL conversion can not fail here"),
-        );
-    } else {
-        edits.push(
-            common::SingleTextEdit::from_path(
-                document_cache,
-                export_name.source_file.path(),
-                lsp_types::TextEdit {
-                    range: util::token_to_lsp_range(&main_identifier(export_name).unwrap()),
-                    new_text: new_type.to_string(),
-                },
-            )
-            .expect("URL conversion can not fail here"),
-        );
-    }
+    let Some(internal_name) = main_identifier(&specifier.ExportIdentifier()) else {
+        return Default::default();
+    };
 
-    // Change exports
-    fix_imports(document_cache, &query, export_name.source_file.path(), new_type, &mut edits);
+    if let Some(sub_query) = fix_specifier(
+        document_cache,
+        query,
+        new_type,
+        internal_name,
+        main_identifier(&export_name),
+        &mut edits,
+    ) {
+        // Change exports
+        fix_imports(
+            document_cache,
+            &sub_query,
+            export_name.source_file.path(),
+            new_type,
+            &mut edits,
+        );
+    };
 
     common::create_workspace_edit_from_single_text_edits(edits)
 }
@@ -655,6 +664,10 @@ fn find_declaration_node_impl(
     // Exported under a custom name?
     if start_token.is_none() {
         for export_item in document_node.ExportsList() {
+            if export_item.ExportModule().is_some() {
+                continue;
+            }
+
             for specifier in export_item.ExportSpecifier() {
                 if let Some(export_name) = specifier.ExportName() {
                     if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
@@ -691,6 +704,9 @@ fn find_declaration_node_impl(
     }
 
     // Imported?
+    let document_path = document_node.source_file.path();
+    let document_dir = document_path.parent()?;
+
     for import_spec in document_node.ImportSpecifier() {
         if let Some(import_id) = import_spec.ImportIdentifierList() {
             for id in import_id.ImportIdentifier() {
@@ -706,12 +722,56 @@ fn find_declaration_node_impl(
                 }
 
                 if external.as_ref() == Some(&query.name) {
-                    let document_path = document_node.source_file.path();
-                    let document_dir = document_path.parent()?;
                     let path = import_path(document_dir, &import_spec)?;
                     let import_doc = document_cache.get_document_by_path(&path)?;
                     let import_doc_node = import_doc.node.as_ref()?;
 
+                    return find_declaration_node_impl(
+                        document_cache,
+                        import_doc_node,
+                        None,
+                        query,
+                    );
+                }
+            }
+        }
+    }
+
+    // Find export modules!
+    for export_item in document_node.ExportsList() {
+        let Some(module) = export_item.ExportModule() else {
+            continue;
+        };
+
+        let path = import_path(document_dir, &module)?;
+        let import_doc = document_cache.get_document_by_path(&path)?;
+        let import_doc_node = import_doc.node.as_ref()?;
+
+        if module.child_token(SyntaxKind::Star).is_some() {
+            if let Some(declaration_node) =
+                find_declaration_node_impl(document_cache, import_doc_node, None, query.clone())
+            {
+                return Some(declaration_node);
+            } else {
+                continue;
+            }
+        } else {
+            for specifier in export_item.ExportSpecifier() {
+                if let Some(export_name) = specifier.ExportName() {
+                    if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
+                        == Some(&query.name)
+                    {
+                        return Some(DeclarationNode {
+                            kind: DeclarationNodeKind::ExportName(export_name),
+                            query,
+                        });
+                    }
+                }
+
+                let identifier =
+                    i_slint_compiler::parser::identifier_text(&specifier.ExportIdentifier());
+
+                if identifier.as_ref() == Some(&query.name) {
                     return find_declaration_node_impl(
                         document_cache,
                         import_doc_node,
@@ -2959,6 +3019,206 @@ global Foo {
             let ed_path = ed.url.to_file_path().unwrap();
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz } from \"source.slint\";"));
+                assert!(ed.contents.contains("function baz(bar: int)"));
+                assert!(ed.contents.contains(
+                    "int) -> bool { return XxxYyyZzz /* <- TEST_ME_1 */.test_property && bar >= 42"
+                ));
+            } else if ed_path == test::test_file_name("source.slint") {
+                assert!(ed.contents.contains("export { XxxYyyZzz }"));
+                assert!(ed.contents.contains("global XxxYyyZzz {"));
+                assert!(ed.contents.contains("in property <bool> test-property: true;"));
+            } else {
+                panic!("Unexpected file!");
+            }
+        }
+    }
+
+    #[test]
+    fn test_rename_globals_from_use_with_export_module() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+import { Foo } from "reexport.slint";
+
+export component Bar {
+    function baz(bar: int) -> bool { return Foo /* <- TEST_ME_1 */.test_property && bar >= 42; }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("reexport.slint")).unwrap(),
+                    r#"
+export { Foo } from "source.slint";
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+export { Foo }
+
+global Foo {
+    in property <bool> test-property: true;
+}
+                "#
+                    .to_string(),
+                ),
+            ]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 3);
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("import { XxxYyyZzz } from \"reexport.slint\";"));
+                assert!(ed.contents.contains("function baz(bar: int)"));
+                assert!(ed.contents.contains(
+                    "int) -> bool { return XxxYyyZzz /* <- TEST_ME_1 */.test_property && bar >= 42"
+                ));
+            } else if ed_path == test::test_file_name("source.slint") {
+                assert!(ed.contents.contains("export { XxxYyyZzz }"));
+                assert!(ed.contents.contains("global XxxYyyZzz {"));
+                assert!(ed.contents.contains("in property <bool> test-property: true;"));
+            } else if ed_path == test::test_file_name("reexport.slint") {
+                assert!(ed.contents.contains("export { XxxYyyZzz } from \"source.slint\""));
+            } else {
+                panic!("Unexpected file!");
+            }
+        }
+    }
+
+    #[test]
+    fn test_rename_globals_from_use_with_export_module_renamed() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+import { Foobar } from "reexport.slint";
+
+export component Bar {
+    function baz(bar: int) -> bool { return Foobar /* <- TEST_ME_1 */.test_property && bar >= 42; }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("reexport.slint")).unwrap(),
+                    r#"
+export { Foo /* <- TEST_ME_2 */ as Foobar } from "source.slint";
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+export { Foo }
+
+global Foo {
+    in property <bool> test-property: true;
+}
+                "#
+                    .to_string(),
+                ),
+            ]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 2);
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("import { XxxYyyZzz } from \"reexport.slint\";"));
+                assert!(ed.contents.contains("function baz(bar: int)"));
+                assert!(ed.contents.contains(
+                    "int) -> bool { return XxxYyyZzz /* <- TEST_ME_1 */.test_property && bar >= 42"
+                ));
+            } else if ed_path == test::test_file_name("reexport.slint") {
+                assert!(ed.contents.contains(
+                    "export { Foo /* <- TEST_ME_2 */ as XxxYyyZzz } from \"source.slint\""
+                ));
+            } else {
+                panic!("Unexpected file!");
+            }
+        }
+
+        let edited_text = rename_tester_with_new_name(
+            &document_cache,
+            &test::test_file_name("reexport.slint"),
+            "_2",
+            "Foobar",
+        );
+
+        assert_eq!(edited_text.len(), 2);
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::test_file_name("source.slint") {
+                assert!(ed.contents.contains("export { Foobar }"));
+                assert!(ed.contents.contains("global Foobar {"));
+                assert!(ed.contents.contains("in property <bool> test-property: true;"));
+            } else if ed_path == test::test_file_name("reexport.slint") {
+                assert!(ed.contents.contains("export { Foobar } from \"source.slint\""));
+            } else {
+                panic!("Unexpected file!");
+            }
+        }
+    }
+
+    #[test]
+    fn test_rename_globals_from_use_with_export_module_star() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+import { Foo } from "reexport.slint";
+
+export component Bar {
+    function baz(bar: int) -> bool { return Foo /* <- TEST_ME_1 */.test_property && bar >= 42; }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("reexport.slint")).unwrap(),
+                    r#"
+export * from "source.slint";
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+export { Foo }
+
+global Foo {
+    in property <bool> test-property: true;
+}
+                "#
+                    .to_string(),
+                ),
+            ]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 2);
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("import { XxxYyyZzz } from \"reexport.slint\";"));
                 assert!(ed.contents.contains("function baz(bar: int)"));
                 assert!(ed.contents.contains(
                     "int) -> bool { return XxxYyyZzz /* <- TEST_ME_1 */.test_property && bar >= 42"
