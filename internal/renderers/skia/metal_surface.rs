@@ -67,12 +67,6 @@ impl super::Surface for MetalSurface {
             ca_layer.setPresentsWithTransaction(false);
 
             ca_layer.setDrawableSize(CGSize::new(size.width as f64, size.height as f64));
-
-            // When partial rendering is enabled, we need to set the maximum drawable count to 2 to avoid triple
-            // buffering. Triple buffering is not supported by the partial renderer.
-            if std::env::var("SLINT_SKIA_PARTIAL_RENDERING").is_ok() {
-                ca_layer.setMaximumDrawableCount(2);
-            }
         }
 
         let flipped = ca_layer.contentsAreFlipped();

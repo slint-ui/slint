@@ -377,6 +377,10 @@ fn region_line_ranges(
 ///     is only useful if the device does not have enough memory to render the whole window
 ///     in one single buffer
 pub struct SoftwareRenderer {
+    repaint_buffer_type: Cell<RepaintBufferType>,
+    /// This is the area which was dirty on the previous frame.
+    /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
+    prev_frame_dirty: Cell<DirtyRegion>,
     partial_rendering_state: PartialRenderingState,
     maybe_window_adapter: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
     rotation: Cell<RenderingRotation>,
@@ -387,9 +391,11 @@ impl Default for SoftwareRenderer {
     fn default() -> Self {
         Self {
             partial_rendering_state: Default::default(),
+            prev_frame_dirty: Default::default(),
             maybe_window_adapter: Default::default(),
             rotation: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new("software"),
+            repaint_buffer_type: Default::default(),
         }
     }
 }
@@ -405,7 +411,7 @@ impl SoftwareRenderer {
     /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
     pub fn new_with_repaint_buffer_type(repaint_buffer_type: RepaintBufferType) -> Self {
         let self_ = Self::default();
-        self_.partial_rendering_state.set_repaint_buffer_type(repaint_buffer_type);
+        self_.repaint_buffer_type.set(repaint_buffer_type);
         self_
     }
 
@@ -413,12 +419,14 @@ impl SoftwareRenderer {
     ///
     /// This may clear the internal caches
     pub fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
-        self.partial_rendering_state.set_repaint_buffer_type(repaint_buffer_type);
+        if self.repaint_buffer_type.replace(repaint_buffer_type) != repaint_buffer_type {
+            self.partial_rendering_state.clear_cache();
+        }
     }
 
     /// Returns the kind of buffer that must be passed to  [`Self::render`]
     pub fn repaint_buffer_type(&self) -> RepaintBufferType {
-        self.partial_rendering_state.repaint_buffer_type()
+        self.repaint_buffer_type.get()
     }
 
     /// Set how the window need to be rotated in the buffer.
@@ -497,11 +505,26 @@ impl SoftwareRenderer {
         window_inner
             .draw_contents(|components| {
                 let logical_size = (size.cast() / factor).cast();
-                self.partial_rendering_state.apply_dirty_region(
+
+                let dirty_region_of_existing_buffer = match self.repaint_buffer_type.get() {
+                    RepaintBufferType::NewBuffer => {
+                        Some(LogicalRect::from_size(logical_size).into())
+                    }
+                    RepaintBufferType::ReusedBuffer => None,
+                    RepaintBufferType::SwappedBuffers => Some(self.prev_frame_dirty.take()),
+                };
+
+                let dirty_region_for_this_frame = self.partial_rendering_state.apply_dirty_region(
                     &mut renderer,
                     components,
                     logical_size,
+                    dirty_region_of_existing_buffer,
                 );
+
+                if self.repaint_buffer_type.get() == RepaintBufferType::SwappedBuffers {
+                    self.prev_frame_dirty.set(dirty_region_for_this_frame);
+                }
+
                 let rotation = RotationInfo { orientation: rotation, screen_size: size };
                 let screen_rect = PhysicalRect::from_size(size);
                 let mut i = renderer.dirty_region.iter().filter_map(|r| {
@@ -973,11 +996,25 @@ fn prepare_scene(
     let mut dirty_region = PhysicalRegion::default();
     window.draw_contents(|components| {
         let logical_size = (size.cast() / factor).cast();
-        software_renderer.partial_rendering_state.apply_dirty_region(
-            &mut renderer,
-            components,
-            logical_size,
-        );
+
+        let dirty_region_of_existing_buffer = match software_renderer.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => Some(LogicalRect::from_size(logical_size).into()),
+            RepaintBufferType::ReusedBuffer => None,
+            RepaintBufferType::SwappedBuffers => Some(software_renderer.prev_frame_dirty.take()),
+        };
+
+        let dirty_region_for_this_frame =
+            software_renderer.partial_rendering_state.apply_dirty_region(
+                &mut renderer,
+                components,
+                logical_size,
+                dirty_region_of_existing_buffer,
+            );
+
+        if software_renderer.repaint_buffer_type.get() == RepaintBufferType::SwappedBuffers {
+            software_renderer.prev_frame_dirty.set(dirty_region_for_this_frame);
+        }
+
         let rotation =
             RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
         let screen_rect = PhysicalRect::from_size(size);

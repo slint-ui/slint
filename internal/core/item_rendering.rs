@@ -1038,29 +1038,11 @@ pub struct PartialRenderingState {
     partial_cache: RefCell<PartialRenderingCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: RefCell<DirtyRegion>,
-    repaint_buffer_type: Cell<RepaintBufferType>,
-    /// This is the area which was dirty on the previous frame.
-    /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
-    prev_frame_dirty: Cell<DirtyRegion>,
     /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
     force_screen_refresh: Cell<bool>,
 }
 
 impl PartialRenderingState {
-    /// Sets the repaint type of the back buffer used for the next rendering. This helps to compute the partial
-    /// rendering region correctly, for example when using swapped buffers, the region will include the dirty region
-    /// of the previous frame.
-    pub fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
-        if self.repaint_buffer_type.replace(repaint_buffer_type) != repaint_buffer_type {
-            self.partial_cache.borrow_mut().clear();
-        }
-    }
-
-    /// Returns the current repaint buffer type.
-    pub fn repaint_buffer_type(&self) -> RepaintBufferType {
-        self.repaint_buffer_type.get()
-    }
-
     /// Creates a partial renderer that's initialized with the partial rendering caches maintained in this state structure.
     /// Call [`Self::apply_dirty_region`] after this function to compute the correct partial rendering region.
     pub fn create_partial_renderer<'a, T: ItemRenderer + ItemRendererFeatures>(
@@ -1071,13 +1053,16 @@ impl PartialRenderingState {
     }
 
     /// Compute the correct partial rendering region based on the components to be drawn, the bounding rectangles of
-    /// changes items within, and the current repaint buffer type.
+    /// changes items within, and the current repaint buffer type. Returns the computed dirty region just for this frame.
+    /// The provided buffer_dirty_region specifies which area of the buffer is known to *additionally* require repainting,
+    /// where `None` means that buffer is not known to be dirty beyond what applies to this frame (reused buffer).
     pub fn apply_dirty_region<T: ItemRenderer + ItemRendererFeatures>(
         &self,
         partial_renderer: &mut PartialRenderer<'_, T>,
         components: &[(&ItemTreeRc, LogicalPoint)],
         logical_window_size: LogicalSize,
-    ) {
+        dirty_region_of_existing_buffer: Option<DirtyRegion>,
+    ) -> DirtyRegion {
         for (component, origin) in components {
             partial_renderer.compute_dirty_regions(component, *origin, logical_window_size);
         }
@@ -1088,14 +1073,15 @@ impl PartialRenderingState {
             partial_renderer.dirty_region = screen_region.into();
         }
 
-        partial_renderer.dirty_region = match self.repaint_buffer_type.get() {
-            RepaintBufferType::NewBuffer => screen_region.into(),
-            RepaintBufferType::ReusedBuffer => partial_renderer.dirty_region.clone(),
-            RepaintBufferType::SwappedBuffers => partial_renderer
-                .dirty_region
-                .union(&self.prev_frame_dirty.replace(partial_renderer.dirty_region.clone())),
+        let region_to_repaint = partial_renderer.dirty_region.clone();
+
+        partial_renderer.dirty_region = match dirty_region_of_existing_buffer {
+            Some(dirty_region) => partial_renderer.dirty_region.union(&dirty_region),
+            None => partial_renderer.dirty_region.clone(),
         }
         .intersection(screen_region);
+
+        region_to_repaint
     }
 
     /// Add the specified region to the list of regions to include in the next rendering.

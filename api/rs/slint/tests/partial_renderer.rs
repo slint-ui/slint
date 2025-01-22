@@ -440,10 +440,6 @@ fn rotated_image() {
     ui.show().unwrap();
 
     assert!(window.draw_if_needed());
-    // Redraw once more, to work around set_repaint_buffer_type clearing the rendering cache
-    // because the buffer age changed from 0 to 1.
-    window.request_redraw();
-    assert!(window.draw_if_needed());
     assert_eq!(
         window.last_dirty_region_bounding_box_size(),
         Some(slint::LogicalSize { width: 250., height: 250. })

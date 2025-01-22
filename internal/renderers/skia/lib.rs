@@ -14,7 +14,6 @@ use i_slint_core::api::{
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::{BorderRadius, FontRequest, RequestedGraphicsAPI, SharedPixelBuffer};
-use i_slint_core::item_rendering::RepaintBufferType;
 use i_slint_core::item_rendering::{DirtyRegion, ItemCache, ItemRenderer, PartialRenderingState};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
@@ -120,6 +119,8 @@ pub struct SkiaRenderer {
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
     partial_rendering_state: Option<PartialRenderingState>,
     visualize_dirty_region: bool,
+    /// Tracking dirty regions indexed by buffer age - 1. More than 3 back buffers aren't supported, but also unlikely to happen.
+    dirty_region_history: RefCell<[DirtyRegion; 3]>,
 }
 
 impl Default for SkiaRenderer {
@@ -137,6 +138,7 @@ impl Default for SkiaRenderer {
             pre_present_callback: Default::default(),
             partial_rendering_state,
             visualize_dirty_region,
+            dirty_region_history: Default::default(),
         }
     }
 }
@@ -166,6 +168,7 @@ impl SkiaRenderer {
             pre_present_callback: Default::default(),
             partial_rendering_state,
             visualize_dirty_region,
+            dirty_region_history: Default::default(),
         }
     }
 
@@ -193,6 +196,7 @@ impl SkiaRenderer {
             pre_present_callback: Default::default(),
             partial_rendering_state,
             visualize_dirty_region,
+            dirty_region_history: Default::default(),
         }
     }
 
@@ -220,6 +224,7 @@ impl SkiaRenderer {
             pre_present_callback: Default::default(),
             partial_rendering_state,
             visualize_dirty_region,
+            dirty_region_history: Default::default(),
         }
     }
 
@@ -247,6 +252,7 @@ impl SkiaRenderer {
             pre_present_callback: Default::default(),
             partial_rendering_state,
             visualize_dirty_region,
+            dirty_region_history: Default::default(),
         }
     }
 
@@ -274,6 +280,7 @@ impl SkiaRenderer {
             pre_present_callback: Default::default(),
             partial_rendering_state,
             visualize_dirty_region,
+            dirty_region_history: Default::default(),
         }
     }
 
@@ -308,6 +315,7 @@ impl SkiaRenderer {
             pre_present_callback: Default::default(),
             partial_rendering_state,
             visualize_dirty_region,
+            dirty_region_history: Default::default(),
         }
     }
 
@@ -501,19 +509,29 @@ impl SkiaRenderer {
             let mut dirty_region_to_visualize = None;
 
             if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
-                partial_rendering_state.set_repaint_buffer_type(match back_buffer_age {
-                    1 => RepaintBufferType::ReusedBuffer,
-                    2 => RepaintBufferType::SwappedBuffers,
-                    _ => RepaintBufferType::NewBuffer,
-                });
-
                 partial_renderer =
                     partial_rendering_state.create_partial_renderer(skia_item_renderer);
 
-                partial_rendering_state.apply_dirty_region(
+                let mut dirty_region_history = self.dirty_region_history.borrow_mut();
+
+                let buffer_dirty_region = if back_buffer_age > 0
+                    && back_buffer_age as usize - 1 < dirty_region_history.len()
+                {
+                    // The dirty region is the union of all the previous dirty regions
+                    Some(
+                        dirty_region_history[0..back_buffer_age as usize - 1]
+                            .iter()
+                            .fold(DirtyRegion::default(), |acc, region| acc.union(&region)),
+                    )
+                } else {
+                    Some(LogicalRect::from_size(logical_window_size).into())
+                };
+
+                let dirty_region_for_this_frame = partial_rendering_state.apply_dirty_region(
                     &mut partial_renderer,
                     components,
                     logical_window_size,
+                    buffer_dirty_region,
                 );
 
                 let mut clip_path = skia_safe::Path::new();
@@ -524,6 +542,9 @@ impl SkiaRenderer {
                 }
 
                 dirty_region = partial_renderer.dirty_region.clone().into();
+
+                dirty_region_history.rotate_right(1);
+                dirty_region_history[0] = dirty_region_for_this_frame;
 
                 skia_canvas.clip_path(&clip_path, None, false);
 
