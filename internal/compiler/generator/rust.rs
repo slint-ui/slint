@@ -224,7 +224,7 @@ pub fn generate(
     Ok(quote! {
         #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
-        #[allow(clippy::all)]
+        #[allow(clippy::all, clippy::pedantic, clippy::nursery)]
         mod #generated_mod {
             use slint::private_unstable_api::re_exports as sp;
             #[allow(unused_imports)]
