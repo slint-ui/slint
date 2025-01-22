@@ -1244,7 +1244,7 @@ public:
             vp_width = std::max(vp_width, (*x.ptr)->listview_layout(&offset));
         }
         viewport_width->set(vp_width);
-        return offset;
+        return offset - viewport_y;
     }
 
     void model_set_row_data(size_t row, const ModelData &data) const
