@@ -13,7 +13,7 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - Improved support for building Slint with Bazel; added an example in `examples/bazel_build`.
+ - Improved support for building Slint with Bazel.
  - Expose `PopupWindow` in the accessibility tree.
  - Fixed support for older android versions (Android 6).
  - Fixed `Flickable` not scrolling when starting slow (#7152).
