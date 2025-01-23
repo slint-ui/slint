@@ -84,7 +84,6 @@ unsafe impl<T: Send + Sync> Send for SharedVector<T> {}
 // Safety: We use atomic reference counting, and if T is Send and Sync, we can access the vector from multiple threads
 unsafe impl<T: Send + Sync> Sync for SharedVector<T> {}
 
-
 impl<T> Drop for SharedVector<T> {
     fn drop(&mut self) {
         unsafe {
