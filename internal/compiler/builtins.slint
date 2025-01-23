@@ -183,6 +183,17 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+// Fake
+component MenuItem {
+    in property <string> title;
+    callback activated();
+
+    MenuItem {}
+
+    //-disallow_global_types_as_child_elements
+    //-is_non_item_type
+}
+
 // Lowered in lower_menus pass. See that pass documentation for more info
 component MenuBar {
     //-is_non_item_type
@@ -191,6 +202,8 @@ component MenuBar {
 
     callback activated(entry: MenuEntry);
     callback sub-menu(entry: MenuEntry) -> [MenuEntry];
+
+    MenuItem {}
 
     // Currently experimental
 }
@@ -204,6 +217,8 @@ export component ContextMenu {
     callback activated(entry: MenuEntry);
     callback sub-menu(entry: MenuEntry) -> [MenuEntry];
     //-default_size_binding:expands_to_parent_geometry
+
+    MenuItem {}
 
     // Currently experimental
 }

@@ -457,6 +457,13 @@ impl TypeRegister {
                         .or_default()
                         .insert(b.native_class.class_name.clone());
                 }
+                if b.additional_accept_self {
+                    register
+                        .context_restricted_types
+                        .entry(b.native_class.class_name.clone())
+                        .or_default()
+                        .insert(b.native_class.class_name.clone());
+                }
             }
         }
 
