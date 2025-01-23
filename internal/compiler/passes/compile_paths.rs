@@ -101,15 +101,7 @@ pub fn compile_paths(
                 let element_name =
                     &child.borrow().base_type.as_builtin().native_class.class_name.clone();
 
-                if let Some(path_element) = element_types.get(element_name) {
-                    let element_type = match path_element {
-                        ElementType::Builtin(b) => b.clone(),
-                        _ => panic!(
-                            "Incorrect type registry -- expected built-in type for path element {}",
-                            element_name
-                        ),
-                    };
-
+                if let Some(element_type) = element_types.get(element_name).cloned() {
                     if child.borrow().repeated.is_some() {
                         diag.push_error(
                             "Path elements are not supported with `for`-`in` syntax, yet (https://github.com/slint-ui/slint/issues/754)".into(),

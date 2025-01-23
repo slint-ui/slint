@@ -198,7 +198,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             .map(|s| {
                 let a = identifier_text(&s.Element().QualifiedName().unwrap()).unwrap();
                 let t = natives[&a].clone();
-                (a, ElementType::Builtin(t))
+                (a, t)
             })
             .collect();
         if let Some(builtin_name) = exports.get(&id) {

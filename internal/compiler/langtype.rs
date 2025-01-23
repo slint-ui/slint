@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -520,7 +520,7 @@ impl ElementType {
             Self::Builtin(builtin) => {
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
-                        return Ok(child_type.clone());
+                        return Ok(child_type.clone().into());
                     }
                     let mut valid_children: Vec<_> =
                         builtin.additional_accepted_child_types.keys().cloned().collect();
@@ -551,7 +551,7 @@ impl ElementType {
                     }
                 };
                 if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
-                    return Ok(child_type.clone());
+                    return Ok(child_type.clone().into());
                 }
                 match tr.lookup(name) {
                     Type::Invalid => Err(err),
@@ -579,26 +579,6 @@ impl ElementType {
                 component.root_element.borrow().base_type.lookup_member_function(name)
             }
             _ => None,
-        }
-    }
-
-    pub fn collect_contextual_types(
-        &self,
-        context_restricted_types: &mut HashMap<SmolStr, HashSet<SmolStr>>,
-    ) {
-        let builtin = match self {
-            Self::Builtin(ty) => ty,
-            _ => return,
-        };
-        for (accepted_child_type_name, accepted_child_type) in
-            builtin.additional_accepted_child_types.iter()
-        {
-            context_restricted_types
-                .entry(accepted_child_type_name.clone())
-                .or_default()
-                .insert(builtin.native_class.class_name.clone());
-
-            accepted_child_type.collect_contextual_types(context_restricted_types);
         }
     }
 
@@ -734,7 +714,7 @@ pub struct BuiltinElement {
     pub name: SmolStr,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
-    pub additional_accepted_child_types: HashMap<SmolStr, ElementType>,
+    pub additional_accepted_child_types: HashMap<SmolStr, Rc<BuiltinElement>>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,

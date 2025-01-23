@@ -448,12 +448,17 @@ impl TypeRegister {
 
         crate::load_builtins::load_builtins(&mut register);
 
-        let mut context_restricted_types = HashMap::new();
-        register
-            .elements
-            .values()
-            .for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
-        register.context_restricted_types = context_restricted_types;
+        for e in register.elements.values() {
+            if let ElementType::Builtin(b) = e {
+                for accepted_child_type_name in b.additional_accepted_child_types.keys() {
+                    register
+                        .context_restricted_types
+                        .entry(accepted_child_type_name.clone())
+                        .or_default()
+                        .insert(b.native_class.class_name.clone());
+                }
+            }
+        }
 
         match &mut register.elements.get_mut("PopupWindow").unwrap() {
             ElementType::Builtin(ref mut b) => {
