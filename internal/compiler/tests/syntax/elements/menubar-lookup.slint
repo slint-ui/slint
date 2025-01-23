@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component MenuBar {
+    in property <int> foobar;
+}
+
+
+export component A inherits Window {
+    // This should lookup the re-defined menubar type and not the builtin one
+    MenuBar {
+        foobar: 42;
+        entries: [];
+//      ^error{Unknown property entries in MenuBar}
+    }
+}
+
+

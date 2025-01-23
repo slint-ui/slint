@@ -16,7 +16,7 @@ component Cde inherits HorizontalLayout {
 
 component Fgh inherits HorizontalLayout {
     Abc {}
-    Rectangle { background: yellow; @children}
+    Rectangle { background: yellow; GridLayout { @children } }
     Rectangle { background: gray; }
 }
 
@@ -38,7 +38,9 @@ export component TestCase inherits Window {
 
     Ijk {
         // Same as r2
-        r3 := Rectangle { background: brown; }
+        Row {
+            r3 := Rectangle { background: brown; }
+        }
     }
 
     out property r1_pos <=> r1.absolute-position;
