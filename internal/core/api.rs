@@ -914,6 +914,9 @@ mod weak_handle {
     #[allow(unsafe_code)]
     #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
     unsafe impl<T: ComponentHandle> Send for Weak<T> {}
+    #[allow(unsafe_code)]
+    #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
+    unsafe impl<T: ComponentHandle> Sync for Weak<T> {}
 }
 
 pub use weak_handle::*;
