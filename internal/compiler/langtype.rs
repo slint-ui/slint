@@ -496,27 +496,32 @@ impl ElementType {
     }
 
     /// This function looks at the element and checks whether it can have Elements of type `name` as children.
-    /// It returns an Error if that is not possible or an Option of the ElementType if it is.
-    /// The option is unset when the compiler does not know the type well enough to avoid further
-    /// probing.
-    pub fn accepts_child_element(
+    /// In addition to what `accepts_child_element` does, this method also probes the type of `name`.
+    /// It returns an Error if that is not possible or an `ElementType` if it is.
+    pub fn lookup_type_for_child_element(
         &self,
         name: &str,
         tr: &TypeRegister,
-    ) -> Result<Option<ElementType>, String> {
+    ) -> Result<ElementType, String> {
         match self {
-            Self::Component(component) if component.child_insertion_point.borrow().is_none() => {
-                let base_type = component.root_element.borrow().base_type.clone();
-                if base_type == tr.empty_type() {
-                    return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
-                }
-                return base_type.accepts_child_element(name, tr);
+            Self::Component(component) => {
+                let base_type = match &*component.child_insertion_point.borrow() {
+                    Some(insert_in) => insert_in.0.borrow().base_type.clone(),
+                    None => {
+                        let base_type = component.root_element.borrow().base_type.clone();
+                        if base_type == tr.empty_type() {
+                            return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
+                        }
+                        base_type
+                    }
+                };
+                return base_type.lookup_type_for_child_element(name, tr);
             }
             Self::Builtin(builtin) => {
-                if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
-                    return Ok(Some(child_type.clone()));
-                }
                 if builtin.disallow_global_types_as_child_elements {
+                    if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
+                        return Ok(child_type.clone());
+                    }
                     let mut valid_children: Vec<_> =
                         builtin.additional_accepted_child_types.keys().cloned().collect();
                     valid_children.sort();
@@ -531,39 +536,36 @@ impl ElementType {
                             valid_children.join(" ")
                         )
                     };
-
                     return Err(err);
                 }
+                let err = match tr.lookup_element(name) {
+                    Err(e) => e,
+                    Ok(t) => {
+                        if !tr.expose_internal_types
+                            && matches!(&t, Self::Builtin(e) if e.is_internal)
+                        {
+                            format!("Unknown element '{}'. (The type exist as an internal type, but cannot be accessed in this scope)", name)
+                        } else {
+                            return Ok(t);
+                        }
+                    }
+                };
+                if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
+                    return Ok(child_type.clone());
+                }
+                match tr.lookup(name) {
+                    Type::Invalid => Err(err),
+                    ty => Err(format!("'{ty}' cannot be used as an element")),
+                }
             }
-            _ => {}
-        };
-        Ok(None)
-    }
-
-    /// This function looks at the element and checks whether it can have Elements of type `name` as children.
-    /// In addition to what `accepts_child_element` does, this method also probes the type of `name`.
-    /// It returns an Error if that is not possible or an `ElementType` if it is.
-    pub fn lookup_type_for_child_element(
-        &self,
-        name: &str,
-        tr: &TypeRegister,
-    ) -> Result<ElementType, String> {
-        if let Some(ct) = self.accepts_child_element(name, tr)? {
-            return Ok(ct);
+            _ => tr.lookup_element(name).and_then(|t| {
+                if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
+                    Err(format!("Unknown element '{}'. (The type exist as an internal type, but cannot be accessed in this scope)", name))
+                } else {
+                    Ok(t)
+                }
+            })
         }
-
-        tr.lookup_element(name).and_then(|t| {
-            if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
-                Err(format!("Unknown element '{}'. (The type exist as an internal type, but cannot be accessed in this scope)", name))
-            } else {
-                Ok(t)
-            }
-        }).map_err(|s| {
-            match tr.lookup(name)  {
-                Type::Invalid => s,
-                ty => format!("'{ty}' cannot be used as an element")
-            }
-        })
     }
 
     pub fn lookup_member_function(&self, name: &str) -> Option<BuiltinFunction> {
