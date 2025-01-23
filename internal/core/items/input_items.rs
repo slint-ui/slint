@@ -228,6 +228,14 @@ impl Item for TouchArea {
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ItemConsts for TouchArea {
@@ -338,6 +346,14 @@ impl Item for FocusScope {
         _size: LogicalSize,
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -526,6 +542,14 @@ impl Item for SwipeGestureHandler {
         _size: LogicalSize,
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 

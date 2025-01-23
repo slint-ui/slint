@@ -14,4 +14,15 @@ export component AppWindow inherits Window {
         rotation-angle: mod(animation-tick(), 2s) / 2s * 360deg;
         colorize: green;
     }
+
+    Rectangle {
+        x: 10px + mod(animation-tick(), 5s) / 5s * 100px;
+        y: 10px;
+        width: 20px;
+        height: 20px;
+        drop-shadow-blur: 5px;
+        drop-shadow-offset-x: 15px;
+        drop-shadow-offset-y: 5px;
+        drop-shadow-color: red;
+    }
 }

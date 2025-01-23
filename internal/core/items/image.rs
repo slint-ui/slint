@@ -18,7 +18,7 @@ use crate::input::{
 use crate::item_rendering::ItemRenderer;
 use crate::item_rendering::{CachedRenderingData, RenderImage};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalSize};
+use crate::lengths::{LogicalLength, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -107,6 +107,14 @@ impl Item for ImageItem {
     ) -> RenderingResult {
         (*backend).draw_image(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -244,6 +252,14 @@ impl Item for ClippedImage {
     ) -> RenderingResult {
         (*backend).draw_image(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 

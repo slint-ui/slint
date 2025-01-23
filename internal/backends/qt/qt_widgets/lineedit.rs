@@ -155,6 +155,14 @@ impl Item for NativeLineEdit {
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, painter->get(), widget);
         });
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ItemConsts for NativeLineEdit {

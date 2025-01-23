@@ -17,7 +17,7 @@ use crate::item_rendering::{CachedRenderingData, RenderRectangle};
 use crate::item_tree::{IndexRange, ItemTreeRc, ItemTreeWeak, ItemWeak};
 use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalSize};
+use crate::lengths::{LogicalLength, LogicalRect, LogicalSize};
 use crate::properties::{Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -220,6 +220,14 @@ impl Item for ComponentContainer {
     ) -> RenderingResult {
         backend.draw_rectangle(self, item_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
