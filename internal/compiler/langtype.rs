@@ -521,9 +521,14 @@ impl ElementType {
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
                         return Ok(child_type.clone().into());
+                    } else if builtin.additional_accept_self && name == builtin.native_class.class_name {
+                        return Ok(builtin.clone().into());
                     }
                     let mut valid_children: Vec<_> =
                         builtin.additional_accepted_child_types.keys().cloned().collect();
+                    if builtin.additional_accept_self {
+                        valid_children.push(builtin.native_class.class_name.clone());
+                    }
                     valid_children.sort();
 
                     let err = if valid_children.is_empty() {
@@ -552,6 +557,8 @@ impl ElementType {
                 };
                 if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
                     return Ok(child_type.clone().into());
+                } else if builtin.additional_accept_self && name == builtin.native_class.class_name {
+                    return Ok(builtin.clone().into());
                 }
                 match tr.lookup(name) {
                     Type::Invalid => Err(err),
@@ -714,7 +721,11 @@ pub struct BuiltinElement {
     pub name: SmolStr,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
+    /// Additional builtin element that can be accpeted as child of this element
+    /// (example `Tab` in `TabWidget`, `Row` in `GridLayout` and the path elements in `Path`)
     pub additional_accepted_child_types: HashMap<SmolStr, Rc<BuiltinElement>>,
+    /// `Self` is conceptually in `additional_accepted_child_types` (which it can't otherwise that'd make a Rc loop)
+    pub additional_accept_self: bool,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,

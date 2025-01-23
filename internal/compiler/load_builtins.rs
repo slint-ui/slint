@@ -152,6 +152,10 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         } else if let Some(base) = e.QualifiedName() {
             let base = QualifiedTypeName::from_node(base).to_smolstr();
             let base = natives.get(&base).unwrap().clone();
+            // because they are not taken from if we inherit from it
+            assert!(
+                base.additional_accepted_child_types.is_empty() && !base.additional_accept_self
+            );
             n.parent = Some(base.native_class.clone());
             Base::NativeParent(base)
         } else {
@@ -195,10 +199,15 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             .unwrap_or(DefaultSizeBinding::None);
         builtin.additional_accepted_child_types = e
             .SubElement()
-            .map(|s| {
+            .filter_map(|s| {
                 let a = identifier_text(&s.Element().QualifiedName().unwrap()).unwrap();
-                let t = natives[&a].clone();
-                (a, t)
+                if a == builtin.native_class.class_name {
+                    builtin.additional_accept_self = true;
+                    None
+                } else {
+                    let t = natives[&a].clone();
+                    Some((a, t))
+                }
             })
             .collect();
         if let Some(builtin_name) = exports.get(&id) {
@@ -218,8 +227,6 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 register.add(glob);
             }
         } else {
-            // because they are not taken from if we inherit from it
-            assert!(builtin.additional_accepted_child_types.is_empty());
             natives.insert(id, Rc::new(builtin));
         }
     }

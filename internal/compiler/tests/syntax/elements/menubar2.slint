@@ -9,7 +9,7 @@ export component MyMenu inherits MenuBar {
 export component A inherits Window {
     MenuBar {
         Rectangle {}
-//      ^error{MenuBar cannot have children elements}
+//      ^error{Rectangle is not allowed within MenuBar. Only MenuItem are valid children}
         x: 45px;
 //      ^error{Unknown property x in MenuBar}
         width: 45px;
@@ -17,6 +17,24 @@ export component A inherits Window {
         entries: [];
         init => {}
 //      ^error{'init' is not a callback in MenuBar}
+
+        MenuItem {
+            title: "hello";
+            x: 0px;
+//          ^error{Unknown property x in MenuItem}
+            max-height: 13px;
+//          ^error{Unknown property max-height in MenuItem}
+            opacity: 0.4;
+//          ^error{Unknown property opacity in MenuItem}
+            Rectangle {
+//          ^error{Rectangle is not allowed within MenuItem. Only MenuItem are valid children}
+            }
+
+            MenuItem {
+
+            }
+
+        }
     }
 
     Rectangle {
