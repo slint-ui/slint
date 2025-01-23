@@ -140,6 +140,14 @@ impl Item for NativeComboBox {
             qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter->get(), widget);
         });
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ItemConsts for NativeComboBox {
@@ -249,6 +257,14 @@ impl Item for NativeComboBoxPopup {
             option.frameShape = QFrame::Shape(frameStyle & QFrame::Shape_Mask);
             style->drawControl(QStyle::CE_ShapedFrame, &option, painter->get(), widget);
         });
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 

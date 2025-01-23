@@ -122,6 +122,14 @@ impl Item for ComplexText {
         (*backend).draw_text(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ItemConsts for ComplexText {
@@ -286,6 +294,14 @@ impl Item for SimpleText {
     ) -> RenderingResult {
         (*backend).draw_text(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -966,6 +982,14 @@ impl Item for TextInput {
         });
         (*backend).draw_text_input(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 

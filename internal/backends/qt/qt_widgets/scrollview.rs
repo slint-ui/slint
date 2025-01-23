@@ -445,6 +445,14 @@ impl Item for NativeScrollView {
             );
         }
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ItemConsts for NativeScrollView {

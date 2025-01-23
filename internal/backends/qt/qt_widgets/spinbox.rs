@@ -338,6 +338,14 @@ impl Item for NativeSpinBox {
             (*painter)->drawText(text_rect, QString::number(value), QTextOption(static_cast<Qt::AlignmentFlag>(horizontal_alignment)));
         });
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ItemConsts for NativeSpinBox {

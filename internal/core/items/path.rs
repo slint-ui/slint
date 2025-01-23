@@ -18,7 +18,8 @@ use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalSize, LogicalVector, PointLengths, RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
+    RectLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -128,6 +129,14 @@ impl Item for Path {
             (*backend).restore_state();
         }
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 

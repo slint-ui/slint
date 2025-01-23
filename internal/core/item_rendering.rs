@@ -499,22 +499,87 @@ pub trait ItemRendererFeatures {
 /// After rendering an item, we cache the geometry and the transform it applies to
 /// children.
 #[derive(Clone)]
-pub struct CachedItemGeometryAndTransform {
-    /// The item's reported geometry, via [`ItemRc::geometry`].
-    pub geometry: LogicalRect,
-    /// The item's transform to apply to children, via [`ItemRc::children_transform`].
-    pub boxed_children_transform: Option<Box<ItemTransform>>,
-}
 
-impl From<(LogicalRect, Option<ItemTransform>)> for CachedItemGeometryAndTransform {
-    fn from((geometry, children_transform): (LogicalRect, Option<ItemTransform>)) -> Self {
-        Self { geometry, boxed_children_transform: children_transform.map(Into::into) }
-    }
+pub enum CachedItemGeometryAndTransform {
+    /// A regular item with a translation
+    RegularItem {
+        /// The item's bounding rect relative to its parent.
+        bounding_rect: LogicalRect,
+        /// The item's geometry relative to its parent.
+        geometry: LogicalRect,
+    },
+    /// An item such as Rotate that defines an additional transformation
+    ItemWithTransform {
+        /// The item's bounding rect relative to its parent.
+        bounding_rect: LogicalRect,
+        /// The item's geometry relative to its parent, as well as the transform to apply to children.
+        geometry_and_transform: Box<(LogicalRect, ItemTransform)>,
+    },
+    /// A clip item.
+    ClipItem {
+        /// The item's geometry relative to its parent.
+        geometry: LogicalRect,
+    },
 }
 
 impl CachedItemGeometryAndTransform {
-    fn children_transform(&self) -> Option<ItemTransform> {
-        self.boxed_children_transform.as_ref().map(|transform| **transform)
+    fn bounding_rect(&self) -> &LogicalRect {
+        match self {
+            CachedItemGeometryAndTransform::RegularItem { bounding_rect, .. } => bounding_rect,
+            CachedItemGeometryAndTransform::ItemWithTransform { bounding_rect, .. } => {
+                bounding_rect
+            }
+            CachedItemGeometryAndTransform::ClipItem { geometry } => geometry,
+        }
+    }
+
+    fn transform(&self) -> ItemTransform {
+        match self {
+            CachedItemGeometryAndTransform::RegularItem { geometry, .. } => {
+                ItemTransform::translation(geometry.origin.x as f32, geometry.origin.y as f32)
+            }
+            CachedItemGeometryAndTransform::ItemWithTransform {
+                geometry_and_transform, ..
+            } => geometry_and_transform.1,
+            CachedItemGeometryAndTransform::ClipItem { geometry } => {
+                ItemTransform::translation(geometry.origin.x as f32, geometry.origin.y as f32)
+            }
+        }
+    }
+
+    fn geometry(&self) -> &LogicalRect {
+        match self {
+            CachedItemGeometryAndTransform::RegularItem { geometry, .. } => geometry,
+            CachedItemGeometryAndTransform::ItemWithTransform {
+                geometry_and_transform, ..
+            } => &geometry_and_transform.0,
+            CachedItemGeometryAndTransform::ClipItem { geometry } => geometry,
+        }
+    }
+
+    fn new<T: ItemRendererFeatures>(item_rc: &ItemRc) -> Self {
+        let geometry = item_rc.geometry();
+
+        if is_clipping_item(item_rc.borrow()) {
+            return Self::ClipItem { geometry };
+        }
+
+        let bounding_rect = item_rc.bounding_rect_for_geometry(&geometry);
+
+        if let Some(complex_child_transform) =
+            T::SUPPORTS_TRANSFORMATIONS.then(|| item_rc.children_transform()).flatten()
+        {
+            Self::ItemWithTransform {
+                bounding_rect,
+                geometry_and_transform: (
+                    geometry,
+                    complex_child_transform.then_translate(geometry.origin.to_vector().cast()),
+                )
+                    .into(),
+            }
+        } else {
+            Self::RegularItem { bounding_rect, geometry }
+        }
     }
 }
 
@@ -691,22 +756,15 @@ impl<'a, T: ItemRendererFeatures> PartialRenderer<'a, T> {
 
         impl ComputeDirtyRegionState {
             /// Adjust transform_to_screen and old_transform_to_screen to map from item coordinates
-            /// to the screen when using it on a child, specified by its origin, children transform.
+            /// to the screen when using it on a child, specified by its children transform.
             fn adjust_transforms_for_child(
                 &mut self,
-                child_origin: &LogicalPoint,
-                children_transform: Option<ItemTransform>,
-                old_child_origin: &LogicalPoint,
-                old_children_transform: Option<ItemTransform>,
+                children_transform: &ItemTransform,
+                old_children_transform: &ItemTransform,
             ) {
-                self.transform_to_screen = children_transform
-                    .unwrap_or_default()
-                    .then_translate(child_origin.to_vector().cast())
-                    .then(&self.transform_to_screen);
-                self.old_transform_to_screen = old_children_transform
-                    .unwrap_or_default()
-                    .then_translate(old_child_origin.to_vector().cast())
-                    .then(&self.old_transform_to_screen);
+                self.transform_to_screen = children_transform.then(&self.transform_to_screen);
+                self.old_transform_to_screen =
+                    old_children_transform.then(&self.old_transform_to_screen);
             }
         }
 
@@ -726,28 +784,24 @@ impl<'a, T: ItemRendererFeatures> PartialRenderer<'a, T> {
                         if tr.is_dirty() {
                             let old_geom = cached_geom.clone();
                             drop(borrowed);
-                            let (geom, children_transform) =
-                                crate::properties::evaluate_no_tracking(|| {
-                                    (
-                                        item_rc.geometry(),
-                                        T::SUPPORTS_TRANSFORMATIONS
-                                            .then(|| item_rc.children_transform())
-                                            .flatten(),
-                                    )
-                                });
+                            let new_geom = crate::properties::evaluate_no_tracking(|| {
+                                CachedItemGeometryAndTransform::new::<T>(&item_rc)
+                            });
 
                             self.mark_dirty_rect(
-                                &old_geom.geometry,
+                                &old_geom.bounding_rect(),
                                 state.old_transform_to_screen,
                                 &state.clipped,
                             );
-                            self.mark_dirty_rect(&geom, state.transform_to_screen, &state.clipped);
+                            self.mark_dirty_rect(
+                                &new_geom.bounding_rect(),
+                                state.transform_to_screen,
+                                &state.clipped,
+                            );
 
                             new_state.adjust_transforms_for_child(
-                                &geom.origin,
-                                children_transform,
-                                &old_geom.geometry.origin,
-                                old_geom.children_transform(),
+                                &new_geom.transform(),
+                                &old_geom.transform(),
                             );
 
                             if ItemRef::downcast_pin::<Clip>(item).is_some()
@@ -767,38 +821,36 @@ impl<'a, T: ItemRendererFeatures> PartialRenderer<'a, T> {
                                     != new_state.old_transform_to_screen
                             {
                                 self.mark_dirty_rect(
-                                    &cached_geom.geometry,
+                                    &cached_geom.bounding_rect(),
                                     state.old_transform_to_screen,
                                     &state.clipped,
                                 );
                                 self.mark_dirty_rect(
-                                    &cached_geom.geometry,
+                                    &cached_geom.bounding_rect(),
                                     state.transform_to_screen,
                                     &state.clipped,
                                 );
                             }
 
                             new_state.adjust_transforms_for_child(
-                                &cached_geom.geometry.origin,
-                                cached_geom.children_transform(),
-                                &cached_geom.geometry.origin,
-                                cached_geom.children_transform(),
+                                &cached_geom.transform(),
+                                &cached_geom.transform(),
                             );
 
-                            if crate::properties::evaluate_no_tracking(|| is_clipping_item(item)) {
+                            if let CachedItemGeometryAndTransform::ClipItem { geometry } =
+                                &cached_geom
+                            {
                                 new_state.clipped = new_state
                                     .clipped
                                     .intersection(
                                         &state
                                             .transform_to_screen
-                                            .outer_transformed_rect(&cached_geom.geometry.cast())
+                                            .outer_transformed_rect(&geometry.cast())
                                             .cast()
                                             .union(
                                                 &state
                                                     .old_transform_to_screen
-                                                    .outer_transformed_rect(
-                                                        &cached_geom.geometry.cast(),
-                                                    )
+                                                    .outer_transformed_rect(&geometry.cast())
                                                     .cast(),
                                             ),
                                     )
@@ -809,33 +861,30 @@ impl<'a, T: ItemRendererFeatures> PartialRenderer<'a, T> {
                     }
                     _ => {
                         drop(borrowed);
-                        let geom = crate::properties::evaluate_no_tracking(|| {
-                            let geom = item_rc.geometry();
-                            let children_transform = T::SUPPORTS_TRANSFORMATIONS
-                                .then(|| item_rc.children_transform())
-                                .flatten();
+                        let bounding_rect = crate::properties::evaluate_no_tracking(|| {
+                            let geom = CachedItemGeometryAndTransform::new::<T>(&item_rc);
 
-                            new_state.adjust_transforms_for_child(
-                                &geom.origin,
-                                children_transform,
-                                &geom.origin,
-                                children_transform,
-                            );
+                            new_state
+                                .adjust_transforms_for_child(&geom.transform(), &geom.transform());
 
-                            if is_clipping_item(item) {
+                            if let CachedItemGeometryAndTransform::ClipItem { geometry } = geom {
                                 new_state.clipped = new_state
                                     .clipped
                                     .intersection(
                                         &state
                                             .transform_to_screen
-                                            .outer_transformed_rect(&geom.cast())
+                                            .outer_transformed_rect(&geometry.cast())
                                             .cast(),
                                     )
                                     .unwrap_or_default();
                             }
-                            geom
+                            *geom.bounding_rect()
                         });
-                        self.mark_dirty_rect(&geom, state.transform_to_screen, &state.clipped);
+                        self.mark_dirty_rect(
+                            &bounding_rect,
+                            state.transform_to_screen,
+                            &state.clipped,
+                        );
                         ItemVisitorResult::Continue(new_state)
                     }
                 }
@@ -899,7 +948,7 @@ macro_rules! forward_rendering_call {
             let mut ret = None;
             Self::do_rendering(&self.cache, &obj.cached_rendering_data, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size));
-                (item_rc.geometry(), item_rc.children_transform()).into()
+                CachedItemGeometryAndTransform::new::<T>(&item_rc)
             });
             ret.unwrap_or_default()
         }
@@ -912,7 +961,7 @@ macro_rules! forward_rendering_call2 {
             let mut ret = None;
             Self::do_rendering(&self.cache, &cache, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size, &cache));
-                (item_rc.geometry(), item_rc.children_transform()).into()
+                CachedItemGeometryAndTransform::new::<T>(&item_rc)
             });
             ret.unwrap_or_default()
         }
@@ -923,15 +972,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
     fn filter_item(&mut self, item_rc: &ItemRc) -> (bool, LogicalRect) {
         let item = item_rc.borrow();
         let eval = || {
-            if let Some(clip) = ItemRef::downcast_pin::<Clip>(item) {
-                // Make sure we register a dependency on the clip
-                clip.clip();
-            }
-            (
-                item_rc.geometry(),
-                T::SUPPORTS_TRANSFORMATIONS.then(|| item_rc.children_transform()).flatten(),
-            )
-                .into()
+            // registers dependencies on the geometry and clip properties.
+            CachedItemGeometryAndTransform::new::<T>(item_rc)
         };
 
         let rendering_data = item.cached_rendering_data_offset();
@@ -942,14 +984,14 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
                     .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
                     .as_ref()
                     .evaluate_if_dirty(|| *data = eval());
-                data.geometry
+                *data.geometry()
             }
             None => {
                 let cache_entry = crate::graphics::CachedGraphicsData::new(eval);
                 let geom = cache_entry.data.clone();
                 rendering_data.cache_index.set(cache.insert(cache_entry));
                 rendering_data.cache_generation.set(cache.generation());
-                geom.geometry
+                *geom.geometry()
             }
         };
 

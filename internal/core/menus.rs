@@ -181,6 +181,14 @@ impl crate::items::Item for MenuItem {
     ) -> crate::items::RenderingResult {
         Default::default()
     }
+
+    fn bounding_rect_for_geometry(
+        self: Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: crate::lengths::LogicalRect,
+    ) -> crate::lengths::LogicalRect {
+        geometry
+    }
 }
 
 impl crate::items::ItemConsts for MenuItem {

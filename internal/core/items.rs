@@ -29,7 +29,8 @@ use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRe
 pub use crate::item_tree::ItemRc;
 use crate::layout::LayoutInfo;
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalSize, LogicalVector, PointLengths, RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
+    RectLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -168,6 +169,12 @@ pub struct ItemVTable {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult,
+
+    pub bounding_rect_for_geometry: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect,
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -236,6 +243,14 @@ impl Item for Empty {
         _size: LogicalSize,
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -314,6 +329,14 @@ impl Item for Rectangle {
     ) -> RenderingResult {
         (*backend).draw_rectangle(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -401,6 +424,14 @@ impl Item for BasicBorderRectangle {
     ) -> RenderingResult {
         (*backend).draw_border_rectangle(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -501,6 +532,14 @@ impl Item for BorderRectangle {
     ) -> RenderingResult {
         (*backend).draw_border_rectangle(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -627,6 +666,14 @@ impl Item for Clip {
     ) -> RenderingResult {
         (*backend).visit_clip(self, self_rc, size)
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl Clip {
@@ -713,6 +760,14 @@ impl Item for Opacity {
         size: LogicalSize,
     ) -> RenderingResult {
         backend.visit_opacity(self, self_rc, size)
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -818,6 +873,14 @@ impl Item for Layer {
     ) -> RenderingResult {
         backend.visit_layer(self, self_rc, size)
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ItemConsts for Layer {
@@ -901,6 +964,14 @@ impl Item for Rotate {
         (*backend).rotate(self.rotation_angle());
         (*backend).translate(-origin);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
     }
 }
 
@@ -1029,6 +1100,14 @@ impl Item for WindowItem {
         backend.draw_window_background(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl RenderRectangle for WindowItem {
@@ -1154,6 +1233,14 @@ impl Item for ContextMenu {
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
     }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
 }
 
 impl ContextMenu {}
@@ -1236,6 +1323,16 @@ impl Item for BoxShadow {
     ) -> RenderingResult {
         (*backend).draw_box_shadow(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect_for_geometry(
+        self: core::pin::Pin<&Self>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+            .outer_rect(euclid::SideOffsets2D::from_length_all_same(self.blur()))
+            .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
     }
 }
 
