@@ -73,12 +73,13 @@ use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
 use smol_str::{format_smolstr, SmolStr};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 const HEIGHT: &str = "height";
 const ENTRIES: &str = "entries";
 const SUB_MENU: &str = "sub-menu";
-const ACTIVATE: &str = "activated";
+const ACTIVATED: &str = "activated";
 const SHOW: &str = "show";
 
 struct UsefulMenuComponents {
@@ -133,7 +134,7 @@ pub async fn lower_menus(
         {
             let mut root = popup_menu_impl.root_element.borrow_mut();
 
-            for prop in ["entries", "sub-menu", "activated"] {
+            for prop in [ENTRIES, SUB_MENU, ACTIVATED] {
                 match root.property_declarations.get_mut(prop) {
                     Some(d) => d.expose_in_public_api = true,
                     None => diag.push_error(format!("PopupMenuImpl doesn't have {prop}"), &*root),
@@ -156,6 +157,29 @@ fn process_context_menu(
     components: &UsefulMenuComponents,
     diag: &mut BuildDiagnostics,
 ) -> bool {
+    // Lower MenuItem's into entries
+    let menu_item = context_menu_elem
+        .borrow()
+        .base_type
+        .as_builtin()
+        .additional_accepted_child_types
+        .get("MenuItem")
+        .expect("ContextMenu should accept MenuItem")
+        .clone()
+        .into();
+    let mut items = vec![];
+    context_menu_elem.borrow_mut().children.retain(|x| {
+        if x.borrow().base_type == menu_item {
+            items.push(x.clone());
+            false
+        } else {
+            true
+        }
+    });
+    if !items.is_empty() {
+        lower_menu_items(context_menu_elem, items, &components.menu_entry, diag);
+    }
+
     // Materialize the entries property
     context_menu_elem.borrow_mut().property_declarations.insert(
         SmolStr::new_static(ENTRIES),
@@ -228,10 +252,12 @@ fn process_window(
             &*menu_bar.borrow(),
         );
     }
-    assert!(
-        menu_bar.borrow().children.is_empty() || diag.has_errors(),
-        "MenuBar element can't have children"
-    );
+
+    // Lower MenuItem's into entries
+    let children = std::mem::take(&mut menu_bar.borrow_mut().children);
+    if !children.is_empty() {
+        lower_menu_items(&menu_bar, children, &components.menu_entry, diag);
+    }
 
     let menubar_impl = Element {
         id: format_smolstr!("{}-menulayout", window.id),
@@ -274,7 +300,7 @@ fn process_window(
 
     let source_location = Some(menu_bar.borrow().to_source_location());
 
-    for prop in [ENTRIES, SUB_MENU, ACTIVATE] {
+    for prop in [ENTRIES, SUB_MENU, ACTIVATED] {
         // materialize the properties and callbacks
         let ty = components.menubar_impl.lookup_property(prop).property_type;
         assert_ne!(ty, Type::Invalid, "Can't lookup type for {prop}");
@@ -324,7 +350,7 @@ fn process_window(
                 None,
             ),
             Expression::CallbackReference(
-                NamedReference::new(&menu_bar, SmolStr::new_static(ACTIVATE)),
+                NamedReference::new(&menu_bar, SmolStr::new_static(ACTIVATED)),
                 None,
             ),
         ],
@@ -347,4 +373,141 @@ fn process_window(
 
     component.init_code.borrow_mut().constructor_code.push(setup_menubar.into());
     true
+}
+
+fn lower_menu_items(
+    parent: &ElementRc,
+    children: Vec<ElementRc>,
+    menu_entry: &Type,
+    diag: &mut BuildDiagnostics,
+) {
+    let mut state = GenMenuState {
+        id: 0,
+        menu_entry: menu_entry.clone(),
+        diag,
+        activate: Vec::new(),
+        sub_menu: Vec::new(),
+    };
+    parent.borrow_mut().bindings.insert(
+        ENTRIES.into(),
+        RefCell::new(
+            Expression::Array {
+                element_ty: menu_entry.clone(),
+                values: generate_menu_entries(children.into_iter(), &mut state),
+            }
+            .into(),
+        ),
+    );
+    let entry_id = Expression::StructFieldAccess {
+        base: Expression::FunctionParameterReference { index: 0, ty: menu_entry.clone() }.into(),
+        name: SmolStr::new_static("id"),
+    };
+
+    let sub_entries = build_cases_function(
+        &entry_id,
+        Expression::Array { element_ty: menu_entry.clone(), values: vec![] },
+        state.sub_menu,
+    );
+    parent.borrow_mut().bindings.insert(SUB_MENU.into(), RefCell::new(sub_entries.into()));
+
+    let activated = build_cases_function(&entry_id, Expression::CodeBlock(vec![]), state.activate);
+    parent.borrow_mut().bindings.insert(ACTIVATED.into(), RefCell::new(activated.into()));
+}
+
+fn build_cases_function(
+    entry_id: &Expression,
+    default_case: Expression,
+    cases: Vec<(SmolStr, Expression)>,
+) -> Expression {
+    let mut result = default_case;
+    for (id, expr) in cases.into_iter().rev() {
+        result = Expression::Condition {
+            condition: Expression::BinaryExpression {
+                lhs: entry_id.clone().into(),
+                rhs: Expression::StringLiteral(id).into(),
+                op: '=',
+            }
+            .into(),
+            true_expr: expr.into(),
+            false_expr: result.into(),
+        }
+    }
+    result
+}
+
+struct GenMenuState<'a> {
+    id: usize,
+    /// Maps `entry.id` to the callback
+    activate: Vec<(SmolStr, Expression)>,
+    /// Maps `entry.id` to the sub-menu entries
+    sub_menu: Vec<(SmolStr, Expression)>,
+
+    menu_entry: Type,
+    diag: &'a mut BuildDiagnostics,
+}
+
+fn generate_menu_entries(
+    menu_items: impl Iterator<Item = ElementRc>,
+    state: &mut GenMenuState<'_>,
+) -> Vec<Expression> {
+    let mut entries = Vec::new();
+
+    for item in menu_items {
+        let mut borrow_mut = item.borrow_mut();
+        assert_eq!(borrow_mut.base_type.type_name(), Some("MenuItem"));
+
+        borrow_mut
+            .enclosing_component
+            .upgrade()
+            .unwrap()
+            .optimized_elements
+            .borrow_mut()
+            .push(item.clone());
+
+        if borrow_mut.repeated.is_some() {
+            state.diag.push_error(
+                "'for' and 'if' in MenuItem is not yet implemented".into(),
+                &*borrow_mut,
+            );
+            continue;
+        }
+
+        let mut values = HashMap::<SmolStr, Expression>::new();
+        for prop in ["title"] {
+            if let Some(binding) = borrow_mut.bindings.remove(prop) {
+                values.insert(SmolStr::new_static(prop), binding.into_inner().expression);
+            }
+        }
+
+        state.id += 1;
+        let id_str = format_smolstr!("{}", state.id);
+        values.insert(SmolStr::new_static("id"), Expression::StringLiteral(id_str.clone()));
+
+        if let Some(callback) = borrow_mut.bindings.remove("activated") {
+            state.activate.push((id_str.clone(), callback.into_inner().expression));
+        }
+
+        let sub_entries =
+            generate_menu_entries(std::mem::take(&mut borrow_mut.children).into_iter(), state);
+        if !sub_entries.is_empty() {
+            state.sub_menu.push((
+                id_str,
+                Expression::Array { element_ty: state.menu_entry.clone(), values: sub_entries },
+            ));
+            values
+                .insert(SmolStr::new_static("has-sub-menu"), Expression::BoolLiteral(true).into());
+        }
+
+        entries.push(mk_struct(state.menu_entry.clone(), values));
+    }
+
+    entries
+}
+
+fn mk_struct(ty: Type, mut values: HashMap<SmolStr, Expression>) -> Expression {
+    let Type::Struct(s) = &ty else { panic!("Not a struct") };
+    for (k, v) in s.fields.iter() {
+        values.entry(k.clone()).or_insert_with(|| Expression::default_value_for_type(v));
+    }
+    Expression::Struct { ty, values }
 }

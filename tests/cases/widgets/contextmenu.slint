@@ -7,7 +7,7 @@ export component TestCase inherits Window {
     width: 700px;
     height: 700px;
     ContextMenu {
-        entries: [
+        /*entries: [
             { title: "Entry1" },
             { title: "Entry2", has-sub-menu: true },
         ];
@@ -30,6 +30,29 @@ export component TestCase inherits Window {
         }
         activated(entry) => {
             debug("Activated", entry);
+        }*/
+
+        MenuItem {
+            title: "Entry1";
+            activated => { debug("Entry1"); }
+        }
+        MenuItem {
+            title: "Entry2";
+            MenuItem {
+                title: "New";
+                activated => { debug("New"); }
+            }
+            MenuItem {
+                title: "Open";
+                MenuItem {
+                    title: "Open 1";
+                    activated => { debug("1"); }
+                }
+                MenuItem {
+                    title: "Open 2";
+                    activated => { debug("2"); }
+                }
+            }
         }
 
         // When this focus scope has the focus, the ContextMenu can handle the Menu key
