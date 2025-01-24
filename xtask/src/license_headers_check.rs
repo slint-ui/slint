@@ -522,6 +522,7 @@ lazy_static! {
         ("\\.tmPreferences$", LicenseLocation::NoLicense),
         ("\\.toml$", LicenseLocation::NoLicense),
         ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.ttf$", LicenseLocation::NoLicense),
         ("\\.txt$", LicenseLocation::NoLicense),
         ("\\.ui$", LicenseLocation::NoLicense),
