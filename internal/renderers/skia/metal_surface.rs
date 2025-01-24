@@ -6,7 +6,7 @@ use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::item_rendering::DirtyRegion;
 use objc2::rc::autoreleasepool;
 use objc2::{rc::Retained, runtime::ProtocolObject};
-use objc2_foundation::CGSize;
+use objc2_core_foundation::CGSize;
 use objc2_metal::{MTLCommandBuffer, MTLCommandQueue, MTLDevice, MTLPixelFormat, MTLTexture};
 use objc2_quartz_core::{CAMetalDrawable, CAMetalLayer};
 
@@ -54,11 +54,9 @@ impl super::Surface for MetalSurface {
         // SAFETY: The pointer is a valid `CAMetalLayer`.
         let ca_layer: &CAMetalLayer = unsafe { layer.as_ptr().cast().as_ref() };
 
-        let device = {
-            let ptr = unsafe { objc2_metal::MTLCreateSystemDefaultDevice() };
-            unsafe { Retained::retain(ptr) }
-                .ok_or_else(|| format!("Skia Renderer: No metal device found"))?
-        };
+        let device = objc2_metal::MTLCreateSystemDefaultDevice().ok_or_else(|| {
+            format!("Skia Renderer: Unable to obtain metal system default device")
+        })?;
 
         unsafe {
             ca_layer.setDevice(Some(&device));
