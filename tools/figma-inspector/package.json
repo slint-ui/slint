@@ -1,5 +1,5 @@
 {
-  "name": "Figma-to-Slint",
+  "name": "Figma to Slint (Beta)",
   "version": "1.10.0",
   "description": "Slint plugin for Figma",
   "main": "code.js",
