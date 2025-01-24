@@ -7,3 +7,4 @@ dependencies:
   espressif/esp32_s3_usb_otg:
     version: "^1.4.4"
   espressif/esp_lvgl_port: "=1.4.0"
+  espressif/button: "=3.5.0"
