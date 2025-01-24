@@ -10,10 +10,10 @@
 - Don't show copy if there are no properties.
 
 ### Future tweaks
-- Set plugin up to build via Vite. Figma only works with a single *.js file. Using Vite means we 
+- Set plugin up to build via Vite. Figma only works with a single *.js file. Using Vite means we
 can have multiple files, import libraries, use react, etc and it will sort out a bundle that just becomes one *.js file.
 - Can Shiki be used to syntax color the properties?
-- Still some missing properties and thought needed for how to deal with Figma properties that don't exist in Slint e.g. you can have unlimited individual shadows and gradients. Slint only supports one of each. 
+- Still some missing properties and thought needed for how to deal with Figma properties that don't exist in Slint e.g. you can have unlimited individual shadows and gradients. Slint only supports one of each.
 - Grab the 'text' value for any text from the original data.
 
 
