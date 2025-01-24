@@ -1,7 +1,50 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-function getStatus(selectionCount: number) {
+import type { Message, PluginMessageEvent } from "../../src/globals";
+import type { EventTS } from "../../shared/universals";
+
+export const dispatch = (data: any, origin = "*") => {
+    figma.ui.postMessage(data, {
+        origin,
+    });
+};
+
+export const dispatchTS = <Key extends keyof EventTS>(
+    event: Key,
+    data: EventTS[Key],
+    origin = "*",
+) => {
+    dispatch({ event, data }, origin);
+};
+
+export const listenTS = <Key extends keyof EventTS>(
+    eventName: Key,
+    callback: (data: EventTS[Key]) => any,
+    listenOnce = false,
+) => {
+    const func = (event: any) => {
+        if (event.event === eventName) {
+            callback(event);
+            if (listenOnce) {
+                figma.ui?.off("message", func); // Remove Listener so we only listen once
+            }
+        }
+    };
+
+    figma.ui.on("message", func);
+};
+
+export const getStore = async (key: string) => {
+    const value = await figma.clientStorage.getAsync(key);
+    return value;
+};
+
+export const setStore = async (key: string, value: string) => {
+    await figma.clientStorage.setAsync(key, value);
+};
+
+export function getStatus(selectionCount: number) {
     if (selectionCount === 0) {
         return "Please select a layer";
     }
@@ -10,10 +53,6 @@ function getStatus(selectionCount: number) {
     }
     return "Slint properties:";
 }
-
-type StyleObject = {
-    [key: string]: string;
-};
 
 const itemsToKeep = [
     "color",
@@ -29,6 +68,10 @@ const itemsToKeep = [
     "stroke-width",
     "stroke",
 ];
+
+type StyleObject = {
+    [key: string]: string;
+};
 
 function transformStyle(styleObj: StyleObject): string {
     const filteredEntries = Object.entries(styleObj)
@@ -62,7 +105,7 @@ function transformStyle(styleObj: StyleObject): string {
     return filteredEntries.length > 0 ? `${filteredEntries.join(";\n")};` : "";
 }
 
-async function updateUI() {
+export async function updateUI() {
     const title = getStatus(figma.currentPage.selection.length);
     let slintProperties = "";
 
@@ -70,25 +113,7 @@ async function updateUI() {
         const cssProperties =
             await figma.currentPage.selection[0].getCSSAsync();
         slintProperties = transformStyle(cssProperties);
-        console.log(cssProperties);
     }
 
-    figma.ui.postMessage({ title, slintProperties });
+    dispatchTS("updatePropertiesCallback", { title, slintProperties });
 }
-
-// This shows the HTML page in "ui.html".
-figma.showUI(__html__, { width: 400, height: 320, themeColors: true });
-
-// init
-updateUI();
-
-figma.on("selectionchange", () => {
-    updateUI();
-});
-
-// Logic to react to UI events
-figma.ui.onmessage = async (msg: { type: string; count: number }) => {
-    if (msg.type === "copy") {
-        figma.notify("Copied to clipboard");
-    }
-};
