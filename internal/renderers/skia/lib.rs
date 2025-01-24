@@ -508,7 +508,7 @@ impl SkiaRenderer {
             let mut partial_renderer;
             let mut dirty_region_to_visualize = None;
 
-            if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
+            if let Some(partial_rendering_state) = self.partial_rendering_state() {
                 partial_renderer =
                     partial_rendering_state.create_partial_renderer(skia_item_renderer);
 
@@ -608,7 +608,7 @@ impl SkiaRenderer {
                 if collector.refresh_mode()
                     == i_slint_core::graphics::rendering_metrics_collector::RefreshMode::FullSpeed
                 {
-                    if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
+                    if let Some(partial_rendering_state) = self.partial_rendering_state() {
                         partial_rendering_state.force_screen_refresh();
                     }
                 }
@@ -638,6 +638,15 @@ impl SkiaRenderer {
     /// This can be useful to implement frame throttling, i.e. for requesting a frame callback from the wayland compositor.
     pub fn set_pre_present_callback(&self, callback: Option<Box<dyn FnMut()>>) {
         *self.pre_present_callback.borrow_mut() = callback;
+    }
+
+    fn partial_rendering_state(&self) -> Option<&PartialRenderingState> {
+        // We don't know where the application might render to, so disable partial rendering.
+        if self.rendering_notifier.borrow().is_some() {
+            None
+        } else {
+            self.partial_rendering_state.as_ref()
+        }
     }
 }
 
@@ -789,9 +798,6 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         }) {
             return Err(SetRenderingNotifierError::Unsupported);
         }
-        if self.partial_rendering_state.is_some() {
-            return Err(SetRenderingNotifierError::Unsupported);
-        }
         let mut notifier = self.rendering_notifier.borrow_mut();
         if notifier.replace(callback).is_some() {
             Err(SetRenderingNotifierError::AlreadySet)
@@ -812,7 +818,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.image_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
 
-        if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
+        if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.free_graphics_resources(items);
         }
 
@@ -824,7 +830,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.image_cache.clear_all();
         self.path_cache.clear_all();
 
-        if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
+        if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.clear_cache();
         }
     }
@@ -867,7 +873,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     }
 
     fn mark_dirty_region(&self, region: i_slint_core::item_rendering::DirtyRegion) {
-        if let Some(partial_rendering_state) = self.partial_rendering_state.as_ref() {
+        if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.mark_dirty_region(region);
         }
     }
