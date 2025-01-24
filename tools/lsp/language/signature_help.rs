@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::common::DocumentCache;
-use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::expression_tree::Callable;
 use i_slint_compiler::langtype::{Function, Type};
-use i_slint_compiler::lookup::{LookupObject as _, LookupResult};
+use i_slint_compiler::lookup::{LookupObject as _, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use lsp_types::{ParameterInformation, ParameterLabel, SignatureHelp, SignatureInformation};
@@ -83,27 +83,28 @@ fn signature_info(
         }
         Some(expr_it)
     })?;
-    let LookupResult::Expression { expression, .. } = lr? else { return None };
+    let LookupResult::Callable(callable) = lr? else { return None };
 
-    match expression {
-        Expression::FunctionReference(nr, _) => signature_from_nr(nr, active_parameter),
-        Expression::CallbackReference(nr, _) => signature_from_nr(nr, active_parameter),
-        Expression::BuiltinFunctionReference(b, _) => {
+    match callable {
+        LookupResultCallable::Callable(Callable::Callback(nr))
+        | LookupResultCallable::Callable(Callable::Function(nr)) => {
+            signature_from_nr(nr, active_parameter)
+        }
+        LookupResultCallable::Callable(Callable::Builtin(b)) => {
             Some(signature_from_function_ty(&format!("{b:?}"), &b.ty(), 0, active_parameter))
         }
-        Expression::BuiltinMacroReference(b, _) => {
+        LookupResultCallable::Macro(b) => {
             Some(make_signature_info(&format!("{b:?}"), vec!["...".into()], active_parameter))
         }
-        Expression::MemberFunction { member, .. } => match *member {
-            Expression::BuiltinFunctionReference(b, _) => {
+        LookupResultCallable::MemberFunction { member, .. } => match *member {
+            LookupResultCallable::Callable(Callable::Builtin(b)) => {
                 Some(signature_from_function_ty(&format!("{b:?}"), &b.ty(), 1, active_parameter))
             }
-            Expression::BuiltinMacroReference(b, _) => {
+            LookupResultCallable::Macro(b) => {
                 Some(make_signature_info(&format!("{b:?}"), vec!["...".into()], active_parameter))
             }
             _ => None,
         },
-        _ => None,
     }
 }
 

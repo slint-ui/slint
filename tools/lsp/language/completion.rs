@@ -10,9 +10,9 @@ use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_l
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
+use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextSize};
 use lsp_types::{
@@ -642,9 +642,7 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
     match lookup_result {
         LookupResult::Expression { expression, .. } => {
             let label = match &expression {
-                Expression::CallbackReference(nr, ..)
-                | Expression::FunctionReference(nr, ..)
-                | Expression::PropertyReference(nr) => {
+                Expression::PropertyReference(nr) => {
                     de_normalize_property_name_with_element(&nr.element(), str).into_owned()
                 }
                 Expression::ElementReference(e) => e
@@ -666,11 +664,7 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             let mut c = CompletionItem::new_simple(label, expression.ty().to_string());
             c.kind = match expression {
                 Expression::BoolLiteral(_) => Some(CompletionItemKind::CONSTANT),
-                Expression::CallbackReference(..) => Some(CompletionItemKind::METHOD),
-                Expression::FunctionReference(..) => Some(CompletionItemKind::FUNCTION),
                 Expression::PropertyReference(_) => Some(CompletionItemKind::PROPERTY),
-                Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::FUNCTION),
-                Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::FUNCTION),
                 Expression::ElementReference(_) => Some(CompletionItemKind::CLASS),
                 Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::VARIABLE),
                 Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::VARIABLE),
@@ -692,6 +686,26 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             kind: Some(CompletionItemKind::MODULE),
             ..CompletionItem::default()
         },
+        LookupResult::Callable(callable) => {
+            let label = if let LookupResultCallable::Callable(
+                Callable::Callback(nr) | Callable::Function(nr),
+            ) = &callable
+            {
+                de_normalize_property_name_with_element(&nr.element(), str).into_owned()
+            } else {
+                str.to_string()
+            };
+            let kind = if matches!(
+                callable,
+                LookupResultCallable::MemberFunction { .. }
+                    | LookupResultCallable::Callable(Callable::Callback(..))
+            ) {
+                CompletionItemKind::METHOD
+            } else {
+                CompletionItemKind::FUNCTION
+            };
+            CompletionItem { label, kind: Some(kind), ..CompletionItem::default() }
+        }
     }
 }
 
