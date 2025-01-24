@@ -1,5 +1,5 @@
 {
-  "name": "slint.figma.plugin", 
+  "name": "slint.figma.plugin",
   "private": true,
   "version": "1.10.0",
   "type": "module",
