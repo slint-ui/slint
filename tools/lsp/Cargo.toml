@@ -95,6 +95,9 @@ i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-10"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-10", "highlight", "internal", "image-default-formats"], optional = true  }
 
+[target.'cfg(not(any(target_env = "msvc", target_arch = "wasm32")))'.dependencies]
+tikv-jemallocator = { workspace = true }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server
