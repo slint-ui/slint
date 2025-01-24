@@ -172,6 +172,7 @@ pub struct ItemVTable {
 
     pub bounding_rect_for_geometry: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
+        window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect,
@@ -247,6 +248,7 @@ impl Item for Empty {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -333,6 +335,7 @@ impl Item for Rectangle {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -428,6 +431,7 @@ impl Item for BasicBorderRectangle {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -536,6 +540,7 @@ impl Item for BorderRectangle {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -669,6 +674,7 @@ impl Item for Clip {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -764,6 +770,7 @@ impl Item for Opacity {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -876,6 +883,7 @@ impl Item for Layer {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -968,6 +976,7 @@ impl Item for Rotate {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -1103,6 +1112,7 @@ impl Item for WindowItem {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -1236,6 +1246,7 @@ impl Item for ContextMenu {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
@@ -1327,6 +1338,7 @@ impl Item for BoxShadow {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {

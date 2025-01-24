@@ -184,6 +184,7 @@ impl crate::items::Item for MenuItem {
 
     fn bounding_rect_for_geometry(
         self: Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: crate::lengths::LogicalRect,
     ) -> crate::lengths::LogicalRect {

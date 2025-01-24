@@ -20,7 +20,9 @@ use crate::input::{
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use crate::lengths::{
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor, SizeLengths,
+};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -125,10 +127,11 @@ impl Item for ComplexText {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
+        self.text_bounding_rect(window_adapter, geometry.cast()).cast()
     }
 }
 
@@ -298,10 +301,11 @@ impl Item for SimpleText {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
+        self.text_bounding_rect(window_adapter, geometry.cast()).cast()
     }
 }
 
@@ -986,9 +990,22 @@ impl Item for TextInput {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        geometry: LogicalRect,
+        mut geometry: LogicalRect,
     ) -> LogicalRect {
+        let window_inner = WindowInner::from_pub(window_adapter.window());
+        let text_string = self.text();
+        let font_request = self.font_request(window_adapter);
+        let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
+        let max_width = geometry.size.width_length();
+        geometry.size = window_adapter.renderer().text_size(
+            font_request.clone(),
+            text_string.as_str(),
+            Some(max_width),
+            scale_factor,
+            self.wrap(),
+        );
         geometry
     }
 }
