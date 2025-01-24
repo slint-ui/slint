@@ -125,6 +125,8 @@ path = [
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
   "tools/slintpad/styles/**.css",
+  "tools/figma-inspector/**.json",
+  "tools/figma-inspector/**.html",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

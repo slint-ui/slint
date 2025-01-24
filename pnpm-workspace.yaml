@@ -3,6 +3,7 @@
 packages:
   - "api/node"
   - "editors/vscode"
+  - "tools/figma-inspector"
   - "tools/slintpad"
   - "demos/printerdemo/node"
   - "demos/home-automation/node"
