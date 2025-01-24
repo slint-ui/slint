@@ -432,7 +432,13 @@ impl PopupMenuDescription {
 
 fn internal_properties_to_public<'a>(
     prop_iter: impl Iterator<Item = (&'a SmolStr, &'a PropertyDeclaration)> + 'a,
-) -> impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + 'a {
+) -> impl Iterator<
+    Item = (
+        SmolStr,
+        i_slint_compiler::langtype::Type,
+        i_slint_compiler::object_tree::PropertyVisibility,
+    ),
+> + 'a {
     prop_iter.filter(|(_, v)| v.expose_in_public_api).map(|(s, v)| {
         let name = v
             .node
@@ -443,7 +449,7 @@ fn internal_properties_to_public<'a>(
             })
             .map(|n| n.to_smolstr())
             .unwrap_or_else(|| s.to_smolstr());
-        (name, v.property_type.clone())
+        (name, v.property_type.clone(), v.visibility.clone())
     })
 }
 
@@ -471,7 +477,13 @@ impl ItemTreeDescription<'_> {
     /// We try to preserve the dashes and underscore as written in the property declaration
     pub fn properties(
         &self,
-    ) -> impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + '_ {
+    ) -> impl Iterator<
+        Item = (
+            SmolStr,
+            i_slint_compiler::langtype::Type,
+            i_slint_compiler::object_tree::PropertyVisibility,
+        ),
+    > + '_ {
         internal_properties_to_public(self.public_properties.iter())
     }
 
@@ -489,7 +501,15 @@ impl ItemTreeDescription<'_> {
     pub fn global_properties(
         &self,
         name: &str,
-    ) -> Option<impl Iterator<Item = (SmolStr, i_slint_compiler::langtype::Type)> + '_> {
+    ) -> Option<
+        impl Iterator<
+                Item = (
+                    SmolStr,
+                    i_slint_compiler::langtype::Type,
+                    i_slint_compiler::object_tree::PropertyVisibility,
+                ),
+            > + '_,
+    > {
         let g = self.compiled_globals.as_ref().expect("Root component should have globals");
         g.exported_globals_by_name
             .get(crate::normalize_identifier(name).as_ref())
