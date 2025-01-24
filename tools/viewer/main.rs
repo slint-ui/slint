@@ -344,7 +344,7 @@ fn load_data(
     let obj = json.as_object().ok_or("The data is not a JSON object")?;
     for (name, v) in obj {
         match types.get(name.as_str()) {
-            Some(t) => match slint_interpreter::Value::from_json(t, v) {
+            Some((t, _)) => match slint_interpreter::Value::from_json(t, v) {
                 Ok(v) => match instance.set_property(name, v) {
                     Ok(()) => (),
                     Err(e) => {

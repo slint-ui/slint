@@ -1021,11 +1021,16 @@ impl ComponentDefinition {
     #[cfg(feature = "internal")]
     pub fn properties_and_callbacks(
         &self,
-    ) -> impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_ {
+    ) -> impl Iterator<
+        Item = (
+            String,
+            (i_slint_compiler::langtype::Type, i_slint_compiler::object_tree::PropertyVisibility),
+        ),
+    > + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().map(|(s, t)| (s.to_string(), t))
+        self.inner.unerase(guard).properties().map(|(s, t, v)| (s.to_string(), (t, v)))
     }
 
     /// Returns an iterator over all publicly declared properties. Each iterator item is a tuple of property name
@@ -1034,7 +1039,7 @@ impl ComponentDefinition {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
+        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
             if prop_type.is_property_type() {
                 Some((prop_name.to_string(), prop_type.into()))
             } else {
@@ -1048,7 +1053,7 @@ impl ComponentDefinition {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
+        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
             if matches!(prop_type, LangType::Callback { .. }) {
                 Some(prop_name.to_string())
             } else {
@@ -1062,7 +1067,7 @@ impl ComponentDefinition {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
+        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type, _)| {
             if matches!(prop_type, LangType::Function { .. }) {
                 Some(prop_name.to_string())
             } else {
@@ -1090,14 +1095,24 @@ impl ComponentDefinition {
     pub fn global_properties_and_callbacks(
         &self,
         global_name: &str,
-    ) -> Option<impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_> {
+    ) -> Option<
+        impl Iterator<
+                Item = (
+                    String,
+                    (
+                        i_slint_compiler::langtype::Type,
+                        i_slint_compiler::object_tree::PropertyVisibility,
+                    ),
+                ),
+            > + '_,
+    > {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner
             .unerase(guard)
             .global_properties(global_name)
-            .map(|o| o.map(|(s, t)| (s.to_string(), t)))
+            .map(|o| o.map(|(s, t, v)| (s.to_string(), (t, v))))
     }
 
     /// List of publicly declared properties in the exported global singleton specified by its name.
@@ -1109,7 +1124,7 @@ impl ComponentDefinition {
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type)| {
+            iter.filter_map(|(prop_name, prop_type, _)| {
                 if prop_type.is_property_type() {
                     Some((prop_name.to_string(), prop_type.into()))
                 } else {
@@ -1125,7 +1140,7 @@ impl ComponentDefinition {
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type)| {
+            iter.filter_map(|(prop_name, prop_type, _)| {
                 if matches!(prop_type, LangType::Callback { .. }) {
                     Some(prop_name.to_string())
                 } else {
@@ -1141,7 +1156,7 @@ impl ComponentDefinition {
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).global_properties(global_name).map(|iter| {
-            iter.filter_map(|(prop_name, prop_type)| {
+            iter.filter_map(|(prop_name, prop_type, _)| {
                 if matches!(prop_type, LangType::Function { .. }) {
                     Some(prop_name.to_string())
                 } else {

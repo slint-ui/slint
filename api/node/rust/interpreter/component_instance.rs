@@ -46,7 +46,7 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn set_property(&self, env: Env, prop_name: String, js_value: JsUnknown) -> Result<()> {
-        let ty = self
+        let (ty, _) = self
             .inner
             .definition()
             .properties_and_callbacks()
@@ -88,7 +88,7 @@ impl JsComponentInstance {
         prop_name: String,
         js_value: JsUnknown,
     ) -> Result<()> {
-        let ty = self
+        let (ty, _) = self
             .inner
             .definition()
             .global_properties_and_callbacks(global_name.as_str())
@@ -121,7 +121,7 @@ impl JsComponentInstance {
     ) -> Result<()> {
         let function_ref = RefCountedReference::new(&env, callback)?;
 
-        let ty = self
+        let (ty, _) = self
             .inner
             .definition()
             .properties_and_callbacks()
@@ -188,7 +188,7 @@ impl JsComponentInstance {
     ) -> Result<()> {
         let function_ref = RefCountedReference::new(&env, callback)?;
 
-        let ty = self
+        let (ty, _) = self
             .inner
             .definition()
             .global_properties_and_callbacks(global_name.as_str())
@@ -283,7 +283,7 @@ impl JsComponentInstance {
         callback_name: String,
         callback_arguments: Vec<JsUnknown>,
     ) -> Result<JsUnknown> {
-        let ty = self
+        let (ty, _) = self
             .inner
             .definition()
             .properties_and_callbacks()
@@ -321,7 +321,7 @@ impl JsComponentInstance {
         callback_name: String,
         callback_arguments: Vec<JsUnknown>,
     ) -> Result<JsUnknown> {
-        let ty = self
+        let (ty, _) = self
             .inner
             .definition()
             .global_properties_and_callbacks(global_name.as_str())
