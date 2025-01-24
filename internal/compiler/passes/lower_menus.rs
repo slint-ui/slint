@@ -345,10 +345,7 @@ fn process_window(
             .property_declarations
             .insert(prop.into(), PropertyDeclaration { property_type: ty, ..Default::default() });
         if let Some(old) = old {
-            diag.push_error(
-                format!("Cannot re-define internal property '{}'", prop),
-                &old.node,
-            );
+            diag.push_error(format!("Cannot re-define internal property '{}'", prop), &old.node);
         }
     }
 
