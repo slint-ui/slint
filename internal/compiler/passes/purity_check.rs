@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::{Callable, Expression, NamedReference};
 
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
@@ -43,26 +43,26 @@ fn ensure_pure(
 ) -> bool {
     let mut r = true;
     expr.visit_recursive(&mut |e| match e {
-        Expression::CallbackReference(nr, node) => {
+        Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. } => {
             if !nr.element().borrow().lookup_property(nr.name()).declared_pure.unwrap_or(false) {
                 if let Some(diag) = diag.as_deref_mut() {
                     diag.push_diagnostic(
                         format!("Call of impure callback '{}'", nr.name()),
-                        node,
+                        source_location,
                         level,
                     );
                 }
                 r = false;
             }
         }
-        Expression::FunctionReference(nr, node) => {
+        Expression::FunctionCall { function: Callable::Function(nr), source_location, .. } => {
             match nr.element().borrow().lookup_property(nr.name()).declared_pure {
                 Some(true) => (),
                 Some(false) => {
                     if let Some(diag) = diag.as_deref_mut() {
                         diag.push_diagnostic(
                             format!("Call of impure function '{}'", nr.name(),),
-                            node,
+                            source_location,
                             level,
                         );
                     }
@@ -87,7 +87,7 @@ fn ensure_pure(
                                     if let Some(diag) = diag.as_deref_mut() {
                                         diag.push_diagnostic(
                                             format!("Call of impure function '{}'", nr.name()),
-                                            node,
+                                            source_location,
                                             level,
                                         );
                                     }
@@ -99,10 +99,10 @@ fn ensure_pure(
                 }
             }
         }
-        Expression::BuiltinFunctionReference(func, node) => {
+        Expression::FunctionCall { function: Callable::Builtin(func), source_location, .. } => {
             if !func.is_pure() {
                 if let Some(diag) = diag.as_deref_mut() {
-                    diag.push_diagnostic("Call of impure function".into(), node, level);
+                    diag.push_diagnostic("Call of impure function".into(), source_location, level);
                 }
                 r = false;
             }

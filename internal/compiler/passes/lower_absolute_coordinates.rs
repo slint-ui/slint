@@ -43,10 +43,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
             Expression::StoreLocalVariable {
                 name: "parent_position".into(),
                 value: Expression::FunctionCall {
-                    function: Box::new(Expression::BuiltinFunctionReference(
-                        BuiltinFunction::ItemAbsolutePosition,
-                        None,
-                    )),
+                    function: BuiltinFunction::ItemAbsolutePosition.into(),
                     arguments: vec![Expression::ElementReference(Rc::downgrade(&elem))],
                     source_location: None,
                 }

@@ -68,7 +68,7 @@
 //!
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{BuiltinFunction, Expression, NamedReference};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
@@ -189,11 +189,7 @@ fn process_context_menu(
     // generate the show callback
     let source_location = Some(context_menu_elem.borrow().to_source_location());
     let expr = Expression::FunctionCall {
-        function: Expression::BuiltinFunctionReference(
-            BuiltinFunction::ShowPopupMenu,
-            source_location.clone(),
-        )
-        .into(),
+        function: BuiltinFunction::ShowPopupMenu.into(),
         arguments: vec![
             Expression::ElementReference(Rc::downgrade(context_menu_elem)),
             Expression::PropertyReference(NamedReference::new(
@@ -267,11 +263,7 @@ fn process_window(
             model: Expression::UnaryOp {
                 op: '!',
                 sub: Expression::FunctionCall {
-                    function: Expression::BuiltinFunctionReference(
-                        BuiltinFunction::SupportsNativeMenuBar,
-                        None,
-                    )
-                    .into(),
+                    function: BuiltinFunction::SupportsNativeMenuBar.into(),
                     arguments: vec![],
                     source_location: None,
                 }
@@ -307,7 +299,7 @@ fn process_window(
         let nr = NamedReference::new(&menu_bar, SmolStr::new_static(prop));
         let forward_expr = if let Type::Callback(cb) = &ty {
             Expression::FunctionCall {
-                function: Expression::CallbackReference(nr, None).into(),
+                function: Callable::Callback(nr),
                 arguments: cb
                     .args
                     .iter()
@@ -335,24 +327,20 @@ fn process_window(
     menu_bar.borrow_mut().children = vec![menubar_impl, child];
 
     let setup_menubar = Expression::FunctionCall {
-        function: Expression::BuiltinFunctionReference(
-            BuiltinFunction::SetupNativeMenuBar,
-            source_location.clone(),
-        )
-        .into(),
+        function: BuiltinFunction::SetupNativeMenuBar.into(),
         arguments: vec![
             Expression::PropertyReference(NamedReference::new(
                 &menu_bar,
                 SmolStr::new_static(ENTRIES),
             )),
-            Expression::CallbackReference(
-                NamedReference::new(&menu_bar, SmolStr::new_static(SUB_MENU)),
-                None,
-            ),
-            Expression::CallbackReference(
-                NamedReference::new(&menu_bar, SmolStr::new_static(ACTIVATED)),
-                None,
-            ),
+            Expression::PropertyReference(NamedReference::new(
+                &menu_bar,
+                SmolStr::new_static(SUB_MENU),
+            )),
+            Expression::PropertyReference(NamedReference::new(
+                &menu_bar,
+                SmolStr::new_static(ACTIVATED),
+            )),
         ],
         source_location: source_location.clone(),
     };

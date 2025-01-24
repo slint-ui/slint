@@ -44,11 +44,11 @@ export X := Rectangle {
         property<color> c2: rgb(45);
 //                          ^error{This function needs 3 or 4 arguments, but 1 were provided}
         property<color> c3: Colors.rgb(45,45);
-//                          ^error{This function needs 3 or 4 arguments, but 2 were provided}
+//                                 ^error{This function needs 3 or 4 arguments, but 2 were provided}
         property<color> c4: Colors.rgba(1,2,3,4,5);
-//                          ^error{This function needs 3 or 4 arguments, but 5 were provided}
+//                                 ^error{This function needs 3 or 4 arguments, but 5 were provided}
         property<color> c5: Colors.hsv(1,2,3,4,5);
-//                          ^error{This function needs 3 or 4 arguments, but 5 were provided}
+//                                 ^error{This function needs 3 or 4 arguments, but 5 were provided}
 
 
     }

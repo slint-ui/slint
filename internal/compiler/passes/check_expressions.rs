@@ -4,13 +4,12 @@
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression};
 use crate::object_tree::{visit_all_expressions, Component};
-use crate::parser::SyntaxKind;
 
 /// Check the validity of expressions
 ///
-/// - Make sure that there is no uncalled member function or macro
+/// - Check that the GetWindowScaleFactor and GetWindowDefaultFontSize are not called in a global
 pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
     for component in &doc.inner_components {
         visit_all_expressions(component, |e, _| check_expression(component, e, diag));
@@ -18,28 +17,20 @@ pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDia
 }
 
 fn check_expression(component: &Rc<Component>, e: &Expression, diag: &mut BuildDiagnostics) {
-    match e {
-        Expression::MemberFunction { base_node, .. } => {
-            if base_node.as_ref().is_some_and(|n| n.kind() == SyntaxKind::QualifiedName) {
-                // Must already have been be reported in Expression::from_expression_node
-                debug_assert!(diag.has_errors());
-            } else {
-                diag.push_error("Member function must be called".into(), base_node);
+    if let Expression::FunctionCall { function: Callable::Builtin(b), source_location, .. } = e {
+        match b {
+            BuiltinFunction::GetWindowScaleFactor => {
+                if component.is_global() {
+                    diag.push_error("Cannot convert between logical and physical length in a global component, because the scale factor is not known".into(), source_location);
+                }
             }
-        }
-        Expression::BuiltinMacroReference(_, node) => {
-            diag.push_error("Builtin function must be called".into(), node);
-        }
-        Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor, loc) => {
-            if component.is_global() {
-                diag.push_error("Cannot convert between logical and physical length in a global component, because the scale factor is not known".into(), loc);
+            BuiltinFunction::GetWindowDefaultFontSize => {
+                if component.is_global() {
+                    diag.push_error("Cannot convert between rem and logical length in a global component, because the default font size is not known".into(), source_location);
+                }
             }
+            _ => {}
         }
-        Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowDefaultFontSize, loc) => {
-            if component.is_global() {
-                diag.push_error("Cannot convert between rem and logical length in a global component, because the default font size is not known".into(), loc);
-            }
-        }
-        _ => e.visit(|e| check_expression(component, e, diag)),
     }
+    e.visit(|e| check_expression(component, e, diag))
 }

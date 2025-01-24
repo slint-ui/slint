@@ -11,7 +11,7 @@
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::{ElementType, Struct, Type};
-use crate::lookup::{LookupCtx, LookupObject, LookupResult};
+use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
@@ -275,23 +275,11 @@ impl Expression {
                     SyntaxKind::AtImageUrl => Some(Self::from_at_image_url_node(node.into(), ctx)),
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
-                    SyntaxKind::QualifiedName => {
-                        let exp = Self::from_qualified_name_node(
-                            node.clone().into(),
-                            ctx,
-                            LookupPhase::default(),
-                        );
-                        if matches!(exp.ty(), Type::Function { .. } | Type::Callback { .. }) {
-                            ctx.diag.push_error(
-                                format!(
-                                    "'{}' must be called. Did you forgot the '()'?",
-                                    QualifiedTypeName::from_node(node.clone().into())
-                                ),
-                                &node,
-                            )
-                        }
-                        Some(exp)
-                    }
+                    SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
+                        node.clone().into(),
+                        ctx,
+                        LookupPhase::default(),
+                    )),
                     SyntaxKind::FunctionCallExpression => {
                         Some(Self::from_function_call_node(node.into(), ctx))
                     }
@@ -749,10 +737,7 @@ impl Expression {
         };
 
         Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(
-                BuiltinFunction::Translate,
-                Some(node.to_source_location()),
-            )),
+            function: BuiltinFunction::Translate.into(),
             arguments: vec![
                 Expression::StringLiteral(string),
                 Expression::StringLiteral(context.or_else(get_component_name).unwrap_or_default()),
@@ -771,143 +756,39 @@ impl Expression {
         ctx: &mut LookupCtx,
         phase: LookupPhase,
     ) -> Self {
-        let mut it = node
-            .children_with_tokens()
-            .filter(|n| n.kind() == SyntaxKind::Identifier)
-            .filter_map(|n| n.into_token());
+        Self::from_lookup_result(lookup_qualified_name_node(node.clone(), ctx, phase), ctx, &node)
+    }
 
-        let first = if let Some(first) = it.next() {
-            first
-        } else {
-            // There must be at least one member (parser should ensure that)
-            debug_assert!(ctx.diag.has_errors());
+    fn from_lookup_result(
+        r: Option<LookupResult>,
+        ctx: &mut LookupCtx,
+        node: &dyn Spanned,
+    ) -> Self {
+        let Some(r) = r else {
+            assert!(ctx.diag.has_errors());
             return Self::Invalid;
         };
-
-        ctx.current_token = Some(first.clone().into());
-        let first_str = crate::parser::normalize_identifier(first.text());
-        let global_lookup = crate::lookup::global_lookup();
-        let result = match global_lookup.lookup(ctx, &first_str) {
-            None => {
-                if let Some(minus_pos) = first.text().find('-') {
-                    // Attempt to recover if the user wanted to write "-" for minus
-                    let first_str = &first.text()[0..minus_pos];
-                    if global_lookup
-                        .lookup(ctx, &crate::parser::normalize_identifier(first_str))
-                        .is_some()
-                    {
-                        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a subtraction", first.text()), &node);
-                        return Expression::Invalid;
-                    }
-                }
-                for (prefix, e) in
-                    [("self", ctx.component_scope.last()), ("root", ctx.component_scope.first())]
-                {
-                    if let Some(e) = e {
-                        if e.lookup(ctx, &first_str).is_some() {
-                            ctx.diag.push_error(format!("Unknown unqualified identifier '{0}'. Did you mean '{prefix}.{0}'?", first.text()), &node);
-                            return Expression::Invalid;
-                        }
-                    }
-                }
-
-                if it.next().is_some() {
-                    ctx.diag.push_error(format!("Cannot access id '{}'", first.text()), &node);
-                } else {
-                    ctx.diag.push_error(
-                        format!("Unknown unqualified identifier '{}'", first.text()),
-                        &node,
-                    );
-                }
-                return Expression::Invalid;
+        match r {
+            LookupResult::Expression { expression, .. } => expression,
+            LookupResult::Callable(c) => {
+                let what = match c {
+                    LookupResultCallable::Callable(Callable::Callback(..)) => "Callback",
+                    LookupResultCallable::Callable(Callable::Builtin(..)) => "Builtin function",
+                    LookupResultCallable::Macro(..) => "Builtin function",
+                    LookupResultCallable::MemberFunction { .. } => "Member function",
+                    _ => "Function",
+                };
+                ctx.diag
+                    .push_error(format!("{what} must be called. Did you forgot the '()'?",), node);
+                Self::Invalid
             }
-            Some(x) => x,
-        };
-
-        if let Some(depr) = result.deprecated() {
-            ctx.diag.push_property_deprecation_warning(&first_str, depr, &first);
-        }
-
-        match result {
-            LookupResult::Expression { expression: Expression::ElementReference(e), .. } => {
-                continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx)
+            LookupResult::Enumeration(..) => {
+                ctx.diag.push_error("Cannot take reference to an enum".to_string(), node);
+                Self::Invalid
             }
-            LookupResult::Expression {
-                expression: r @ Expression::CallbackReference(..), ..
-            } => {
-                if let Some(x) = it.next() {
-                    ctx.diag.push_error("Cannot access fields of callback".into(), &x)
-                }
-                r
-            }
-            LookupResult::Expression {
-                expression: r @ Expression::FunctionReference(..), ..
-            } => {
-                if let Some(x) = it.next() {
-                    ctx.diag.push_error("Cannot access fields of a function".into(), &x)
-                }
-                r
-            }
-            LookupResult::Enumeration(enumeration) => {
-                if let Some(next_identifier) = it.next() {
-                    match enumeration
-                        .lookup(ctx, &crate::parser::normalize_identifier(next_identifier.text()))
-                    {
-                        Some(LookupResult::Expression { expression, .. }) => {
-                            maybe_lookup_object(expression, it, ctx)
-                        }
-                        _ => {
-                            ctx.diag.push_error(
-                                format!(
-                                    "'{}' is not a member of the enum {}",
-                                    next_identifier.text(),
-                                    enumeration.name
-                                ),
-                                &next_identifier,
-                            );
-                            Expression::Invalid
-                        }
-                    }
-                } else {
-                    ctx.diag.push_error("Cannot take reference to an enum".to_string(), &node);
-                    Expression::Invalid
-                }
-            }
-            LookupResult::Expression {
-                expression: Expression::RepeaterModelReference { .. },
-                ..
-            } if matches!(phase, LookupPhase::ResolvingTwoWayBindings) => {
-                ctx.diag.push_error(
-                    "Two-way bindings to model data is not supported yet".to_string(),
-                    &node,
-                );
-                Expression::Invalid
-            }
-            LookupResult::Expression { expression, .. } => maybe_lookup_object(expression, it, ctx),
-            LookupResult::Namespace(_) => {
-                if let Some(next_identifier) = it.next() {
-                    match result
-                        .lookup(ctx, &crate::parser::normalize_identifier(next_identifier.text()))
-                    {
-                        Some(LookupResult::Expression { expression, .. }) => {
-                            maybe_lookup_object(expression, it, ctx)
-                        }
-                        _ => {
-                            ctx.diag.push_error(
-                                format!(
-                                    "'{}' is not a member of the namespace {}",
-                                    next_identifier.text(),
-                                    first_str
-                                ),
-                                &next_identifier,
-                            );
-                            Expression::Invalid
-                        }
-                    }
-                } else {
-                    ctx.diag.push_error("Cannot take reference to a namespace".to_string(), &node);
-                    Expression::Invalid
-                }
+            LookupResult::Namespace(..) => {
+                ctx.diag.push_error("Cannot take reference to a namespace".to_string(), node);
+                Self::Invalid
             }
         }
     }
@@ -920,40 +801,73 @@ impl Expression {
 
         let mut sub_expr = node.Expression();
 
-        let function = sub_expr.next().map_or(Self::Invalid, |n| {
-            // Treat the QualifiedName separately so we can catch the uses of uncalled signal
-            n.QualifiedName()
-                .map(|qn| Self::from_qualified_name_node(qn, ctx, LookupPhase::default()))
-                .unwrap_or_else(|| Self::from_expression_node(n, ctx))
-        });
+        let func_expr = sub_expr.next().unwrap();
 
+        let (function, source_location) = if let Some(qn) = func_expr.QualifiedName() {
+            let sl = qn.last_token().unwrap().to_source_location();
+            (lookup_qualified_name_node(qn, ctx, LookupPhase::default()), sl)
+        } else if let Some(ma) = func_expr.MemberAccess() {
+            let base = Self::from_expression_node(ma.Expression(), ctx);
+            let field = ma.child_token(SyntaxKind::Identifier);
+            let sl = field.to_source_location();
+            (maybe_lookup_object(base.into(), field.clone().into_iter(), ctx), sl)
+        } else {
+            if Self::from_expression_node(func_expr, ctx).ty() == Type::Invalid {
+                assert!(ctx.diag.has_errors());
+            } else {
+                ctx.diag.push_error("The expression is not a function".into(), &node);
+            }
+            return Self::Invalid;
+        };
         let sub_expr = sub_expr.map(|n| {
             (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
         });
+        let Some(function) = function else {
+            // Check sub expressions anyway
+            sub_expr.count();
+            assert!(ctx.diag.has_errors());
+            return Self::Invalid;
+        };
+        let LookupResult::Callable(function) = function else {
+            // Check sub expressions anyway
+            sub_expr.count();
+            ctx.diag.push_error("The expression is not a function".into(), &node);
+            return Self::Invalid;
+        };
 
         let mut adjust_arg_count = 0;
-
         let function = match function {
-            Expression::BuiltinMacroReference(mac, n) => {
+            LookupResultCallable::Callable(c) => c,
+            LookupResultCallable::Macro(mac) => {
                 arguments.extend(sub_expr);
-                return crate::builtin_macros::lower_macro(mac, n, arguments.into_iter(), ctx.diag);
+                return crate::builtin_macros::lower_macro(
+                    mac,
+                    &source_location,
+                    arguments.into_iter(),
+                    ctx.diag,
+                );
             }
-            Expression::MemberFunction { base, base_node, member } => {
-                arguments.push((*base, base_node));
-                if let Expression::BuiltinMacroReference(mac, n) = *member {
-                    arguments.extend(sub_expr);
-                    return crate::builtin_macros::lower_macro(
-                        mac,
-                        n,
-                        arguments.into_iter(),
-                        ctx.diag,
-                    );
-                }
+            LookupResultCallable::MemberFunction { member, base, base_node } => {
+                arguments.push((base, base_node));
                 adjust_arg_count = 1;
-                member
+                match *member {
+                    LookupResultCallable::Callable(c) => c,
+                    LookupResultCallable::Macro(mac) => {
+                        arguments.extend(sub_expr);
+                        return crate::builtin_macros::lower_macro(
+                            mac,
+                            &source_location,
+                            arguments.into_iter(),
+                            ctx.diag,
+                        );
+                    }
+                    LookupResultCallable::MemberFunction { .. } => {
+                        unreachable!()
+                    }
+                }
             }
-            _ => Box::new(function),
         };
+
         arguments.extend(sub_expr);
 
         let arguments = match function.ty() {
@@ -977,18 +891,7 @@ impl Expression {
                 }
             }
             Type::Invalid => {
-                debug_assert!(
-                    ctx.diag.has_errors() || {
-                        let mut has_macro = false;
-                        function.visit_recursive(&mut |e| {
-                            if matches!(e, Expression::BuiltinMacroReference(..)) {
-                                has_macro = true
-                            }
-                        });
-                        has_macro
-                    },
-                    "The error must already have been reported. (unless it is a BuiltinMacroReference, then it will be reported later)"
-                );
+                debug_assert!(ctx.diag.has_errors(), "The error must already have been reported.");
                 arguments.into_iter().map(|x| x.0).collect()
             }
             _ => {
@@ -997,11 +900,7 @@ impl Expression {
             }
         };
 
-        Expression::FunctionCall {
-            function,
-            arguments,
-            source_location: Some(node.to_source_location()),
-        }
+        Expression::FunctionCall { function, arguments, source_location: Some(source_location) }
     }
 
     fn from_member_access_node(
@@ -1009,7 +908,12 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let base = Self::from_expression_node(node.Expression(), ctx);
-        maybe_lookup_object(base, node.child_token(SyntaxKind::Identifier).into_iter(), ctx)
+        let field = node.child_token(SyntaxKind::Identifier);
+        Self::from_lookup_result(
+            maybe_lookup_object(base.into(), field.clone().into_iter(), ctx),
+            ctx,
+            &field,
+        )
     }
 
     fn from_self_assignment_node(
@@ -1377,16 +1281,96 @@ impl Expression {
     }
 }
 
+/// Perform the lookup
+fn lookup_qualified_name_node(
+    node: syntax_nodes::QualifiedName,
+    ctx: &mut LookupCtx,
+    phase: LookupPhase,
+) -> Option<LookupResult> {
+    let mut it = node
+        .children_with_tokens()
+        .filter(|n| n.kind() == SyntaxKind::Identifier)
+        .filter_map(|n| n.into_token());
+
+    let first = if let Some(first) = it.next() {
+        first
+    } else {
+        // There must be at least one member (parser should ensure that)
+        debug_assert!(ctx.diag.has_errors());
+        return None;
+    };
+
+    ctx.current_token = Some(first.clone().into());
+    let first_str = crate::parser::normalize_identifier(first.text());
+    let global_lookup = crate::lookup::global_lookup();
+    let result = match global_lookup.lookup(ctx, &first_str) {
+        None => {
+            if let Some(minus_pos) = first.text().find('-') {
+                // Attempt to recover if the user wanted to write "-" for minus
+                let first_str = &first.text()[0..minus_pos];
+                if global_lookup
+                    .lookup(ctx, &crate::parser::normalize_identifier(first_str))
+                    .is_some()
+                {
+                    ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a subtraction", first.text()), &node);
+                    return None;
+                }
+            }
+            for (prefix, e) in
+                [("self", ctx.component_scope.last()), ("root", ctx.component_scope.first())]
+            {
+                if let Some(e) = e {
+                    if e.lookup(ctx, &first_str).is_some() {
+                        ctx.diag.push_error(format!("Unknown unqualified identifier '{0}'. Did you mean '{prefix}.{0}'?", first.text()), &node);
+                        return None;
+                    }
+                }
+            }
+
+            if it.next().is_some() {
+                ctx.diag.push_error(format!("Cannot access id '{}'", first.text()), &node);
+            } else {
+                ctx.diag.push_error(
+                    format!("Unknown unqualified identifier '{}'", first.text()),
+                    &node,
+                );
+            }
+            return None;
+        }
+        Some(x) => x,
+    };
+
+    if let Some(depr) = result.deprecated() {
+        ctx.diag.push_property_deprecation_warning(&first_str, depr, &first);
+    }
+
+    match result {
+        LookupResult::Expression { expression: Expression::ElementReference(e), .. } => {
+            continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx)
+        }
+        LookupResult::Expression {
+            expression: Expression::RepeaterModelReference { .. }, ..
+        } if matches!(phase, LookupPhase::ResolvingTwoWayBindings) => {
+            ctx.diag.push_error(
+                "Two-way bindings to model data is not supported yet".to_string(),
+                &node,
+            );
+            None
+        }
+        result => maybe_lookup_object(result, it, ctx),
+    }
+}
+
 fn continue_lookup_within_element(
     elem: &ElementRc,
     it: &mut impl Iterator<Item = crate::parser::SyntaxToken>,
     node: syntax_nodes::QualifiedName,
     ctx: &mut LookupCtx,
-) -> Expression {
+) -> Option<LookupResult> {
     let second = if let Some(second) = it.next() {
         second
     } else if matches!(ctx.property_type, Type::ElementReference) {
-        return Expression::ElementReference(Rc::downgrade(elem));
+        return Some(Expression::ElementReference(Rc::downgrade(elem)).into());
     } else {
         // Try to recover in case we wanted to access a property
         let mut rest = String::new();
@@ -1427,7 +1411,7 @@ fn continue_lookup_within_element(
             );
         }
         ctx.diag.push_error(format!("Cannot take reference of an element{rest}"), &node);
-        return Expression::Invalid;
+        return None;
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
 
@@ -1437,10 +1421,10 @@ fn continue_lookup_within_element(
     if lookup_result.property_type.is_property_type() {
         if !local_to_component && lookup_result.property_visibility == PropertyVisibility::Private {
             ctx.diag.push_error(format!("The property '{}' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components", second.text()), &second);
-            return Expression::Invalid;
+            return None;
         } else if lookup_result.property_visibility == PropertyVisibility::Fake {
             ctx.diag.push_error(format!("This special property can only be used to make a binding and cannot be accessed"), &second);
-            return Expression::Invalid;
+            return None;
         } else if lookup_result.resolved_name != prop_name.as_str() {
             ctx.diag.push_property_deprecation_warning(
                 &prop_name,
@@ -1456,15 +1440,14 @@ fn continue_lookup_within_element(
             elem,
             lookup_result.resolved_name.to_smolstr(),
         ));
-        maybe_lookup_object(prop, it, ctx)
+        maybe_lookup_object(prop.into(), it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
-        Expression::CallbackReference(
+        Some(LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
             NamedReference::new(elem, lookup_result.resolved_name.to_smolstr()),
-            Some(NodeOrToken::Token(second)),
-        )
+        ))))
     } else if matches!(lookup_result.property_type, Type::Function { .. }) {
         if lookup_result.property_visibility == PropertyVisibility::Private && !local_to_component {
             let message = format!("The function '{}' is private. Annotate it with 'public' to make it accessible from other components", second.text());
@@ -1487,17 +1470,18 @@ fn continue_lookup_within_element(
             elem.borrow().base_type.lookup_member_function(&lookup_result.resolved_name)
         {
             // builtin member function
-            Expression::MemberFunction {
-                base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: Expression::ElementReference(Rc::downgrade(elem)),
                 base_node: Some(NodeOrToken::Node(node.into())),
-                member: Expression::BuiltinFunctionReference(f, Some(second.to_source_location()))
-                    .into(),
-            }
+                member: Box::new(LookupResultCallable::Callable(f.into())),
+            })
+            .into()
         } else {
-            Expression::FunctionReference(
-                NamedReference::new(elem, lookup_result.resolved_name.to_smolstr()),
-                Some(NodeOrToken::Token(second)),
-            )
+            LookupResult::from(Callable::Function(NamedReference::new(
+                elem,
+                lookup_result.resolved_name.to_smolstr(),
+            )))
+            .into()
         }
     } else {
         let mut err = |extra: &str| {
@@ -1529,46 +1513,72 @@ fn continue_lookup_within_element(
                 != Type::Invalid
             {
                 err(". Use space before the '-' if you meant a subtraction");
-                return Expression::Invalid;
+                return None;
             }
         }
         err("");
-        Expression::Invalid
+        None
     }
 }
 
 fn maybe_lookup_object(
-    mut base: Expression,
+    mut base: LookupResult,
     it: impl Iterator<Item = crate::parser::SyntaxToken>,
     ctx: &mut LookupCtx,
-) -> Expression {
+) -> Option<LookupResult> {
     for next in it {
         let next_str = crate::parser::normalize_identifier(next.text());
         ctx.current_token = Some(next.clone().into());
         match base.lookup(ctx, &next_str) {
-            Some(LookupResult::Expression { expression, .. }) => {
-                base = expression;
+            Some(r) => {
+                base = r;
             }
-            _ => {
+            None => {
                 if let Some(minus_pos) = next.text().find('-') {
                     if base.lookup(ctx, &SmolStr::new(&next.text()[0..minus_pos])).is_some() {
                         ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a subtraction", next.text()), &next);
-                        return Expression::Invalid;
+                        return None;
                     }
                 }
-                let ty_descr = match base.ty() {
-                    Type::Struct { .. } => String::new(),
-                    ty => format!(" of {}", ty),
-                };
-                ctx.diag.push_error(
-                    format!("Cannot access the field '{}'{}", next.text(), ty_descr),
-                    &next,
-                );
-                return Expression::Invalid;
+
+                match base {
+                    LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
+                        ..,
+                    ))) => ctx.diag.push_error("Cannot access fields of callback".into(), &next),
+                    LookupResult::Callable(..) => {
+                        ctx.diag.push_error("Cannot access fields of a function".into(), &next)
+                    }
+                    LookupResult::Enumeration(enumeration) => ctx.diag.push_error(
+                        format!(
+                            "'{}' is not a member of the enum {}",
+                            next.text(),
+                            enumeration.name
+                        ),
+                        &next,
+                    ),
+
+                    LookupResult::Namespace(ns) => {
+                        ctx.diag.push_error(
+                            format!("'{}' is not a member of the namespace {}", next.text(), ns),
+                            &next,
+                        );
+                    }
+                    LookupResult::Expression { expression, .. } => {
+                        let ty_descr = match expression.ty() {
+                            Type::Struct { .. } => String::new(),
+                            ty => format!(" of {}", ty),
+                        };
+                        ctx.diag.push_error(
+                            format!("Cannot access the field '{}'{}", next.text(), ty_descr),
+                            &next,
+                        );
+                    }
+                }
+                return None;
             }
         }
     }
-    base
+    Some(base)
 }
 
 /// Go through all the two way binding and resolve them first
@@ -1727,24 +1737,27 @@ pub fn resolve_two_way_binding(
     node: syntax_nodes::TwoWayBinding,
     ctx: &mut LookupCtx,
 ) -> Option<NamedReference> {
-    let e = if let Some(n) = node.Expression().QualifiedName() {
-        Expression::from_qualified_name_node(n, ctx, LookupPhase::ResolvingTwoWayBindings)
-    } else {
+    let Some(n) = node.Expression().QualifiedName() else {
         ctx.diag.push_error(
             "The expression in a two way binding must be a property reference".into(),
             &node.Expression(),
         );
         return None;
     };
+
+    let Some(r) = lookup_qualified_name_node(n, ctx, LookupPhase::ResolvingTwoWayBindings) else {
+        assert!(ctx.diag.has_errors());
+        return None;
+    };
+
     // If type is invalid, error has already been reported,  when inferring, the error will be reported by the inferring code
     let report_error = !matches!(
         ctx.property_type,
         Type::InferredProperty | Type::InferredCallback | Type::Invalid
     );
-    let ty = e.ty();
-    match e {
-        Expression::PropertyReference(n) => {
-            if report_error && ty != ctx.property_type {
+    match r {
+        LookupResult::Expression { expression: Expression::PropertyReference(n), .. } => {
+            if report_error && n.ty() != ctx.property_type {
                 ctx.diag.push_error(
                     "The property does not have the same type as the bound property".into(),
                     &node,
@@ -1752,22 +1765,18 @@ pub fn resolve_two_way_binding(
             }
             Some(n)
         }
-        Expression::CallbackReference(n, _) => {
-            if report_error && ty != ctx.property_type {
+        LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(n))) => {
+            if report_error && n.ty() != ctx.property_type {
                 ctx.diag.push_error("Cannot bind to a callback".into(), &node);
                 None
             } else {
                 Some(n)
             }
         }
-        Expression::FunctionReference(..) => {
+        LookupResult::Callable(..) => {
             if report_error {
                 ctx.diag.push_error("Cannot bind to a function".into(), &node);
             }
-            None
-        }
-        Expression::Invalid => {
-            debug_assert!(ctx.diag.has_errors());
             None
         }
         _ => {

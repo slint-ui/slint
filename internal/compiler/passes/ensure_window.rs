@@ -4,7 +4,7 @@
 //! Make sure that the top level element of the component is always a Window
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
+use crate::expression_tree::{BindingExpression, BuiltinFunction, Callable, Expression};
 use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
@@ -113,22 +113,20 @@ pub fn ensure_window(
 
     // Fix up any ElementReferences for builtin member function calls, to not refer to the WindowItem,
     // as we swapped out the base_type.
-    let fixup_element_reference = |expr: &mut Expression| match expr {
-        Expression::FunctionCall { function, arguments, .. }
-            if matches!(
-                function.as_ref(),
-                Expression::BuiltinFunctionReference(BuiltinFunction::ItemMemberFunction(..), ..)
-            ) =>
+    let fixup_element_reference = |expr: &mut Expression| {
+        if let Expression::FunctionCall {
+            function: Callable::Builtin(BuiltinFunction::ItemMemberFunction(..)),
+            arguments,
+            ..
+        } = expr
         {
             for arg in arguments.iter_mut() {
-                if matches!(arg, Expression::ElementReference(elr)
-                    if elr.upgrade().map_or(false, |elemrc| Rc::ptr_eq(&elemrc, &win_elem)) )
+                if matches!(arg, Expression::ElementReference(elr) if elr.upgrade().map_or(false, |elemrc| Rc::ptr_eq(&elemrc, &win_elem)))
                 {
                     *arg = Expression::ElementReference(Rc::downgrade(&new_root))
                 }
             }
         }
-        _ => {}
     };
 
     crate::object_tree::visit_all_expressions(component, |expr, _| {

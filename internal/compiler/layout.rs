@@ -545,10 +545,7 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                 }
             }
             _ => Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ImplicitLayoutInfo(orientation),
-                    None,
-                )),
+                function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
             },

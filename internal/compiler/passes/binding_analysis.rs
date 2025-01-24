@@ -17,6 +17,7 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{find_parent_element, Document, ElementRc, PropertyAnimation};
 use derive_more as dm;
 
+use crate::expression_tree::Callable;
 use smol_str::{SmolStr, ToSmolStr};
 
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
@@ -385,9 +386,7 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, Rea
     const P: ReadType = ReadType::PropertyRead;
     expr.visit(|sub| recurse_expression(sub, vis));
     match expr {
-        Expression::PropertyReference(r)
-        | Expression::CallbackReference(r, _)
-        | Expression::FunctionReference(r, _) => vis(&r.clone().into(), P),
+        Expression::PropertyReference(r) => vis(&r.clone().into(), P),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into(), P)
         }
@@ -411,11 +410,12 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, Rea
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }
-        Expression::FunctionCall { function, arguments, .. } => match &**function {
-            Expression::BuiltinFunctionReference(
-                BuiltinFunction::ImplicitLayoutInfo(orientation),
-                _,
-            ) => {
+        Expression::FunctionCall {
+            function: Callable::Callback(nr) | Callable::Function(nr),
+            ..
+        } => vis(&nr.clone().into(), P),
+        Expression::FunctionCall { function: Callable::Builtin(b), arguments, .. } => match b {
+            BuiltinFunction::ImplicitLayoutInfo(orientation) => {
                 if let [Expression::ElementReference(item)] = arguments.as_slice() {
                     visit_implicit_layout_info_dependencies(
                         *orientation,
@@ -424,7 +424,7 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, Rea
                     );
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ItemAbsolutePosition, _) => {
+            BuiltinFunction::ItemAbsolutePosition => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
                     let mut item = item.upgrade().unwrap();
                     while let Some(parent) = find_parent_element(&item) {
@@ -440,7 +440,7 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, Rea
                     }
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ItemFontMetrics, _) => {
+            BuiltinFunction::ItemFontMetrics => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
                     let item = item.upgrade().unwrap();
                     vis(

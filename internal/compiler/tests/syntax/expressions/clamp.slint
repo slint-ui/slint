@@ -29,7 +29,7 @@ export component SuperSimple {
 //                          ^error{`clamp` needs three values}
 
     property <float> h: ok1.clamp;
-//                          ^error{Member function must be called}
+//                      ^error{Member function must be called}
 
     property <float> i: 42.0.clamp;
 //                           ^error{Member function must be called}

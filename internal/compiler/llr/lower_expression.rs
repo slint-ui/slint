@@ -12,15 +12,13 @@ use smol_str::{format_smolstr, SmolStr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
 use super::{Animation, PropertyReference};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
-use crate::{
-    expression_tree::{BuiltinFunction, Expression as tree_Expression},
-    typeregister::BUILTIN,
-};
+use crate::typeregister::BUILTIN;
 
 pub struct ExpressionContext<'a> {
     pub component: &'a Rc<crate::object_tree::Component>,
@@ -73,14 +71,9 @@ pub fn lower_expression(
             llr_Expression::NumberLiteral(unit.normalize(*n))
         }
         tree_Expression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
-        tree_Expression::CallbackReference(nr, _)
-        | tree_Expression::PropertyReference(nr)
-        | tree_Expression::FunctionReference(nr, _) => {
+        tree_Expression::PropertyReference(nr) => {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         }
-        tree_Expression::BuiltinFunctionReference(_, _) => panic!(),
-        tree_Expression::MemberFunction { .. } => panic!(),
-        tree_Expression::BuiltinMacroReference(_, _) => panic!(),
         tree_Expression::ElementReference(e) => {
             // We map an element reference to a reference to the property "" inside that native item
             llr_Expression::PropertyReference(ctx.map_property_reference(&NamedReference::new(
@@ -118,14 +111,12 @@ pub fn lower_expression(
         tree_Expression::CodeBlock(expr) => {
             llr_Expression::CodeBlock(expr.iter().map(|e| lower_expression(e, ctx)).collect::<_>())
         }
-        tree_Expression::FunctionCall { function, arguments, .. } => match &**function {
-            tree_Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, _) => {
-                lower_show_popup(arguments, ctx)
-            }
-            tree_Expression::BuiltinFunctionReference(BuiltinFunction::ClosePopupWindow, _) => {
+        tree_Expression::FunctionCall { function, arguments, .. } => match function {
+            Callable::Builtin(BuiltinFunction::ShowPopupWindow) => lower_show_popup(arguments, ctx),
+            Callable::Builtin(BuiltinFunction::ClosePopupWindow) => {
                 lower_close_popup(arguments, ctx)
             }
-            tree_Expression::BuiltinFunctionReference(f, _) => {
+            Callable::Builtin(f) => {
                 let mut arguments =
                     arguments.iter().map(|e| lower_expression(e, ctx)).collect::<Vec<_>>();
                 if *f == BuiltinFunction::Translate {
@@ -141,15 +132,14 @@ pub fn lower_expression(
                 }
                 llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
             }
-            tree_Expression::CallbackReference(nr, _) => {
+            Callable::Callback(nr) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
                 llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
             }
-            tree_Expression::FunctionReference(nr, _) => {
+            Callable::Function(nr) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
                 llr_Expression::FunctionCall { function: ctx.map_property_reference(nr), arguments }
             }
-            _ => panic!("not calling a function"),
         },
         tree_Expression::SelfAssignment { lhs, rhs, op, .. } => {
             lower_assignment(lhs, rhs, *op, ctx)
