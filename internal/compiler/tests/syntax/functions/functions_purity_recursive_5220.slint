@@ -3,14 +3,10 @@
 
 export component App inherits Window{
     background: blue;
-    //          ^error{'blue' must be called}
-    //          ^^error{Cannot convert function\(\) -> color to brush}
+    //          ^error{Function must be called}
     function blue()->color {
-//  ^error{The binding for the property 'blue' is part of a binding loop}
-//  ^^error{Cannot convert function\(\) -> color to color}
-
        blue
-//     ^error{'blue' must be called}
+//     ^error{Function must be called}
     }
 
 

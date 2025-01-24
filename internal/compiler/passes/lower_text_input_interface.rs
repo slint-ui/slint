@@ -13,11 +13,7 @@ pub fn lower_text_input_interface(component: &Rc<Component>) {
         e.visit_recursive_mut(&mut |e| match e {
             Expression::PropertyReference(nr) if is_input_text_focused_prop(nr) => {
                 *e = Expression::FunctionCall {
-                    function: Expression::BuiltinFunctionReference(
-                        BuiltinFunction::TextInputFocused,
-                        None,
-                    )
-                    .into(),
+                    function: BuiltinFunction::TextInputFocused.into(),
                     arguments: vec![],
                     source_location: None,
                 };
@@ -26,11 +22,7 @@ pub fn lower_text_input_interface(component: &Rc<Component>) {
                 if matches!(&**lhs, Expression::PropertyReference(nr)  if is_input_text_focused_prop(nr) ) {
                     let rhs = std::mem::take(&mut **rhs);
                     *e = Expression::FunctionCall {
-                        function: Expression::BuiltinFunctionReference(
-                            BuiltinFunction::SetTextInputFocused,
-                            None,
-                        )
-                        .into(),
+                        function: BuiltinFunction::SetTextInputFocused.into(),
                         arguments: vec![rhs],
                         source_location: None,
                     };

@@ -23,9 +23,9 @@ pub fn collect_custom_fonts<'a>(
     }
 
     let registration_function = if embed_fonts {
-        Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory, None)
+        BuiltinFunction::RegisterCustomFontByMemory
     } else {
-        Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, None)
+        BuiltinFunction::RegisterCustomFontByPath
     };
 
     let prepare_font_registration_argument: Box<dyn Fn(&SmolStr) -> Expression> = if embed_fonts {
@@ -59,7 +59,7 @@ pub fn collect_custom_fonts<'a>(
     for c in doc.exported_roots() {
         c.init_code.borrow_mut().font_registration_code.extend(all_fonts.iter().map(|font_path| {
             Expression::FunctionCall {
-                function: Box::new(registration_function.clone()),
+                function: registration_function.clone().into(),
                 arguments: vec![prepare_font_registration_argument(font_path)],
                 source_location: None,
             }

@@ -11,12 +11,12 @@ export component Foo {
     TouchArea{
         function abc(x:int){}
         clicked=>{abc[9]()}
-//                ^error{'abc' must be called. Did you forgot the '\(\)'?}
+//                ^error{Function must be called. Did you forgot the '\(\)'?}
     }
 
     TouchArea{
         clicked=>{self.moved[9]()}
-//                ^error{'self.moved' must be called. Did you forgot the '\(\)'?}
+//                ^error{Callback must be called. Did you forgot the '\(\)'?}
     }
 }
 

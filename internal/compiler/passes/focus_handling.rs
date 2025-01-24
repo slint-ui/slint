@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression};
 use crate::langtype::{ElementType, Function, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -170,54 +170,53 @@ impl<'a> LocalFocusForwards<'a> {
         expr.visit_mut(|e| self.resolve_focus_calls_in_expression(e));
 
         for focus_function in FocusFunctionType::iter() {
-            if let Expression::FunctionCall { function, arguments, .. } = expr {
-                if let Expression::BuiltinFunctionReference(
-                    builtin_function_type,
-                    source_location,
-                ) = function.as_ref()
-                {
-                    if *builtin_function_type != focus_function.as_builtin_function() {
-                        continue;
-                    }
-                    if arguments.len() != 1 {
-                        assert!(
-                            self.diag.has_errors(),
-                            "Invalid argument generated for {} call",
-                            focus_function.name()
-                        );
-                        return;
-                    }
-                    if let Expression::ElementReference(weak_focus_target) = &arguments[0] {
-                        let mut focus_target = weak_focus_target.upgrade().expect(
+            if let Expression::FunctionCall {
+                function: Callable::Builtin(builtin_function_type),
+                arguments,
+                source_location,
+            } = expr
+            {
+                if *builtin_function_type != focus_function.as_builtin_function() {
+                    continue;
+                }
+                if arguments.len() != 1 {
+                    assert!(
+                        self.diag.has_errors(),
+                        "Invalid argument generated for {} call",
+                        focus_function.name()
+                    );
+                    return;
+                }
+                if let Expression::ElementReference(weak_focus_target) = &arguments[0] {
+                    let mut focus_target = weak_focus_target.upgrade().expect(
                             "internal compiler error: weak focus/clear-focus parameter cannot be dangling"
                         );
 
-                        if self.forwards.contains_key(&ByAddress(focus_target.clone())) {
-                            let Some((next_focus_target, _)) =
-                                self.focus_forward_for_element(&focus_target)
-                            else {
-                                // There's no need to report an additional error that focus() can't be called. Invalid
-                                // forward-focus bindings have already diagnostics produced for them.
-                                return;
-                            };
-                            focus_target = next_focus_target;
-                        }
+                    if self.forwards.contains_key(&ByAddress(focus_target.clone())) {
+                        let Some((next_focus_target, _)) =
+                            self.focus_forward_for_element(&focus_target)
+                        else {
+                            // There's no need to report an additional error that focus() can't be called. Invalid
+                            // forward-focus bindings have already diagnostics produced for them.
+                            return;
+                        };
+                        focus_target = next_focus_target;
+                    }
 
-                        if let Some(set_or_clear_focus_code) = call_set_focus_function(
-                            &focus_target,
-                            source_location.as_ref(),
-                            focus_function,
-                        ) {
-                            *expr = set_or_clear_focus_code;
-                        } else {
-                            self.diag.push_error(
-                                format!(
-                                    "{}() can only be called on focusable elements",
-                                    focus_function.name(),
-                                ),
-                                source_location,
-                            );
-                        }
+                    if let Some(set_or_clear_focus_code) = call_set_focus_function(
+                        &focus_target,
+                        source_location.as_ref(),
+                        focus_function,
+                    ) {
+                        *expr = set_or_clear_focus_code;
+                    } else {
+                        self.diag.push_error(
+                            format!(
+                                "{}() can only be called on focusable elements",
+                                focus_function.name(),
+                            ),
+                            source_location,
+                        );
                     }
                 }
             }
@@ -271,9 +270,9 @@ fn call_set_focus_function(
 
     if declares_focus_function {
         Some(Expression::FunctionCall {
-            function: Box::new(Expression::FunctionReference(
-                NamedReference::new(element, SmolStr::new_static(function_name)),
-                None,
+            function: Callable::Function(NamedReference::new(
+                element,
+                SmolStr::new_static(function_name),
             )),
             arguments: vec![],
             source_location: source_location.cloned(),
@@ -281,10 +280,7 @@ fn call_set_focus_function(
     } else if builtin_focus_function {
         let source_location = source_location.cloned();
         Some(Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(
-                function_type.as_builtin_function(),
-                source_location.clone(),
-            )),
+            function: function_type.as_builtin_function().into(),
             arguments: vec![Expression::ElementReference(Rc::downgrade(element))],
             source_location,
         })

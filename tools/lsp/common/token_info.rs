@@ -3,9 +3,9 @@
 
 use crate::common;
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
-use i_slint_compiler::lookup::{LookupObject, LookupResult};
+use i_slint_compiler::lookup::{LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
@@ -86,10 +86,7 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                             ..
                         } => Some(TokenInfo::ElementRc(e.upgrade()?)),
                         LookupResult::Expression {
-                            expression:
-                                Expression::CallbackReference(nr, _)
-                                | Expression::PropertyReference(nr)
-                                | Expression::FunctionReference(nr, _),
+                            expression: Expression::PropertyReference(nr),
                             ..
                         } => Some(TokenInfo::NamedReference(nr)),
                         LookupResult::Expression {
@@ -97,6 +94,9 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                             ..
                         } => Some(TokenInfo::EnumerationValue(v)),
                         LookupResult::Enumeration(e) => Some(TokenInfo::Type(Type::Enumeration(e))),
+                        LookupResult::Callable(LookupResultCallable::Callable(
+                            Callable::Callback(nr) | Callable::Function(nr),
+                        )) => Some(TokenInfo::NamedReference(nr)),
                         _ => return None,
                     }
                 }

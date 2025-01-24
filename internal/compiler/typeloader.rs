@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::expression_tree::Callable;
 use crate::object_tree::{self, Document, ExportedName, Exports};
 use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
@@ -675,18 +676,7 @@ impl Snapshotter {
     ) -> expression_tree::Expression {
         use expression_tree::Expression;
         match expr {
-            Expression::CallbackReference(nr, node_or_token) => {
-                Expression::CallbackReference(nr.snapshot(self), node_or_token.clone())
-            }
             Expression::PropertyReference(nr) => Expression::PropertyReference(nr.snapshot(self)),
-            Expression::FunctionReference(nr, node_or_token) => {
-                Expression::FunctionReference(nr.snapshot(self), node_or_token.clone())
-            }
-            Expression::MemberFunction { base, base_node, member } => Expression::MemberFunction {
-                base: Box::new(self.snapshot_expression(base)),
-                base_node: base_node.clone(),
-                member: Box::new(self.snapshot_expression(member)),
-            },
             Expression::ElementReference(el) => {
                 Expression::ElementReference(if let Some(el) = el.upgrade() {
                     Rc::downgrade(&el)
@@ -728,7 +718,11 @@ impl Snapshotter {
             }
             Expression::FunctionCall { function, arguments, source_location } => {
                 Expression::FunctionCall {
-                    function: Box::new(self.snapshot_expression(function)),
+                    function: match function {
+                        Callable::Callback(nr) => Callable::Callback(nr.snapshot(self)),
+                        Callable::Function(nr) => Callable::Function(nr.snapshot(self)),
+                        Callable::Builtin(b) => Callable::Builtin(b.clone()),
+                    },
                     arguments: arguments.iter().map(|e| self.snapshot_expression(e)).collect(),
                     source_location: source_location.clone(),
                 }

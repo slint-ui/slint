@@ -506,12 +506,7 @@ impl TypeRegister {
             property_visibility: PropertyVisibility::Output,
             default_value: BuiltinPropertyDefault::Fn(|elem| {
                 crate::expression_tree::Expression::FunctionCall {
-                    function: Box::new(
-                        crate::expression_tree::Expression::BuiltinFunctionReference(
-                            BuiltinFunction::ItemFontMetrics,
-                            None,
-                        ),
-                    ),
+                    function: BuiltinFunction::ItemFontMetrics.into(),
                     arguments: vec![crate::expression_tree::Expression::ElementReference(
                         Rc::downgrade(elem),
                     )],

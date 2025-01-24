@@ -390,6 +390,28 @@ impl BuiltinFunction {
     }
 }
 
+/// The base of a Expression::FunctionCall
+#[derive(Debug, Clone)]
+pub enum Callable {
+    Callback(NamedReference),
+    Function(NamedReference),
+    Builtin(BuiltinFunction),
+}
+impl Callable {
+    pub fn ty(&self) -> Type {
+        match self {
+            Callable::Callback(nr) => nr.ty(),
+            Callable::Function(nr) => nr.ty(),
+            Callable::Builtin(b) => Type::Function(b.ty()),
+        }
+    }
+}
+impl From<BuiltinFunction> for Callable {
+    fn from(function: BuiltinFunction) -> Self {
+        Self::Builtin(function)
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum OperatorClass {
     ComparisonOp,
@@ -520,31 +542,8 @@ pub enum Expression {
     /// Bool
     BoolLiteral(bool),
 
-    /// Reference to the callback `<name>` in the `<element>`
-    ///
-    /// Note: if we are to separate expression and statement, we probably do not need to have callback reference within expressions
-    CallbackReference(NamedReference, Option<NodeOrToken>),
-
     /// Reference to the property
     PropertyReference(NamedReference),
-
-    /// Reference to a function
-    FunctionReference(NamedReference, Option<NodeOrToken>),
-
-    /// Reference to a function built into the run-time, implemented natively
-    BuiltinFunctionReference(BuiltinFunction, Option<SourceLocation>),
-
-    /// A MemberFunction expression exists only for a short time, for example for `item.focus()` to be translated to
-    /// a regular FunctionCall expression where the base becomes the first argument.
-    MemberFunction {
-        base: Box<Expression>,
-        base_node: Option<NodeOrToken>,
-        member: Box<Expression>,
-    },
-
-    /// Reference to a macro understood by the compiler.
-    /// These should be transformed to other expression before reaching generation
-    BuiltinMacroReference(BuiltinMacroFunction, Option<NodeOrToken>),
 
     /// A reference to a specific element. This isn't possible to create in .slint syntax itself, but intermediate passes may generate this
     /// type of expression.
@@ -610,7 +609,7 @@ pub enum Expression {
 
     /// A function call
     FunctionCall {
-        function: Box<Expression>,
+        function: Callable,
         arguments: Vec<Expression>,
         source_location: Option<SourceLocation>,
     },
@@ -708,12 +707,7 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
-            Expression::CallbackReference(nr, _) => nr.ty(),
-            Expression::FunctionReference(nr, _) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
-            Expression::BuiltinFunctionReference(funcref, _) => Type::Function(funcref.ty()),
-            Expression::MemberFunction { member, .. } => member.ty(),
-            Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => element
@@ -833,16 +827,8 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
-            Expression::CallbackReference { .. } => {}
             Expression::PropertyReference { .. } => {}
-            Expression::FunctionReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
-            Expression::BuiltinFunctionReference { .. } => {}
-            Expression::MemberFunction { base, member, .. } => {
-                visitor(base);
-                visitor(member);
-            }
-            Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
             Expression::StructFieldAccess { base, .. } => visitor(base),
             Expression::ArrayIndex { array, index } => {
@@ -855,8 +841,7 @@ impl Expression {
             Expression::CodeBlock(sub) => {
                 sub.iter().for_each(visitor);
             }
-            Expression::FunctionCall { function, arguments, source_location: _ } => {
-                visitor(function);
+            Expression::FunctionCall { function: _, arguments, source_location: _ } => {
                 arguments.iter().for_each(visitor);
             }
             Expression::SelfAssignment { lhs, rhs, .. } => {
@@ -935,16 +920,8 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
-            Expression::CallbackReference { .. } => {}
             Expression::PropertyReference { .. } => {}
-            Expression::FunctionReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
-            Expression::BuiltinFunctionReference { .. } => {}
-            Expression::MemberFunction { base, member, .. } => {
-                visitor(base);
-                visitor(member);
-            }
-            Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
             Expression::StructFieldAccess { base, .. } => visitor(base),
             Expression::ArrayIndex { array, index } => {
@@ -957,8 +934,7 @@ impl Expression {
             Expression::CodeBlock(sub) => {
                 sub.iter_mut().for_each(visitor);
             }
-            Expression::FunctionCall { function, arguments, source_location: _ } => {
-                visitor(function);
+            Expression::FunctionCall { function: _, arguments, source_location: _ } => {
                 arguments.iter_mut().for_each(visitor);
             }
             Expression::SelfAssignment { lhs, rhs, .. } => {
@@ -1052,23 +1028,22 @@ impl Expression {
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
-            Expression::CallbackReference { .. } => false,
-            Expression::FunctionReference(nr, _) => nr.is_constant(),
             Expression::PropertyReference(nr) => nr.is_constant(),
-            Expression::BuiltinFunctionReference(func, _) => func.is_const(),
-            Expression::MemberFunction { .. } => false,
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
             Expression::FunctionParameterReference { .. } => false,
-            Expression::BuiltinMacroReference { .. } => true,
             Expression::StructFieldAccess { base, .. } => base.is_constant(),
             Expression::ArrayIndex { array, index } => array.is_constant() && index.is_constant(),
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { function, arguments, .. } => {
-                // Assume that constant function are, in fact, pure
-                function.is_constant() && arguments.iter().all(|a| a.is_constant())
+                let is_const = match function {
+                    Callable::Builtin(b) => b.is_const(),
+                    Callable::Function(nr) => nr.is_constant(),
+                    Callable::Callback(..) => false,
+                };
+                is_const && arguments.iter().all(|a| a.is_constant())
             }
             Expression::SelfAssignment { .. } => false,
             Expression::ImageReference { .. } => true,
@@ -1117,7 +1092,7 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
-        node: &impl Spanned,
+        node: &dyn Spanned,
         diag: &mut BuildDiagnostics,
     ) -> Expression {
         let ty = self.ty();
@@ -1195,12 +1170,7 @@ impl Expression {
                                         result = Expression::BinaryExpression {
                                             lhs: Box::new(result),
                                             rhs: Box::new(Expression::FunctionCall {
-                                                function: Box::new(
-                                                    Expression::BuiltinFunctionReference(
-                                                        builtin_fn.clone(),
-                                                        Some(node.to_source_location()),
-                                                    ),
-                                                ),
+                                                function: Callable::Builtin(builtin_fn.clone()),
                                                 arguments: vec![],
                                                 source_location: Some(node.to_source_location()),
                                             }),
@@ -1598,16 +1568,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::StringLiteral(s) => write!(f, "{:?}", s),
         Expression::NumberLiteral(vl, unit) => write!(f, "{}{}", vl, unit),
         Expression::BoolLiteral(b) => write!(f, "{:?}", b),
-        Expression::CallbackReference(a, _) => write!(f, "{:?}", a),
         Expression::PropertyReference(a) => write!(f, "{:?}", a),
-        Expression::FunctionReference(a, _) => write!(f, "{:?}", a),
-        Expression::BuiltinFunctionReference(a, _) => write!(f, "{:?}", a),
-        Expression::MemberFunction { base, base_node: _, member } => {
-            pretty_print(f, base)?;
-            write!(f, ".")?;
-            pretty_print(f, member)
-        }
-        Expression::BuiltinMacroReference(a, _) => write!(f, "{:?}", a),
         Expression::ElementReference(a) => write!(f, "{:?}", a),
         Expression::RepeaterIndexReference { element } => {
             crate::namedreference::pretty_print_element_ref(f, element)
@@ -1646,7 +1607,10 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "}}")
         }
         Expression::FunctionCall { function, arguments, source_location: _ } => {
-            pretty_print(f, function)?;
+            match function {
+                Callable::Builtin(b) => write!(f, "{:?}", b)?,
+                Callable::Callback(nr) | Callable::Function(nr) => write!(f, "{:?}", nr)?,
+            }
             write!(f, "(")?;
             for e in arguments {
                 pretty_print(f, e)?;

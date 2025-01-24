@@ -148,10 +148,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             }
             can_inline
         }
-        Expression::CallbackReference { .. } => false,
         Expression::ElementReference { .. } => false,
-        // FIXME
-        Expression::FunctionReference { .. } => false,
         Expression::LayoutCacheAccess { .. } => false,
         Expression::SolveLayout { .. } => false,
         Expression::ComputeLayoutInfo { .. } => false,

@@ -8,7 +8,7 @@
 // cSpell: ignore qualname
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::expression_tree::{self, BindingExpression, Expression, Unit};
+use crate::expression_tree::{self, BindingExpression, Callable, Expression, Unit};
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, Enumeration, EnumerationValue, Function, NativeClass,
     Struct, Type,
@@ -2280,9 +2280,11 @@ pub fn visit_named_references_in_expression(
 ) {
     expr.visit_mut(|sub| visit_named_references_in_expression(sub, vis));
     match expr {
-        Expression::PropertyReference(r)
-        | Expression::CallbackReference(r, _)
-        | Expression::FunctionReference(r, _) => vis(r),
+        Expression::PropertyReference(r) => vis(r),
+        Expression::FunctionCall {
+            function: Callable::Callback(r) | Callable::Function(r),
+            ..
+        } => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::SolveLayout(l, _) => l.visit_named_references(vis),
         Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),

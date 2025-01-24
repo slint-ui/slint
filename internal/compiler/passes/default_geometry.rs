@@ -443,10 +443,7 @@ fn make_default_aspect_ratio_preserving_binding(
             Expression::StoreLocalVariable {
                 name: "image_implicit_size".into(),
                 value: Box::new(Expression::FunctionCall {
-                    function: Box::new(Expression::BuiltinFunctionReference(
-                        BuiltinFunction::ImageSize,
-                        None,
-                    )),
+                    function: BuiltinFunction::ImageSize.into(),
                     arguments: vec![Expression::PropertyReference(NamedReference::new(
                         elem,
                         SmolStr::new_static("source"),
@@ -514,10 +511,7 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
         let make_expr = |dim: &str, prop: NamedReference| Expression::BinaryExpression {
             lhs: Box::new(Expression::StructFieldAccess {
                 base: Box::new(Expression::FunctionCall {
-                    function: Box::new(Expression::BuiltinFunctionReference(
-                        BuiltinFunction::ImageSize,
-                        None,
-                    )),
+                    function: BuiltinFunction::ImageSize.into(),
                     arguments: vec![Expression::PropertyReference(source.clone())],
                     source_location: None,
                 }),

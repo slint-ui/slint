@@ -265,10 +265,7 @@ fn embed_glyphs_with_fontdb<'a>(
 
         for c in doc.exported_roots() {
             c.init_code.borrow_mut().font_registration_code.push(Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::RegisterBitmapFont,
-                    None,
-                )),
+                function: BuiltinFunction::RegisterBitmapFont.into(),
                 arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
                 source_location: None,
             });

@@ -11,7 +11,7 @@ use corelib::rtti::AnimatedBindingKind;
 use corelib::window::{Menu, MenuVTable};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
-    BuiltinFunction, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
+    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
     PathElement as ExprPathElement,
 };
 use i_slint_compiler::langtype::Type;
@@ -143,14 +143,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
-        Expression::CallbackReference { .. } => panic!("callback in expression"),
-        Expression::FunctionReference { .. } => panic!("function in expression"),
-        Expression::BuiltinFunctionReference(..) => panic!(
-            "naked builtin function reference not allowed, should be handled by function call"
-        ),
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
-        Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
-        Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
         Expression::PropertyReference(nr) => {
             load_property_helper(&local_context.component_instance, &nr.element(), nr.name()).unwrap()
         }
@@ -208,17 +201,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
             v
         }
-        Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
-            Expression::FunctionReference(nr, _) => {
+        Expression::FunctionCall { function, arguments, source_location: _ } => match &function {
+            Callable::Function(nr) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
                 call_function(&local_context.component_instance, &nr.element(), nr.name(), args).unwrap()
             }
-            Expression::CallbackReference(nr, _) => {
+            Callable::Callback(nr) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
                 invoke_callback(&local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
             }
-            Expression::BuiltinFunctionReference(f, _) => call_builtin_function(f.clone(), arguments, local_context),
-            _ => panic!("call of something not a callback: {function:?}"),
+            Callable::Builtin(f) => call_builtin_function(f.clone(), arguments, local_context),
         }
         Expression::SelfAssignment { lhs, rhs, op, .. } => {
             let rhs = eval_expression(rhs, local_context);
@@ -1145,7 +1137,7 @@ fn call_builtin_function(
             let ComponentInstance::InstanceRef(component) = local_context.component_instance else {
                 panic!("SetupNativeMenuBar from a global");
             };
-            let [entries, Expression::CallbackReference(sub_menu, _), Expression::CallbackReference(activated, _)] =
+            let [entries, Expression::PropertyReference(sub_menu), Expression::PropertyReference(activated)] =
                 arguments
             else {
                 panic!("internal error: incorrect arguments to SetupNativeMenuBar")

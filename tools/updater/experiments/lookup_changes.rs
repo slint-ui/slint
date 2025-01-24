@@ -4,9 +4,9 @@
 use crate::Cli;
 use by_address::ByAddress;
 use i_slint_compiler::{
-    expression_tree::Expression,
+    expression_tree::{Callable, Expression},
     langtype::Type,
-    lookup::{LookupCtx, LookupObject, LookupResult},
+    lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable},
     namedreference::NamedReference,
     object_tree::ElementRc,
     parser::{SyntaxKind, SyntaxNode},
@@ -125,13 +125,12 @@ fn fully_qualify_property_access(
         ctx.current_token = Some(first.clone().into());
         let global_lookup = i_slint_compiler::lookup::global_lookup();
         match global_lookup.lookup(ctx, &first_str) {
-            Some(LookupResult::Expression {
-                expression:
-                    Expression::PropertyReference(nr)
-                    | Expression::CallbackReference(nr, _)
-                    | Expression::FunctionReference(nr, _),
-                ..
-            }) => {
+            Some(
+                LookupResult::Expression { expression: Expression::PropertyReference(nr), .. }
+                | LookupResult::Callable(LookupResultCallable::Callable(
+                    Callable::Callback(nr) | Callable::Function(nr),
+                )),
+            ) => {
                 if let Some(new_name) = state.lookup_change.property_mappings.get(&nr) {
                     write!(file, "root.{new_name} ")?;
                     Ok(true)

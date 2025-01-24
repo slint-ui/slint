@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, Unit,
 };
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
@@ -93,9 +93,23 @@ pub enum LookupResult {
     },
     Enumeration(Rc<Enumeration>),
     Namespace(BuiltinNamespace),
+    Callable(LookupResultCallable),
 }
 
 #[derive(Debug)]
+pub enum LookupResultCallable {
+    Callable(Callable),
+    Macro(BuiltinMacroFunction),
+    /// for example for `item.focus`, where `item` is the base
+    MemberFunction {
+        /// This becomes the first argument of the function call
+        base: Expression,
+        base_node: Option<NodeOrToken>,
+        member: Box<LookupResultCallable>,
+    },
+}
+
+#[derive(Debug, derive_more::Display)]
 pub enum BuiltinNamespace {
     Colors,
     Math,
@@ -106,6 +120,21 @@ pub enum BuiltinNamespace {
 impl From<Expression> for LookupResult {
     fn from(expression: Expression) -> Self {
         Self::Expression { expression, deprecated: None }
+    }
+}
+impl From<Callable> for LookupResult {
+    fn from(callable: Callable) -> Self {
+        Self::Callable(LookupResultCallable::Callable(callable))
+    }
+}
+impl From<BuiltinMacroFunction> for LookupResult {
+    fn from(macro_function: BuiltinMacroFunction) -> Self {
+        Self::Callable(LookupResultCallable::Macro(macro_function))
+    }
+}
+impl From<BuiltinFunction> for LookupResult {
+    fn from(function: BuiltinFunction) -> Self {
+        Self::Callable(LookupResultCallable::Callable(Callable::Builtin(function)))
     }
 }
 
@@ -166,6 +195,7 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.for_each_entry(ctx, f)
             }
+            LookupResult::Callable(..) => None,
         }
     }
 
@@ -181,6 +211,7 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.lookup(ctx, name)
             }
+            LookupResult::Callable(..) => None,
         }
     }
 }
@@ -342,9 +373,9 @@ impl LookupObject for InScopeLookup {
                     let e = expression_from_reference(
                         NamedReference::new(elem, name.clone()),
                         &prop.property_type,
-                        &ctx.current_token,
+                        None,
                     );
-                    if let Some(r) = f.borrow_mut()(name, e.into()) {
+                    if let Some(r) = f.borrow_mut()(name, e) {
                         return Some(r);
                     }
                 }
@@ -366,9 +397,8 @@ impl LookupObject for InScopeLookup {
                     expression_from_reference(
                         NamedReference::new(elem, name.clone()),
                         &prop.property_type,
-                        &ctx.current_token,
+                        None,
                     )
-                    .into()
                 })
             },
         )
@@ -382,37 +412,28 @@ impl LookupObject for ElementRc {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
-            let expression = expression_from_reference(
+            let r = expression_from_reference(
                 NamedReference::new(self, name.clone()),
                 &prop.property_type,
-                &ctx.current_token,
+                check_deprecated_stylemetrics(self, ctx, name),
             );
-
-            let deprecated = check_deprecated_stylemetrics(self, ctx, name);
-            if let Some(r) = f(name, LookupResult::Expression { expression, deprecated }) {
+            if let Some(r) = f(name, r) {
                 return Some(r);
             }
         }
         let list = self.borrow().base_type.property_list();
         for (name, ty) in list {
-            let e = expression_from_reference(
-                NamedReference::new(self, name.clone()),
-                &ty,
-                &ctx.current_token,
-            );
-            if let Some(r) = f(&name, e.into()) {
+            let e = expression_from_reference(NamedReference::new(self, name.clone()), &ty, None);
+            if let Some(r) = f(&name, e) {
                 return Some(r);
             }
         }
         if !(matches!(self.borrow().base_type, ElementType::Global)) {
             for (name, ty, _) in crate::typeregister::reserved_properties() {
                 let name = SmolStr::new_static(name);
-                let e = expression_from_reference(
-                    NamedReference::new(self, name.clone()),
-                    &ty,
-                    &ctx.current_token,
-                );
-                if let Some(r) = f(&name, e.into()) {
+                let e =
+                    expression_from_reference(NamedReference::new(self, name.clone()), &ty, None);
+                if let Some(r) = f(&name, e) {
                     return Some(r);
                 }
             }
@@ -426,16 +447,14 @@ impl LookupObject for ElementRc {
             && (lookup_result.is_local_to_component
                 || lookup_result.property_visibility != PropertyVisibility::Private)
         {
-            Some(LookupResult::Expression {
-                expression: expression_from_reference(
-                    NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
-                    &lookup_result.property_type,
-                    &ctx.current_token,
-                ),
-                deprecated: (lookup_result.resolved_name != name.as_str())
-                    .then(|| lookup_result.resolved_name.to_string())
-                    .or_else(|| check_deprecated_stylemetrics(self, ctx, name)),
-            })
+            let deprecated = (lookup_result.resolved_name != name.as_str())
+                .then(|| lookup_result.resolved_name.to_string())
+                .or_else(|| check_deprecated_stylemetrics(self, ctx, name));
+            Some(expression_from_reference(
+                NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
+                &lookup_result.property_type,
+                deprecated,
+            ))
         } else {
             None
         }
@@ -465,13 +484,13 @@ pub fn check_deprecated_stylemetrics(
 fn expression_from_reference(
     n: NamedReference,
     ty: &Type,
-    node: &Option<NodeOrToken>,
-) -> Expression {
+    deprecated: Option<String>,
+) -> LookupResult {
     match ty {
-        Type::Callback { .. } => Expression::CallbackReference(n, node.clone()),
-        Type::InferredCallback => Expression::CallbackReference(n, node.clone()),
-        Type::Function { .. } => Expression::FunctionReference(n, node.clone()),
-        _ => Expression::PropertyReference(n),
+        Type::Callback { .. } => Callable::Callback(n).into(),
+        Type::InferredCallback => Callable::Callback(n).into(),
+        Type::Function { .. } => Callable::Function(n).into(),
+        _ => LookupResult::Expression { expression: Expression::PropertyReference(n), deprecated },
     }
 }
 
@@ -611,100 +630,47 @@ struct EasingSpecific;
 impl LookupObject for EasingSpecific {
     fn for_each_entry<R>(
         &self,
-        ctx: &LookupCtx,
+        _ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         use EasingCurve::CubicBezier;
-        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
-        None.or_else(|| f("linear", Expression::EasingCurve(EasingCurve::Linear)))
-            .or_else(|| {
-                f("ease-in-quad", Expression::EasingCurve(CubicBezier(0.11, 0.0, 0.5, 0.0)))
-            })
-            .or_else(|| {
-                f("ease-out-quad", Expression::EasingCurve(CubicBezier(0.5, 1.0, 0.89, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-out-quad", Expression::EasingCurve(CubicBezier(0.45, 0.0, 0.55, 1.0)))
-            })
-            .or_else(|| f("ease", Expression::EasingCurve(CubicBezier(0.25, 0.1, 0.25, 1.0))))
-            .or_else(|| f("ease-in", Expression::EasingCurve(CubicBezier(0.42, 0.0, 1.0, 1.0))))
-            .or_else(|| {
-                f("ease-in-out", Expression::EasingCurve(CubicBezier(0.42, 0.0, 0.58, 1.0)))
-            })
-            .or_else(|| f("ease-out", Expression::EasingCurve(CubicBezier(0.0, 0.0, 0.58, 1.0))))
-            .or_else(|| {
-                f("ease-in-quart", Expression::EasingCurve(CubicBezier(0.5, 0.0, 0.75, 0.0)))
-            })
-            .or_else(|| {
-                f("ease-out-quart", Expression::EasingCurve(CubicBezier(0.25, 1.0, 0.5, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-out-quart", Expression::EasingCurve(CubicBezier(0.76, 0.0, 0.24, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-quint", Expression::EasingCurve(CubicBezier(0.64, 0.0, 0.78, 0.0)))
-            })
-            .or_else(|| {
-                f("ease-out-quint", Expression::EasingCurve(CubicBezier(0.22, 1.0, 0.36, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-out-quint", Expression::EasingCurve(CubicBezier(0.83, 0.0, 0.17, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-expo", Expression::EasingCurve(CubicBezier(0.7, 0.0, 0.84, 0.0)))
-            })
-            .or_else(|| {
-                f("ease-out-expo", Expression::EasingCurve(CubicBezier(0.16, 1.0, 0.3, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-out-expo", Expression::EasingCurve(CubicBezier(0.87, 0.0, 0.13, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-back", Expression::EasingCurve(CubicBezier(0.36, 0.0, 0.66, -0.56)))
-            })
-            .or_else(|| {
-                f("ease-out-back", Expression::EasingCurve(CubicBezier(0.34, 1.56, 0.64, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-out-back", Expression::EasingCurve(CubicBezier(0.68, -0.6, 0.32, 1.6)))
-            })
-            .or_else(|| {
-                f("ease-in-sine", Expression::EasingCurve(CubicBezier(0.12, 0.0, 0.39, 0.0)))
-            })
-            .or_else(|| {
-                f("ease-out-sine", Expression::EasingCurve(CubicBezier(0.61, 1.0, 0.88, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-out-sine", Expression::EasingCurve(CubicBezier(0.37, 0.0, 0.63, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-circ", Expression::EasingCurve(CubicBezier(0.55, 0.0, 1.0, 0.45)))
-            })
-            .or_else(|| {
-                f("ease-out-circ", Expression::EasingCurve(CubicBezier(0.0, 0.55, 0.45, 1.0)))
-            })
-            .or_else(|| {
-                f("ease-in-out-circ", Expression::EasingCurve(CubicBezier(0.85, 0.0, 0.15, 1.0)))
-            })
-            .or_else(|| {
-                f(
-                    "cubic-bezier",
-                    Expression::BuiltinMacroReference(
-                        BuiltinMacroFunction::CubicBezier,
-                        ctx.current_token.clone(),
-                    ),
-                )
-            })
-            .or_else(|| f("ease-in-elastic", Expression::EasingCurve(EasingCurve::EaseInElastic)))
-            .or_else(|| f("ease-out-elastic", Expression::EasingCurve(EasingCurve::EaseOutElastic)))
-            .or_else(|| {
-                f("ease-in-out-elastic", Expression::EasingCurve(EasingCurve::EaseInOutElastic))
-            })
-            .or_else(|| f("ease-in-bounce", Expression::EasingCurve(EasingCurve::EaseInBounce)))
-            .or_else(|| f("ease-out-bounce", Expression::EasingCurve(EasingCurve::EaseOutBounce)))
-            .or_else(|| {
-                f("ease-in-out-bounce", Expression::EasingCurve(EasingCurve::EaseInOutBounce))
-            })
+        let mut curve = |n, e| f(&SmolStr::new_static(n), Expression::EasingCurve(e).into());
+        let r = None
+            .or_else(|| curve("linear", EasingCurve::Linear))
+            .or_else(|| curve("ease-in-quad", CubicBezier(0.11, 0.0, 0.5, 0.0)))
+            .or_else(|| curve("ease-out-quad", CubicBezier(0.5, 1.0, 0.89, 1.0)))
+            .or_else(|| curve("ease-in-out-quad", CubicBezier(0.45, 0.0, 0.55, 1.0)))
+            .or_else(|| curve("ease", CubicBezier(0.25, 0.1, 0.25, 1.0)))
+            .or_else(|| curve("ease-in", CubicBezier(0.42, 0.0, 1.0, 1.0)))
+            .or_else(|| curve("ease-in-out", CubicBezier(0.42, 0.0, 0.58, 1.0)))
+            .or_else(|| curve("ease-out", CubicBezier(0.0, 0.0, 0.58, 1.0)))
+            .or_else(|| curve("ease-in-quart", CubicBezier(0.5, 0.0, 0.75, 0.0)))
+            .or_else(|| curve("ease-out-quart", CubicBezier(0.25, 1.0, 0.5, 1.0)))
+            .or_else(|| curve("ease-in-out-quart", CubicBezier(0.76, 0.0, 0.24, 1.0)))
+            .or_else(|| curve("ease-in-quint", CubicBezier(0.64, 0.0, 0.78, 0.0)))
+            .or_else(|| curve("ease-out-quint", CubicBezier(0.22, 1.0, 0.36, 1.0)))
+            .or_else(|| curve("ease-in-out-quint", CubicBezier(0.83, 0.0, 0.17, 1.0)))
+            .or_else(|| curve("ease-in-expo", CubicBezier(0.7, 0.0, 0.84, 0.0)))
+            .or_else(|| curve("ease-out-expo", CubicBezier(0.16, 1.0, 0.3, 1.0)))
+            .or_else(|| curve("ease-in-out-expo", CubicBezier(0.87, 0.0, 0.13, 1.0)))
+            .or_else(|| curve("ease-in-back", CubicBezier(0.36, 0.0, 0.66, -0.56)))
+            .or_else(|| curve("ease-out-back", CubicBezier(0.34, 1.56, 0.64, 1.0)))
+            .or_else(|| curve("ease-in-out-back", CubicBezier(0.68, -0.6, 0.32, 1.6)))
+            .or_else(|| curve("ease-in-sine", CubicBezier(0.12, 0.0, 0.39, 0.0)))
+            .or_else(|| curve("ease-out-sine", CubicBezier(0.61, 1.0, 0.88, 1.0)))
+            .or_else(|| curve("ease-in-out-sine", CubicBezier(0.37, 0.0, 0.63, 1.0)))
+            .or_else(|| curve("ease-in-circ", CubicBezier(0.55, 0.0, 1.0, 0.45)))
+            .or_else(|| curve("ease-out-circ", CubicBezier(0.0, 0.55, 0.45, 1.0)))
+            .or_else(|| curve("ease-in-out-circ", CubicBezier(0.85, 0.0, 0.15, 1.0)))
+            .or_else(|| curve("ease-in-elastic", EasingCurve::EaseInElastic))
+            .or_else(|| curve("ease-out-elastic", EasingCurve::EaseOutElastic))
+            .or_else(|| curve("ease-in-out-elastic", EasingCurve::EaseInOutElastic))
+            .or_else(|| curve("ease-in-bounce", EasingCurve::EaseInBounce))
+            .or_else(|| curve("ease-out-bounce", EasingCurve::EaseOutBounce))
+            .or_else(|| curve("ease-in-out-bounce", EasingCurve::EaseInOutBounce));
+        r.or_else(|| {
+            f(&SmolStr::new_static("cubic-bezier"), BuiltinMacroFunction::CubicBezier.into())
+        })
     }
 }
 
@@ -731,31 +697,29 @@ struct MathFunctions;
 impl LookupObject for MathFunctions {
     fn for_each_entry<R>(
         &self,
-        ctx: &LookupCtx,
+        _ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        use Expression::{BuiltinFunctionReference, BuiltinMacroReference};
-        let t = &ctx.current_token;
-        let sl = || t.as_ref().map(|t| t.to_source_location());
-        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
-        None.or_else(|| f("mod", BuiltinMacroReference(BuiltinMacroFunction::Mod, t.clone())))
-            .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
-            .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
-            .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor, sl())))
-            .or_else(|| f("clamp", BuiltinMacroReference(BuiltinMacroFunction::Clamp, t.clone())))
-            .or_else(|| f("abs", BuiltinMacroReference(BuiltinMacroFunction::Abs, t.clone())))
-            .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt, sl())))
-            .or_else(|| f("max", BuiltinMacroReference(BuiltinMacroFunction::Max, t.clone())))
-            .or_else(|| f("min", BuiltinMacroReference(BuiltinMacroFunction::Min, t.clone())))
-            .or_else(|| f("sin", BuiltinFunctionReference(BuiltinFunction::Sin, sl())))
-            .or_else(|| f("cos", BuiltinFunctionReference(BuiltinFunction::Cos, sl())))
-            .or_else(|| f("tan", BuiltinFunctionReference(BuiltinFunction::Tan, sl())))
-            .or_else(|| f("asin", BuiltinFunctionReference(BuiltinFunction::ASin, sl())))
-            .or_else(|| f("acos", BuiltinFunctionReference(BuiltinFunction::ACos, sl())))
-            .or_else(|| f("atan", BuiltinFunctionReference(BuiltinFunction::ATan, sl())))
-            .or_else(|| f("atan2", BuiltinFunctionReference(BuiltinFunction::ATan2, sl())))
-            .or_else(|| f("log", BuiltinFunctionReference(BuiltinFunction::Log, sl())))
-            .or_else(|| f("pow", BuiltinFunctionReference(BuiltinFunction::Pow, sl())))
+        let mut f = |n, e| f(&SmolStr::new_static(n), e);
+        let b = |b| LookupResult::from(Callable::Builtin(b));
+        None.or_else(|| f("mod", BuiltinMacroFunction::Mod.into()))
+            .or_else(|| f("round", b(BuiltinFunction::Round)))
+            .or_else(|| f("ceil", b(BuiltinFunction::Ceil)))
+            .or_else(|| f("floor", b(BuiltinFunction::Floor)))
+            .or_else(|| f("clamp", BuiltinMacroFunction::Clamp.into()))
+            .or_else(|| f("abs", BuiltinMacroFunction::Abs.into()))
+            .or_else(|| f("sqrt", b(BuiltinFunction::Sqrt)))
+            .or_else(|| f("max", BuiltinMacroFunction::Max.into()))
+            .or_else(|| f("min", BuiltinMacroFunction::Min.into()))
+            .or_else(|| f("sin", b(BuiltinFunction::Sin)))
+            .or_else(|| f("cos", b(BuiltinFunction::Cos)))
+            .or_else(|| f("tan", b(BuiltinFunction::Tan)))
+            .or_else(|| f("asin", b(BuiltinFunction::ASin)))
+            .or_else(|| f("acos", b(BuiltinFunction::ACos)))
+            .or_else(|| f("atan", b(BuiltinFunction::ATan)))
+            .or_else(|| f("atan2", b(BuiltinFunction::ATan2)))
+            .or_else(|| f("log", b(BuiltinFunction::Log)))
+            .or_else(|| f("pow", b(BuiltinFunction::Pow)))
     }
 }
 
@@ -766,9 +730,9 @@ impl LookupObject for SlintInternal {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        use Expression::BuiltinFunctionReference as BFR;
         let sl = || ctx.current_token.as_ref().map(|t| t.to_source_location());
-        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
+        let mut f = |n, e: LookupResult| f(&SmolStr::new_static(n), e);
+        let b = |b| LookupResult::from(Callable::Builtin(b));
         None.or_else(|| {
             let style = ctx.type_loader.and_then(|tl| tl.compiler_config.style.as_ref());
             f(
@@ -781,29 +745,31 @@ impl LookupObject for SlintInternal {
                     Expression::EnumerationValue(e.try_value_from_string("dark").unwrap())
                 } else {
                     Expression::FunctionCall {
-                        function: BFR(BuiltinFunction::ColorScheme, None).into(),
+                        function: BuiltinFunction::ColorScheme.into(),
                         arguments: vec![],
                         source_location: sl(),
                     }
-                },
+                }
+                .into(),
             )
         })
         .or_else(|| {
             f(
                 "use-24-hour-format",
                 Expression::FunctionCall {
-                    function: BFR(BuiltinFunction::Use24HourFormat, None).into(),
+                    function: BuiltinFunction::Use24HourFormat.into(),
                     arguments: vec![],
                     source_location: sl(),
-                },
+                }
+                .into(),
             )
         })
-        .or_else(|| f("month-day-count", BFR(BuiltinFunction::MonthDayCount, sl())))
-        .or_else(|| f("month-offset", BFR(BuiltinFunction::MonthOffset, sl())))
-        .or_else(|| f("format-date", BFR(BuiltinFunction::FormatDate, sl())))
-        .or_else(|| f("date-now", BFR(BuiltinFunction::DateNow, sl())))
-        .or_else(|| f("valid-date", BFR(BuiltinFunction::ValidDate, sl())))
-        .or_else(|| f("parse-date", BFR(BuiltinFunction::ParseDate, sl())))
+        .or_else(|| f("month-day-count", b(BuiltinFunction::MonthDayCount)))
+        .or_else(|| f("month-offset", b(BuiltinFunction::MonthOffset)))
+        .or_else(|| f("format-date", b(BuiltinFunction::FormatDate)))
+        .or_else(|| f("date-now", b(BuiltinFunction::DateNow)))
+        .or_else(|| f("valid-date", b(BuiltinFunction::ValidDate)))
+        .or_else(|| f("parse-date", b(BuiltinFunction::ParseDate)))
     }
 }
 
@@ -811,15 +777,13 @@ struct ColorFunctions;
 impl LookupObject for ColorFunctions {
     fn for_each_entry<R>(
         &self,
-        ctx: &LookupCtx,
+        _ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        use Expression::BuiltinMacroReference;
-        let t = &ctx.current_token;
-        let mut f = |n, e: Expression| f(&SmolStr::new_static(n), e.into());
-        None.or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
-            .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
-            .or_else(|| f("hsv", BuiltinMacroReference(BuiltinMacroFunction::Hsv, t.clone())))
+        let mut f = |n, m| f(&SmolStr::new_static(n), LookupResult::from(m));
+        None.or_else(|| f("rgb", BuiltinMacroFunction::Rgb))
+            .or_else(|| f("rgba", BuiltinMacroFunction::Rgb))
+            .or_else(|| f("hsv", BuiltinMacroFunction::Hsv))
     }
 }
 
@@ -832,25 +796,9 @@ impl LookupObject for BuiltinFunctionLookup {
     ) -> Option<R> {
         (MathFunctions, ColorFunctions)
             .for_each_entry(ctx, f)
+            .or_else(|| f(&SmolStr::new_static("debug"), BuiltinMacroFunction::Debug.into()))
             .or_else(|| {
-                f(
-                    &SmolStr::new_static("debug"),
-                    Expression::BuiltinMacroReference(
-                        BuiltinMacroFunction::Debug,
-                        ctx.current_token.clone(),
-                    )
-                    .into(),
-                )
-            })
-            .or_else(|| {
-                f(
-                    &SmolStr::new_static("animation-tick"),
-                    Expression::BuiltinFunctionReference(
-                        BuiltinFunction::AnimationTick,
-                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                    )
-                    .into(),
-                )
+                f(&SmolStr::new_static("animation-tick"), BuiltinFunction::AnimationTick.into())
             })
     }
 }
@@ -968,21 +916,15 @@ impl<'a> LookupObject for StringExpression<'a> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
-            LookupResult::from(Expression::MemberFunction {
-                base: Box::new(self.0.clone()),
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
                 base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-                member: Box::new(Expression::BuiltinFunctionReference(
-                    f,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )),
+                member: LookupResultCallable::Callable(Callable::Builtin(f)).into(),
             })
         };
         let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    f,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )),
+                function: Callable::Builtin(f),
                 source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 arguments: vec![self.0.clone()],
             })
@@ -1008,13 +950,10 @@ impl<'a> LookupObject for ColorExpression<'a> {
             } else {
                 self.0.clone()
             };
-            LookupResult::from(Expression::MemberFunction {
-                base: Box::new(base),
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base,
                 base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-                member: Box::new(Expression::BuiltinFunctionReference(
-                    f,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )),
+                member: Box::new(LookupResultCallable::Callable(Callable::Builtin(f))),
             })
         };
         let field_access = |f: &'static str| {
@@ -1025,10 +964,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
             };
             LookupResult::from(Expression::StructFieldAccess {
                 base: Box::new(Expression::FunctionCall {
-                    function: Box::new(Expression::BuiltinFunctionReference(
-                        BuiltinFunction::ColorRgbaStruct,
-                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                    )),
+                    function: BuiltinFunction::ColorRgbaStruct.into(),
                     source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                     arguments: vec![base],
                 }),
@@ -1060,10 +996,7 @@ impl<'a> LookupObject for ImageExpression<'a> {
         let field_access = |f: &str| {
             LookupResult::from(Expression::StructFieldAccess {
                 base: Box::new(Expression::FunctionCall {
-                    function: Box::new(Expression::BuiltinFunctionReference(
-                        BuiltinFunction::ImageSize,
-                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                    )),
+                    function: BuiltinFunction::ImageSize.into(),
                     source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                     arguments: vec![self.0.clone()],
                 }),
@@ -1085,10 +1018,7 @@ impl<'a> LookupObject for ArrayExpression<'a> {
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    f,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )),
+                function: Callable::Builtin(f),
                 source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 arguments: vec![self.0.clone()],
             })
@@ -1108,13 +1038,10 @@ impl<'a> LookupObject for NumberExpression<'a> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
-            LookupResult::from(Expression::MemberFunction {
-                base: Box::new(self.0.clone()),
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
                 base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-                member: Box::new(Expression::BuiltinFunctionReference(
-                    f,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )),
+                member: LookupResultCallable::Callable(Callable::Builtin(f)).into(),
             })
         };
 
@@ -1141,10 +1068,10 @@ impl<'a> LookupObject for NumberWithUnitExpression<'a> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_macro = |f: BuiltinMacroFunction| {
-            LookupResult::from(Expression::MemberFunction {
-                base: Box::new(self.0.clone()),
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
                 base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-                member: Box::new(Expression::BuiltinMacroReference(f, ctx.current_token.clone())),
+                member: Box::new(LookupResultCallable::Macro(f)),
             })
         };
 
@@ -1159,13 +1086,10 @@ impl<'a> LookupObject for NumberWithUnitExpression<'a> {
                     return None;
                 }
                 let member_function = |f: BuiltinFunction| {
-                    LookupResult::from(Expression::MemberFunction {
-                        base: Box::new(self.0.clone()),
+                    LookupResult::Callable(LookupResultCallable::MemberFunction {
+                        base: self.0.clone(),
                         base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-                        member: Box::new(Expression::BuiltinFunctionReference(
-                            f,
-                            ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                        )),
+                        member: Box::new(LookupResultCallable::Callable(Callable::Builtin(f))),
                     })
                 };
                 None.or_else(|| f("sin", member_function(BuiltinFunction::Sin)))

@@ -6,7 +6,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, MinMaxOp, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp, Unit,
 };
 use crate::langtype::{EnumerationValue, Type};
 use crate::parser::NodeOrToken;
@@ -18,7 +18,7 @@ static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize:
 /// "Expand" the macro `mac` (at location `n`) with the arguments `sub_expr`
 pub fn lower_macro(
     mac: BuiltinMacroFunction,
-    n: Option<NodeOrToken>,
+    n: &dyn Spanned,
     mut sub_expr: impl Iterator<Item = (Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
@@ -37,7 +37,7 @@ pub fn lower_macro(
             // Maybe "cubic_bezier" should be a function that is lowered later
             let mut a = || match sub_expr.next() {
                 None => {
-                    has_error.get_or_insert((n.clone(), "Not enough arguments"));
+                    has_error.get_or_insert((n.to_source_location(), "Not enough arguments"));
                     0.
                 }
                 Some((Expression::NumberLiteral(val, Unit::None), _)) => val as f32,
@@ -45,18 +45,20 @@ pub fn lower_macro(
                 Some((Expression::UnaryOp { sub, op: '-' }, n)) => match *sub {
                     Expression::NumberLiteral(val, Unit::None) => (-1.0 * val) as f32,
                     _ => {
-                        has_error.get_or_insert((n, expected_argument_type_error));
+                        has_error
+                            .get_or_insert((n.to_source_location(), expected_argument_type_error));
                         0.
                     }
                 },
                 Some((_, n)) => {
-                    has_error.get_or_insert((n, expected_argument_type_error));
+                    has_error.get_or_insert((n.to_source_location(), expected_argument_type_error));
                     0.
                 }
             };
             let expr = Expression::EasingCurve(EasingCurve::CubicBezier(a(), a(), a(), a()));
             if let Some((_, n)) = sub_expr.next() {
-                has_error.get_or_insert((n, "Too many argument for bezier curve"));
+                has_error
+                    .get_or_insert((n.to_source_location(), "Too many argument for bezier curve"));
             }
             if let Some((n, msg)) = has_error {
                 diag.push_error(msg.into(), &n);
@@ -70,18 +72,18 @@ pub fn lower_macro(
 }
 
 fn min_max_macro(
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     op: MinMaxOp,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.is_empty() {
-        diag.push_error("Needs at least one argument".into(), &node);
+        diag.push_error("Needs at least one argument".into(), node);
         return Expression::Invalid;
     }
     let ty = Expression::common_target_type_for_type_list(args.iter().map(|expr| expr.0.ty()));
     if ty.as_unit_product().is_none() {
-        diag.push_error("Invalid argument type".into(), &node);
+        diag.push_error("Invalid argument type".into(), node);
         return Expression::Invalid;
     }
     let mut args = args.into_iter();
@@ -95,7 +97,7 @@ fn min_max_macro(
 }
 
 fn clamp_macro(
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
@@ -103,7 +105,7 @@ fn clamp_macro(
         diag.push_error(
             "`clamp` needs three values: the `value` to clamp, the `minimum` and the `maximum`"
                 .into(),
-            &node,
+            node,
         );
         return Expression::Invalid;
     }
@@ -124,12 +126,12 @@ fn clamp_macro(
 }
 
 fn mod_macro(
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.len() != 2 {
-        diag.push_error("Needs 2 arguments".into(), &node);
+        diag.push_error("Needs 2 arguments".into(), node);
         return Expression::Invalid;
     }
     let (lhs_ty, rhs_ty) = (args[0].0.ty(), args[1].0.ty());
@@ -145,11 +147,8 @@ fn mod_macro(
         Type::Float32
     };
 
-    let source_location = node.map(|n| n.to_source_location());
-    let function = Box::new(Expression::BuiltinFunctionReference(
-        BuiltinFunction::Mod,
-        source_location.clone(),
-    ));
+    let source_location = Some(node.to_source_location());
+    let function = Callable::Builtin(BuiltinFunction::Mod);
     let arguments = args.into_iter().map(|(e, n)| e.maybe_convert_to(common_ty.clone(), &n, diag));
     if matches!(common_ty, Type::Float32) {
         Expression::FunctionCall { function, arguments: arguments.collect(), source_location }
@@ -169,12 +168,12 @@ fn mod_macro(
 }
 
 fn abs_macro(
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.len() != 1 {
-        diag.push_error("Needs 1 argument".into(), &node);
+        diag.push_error("Needs 1 argument".into(), node);
         return Expression::Invalid;
     }
     let ty = args[0].0.ty();
@@ -184,11 +183,8 @@ fn abs_macro(
         Type::Float32
     };
 
-    let source_location = node.map(|n| n.to_source_location());
-    let function = Box::new(Expression::BuiltinFunctionReference(
-        BuiltinFunction::Abs,
-        source_location.clone(),
-    ));
+    let source_location = Some(node.to_source_location());
+    let function = Callable::Builtin(BuiltinFunction::Abs);
     if matches!(ty, Type::Float32) {
         let arguments =
             args.into_iter().map(|(e, n)| e.maybe_convert_to(ty.clone(), &n, diag)).collect();
@@ -210,14 +206,14 @@ fn abs_macro(
 }
 
 fn rgb_macro(
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.len() < 3 || args.len() > 4 {
         diag.push_error(
             format!("This function needs 3 or 4 arguments, but {} were provided", args.len()),
-            &node,
+            node,
         );
         return Expression::Invalid;
     }
@@ -244,24 +240,21 @@ fn rgb_macro(
         arguments.push(Expression::NumberLiteral(1., Unit::None))
     }
     Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::Rgb,
-            node.as_ref().map(|t| t.to_source_location()),
-        )),
+        function: BuiltinFunction::Rgb.into(),
         arguments,
         source_location: Some(node.to_source_location()),
     }
 }
 
 fn hsv_macro(
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.len() < 3 || args.len() > 4 {
         diag.push_error(
             format!("This function needs 3 or 4 arguments, but {} were provided", args.len()),
-            &node,
+            node,
         );
         return Expression::Invalid;
     }
@@ -271,23 +264,20 @@ fn hsv_macro(
         arguments.push(Expression::NumberLiteral(1., Unit::None))
     }
     Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::Hsv,
-            node.as_ref().map(|t| t.to_source_location()),
-        )),
+        function: BuiltinFunction::Hsv.into(),
         arguments,
         source_location: Some(node.to_source_location()),
     }
 }
 
 fn debug_macro(
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     let mut string = None;
     for (expr, node) in args {
-        let val = to_debug_string(expr, node, diag);
+        let val = to_debug_string(expr, &node, diag);
         string = Some(match string {
             None => val,
             Some(string) => Expression::BinaryExpression {
@@ -301,20 +291,16 @@ fn debug_macro(
             },
         });
     }
-    let sl = node.map(|node| node.to_source_location());
     Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::Debug,
-            sl.clone(),
-        )),
+        function: BuiltinFunction::Debug.into(),
         arguments: vec![string.unwrap_or_else(|| Expression::default_value_for_type(&Type::String))],
-        source_location: sl,
+        source_location: Some(node.to_source_location()),
     }
 }
 
 fn to_debug_string(
     expr: Expression,
-    node: Option<NodeOrToken>,
+    node: &dyn Spanned,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     let ty = expr.ty();
@@ -330,10 +316,10 @@ fn to_debug_string(
         | Type::LayoutCache
         | Type::Model
         | Type::PathData => {
-            diag.push_error("Cannot debug this expression".into(), &node);
+            diag.push_error("Cannot debug this expression".into(), node);
             Expression::Invalid
         }
-        Type::Float32 | Type::Int32 => expr.maybe_convert_to(Type::String, &node, diag),
+        Type::Float32 | Type::Int32 => expr.maybe_convert_to(Type::String, node, diag),
         Type::String => expr,
         // TODO
         Type::Color | Type::Brush | Type::Image | Type::Easing | Type::Array(_) => {
@@ -349,7 +335,7 @@ fn to_debug_string(
             lhs: Box::new(
                 Expression::Cast { from: Box::new(expr), to: Type::Float32 }.maybe_convert_to(
                     Type::String,
-                    &node,
+                    node,
                     diag,
                 ),
             ),
@@ -383,7 +369,7 @@ fn to_debug_string(
                         }),
                         name: k.clone(),
                     },
-                    node.clone(),
+                    node,
                     diag,
                 );
                 let field = Expression::BinaryExpression {

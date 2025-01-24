@@ -67,7 +67,7 @@ fn lower_timer(
         triggered: NamedReference::new(timer_element, SmolStr::new_static("triggered")),
     });
     let update_timers = Expression::FunctionCall {
-        function: Expression::BuiltinFunctionReference(BuiltinFunction::UpdateTimers, None).into(),
+        function: BuiltinFunction::UpdateTimers.into(),
         arguments: vec![],
         source_location: None,
     };

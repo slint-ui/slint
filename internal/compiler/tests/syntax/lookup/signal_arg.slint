@@ -23,12 +23,11 @@ export Xxx := Rectangle {
 //      ^error{The expression is not a function}
 //                ^^error{Unknown unqualified identifier 'fff'}
         (plop)("45", #fff, 42);
-//       ^error{'plop' must be called. Did you forgot the '\(\)'\?}
+//       ^error{Callback must be called. Did you forgot the '\(\)'\?}
         (root.plop)("45", #fff, 42);
-//       ^error{'root.plop' must be called. Did you forgot the '\(\)'\?}
+//       ^error{Callback must be called. Did you forgot the '\(\)'\?}
         (root.plop)("45", #fff, "45");
-//       ^error{'root.plop' must be called. Did you forgot the '\(\)'\?}
-//                              ^^error{Cannot convert string to int}
+//       ^error{Callback must be called. Did you forgot the '\(\)'\?}
     }
 
     x: 12phx;
