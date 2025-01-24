@@ -1040,7 +1040,8 @@ impl Expression {
             Expression::FunctionCall { function, arguments, .. } => {
                 let is_const = match function {
                     Callable::Builtin(b) => b.is_const(),
-                    Callable::Callback(nr) | Callable::Function(nr) => nr.is_constant(),
+                    Callable::Function(nr) => nr.is_constant(),
+                    Callable::Callback(..) => false,
                 };
                 is_const && arguments.iter().all(|a| a.is_constant())
             }
