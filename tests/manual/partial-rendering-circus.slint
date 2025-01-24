@@ -25,4 +25,17 @@ export component AppWindow inherits Window {
         drop-shadow-offset-y: 5px;
         drop-shadow-color: red;
     }
+
+    Text {
+        x: 10px + mod(animation-tick(), 5s) / 5s * 100px;
+        y: 40px;
+        width: 40px;
+        height: 30px;
+        text: "This is a long piece\nof text that\nwill render out of\nthe bounds.";
+
+        Rectangle {
+            border-width: 1px;
+            border-color: green;
+        }
+    }
 }

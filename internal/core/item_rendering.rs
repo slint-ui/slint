@@ -11,12 +11,13 @@ use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect,
-    LogicalSize, LogicalVector,
+    LogicalSize, LogicalVector, SizeLengths,
 };
 use crate::properties::PropertyTracker;
-use crate::window::WindowInner;
+use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Coord, SharedString};
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 #[cfg(feature = "std")]
@@ -322,6 +323,29 @@ pub trait RenderText {
     fn overflow(self: Pin<&Self>) -> TextOverflow;
     fn letter_spacing(self: Pin<&Self>) -> LogicalLength;
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
+
+    fn text_bounding_rect(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        mut geometry: euclid::Rect<f32, crate::lengths::LogicalPx>,
+    ) -> euclid::Rect<f32, crate::lengths::LogicalPx> {
+        let window_inner = WindowInner::from_pub(window_adapter.window());
+        let text_string = self.text();
+        let font_request = self.font_request(window_inner);
+        let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
+        let max_width = geometry.size.width_length();
+        geometry.size = window_adapter
+            .renderer()
+            .text_size(
+                font_request.clone(),
+                text_string.as_str(),
+                Some(max_width.cast()),
+                scale_factor,
+                self.wrap(),
+            )
+            .cast();
+        geometry
+    }
 }
 
 /// Trait used to render each items.
@@ -557,14 +581,17 @@ impl CachedItemGeometryAndTransform {
         }
     }
 
-    fn new<T: ItemRendererFeatures>(item_rc: &ItemRc) -> Self {
+    fn new<T: ItemRendererFeatures>(
+        item_rc: &ItemRc,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> Self {
         let geometry = item_rc.geometry();
 
         if is_clipping_item(item_rc.borrow()) {
             return Self::ClipItem { geometry };
         }
 
-        let bounding_rect = item_rc.bounding_rect_for_geometry(&geometry);
+        let bounding_rect = item_rc.bounding_rect_for_geometry(&geometry, window_adapter);
 
         if let Some(complex_child_transform) =
             T::SUPPORTS_TRANSFORMATIONS.then(|| item_rc.children_transform()).flatten()
@@ -727,16 +754,18 @@ pub struct PartialRenderer<'a, T> {
     pub dirty_region: DirtyRegion,
     /// The actual renderer which the drawing call will be forwarded to
     pub actual_renderer: T,
+    window_adapter: Rc<dyn WindowAdapter>,
 }
 
-impl<'a, T: ItemRendererFeatures> PartialRenderer<'a, T> {
+impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     /// Create a new PartialRenderer
     pub fn new(
         cache: &'a RefCell<PartialRenderingCache>,
         initial_dirty_region: DirtyRegion,
         actual_renderer: T,
     ) -> Self {
-        Self { cache, dirty_region: initial_dirty_region, actual_renderer }
+        let window_adapter = actual_renderer.window().window_adapter();
+        Self { cache, dirty_region: initial_dirty_region, actual_renderer, window_adapter }
     }
 
     /// Visit the tree of item and compute what are the dirty regions
@@ -785,7 +814,10 @@ impl<'a, T: ItemRendererFeatures> PartialRenderer<'a, T> {
                             let old_geom = cached_geom.clone();
                             drop(borrowed);
                             let new_geom = crate::properties::evaluate_no_tracking(|| {
-                                CachedItemGeometryAndTransform::new::<T>(&item_rc)
+                                CachedItemGeometryAndTransform::new::<T>(
+                                    &item_rc,
+                                    &self.window_adapter,
+                                )
                             });
 
                             self.mark_dirty_rect(
@@ -862,7 +894,10 @@ impl<'a, T: ItemRendererFeatures> PartialRenderer<'a, T> {
                     _ => {
                         drop(borrowed);
                         let bounding_rect = crate::properties::evaluate_no_tracking(|| {
-                            let geom = CachedItemGeometryAndTransform::new::<T>(&item_rc);
+                            let geom = CachedItemGeometryAndTransform::new::<T>(
+                                &item_rc,
+                                &self.window_adapter,
+                            );
 
                             new_state
                                 .adjust_transforms_for_child(&geom.transform(), &geom.transform());
@@ -948,7 +983,7 @@ macro_rules! forward_rendering_call {
             let mut ret = None;
             Self::do_rendering(&self.cache, &obj.cached_rendering_data, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size));
-                CachedItemGeometryAndTransform::new::<T>(&item_rc)
+                CachedItemGeometryAndTransform::new::<T>(&item_rc, &self.window_adapter)
             });
             ret.unwrap_or_default()
         }
@@ -961,7 +996,7 @@ macro_rules! forward_rendering_call2 {
             let mut ret = None;
             Self::do_rendering(&self.cache, &cache, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size, &cache));
-                CachedItemGeometryAndTransform::new::<T>(&item_rc)
+                CachedItemGeometryAndTransform::new::<T>(&item_rc, &self.window_adapter)
             });
             ret.unwrap_or_default()
         }
@@ -973,7 +1008,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
         let item = item_rc.borrow();
         let eval = || {
             // registers dependencies on the geometry and clip properties.
-            CachedItemGeometryAndTransform::new::<T>(item_rc)
+            CachedItemGeometryAndTransform::new::<T>(item_rc, &self.window_adapter)
         };
 
         let rendering_data = item.cached_rendering_data_offset();

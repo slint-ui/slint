@@ -157,6 +157,7 @@ impl Item for NativeTableHeaderSection {
 
     fn bounding_rect_for_geometry(
         self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
