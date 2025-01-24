@@ -176,27 +176,6 @@ impl<'a> GLItemRenderer<'a> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
     }
-
-    /// Draws a `Rectangle` using the `GLItemRenderer`.
-    pub fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
-        let geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
-            return;
-        }
-        if self.global_alpha_transparent() {
-            return;
-        }
-        // TODO: cache path in item to avoid re-tesselation
-        let path = rect_to_path(geometry);
-        let paint = match self.brush_to_paint(brush, &path) {
-            Some(paint) => paint,
-            None => return,
-        }
-        // Since we're filling a straight rectangle with either color or gradient, save
-        // the extra stroke triangle strip around the edges
-        .with_anti_alias(false);
-        self.canvas.borrow_mut().fill_path(&path, &paint);
-    }
 }
 
 impl<'a> ItemRenderer for GLItemRenderer<'a> {
@@ -1033,6 +1012,27 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.fill_path(&path, &fill_paint);
         })
+    }
+
+    /// Draws a `Rectangle` using the `GLItemRenderer`.
+    fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
+        let geometry = PhysicalRect::from(size * self.scale_factor);
+        if geometry.is_empty() {
+            return;
+        }
+        if self.global_alpha_transparent() {
+            return;
+        }
+        // TODO: cache path in item to avoid re-tesselation
+        let path = rect_to_path(geometry);
+        let paint = match self.brush_to_paint(brush, &path) {
+            Some(paint) => paint,
+            None => return,
+        }
+        // Since we're filling a straight rectangle with either color or gradient, save
+        // the extra stroke triangle strip around the edges
+        .with_anti_alias(false);
+        self.canvas.borrow_mut().fill_path(&path, &paint);
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {
