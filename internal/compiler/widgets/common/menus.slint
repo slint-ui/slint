@@ -55,7 +55,7 @@ export component PopupMenuImpl inherits Window {
         }
     }
 
-    subMenu := ContextMenu {
+    subMenu := ContextMenuInternal {
         x: 0; y: 0; width: 0; height: 0;
         sub-menu(entry) => { root.sub-menu(entry); }
         activated(entry) => { root.activated(entry); }
@@ -106,7 +106,7 @@ export component MenuBarImpl {
     }
 
 
-    cm := ContextMenu {
+    cm := ContextMenuInternal {
         activated(entry) => { root.activated(entry); }
         sub-menu(entry) => { root.sub-menu(entry); }
     }

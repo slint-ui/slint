@@ -12,9 +12,14 @@
 //! ```slint
 //! Window {
 //!      menu-bar := MenuBar {
-//!           entries: [...]
-//!           sub-menu => ...
-//!           activated => ...
+//!           MenuItem {
+//!             title: "A";
+//!             activated => { ... }
+//!           }
+//!           MenuItem {
+//!               title: "B";
+//!               MenuItem { title: "C"; }
+//!           }
 //!      }
 //!      content := ...
 //! }
@@ -23,9 +28,9 @@
 //! ```slint
 //! Window {
 //!     menu-bar := VerticalLayout {
-//!        property <[MenuEntry]> entries : ...
-//!        callback sub-menu => { ... }
-//!        callback activated => { ... }
+//!        property <[MenuEntry]> entries : [ { id: "1", title: "A" }, { id: "2", title: "B", has-sub-menu: true } ];
+//!        callback sub-menu(entry: MenuEntry) => { if(entry.id == "2") { return [ { id: "3", title: "C" } ]; } else { return []; } }
+//!        callback activated() => { if (entry.id == "2") { ... } }
 //!        if !Builtin.supports_native_menu_bar() : MenuBarImpl {
 //!           entries: parent.entries
 //!           sub-menu(..) => { parent.sub-menu(..) }
@@ -42,7 +47,7 @@
 //! }
 //! ```
 //!
-//! ## ContextMenu
+//! ## ContextMenuInternal
 //!
 //! ```slint
 //! menu := ContextMenu {
@@ -64,8 +69,10 @@
 //!    callback show(point) => { Builtin.show_context_menu(entries, sub-menu, activated, point) }
 //! }
 //!
+//! ## ContextMenu
 //!
-//!
+//! This is the same as ContextMenuInternal, but entries, sub-menu, and activated are generated
+//! from the MenuItem similar to MenuBar
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
@@ -85,6 +92,7 @@ const SHOW: &str = "show";
 struct UsefulMenuComponents {
     menubar_impl: ElementType,
     vertical_layout: ElementType,
+    context_menu_internal: ElementType,
     empty: ElementType,
     menu_entry: Type,
 }
@@ -103,6 +111,11 @@ pub async fn lower_menus(
         .expect("MenuBarImpl should be in std-widgets.slint");
     let useful_menu_component = UsefulMenuComponents {
         menubar_impl: menubar_impl.clone().into(),
+        context_menu_internal: type_loader
+            .global_type_registry
+            .borrow()
+            .lookup_builtin_element("ContextMenuInternal")
+            .expect("ContextMenu is a builtin type"),
         vertical_layout: type_loader
             .global_type_registry
             .borrow()
@@ -120,7 +133,7 @@ pub async fn lower_menus(
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "Window") {
                 has_menu |= process_window(elem, &useful_menu_component, diag);
             }
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "ContextMenu") {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenu" | "ContextMenuInternal")) {
                 has_menu |= process_context_menu(elem, &useful_menu_component, diag);
             }
         })
@@ -144,7 +157,8 @@ pub async fn lower_menus(
         }
 
         recurse_elem_including_sub_components_no_borrow(&popup_menu_impl, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "ContextMenu") {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenu" | "ContextMenuInternal"))
+            {
                 process_context_menu(elem, &useful_menu_component, diag);
             }
         });
@@ -157,27 +171,43 @@ fn process_context_menu(
     components: &UsefulMenuComponents,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    // Lower MenuItem's into entries
-    let menu_item = context_menu_elem
-        .borrow()
-        .base_type
-        .as_builtin()
-        .additional_accepted_child_types
-        .get("MenuItem")
-        .expect("ContextMenu should accept MenuItem")
-        .clone()
-        .into();
-    let mut items = vec![];
-    context_menu_elem.borrow_mut().children.retain(|x| {
-        if x.borrow().base_type == menu_item {
-            items.push(x.clone());
-            false
-        } else {
-            true
+    let is_internal = matches!(&context_menu_elem.borrow().base_type, ElementType::Builtin(b) if b.name == "ContextMenuInternal");
+
+    if !is_internal {
+        // Lower MenuItem's into entries
+        let menu_item = context_menu_elem
+            .borrow()
+            .base_type
+            .as_builtin()
+            .additional_accepted_child_types
+            .get("MenuItem")
+            .expect("ContextMenu should accept MenuItem")
+            .clone()
+            .into();
+
+        context_menu_elem.borrow_mut().base_type = components.context_menu_internal.clone();
+
+        let mut items = vec![];
+        context_menu_elem.borrow_mut().children.retain(|x| {
+            if x.borrow().base_type == menu_item {
+                items.push(x.clone());
+                false
+            } else {
+                true
+            }
+        });
+        if !items.is_empty() {
+            lower_menu_items(context_menu_elem, items, &components.menu_entry, diag);
         }
-    });
-    if !items.is_empty() {
-        lower_menu_items(context_menu_elem, items, &components.menu_entry, diag);
+
+        for (name, _) in &components.context_menu_internal.property_list() {
+            if let Some(decl) = context_menu_elem.borrow().property_declarations.get(name) {
+                diag.push_error(
+                    format!("Cannot re-define internal property '{}'", name),
+                    &decl.node,
+                );
+            }
+        }
     }
 
     // Materialize the entries property
@@ -219,11 +249,6 @@ fn process_window(
     components: &UsefulMenuComponents,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    /*  if matches!(&elem.borrow_mut().base_type, ElementType::Builtin(_)) {
-        // That's the TabWidget re-exported from the style, it doesn't need to be processed
-        return;
-    }*/
-
     let mut window = win.borrow_mut();
     let mut menu_bar = None;
     window.children.retain(|x| {
@@ -319,7 +344,12 @@ fn process_window(
             .borrow_mut()
             .property_declarations
             .insert(prop.into(), PropertyDeclaration { property_type: ty, ..Default::default() });
-        assert!(old.is_none(), "{prop} already exists");
+        if let Some(old) = old {
+            diag.push_error(
+                format!("Cannot re-define internal property '{}'", prop),
+                &old.node,
+            );
+        }
     }
 
     // Transform the MenuBar in a layout
@@ -471,7 +501,7 @@ fn generate_menu_entries(
         let id_str = format_smolstr!("{}", state.id);
         values.insert(SmolStr::new_static("id"), Expression::StringLiteral(id_str.clone()));
 
-        if let Some(callback) = borrow_mut.bindings.remove("activated") {
+        if let Some(callback) = borrow_mut.bindings.remove(ACTIVATED) {
             state.activate.push((id_str.clone(), callback.into_inner().expression));
         }
 
