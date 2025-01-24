@@ -350,21 +350,6 @@ impl<'a> SkiaItemRenderer<'a> {
         })
     }
 
-    /// Draws a `Rectangle` using the `GLItemRenderer`.
-    pub fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
-        let geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
-            return;
-        }
-
-        let paint =
-            match self.brush_to_paint(brush, geometry.width_length(), geometry.height_length()) {
-                Some(paint) => paint,
-                None => return,
-            };
-        self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
-    }
-
     fn pixel_align_origin(&self) -> Option<skia_safe::canvas::AutoRestoredCanvas<'_>> {
         let local_to_device = self.canvas.local_to_device_as_3x3();
         let Some(device_to_local) = local_to_device.invert() else {
@@ -941,6 +926,20 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             skia_safe::Point::default(),
             self.default_paint().as_ref(),
         );
+    }
+
+    fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
+        let geometry = PhysicalRect::from(size * self.scale_factor);
+        if geometry.is_empty() {
+            return;
+        }
+
+        let paint =
+            match self.brush_to_paint(brush, geometry.width_length(), geometry.height_length()) {
+                Some(paint) => paint,
+                None => return,
+            };
+        self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {
