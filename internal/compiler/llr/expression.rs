@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{PropertyReference, SubComponentIndex};
+use super::{GlobalIndex, PropertyReference, SubComponentIndex};
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
 use crate::layout::Orientation;
@@ -482,7 +482,7 @@ impl<'a, T> ParentCtx<'a, T> {
 pub struct EvaluationContext<'a, T = ()> {
     pub compilation_unit: &'a super::CompilationUnit,
     pub current_sub_component: Option<SubComponentIndex>,
-    pub current_global: Option<&'a super::GlobalComponent>,
+    pub current_global: Option<GlobalIndex>,
     pub generator_state: T,
     /// The repeater parent
     pub parent: Option<ParentCtx<'a, T>>,
@@ -510,7 +510,7 @@ impl<'a, T> EvaluationContext<'a, T> {
 
     pub fn new_global(
         compilation_unit: &'a super::CompilationUnit,
-        global: &'a super::GlobalComponent,
+        global: GlobalIndex,
         generator_state: T,
     ) -> Self {
         Self {
@@ -604,7 +604,7 @@ impl<'a, T> EvaluationContext<'a, T> {
 
         match prop {
             PropertyReference::Local { property_index, .. } => {
-                if let Some(g) = self.current_global {
+                if let Some(g) = self.current_global() {
                     return PropertyInfoResult {
                         analysis: Some(&g.prop_analysis[*property_index]),
                         binding: g.init_values[*property_index]
@@ -674,6 +674,10 @@ impl<'a, T> EvaluationContext<'a, T> {
     pub fn current_sub_component(&self) -> Option<&super::SubComponent> {
         self.current_sub_component.and_then(|i| self.compilation_unit.sub_components.get(i))
     }
+
+    pub fn current_global(&self) -> Option<&super::GlobalComponent> {
+        self.current_global.and_then(|i| self.compilation_unit.globals.get(i))
+    }
 }
 
 impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
@@ -686,7 +690,7 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
                             [sub_component.sub_components[*i].ty];
                     }
                     &sub_component.properties[*property_index].ty
-                } else if let Some(current_global) = self.current_global {
+                } else if let Some(current_global) = self.current_global() {
                     &current_global.properties[*property_index].ty
                 } else {
                     unreachable!()
@@ -723,7 +727,7 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
                             [sub_component.sub_components[*i].ty];
                     }
                     &sub_component.functions[*function_index].ret_ty
-                } else if let Some(current_global) = self.current_global {
+                } else if let Some(current_global) = self.current_global() {
                     &current_global.functions[*function_index].ret_ty
                 } else {
                     unreachable!()
@@ -755,7 +759,7 @@ pub(crate) struct PropertyInfoResult<'a> {
 pub(crate) enum ContextMap {
     Identity,
     InSubElement { path: Vec<usize>, parent: usize },
-    InGlobal(usize),
+    InGlobal(GlobalIndex),
 }
 
 impl ContextMap {
@@ -861,11 +865,7 @@ impl ContextMap {
                     EvaluationContext::new_sub_component(ctx.compilation_unit, e, (), None)
                 }
             }
-            ContextMap::InGlobal(g) => EvaluationContext::new_global(
-                ctx.compilation_unit,
-                &ctx.compilation_unit.globals[*g],
-                (),
-            ),
+            ContextMap::InGlobal(g) => EvaluationContext::new_global(ctx.compilation_unit, *g, ()),
         }
     }
 }

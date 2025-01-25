@@ -794,11 +794,11 @@ pub fn generate(
         }),
     ));
 
-    for glob in &llr.globals {
+    for (idx, glob) in llr.globals.iter().enumerate() {
         let ty = if glob.is_builtin {
             format_smolstr!("slint::cbindgen_private::{}", glob.name)
         } else if glob.must_generate() {
-            generate_global(&mut file, &conditional_includes, glob, &llr);
+            generate_global(&mut file, &conditional_includes, idx, glob, &llr);
             file.definitions.extend(glob.aliases.iter().map(|name| {
                 Declaration::TypeAlias(TypeAlias {
                     old_name: ident(&glob.name),
@@ -2555,6 +2555,7 @@ fn generate_repeated_component(
 fn generate_global(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
+    global_idx: llr::GlobalIndex,
     global: &llr::GlobalComponent,
     root: &llr::CompilationUnit,
 ) {
@@ -2587,7 +2588,7 @@ fn generate_global(
     let mut init = vec!["(void)this->globals;".into()];
     let ctx = EvaluationContext::new_global(
         root,
-        global,
+        global_idx,
         CppGeneratorContext { global_access: "this->globals".into(), conditional_includes },
     );
 
@@ -2918,7 +2919,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 );
                 let property_name = ident(&sub_component.properties[*property_index].name);
                 format!("self->{}{}", compo_path, property_name)
-            } else if let Some(current_global) = ctx.current_global {
+            } else if let Some(current_global) = ctx.current_global() {
                 format!("this->{}", ident(&current_global.properties[*property_index].name))
             } else {
                 unreachable!()
@@ -2933,7 +2934,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 );
                 let name = ident(&sub_component.functions[*function_index].name);
                 format!("self->{compo_path}fn_{name}")
-            } else if let Some(current_global) = ctx.current_global {
+            } else if let Some(current_global) = ctx.current_global() {
                 format!("this->fn_{}", ident(&current_global.functions[*function_index].name))
             } else {
                 unreachable!()

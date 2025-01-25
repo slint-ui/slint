@@ -24,8 +24,8 @@ pub fn count_property_use(root: &CompilationUnit) {
             visit_property(&p.prop, &root_ctx);
         }
     }
-    for g in root.globals.iter().filter(|g| g.exported) {
-        let ctx = EvaluationContext::new_global(root, g, ());
+    for (idx, g) in root.globals.iter().enumerate().filter(|(_, g)| g.exported) {
+        let ctx = EvaluationContext::new_global(root, idx, ());
         for p in g.public_properties.iter().filter(|p| {
             !matches!(
                 p.prop,
@@ -136,8 +136,8 @@ pub fn count_property_use(root: &CompilationUnit) {
     });
 
     // TODO: only visit used function
-    for g in root.globals.iter() {
-        let ctx = EvaluationContext::new_global(root, g, ());
+    for (idx, g) in root.globals.iter().enumerate() {
+        let ctx = EvaluationContext::new_global(root, idx, ());
         for f in &g.functions {
             f.code.visit_property_references(&ctx, &mut visit_property);
         }
