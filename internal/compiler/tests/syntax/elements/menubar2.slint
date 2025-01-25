@@ -7,7 +7,7 @@ export component MyMenu inherits MenuBar {
 }
 
 export component A inherits Window {
-    MenuBar {
+    mb := MenuBar {
         Rectangle {}
 //      ^error{Rectangle is not allowed within MenuBar. Only MenuItem are valid children}
         x: 45px;
@@ -15,6 +15,7 @@ export component A inherits Window {
         width: 45px;
 //      ^error{Unknown property width in MenuBar}
         entries: [];
+//      ^error{Unknown property entries in MenuBar}
         init => {}
 //      ^error{'init' is not a callback in MenuBar}
 
@@ -31,7 +32,10 @@ export component A inherits Window {
             }
 
             MenuItem {
-
+                activated => {
+                        mb.activated({});
+//                         ^error{Element 'MenuBar' does not have a property 'activated'}
+                }
             }
 
         }

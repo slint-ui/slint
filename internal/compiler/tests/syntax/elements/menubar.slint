@@ -4,6 +4,11 @@
 
 export component A inherits Window {
     mb := MenuBar {
+        property <int> sub-menu: 45;
+//      ^error{Cannot re-define internal property 'sub-menu}
+
+        property <int> entries: 0;
+//      ^error{Cannot re-define internal property 'entries'}
     }
     MenuBar {
 //  ^error{Only one MenuBar is allowed in a Window}

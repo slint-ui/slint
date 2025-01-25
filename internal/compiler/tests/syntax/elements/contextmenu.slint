@@ -7,6 +7,19 @@ export component A  {
 //      ^error{'show' is not a callback in ContextMenu}
             debug("hello");
         }
+
+        MenuItem {
+        }
+
+        property <int> entries: 45;
+//      ^error{Cannot re-define internal property 'entries'}
+        property <int> sub-menu: 45;
+//      ^error{Cannot re-define internal property 'sub-menu'}
+        property <string> activated: "me";
+//      ^error{Cannot re-define internal property 'activated'}
+
+        property <string> xyz: "me";
+
     }
 }
 
