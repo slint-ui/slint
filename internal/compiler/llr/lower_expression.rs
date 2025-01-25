@@ -65,7 +65,7 @@ impl super::TypeResolutionContext for ExpressionContext<'_> {
 
 pub fn lower_expression(
     expression: &tree_Expression,
-    ctx: &ExpressionContext<'_>,
+    ctx: &mut ExpressionContext<'_>,
 ) -> llr_Expression {
     match expression {
         tree_Expression::Invalid => {
@@ -130,9 +130,7 @@ pub fn lower_expression(
                         *as_model = false;
                     }
                     #[cfg(feature = "bundle-translations")]
-                    if let Some(mut translation_builder) =
-                        ctx.state.translation_builder.as_ref().map(|x| x.borrow_mut())
-                    {
+                    if let Some(translation_builder) = ctx.state.translation_builder.as_mut() {
                         return translation_builder.lower_translate_call(arguments);
                     }
                 }
@@ -225,7 +223,7 @@ fn lower_assignment(
     lhs: &tree_Expression,
     rhs: &tree_Expression,
     op: char,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
 ) -> llr_Expression {
     match lhs {
         tree_Expression::PropertyReference(nr) => {
@@ -356,7 +354,7 @@ fn repeater_special_property(
     llr_Expression::PropertyReference(r)
 }
 
-fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Expression {
+fn lower_show_popup(args: &[tree_Expression], ctx: &mut ExpressionContext) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
@@ -392,7 +390,7 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
     }
 }
 
-fn lower_close_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Expression {
+fn lower_close_popup(args: &[tree_Expression], ctx: &mut ExpressionContext) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
@@ -424,8 +422,8 @@ fn lower_close_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_E
     }
 }
 
-pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> Animation {
-    fn lower_animation_element(a: &ElementRc, ctx: &ExpressionContext<'_>) -> llr_Expression {
+pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionContext<'_>) -> Animation {
+    fn lower_animation_element(a: &ElementRc, ctx: &mut ExpressionContext<'_>) -> llr_Expression {
         llr_Expression::Struct {
             values: animation_fields()
                 .map(|(k, ty)| {
@@ -522,7 +520,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
 fn compute_layout_info(
     l: &crate::layout::Layout,
     o: Orientation,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
 ) -> llr_Expression {
     match l {
         crate::layout::Layout::GridLayout(layout) => {
@@ -567,7 +565,7 @@ fn compute_layout_info(
 fn solve_layout(
     l: &crate::layout::Layout,
     o: Orientation,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
 ) -> llr_Expression {
     match l {
         crate::layout::Layout::GridLayout(layout) => {
@@ -700,7 +698,7 @@ struct BoxLayoutDataResult {
 fn box_layout_data(
     layout: &crate::layout::BoxLayout,
     orientation: Orientation,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
 ) -> BoxLayoutDataResult {
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
@@ -765,7 +763,7 @@ fn box_layout_data(
 fn grid_layout_cell_data(
     layout: &crate::layout::GridLayout,
     orientation: Orientation,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
 ) -> llr_Expression {
     llr_Expression::Array {
         element_ty: grid_layout_cell_data_ty(),
@@ -841,7 +839,7 @@ fn layout_geometry_size(
 
 pub fn get_layout_info(
     elem: &ElementRc,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
 ) -> llr_Expression {
@@ -890,7 +888,10 @@ pub fn get_layout_info(
     }
 }
 
-fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) -> llr_Expression {
+fn compile_path(
+    path: &crate::expression_tree::Path,
+    ctx: &mut ExpressionContext,
+) -> llr_Expression {
     fn llr_path_elements(elements: Vec<llr_Expression>) -> llr_Expression {
         llr_Expression::Cast {
             from: llr_Expression::Array {

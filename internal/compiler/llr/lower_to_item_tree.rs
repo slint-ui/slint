@@ -22,13 +22,13 @@ pub fn lower_to_item_tree(
 
     #[cfg(feature = "bundle-translations")]
     if let Some(path) = &compiler_config.translation_path_bundle {
-        state.translation_builder = Some(std::cell::RefCell::new(
+        state.translation_builder = Some(
             super::translations::TranslationsBuilder::load_translations(
                 path,
                 compiler_config.translation_domain.as_deref().unwrap_or(""),
             )
             .map_err(|e| std::io::Error::other(format!("Cannot load bundled translation: {e}")))?,
-        ));
+        );
     }
 
     let mut globals = Vec::new();
@@ -105,7 +105,7 @@ pub fn lower_to_item_tree(
         has_debug_info: compiler_config.debug_info,
         popup_menu,
         #[cfg(feature = "bundle-translations")]
-        translations: state.translation_builder.take().map(|x| x.into_inner().result()),
+        translations: state.translation_builder.map(|x| x.result()),
     };
     super::optim_passes::run_passes(&root);
     Ok(root)
@@ -185,7 +185,7 @@ pub struct LoweringState {
     sub_components: Vec<LoweredSubComponent>,
     sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIndex>,
     #[cfg(feature = "bundle-translations")]
-    pub translation_builder: Option<std::cell::RefCell<super::translations::TranslationsBuilder>>,
+    pub translation_builder: Option<super::translations::TranslationsBuilder>,
 }
 
 impl LoweringState {
@@ -413,7 +413,7 @@ fn lower_sub_component(
             if let PropertyReference::Function { sub_component_path, function_index } = prop {
                 assert!(sub_component_path.is_empty());
                 sub_component.functions[function_index].code =
-                    super::lower_expression::lower_expression(&binding.expression, &ctx);
+                    super::lower_expression::lower_expression(&binding.expression, &mut ctx);
             } else {
                 unreachable!()
             }
@@ -425,14 +425,14 @@ fn lower_sub_component(
         }
         if !matches!(binding.expression, tree_Expression::Invalid) {
             let expression =
-                super::lower_expression::lower_expression(&binding.expression, &ctx).into();
+                super::lower_expression::lower_expression(&binding.expression, &mut ctx).into();
 
             let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
             let animation = binding
                 .animation
                 .as_ref()
                 .filter(|_| !is_constant)
-                .map(|a| super::lower_expression::lower_animation(a, &ctx));
+                .map(|a| super::lower_expression::lower_animation(a, &mut ctx));
 
             sub_component.prop_analysis.insert(
                 prop.clone(),
@@ -466,7 +466,7 @@ fn lower_sub_component(
             .map_or(true, |a| a.is_set || a.is_set_externally)
         {
             if let Some(anim) = binding.animation.as_ref() {
-                match super::lower_expression::lower_animation(anim, &ctx) {
+                match super::lower_expression::lower_animation(anim, &mut ctx) {
                     Animation::Static(anim) => {
                         sub_component.animations.insert(prop, anim);
                     }
@@ -480,7 +480,7 @@ fn lower_sub_component(
     sub_component.component_containers = component_container_data
         .into_iter()
         .map(|component_container| {
-            lower_component_container(&component_container, &sub_component, &ctx)
+            lower_component_container(&component_container, &sub_component, &mut ctx)
         })
         .collect();
     sub_component.repeated = repeated
@@ -499,7 +499,8 @@ fn lower_sub_component(
         .map(|popup| lower_popup_component(popup, &mut ctx, compiler_config))
         .collect();
 
-    sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
+    sub_component.timers =
+        component.timers.borrow().iter().map(|t| lower_timer(t, &mut ctx)).collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
@@ -515,19 +516,19 @@ fn lower_sub_component(
         .init_code
         .borrow()
         .iter()
-        .map(|e| super::lower_expression::lower_expression(e, &ctx).into())
+        .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
         .collect();
 
     sub_component.layout_info_h = super::lower_expression::get_layout_info(
         &component.root_element,
-        &ctx,
+        &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Horizontal,
     )
     .into();
     sub_component.layout_info_v = super::lower_expression::get_layout_info(
         &component.root_element,
-        &ctx,
+        &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
     )
@@ -568,8 +569,10 @@ fn lower_sub_component(
         .into_iter()
         .map(|(nr, exprs)| {
             let prop = ctx.map_property_reference(&nr);
-            let expr =
-                super::lower_expression::lower_expression(&tree_Expression::CodeBlock(exprs), &ctx);
+            let expr = super::lower_expression::lower_expression(
+                &tree_Expression::CodeBlock(exprs),
+                &mut ctx,
+            );
             (prop, expr.into())
         })
         .collect();
@@ -857,13 +860,13 @@ fn lower_global_expressions(
     // Note that this mapping doesn't contain anything useful, everything is in the state
     let mapping = LoweredSubComponentMapping::default();
     let inner = ExpressionContextInner { mapping: &mapping, parent: None, component: global };
-    let ctx = ExpressionContext { inner, state };
+    let mut ctx = ExpressionContext { inner, state };
 
     for (prop, binding) in &global.root_element.borrow().bindings {
         assert!(binding.borrow().two_way_bindings.is_empty());
         assert!(binding.borrow().animation.is_none());
         let expression =
-            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
+            super::lower_expression::lower_expression(&binding.borrow().expression, &mut ctx);
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
         let property_index = match ctx.state.global_properties[&nr] {
@@ -892,7 +895,7 @@ fn lower_global_expressions(
         };
         let expression = super::lower_expression::lower_expression(
             &tree_Expression::CodeBlock(expr.borrow().clone()),
-            &ctx,
+            &mut ctx,
         );
         lowered.change_callbacks.insert(property_index, expression.into());
     }
