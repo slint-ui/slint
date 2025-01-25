@@ -8,19 +8,11 @@ use itertools::Itertools;
 use crate::expression_tree::MinMaxOp;
 
 use super::{
-    CompilationUnit, EvaluationContext, Expression, ParentCtx, PropertyReference, SubComponent,
+    CompilationUnit, EvaluationContext, Expression, ParentCtx, PropertyReference, SubComponentIndex,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
     PrettyPrinter { writer, indentation: 0 }.print_root(root)
-}
-
-pub fn pretty_print_component(
-    root: &CompilationUnit,
-    component: &SubComponent,
-    writer: &mut dyn Write,
-) -> Result {
-    PrettyPrinter { writer, indentation: 0 }.print_component(root, component, None)
 }
 
 struct PrettyPrinter<'a> {
@@ -35,22 +27,21 @@ impl<'a> PrettyPrinter<'a> {
                 self.print_global(root, g)?;
             }
         }
-        for c in &root.sub_components {
+        for c in 0..root.sub_components.len() {
             self.print_component(root, c, None)?
         }
-        for p in &root.public_components {
-            self.print_component(root, &p.item_tree.root, None)?
-        }
+
         Ok(())
     }
 
     fn print_component(
         &mut self,
         root: &CompilationUnit,
-        sc: &SubComponent,
+        sc_idx: SubComponentIndex,
         parent: Option<ParentCtx<'_>>,
     ) -> Result {
-        let ctx = EvaluationContext::new_sub_component(root, sc, (), parent);
+        let ctx = EvaluationContext::new_sub_component(root, sc_idx, (), parent);
+        let sc = &root.sub_components[sc_idx];
         writeln!(self.writer, "component {} {{", sc.name)?;
         self.indentation += 1;
         for p in &sc.properties {
@@ -98,7 +89,7 @@ impl<'a> PrettyPrinter<'a> {
         }
         for ssc in &sc.sub_components {
             self.indent()?;
-            writeln!(self.writer, "{} := {} {{}};", ssc.name, ssc.ty.name)?;
+            writeln!(self.writer, "{} := {} {{}};", ssc.name, root.sub_components[ssc.ty].name)?;
         }
         for (item, geom) in std::iter::zip(&sc.items, &sc.geometries) {
             self.indent()?;
@@ -112,13 +103,13 @@ impl<'a> PrettyPrinter<'a> {
             write!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
             self.print_component(
                 root,
-                &r.sub_tree.root,
+                r.sub_tree.root,
                 Some(ParentCtx::new(&ctx, Some(idx as u32))),
             )?
         }
         for w in &sc.popup_windows {
             self.indent()?;
-            self.print_component(root, &w.item_tree.root, Some(ParentCtx::new(&ctx, None)))?
+            self.print_component(root, w.item_tree.root, Some(ParentCtx::new(&ctx, None)))?
         }
         self.indentation -= 1;
         self.indent()?;
@@ -196,19 +187,19 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                 if let Some(g) = ctx.current_global {
                     write!(f, "{}.{}", g.name, g.properties[*property_index].name)
                 } else {
-                    let mut sc = ctx.current_sub_component.unwrap();
+                    let mut sc = ctx.current_sub_component().unwrap();
                     for i in sub_component_path {
                         write!(f, "{}.", sc.sub_components[*i].name)?;
-                        sc = &sc.sub_components[*i].ty;
+                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
                     }
                     write!(f, "{}", sc.properties[*property_index].name)
                 }
             }
             PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-                let mut sc = ctx.current_sub_component.unwrap();
+                let mut sc = ctx.current_sub_component().unwrap();
                 for i in sub_component_path {
                     write!(f, "{}.", sc.sub_components[*i].name)?;
-                    sc = &sc.sub_components[*i].ty;
+                    sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
                 }
                 let i = &sc.items[*item_index as usize];
                 write!(f, "{}.{}", i.name, prop_name)
@@ -227,10 +218,10 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                 if let Some(g) = ctx.current_global {
                     write!(f, "{}.{}", g.name, g.functions[*function_index].name)
                 } else {
-                    let mut sc = ctx.current_sub_component.unwrap();
+                    let mut sc = ctx.current_sub_component().unwrap();
                     for i in sub_component_path {
                         write!(f, "{}.", sc.sub_components[*i].name)?;
-                        sc = &sc.sub_components[*i].ty;
+                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
                     }
                     write!(f, "{}", sc.functions[*function_index].name)
                 }

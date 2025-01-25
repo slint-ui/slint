@@ -387,6 +387,7 @@ mod plural_rule_parser {
                 compilation_unit: &crate::llr::CompilationUnit {
                     public_components: Vec::new(),
                     sub_components: Vec::new(),
+                    used_sub_components: Vec::new(),
                     globals: Vec::new(),
                     has_debug_info: false,
                     translations: None,

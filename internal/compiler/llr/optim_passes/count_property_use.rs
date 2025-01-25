@@ -14,7 +14,7 @@ pub fn count_property_use(root: &CompilationUnit) {
     // Visit the root properties that are used.
     // 1. the public properties
     for c in &root.public_components {
-        let root_ctx = EvaluationContext::new_sub_component(root, &c.item_tree.root, (), None);
+        let root_ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
         for p in c.public_properties.iter().filter(|p| {
             !matches!(
                 p.prop,
@@ -43,7 +43,7 @@ pub fn count_property_use(root: &CompilationUnit) {
                 PropertyReference::Local { sub_component_path, property_index } => {
                     let mut sc = sc;
                     for i in sub_component_path {
-                        sc = &sc.sub_components[*i].ty;
+                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
                     }
                     if sc.properties[*property_index].use_count.get() == 0 {
                         continue;
@@ -74,7 +74,7 @@ pub fn count_property_use(root: &CompilationUnit) {
 
                 let rep_ctx = EvaluationContext::new_sub_component(
                     root,
-                    &r.sub_tree.root,
+                    r.sub_tree.root,
                     (),
                     Some(ParentCtx::new(ctx, Some(idx as u32))),
                 );
@@ -83,7 +83,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
             for idx in r.data_prop.iter().chain(r.index_prop.iter()) {
                 // prevent optimizing model properties
-                let p = &r.sub_tree.root.properties[*idx];
+                let p = &root.sub_components[r.sub_tree.root].properties[*idx];
                 p.use_count.set(2);
             }
         }
@@ -121,7 +121,7 @@ pub fn count_property_use(root: &CompilationUnit) {
         for popup in &sc.popup_windows {
             let popup_ctx = EvaluationContext::new_sub_component(
                 root,
-                &popup.item_tree.root,
+                popup.item_tree.root,
                 (),
                 Some(ParentCtx::new(&ctx, None)),
             );
@@ -144,7 +144,7 @@ pub fn count_property_use(root: &CompilationUnit) {
     }
 
     if let Some(p) = &root.popup_menu {
-        let ctx = EvaluationContext::new_sub_component(&root, &p.item_tree.root, (), None);
+        let ctx = EvaluationContext::new_sub_component(&root, p.item_tree.root, (), None);
         visit_property(&p.entries, &ctx);
         visit_property(&p.sub_menu, &ctx);
         visit_property(&p.activated, &ctx);

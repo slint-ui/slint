@@ -179,9 +179,9 @@ pub fn generate(
     }
 
     let sub_compos = llr
-        .sub_components
+        .used_sub_components
         .iter()
-        .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, None, false))
+        .map(|sub_compo| generate_sub_component(*sub_compo, &llr, None, None, false))
         .collect::<Vec<_>>();
     let public_components =
         llr.public_components.iter().map(|p| generate_public_component(p, &llr));
@@ -251,13 +251,13 @@ fn generate_public_component(
     unit: &llr::CompilationUnit,
 ) -> TokenStream {
     let public_component_id = ident(&llr.name);
-    let inner_component_id = inner_component_id(&llr.item_tree.root);
+    let inner_component_id = inner_component_id(&unit.sub_components[llr.item_tree.root]);
 
     let component = generate_item_tree(&llr.item_tree, unit, None, None, false);
 
     let ctx = EvaluationContext {
         compilation_unit: unit,
-        current_sub_component: Some(&llr.item_tree.root),
+        current_sub_component: Some(llr.item_tree.root),
         current_global: None,
         generator_state: RustGeneratorContext {
             global_access: quote!(_self.globals.get().unwrap()),
@@ -668,17 +668,18 @@ fn public_api(
 
 /// Generate the rust code for the given component.
 fn generate_sub_component(
-    component: &llr::SubComponent,
+    component_idx: llr::SubComponentIndex,
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     index_property: Option<llr::PropertyIndex>,
     pinned_drop: bool,
 ) -> TokenStream {
+    let component = &root.sub_components[component_idx];
     let inner_component_id = inner_component_id(component);
 
     let ctx = EvaluationContext::new_sub_component(
         root,
-        component,
+        component_idx,
         RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
         parent_ctx,
     );
@@ -775,7 +776,8 @@ fn generate_sub_component(
             ParentCtx::new(&ctx, Some(idx)),
         ));
         let repeater_id = format_ident!("repeater{}", idx);
-        let rep_inner_component_id = self::inner_component_id(&repeated.sub_tree.root);
+        let rep_inner_component_id =
+            self::inner_component_id(&root.sub_components[repeated.sub_tree.root]);
 
         let mut model = compile_expression(&repeated.model.borrow(), &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
@@ -932,7 +934,8 @@ fn generate_sub_component(
 
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
-        let sub_component_id = self::inner_component_id(&sub.ty);
+        let sc = &root.sub_components[sub.ty];
+        let sub_component_id = self::inner_component_id(sc);
         let local_tree_index: u32 = sub.index_in_tree as _;
         let local_index_of_first_child: u32 = sub.index_of_first_child_in_tree as _;
         let global_access = &ctx.generator_state.global_access;
@@ -960,7 +963,7 @@ fn generate_sub_component(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
         );));
 
-        let sub_component_repeater_count = sub.ty.repeater_count();
+        let sub_component_repeater_count = sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
             let repeater_offset = sub.repeater_offset;
             let last_repeater = repeater_offset + sub_component_repeater_count - 1;
@@ -981,7 +984,7 @@ fn generate_sub_component(
             ));
         }
 
-        let sub_items_count = sub.ty.child_item_count();
+        let sub_items_count = sc.child_item_count(root);
         accessible_role_branch.push(quote!(
             #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
         ));
@@ -996,7 +999,7 @@ fn generate_sub_component(
         ));
         if sub_items_count > 1 {
             let range_begin = local_index_of_first_child;
-            let range_end = range_begin + sub_items_count - 2 + sub.ty.repeater_count();
+            let range_end = range_begin + sub_items_count - 2 + sc.repeater_count(root);
             accessible_role_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
             ));
@@ -1032,12 +1035,12 @@ fn generate_sub_component(
     }
 
     for (prop, expression) in &component.property_init {
-        if expression.use_count.get() > 0 && component.prop_used(prop) {
+        if expression.use_count.get() > 0 && component.prop_used(prop, root) {
             handle_property_init(prop, expression, &mut init, &ctx)
         }
     }
     for prop in &component.const_properties {
-        if component.prop_used(prop) {
+        if component.prop_used(prop, root) {
             let rust_property = access_member(prop, &ctx).unwrap();
             init.push(quote!(#rust_property.set_constant();))
         }
@@ -1045,7 +1048,7 @@ fn generate_sub_component(
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id =
-            self::inner_component_id(parent.ctx.current_sub_component.unwrap());
+            self::inner_component_id(parent.ctx.current_sub_component().unwrap());
         quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
     });
 
@@ -1493,13 +1496,13 @@ fn generate_item_tree(
     index_property: Option<llr::PropertyIndex>,
     is_popup_menu: bool,
 ) -> TokenStream {
-    let sub_comp = generate_sub_component(&sub_tree.root, root, parent_ctx, index_property, true);
-    let inner_component_id = self::inner_component_id(&sub_tree.root);
+    let sub_comp = generate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
+    let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
     let parent_component_type = parent_ctx
         .iter()
         .map(|parent| {
             let parent_component_id =
-                self::inner_component_id(parent.ctx.current_sub_component.unwrap());
+                self::inner_component_id(parent.ctx.current_sub_component().unwrap());
             quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
         })
         .collect::<Vec<_>>();
@@ -1521,7 +1524,7 @@ fn generate_item_tree(
 
     let parent_item_expression = parent_ctx.and_then(|parent| {
         parent.repeater_index.map(|idx| {
-            let sub_component_offset = parent.ctx.current_sub_component.unwrap().repeated[idx as usize].index_in_tree;
+            let sub_component_offset = parent.ctx.current_sub_component().unwrap().repeated[idx as usize].index_in_tree;
 
             quote!(if let Some((parent_component, parent_index)) = self
                 .parent
@@ -1538,14 +1541,15 @@ fn generate_item_tree(
     let mut item_array = vec![];
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
-        let (path, component) = follow_sub_component_path(&sub_tree.root, &node.sub_component_path);
+        let (path, component) =
+            follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
         if node.repeated || node.component_container {
             assert_eq!(node.children.len(), 0);
             let mut repeater_index = node.item_index;
-            let mut sub_component = &sub_tree.root;
+            let mut sub_component = &root.sub_components[sub_tree.root];
             for i in &node.sub_component_path {
                 repeater_index += sub_component.sub_components[*i].repeater_offset;
-                sub_component = &sub_component.sub_components[*i].ty;
+                sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
             }
             item_tree_array.push(quote!(
                 sp::ItemTreeNode::DynamicTree {
@@ -1756,14 +1760,15 @@ fn generate_repeated_component(
 
     let ctx = EvaluationContext {
         compilation_unit: unit,
-        current_sub_component: Some(&repeated.sub_tree.root),
+        current_sub_component: Some(repeated.sub_tree.root),
         current_global: None,
         generator_state: RustGeneratorContext { global_access: quote!(_self) },
         parent: Some(parent_ctx),
         argument_types: &[],
     };
 
-    let inner_component_id = self::inner_component_id(&repeated.sub_tree.root);
+    let root_sc = &unit.sub_components[repeated.sub_tree.root];
+    let inner_component_id = self::inner_component_id(&root_sc);
 
     let extra_fn = if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx).unwrap();
@@ -1791,7 +1796,7 @@ fn generate_repeated_component(
     };
 
     let data_type = if let Some(data_prop) = repeated.data_prop {
-        rust_primitive_type(&repeated.sub_tree.root.properties[data_prop].ty).unwrap()
+        rust_primitive_type(&root_sc.properties[data_prop].ty).unwrap()
     } else {
         quote!(())
     };
@@ -1884,8 +1889,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         prop_name: &str,
         path: TokenStream,
     ) -> TokenStream {
-        let (compo_path, sub_component) =
-            follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
+        let (compo_path, sub_component) = follow_sub_component_path(
+            ctx.compilation_unit,
+            ctx.current_sub_component.unwrap(),
+            sub_component_path,
+        );
         let component_id = inner_component_id(sub_component);
         let item_name = ident(&sub_component.items[item_index as usize].name);
         let item_field = access_component_field_offset(&component_id, &item_name);
@@ -1901,8 +1909,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
     match reference {
         llr::PropertyReference::Local { sub_component_path, property_index } => {
             if let Some(sub_component) = ctx.current_sub_component {
-                let (compo_path, sub_component) =
-                    follow_sub_component_path(sub_component, sub_component_path);
+                let (compo_path, sub_component) = follow_sub_component_path(
+                    ctx.compilation_unit,
+                    sub_component,
+                    sub_component_path,
+                );
                 let component_id = inner_component_id(sub_component);
                 let property_name = ident(&sub_component.properties[*property_index].name);
                 let property_field = access_component_field_offset(&component_id, &property_name);
@@ -1936,8 +1947,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             match &**parent_reference {
                 llr::PropertyReference::Local { sub_component_path, property_index } => {
                     let sub_component = ctx.current_sub_component.unwrap();
-                    let (compo_path, sub_component) =
-                        follow_sub_component_path(sub_component, sub_component_path);
+                    let (compo_path, sub_component) = follow_sub_component_path(
+                        ctx.compilation_unit,
+                        sub_component,
+                        sub_component_path,
+                    );
                     let component_id = inner_component_id(sub_component);
                     let property_name = ident(&sub_component.properties[*property_index].name);
                     MemberAccess::Option(
@@ -1959,14 +1973,15 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     MemberAccess::Option(quote!(#path.as_ref().map(|x| #in_native)))
                 }
                 llr::PropertyReference::Function { sub_component_path, function_index } => {
-                    let mut sub_component = ctx.current_sub_component.unwrap();
+                    let mut sub_component = ctx.current_sub_component().unwrap();
 
                     let mut compo_path = quote!(x.as_pin_ref());
                     for i in sub_component_path {
                         let component_id = inner_component_id(sub_component);
                         let sub_component_name = ident(&sub_component.sub_components[*i].name);
                         compo_path = quote!( #component_id::FIELD_OFFSETS.#sub_component_name.apply_pin(#compo_path));
-                        sub_component = &sub_component.sub_components[*i].ty;
+                        sub_component = &ctx.compilation_unit.sub_components
+                            [sub_component.sub_components[*i].ty];
                     }
                     let fn_id =
                         ident(&format!("fn_{}", sub_component.functions[*function_index].name));
@@ -1992,13 +2007,14 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             )
         }
         llr::PropertyReference::Function { sub_component_path, function_index } => {
-            if let Some(mut sub_component) = ctx.current_sub_component {
+            if let Some(mut sub_component) = ctx.current_sub_component() {
                 let mut compo_path = quote!(_self);
                 for i in sub_component_path {
                     let component_id = inner_component_id(sub_component);
                     let sub_component_name = ident(&sub_component.sub_components[*i].name);
                     compo_path = quote!( #component_id::FIELD_OFFSETS.#sub_component_name.apply_pin(#compo_path));
-                    sub_component = &sub_component.sub_components[*i].ty;
+                    sub_component =
+                        &ctx.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
                 }
                 let fn_id = ident(&format!("fn_{}", sub_component.functions[*function_index].name));
                 MemberAccess::Direct(quote!(#compo_path.#fn_id))
@@ -2087,16 +2103,17 @@ impl MemberAccess {
 }
 
 fn follow_sub_component_path<'a>(
-    root: &'a llr::SubComponent,
+    compilation_unit: &'a llr::CompilationUnit,
+    root: llr::SubComponentIndex,
     sub_component_path: &[usize],
 ) -> (TokenStream, &'a llr::SubComponent) {
     let mut compo_path = quote!();
-    let mut sub_component = root;
+    let mut sub_component = &compilation_unit.sub_components[root];
     for i in sub_component_path {
         let component_id = inner_component_id(sub_component);
         let sub_component_name = ident(&sub_component.sub_components[*i].name);
         compo_path = quote!(#compo_path {#component_id::FIELD_OFFSETS.#sub_component_name} +);
-        sub_component = &sub_component.sub_components[*i].ty;
+        sub_component = &compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
     (compo_path, sub_component)
 }
@@ -2128,12 +2145,13 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             assert!(prop_name.is_empty());
 
-            let root = ctx.current_sub_component.unwrap();
+            let root = ctx.current_sub_component().unwrap();
             let mut sub_component = root;
             for i in sub_component_path {
                 let sub_component_name = ident(&sub_component.sub_components[*i].name);
                 component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
-                sub_component = &sub_component.sub_components[*i].ty;
+                sub_component =
+                    &ctx.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
             }
             let component_rc_tokens = quote!(sp::VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
             let item_index_in_tree = sub_component.items[*item_index as usize].index_in_tree;
@@ -2325,7 +2343,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let repeater_index = repeater_index.unwrap();
             let mut index_prop = llr::PropertyReference::Local {
                 sub_component_path: vec![],
-                property_index: ctx2.current_sub_component.unwrap().repeated
+                property_index: ctx2.current_sub_component().unwrap().repeated
                     [repeater_index as usize]
                     .index_prop
                     .unwrap(),
@@ -2336,7 +2354,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             let index_access = access_member(&index_prop, ctx).get_property();
             let repeater = access_component_field_offset(
-                &inner_component_id(ctx2.current_sub_component.unwrap()),
+                &inner_component_id(ctx2.current_sub_component().unwrap()),
                 &format_ident!("repeater{}", repeater_index),
             );
             quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
@@ -2674,14 +2692,15 @@ fn compile_builtin_function_call(
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
                 }
-                let current_sub_component = parent_ctx.current_sub_component.unwrap();
+                let current_sub_component = parent_ctx.current_sub_component().unwrap();
                 let popup = &current_sub_component.popup_windows[*popup_index as usize];
-                let popup_window_id = inner_component_id(&popup.item_tree.root);
+                let popup_window_id =
+                    inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
                 let parent_component = access_item_rc(parent_ref, ctx);
 
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
-                    &popup.item_tree.root,
+                    popup.item_tree.root,
                     RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
                     Some(ParentCtx::new(&ctx, None)),
                 );
@@ -2750,12 +2769,13 @@ fn compile_builtin_function_call(
                 .popup_menu
                 .as_ref()
                 .expect("there should be a popup menu if we want to show it");
-            let popup_id = inner_component_id(&popup.item_tree.root);
+            let popup_id =
+                inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
             let window_adapter_tokens = access_window_adapter_field(ctx);
 
             let popup_ctx = EvaluationContext::new_sub_component(
                 ctx.compilation_unit,
-                &popup.item_tree.root,
+                popup.item_tree.root,
                 RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
                 None,
             );
@@ -3005,7 +3025,7 @@ fn compile_builtin_function_call(
             let entries = compile_expression(entries, ctx);
             let sub_menu = access_member(sub_menu, ctx).unwrap();
             let activated = access_member(activated, ctx).unwrap();
-            let inner_component_id = self::inner_component_id(ctx.current_sub_component.unwrap());
+            let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
             quote! {
                 if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
                     // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
@@ -3107,7 +3127,7 @@ fn box_layout_function(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeated_indices = repeated_indices.map(ident);
-    let inner_component_id = self::inner_component_id(ctx.current_sub_component.unwrap());
+    let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
     let mut fixed_count = 0usize;
     let mut repeated_count = quote!();
     let mut push_code = vec![];
@@ -3122,7 +3142,12 @@ fn box_layout_function(
             Either::Right(repeater) => {
                 let repeater_id = format_ident!("repeater{}", repeater);
                 let rep_inner_component_id = self::inner_component_id(
-                    &ctx.current_sub_component.unwrap().repeated[*repeater as usize].sub_tree.root,
+                    &ctx.compilation_unit.sub_components[ctx
+                        .current_sub_component()
+                        .unwrap()
+                        .repeated[*repeater as usize]
+                        .sub_tree
+                        .root],
                 );
                 repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
                 let ri = repeated_indices.as_ref().map(|ri| {
