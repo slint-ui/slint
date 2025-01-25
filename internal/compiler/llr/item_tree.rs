@@ -13,6 +13,8 @@ use std::rc::Rc;
 pub type PropertyIndex = usize;
 // Index in CompilationUint::sub_components
 pub type SubComponentIndex = usize;
+// Index in CompilationUnit::globas
+pub type GlobalIndex = usize;
 
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct MutExpression(RefCell<Expression>);
@@ -94,12 +96,12 @@ pub enum PropertyReference {
     /// The properties is a property relative to a parent ItemTree (`level` level deep)
     InParent { level: NonZeroUsize, parent_reference: Box<PropertyReference> },
     /// The property within a GlobalComponent
-    Global { global_index: usize, property_index: usize },
+    Global { global_index: GlobalIndex, property_index: usize },
 
     /// A function in a sub component.
     Function { sub_component_path: Vec<usize>, function_index: usize },
     /// A function in a global.
-    GlobalFunction { global_index: usize, function_index: usize },
+    GlobalFunction { global_index: GlobalIndex, function_index: usize },
 }
 
 #[derive(Debug, Default)]
@@ -437,8 +439,8 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
         });
-        for g in &self.globals {
-            let ctx = EvaluationContext::new_global(self, g, ());
+        for (idx, g) in self.globals.iter().enumerate() {
+            let ctx = EvaluationContext::new_global(self, idx, ());
             for e in g.init_values.iter().filter_map(|x| x.as_ref()) {
                 visitor(&e.expression, &ctx)
             }

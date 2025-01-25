@@ -199,8 +199,9 @@ pub fn generate(
     let globals = llr
         .globals
         .iter()
-        .filter(|glob| glob.must_generate())
-        .map(|glob| generate_global(glob, &llr));
+        .enumerate()
+        .filter(|(_, glob)| glob.must_generate())
+        .map(|(idx, glob)| generate_global(idx, glob, &llr));
     let shared_globals = generate_shared_globals(&llr, &compiler_config);
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
@@ -1327,7 +1328,11 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
         .collect()
 }
 
-fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -> TokenStream {
+fn generate_global(
+    global_idx: llr::GlobalIndex,
+    global: &llr::GlobalComponent,
+    root: &llr::CompilationUnit,
+) -> TokenStream {
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_callbacks = vec![];
@@ -1361,7 +1366,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
 
     let ctx = EvaluationContext::new_global(
         root,
-        global,
+        global_idx,
         RustGeneratorContext {
             global_access: quote!(_self.globals.get().unwrap().upgrade().unwrap()),
         },
@@ -1918,7 +1923,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 let property_name = ident(&sub_component.properties[*property_index].name);
                 let property_field = access_component_field_offset(&component_id, &property_name);
                 MemberAccess::Direct(quote!((#compo_path #property_field).apply_pin(_self)))
-            } else if let Some(current_global) = ctx.current_global {
+            } else if let Some(current_global) = ctx.current_global() {
                 let global_name = global_inner_name(current_global);
                 let property_name = ident(&current_global.properties[*property_index].name);
                 let property_field = quote!({ *&#global_name::FIELD_OFFSETS.#property_name });
@@ -2018,7 +2023,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 }
                 let fn_id = ident(&format!("fn_{}", sub_component.functions[*function_index].name));
                 MemberAccess::Direct(quote!(#compo_path.#fn_id))
-            } else if let Some(current_global) = ctx.current_global {
+            } else if let Some(current_global) = ctx.current_global() {
                 let fn_id =
                     ident(&format!("fn_{}", current_global.functions[*function_index].name));
                 MemberAccess::Direct(quote!(_self.#fn_id))

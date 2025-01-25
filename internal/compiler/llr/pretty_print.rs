@@ -22,9 +22,9 @@ struct PrettyPrinter<'a> {
 
 impl<'a> PrettyPrinter<'a> {
     fn print_root(&mut self, root: &CompilationUnit) -> Result {
-        for g in &root.globals {
+        for (idx, g) in root.globals.iter().enumerate() {
             if !g.is_builtin {
-                self.print_global(root, g)?;
+                self.print_global(root, idx, g)?;
             }
         }
         for c in 0..root.sub_components.len() {
@@ -116,8 +116,13 @@ impl<'a> PrettyPrinter<'a> {
         writeln!(self.writer, "}}")
     }
 
-    fn print_global(&mut self, root: &CompilationUnit, global: &super::GlobalComponent) -> Result {
-        let ctx = EvaluationContext::new_global(root, global, ());
+    fn print_global(
+        &mut self,
+        root: &CompilationUnit,
+        idx: super::GlobalIndex,
+        global: &super::GlobalComponent,
+    ) -> Result {
+        let ctx = EvaluationContext::new_global(root, idx, ());
         if global.exported {
             write!(self.writer, "export ")?;
         }
@@ -184,7 +189,7 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
         let mut ctx = self.1;
         match &self.0 {
             PropertyReference::Local { sub_component_path, property_index } => {
-                if let Some(g) = ctx.current_global {
+                if let Some(g) = ctx.current_global() {
                     write!(f, "{}.{}", g.name, g.properties[*property_index].name)
                 } else {
                     let mut sc = ctx.current_sub_component().unwrap();
@@ -215,7 +220,7 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                 write!(f, "{}.{}", g.name, g.properties[*property_index].name)
             }
             PropertyReference::Function { sub_component_path, function_index } => {
-                if let Some(g) = ctx.current_global {
+                if let Some(g) = ctx.current_global() {
                     write!(f, "{}.{}", g.name, g.functions[*function_index].name)
                 } else {
                     let mut sc = ctx.current_sub_component().unwrap();
