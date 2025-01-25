@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::PropertyReference;
+use super::{PropertyReference, SubComponentIndex};
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
 use crate::layout::Orientation;
@@ -481,7 +481,7 @@ impl<'a, T> ParentCtx<'a, T> {
 #[derive(Clone)]
 pub struct EvaluationContext<'a, T = ()> {
     pub compilation_unit: &'a super::CompilationUnit,
-    pub current_sub_component: Option<&'a super::SubComponent>,
+    pub current_sub_component: Option<SubComponentIndex>,
     pub current_global: Option<&'a super::GlobalComponent>,
     pub generator_state: T,
     /// The repeater parent
@@ -494,7 +494,7 @@ pub struct EvaluationContext<'a, T = ()> {
 impl<'a, T> EvaluationContext<'a, T> {
     pub fn new_sub_component(
         compilation_unit: &'a super::CompilationUnit,
-        sub_component: &'a super::SubComponent,
+        sub_component: SubComponentIndex,
         generator_state: T,
         parent: Option<ParentCtx<'a, T>>,
     ) -> Self {
@@ -525,6 +525,7 @@ impl<'a, T> EvaluationContext<'a, T> {
 
     pub(crate) fn property_info<'b>(&'b self, prop: &PropertyReference) -> PropertyInfoResult<'b> {
         fn match_in_sub_component<'b>(
+            cu: &'b super::CompilationUnit,
             sc: &'b super::SubComponent,
             prop: &PropertyReference,
             map: ContextMap,
@@ -533,7 +534,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                 if let PropertyReference::Local { property_index, sub_component_path } = &prop {
                     let mut sc = sc;
                     for i in sub_component_path {
-                        sc = &sc.sub_components[*i].ty;
+                        sc = &cu.sub_components[sc.sub_components[*i].ty];
                     }
                     Some(&sc.properties[*property_index])
                 } else {
@@ -570,7 +571,8 @@ impl<'a, T> EvaluationContext<'a, T> {
                         };
                         let idx = sub_component_path[0];
                         return apply_analysis(match_in_sub_component(
-                            &sc.sub_components[idx].ty,
+                            cu,
+                            &cu.sub_components[sc.sub_components[idx].ty],
                             &prop2,
                             map.deeper_in_sub_component(idx),
                         ));
@@ -585,7 +587,8 @@ impl<'a, T> EvaluationContext<'a, T> {
                         };
                         let idx = sub_component_path[0];
                         return apply_analysis(match_in_sub_component(
-                            &sc.sub_components[idx].ty,
+                            cu,
+                            &cu.sub_components[sc.sub_components[idx].ty],
                             &prop2,
                             map.deeper_in_sub_component(idx),
                         ));
@@ -610,15 +613,21 @@ impl<'a, T> EvaluationContext<'a, T> {
                         animation: None,
                         property_decl: Some(&g.properties[*property_index]),
                     };
-                } else if let Some(sc) = self.current_sub_component.as_ref() {
-                    return match_in_sub_component(sc, prop, ContextMap::Identity);
+                } else if let Some(sc) = self.current_sub_component() {
+                    return match_in_sub_component(
+                        self.compilation_unit,
+                        sc,
+                        prop,
+                        ContextMap::Identity,
+                    );
                 } else {
                     unreachable!()
                 }
             }
             PropertyReference::InNativeItem { .. } => {
                 return match_in_sub_component(
-                    self.current_sub_component.as_ref().unwrap(),
+                    self.compilation_unit,
+                    self.current_sub_component().unwrap(),
                     prop,
                     ContextMap::Identity,
                 );
@@ -661,15 +670,20 @@ impl<'a, T> EvaluationContext<'a, T> {
             }
         }
     }
+
+    pub fn current_sub_component(&self) -> Option<&super::SubComponent> {
+        self.current_sub_component.and_then(|i| self.compilation_unit.sub_components.get(i))
+    }
 }
 
 impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
     fn property_ty(&self, prop: &PropertyReference) -> &Type {
         match prop {
             PropertyReference::Local { sub_component_path, property_index } => {
-                if let Some(mut sub_component) = self.current_sub_component {
+                if let Some(mut sub_component) = self.current_sub_component() {
                     for i in sub_component_path {
-                        sub_component = &sub_component.sub_components[*i].ty;
+                        sub_component = &self.compilation_unit.sub_components
+                            [sub_component.sub_components[*i].ty];
                     }
                     &sub_component.properties[*property_index].ty
                 } else if let Some(current_global) = self.current_global {
@@ -684,9 +698,10 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
                     return &Type::PathData;
                 }
 
-                let mut sub_component = self.current_sub_component.unwrap();
+                let mut sub_component = self.current_sub_component().unwrap();
                 for i in sub_component_path {
-                    sub_component = &sub_component.sub_components[*i].ty;
+                    sub_component =
+                        &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
                 }
 
                 sub_component.items[*item_index as usize].ty.lookup_property(prop_name).unwrap()
@@ -702,9 +717,10 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
                 &self.compilation_unit.globals[*global_index].properties[*property_index].ty
             }
             PropertyReference::Function { sub_component_path, function_index } => {
-                if let Some(mut sub_component) = self.current_sub_component {
+                if let Some(mut sub_component) = self.current_sub_component() {
                     for i in sub_component_path {
-                        sub_component = &sub_component.sub_components[*i].ty;
+                        sub_component = &self.compilation_unit.sub_components
+                            [sub_component.sub_components[*i].ty];
                     }
                     &sub_component.functions[*function_index].ret_ty
                 } else if let Some(current_global) = self.current_global {
@@ -840,7 +856,7 @@ impl ContextMap {
                 } else {
                     let mut e = ctx.current_sub_component.unwrap();
                     for i in path {
-                        e = &e.sub_components[*i].ty;
+                        e = ctx.compilation_unit.sub_components[e].sub_components[*i].ty;
                     }
                     EvaluationContext::new_sub_component(ctx.compilation_unit, e, (), None)
                 }

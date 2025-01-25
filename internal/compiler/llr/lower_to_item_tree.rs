@@ -3,7 +3,7 @@
 
 use by_address::ByAddress;
 
-use super::lower_expression::ExpressionContext;
+use super::lower_expression::{ExpressionContext, ExpressionContextInner};
 use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Struct, Type};
 use crate::llr::item_tree::*;
@@ -41,22 +41,24 @@ pub fn lower_to_item_tree(
     }
 
     for c in &document.used_types.borrow().sub_components {
-        let sc = lower_sub_component(c, &state, None, compiler_config);
-        state.sub_components.insert(ByAddress(c.clone()), sc);
+        let sc = lower_sub_component(c, &mut state, None, compiler_config);
+        state.sub_component_mapping.insert(ByAddress(c.clone()), state.sub_components.len());
+        state.sub_components.push(sc);
     }
 
     let public_components = document
         .exported_roots()
         .map(|component| {
-            let sc = lower_sub_component(&component, &state, None, compiler_config);
+            let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
             let public_properties = public_properties(&component, &sc.mapping, &state);
-            let mut item_tree = ItemTree {
+            let item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
-                root: Rc::try_unwrap(sc.sub_component).unwrap(),
+                root: state.sub_components.len(),
                 parent_context: None,
             };
+            sc.sub_component.name = component.id.clone();
+            state.sub_components.push(sc);
             // For C++ codegen, the root component must have the same name as the public component
-            item_tree.root.name = component.id.clone();
             PublicComponent {
                 item_tree,
                 public_properties,
@@ -67,40 +69,38 @@ pub fn lower_to_item_tree(
         .collect();
 
     let popup_menu = document.popup_menu_impl.as_ref().map(|c| {
-        let sc = lower_sub_component(&c, &state, None, compiler_config);
+        let sc = lower_sub_component(&c, &mut state, None, compiler_config);
         let item_tree = ItemTree {
             tree: make_tree(&state, &c.root_element, &sc, &[]),
-            root: Rc::try_unwrap(sc.sub_component).unwrap(),
+            root: state.sub_components.len(),
             parent_context: None,
         };
-        PopupMenu {
-            item_tree,
-            sub_menu: sc.mapping.map_property_reference(
-                &NamedReference::new(&c.root_element, SmolStr::new_static("sub-menu")),
-                &state,
-            ),
-            activated: sc.mapping.map_property_reference(
-                &NamedReference::new(&c.root_element, SmolStr::new_static("activated")),
-                &state,
-            ),
-            entries: sc.mapping.map_property_reference(
-                &NamedReference::new(&c.root_element, SmolStr::new_static("entries")),
-                &state,
-            ),
-        }
+        let sub_menu = sc.mapping.map_property_reference(
+            &NamedReference::new(&c.root_element, SmolStr::new_static("sub-menu")),
+            &state,
+        );
+        let activated = sc.mapping.map_property_reference(
+            &NamedReference::new(&c.root_element, SmolStr::new_static("activated")),
+            &state,
+        );
+        let entries = sc.mapping.map_property_reference(
+            &NamedReference::new(&c.root_element, SmolStr::new_static("entries")),
+            &state,
+        );
+        state.sub_components.push(sc);
+        PopupMenu { item_tree, sub_menu, activated, entries }
     });
 
     let root = CompilationUnit {
         public_components,
         globals,
-        sub_components: document
+        sub_components: state.sub_components.into_iter().map(|sc| sc.sub_component).collect(),
+        used_sub_components: document
             .used_types
             .borrow()
             .sub_components
             .iter()
-            .map(|tree_sub_compo| {
-                state.sub_components[&ByAddress(tree_sub_compo.clone())].sub_component.clone()
-            })
+            .map(|tree_sub_compo| state.sub_component_mapping[&ByAddress(tree_sub_compo.clone())])
             .collect(),
         has_debug_info: compiler_config.debug_info,
         popup_menu,
@@ -109,14 +109,6 @@ pub fn lower_to_item_tree(
     };
     super::optim_passes::run_passes(&root);
     Ok(root)
-}
-
-#[derive(Default)]
-pub struct LoweringState {
-    global_properties: HashMap<NamedReference, PropertyReference>,
-    sub_components: HashMap<ByAddress<Rc<Component>>, LoweredSubComponent>,
-    #[cfg(feature = "bundle-translations")]
-    pub translation_builder: Option<std::cell::RefCell<super::translations::TranslationsBuilder>>,
 }
 
 #[derive(Debug, Clone)]
@@ -183,8 +175,17 @@ impl LoweredSubComponentMapping {
 }
 
 pub struct LoweredSubComponent {
-    sub_component: Rc<SubComponent>,
+    sub_component: SubComponent,
     mapping: LoweredSubComponentMapping,
+}
+
+#[derive(Default)]
+pub struct LoweringState {
+    global_properties: HashMap<NamedReference, PropertyReference>,
+    sub_components: Vec<LoweredSubComponent>,
+    sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIndex>,
+    #[cfg(feature = "bundle-translations")]
+    pub translation_builder: Option<std::cell::RefCell<super::translations::TranslationsBuilder>>,
 }
 
 impl LoweringState {
@@ -194,12 +195,21 @@ impl LoweringState {
         }
 
         let element = from.element();
-        let enclosing = self
-            .sub_components
-            .get(&element.borrow().enclosing_component.upgrade().unwrap().into())
-            .unwrap();
+        let sc = self.sub_component(&element.borrow().enclosing_component.upgrade().unwrap());
+        sc.mapping.map_property_reference(from, self)
+    }
 
-        enclosing.mapping.map_property_reference(from, self)
+    fn sub_component<'a>(&'a self, component: &Rc<Component>) -> &'a LoweredSubComponent {
+        &self.sub_components[self.sub_component_idx(component)]
+    }
+
+    fn sub_component_idx(&self, component: &Rc<Component>) -> usize {
+        self.sub_component_mapping[&ByAddress(component.clone())]
+    }
+
+    fn push_sub_component(&mut self, sc: LoweredSubComponent) -> SubComponentIndex {
+        self.sub_components.push(sc);
+        self.sub_components.len() - 1
     }
 }
 
@@ -220,12 +230,6 @@ fn property_reference_within_sub_component(
     prop_ref
 }
 
-impl LoweringState {
-    fn sub_component(&self, component: &Rc<Component>) -> &LoweredSubComponent {
-        &self.sub_components[&ByAddress(component.clone())]
-    }
-}
-
 fn component_id(component: &Rc<Component>) -> SmolStr {
     if component.is_global() {
         component.root_element.borrow().id.clone()
@@ -238,8 +242,8 @@ fn component_id(component: &Rc<Component>) -> SmolStr {
 
 fn lower_sub_component(
     component: &Rc<Component>,
-    state: &LoweringState,
-    parent_context: Option<&ExpressionContext>,
+    state: &mut LoweringState,
+    parent_context: Option<&ExpressionContextInner>,
     compiler_config: &CompilerConfiguration,
 ) -> LoweredSubComponent {
     let mut sub_component = SubComponent {
@@ -349,8 +353,7 @@ fn lower_sub_component(
         }
         match &elem.base_type {
             ElementType::Component(comp) => {
-                let lc = state.sub_component(comp);
-                let ty = lc.sub_component.clone();
+                let ty = state.sub_component_idx(comp);
                 let sub_component_index = sub_component.sub_components.len();
                 mapping.element_mapping.insert(
                     element.clone().into(),
@@ -363,7 +366,7 @@ fn lower_sub_component(
                     index_of_first_child_in_tree: *elem.item_index_of_first_children.get().unwrap(),
                     repeater_offset,
                 });
-                repeater_offset += ty.repeater_count();
+                repeater_offset += comp.repeater_count();
             }
 
             ElementType::Native(n) => {
@@ -400,7 +403,8 @@ fn lower_sub_component(
 
         Some(element.clone())
     });
-    let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
+    let inner = ExpressionContextInner { mapping: &mapping, parent: parent_context, component };
+    let mut ctx = ExpressionContext { inner, state };
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
         let nr = NamedReference::new(e, p.clone());
         let prop = ctx.map_property_reference(&nr);
@@ -481,7 +485,7 @@ fn lower_sub_component(
         .collect();
     sub_component.repeated = repeated
         .into_iter()
-        .map(|elem| lower_repeated_component(&elem, &ctx, compiler_config))
+        .map(|elem| lower_repeated_component(&elem, &mut ctx, compiler_config))
         .collect();
     for s in &mut sub_component.sub_components {
         s.repeater_offset +=
@@ -492,7 +496,7 @@ fn lower_sub_component(
         .popup_windows
         .borrow()
         .iter()
-        .map(|popup| lower_popup_component(popup, &ctx, compiler_config))
+        .map(|popup| lower_popup_component(popup, &mut ctx, compiler_config))
         .collect();
 
     sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
@@ -583,7 +587,7 @@ fn lower_sub_component(
         sub_component.geometries[item_index] = Some(lower_geometry(geom, &ctx).into());
     });
 
-    LoweredSubComponent { sub_component: Rc::new(sub_component), mapping }
+    LoweredSubComponent { sub_component, mapping }
 }
 
 fn lower_geometry(
@@ -636,15 +640,14 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
 
 fn lower_repeated_component(
     elem: &ElementRc,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
     compiler_config: &CompilerConfiguration,
 ) -> RepeatedElement {
     let e = elem.borrow();
     let component = e.base_type.as_component().clone();
     let repeated = e.repeated.as_ref().unwrap();
 
-    let sc: LoweredSubComponent =
-        lower_sub_component(&component, ctx.state, Some(ctx), compiler_config);
+    let sc = lower_sub_component(&component, ctx.state, Some(&ctx.inner), compiler_config);
 
     let geom = component.root_element.borrow().geometry_props.clone().unwrap();
 
@@ -662,7 +665,7 @@ fn lower_repeated_component(
         model: super::lower_expression::lower_expression(&repeated.model, ctx).into(),
         sub_tree: ItemTree {
             tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
-            root: Rc::try_unwrap(sc.sub_component).unwrap(),
+            root: ctx.state.push_sub_component(sc),
             parent_context: Some(e.enclosing_component.upgrade().unwrap().id.clone()),
         },
         index_prop: (!repeated.is_conditional_element).then_some(1),
@@ -695,13 +698,22 @@ fn lower_component_container(
 
 fn lower_popup_component(
     popup: &object_tree::PopupWindow,
-    ctx: &ExpressionContext,
+    ctx: &mut ExpressionContext,
     compiler_config: &CompilerConfiguration,
 ) -> PopupWindow {
-    let sc = lower_sub_component(&popup.component, ctx.state, Some(ctx), compiler_config);
+    let sc = lower_sub_component(&popup.component, ctx.state, Some(&ctx.inner), compiler_config);
+    use super::Expression::PropertyReference as PR;
+    let position = super::lower_expression::make_struct(
+        "LogicalPosition",
+        [
+            ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
+            ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
+        ],
+    );
+
     let item_tree = ItemTree {
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
-        root: Rc::try_unwrap(sc.sub_component).unwrap(),
+        root: ctx.state.push_sub_component(sc),
         parent_context: Some(
             popup
                 .component
@@ -716,16 +728,6 @@ fn lower_popup_component(
                 .clone(),
         ),
     };
-
-    use super::Expression::PropertyReference as PR;
-    let position = super::lower_expression::make_struct(
-        "LogicalPosition",
-        [
-            ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
-            ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
-        ],
-    );
-
     PopupWindow { item_tree, position: position.into() }
 }
 
@@ -854,7 +856,8 @@ fn lower_global_expressions(
 ) {
     // Note that this mapping doesn't contain anything useful, everything is in the state
     let mapping = LoweredSubComponentMapping::default();
-    let ctx = ExpressionContext { mapping: &mapping, state, parent: None, component: global };
+    let inner = ExpressionContextInner { mapping: &mapping, parent: None, component: global };
+    let ctx = ExpressionContext { inner, state };
 
     for (prop, binding) in &global.root_element.borrow().bindings {
         assert!(binding.borrow().two_way_bindings.is_empty());
@@ -863,7 +866,7 @@ fn lower_global_expressions(
             super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
-        let property_index = match state.global_properties[&nr] {
+        let property_index = match ctx.state.global_properties[&nr] {
             PropertyReference::Global { property_index, .. } => property_index,
             PropertyReference::GlobalFunction { function_index, .. } => {
                 lowered.functions[function_index].code = expression;
@@ -883,7 +886,7 @@ fn lower_global_expressions(
 
     for (prop, expr) in &global.root_element.borrow().change_callbacks {
         let nr = NamedReference::new(&global.root_element, prop.clone());
-        let property_index = match state.global_properties[&nr] {
+        let property_index = match ctx.state.global_properties[&nr] {
             PropertyReference::Global { property_index, .. } => property_index,
             _ => unreachable!(),
         };

@@ -20,11 +20,17 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
 use crate::typeregister::BUILTIN;
 
-pub struct ExpressionContext<'a> {
+pub struct ExpressionContextInner<'a> {
     pub component: &'a Rc<crate::object_tree::Component>,
+    /// The mapping for the current component
     pub mapping: &'a LoweredSubComponentMapping,
-    pub state: &'a LoweringState,
-    pub parent: Option<&'a ExpressionContext<'a>>,
+    pub parent: Option<&'a ExpressionContextInner<'a>>,
+}
+#[derive(derive_more::Deref)]
+pub struct ExpressionContext<'a> {
+    pub state: &'a mut LoweringState,
+    #[deref]
+    pub inner: ExpressionContextInner<'a>,
 }
 
 impl ExpressionContext<'_> {
@@ -32,7 +38,7 @@ impl ExpressionContext<'_> {
         let element = from.element();
         let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
         if !enclosing.is_global() {
-            let mut map = self;
+            let mut map = &self.inner;
             let mut level = 0;
             while !Rc::ptr_eq(enclosing, map.component) {
                 map = map.parent.unwrap();

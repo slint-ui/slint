@@ -11,6 +11,8 @@ use std::rc::Rc;
 
 // Index in the `SubComponent::properties`
 pub type PropertyIndex = usize;
+// Index in CompilationUint::sub_components
+pub type SubComponentIndex = usize;
 
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct MutExpression(RefCell<Expression>);
@@ -297,29 +299,29 @@ pub struct PropAnalysis {
 
 impl SubComponent {
     /// total count of repeater, including in sub components
-    pub fn repeater_count(&self) -> u32 {
+    pub fn repeater_count(&self, cu: &CompilationUnit) -> u32 {
         let mut count = (self.repeated.len() + self.component_containers.len()) as u32;
         for x in self.sub_components.iter() {
-            count += x.ty.repeater_count();
+            count += cu.sub_components[x.ty].repeater_count(cu);
         }
         count
     }
 
     /// total count of items, including in sub components
-    pub fn child_item_count(&self) -> u32 {
+    pub fn child_item_count(&self, cu: &CompilationUnit) -> u32 {
         let mut count = self.items.len() as u32;
         for x in self.sub_components.iter() {
-            count += x.ty.child_item_count();
+            count += cu.sub_components[x.ty].child_item_count(cu);
         }
         count
     }
 
     /// Return if a local property is used. (unused property shouldn't be generated)
-    pub fn prop_used(&self, prop: &PropertyReference) -> bool {
+    pub fn prop_used(&self, prop: &PropertyReference, cu: &CompilationUnit) -> bool {
         if let PropertyReference::Local { property_index, sub_component_path } = prop {
             let mut sc = self;
             for i in sub_component_path {
-                sc = &sc.sub_components[*i].ty;
+                sc = &cu.sub_components[sc.sub_components[*i].ty];
             }
             if sc.properties[*property_index].use_count.get() == 0 {
                 return false;
@@ -329,30 +331,18 @@ impl SubComponent {
     }
 }
 
+#[derive(Debug)]
 pub struct SubComponentInstance {
-    pub ty: Rc<SubComponent>,
+    pub ty: SubComponentIndex,
     pub name: SmolStr,
     pub index_in_tree: u32,
     pub index_of_first_child_in_tree: u32,
     pub repeater_offset: u32,
 }
 
-impl std::fmt::Debug for SubComponentInstance {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SubComponentInstance")
-            // only dump ty.name, not the whole structure
-            .field("ty", &self.ty.name)
-            .field("name", &self.name)
-            .field("index_in_tree", &self.index_in_tree)
-            .field("index_of_first_child_in_tree", &self.index_of_first_child_in_tree)
-            .field("repeater_offset", &self.repeater_offset)
-            .finish()
-    }
-}
-
 #[derive(Debug)]
 pub struct ItemTree {
-    pub root: SubComponent,
+    pub root: SubComponentIndex,
     pub tree: TreeNode,
     /// This tree has a parent. e.g: it is a Repeater or a PopupWindow whose property can access
     /// the parent ItemTree.
@@ -371,7 +361,10 @@ pub struct PublicComponent {
 #[derive(Debug)]
 pub struct CompilationUnit {
     pub public_components: Vec<PublicComponent>,
-    pub sub_components: Vec<Rc<SubComponent>>,
+    /// Storage for all sub-components
+    pub sub_components: Vec<SubComponent>,
+    /// The sub-components that are not item-tree root
+    pub used_sub_components: Vec<SubComponentIndex>,
     pub globals: Vec<GlobalComponent>,
     pub popup_menu: Option<PopupMenu>,
     pub has_debug_info: bool,
@@ -386,37 +379,38 @@ impl CompilationUnit {
     ) {
         fn visit_component<'a>(
             root: &'a CompilationUnit,
-            c: &'a SubComponent,
+            c: SubComponentIndex,
             visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
             parent: Option<ParentCtx<'_>>,
         ) {
             let ctx = EvaluationContext::new_sub_component(root, c, (), parent);
-            visitor(c, &ctx);
-            for (idx, r) in c.repeated.iter().enumerate() {
+            let sc = &root.sub_components[c];
+            visitor(sc, &ctx);
+            for (idx, r) in sc.repeated.iter().enumerate() {
                 visit_component(
                     root,
-                    &r.sub_tree.root,
+                    r.sub_tree.root,
                     visitor,
                     Some(ParentCtx::new(&ctx, Some(idx as u32))),
                 );
             }
-            for popup in &c.popup_windows {
+            for popup in &sc.popup_windows {
                 visit_component(
                     root,
-                    &popup.item_tree.root,
+                    popup.item_tree.root,
                     visitor,
                     Some(ParentCtx::new(&ctx, None)),
                 );
             }
         }
-        for c in &self.sub_components {
-            visit_component(self, c, visitor, None);
+        for c in &self.used_sub_components {
+            visit_component(self, *c, visitor, None);
         }
         for p in &self.public_components {
-            visit_component(self, &p.item_tree.root, visitor, None);
+            visit_component(self, p.item_tree.root, visitor, None);
         }
         if let Some(p) = &self.popup_menu {
-            visit_component(self, &p.item_tree.root, visitor, None);
+            visit_component(self, p.item_tree.root, visitor, None);
         }
     }
 

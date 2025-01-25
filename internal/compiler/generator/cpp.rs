@@ -86,8 +86,11 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
     match pr {
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             assert!(prop_name.is_empty());
-            let (sub_compo_path, sub_component) =
-                follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
+            let (sub_compo_path, sub_component) = follow_sub_component_path(
+                ctx.compilation_unit,
+                ctx.current_sub_component.unwrap(),
+                sub_component_path,
+            );
             if !sub_component_path.is_empty() {
                 component_access += &sub_compo_path;
             }
@@ -724,12 +727,12 @@ pub fn generate(
 
     let conditional_includes = ConditionalIncludes::default();
 
-    for sub_compo in &llr.sub_components {
-        let sub_compo_id = ident(&sub_compo.name);
+    for sub_compo in &llr.used_sub_components {
+        let sub_compo_id = ident(&llr.sub_components[*sub_compo].name);
         let mut sub_compo_struct = Struct { name: sub_compo_id.clone(), ..Default::default() };
         generate_sub_component(
             &mut sub_compo_struct,
-            sub_compo,
+            *sub_compo,
             &llr,
             None,
             Access::Public,
@@ -820,7 +823,7 @@ pub fn generate(
     file.declarations.push(Declaration::Struct(globals_struct));
 
     if let Some(popup_menu) = &llr.popup_menu {
-        let component_id = ident(&popup_menu.item_tree.root.name);
+        let component_id = ident(&llr.sub_components[popup_menu.item_tree.root].name);
         let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
         generate_item_tree(
             &mut popup_struct,
@@ -1200,7 +1203,7 @@ fn generate_public_component(
 
     let ctx = EvaluationContext {
         compilation_unit: unit,
-        current_sub_component: Some(&component.item_tree.root),
+        current_sub_component: Some(component.item_tree.root),
         current_global: None,
         generator_state: CppGeneratorContext {
             global_access: "(&this->m_globals)".to_string(),
@@ -1285,17 +1288,23 @@ fn generate_public_component(
 
     component_struct.friends.push("slint::private_api::WindowAdapterRc".into());
 
-    add_friends(&mut component_struct.friends, &component.item_tree.root, true);
+    add_friends(&mut component_struct.friends, unit, component.item_tree.root, true);
 
-    fn add_friends(friends: &mut Vec<SmolStr>, sc: &llr::SubComponent, is_root: bool) {
+    fn add_friends(
+        friends: &mut Vec<SmolStr>,
+        unit: &llr::CompilationUnit,
+        c: llr::SubComponentIndex,
+        is_root: bool,
+    ) {
+        let sc = &unit.sub_components[c];
         if !is_root {
             friends.push(ident(&sc.name));
         }
         for repeater in &sc.repeated {
-            add_friends(friends, &repeater.sub_tree.root, false)
+            add_friends(friends, unit, repeater.sub_tree.root, false)
         }
         for popup in &sc.popup_windows {
-            add_friends(friends, &popup.item_tree.root, false)
+            add_friends(friends, unit, popup.item_tree.root, false)
         }
     }
 
@@ -1321,7 +1330,7 @@ fn generate_item_tree(
 
     generate_sub_component(
         target_struct,
-        &sub_tree.root,
+        sub_tree.root,
         root,
         parent_ctx,
         field_access,
@@ -1338,10 +1347,10 @@ fn generate_item_tree(
         if node.repeated {
             assert_eq!(node.children.len(), 0);
             let mut repeater_index = node.item_index;
-            let mut sub_component = &sub_tree.root;
+            let mut sub_component = &root.sub_components[sub_tree.root];
             for i in &node.sub_component_path {
                 repeater_index += sub_component.sub_components[*i].repeater_offset;
-                sub_component = &sub_component.sub_components[*i].ty;
+                sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
             }
             item_tree_array.push(format!(
                 "slint::private_api::make_dyn_node({}, {})",
@@ -1349,7 +1358,7 @@ fn generate_item_tree(
             ));
         } else {
             let mut compo_offset = String::new();
-            let mut sub_component = &sub_tree.root;
+            let mut sub_component = &root.sub_components[sub_tree.root];
             for i in &node.sub_component_path {
                 let next_sub_component_name = ident(&sub_component.sub_components[*i].name);
                 write!(
@@ -1359,7 +1368,7 @@ fn generate_item_tree(
                     next_sub_component_name
                 )
                 .unwrap();
-                sub_component = &sub_component.sub_components[*i].ty;
+                sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
             }
 
             let item = &sub_component.items[node.item_index as usize];
@@ -1473,7 +1482,7 @@ fn generate_item_tree(
         .and_then(|parent| {
             parent
                 .repeater_index
-                .map(|idx| parent.ctx.current_sub_component.unwrap().repeated[idx as usize].index_in_tree)
+                .map(|idx| parent.ctx.current_sub_component().unwrap().repeated[idx as usize].index_in_tree)
         }).map(|parent_index|
             vec![
                 format!(
@@ -1713,7 +1722,7 @@ fn generate_item_tree(
 
     if let Some(parent) = &parent_ctx {
         let parent_type =
-            format!("class {} const *", ident(&parent.ctx.current_sub_component.unwrap().name));
+            format!("class {} const *", ident(&parent.ctx.current_sub_component().unwrap().name));
         create_parameters.push(format!("{} parent", parent_type));
 
         init_parent_parameters = ", parent";
@@ -1805,7 +1814,7 @@ fn generate_item_tree(
 
 fn generate_sub_component(
     target_struct: &mut Struct,
-    component: &llr::SubComponent,
+    component: llr::SubComponentIndex,
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     field_access: Access,
@@ -1866,7 +1875,7 @@ fn generate_sub_component(
     if let Some(parent_ctx) = &parent_ctx {
         let parent_type = format_smolstr!(
             "class {} const *",
-            ident(&parent_ctx.ctx.current_sub_component.unwrap().name)
+            ident(&parent_ctx.ctx.current_sub_component().unwrap().name)
         );
         init_parameters.push(format!("{} parent", parent_type));
 
@@ -1884,8 +1893,10 @@ fn generate_sub_component(
         parent_ctx,
     );
 
+    let component = &root.sub_components[component];
+
     component.popup_windows.iter().for_each(|popup| {
-        let component_id = ident(&popup.item_tree.root.name);
+        let component_id = ident(&root.sub_components[popup.item_tree.root].name);
         let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
         generate_item_tree(
             &mut popup_struct,
@@ -1943,6 +1954,7 @@ fn generate_sub_component(
 
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
+        let sub_sc = &root.sub_components[sub.ty];
         let local_tree_index: u32 = sub.index_in_tree as _;
         let local_index_of_first_child: u32 = sub.index_of_first_child_in_tree as _;
 
@@ -1965,7 +1977,7 @@ fn generate_sub_component(
         ));
         user_init.push(format!("this->{}.user_init();", field_name));
 
-        let sub_component_repeater_count = sub.ty.repeater_count();
+        let sub_component_repeater_count = sub_sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
             let mut case_code = String::new();
             let repeater_offset = sub.repeater_offset;
@@ -2004,7 +2016,7 @@ fn generate_sub_component(
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
-                ty: ident(&sub.ty.name),
+                ty: ident(&sub_sc.name),
                 name: field_name,
                 ..Default::default()
             }),
@@ -2033,7 +2045,7 @@ fn generate_sub_component(
 
     let mut properties_init_code = Vec::new();
     for (prop, expression) in &component.property_init {
-        if expression.use_count.get() > 0 && component.prop_used(prop) {
+        if expression.use_count.get() > 0 && component.prop_used(prop, root) {
             handle_property_init(prop, expression, &mut properties_init_code, &ctx)
         }
     }
@@ -2052,8 +2064,9 @@ fn generate_sub_component(
 
     for (idx, repeated) in component.repeated.iter().enumerate() {
         let idx = idx as u32;
+        let sc = &root.sub_components[repeated.sub_tree.root];
         let data_type = if let Some(data_prop) = repeated.data_prop {
-            repeated.sub_tree.root.properties[data_prop].ty.clone()
+            sc.properties[data_prop].ty.clone()
         } else {
             Type::Int32
         };
@@ -2132,7 +2145,7 @@ fn generate_sub_component(
             Declaration::Var(Var {
                 ty: format_smolstr!(
                     "slint::private_api::Repeater<class {}, {}>",
-                    ident(&repeated.sub_tree.root.name),
+                    ident(&sc.name),
                     data_type.cpp_type().unwrap(),
                 ),
                 name: repeater_id,
@@ -2240,7 +2253,8 @@ fn generate_sub_component(
 
         let mut else_ = "";
         for sub in &component.sub_components {
-            let sub_items_count = sub.ty.child_item_count();
+            let sub_sc = &ctx.compilation_unit.sub_components[sub.ty];
+            let sub_items_count = sub_sc.child_item_count(ctx.compilation_unit);
             code.push(format!("{else_}if (index == {}) {{", sub.index_in_tree,));
             code.push(format!("    return self->{}.{name}(0{forward_args});", ident(&sub.name)));
             if sub_items_count > 1 {
@@ -2248,7 +2262,7 @@ fn generate_sub_component(
                     "}} else if (index >= {} && index < {}) {{",
                     sub.index_of_first_child_in_tree,
                     sub.index_of_first_child_in_tree + sub_items_count - 1
-                        + sub.ty.repeater_count()
+                        + sub_sc.repeater_count(ctx.compilation_unit)
                 ));
                 code.push(format!(
                     "    return self->{}.{name}(index - {}{forward_args});",
@@ -2425,7 +2439,7 @@ fn generate_repeated_component(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
-    let repeater_id = ident(&repeated.sub_tree.root.name);
+    let repeater_id = ident(&root.sub_components[repeated.sub_tree.root].name);
     let mut repeater_struct = Struct { name: repeater_id.clone(), ..Default::default() };
     generate_item_tree(
         &mut repeater_struct,
@@ -2441,7 +2455,7 @@ fn generate_repeated_component(
 
     let ctx = EvaluationContext {
         compilation_unit: root,
-        current_sub_component: Some(&repeated.sub_tree.root),
+        current_sub_component: Some(repeated.sub_tree.root),
         current_global: None,
         generator_state: CppGeneratorContext { global_access: "self".into(), conditional_includes },
         parent: Some(parent_ctx),
@@ -2840,15 +2854,16 @@ fn generate_public_api_for_properties(
 }
 
 fn follow_sub_component_path<'a>(
-    root: &'a llr::SubComponent,
+    compilation_unit: &'a llr::CompilationUnit,
+    root: llr::SubComponentIndex,
     sub_component_path: &[usize],
 ) -> (String, &'a llr::SubComponent) {
     let mut compo_path = String::new();
-    let mut sub_component = root;
+    let mut sub_component = &compilation_unit.sub_components[root];
     for i in sub_component_path {
         let sub_component_name = ident(&sub_component.sub_components[*i].name);
         write!(compo_path, "{}.", sub_component_name).unwrap();
-        sub_component = &sub_component.sub_components[*i].ty;
+        sub_component = &compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
     (compo_path, sub_component)
 }
@@ -2877,8 +2892,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         prop_name: &str,
         path: &str,
     ) -> String {
-        let (compo_path, sub_component) =
-            follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
+        let (compo_path, sub_component) = follow_sub_component_path(
+            ctx.compilation_unit,
+            ctx.current_sub_component.unwrap(),
+            sub_component_path,
+        );
         let item_name = ident(&sub_component.items[item_index as usize].name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
@@ -2893,8 +2911,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
     match reference {
         llr::PropertyReference::Local { sub_component_path, property_index } => {
             if let Some(sub_component) = ctx.current_sub_component {
-                let (compo_path, sub_component) =
-                    follow_sub_component_path(sub_component, sub_component_path);
+                let (compo_path, sub_component) = follow_sub_component_path(
+                    ctx.compilation_unit,
+                    sub_component,
+                    sub_component_path,
+                );
                 let property_name = ident(&sub_component.properties[*property_index].name);
                 format!("self->{}{}", compo_path, property_name)
             } else if let Some(current_global) = ctx.current_global {
@@ -2905,8 +2926,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         }
         llr::PropertyReference::Function { sub_component_path, function_index } => {
             if let Some(sub_component) = ctx.current_sub_component {
-                let (compo_path, sub_component) =
-                    follow_sub_component_path(sub_component, sub_component_path);
+                let (compo_path, sub_component) = follow_sub_component_path(
+                    ctx.compilation_unit,
+                    sub_component,
+                    sub_component_path,
+                );
                 let name = ident(&sub_component.functions[*function_index].name);
                 format!("self->{compo_path}fn_{name}")
             } else if let Some(current_global) = ctx.current_global {
@@ -2929,15 +2953,21 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             match &**parent_reference {
                 llr::PropertyReference::Local { sub_component_path, property_index } => {
                     let sub_component = ctx.current_sub_component.unwrap();
-                    let (compo_path, sub_component) =
-                        follow_sub_component_path(sub_component, sub_component_path);
+                    let (compo_path, sub_component) = follow_sub_component_path(
+                        ctx.compilation_unit,
+                        sub_component,
+                        sub_component_path,
+                    );
                     let property_name = ident(&sub_component.properties[*property_index].name);
                     format!("{}->{}{}", path, compo_path, property_name)
                 }
                 llr::PropertyReference::Function { sub_component_path, function_index } => {
                     let sub_component = ctx.current_sub_component.unwrap();
-                    let (compo_path, sub_component) =
-                        follow_sub_component_path(sub_component, sub_component_path);
+                    let (compo_path, sub_component) = follow_sub_component_path(
+                        ctx.compilation_unit,
+                        sub_component,
+                        sub_component_path,
+                    );
                     let name = ident(&sub_component.functions[*function_index].name);
                     format!("{path}->{compo_path}fn_{name}")
                 }
@@ -2982,10 +3012,11 @@ fn native_item<'a>(
 ) -> &'a NativeClass {
     match item_ref {
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name: _ } => {
-            let mut sub_component = ctx.current_sub_component.unwrap();
-            for i in sub_component_path {
-                sub_component = &sub_component.sub_components[*i].ty;
-            }
+            let (_, sub_component) = follow_sub_component_path(
+                ctx.compilation_unit,
+                ctx.current_sub_component.unwrap(),
+                sub_component_path,
+            );
             &sub_component.items[*item_index as usize].ty
         }
         llr::PropertyReference::InParent { level, parent_reference } => {
@@ -3192,7 +3223,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let repeater_index = repeater_index.unwrap();
             let mut index_prop = llr::PropertyReference::Local {
                 sub_component_path: vec![],
-                property_index: ctx2.current_sub_component.unwrap().repeated[repeater_index as usize]
+                property_index: ctx2.current_sub_component().unwrap().repeated[repeater_index as usize]
                     .index_prop
                     .unwrap(),
             };
@@ -3669,14 +3700,14 @@ fn compile_builtin_function_call(
                 };
 
                 let window = access_window_field(ctx);
-                let current_sub_component = parent_ctx.current_sub_component.unwrap();
+                let current_sub_component = parent_ctx.current_sub_component().unwrap();
                 let popup = &current_sub_component.popup_windows[*popup_index as usize];
                 let popup_window_id =
-                    ident(&popup.item_tree.root.name);
+                    ident(&ctx.compilation_unit.sub_components[popup.item_tree.root].name);
                 let parent_component = access_item_rc(parent_ref, ctx);
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
-                    &popup.item_tree.root,
+                    popup.item_tree.root,
                     CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
                     Some(ParentCtx::new(&ctx, None)),
                 );
@@ -3722,12 +3753,12 @@ fn compile_builtin_function_call(
                 .popup_menu
                 .as_ref()
                 .expect("there should be a popup menu if we want to show it");
-            let popup_id = ident(&popup.item_tree.root.name);
+            let popup_id = ident(&ctx.compilation_unit.sub_components[popup.item_tree.root].name);
             let window = access_window_field(ctx);
 
             let popup_ctx = EvaluationContext::new_sub_component(
                 ctx.compilation_unit,
-                &popup.item_tree.root,
+                popup.item_tree.root,
                 CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
                 None,
             );
