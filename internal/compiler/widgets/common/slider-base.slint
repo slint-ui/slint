@@ -86,6 +86,12 @@ export component SliderBase {
             } else if ((!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.UpArrow)) {
                 root.set-value(root.value - root.step);
                 return accept;
+            } else if (event.text == Key.Home) {
+                root.set-value(root.minimum);
+                return accept;
+            } else if (event.text == Key.End) {
+                root.set-value(root.maximum);
+                return accept;
             }
 
             reject
@@ -96,7 +102,8 @@ export component SliderBase {
                 return reject;
             }
             if (!vertical && event.text == Key.RightArrow) || (vertical && event.text == Key.DownArrow)
-               || (!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.UpArrow) {
+               || (!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.UpArrow)
+               || event.text == Key.Home || event.text == Key.End {
                 root.released(root.value);
             }
             return accept;
