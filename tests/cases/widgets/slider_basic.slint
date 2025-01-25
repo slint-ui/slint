@@ -96,6 +96,16 @@ slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), false);
 assert_eq!(edits.borrow().clone(), vec![0f32]);
 assert_eq!(changes.borrow().clone(), vec![70f32, 40f32, 10f32, 0f32]);
 
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::End.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::End.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Home.into(), false);
+
+assert_eq!(edits.borrow().clone(), vec![100f32, 0f32]);
+assert_eq!(changes.borrow().clone(), vec![100f32, 0f32]);
 ```
 
 */
