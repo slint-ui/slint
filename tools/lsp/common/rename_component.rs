@@ -23,6 +23,8 @@ fn is_symbol_name_exported(
     document_node: &syntax_nodes::Document,
     query: &DeclarationNodeQuery,
 ) -> Option<SmolStr> {
+    let ti = query.parent_token_info();
+
     for export in document_node.ExportsList() {
         for specifier in export.ExportSpecifier() {
             let external = specifier
@@ -32,8 +34,8 @@ fn is_symbol_name_exported(
             let export_id = specifier.ExportIdentifier();
             let export_id_str = i_slint_compiler::parser::identifier_text(&export_id);
 
-            if export_id_str.as_ref() == Some(&query.name)
-                && query.is_same_symbol(document_cache, main_identifier(&export_id).unwrap())
+            if export_id_str.as_ref() == Some(&ti.name)
+                && ti.is_same_symbol(document_cache, main_identifier(&export_id).unwrap())
             {
                 return external.or(export_id_str);
             }
@@ -42,8 +44,8 @@ fn is_symbol_name_exported(
             let identifier = component.DeclaredIdentifier();
             let identifier_str = i_slint_compiler::parser::identifier_text(&identifier);
 
-            if identifier_str.as_ref() == Some(&query.name)
-                && query.is_same_symbol(document_cache, main_identifier(&identifier).unwrap())
+            if identifier_str.as_ref() == Some(&ti.name)
+                && ti.is_same_symbol(document_cache, main_identifier(&identifier).unwrap())
             {
                 return identifier_str;
             }
@@ -52,15 +54,15 @@ fn is_symbol_name_exported(
             let identifier = structs.DeclaredIdentifier();
             let identifier_str = i_slint_compiler::parser::identifier_text(&identifier);
 
-            if identifier_str.as_ref() == Some(&query.name)
-                && query.is_same_symbol(document_cache, main_identifier(&identifier).unwrap())
+            if identifier_str.as_ref() == Some(&ti.name)
+                && ti.is_same_symbol(document_cache, main_identifier(&identifier).unwrap())
             {
                 return identifier_str;
             }
         }
         for enums in export.EnumDeclaration() {
             let enum_name = i_slint_compiler::parser::identifier_text(&enums.DeclaredIdentifier());
-            if enum_name.as_ref() == Some(&query.name) {
+            if enum_name.as_ref() == Some(&ti.name) {
                 return enum_name;
             }
         }
@@ -132,15 +134,18 @@ fn fix_specifier(
         .expect("URL conversion can not fail here")
     }
 
-    let Some(source_file) = type_name.source_file() else {
-        return None;
-    };
+    let ti = query.parent_token_info();
+    let source_file = type_name.source_file()?;
 
-    if i_slint_compiler::parser::normalize_identifier(type_name.text()) == query.name {
+    if i_slint_compiler::parser::normalize_identifier(type_name.text()) == ti.name {
         if let Some(renamed_to) = renamed_to {
             if i_slint_compiler::parser::normalize_identifier(&renamed_to.text())
                 == i_slint_compiler::parser::normalize_identifier(new_type)
             {
+                if query.has_parent_token_info() {
+                    return query.update_parent_token_info(renamed_to);
+                }
+
                 // `Old as New` => `New`
                 edits.push(replace_x_as_y_with_newtype(
                     document_cache,
@@ -150,6 +155,10 @@ fn fix_specifier(
                     new_type,
                 ));
             } else {
+                if query.has_parent_token_info() {
+                    return query.update_parent_token_info(renamed_to);
+                }
+
                 // `Old as Foo` => `New as Foo`
                 edits.push(
                     common::SingleTextEdit::from_path(
@@ -166,6 +175,10 @@ fn fix_specifier(
             // Nothing else to change: We still use the old name everywhere.
             return None;
         } else {
+            if query.has_parent_token_info() {
+                return Some(query.clone());
+            }
+
             // `Old` => `New`
             edits.push(
                 common::SingleTextEdit::from_path(
@@ -180,13 +193,17 @@ fn fix_specifier(
             );
         }
 
-        return query.sub_query(type_name);
+        return query.update_parent_token_info(type_name);
     }
     if let Some(renamed_to) = renamed_to {
-        if i_slint_compiler::parser::normalize_identifier(renamed_to.text()) == query.name {
+        if i_slint_compiler::parser::normalize_identifier(renamed_to.text()) == ti.name {
             if i_slint_compiler::parser::normalize_identifier(type_name.text())
                 == i_slint_compiler::parser::normalize_identifier(new_type)
             {
+                if query.has_parent_token_info() {
+                    return Some(query.clone());
+                }
+
                 // `New as Old` => `New`
                 edits.push(replace_x_as_y_with_newtype(
                     document_cache,
@@ -197,6 +214,10 @@ fn fix_specifier(
                 ));
             } else {
                 // `Foo as Old` => `Foo as New`
+                if query.has_parent_token_info() {
+                    return None;
+                }
+
                 edits.push(
                     common::SingleTextEdit::from_path(
                         document_cache,
@@ -209,7 +230,7 @@ fn fix_specifier(
                     .expect("URL conversion can not fail here"),
                 );
             }
-            return query.sub_query(renamed_to);
+            return query.update_parent_token_info(renamed_to);
         }
     }
 
@@ -335,7 +356,7 @@ fn fix_export_lists(
             ) {
                 let my_path = document_node.source_file.path();
                 fix_imports(document_cache, &sub_query, my_path, new_type, edits);
-                return Some(sub_query.name);
+                return Some(sub_query.token_info.name.clone());
             }
         }
     }
@@ -350,10 +371,12 @@ fn rename_local_symbols(
     new_type: &str,
     edits: &mut Vec<common::SingleTextEdit>,
 ) {
+    let ti = &query.token_info;
+
     let mut current_token = document_node.first_token();
     while let Some(current) = current_token {
         if current.kind() == SyntaxKind::Identifier
-            && i_slint_compiler::parser::normalize_identifier(current.text()) == query.name
+            && i_slint_compiler::parser::normalize_identifier(current.text()) == ti.name
         {
             if ![
                 SyntaxKind::ExternalName,
@@ -363,7 +386,7 @@ fn rename_local_symbols(
                 SyntaxKind::PropertyDeclaration,
             ]
             .contains(&current.parent().kind())
-                && query.is_same_symbol(document_cache, current.clone())
+                && ti.is_same_symbol(document_cache, current.clone())
             {
                 edits.push(
                     common::SingleTextEdit::from_path(
@@ -527,40 +550,13 @@ fn find_last_declared_identifier_at_or_before(
 }
 
 #[derive(Clone, Debug)]
-struct DeclarationNodeQuery {
+struct TokenInformation {
     info: common::token_info::TokenInfo,
     name: SmolStr,
     token: SyntaxToken,
 }
 
-impl DeclarationNodeQuery {
-    fn new(document_cache: &common::DocumentCache, token: SyntaxToken) -> Option<Self> {
-        let info = common::token_info::token_info(document_cache, token.clone())?;
-        let name = i_slint_compiler::parser::normalize_identifier(token.text());
-
-        Some(DeclarationNodeQuery { info, name, token })
-    }
-
-    fn sub_query(&self, token: SyntaxToken) -> Option<Self> {
-        let name = i_slint_compiler::parser::normalize_identifier(token.text());
-
-        Some(DeclarationNodeQuery { info: self.info.clone(), name, token })
-    }
-
-    fn is_export_identifier_or_external_name(&self) -> bool {
-        self.token.kind() == SyntaxKind::Identifier
-            && [SyntaxKind::ExportIdentifier, SyntaxKind::ExternalName]
-                .contains(&self.token.parent().kind())
-    }
-
-    fn start_token(&self) -> Option<SyntaxToken> {
-        if self.is_export_identifier_or_external_name() {
-            None
-        } else {
-            Some(self.token.clone())
-        }
-    }
-
+impl TokenInformation {
     fn is_same_symbol(&self, document_cache: &common::DocumentCache, token: SyntaxToken) -> bool {
         let Some(info) = common::token_info::token_info(document_cache, token.clone()) else {
             return false;
@@ -619,7 +615,98 @@ impl DeclarationNodeQuery {
                 di.node.source_file.path() == s.source_file.path()
                     && di.node.PropertyDeclaration().any(|pd| pd.text_range() == s.text_range())
             }),
+            (
+                common::token_info::TokenInfo::LocalProperty(s),
+                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+            )
+            | (
+                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                common::token_info::TokenInfo::LocalProperty(s),
+            ) => {
+                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c)
+                        if c.node.as_ref().map(|n| Rc::ptr_eq(&n.source_file, &s.source_file)
+                            && Some(n.text_range()) == s.parent().and_then(|p| p.parent()).map(|gp| gp.text_range())).unwrap_or_default())
+                    && Some(nr2)
+                        == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
+                            .as_ref()
+            }
             (_, _) => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct DeclarationNodeQuery {
+    token_info: TokenInformation,
+    parent_token_info: Option<TokenInformation>,
+}
+
+impl DeclarationNodeQuery {
+    fn new(document_cache: &common::DocumentCache, token: SyntaxToken) -> Option<Self> {
+        let info = common::token_info::token_info(document_cache, token.clone())?;
+        let name = i_slint_compiler::parser::normalize_identifier(token.text());
+
+        let node = token.parent();
+
+        fn property_parent(
+            document_cache: &common::DocumentCache,
+            node: &SyntaxNode,
+        ) -> Option<TokenInformation> {
+            let element = node.parent()?;
+            assert_eq!(element.kind(), SyntaxKind::Element);
+            let component = element.parent()?;
+            assert_eq!(component.kind(), SyntaxKind::Component);
+
+            let declared_identifier = component.child_node(SyntaxKind::DeclaredIdentifier)?;
+
+            let token = main_identifier(&declared_identifier)?;
+            let info = common::token_info::token_info(document_cache, token.clone())?;
+            let name = i_slint_compiler::parser::normalize_identifier(token.text());
+
+            Some(TokenInformation { info, name, token })
+        }
+
+        let parent_node = node.parent()?;
+
+        let parent_query = match parent_node.kind() {
+            SyntaxKind::PropertyDeclaration => property_parent(document_cache, &parent_node),
+            _ => None,
+        };
+
+        Some(DeclarationNodeQuery {
+            token_info: TokenInformation { info, name, token },
+            parent_token_info: parent_query,
+        })
+    }
+
+    fn update_parent_token_info(&self, token: SyntaxToken) -> Option<Self> {
+        let name = i_slint_compiler::parser::normalize_identifier(token.text());
+
+        let mut query = self.token_info.clone();
+        let mut parent_query = self.parent_token_info.clone();
+
+        if let Some(pq) = &mut parent_query {
+            pq.token = token;
+            pq.name = name;
+        } else {
+            query.token = token;
+            query.name = name;
+        }
+
+        Some(DeclarationNodeQuery { token_info: query, parent_token_info: parent_query })
+    }
+
+    fn is_export_identifier_or_external_name(&self) -> bool {
+        self.token_info.token.kind() == SyntaxKind::Identifier
+            && [SyntaxKind::ExportIdentifier, SyntaxKind::ExternalName]
+                .contains(&self.token_info.token.parent().kind())
+    }
+
+    fn start_token(&self) -> Option<SyntaxToken> {
+        if self.is_export_identifier_or_external_name() {
+            None
+        } else {
+            Some(self.token_info.token.clone())
         }
     }
 
@@ -628,7 +715,7 @@ impl DeclarationNodeQuery {
         self: Self,
         document_cache: &common::DocumentCache,
     ) -> Option<DeclarationNode> {
-        let node = self.token.parent();
+        let node = self.token_info.token.parent();
 
         match node.kind() {
             SyntaxKind::DeclaredIdentifier => Some(DeclarationNode {
@@ -644,13 +731,86 @@ impl DeclarationNodeQuery {
                 query: self,
             }),
             _ => {
-                let document =
-                    document_cache.get_document_by_path(self.token.source_file.path())?;
+                fn find_declared_identifier_in_element(
+                    query: &DeclarationNodeQuery,
+                    element: &syntax_nodes::Element,
+                ) -> Option<syntax_nodes::DeclaredIdentifier> {
+                    for prop in element.PropertyDeclaration() {
+                        let identifier = prop.DeclaredIdentifier();
+                        if i_slint_compiler::parser::identifier_text(&identifier).as_ref()
+                            == Some(&query.token_info.name)
+                        {
+                            return Some(identifier);
+                        }
+                    }
+                    None
+                }
+
+                let declared_identifier = match &self.token_info.info {
+                    common::token_info::TokenInfo::NamedReference(nr) => {
+                        if i_slint_compiler::parser::normalize_identifier(nr.name())
+                            == self.token_info.name
+                        {
+                            nr.element()
+                                .borrow()
+                                .debug
+                                .iter()
+                                .filter_map(|di| {
+                                    find_declared_identifier_in_element(&self, &di.node)
+                                })
+                                .next()
+                        } else {
+                            None
+                        }
+                    }
+                    common::token_info::TokenInfo::IncompleteNamedReference(element_type, name) => {
+                        if name == &self.token_info.name {
+                            match &element_type {
+                                i_slint_compiler::langtype::ElementType::Component(component) => {
+                                    find_declared_identifier_in_element(
+                                        &self,
+                                        &syntax_nodes::Component::from(
+                                            component.node.as_ref()?.clone(),
+                                        )
+                                        .Element(),
+                                    )
+                                }
+                                _ => None,
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+                if let Some(declared_identifier) = declared_identifier {
+                    let token = main_identifier(&declared_identifier)?;
+
+                    return Some(DeclarationNode {
+                        query: DeclarationNodeQuery::new(document_cache, token)?,
+                        kind: DeclarationNodeKind::DeclaredIdentifier(declared_identifier),
+                    });
+                }
+
+                // Find the element/type manually so exports/imports get resolved
+                let document = document_cache
+                    .get_document_by_path(self.token_info.token.source_file.path())?;
                 let document_node = document.node.clone()?;
                 let start_token = self.start_token();
 
                 find_declaration_node_impl(document_cache, &document_node, start_token, self)
             }
+        }
+    }
+
+    fn has_parent_token_info(&self) -> bool {
+        self.parent_token_info.is_some()
+    }
+
+    fn parent_token_info(&self) -> &TokenInformation {
+        match &self.parent_token_info {
+            Some(ti) => ti,
+            None => &self.token_info,
         }
     }
 }
@@ -661,6 +821,9 @@ fn find_declaration_node_impl(
     start_token: Option<SyntaxToken>,
     query: DeclarationNodeQuery,
 ) -> Option<DeclarationNode> {
+    let pti = query.parent_token_info();
+    let ti = &query.token_info;
+
     // Exported under a custom name?
     if start_token.is_none() {
         for export_item in document_node.ExportsList() {
@@ -671,7 +834,7 @@ fn find_declaration_node_impl(
             for specifier in export_item.ExportSpecifier() {
                 if let Some(export_name) = specifier.ExportName() {
                     if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
-                        == Some(&query.name)
+                        == Some(&pti.name)
                     {
                         return Some(DeclarationNode {
                             kind: DeclarationNodeKind::ExportName(export_name),
@@ -687,10 +850,9 @@ fn find_declaration_node_impl(
 
     while let Some(t) = token {
         if let Some(declared_identifier) =
-            find_last_declared_identifier_at_or_before(t.clone(), &query.name)
+            find_last_declared_identifier_at_or_before(t.clone(), &ti.name)
         {
-            if query.is_same_symbol(document_cache, main_identifier(&declared_identifier).unwrap())
-            {
+            if ti.is_same_symbol(document_cache, main_identifier(&declared_identifier).unwrap()) {
                 return Some(DeclarationNode {
                     kind: DeclarationNodeKind::DeclaredIdentifier(declared_identifier.into()),
                     query,
@@ -714,14 +876,14 @@ fn find_declaration_node_impl(
                 let internal =
                     id.InternalName().and_then(|i| i_slint_compiler::parser::identifier_text(&i));
 
-                if internal.as_ref() == Some(&query.name) {
+                if internal.as_ref() == Some(&pti.name) {
                     return Some(DeclarationNode {
                         kind: DeclarationNodeKind::InternalName(id.InternalName().unwrap()),
                         query,
                     });
                 }
 
-                if external.as_ref() == Some(&query.name) {
+                if external.as_ref() == Some(&pti.name) {
                     let path = import_path(document_dir, &import_spec)?;
                     let import_doc = document_cache.get_document_by_path(&path)?;
                     let import_doc_node = import_doc.node.as_ref()?;
@@ -759,7 +921,7 @@ fn find_declaration_node_impl(
             for specifier in export_item.ExportSpecifier() {
                 if let Some(export_name) = specifier.ExportName() {
                     if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
-                        == Some(&query.name)
+                        == Some(&pti.name)
                     {
                         return Some(DeclarationNode {
                             kind: DeclarationNodeKind::ExportName(export_name),
@@ -771,7 +933,7 @@ fn find_declaration_node_impl(
                 let identifier =
                     i_slint_compiler::parser::identifier_text(&specifier.ExportIdentifier());
 
-                if identifier.as_ref() == Some(&query.name) {
+                if identifier.as_ref() == Some(&pti.name) {
                     return find_declaration_node_impl(
                         document_cache,
                         import_doc_node,
@@ -797,6 +959,8 @@ fn rename_declared_identifier(
     declared_identifier: &syntax_nodes::DeclaredIdentifier,
     new_type: &str,
 ) -> crate::Result<lsp_types::WorkspaceEdit> {
+    let ti = &query.token_info;
+
     let source_file = &declared_identifier.source_file;
     let document = document_cache
         .get_document_for_source_file(source_file)
@@ -822,7 +986,7 @@ fn rename_declared_identifier(
         return Err(format!("{new_type} is already a registered element").into());
     }
 
-    let old_type = &query.name;
+    let old_type = &ti.name;
 
     if *old_type == normalized_new_type {
         return Ok(lsp_types::WorkspaceEdit::default());
@@ -2176,35 +2340,35 @@ export component Bar inherits Foo /* <- TEST_ME_3 */ {
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_1");
-        id.query.is_same_symbol(&document_cache, target.clone());
+        id.query.token_info.is_same_symbol(&document_cache, target.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_2");
-        id.query.is_same_symbol(&document_cache, target.clone());
+        id.query.token_info.is_same_symbol(&document_cache, target.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_3");
-        id.query.is_same_symbol(&document_cache, target.clone());
+        id.query.token_info.is_same_symbol(&document_cache, target.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_4");
-        id.query.is_same_symbol(&document_cache, target.clone());
+        id.query.token_info.is_same_symbol(&document_cache, target.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_5");
-        id.query.is_same_symbol(&document_cache, target.clone());
+        id.query.token_info.is_same_symbol(&document_cache, target.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_6");
-        id.query.is_same_symbol(&document_cache, target.clone());
+        id.query.token_info.is_same_symbol(&document_cache, target.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_7");
-        id.query.is_same_symbol(&document_cache, target.clone());
+        id.query.token_info.is_same_symbol(&document_cache, target.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_8");
-        id.query.is_same_symbol(&document_cache, target);
+        id.query.token_info.is_same_symbol(&document_cache, target);
     }
 
     #[test]
@@ -2237,15 +2401,17 @@ export component Bar {
         )
         .unwrap()
         .query
-        .token;
+        .token_info
+        .token
+        .clone();
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_1");
-        id.query.is_same_symbol(&document_cache, declaration.clone());
+        id.query.token_info.is_same_symbol(&document_cache, declaration.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_2");
-        id.query.is_same_symbol(&document_cache, declaration);
+        id.query.token_info.is_same_symbol(&document_cache, declaration);
     }
 
     #[test]
@@ -2330,20 +2496,20 @@ export component Bar {
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_1");
-        id.query.is_same_symbol(&document_cache, declaration.clone());
+        id.query.token_info.is_same_symbol(&document_cache, declaration.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_2");
         let internal_name =
             find_token_by_comment(&document_cache, &test::main_test_file_name(), "_IN1");
-        id.query.is_same_symbol(&document_cache, internal_name);
+        id.query.token_info.is_same_symbol(&document_cache, internal_name);
 
         let export_name =
             find_token_by_comment(&document_cache, &test::test_file_name("user4.slint"), "_EXT1");
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_3");
-        id.query.is_same_symbol(&document_cache, export_name);
+        id.query.token_info.is_same_symbol(&document_cache, export_name);
     }
 
     #[test]
@@ -2432,20 +2598,20 @@ export { Foo /* <- TEST_ME_EXPORT2 */ as User4Fxx /* <- TEST_ME_EN1 */}
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_1");
-        id.query.is_same_symbol(&document_cache, declaration);
+        id.query.token_info.is_same_symbol(&document_cache, declaration);
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_2");
         let internal_name =
             find_token_by_comment(&document_cache, &test::main_test_file_name(), "_IN1");
-        id.query.is_same_symbol(&document_cache, internal_name);
+        id.query.token_info.is_same_symbol(&document_cache, internal_name);
 
         let export_name =
             find_token_by_comment(&document_cache, &test::test_file_name("user4.slint"), "_EN1");
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_3");
-        id.query.is_same_symbol(&document_cache, export_name);
+        id.query.token_info.is_same_symbol(&document_cache, export_name);
     }
 
     #[test]
@@ -2540,19 +2706,19 @@ export { Foo /* <- TEST_ME_EXPORT2 */ as User4Fxx /* <- TEST_ME_EN1 */}
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_1");
-        id.query.is_same_symbol(&document_cache, declaration);
+        id.query.token_info.is_same_symbol(&document_cache, declaration);
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_2");
-        id.query.is_same_symbol(&document_cache, internal_name);
+        id.query.token_info.is_same_symbol(&document_cache, internal_name);
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_3");
-        id.query.is_same_symbol(&document_cache, export_name.clone());
+        id.query.token_info.is_same_symbol(&document_cache, export_name.clone());
 
         let id =
             find_declaration_node_by_comment(&document_cache, &test::main_test_file_name(), "_4");
-        id.query.is_same_symbol(&document_cache, export_name);
+        id.query.token_info.is_same_symbol(&document_cache, export_name);
     }
 
     #[test]
@@ -2768,7 +2934,6 @@ export { XxxYyyZzz as Foo }
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
-
 component re_name-me {
     property <bool> re_name-me /* <- TEST_ME_1 */: true;
 
@@ -2782,8 +2947,6 @@ export component Bar {
 
     re_name-me { }
 }
-
-
                 "#
                 .to_string(),
             )]),
@@ -2840,7 +3003,6 @@ export component Bar {
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
-
 component re_name-me {
     property <bool> re_name-me /* 1 */: true;
 
@@ -2854,8 +3016,6 @@ export component Bar {
 
     re_name-me { }
 }
-
-
                 "#
                 .to_string(),
             )]),
@@ -2911,6 +3071,129 @@ export component Bar {
             .contents
             .contains("/* 2 */ self.XxxYyyZzz /* <- TEST_ME_2 */ = re-name_me >= 42;"));
         assert!(edited_text[0].contents.contains("re_name-me { }"));
+    }
+
+    #[test]
+    fn test_rename_property_from_definition_with_export() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+import { re_name-me } from "source.slint";
+
+export component Bar {
+    property <bool> re_name-me /* 1 */ : true;
+
+    function re_name-me_(re_name-me: int) { /* 2 */ self.re-name_me = re-name_me >= 42; }
+
+    re_name-me {
+        re_name-me/* 3 */: false;
+    }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+export component re_name-me {
+    in-out property <bool> re_name-me /* <- TEST_ME_1 */: true;
+
+    function re_name-me_(re_name-me: int) { /* 4 */ self.re-name_me = re-name_me >= 42; }
+}
+                "#
+                    .to_string(),
+                ),
+            ]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text =
+            rename_tester(&document_cache, &test::test_file_name("source.slint"), "_1");
+
+        assert_eq!(edited_text.len(), 2);
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("import { re_name-me } from \"source.slint\";"));
+                assert!(ed.contents.contains("export component Bar {"));
+                assert!(ed.contents.contains("property <bool> re_name-me /* 1 */"));
+                assert!(ed.contents.contains("function re_name-me_(re_name-me: int) { /* 2 */"));
+                assert!(ed.contents.contains("/* 2 */ self.re-name_me = re-name_me >= 42;"));
+                assert!(ed.contents.contains("re_name-me {"));
+                assert!(ed.contents.contains("XxxYyyZzz/* 3 */:"));
+            } else if ed_path == test::test_file_name("source.slint") {
+                assert!(ed.contents.contains("export component re_name-me {"));
+                assert!(ed.contents.contains("in-out property <bool> XxxYyyZzz /* <- TEST_ME_1"));
+                assert!(ed.contents.contains("function re_name-me_(re_name-me: int) { /* 4 */"));
+                assert!(ed.contents.contains("/* 4 */ self.XxxYyyZzz = re-name_me >= 42;"));
+            } else {
+                panic!("Unexpected file!");
+            }
+        }
+    }
+
+    #[test]
+    fn test_rename_property_from_use_with_export() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+import { re_name-me } from "source.slint";
+
+export component Bar {
+    property <bool> re_name-me /* 1 */ : true;
+
+    function re_name-me_(re_name-me: int) { /* 2 */ self.re-name_me = re-name_me >= 42; }
+
+    re_name-me {
+        re_name-me/* <- TEST_ME_1 */: false;
+    }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    r#"
+export component re_name-me {
+    in-out property <bool> re_name-me /* 3 */: true;
+
+    function re_name-me_(re_name-me: int) { /* 4 */ self.re-name_me = re_name-me >= 42; }
+}
+                "#
+                    .to_string(),
+                ),
+            ]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 2);
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("import { re_name-me } from \"source.slint\";"));
+                assert!(ed.contents.contains("export component Bar {"));
+                assert!(ed.contents.contains("property <bool> re_name-me /* 1 */"));
+                assert!(ed.contents.contains("function re_name-me_(re_name-me: int) "));
+                assert!(ed.contents.contains("{ /* 2 */ self.re-name_me = re-name_me >= 42;"));
+                assert!(ed.contents.contains("re_name-me {"));
+                assert!(ed.contents.contains("XxxYyyZzz/* <- TEST_ME_1 */:"));
+            } else if ed_path == test::test_file_name("source.slint") {
+                assert!(ed.contents.contains("export component re_name-me {"));
+                assert!(ed.contents.contains("in-out property <bool> XxxYyyZzz /* 3 */"));
+                assert!(ed.contents.contains("function re_name-me_(re_name-me: int) { /* 4 */"));
+                assert!(ed.contents.contains("/* 4 */ self.XxxYyyZzz = re_name-me >= 42;"));
+            } else {
+                panic!("Unexpected file!");
+            }
+        }
     }
 
     #[test]
