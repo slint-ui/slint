@@ -20,20 +20,20 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{Element, ElementRc, PropertyAnimation};
 use crate::typeregister::BUILTIN;
 
-pub struct ExpressionContextInner<'a> {
+pub struct ExpressionLoweringCtxInner<'a> {
     pub component: &'a Rc<crate::object_tree::Component>,
     /// The mapping for the current component
     pub mapping: &'a LoweredSubComponentMapping,
-    pub parent: Option<&'a ExpressionContextInner<'a>>,
+    pub parent: Option<&'a ExpressionLoweringCtxInner<'a>>,
 }
 #[derive(derive_more::Deref)]
-pub struct ExpressionContext<'a> {
+pub struct ExpressionLoweringCtx<'a> {
     pub state: &'a mut LoweringState,
     #[deref]
-    pub inner: ExpressionContextInner<'a>,
+    pub inner: ExpressionLoweringCtxInner<'a>,
 }
 
-impl ExpressionContext<'_> {
+impl ExpressionLoweringCtx<'_> {
     pub fn map_property_reference(&self, from: &NamedReference) -> PropertyReference {
         let element = from.element();
         let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
@@ -57,7 +57,7 @@ impl ExpressionContext<'_> {
     }
 }
 
-impl super::TypeResolutionContext for ExpressionContext<'_> {
+impl super::TypeResolutionContext for ExpressionLoweringCtx<'_> {
     fn property_ty(&self, _: &PropertyReference) -> &Type {
         todo!()
     }
@@ -65,7 +65,7 @@ impl super::TypeResolutionContext for ExpressionContext<'_> {
 
 pub fn lower_expression(
     expression: &tree_Expression,
-    ctx: &mut ExpressionContext<'_>,
+    ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
     match expression {
         tree_Expression::Invalid => {
@@ -223,7 +223,7 @@ fn lower_assignment(
     lhs: &tree_Expression,
     rhs: &tree_Expression,
     op: char,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     match lhs {
         tree_Expression::PropertyReference(nr) => {
@@ -354,7 +354,7 @@ fn repeater_special_property(
     llr_Expression::PropertyReference(r)
 }
 
-fn lower_show_popup(args: &[tree_Expression], ctx: &mut ExpressionContext) -> llr_Expression {
+fn lower_show_popup(args: &[tree_Expression], ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
@@ -390,7 +390,7 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &mut ExpressionContext) -> ll
     }
 }
 
-fn lower_close_popup(args: &[tree_Expression], ctx: &mut ExpressionContext) -> llr_Expression {
+fn lower_close_popup(args: &[tree_Expression], ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
@@ -422,8 +422,11 @@ fn lower_close_popup(args: &[tree_Expression], ctx: &mut ExpressionContext) -> l
     }
 }
 
-pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionContext<'_>) -> Animation {
-    fn lower_animation_element(a: &ElementRc, ctx: &mut ExpressionContext<'_>) -> llr_Expression {
+pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_>) -> Animation {
+    fn lower_animation_element(
+        a: &ElementRc,
+        ctx: &mut ExpressionLoweringCtx<'_>,
+    ) -> llr_Expression {
         llr_Expression::Struct {
             values: animation_fields()
                 .map(|(k, ty)| {
@@ -520,7 +523,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionContext<'_>) -
 fn compute_layout_info(
     l: &crate::layout::Layout,
     o: Orientation,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     match l {
         crate::layout::Layout::GridLayout(layout) => {
@@ -565,7 +568,7 @@ fn compute_layout_info(
 fn solve_layout(
     l: &crate::layout::Layout,
     o: Orientation,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     match l {
         crate::layout::Layout::GridLayout(layout) => {
@@ -698,7 +701,7 @@ struct BoxLayoutDataResult {
 fn box_layout_data(
     layout: &crate::layout::BoxLayout,
     orientation: Orientation,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
 ) -> BoxLayoutDataResult {
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
@@ -763,7 +766,7 @@ fn box_layout_data(
 fn grid_layout_cell_data(
     layout: &crate::layout::GridLayout,
     orientation: Orientation,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     llr_Expression::Array {
         element_ty: grid_layout_cell_data_ty(),
@@ -806,7 +809,7 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
 fn generate_layout_padding_and_spacing(
     layout_geometry: &crate::layout::LayoutGeometry,
     orientation: Orientation,
-    ctx: &ExpressionContext,
+    ctx: &ExpressionLoweringCtx,
 ) -> (llr_Expression, llr_Expression) {
     let padding_prop = |expr| {
         if let Some(expr) = expr {
@@ -829,7 +832,7 @@ fn generate_layout_padding_and_spacing(
 fn layout_geometry_size(
     rect: &crate::layout::LayoutRect,
     orientation: Orientation,
-    ctx: &ExpressionContext,
+    ctx: &ExpressionLoweringCtx,
 ) -> llr_Expression {
     match rect.size_reference(orientation) {
         Some(nr) => llr_Expression::PropertyReference(ctx.map_property_reference(nr)),
@@ -839,7 +842,7 @@ fn layout_geometry_size(
 
 pub fn get_layout_info(
     elem: &ElementRc,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
 ) -> llr_Expression {
@@ -890,7 +893,7 @@ pub fn get_layout_info(
 
 fn compile_path(
     path: &crate::expression_tree::Path,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     fn llr_path_elements(elements: Vec<llr_Expression>) -> llr_Expression {
         llr_Expression::Cast {

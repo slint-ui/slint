@@ -3,7 +3,7 @@
 
 use by_address::ByAddress;
 
-use super::lower_expression::{ExpressionContext, ExpressionContextInner};
+use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
 use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Struct, Type};
 use crate::llr::item_tree::*;
@@ -243,7 +243,7 @@ fn component_id(component: &Rc<Component>) -> SmolStr {
 fn lower_sub_component(
     component: &Rc<Component>,
     state: &mut LoweringState,
-    parent_context: Option<&ExpressionContextInner>,
+    parent_context: Option<&ExpressionLoweringCtxInner>,
     compiler_config: &CompilerConfiguration,
 ) -> LoweredSubComponent {
     let mut sub_component = SubComponent {
@@ -403,8 +403,8 @@ fn lower_sub_component(
 
         Some(element.clone())
     });
-    let inner = ExpressionContextInner { mapping: &mapping, parent: parent_context, component };
-    let mut ctx = ExpressionContext { inner, state };
+    let inner = ExpressionLoweringCtxInner { mapping: &mapping, parent: parent_context, component };
+    let mut ctx = ExpressionLoweringCtx { inner, state };
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
         let nr = NamedReference::new(e, p.clone());
         let prop = ctx.map_property_reference(&nr);
@@ -595,7 +595,7 @@ fn lower_sub_component(
 
 fn lower_geometry(
     geom: &crate::object_tree::GeometryProps,
-    ctx: &ExpressionContext<'_>,
+    ctx: &ExpressionLoweringCtx<'_>,
 ) -> super::Expression {
     let mut fields = BTreeMap::default();
     let mut values = HashMap::with_capacity(4);
@@ -643,7 +643,7 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
 
 fn lower_repeated_component(
     elem: &ElementRc,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
     compiler_config: &CompilerConfiguration,
 ) -> RepeatedElement {
     let e = elem.borrow();
@@ -681,7 +681,7 @@ fn lower_repeated_component(
 fn lower_component_container(
     container: &ElementRc,
     sub_component: &SubComponent,
-    _ctx: &ExpressionContext,
+    _ctx: &ExpressionLoweringCtx,
 ) -> ComponentContainerElement {
     let c = container.borrow();
 
@@ -701,7 +701,7 @@ fn lower_component_container(
 
 fn lower_popup_component(
     popup: &object_tree::PopupWindow,
-    ctx: &mut ExpressionContext,
+    ctx: &mut ExpressionLoweringCtx,
     compiler_config: &CompilerConfiguration,
 ) -> PopupWindow {
     let sc = lower_sub_component(&popup.component, ctx.state, Some(&ctx.inner), compiler_config);
@@ -734,7 +734,7 @@ fn lower_popup_component(
     PopupWindow { item_tree, position: position.into() }
 }
 
-fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionContext) -> Timer {
+fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {
     Timer {
         interval: super::Expression::PropertyReference(ctx.map_property_reference(&timer.interval))
             .into(),
@@ -859,8 +859,8 @@ fn lower_global_expressions(
 ) {
     // Note that this mapping doesn't contain anything useful, everything is in the state
     let mapping = LoweredSubComponentMapping::default();
-    let inner = ExpressionContextInner { mapping: &mapping, parent: None, component: global };
-    let mut ctx = ExpressionContext { inner, state };
+    let inner = ExpressionLoweringCtxInner { mapping: &mapping, parent: None, component: global };
+    let mut ctx = ExpressionLoweringCtx { inner, state };
 
     for (prop, binding) in &global.root_element.borrow().bindings {
         assert!(binding.borrow().two_way_bindings.is_empty());
