@@ -8,7 +8,7 @@ use itertools::Itertools;
 use crate::expression_tree::MinMaxOp;
 
 use super::{
-    CompilationUnit, EvaluationContext, Expression, ParentCtx, PropertyReference, SubComponentIndex,
+    CompilationUnit, EvaluationContext, Expression, ParentCtx, PropertyReference, SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
@@ -22,12 +22,12 @@ struct PrettyPrinter<'a> {
 
 impl<'a> PrettyPrinter<'a> {
     fn print_root(&mut self, root: &CompilationUnit) -> Result {
-        for (idx, g) in root.globals.iter().enumerate() {
+        for (idx, g) in root.globals.iter_enumerated() {
             if !g.is_builtin {
                 self.print_global(root, idx, g)?;
             }
         }
-        for c in 0..root.sub_components.len() {
+        for c in root.sub_components.keys() {
             self.print_component(root, c, None)?
         }
 
@@ -37,7 +37,7 @@ impl<'a> PrettyPrinter<'a> {
     fn print_component(
         &mut self,
         root: &CompilationUnit,
-        sc_idx: SubComponentIndex,
+        sc_idx: SubComponentIdx,
         parent: Option<ParentCtx<'_>>,
     ) -> Result {
         let ctx = EvaluationContext::new_sub_component(root, sc_idx, (), parent);
@@ -98,14 +98,10 @@ impl<'a> PrettyPrinter<'a> {
             });
             writeln!(self.writer, "{} := {} {{ {geometry} }};", item.name, item.ty.class_name)?;
         }
-        for (idx, r) in sc.repeated.iter().enumerate() {
+        for (idx, r) in sc.repeated.iter_enumerated() {
             self.indent()?;
             write!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
-            self.print_component(
-                root,
-                r.sub_tree.root,
-                Some(ParentCtx::new(&ctx, Some(idx as u32))),
-            )?
+            self.print_component(root, r.sub_tree.root, Some(ParentCtx::new(&ctx, Some(idx))))?
         }
         for w in &sc.popup_windows {
             self.indent()?;
@@ -119,7 +115,7 @@ impl<'a> PrettyPrinter<'a> {
     fn print_global(
         &mut self,
         root: &CompilationUnit,
-        idx: super::GlobalIndex,
+        idx: super::GlobalIdx,
         global: &super::GlobalComponent,
     ) -> Result {
         let ctx = EvaluationContext::new_global(root, idx, ());
@@ -206,7 +202,7 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                     write!(f, "{}.", sc.sub_components[*i].name)?;
                     sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
                 }
-                let i = &sc.items[*item_index as usize];
+                let i = &sc.items[*item_index];
                 write!(f, "{}.{}", i.name, prop_name)
             }
             PropertyReference::InParent { level, parent_reference } => {

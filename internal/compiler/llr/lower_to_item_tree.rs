@@ -13,6 +13,7 @@ use crate::CompilerConfiguration;
 use smol_str::{format_smolstr, SmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
+use typed_index_collections::TiVec;
 
 pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
@@ -31,9 +32,9 @@ pub fn lower_to_item_tree(
         );
     }
 
-    let mut globals = Vec::new();
+    let mut globals = TiVec::new();
     for g in &document.used_types.borrow().globals {
-        let count = globals.len();
+        let count = globals.next_key();
         globals.push(lower_global(g, count, &mut state));
     }
     for (g, l) in document.used_types.borrow().globals.iter().zip(&mut globals) {
@@ -42,8 +43,8 @@ pub fn lower_to_item_tree(
 
     for c in &document.used_types.borrow().sub_components {
         let sc = lower_sub_component(c, &mut state, None, compiler_config);
-        state.sub_component_mapping.insert(ByAddress(c.clone()), state.sub_components.len());
-        state.sub_components.push(sc);
+        let idx = state.sub_components.push_and_get_key(sc);
+        state.sub_component_mapping.insert(ByAddress(c.clone()), idx);
     }
 
     let public_components = document
@@ -51,13 +52,12 @@ pub fn lower_to_item_tree(
         .map(|component| {
             let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
             let public_properties = public_properties(&component, &sc.mapping, &state);
+            sc.sub_component.name = component.id.clone();
             let item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
-                root: state.sub_components.len(),
+                root: state.sub_components.push_and_get_key(sc),
                 parent_context: None,
             };
-            sc.sub_component.name = component.id.clone();
-            state.sub_components.push(sc);
             // For C++ codegen, the root component must have the same name as the public component
             PublicComponent {
                 item_tree,
@@ -70,11 +70,6 @@ pub fn lower_to_item_tree(
 
     let popup_menu = document.popup_menu_impl.as_ref().map(|c| {
         let sc = lower_sub_component(&c, &mut state, None, compiler_config);
-        let item_tree = ItemTree {
-            tree: make_tree(&state, &c.root_element, &sc, &[]),
-            root: state.sub_components.len(),
-            parent_context: None,
-        };
         let sub_menu = sc.mapping.map_property_reference(
             &NamedReference::new(&c.root_element, SmolStr::new_static("sub-menu")),
             &state,
@@ -87,7 +82,11 @@ pub fn lower_to_item_tree(
             &NamedReference::new(&c.root_element, SmolStr::new_static("entries")),
             &state,
         );
-        state.sub_components.push(sc);
+        let item_tree = ItemTree {
+            tree: make_tree(&state, &c.root_element, &sc, &[]),
+            root: state.sub_components.push_and_get_key(sc),
+            parent_context: None,
+        };
         PopupMenu { item_tree, sub_menu, activated, entries }
     });
 
@@ -113,9 +112,9 @@ pub fn lower_to_item_tree(
 
 #[derive(Debug, Clone)]
 pub enum LoweredElement {
-    SubComponent { sub_component_index: usize },
-    NativeItem { item_index: u32 },
-    Repeated { repeated_index: u32 },
+    SubComponent { sub_component_index: SubComponentInstanceIdx },
+    NativeItem { item_index: ItemInstanceIdx },
+    Repeated { repeated_index: RepeatedElementIdx },
     ComponentPlaceholder { repeated_index: u32 },
 }
 
@@ -182,8 +181,8 @@ pub struct LoweredSubComponent {
 #[derive(Default)]
 pub struct LoweringState {
     global_properties: HashMap<NamedReference, PropertyReference>,
-    sub_components: Vec<LoweredSubComponent>,
-    sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIndex>,
+    sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
+    sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<super::translations::TranslationsBuilder>,
 }
@@ -203,20 +202,19 @@ impl LoweringState {
         &self.sub_components[self.sub_component_idx(component)]
     }
 
-    fn sub_component_idx(&self, component: &Rc<Component>) -> usize {
+    fn sub_component_idx(&self, component: &Rc<Component>) -> SubComponentIdx {
         self.sub_component_mapping[&ByAddress(component.clone())]
     }
 
-    fn push_sub_component(&mut self, sc: LoweredSubComponent) -> SubComponentIndex {
-        self.sub_components.push(sc);
-        self.sub_components.len() - 1
+    fn push_sub_component(&mut self, sc: LoweredSubComponent) -> SubComponentIdx {
+        self.sub_components.push_and_get_key(sc)
     }
 }
 
 // Map a PropertyReference within a `sub_component` to a PropertyReference to the component containing it
 fn property_reference_within_sub_component(
     mut prop_ref: PropertyReference,
-    sub_component: usize,
+    sub_component: SubComponentInstanceIdx,
 ) -> PropertyReference {
     match &mut prop_ref {
         PropertyReference::Local { sub_component_path, .. }
@@ -271,7 +269,7 @@ fn lower_sub_component(
         prop_analysis: Default::default(),
     };
     let mut mapping = LoweredSubComponentMapping::default();
-    let mut repeated = vec![];
+    let mut repeated = TiVec::new();
     let mut component_container_data = vec![];
     let mut accessible_prop = Vec::new();
     let mut change_callbacks = Vec::new();
@@ -304,32 +302,30 @@ fn lower_sub_component(
                 continue;
             }
             if let Type::Function(function) = &x.property_type {
-                let function_index = sub_component.functions.len();
-                mapping.property_mapping.insert(
-                    NamedReference::new(element, p.clone()),
-                    PropertyReference::Function { sub_component_path: vec![], function_index },
-                );
                 // TODO: Function could wrap the Rc<langtype::Function>
                 //       instead of cloning the return type and args?
-                sub_component.functions.push(Function {
+                let function_index = sub_component.functions.push_and_get_key(Function {
                     name: p.clone(),
                     ret_ty: function.return_type.clone(),
                     args: function.args.clone(),
                     // will be replaced later
                     code: super::Expression::CodeBlock(vec![]),
                 });
+                mapping.property_mapping.insert(
+                    NamedReference::new(element, p.clone()),
+                    PropertyReference::Function { sub_component_path: vec![], function_index },
+                );
                 continue;
             }
-            let property_index = sub_component.properties.len();
-            mapping.property_mapping.insert(
-                NamedReference::new(element, p.clone()),
-                PropertyReference::Local { sub_component_path: vec![], property_index },
-            );
-            sub_component.properties.push(Property {
+            let property_index = sub_component.properties.push_and_get_key(Property {
                 name: format_smolstr!("{}_{}", elem.id, p),
                 ty: x.property_type.clone(),
                 ..Property::default()
             });
+            mapping.property_mapping.insert(
+                NamedReference::new(element, p.clone()),
+                PropertyReference::Local { sub_component_path: vec![], property_index },
+            );
         }
         if elem.is_component_placeholder {
             mapping.element_mapping.insert(
@@ -345,40 +341,43 @@ fn lower_sub_component(
         if elem.repeated.is_some() {
             mapping.element_mapping.insert(
                 element.clone().into(),
-                LoweredElement::Repeated { repeated_index: repeated.len() as u32 },
+                LoweredElement::Repeated {
+                    repeated_index: repeated.push_and_get_key(element.clone()),
+                },
             );
-            repeated.push(element.clone());
             mapping.repeater_count += 1;
             return None;
         }
         match &elem.base_type {
             ElementType::Component(comp) => {
                 let ty = state.sub_component_idx(comp);
-                let sub_component_index = sub_component.sub_components.len();
+                let sub_component_index =
+                    sub_component.sub_components.push_and_get_key(SubComponentInstance {
+                        ty: ty.clone(),
+                        name: elem.id.clone(),
+                        index_in_tree: *elem.item_index.get().unwrap(),
+                        index_of_first_child_in_tree: *elem
+                            .item_index_of_first_children
+                            .get()
+                            .unwrap(),
+                        repeater_offset,
+                    });
                 mapping.element_mapping.insert(
                     element.clone().into(),
                     LoweredElement::SubComponent { sub_component_index },
                 );
-                sub_component.sub_components.push(SubComponentInstance {
-                    ty: ty.clone(),
-                    name: elem.id.clone(),
-                    index_in_tree: *elem.item_index.get().unwrap(),
-                    index_of_first_child_in_tree: *elem.item_index_of_first_children.get().unwrap(),
-                    repeater_offset,
-                });
                 repeater_offset += comp.repeater_count();
             }
 
             ElementType::Native(n) => {
-                let item_index = sub_component.items.len() as u32;
-                mapping
-                    .element_mapping
-                    .insert(element.clone().into(), LoweredElement::NativeItem { item_index });
-                sub_component.items.push(Item {
+                let item_index = sub_component.items.push_and_get_key(Item {
                     ty: n.clone(),
                     name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
-                })
+                });
+                mapping
+                    .element_mapping
+                    .insert(element.clone().into(), LoweredElement::NativeItem { item_index });
             }
             _ => unreachable!(),
         };
@@ -671,8 +670,8 @@ fn lower_repeated_component(
             root: ctx.state.push_sub_component(sc),
             parent_context: Some(e.enclosing_component.upgrade().unwrap().id.clone()),
         },
-        index_prop: (!repeated.is_conditional_element).then_some(1),
-        data_prop: (!repeated.is_conditional_element).then_some(0),
+        index_prop: (!repeated.is_conditional_element).then_some(1usize.into()),
+        data_prop: (!repeated.is_conditional_element).then_some(0usize.into()),
         index_in_tree: *e.item_index.get().unwrap(),
         listview,
     }
@@ -686,11 +685,8 @@ fn lower_component_container(
     let c = container.borrow();
 
     let component_container_index = *c.item_index.get().unwrap();
-    let component_container_items_index = sub_component
-        .items
-        .iter()
-        .position(|i| i.index_in_tree == component_container_index)
-        .unwrap() as u32;
+    let component_container_items_index =
+        sub_component.items.position(|i| i.index_in_tree == component_container_index).unwrap();
 
     ComponentContainerElement {
         component_container_item_tree_index: component_container_index,
@@ -752,39 +748,37 @@ fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer
 /// Lower the globals (but not their expressions as we first need to lower all the global to get proper mapping in the state)
 fn lower_global(
     global: &Rc<Component>,
-    global_index: usize,
+    global_index: GlobalIdx,
     state: &mut LoweringState,
 ) -> GlobalComponent {
-    let mut properties = vec![];
-    let mut const_properties = vec![];
-    let mut prop_analysis = vec![];
-    let mut functions = vec![];
+    let mut properties = TiVec::new();
+    let mut const_properties = TiVec::new();
+    let mut prop_analysis = TiVec::new();
+    let mut functions = TiVec::new();
 
     for (p, x) in &global.root_element.borrow().property_declarations {
         if x.is_alias.is_some() {
             continue;
         }
-        let property_index = properties.len();
         let nr = NamedReference::new(&global.root_element, p.clone());
 
         if let Type::Function(function) = &x.property_type {
-            let function_index = functions.len();
-            state.global_properties.insert(
-                nr.clone(),
-                PropertyReference::GlobalFunction { global_index, function_index },
-            );
             // TODO: wrap the Rc<langtype::Function> instead of cloning
-            functions.push(Function {
+            let function_index = functions.push_and_get_key(Function {
                 name: p.clone(),
                 ret_ty: function.return_type.clone(),
                 args: function.args.clone(),
                 // will be replaced later
                 code: super::Expression::CodeBlock(vec![]),
             });
+            state.global_properties.insert(
+                nr.clone(),
+                PropertyReference::GlobalFunction { global_index, function_index },
+            );
             continue;
         }
 
-        properties.push(Property {
+        let property_index = properties.push_and_get_key(Property {
             name: p.clone(),
             ty: x.property_type.clone(),
             ..Property::default()
@@ -812,8 +806,11 @@ fn lower_global(
     let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
         // We just generate the property so we know how to address them
         for (p, x) in &builtin.properties {
-            let property_index = properties.len();
-            properties.push(Property { name: p.clone(), ty: x.ty.clone(), ..Property::default() });
+            let property_index = properties.push_and_get_key(Property {
+                name: p.clone(),
+                ty: x.ty.clone(),
+                ..Property::default()
+            });
             let nr = NamedReference::new(&global.root_element, p.clone());
             state
                 .global_properties
@@ -838,7 +835,7 @@ fn lower_global(
 
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
-        init_values: vec![None; properties.len()],
+        init_values: typed_index_collections::ti_vec![None; properties.len()],
         properties,
         functions,
         change_callbacks: BTreeMap::new(),
@@ -907,7 +904,7 @@ fn make_tree(
     state: &LoweringState,
     element: &ElementRc,
     component: &LoweredSubComponent,
-    sub_component_path: &[usize],
+    sub_component_path: &[SubComponentInstanceIdx],
 ) -> TreeNode {
     let e = element.borrow();
     let children = e.children.iter().map(|c| make_tree(state, c, component, sub_component_path));
@@ -933,26 +930,20 @@ fn make_tree(
         LoweredElement::NativeItem { item_index } => TreeNode {
             is_accessible: !e.accessibility_props.0.is_empty(),
             sub_component_path: sub_component_path.into(),
-            item_index: *item_index,
+            item_index: itertools::Either::Left(*item_index),
             children: children.collect(),
-            repeated: false,
-            component_container: false,
         },
         LoweredElement::Repeated { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
-            item_index: *repeated_index,
+            item_index: itertools::Either::Right(usize::from(*repeated_index) as u32),
             children: vec![],
-            repeated: true,
-            component_container: false,
         },
         LoweredElement::ComponentPlaceholder { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
-            item_index: *repeated_index + repeater_count,
+            item_index: itertools::Either::Right(*repeated_index + repeater_count),
             children: vec![],
-            repeated: false,
-            component_container: true,
         },
     }
 }

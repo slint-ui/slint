@@ -11,7 +11,7 @@ use itertools::Either;
 use smol_str::{format_smolstr, SmolStr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
-use super::{Animation, PropertyReference};
+use super::{Animation, PropertyIdx, PropertyReference, RepeatedElementIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
 use crate::langtype::{EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
@@ -88,10 +88,10 @@ pub fn lower_expression(
             )))
         }
         tree_Expression::RepeaterIndexReference { element } => {
-            repeater_special_property(element, ctx.component, 1)
+            repeater_special_property(element, ctx.component, 1usize.into())
         }
         tree_Expression::RepeaterModelReference { element } => {
-            repeater_special_property(element, ctx.component, 0)
+            repeater_special_property(element, ctx.component, 0usize.into())
         }
         tree_Expression::FunctionParameterReference { index, .. } => {
             llr_Expression::FunctionParameterReference { index: *index }
@@ -288,7 +288,7 @@ fn lower_assignment(
         }
         tree_Expression::RepeaterModelReference { element } => {
             let rhs = lower_expression(rhs, ctx);
-            let prop = repeater_special_property(element, ctx.component, 0);
+            let prop = repeater_special_property(element, ctx.component, 0usize.into());
 
             let level = match &prop {
                 llr_Expression::PropertyReference(PropertyReference::InParent {
@@ -331,7 +331,7 @@ fn lower_assignment(
 fn repeater_special_property(
     element: &Weak<RefCell<Element>>,
     component: &Rc<crate::object_tree::Component>,
-    property_index: usize,
+    property_index: PropertyIdx,
 ) -> llr_Expression {
     let mut r = PropertyReference::Local { sub_component_path: vec![], property_index };
     let enclosing = element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
@@ -695,7 +695,7 @@ struct BoxLayoutDataResult {
     cells: llr_Expression,
     /// When there are repeater involved, we need to do a BoxLayoutFunction with the
     /// given cell variable and elements
-    compute_cells: Option<(String, Vec<Either<llr_Expression, u32>>)>,
+    compute_cells: Option<(String, Vec<Either<llr_Expression, RepeatedElementIdx>>)>,
 }
 
 fn box_layout_data(

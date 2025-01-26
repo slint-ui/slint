@@ -95,7 +95,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
                 component_access += &sub_compo_path;
             }
             let component_rc = format!("{component_access}self_weak.lock()->into_dyn()");
-            let item_index_in_tree = sub_component.items[*item_index as usize].index_in_tree;
+            let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
             let item_index = if item_index_in_tree == 0 {
                 format!("{component_access}tree_index")
             } else {
@@ -794,7 +794,7 @@ pub fn generate(
         }),
     ));
 
-    for (idx, glob) in llr.globals.iter().enumerate() {
+    for (idx, glob) in llr.globals.iter_enumerated() {
         let ty = if glob.is_builtin {
             format_smolstr!("slint::cbindgen_private::{}", glob.name)
         } else if glob.must_generate() {
@@ -1293,7 +1293,7 @@ fn generate_public_component(
     fn add_friends(
         friends: &mut Vec<SmolStr>,
         unit: &llr::CompilationUnit,
-        c: llr::SubComponentIndex,
+        c: llr::SubComponentIdx,
         is_root: bool,
     ) {
         let sc = &unit.sub_components[c];
@@ -1344,49 +1344,55 @@ fn generate_item_tree(
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
 
-        if node.repeated {
-            assert_eq!(node.children.len(), 0);
-            let mut repeater_index = node.item_index;
-            let mut sub_component = &root.sub_components[sub_tree.root];
-            for i in &node.sub_component_path {
-                repeater_index += sub_component.sub_components[*i].repeater_offset;
-                sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
+        match node.item_index {
+            Either::Right(mut repeater_index) => {
+                assert_eq!(node.children.len(), 0);
+                let mut sub_component = &root.sub_components[sub_tree.root];
+                for i in &node.sub_component_path {
+                    repeater_index += sub_component.sub_components[*i].repeater_offset;
+                    sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
+                }
+                item_tree_array.push(format!(
+                    "slint::private_api::make_dyn_node({}, {})",
+                    repeater_index, parent_index
+                ));
             }
-            item_tree_array.push(format!(
-                "slint::private_api::make_dyn_node({}, {})",
-                repeater_index, parent_index
-            ));
-        } else {
-            let mut compo_offset = String::new();
-            let mut sub_component = &root.sub_components[sub_tree.root];
-            for i in &node.sub_component_path {
-                let next_sub_component_name = ident(&sub_component.sub_components[*i].name);
-                write!(
+            Either::Left(item_index) => {
+                let mut compo_offset = String::new();
+                let mut sub_component = &root.sub_components[sub_tree.root];
+                for i in &node.sub_component_path {
+                    let next_sub_component_name = ident(&sub_component.sub_components[*i].name);
+                    write!(
+                        compo_offset,
+                        "offsetof({}, {}) + ",
+                        ident(&sub_component.name),
+                        next_sub_component_name
+                    )
+                    .unwrap();
+                    sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
+                }
+
+                let item = &sub_component.items[item_index];
+                let children_count = node.children.len() as u32;
+                let children_index = children_offset as u32;
+                let item_array_index = item_array.len() as u32;
+
+                item_tree_array.push(format!(
+                    "slint::private_api::make_item_node({}, {}, {}, {}, {})",
+                    children_count,
+                    children_index,
+                    parent_index,
+                    item_array_index,
+                    node.is_accessible
+                ));
+                item_array.push(format!(
+                    "{{ {}, {} offsetof({}, {}) }}",
+                    item.ty.cpp_vtable_getter,
                     compo_offset,
-                    "offsetof({}, {}) + ",
-                    ident(&sub_component.name),
-                    next_sub_component_name
-                )
-                .unwrap();
-                sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
+                    &ident(&sub_component.name),
+                    ident(&item.name),
+                ));
             }
-
-            let item = &sub_component.items[node.item_index as usize];
-            let children_count = node.children.len() as u32;
-            let children_index = children_offset as u32;
-            let item_array_index = item_array.len() as u32;
-
-            item_tree_array.push(format!(
-                "slint::private_api::make_item_node({}, {}, {}, {}, {})",
-                children_count, children_index, parent_index, item_array_index, node.is_accessible
-            ));
-            item_array.push(format!(
-                "{{ {}, {} offsetof({}, {}) }}",
-                item.ty.cpp_vtable_getter,
-                compo_offset,
-                &ident(&sub_component.name),
-                ident(&item.name),
-            ));
         }
     });
 
@@ -1482,7 +1488,7 @@ fn generate_item_tree(
         .and_then(|parent| {
             parent
                 .repeater_index
-                .map(|idx| parent.ctx.current_sub_component().unwrap().repeated[idx as usize].index_in_tree)
+                .map(|idx| parent.ctx.current_sub_component().unwrap().repeated[idx].index_in_tree)
         }).map(|parent_index|
             vec![
                 format!(
@@ -1814,7 +1820,7 @@ fn generate_item_tree(
 
 fn generate_sub_component(
     target_struct: &mut Struct,
-    component: llr::SubComponentIndex,
+    component: llr::SubComponentIdx,
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     field_access: Access,
@@ -2062,8 +2068,7 @@ fn generate_sub_component(
         ));
     }
 
-    for (idx, repeated) in component.repeated.iter().enumerate() {
-        let idx = idx as u32;
+    for (idx, repeated) in component.repeated.iter_enumerated() {
         let sc = &root.sub_components[repeated.sub_tree.root];
         let data_type = if let Some(data_prop) = repeated.data_prop {
             sc.properties[data_prop].ty.clone()
@@ -2080,6 +2085,7 @@ fn generate_sub_component(
             conditional_includes,
         );
 
+        let idx = usize::from(idx);
         let repeater_id = format_smolstr!("repeater_{}", idx);
 
         let mut model = compile_expression(&repeated.model.borrow(), &ctx);
@@ -2200,9 +2206,9 @@ fn generate_sub_component(
         ));
     }
 
-    target_struct
-        .members
-        .extend(generate_functions(&component.functions, &ctx).map(|x| (Access::Public, x)));
+    target_struct.members.extend(
+        generate_functions(&component.functions.as_ref(), &ctx).map(|x| (Access::Public, x)),
+    );
 
     target_struct.members.push((
         field_access,
@@ -2555,7 +2561,7 @@ fn generate_repeated_component(
 fn generate_global(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
-    global_idx: llr::GlobalIndex,
+    global_idx: llr::GlobalIdx,
     global: &llr::GlobalComponent,
     root: &llr::CompilationUnit,
 ) {
@@ -2592,7 +2598,7 @@ fn generate_global(
         CppGeneratorContext { global_access: "this->globals".into(), conditional_includes },
     );
 
-    for (property_index, expression) in global.init_values.iter().enumerate() {
+    for (property_index, expression) in global.init_values.iter_enumerated() {
         if global.properties[property_index].use_count.get() == 0 {
             continue;
         }
@@ -2612,7 +2618,7 @@ fn generate_global(
             Access::Private,
             Declaration::Var(Var {
                 ty: "slint::private_api::ChangeTracker".into(),
-                name: format_smolstr!("change_tracker{}", i),
+                name: format_smolstr!("change_tracker{}", usize::from(*i)),
                 ..Default::default()
             }),
         ));
@@ -2620,7 +2626,7 @@ fn generate_global(
     init.extend(global.change_callbacks.iter().map(|(p, e)| {
         let code = compile_expression(&e.borrow(), &ctx);
         let prop = access_member(&llr::PropertyReference::Local { sub_component_path: vec![], property_index: *p }, &ctx);
-        format!("this->change_tracker{p}.init(this, [this]([[maybe_unused]] auto self) {{ return {prop}.get(); }}, [this]([[maybe_unused]] auto self, auto) {{ {code}; }});")
+        format!("this->change_tracker{}.init(this, [this]([[maybe_unused]] auto self) {{ return {prop}.get(); }}, [this]([[maybe_unused]] auto self, auto) {{ {code}; }});", usize::from(*p))
     }));
 
     global_struct.members.push((
@@ -2651,7 +2657,7 @@ fn generate_global(
     );
     global_struct
         .members
-        .extend(generate_functions(&global.functions, &ctx).map(|x| (Access::Public, x)));
+        .extend(generate_functions(global.functions.as_ref(), &ctx).map(|x| (Access::Public, x)));
 
     file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(global_struct));
@@ -2856,8 +2862,8 @@ fn generate_public_api_for_properties(
 
 fn follow_sub_component_path<'a>(
     compilation_unit: &'a llr::CompilationUnit,
-    root: llr::SubComponentIndex,
-    sub_component_path: &[usize],
+    root: llr::SubComponentIdx,
+    sub_component_path: &[llr::SubComponentInstanceIdx],
 ) -> (String, &'a llr::SubComponent) {
     let mut compo_path = String::new();
     let mut sub_component = &compilation_unit.sub_components[root];
@@ -2888,8 +2894,8 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
     fn in_native_item(
         ctx: &EvaluationContext,
-        sub_component_path: &[usize],
-        item_index: u32,
+        sub_component_path: &[llr::SubComponentInstanceIdx],
+        item_index: llr::ItemInstanceIdx,
         prop_name: &str,
         path: &str,
     ) -> String {
@@ -2898,7 +2904,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             ctx.current_sub_component.unwrap(),
             sub_component_path,
         );
-        let item_name = ident(&sub_component.items[item_index as usize].name);
+        let item_name = ident(&sub_component.items[item_index].name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
             format!("{}->{}{}", path, compo_path, item_name)
@@ -3018,7 +3024,7 @@ fn native_item<'a>(
                 ctx.current_sub_component.unwrap(),
                 sub_component_path,
             );
-            &sub_component.items[*item_index as usize].ty
+            &sub_component.items[*item_index].ty
         }
         llr::PropertyReference::InParent { level, parent_reference } => {
             let mut ctx = ctx;
@@ -3224,7 +3230,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let repeater_index = repeater_index.unwrap();
             let mut index_prop = llr::PropertyReference::Local {
                 sub_component_path: vec![],
-                property_index: ctx2.current_sub_component().unwrap().repeated[repeater_index as usize]
+                property_index: ctx2.current_sub_component().unwrap().repeated[repeater_index]
                     .index_prop
                     .unwrap(),
             };
@@ -3233,7 +3239,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     llr::PropertyReference::InParent { level, parent_reference: index_prop.into() };
             }
             let index_access = access_member(&index_prop, ctx);
-            write!(path, "->repeater_{}", repeater_index).unwrap();
+            write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
             format!("{}.model_set_row_data({}.get(), {})", path, index_access, value)
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
@@ -3415,7 +3421,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         } => box_layout_function(
             cells_variable,
             repeater_indices.as_ref().map(SmolStr::as_str),
-            elements,
+            elements.as_ref(),
             *orientation,
             sub_expression,
             ctx,
@@ -3890,7 +3896,7 @@ fn compile_builtin_function_call(
 fn box_layout_function(
     cells_variable: &str,
     repeated_indices: Option<&str>,
-    elements: &[Either<llr::Expression, u32>],
+    elements: &[Either<llr::Expression, llr::RepeatedElementIdx>],
     orientation: Orientation,
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
@@ -3911,6 +3917,7 @@ fn box_layout_function(
                 .unwrap();
             }
             Either::Right(repeater) => {
+                let repeater = usize::from(*repeater);
                 write!(push_code, "self->repeater_{}.ensure_updated(self);", repeater).unwrap();
 
                 if let Some(ri) = &repeated_indices {

@@ -385,10 +385,10 @@ mod plural_rule_parser {
         fn p(string: &str) -> String {
             let ctx = crate::llr::EvaluationContext {
                 compilation_unit: &crate::llr::CompilationUnit {
-                    public_components: Vec::new(),
-                    sub_components: Vec::new(),
-                    used_sub_components: Vec::new(),
-                    globals: Vec::new(),
+                    public_components: Default::default(),
+                    sub_components: Default::default(),
+                    used_sub_components: Default::default(),
+                    globals: Default::default(),
                     has_debug_info: false,
                     translations: None,
                     popup_menu: None,
