@@ -198,8 +198,7 @@ pub fn generate(
 
     let globals = llr
         .globals
-        .iter()
-        .enumerate()
+        .iter_enumerated()
         .filter(|(_, glob)| glob.must_generate())
         .map(|(idx, glob)| generate_global(idx, glob, &llr));
     let shared_globals = generate_shared_globals(&llr, &compiler_config);
@@ -669,10 +668,10 @@ fn public_api(
 
 /// Generate the rust code for the given component.
 fn generate_sub_component(
-    component_idx: llr::SubComponentIndex,
+    component_idx: llr::SubComponentIdx,
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
-    index_property: Option<llr::PropertyIndex>,
+    index_property: Option<llr::PropertyIdx>,
     pinned_drop: bool,
 ) -> TokenStream {
     let component = &root.sub_components[component_idx];
@@ -726,7 +725,7 @@ fn generate_sub_component(
         .enumerate()
         .map(|(idx, _)| format_ident!("change_tracker{idx}"));
 
-    let declared_functions = generate_functions(&component.functions, &ctx);
+    let declared_functions = generate_functions(component.functions.as_ref(), &ctx);
 
     let mut init = vec![];
     let mut item_names = vec![];
@@ -769,13 +768,13 @@ fn generate_sub_component(
     let mut repeated_subtree_ranges: Vec<TokenStream> = vec![];
     let mut repeated_subtree_components: Vec<TokenStream> = vec![];
 
-    for (idx, repeated) in component.repeated.iter().enumerate() {
-        let idx = idx as u32;
+    for (idx, repeated) in component.repeated.iter_enumerated() {
         extra_components.push(generate_repeated_component(
             repeated,
             root,
             ParentCtx::new(&ctx, Some(idx)),
         ));
+        let idx = usize::from(idx) as u32;
         let repeater_id = format_ident!("repeater{}", idx);
         let rep_inner_component_id =
             self::inner_component_id(&root.sub_components[repeated.sub_tree.root]);
@@ -1329,7 +1328,7 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
 }
 
 fn generate_global(
-    global_idx: llr::GlobalIndex,
+    global_idx: llr::GlobalIdx,
     global: &llr::GlobalComponent,
     root: &llr::CompilationUnit,
 ) -> TokenStream {
@@ -1372,9 +1371,9 @@ fn generate_global(
         },
     );
 
-    let declared_functions = generate_functions(&global.functions, &ctx);
+    let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
 
-    for (property_index, expression) in global.init_values.iter().enumerate() {
+    for (property_index, expression) in global.init_values.iter_enumerated() {
         if global.properties[property_index].use_count.get() == 0 {
             continue;
         }
@@ -1387,7 +1386,7 @@ fn generate_global(
             )
         }
     }
-    for (property_index, cst) in global.const_properties.iter().enumerate() {
+    for (property_index, cst) in global.const_properties.iter_enumerated() {
         if global.properties[property_index].use_count.get() == 0 {
             continue;
         }
@@ -1404,8 +1403,10 @@ fn generate_global(
     let public_component_id = ident(&global.name);
     let global_id = format_ident!("global_{}", public_component_id);
 
-    let change_tracker_names =
-        global.change_callbacks.iter().map(|(idx, _)| format_ident!("change_tracker{idx}"));
+    let change_tracker_names = global
+        .change_callbacks
+        .iter()
+        .map(|(idx, _)| format_ident!("change_tracker{}", usize::from(*idx)));
     init.extend(global.change_callbacks.iter().map(|(p, e)| {
         let code = compile_expression(&e.borrow(), &ctx);
         let prop = access_member(
@@ -1413,7 +1414,7 @@ fn generate_global(
             &ctx,
         )
         .unwrap();
-        let change_tracker = format_ident!("change_tracker{p}");
+        let change_tracker = format_ident!("change_tracker{}", usize::from(*p));
         quote! {
             #[allow(dead_code, unused)]
             _self.#change_tracker.init(
@@ -1498,7 +1499,7 @@ fn generate_item_tree(
     sub_tree: &llr::ItemTree,
     root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
-    index_property: Option<llr::PropertyIndex>,
+    index_property: Option<llr::PropertyIdx>,
     is_popup_menu: bool,
 ) -> TokenStream {
     let sub_comp = generate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
@@ -1529,7 +1530,7 @@ fn generate_item_tree(
 
     let parent_item_expression = parent_ctx.and_then(|parent| {
         parent.repeater_index.map(|idx| {
-            let sub_component_offset = parent.ctx.current_sub_component().unwrap().repeated[idx as usize].index_in_tree;
+            let sub_component_offset = parent.ctx.current_sub_component().unwrap().repeated[idx].index_in_tree;
 
             quote!(if let Some((parent_component, parent_index)) = self
                 .parent
@@ -1548,41 +1549,43 @@ fn generate_item_tree(
         let parent_index = parent_index as u32;
         let (path, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
-        if node.repeated || node.component_container {
-            assert_eq!(node.children.len(), 0);
-            let mut repeater_index = node.item_index;
-            let mut sub_component = &root.sub_components[sub_tree.root];
-            for i in &node.sub_component_path {
-                repeater_index += sub_component.sub_components[*i].repeater_offset;
-                sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
+        match node.item_index {
+            Either::Right(mut repeater_index) => {
+                assert_eq!(node.children.len(), 0);
+                let mut sub_component = &root.sub_components[sub_tree.root];
+                for i in &node.sub_component_path {
+                    repeater_index += sub_component.sub_components[*i].repeater_offset;
+                    sub_component = &root.sub_components[sub_component.sub_components[*i].ty];
+                }
+                item_tree_array.push(quote!(
+                    sp::ItemTreeNode::DynamicTree {
+                        index: #repeater_index,
+                        parent_index: #parent_index,
+                    }
+                ));
             }
-            item_tree_array.push(quote!(
-                sp::ItemTreeNode::DynamicTree {
-                    index: #repeater_index,
-                    parent_index: #parent_index,
-                }
-            ));
-        } else {
-            let item = &component.items[node.item_index as usize];
-            let field = access_component_field_offset(
-                &self::inner_component_id(component),
-                &ident(&item.name),
-            );
+            Either::Left(item_index) => {
+                let item = &component.items[item_index];
+                let field = access_component_field_offset(
+                    &self::inner_component_id(component),
+                    &ident(&item.name),
+                );
 
-            let children_count = node.children.len() as u32;
-            let children_index = children_offset as u32;
-            let item_array_len = item_array.len() as u32;
-            let is_accessible = node.is_accessible;
-            item_tree_array.push(quote!(
-                sp::ItemTreeNode::Item {
-                    is_accessible: #is_accessible,
-                    children_count: #children_count,
-                    children_index: #children_index,
-                    parent_index: #parent_index,
-                    item_array_index: #item_array_len,
-                }
-            ));
-            item_array.push(quote!(sp::VOffset::new(#path #field)));
+                let children_count = node.children.len() as u32;
+                let children_index = children_offset as u32;
+                let item_array_len = item_array.len() as u32;
+                let is_accessible = node.is_accessible;
+                item_tree_array.push(quote!(
+                    sp::ItemTreeNode::Item {
+                        is_accessible: #is_accessible,
+                        children_count: #children_count,
+                        children_index: #children_index,
+                        parent_index: #parent_index,
+                        item_array_index: #item_array_len,
+                    }
+                ));
+                item_array.push(quote!(sp::VOffset::new(#path #field)));
+            }
         }
     });
 
@@ -1889,8 +1892,8 @@ fn property_set_value_tokens(
 fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> MemberAccess {
     fn in_native_item(
         ctx: &EvaluationContext,
-        sub_component_path: &[usize],
-        item_index: u32,
+        sub_component_path: &[llr::SubComponentInstanceIdx],
+        item_index: llr::ItemInstanceIdx,
         prop_name: &str,
         path: TokenStream,
     ) -> TokenStream {
@@ -1900,14 +1903,14 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             sub_component_path,
         );
         let component_id = inner_component_id(sub_component);
-        let item_name = ident(&sub_component.items[item_index as usize].name);
+        let item_name = ident(&sub_component.items[item_index].name);
         let item_field = access_component_field_offset(&component_id, &item_name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
             quote!((#compo_path #item_field).apply_pin(#path))
         } else {
             let property_name = ident(prop_name);
-            let item_ty = ident(&sub_component.items[item_index as usize].ty.class_name);
+            let item_ty = ident(&sub_component.items[item_index].ty.class_name);
             quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
         }
     }
@@ -2109,8 +2112,8 @@ impl MemberAccess {
 
 fn follow_sub_component_path<'a>(
     compilation_unit: &'a llr::CompilationUnit,
-    root: llr::SubComponentIndex,
-    sub_component_path: &[usize],
+    root: llr::SubComponentIdx,
+    sub_component_path: &[llr::SubComponentInstanceIdx],
 ) -> (TokenStream, &'a llr::SubComponent) {
     let mut compo_path = quote!();
     let mut sub_component = &compilation_unit.sub_components[root];
@@ -2159,7 +2162,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
                     &ctx.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
             }
             let component_rc_tokens = quote!(sp::VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
-            let item_index_in_tree = sub_component.items[*item_index as usize].index_in_tree;
+            let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
             let item_index_tokens = if item_index_in_tree == 0 {
                 quote!(#component_access_tokens.tree_index.get())
             } else {
@@ -2348,10 +2351,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let repeater_index = repeater_index.unwrap();
             let mut index_prop = llr::PropertyReference::Local {
                 sub_component_path: vec![],
-                property_index: ctx2.current_sub_component().unwrap().repeated
-                    [repeater_index as usize]
-                    .index_prop
-                    .unwrap(),
+                property_index: ctx2.current_sub_component().unwrap().repeated[repeater_index].index_prop.unwrap(),
             };
             if let Some(level) = NonZeroUsize::new(*level) {
                 index_prop =
@@ -2360,7 +2360,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let index_access = access_member(&index_prop, ctx).get_property();
             let repeater = access_component_field_offset(
                 &inner_component_id(ctx2.current_sub_component().unwrap()),
-                &format_ident!("repeater{}", repeater_index),
+                &format_ident!("repeater{}", usize::from(repeater_index)),
             );
             quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
         }
@@ -2598,7 +2598,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         } => box_layout_function(
             cells_variable,
             repeater_indices.as_ref().map(SmolStr::as_str),
-            elements,
+            elements.as_ref(),
             *orientation,
             sub_expression,
             ctx,
@@ -3126,7 +3126,7 @@ fn struct_name_to_tokens(name: &str) -> TokenStream {
 fn box_layout_function(
     cells_variable: &str,
     repeated_indices: Option<&str>,
-    elements: &[Either<Expression, u32>],
+    elements: &[Either<Expression, llr::RepeatedElementIdx>],
     orientation: Orientation,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
@@ -3145,14 +3145,10 @@ fn box_layout_function(
                 push_code.push(quote!(items_vec.push(#value);))
             }
             Either::Right(repeater) => {
-                let repeater_id = format_ident!("repeater{}", repeater);
+                let repeater_id = format_ident!("repeater{}", usize::from(*repeater));
                 let rep_inner_component_id = self::inner_component_id(
-                    &ctx.compilation_unit.sub_components[ctx
-                        .current_sub_component()
-                        .unwrap()
-                        .repeated[*repeater as usize]
-                        .sub_tree
-                        .root],
+                    &ctx.compilation_unit.sub_components
+                        [ctx.current_sub_component().unwrap().repeated[*repeater].sub_tree.root],
                 );
                 repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
                 let ri = repeated_indices.as_ref().map(|ri| {

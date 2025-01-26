@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{GlobalIndex, PropertyReference, SubComponentIndex};
+use super::{
+    GlobalIdx, PropertyReference, RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
+};
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
 use crate::layout::Orientation;
@@ -169,7 +171,7 @@ pub enum Expression {
         /// The name for the local variable that contains the repeater indices
         repeater_indices: Option<SmolStr>,
         /// Either an expression of type BoxLayoutCellData, or an index to the repeater
-        elements: Vec<Either<Expression, u32>>,
+        elements: Vec<Either<Expression, RepeatedElementIdx>>,
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
@@ -462,7 +464,7 @@ pub trait TypeResolutionContext {
 pub struct ParentCtx<'a, T = ()> {
     pub ctx: &'a EvaluationContext<'a, T>,
     // Index of the repeater within the ctx.current_sub_component
-    pub repeater_index: Option<u32>,
+    pub repeater_index: Option<RepeatedElementIdx>,
 }
 
 impl<'a, T> Clone for ParentCtx<'a, T> {
@@ -473,7 +475,10 @@ impl<'a, T> Clone for ParentCtx<'a, T> {
 impl<'a, T> Copy for ParentCtx<'a, T> {}
 
 impl<'a, T> ParentCtx<'a, T> {
-    pub fn new(ctx: &'a EvaluationContext<'a, T>, repeater_index: Option<u32>) -> Self {
+    pub fn new(
+        ctx: &'a EvaluationContext<'a, T>,
+        repeater_index: Option<RepeatedElementIdx>,
+    ) -> Self {
         Self { ctx, repeater_index }
     }
 }
@@ -481,8 +486,8 @@ impl<'a, T> ParentCtx<'a, T> {
 #[derive(Clone)]
 pub struct EvaluationContext<'a, T = ()> {
     pub compilation_unit: &'a super::CompilationUnit,
-    pub current_sub_component: Option<SubComponentIndex>,
-    pub current_global: Option<GlobalIndex>,
+    pub current_sub_component: Option<SubComponentIdx>,
+    pub current_global: Option<GlobalIdx>,
     pub generator_state: T,
     /// The repeater parent
     pub parent: Option<ParentCtx<'a, T>>,
@@ -494,7 +499,7 @@ pub struct EvaluationContext<'a, T = ()> {
 impl<'a, T> EvaluationContext<'a, T> {
     pub fn new_sub_component(
         compilation_unit: &'a super::CompilationUnit,
-        sub_component: SubComponentIndex,
+        sub_component: SubComponentIdx,
         generator_state: T,
         parent: Option<ParentCtx<'a, T>>,
     ) -> Self {
@@ -510,7 +515,7 @@ impl<'a, T> EvaluationContext<'a, T> {
 
     pub fn new_global(
         compilation_unit: &'a super::CompilationUnit,
-        global: GlobalIndex,
+        global: GlobalIdx,
         generator_state: T,
     ) -> Self {
         Self {
@@ -708,7 +713,7 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
                         &self.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
                 }
 
-                sub_component.items[*item_index as usize].ty.lookup_property(prop_name).unwrap()
+                sub_component.items[*item_index].ty.lookup_property(prop_name).unwrap()
             }
             PropertyReference::InParent { level, parent_reference } => {
                 let mut ctx = self;
@@ -758,12 +763,12 @@ pub(crate) struct PropertyInfoResult<'a> {
 #[derive(Debug, Clone)]
 pub(crate) enum ContextMap {
     Identity,
-    InSubElement { path: Vec<usize>, parent: usize },
-    InGlobal(GlobalIndex),
+    InSubElement { path: Vec<SubComponentInstanceIdx>, parent: usize },
+    InGlobal(GlobalIdx),
 }
 
 impl ContextMap {
-    fn deeper_in_sub_component(self, sub: usize) -> Self {
+    fn deeper_in_sub_component(self, sub: SubComponentInstanceIdx) -> Self {
         match self {
             ContextMap::Identity => ContextMap::InSubElement { parent: 0, path: vec![sub] },
             ContextMap::InSubElement { mut path, parent } => {
@@ -778,7 +783,7 @@ impl ContextMap {
         match self {
             ContextMap::Identity => p.clone(),
             ContextMap::InSubElement { path, parent } => {
-                let map_sub_path = |sub_component_path: &[usize]| -> Vec<usize> {
+                let map_sub_path = |sub_component_path: &[SubComponentInstanceIdx]| -> Vec<SubComponentInstanceIdx> {
                     path.iter().chain(sub_component_path.iter()).copied().collect()
                 };
 

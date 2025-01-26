@@ -24,7 +24,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             visit_property(&p.prop, &root_ctx);
         }
     }
-    for (idx, g) in root.globals.iter().enumerate().filter(|(_, g)| g.exported) {
+    for (idx, g) in root.globals.iter_enumerated().filter(|(_, g)| g.exported) {
         let ctx = EvaluationContext::new_global(root, idx, ());
         for p in g.public_properties.iter().filter(|p| {
             !matches!(
@@ -63,7 +63,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             expr.borrow().visit_property_references(ctx, &mut visit_property);
         }
         // 4. the models
-        for (idx, r) in sc.repeated.iter().enumerate() {
+        for (idx, r) in sc.repeated.iter_enumerated() {
             r.model.borrow().visit_property_references(ctx, &mut visit_property);
             if let Some(lv) = &r.listview {
                 visit_property(&lv.viewport_y, ctx);
@@ -76,7 +76,7 @@ pub fn count_property_use(root: &CompilationUnit) {
                     root,
                     r.sub_tree.root,
                     (),
-                    Some(ParentCtx::new(ctx, Some(idx as u32))),
+                    Some(ParentCtx::new(ctx, Some(idx))),
                 );
                 visit_property(&lv.prop_y, &rep_ctx);
                 visit_property(&lv.prop_height, &rep_ctx);
@@ -136,7 +136,7 @@ pub fn count_property_use(root: &CompilationUnit) {
     });
 
     // TODO: only visit used function
-    for (idx, g) in root.globals.iter().enumerate() {
+    for (idx, g) in root.globals.iter_enumerated() {
         let ctx = EvaluationContext::new_global(root, idx, ());
         for f in &g.functions {
             f.code.visit_property_references(&ctx, &mut visit_property);
