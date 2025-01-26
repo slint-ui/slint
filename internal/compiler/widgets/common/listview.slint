@@ -140,6 +140,7 @@ component StandardListViewBase inherits ListView {
         pressed: i-touch-area.pressed;
         pressed-x: i-touch-area.pressed-x;
         pressed-y: i-touch-area.pressed-y;
+        accessible-action-default => { i-touch-area.clicked(); }
 
         i-touch-area := TouchArea {
             clicked => {

@@ -123,6 +123,12 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 assert_eq!(instance.get_current_item(), 0);
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
 assert_eq!(instance.get_current_item(), 2);
+
+// Invoking the accessible default action of an item selects it
+let mut item2_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Item 2");
+let item2 = item2_search.next().unwrap();
+item2.invoke_accessible_default_action();
+assert_eq!(instance.get_current_item(), 1);
 ```
 
 */
