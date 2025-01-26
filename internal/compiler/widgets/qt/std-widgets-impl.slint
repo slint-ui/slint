@@ -8,4 +8,6 @@ export { NativePalette as Palette }
 export { ScrollView } from "scrollview.slint";
 export { LineEdit } from "lineedit.slint";
 
-export component ListItem inherits NativeStandardListViewItem {}
+export component ListItem inherits NativeStandardListViewItem {
+    accessible-role: list-item;
+}
