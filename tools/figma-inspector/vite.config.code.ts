@@ -16,7 +16,7 @@ export default defineConfig({
                 manualChunks: {},
                 entryFileNames: "code.js",
             },
-            input: "./src-code/code.ts",
+            input: "./backend/code.ts",
         },
     },
 });
