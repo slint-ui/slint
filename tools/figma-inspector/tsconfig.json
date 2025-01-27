@@ -1,11 +1,35 @@
 {
   "compilerOptions": {
     "target": "es6",
-    "lib": ["es2017"],
+    "useDefineForClassFields": true,
+    "module": "es6",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "sourceMap": true,
     "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "checkJs": true,
+    "isolatedModules": true,
     "typeRoots": [
-      "./node_modules/@types",
-      "./node_modules/@figma"
+      "../../node_modules/@types",
+      "../../node_modules/@figma",
+      "./src/globals.d.ts",
+      "shared/universals.d.ts"
     ]
-  }
+  },
+  "include": [
+    "src/**/*.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "src/**/*.js",
+    "src/**/*.svelte",
+    "src-code/**/*.ts",
+    "shared/universals.d.ts"
+  ]
 }

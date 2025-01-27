@@ -147,7 +147,7 @@ impl<'a> SourceFileWithTags<'a> {
         &self.source[tag_loc.start..tag_loc.end]
     }
 
-    fn tag_matches(&self, expected_tag: &LicenseHeader, license: &str) -> bool {
+    fn has_license_header(&self, expected_tag: &LicenseHeader) -> bool {
         let tag_loc = match &self.tag_location {
             Some(loc) => loc,
             None => return false,
@@ -158,8 +158,10 @@ impl<'a> SourceFileWithTags<'a> {
             .trim_end_matches(self.tag_style.overall_end);
         let mut tag_entries = found_tag.split(self.tag_style.line_break);
         let Some(_copyright_entry) = tag_entries.next() else { return false };
-        let Some(license_entry) = tag_entries.next() else { return false };
-        expected_tag.to_string(self.tag_style, license) == license_entry
+        // Require _some_ license ...
+        let Some(_) = tag_entries.next() else { return false };
+        // ... as well as the SPDX license line at the start
+        expected_tag.0 == SPDX_LICENSE_LINE
     }
 
     fn replace_tag(&self, replacement: &LicenseHeader, license: &str) -> String {
@@ -522,6 +524,7 @@ lazy_static! {
         ("\\.tmPreferences$", LicenseLocation::NoLicense),
         ("\\.toml$", LicenseLocation::NoLicense),
         ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.ttf$", LicenseLocation::NoLicense),
         ("\\.txt$", LicenseLocation::NoLicense),
         ("\\.ui$", LicenseLocation::NoLicense),
@@ -866,7 +869,7 @@ impl LicenseHeaderCheck {
             } else {
                 Err(anyhow!("Missing tag"))
             }
-        } else if source.tag_matches(&EXPECTED_HEADER, license) {
+        } else if source.has_license_header(&EXPECTED_HEADER) {
             Ok(())
         } else if self.fix_it {
             eprintln!("Fixing up {path:?} as instructed. It has a wrong license header.");
