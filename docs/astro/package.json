@@ -22,7 +22,7 @@
     "@astrojs/starlight": "0.31.1",
     "@expressive-code/plugin-line-numbers": "0.40.1",
     "@types/node": "20.16.10",
-    "astro": "5.1.7",
+    "astro": "5.1.9",
     "playwright": "1.49.1",
     "playwright-ctrf-json-reporter": "0.0.18",
     "rehype-external-links": "3.0.0",
