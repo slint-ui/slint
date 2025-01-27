@@ -10,7 +10,6 @@ type linkID =
 
 interface Props {
     id: linkID;
-
 }
 
 const { id } = Astro.props as Props;
@@ -19,8 +18,6 @@ const link = {
     "slint-cpp-template-stm32h735g-dk.zip": `https://github.com/slint-ui/slint/releases/download/v${SLINT_VERSION}/slint-cpp-template-stm32h735g-dk.zip`,
     "slint-cpp-template-stm32h747i-disco.zip": `https://github.com/slint-ui/slint/releases/download/v${SLINT_VERSION}/slint-cpp-template-stm32h747i-disco.zip`,
 }[id];
-
-
 ---
 
 <a href={link}><span>{id}</span></a>
