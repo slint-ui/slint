@@ -1133,7 +1133,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(muda)]
-    fn setup_menubar(&self, menubar: vtable::VBox<i_slint_core::window::MenuVTable>) {
+    fn setup_menubar(&self, menubar: vtable::VBox<i_slint_core::menus::MenuVTable>) {
         drop(self.muda_adapter.borrow_mut().take());
         self.muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
             menubar,

@@ -15,11 +15,12 @@ use crate::input::{
     MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::{ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak};
-use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
+use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord, SharedString, SharedVector};
+use crate::{Callback, Coord, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
@@ -1358,18 +1359,6 @@ impl WindowInner {
 
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
-
-/// Interface for native menu and menubar
-#[vtable::vtable]
-#[repr(C)]
-pub struct MenuVTable {
-    /// destructor
-    drop: fn(VRefMut<MenuVTable>),
-    /// Return the list of items for the sub menu (or the main menu of parent is None)
-    sub_menu: fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
-    /// Handler when the menu entry is activated
-    activate: fn(VRef<MenuVTable>, &MenuEntry),
-}
 
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
