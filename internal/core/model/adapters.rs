@@ -232,7 +232,8 @@ where
 
 #[test]
 fn test_map_model() {
-    let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3]));
+    use alloc::string::ToString;
+    let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3]));
     let map = MapModel::new(wrapped_rc.clone(), |x| x.to_string());
 
     wrapped_rc.set_row_data(2, 42);
@@ -494,7 +495,7 @@ where
 
 #[test]
 fn test_filter_model() {
-    let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4, 5, 6]));
+    let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3, 4, 5, 6]));
     let filter = Rc::new(FilterModel::new(wrapped_rc.clone(), |x| x % 2 == 0));
 
     let _checker = ModelChecker::new(filter.clone());
@@ -534,7 +535,7 @@ fn test_filter_model() {
 
 #[test]
 fn test_filter_model_source_model() {
-    let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
+    let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3, 4]));
     let model = Rc::new(FilterModel::new(wrapped_rc.clone(), |x| x % 2 == 0));
 
     let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
@@ -932,10 +933,11 @@ where
 #[cfg(test)]
 mod sort_tests {
     use super::*;
+    use std::vec;
 
     #[test]
     fn test_sorted_model_insert() {
-        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let wrapped_rc = Rc::new(VecModel::from(std::vec![3, 4, 1, 2]));
         let sorted_model = Rc::new(SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.cmp(rhs)));
 
         let _checker = ModelChecker::new(sorted_model.clone());
@@ -1218,6 +1220,7 @@ where
 #[cfg(test)]
 mod reversed_tests {
     use super::*;
+    use std::vec;
 
     #[track_caller]
     fn check_content(model: &ReverseModel<Rc<VecModel<i32>>>, expected: &[i32]) {
@@ -1242,7 +1245,7 @@ mod reversed_tests {
     #[test]
     fn test_reversed_model_insert() {
         for (idx, mapped_idx) in [(0, 4), (1, 3), (2, 2), (3, 1), (4, 0)] {
-            println!("Inserting at {} expecting mapped to {}", idx, mapped_idx);
+            std::println!("Inserting at {} expecting mapped to {}", idx, mapped_idx);
             let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
             let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
             let _checker = ModelChecker::new(model.clone());
@@ -1268,7 +1271,7 @@ mod reversed_tests {
     #[test]
     fn test_reversed_model_remove() {
         for (idx, mapped_idx) in [(0, 3), (1, 2), (2, 1), (3, 0)] {
-            println!("Removing at {} expecting mapped to {}", idx, mapped_idx);
+            std::println!("Removing at {} expecting mapped to {}", idx, mapped_idx);
             let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
             let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
             let _checker = ModelChecker::new(model.clone());
@@ -1293,8 +1296,8 @@ mod reversed_tests {
     #[test]
     fn test_reversed_model_changed() {
         for (idx, mapped_idx) in [(0, 3), (1, 2), (2, 1), (3, 0)] {
-            println!("Changing at {} expecting mapped to {}", idx, mapped_idx);
-            let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
+            std::println!("Changing at {} expecting mapped to {}", idx, mapped_idx);
+            let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3, 4]));
             let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
             let _checker = ModelChecker::new(model.clone());
 
@@ -1318,7 +1321,7 @@ mod reversed_tests {
 
     #[test]
     fn test_reversed_model_source_model() {
-        let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
+        let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3, 4]));
         let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
         let _checker = ModelChecker::new(model.clone());
 
@@ -1333,15 +1336,16 @@ mod reversed_tests {
 
 #[test]
 fn test_long_chain_integrity() {
+    use alloc::string::ToString;
     let origin_model = Rc::new(VecModel::from((0..100).collect::<Vec<_>>()));
     let checker1 = ModelChecker::new(origin_model.clone());
     let fizzbuzz = Rc::new(MapModel::new(origin_model.clone(), |number| {
         if (number % 3) == 0 && (number % 5) == 0 {
-            "FizzBuzz".to_owned()
+            "FizzBuzz".to_string()
         } else if (number % 3) == 0 {
-            "Fizz".to_owned()
+            "Fizz".to_string()
         } else if (number % 5) == 0 {
-            "Buzz".to_owned()
+            "Buzz".to_string()
         } else {
             number.to_string()
         }

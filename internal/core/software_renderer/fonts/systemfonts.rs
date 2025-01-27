@@ -3,6 +3,7 @@
 
 use core::cell::RefCell;
 
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use std::collections::HashMap;
 
@@ -12,7 +13,7 @@ use i_slint_common::sharedfontdb::{self, fontdb};
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
-thread_local! {
+crate::thread_local! {
     static FONTDUE_FONTS: RefCell<HashMap<fontdb::ID, Rc<fontdue::Font>>> = Default::default();
 }
 
@@ -86,7 +87,7 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
 
 #[cfg(not(target_family = "wasm"))]
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    let requested_path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+    let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
     sharedfontdb::FONT_DB.with_borrow_mut(|fonts| {
         for face_info in fonts.faces() {
             match &face_info.source {

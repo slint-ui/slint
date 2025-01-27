@@ -1224,6 +1224,7 @@ pub(crate) mod ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::vec;
 
     struct TestItemTree {
         parent_component: Option<ItemTreeRc>,

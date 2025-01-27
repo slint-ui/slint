@@ -8,10 +8,8 @@
 
 use crate::api::EventLoopError;
 use crate::SlintContext;
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::task::Wake;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::future::Future;
 use core::ops::DerefMut;

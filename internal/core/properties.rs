@@ -16,7 +16,6 @@
 /// A singled linked list whose nodes are pinned
 mod single_linked_list_pin {
     #![allow(unsafe_code)]
-    #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
     use core::pin::Pin;
 
@@ -77,8 +76,8 @@ mod single_linked_list_pin {
         head.push_front(2);
         head.push_front(3);
         assert_eq!(
-            head.iter().map(|x: Pin<&i32>| *x.get_ref()).collect::<Vec<i32>>(),
-            vec![3, 2, 1]
+            head.iter().map(|x: Pin<&i32>| *x.get_ref()).collect::<std::vec::Vec<i32>>(),
+            std::vec![3, 2, 1]
         );
     }
     #[test]
@@ -260,7 +259,6 @@ pub(crate) mod dependency_tracker {
 type DependencyListHead = dependency_tracker::DependencyListHead<*const BindingHolder>;
 type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, RefCell, UnsafeCell};
@@ -330,6 +328,8 @@ unsafe impl<F: Fn(*mut ()) -> BindingResult> BindingCallable for F {
     }
 }
 
+#[cfg(feature = "std")]
+use std::thread_local;
 #[cfg(feature = "std")]
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_BINDING : for<'a> Option<Pin<&'a BindingHolder>>);
 

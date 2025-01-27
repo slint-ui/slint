@@ -16,10 +16,8 @@ pub use crate::software_renderer;
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
 use crate::SharedString;
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
 #[cfg(all(feature = "std", not(target_os = "android")))]
 use once_cell::sync::OnceCell;

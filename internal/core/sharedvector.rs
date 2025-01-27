@@ -535,7 +535,7 @@ fn simple_test() {
     assert_ne!(x, y);
     let z: [i32; 3] = [1, 2, 3];
     assert_eq!(z, x.as_slice());
-    let vec: Vec<i32> = vec![1, 2, 3];
+    let vec: std::vec::Vec<i32> = std::vec![1, 2, 3];
     assert_eq!(x, vec);
     let def: SharedVector<i32> = Default::default();
     assert_eq!(def, SharedVector::<i32>::default());
@@ -561,6 +561,7 @@ fn invalid_capacity_test() {
 
 #[test]
 fn collect_from_iter_with_no_size_hint() {
+    use std::string::{String, ToString};
     struct NoSizeHintIter<'a> {
         data: &'a [&'a str],
         i: usize,
@@ -604,7 +605,7 @@ fn test_capacity_grows_only_when_needed() {
 
 #[test]
 fn test_vector_clear() {
-    let mut vec: SharedVector<String> = Default::default();
+    let mut vec: SharedVector<std::string::String> = Default::default();
     vec.clear();
     vec.push("Hello".into());
     vec.push("World".into());

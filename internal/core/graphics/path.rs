@@ -5,6 +5,7 @@
 This module contains path related types and functions for the run-time library.
 */
 
+use crate::debug_log;
 use crate::items::PathEvent;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -304,7 +305,7 @@ impl PathData {
                     ) {
                         Ok(()) => LyonPathIteratorVariant::FromPath(builder.build()),
                         Err(e) => {
-                            eprintln!("Error while parsing path commands '{commands}': {e:?}");
+                            debug_log!("Error while parsing path commands '{commands}': {e:?}");
                             LyonPathIteratorVariant::FromPath(Default::default())
                         }
                     }

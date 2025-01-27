@@ -25,7 +25,6 @@ use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::Callback;
 use crate::Property;
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
@@ -36,7 +35,6 @@ use core::time::Duration;
 use euclid::num::Ceil;
 use euclid::num::Zero;
 use i_slint_core_macros::*;
-#[cfg(not(feature = "std"))]
 #[allow(unused)]
 use num_traits::Float;
 

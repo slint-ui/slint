@@ -20,10 +20,8 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::{Callback, Coord, SharedString, SharedVector};
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;

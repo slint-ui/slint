@@ -30,6 +30,8 @@
                 "refcell",
                 "Rgba",
                 "rtti",
+                "Smol",
+                "smolstr",
                 "subspan",
                 "uninit",
                 "unmap",

@@ -118,6 +118,7 @@ mod formatter {
     mod tests {
         use super::format;
         use core::fmt::Display;
+        use std::string::{String, ToString};
         #[test]
         fn test_format() {
             assert_eq!(format("Hello", (&[]) as &[String]).to_string(), "Hello");
@@ -198,14 +199,21 @@ pub fn translate(
 }
 
 #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
-fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str) -> String {
+fn translate_gettext(
+    string: &str,
+    ctx: &str,
+    domain: &str,
+    n: i32,
+    plural: &str,
+) -> std::string::String {
+    use std::string::String;
     global_translation_property();
     fn mangle_context(ctx: &str, s: &str) -> String {
-        format!("{}\u{4}{}", ctx, s)
+        std::format!("{}\u{4}{}", ctx, s)
     }
     fn demangle_context(r: String) -> String {
         if let Some(x) = r.split('\u{4}').last() {
-            return x.to_owned();
+            return x.into();
         }
         r
     }

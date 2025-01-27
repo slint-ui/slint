@@ -4,7 +4,6 @@
 #![warn(missing_docs)]
 //! The animation system
 
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::cell::Cell;
 #[cfg(not(feature = "std"))]
@@ -15,7 +14,6 @@ mod cubic_bezier {
     //! (from lyon_algorithms 0.17)
     type S = f32;
     use euclid::default::Point2D as Point;
-    #[cfg(not(feature = "std"))]
     #[allow(unused)]
     use num_traits::Float;
     trait Scalar {
@@ -274,10 +272,7 @@ impl AnimationDriver {
     }
 }
 
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-use crate::unsafe_single_threaded::thread_local;
-
-thread_local!(
+crate::thread_local!(
 /// This is the default instance of the animation driver that's used to advance all property animations
 /// at the same time.
 pub static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default()

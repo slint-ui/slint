@@ -16,7 +16,6 @@ use crate::lengths::{
 use crate::properties::PropertyTracker;
 use crate::window::WindowInner;
 use crate::{Brush, Coord, SharedString};
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;

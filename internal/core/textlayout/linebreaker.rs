@@ -207,7 +207,7 @@ fn test_empty_line_break() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "");
 }
@@ -225,7 +225,7 @@ fn test_basic_line_break_char_wrap() {
         None,
         TextWrap::CharWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello Wo");
     assert_eq!(lines[1].line_text(text), "rld");
@@ -243,7 +243,7 @@ fn test_basic_line_break() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -261,7 +261,7 @@ fn test_basic_line_break_max_lines() {
         Some(1),
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "Hello");
 }
@@ -278,7 +278,7 @@ fn test_linebreak_trailing_space() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "Hello");
 }
@@ -290,7 +290,7 @@ fn test_forced_break() {
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let lines =
         TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
-            .collect::<Vec<_>>();
+            .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -303,7 +303,7 @@ fn test_forced_break_multi() {
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let lines =
         TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
-            .collect::<Vec<_>>();
+            .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "");
@@ -323,7 +323,7 @@ fn test_forced_break_multi_char_wrap() {
         None,
         TextWrap::CharWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 6);
     assert_eq!(lines[0].line_text(text), "Hel");
     assert_eq!(lines[1].line_text(text), "lo");
@@ -345,7 +345,7 @@ fn test_forced_break_max_lines() {
         Some(2),
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "");
@@ -363,7 +363,7 @@ fn test_nbsp_break() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Ok");
     assert_eq!(lines[1].line_text(text), "Hello\u{00a0}World");
@@ -376,7 +376,7 @@ fn test_single_line_multi_break_opportunity() {
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let lines =
         TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
-            .collect::<Vec<_>>();
+            .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "a b c");
 }
@@ -393,7 +393,7 @@ fn test_basic_line_break_anywhere_fallback() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -411,7 +411,7 @@ fn test_basic_line_break_anywhere_fallback_multi_line() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -431,7 +431,7 @@ fn test_basic_line_break_anywhere_fallback_multi_line_char_wrap() {
         None,
         TextWrap::CharWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -451,7 +451,7 @@ fn test_basic_line_break_anywhere_fallback_multi_line_v2() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "W");
@@ -471,7 +471,7 @@ fn test_basic_line_break_anywhere_fallback_max_lines() {
         Some(3),
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 3);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "W");
@@ -491,7 +491,7 @@ fn test_basic_line_break_space() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "H");
     assert_eq!(lines[1].line_text(text), "W");
@@ -510,7 +510,7 @@ fn test_basic_line_break_space_char_wrap() {
         None,
         TextWrap::CharWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "H");
     assert_eq!(lines[1].line_text(text), "W");
@@ -529,7 +529,7 @@ fn test_basic_line_break_space_v2() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "B B");
     assert_eq!(lines[1].line_text(text), "W");
@@ -548,7 +548,7 @@ fn test_basic_line_break_space_v3() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "H");
     assert_eq!(lines[1].line_text(text), "W");
@@ -567,7 +567,7 @@ fn test_basic_line_break_space_v4() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "H W  H");
 }
@@ -584,7 +584,7 @@ fn test_line_width_with_whitespace() {
         None,
         TextWrap::WordWrap,
     )
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].text_width, text.len() as f32 * 10.);
 }
@@ -602,7 +602,7 @@ fn zero_width() {
         TextWrap::WordWrap,
     )
     .map(|t| t.line_text(text))
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines, ["H", "e", "", "H", "e", "o"]);
 }
 
@@ -619,7 +619,7 @@ fn zero_width_char_wrap() {
         TextWrap::CharWrap,
     )
     .map(|t| t.line_text(text))
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines, ["H", "e", "", "H", "e", "o"]);
 }
 
@@ -636,6 +636,6 @@ fn char_wrap_sentences() {
         TextWrap::CharWrap,
     )
     .map(|t| t.line_text(text))
-    .collect::<Vec<_>>();
+    .collect::<std::vec::Vec<_>>();
     assert_eq!(lines, ["Hello wo", "rld", "How are", "you?"]);
 }
