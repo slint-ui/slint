@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::SlintUserEvent;
-use i_slint_core::window::MenuVTable;
+use i_slint_core::menus::MenuVTable;
 use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 

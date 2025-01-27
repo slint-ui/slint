@@ -6,9 +6,9 @@ use crate::dynamic_item_tree::InstanceRef;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ColorScheme, ItemRef, MenuEntry, PropertyAnimation};
+use corelib::menus::{Menu, MenuVTable};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::{Menu, MenuVTable};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
@@ -1889,7 +1889,7 @@ pub struct MenuWrapper {
     item_tree: crate::dynamic_item_tree::ErasedItemTreeBoxWeak,
 }
 i_slint_core::MenuVTable_static!(static MENU_WRAPPER_VTABLE for MenuWrapper);
-impl i_slint_core::window::Menu for MenuWrapper {
+impl Menu for MenuWrapper {
     fn sub_menu(&self, parent: Option<&MenuEntry>, result: &mut SharedVector<MenuEntry>) {
         let Some(s) = self.item_tree.upgrade() else { return };
         generativity::make_guard!(guard);
