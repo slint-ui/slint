@@ -6,7 +6,6 @@
 //! This module defines a `ComponentFactory` and related code.
 use crate::api::ComponentHandle;
 use crate::item_tree::{ItemTreeRc, ItemTreeVTable, ItemTreeWeak};
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::fmt::Debug;

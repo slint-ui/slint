@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead};
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-use crate::thread_local;
 use alloc::boxed::Box;
 use core::cell::Cell;
 use core::marker::PhantomPinned;
@@ -11,7 +9,7 @@ use core::pin::Pin;
 use core::ptr::addr_of;
 
 // TODO a pinned thread local key?
-thread_local! {static CHANGED_NODES : Pin<Box<DependencyListHead>> = Box::pin(DependencyListHead::default()) }
+crate::thread_local! {static CHANGED_NODES : Pin<Box<DependencyListHead>> = Box::pin(DependencyListHead::default()) }
 
 struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
     eval_fn: EvalFn,
@@ -188,20 +186,20 @@ fn change_tracker() {
     let change1 = ChangeTracker::default();
     let change2 = ChangeTracker::default();
 
-    let state = Rc::new(core::cell::RefCell::new(String::new()));
+    let state = Rc::new(core::cell::RefCell::new(std::string::String::new()));
 
     change1.init(
         (state.clone(), prop1.clone()),
         |(_, prop1)| prop1.as_ref().get(),
         |(state, _), val| {
-            *state.borrow_mut() += &format!(":1({val})");
+            *state.borrow_mut() += &std::format!(":1({val})");
         },
     );
     change2.init(
         (state.clone(), prop2.clone()),
         |(_, prop2)| prop2.as_ref().get(),
         |(state, _), val| {
-            *state.borrow_mut() += &format!(":2({val})");
+            *state.borrow_mut() += &std::format!(":2({val})");
         },
     );
 

@@ -47,7 +47,7 @@ fn r(x: i32, y: i32, w: i32, h: i32) -> LogicalRect {
 #[cfg(test)]
 #[track_caller]
 fn fixed_placement(input: LogicalRect, expected: LogicalRect, clip: Option<LogicalRect>) {
-    eprintln!("fixed: {input:?}, clip({clip:?}) => {expected:?}");
+    std::eprintln!("fixed: {input:?}, clip({clip:?}) => {expected:?}");
     let result = place_popup(Placement::Fixed(input.clone()), &clip);
     if let Some(clip) = clip {
         clip.contains_rect(&result);

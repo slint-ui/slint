@@ -7,7 +7,6 @@
 #![warn(missing_docs)]
 
 use crate::SharedVector;
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
 use core::fmt::{Debug, Display, Write};
 use core::ops::Deref;
@@ -318,6 +317,7 @@ pub fn shared_string_from_number(n: f64) -> SharedString {
 
 #[test]
 fn simple_test() {
+    use std::string::ToString;
     let x = SharedString::from("hello world!");
     assert_eq!(x, "hello world!");
     assert_ne!(x, "hello world?");
@@ -342,7 +342,7 @@ fn simple_test() {
 fn threading() {
     let shared_cst = SharedString::from("Hello there!");
     let shared_mtx = std::sync::Arc::new(std::sync::Mutex::new(SharedString::from("Shared:")));
-    let mut handles = vec![];
+    let mut handles = std::vec![];
     for _ in 0..20 {
         let cst = shared_cst.clone();
         let mtx = shared_mtx.clone();

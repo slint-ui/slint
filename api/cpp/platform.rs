@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, string::String};
 use core::ffi::c_void;
 use i_slint_core::api::{

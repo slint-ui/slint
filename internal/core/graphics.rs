@@ -15,9 +15,7 @@ use crate::api::PlatformError;
 use crate::lengths::LogicalLength;
 use crate::Coord;
 use crate::SharedString;
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
 use alloc::format;
 
 pub use euclid;

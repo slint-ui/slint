@@ -2,12 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::cell::RefCell;
-
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-use crate::thread_local_ as thread_local;
 
 use super::{Fixed, PhysicalLength, PhysicalSize};
 use crate::graphics::{BitmapFont, FontRequest};
@@ -16,7 +12,7 @@ use crate::lengths::{LogicalLength, LogicalSize, ScaleFactor};
 use crate::textlayout::{FontMetrics, TextLayout};
 use crate::Coord;
 
-thread_local! {
+crate::thread_local! {
     static BITMAP_FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
 }
 

@@ -3,11 +3,8 @@
 
 // cSpell: ignore descendents
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-
 use crate::{items::ItemRc, SharedString};
-
+use alloc::vec::Vec;
 use bitflags::bitflags;
 
 /// The property names of the accessible-properties

@@ -62,6 +62,7 @@ pub fn default_previous_in_local_focus_chain(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::vec;
 
     use crate::item_tree::ItemTreeNode;
 

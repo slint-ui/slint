@@ -141,7 +141,7 @@ pub trait Model {
     /// internal [`ModelNotify`].
     fn set_row_data(&self, _row: usize, _data: Self::Data) {
         #[cfg(feature = "std")]
-        eprintln!(
+        crate::debug_log!(
             "Model::set_row_data called on a model of type {} which does not re-implement this method. \
             This happens when trying to modify a read-only model",
             core::any::type_name::<Self>(),
@@ -1284,6 +1284,7 @@ impl From<&str> for StandardListViewItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::vec;
 
     #[test]
     fn test_tracking_model_handle() {

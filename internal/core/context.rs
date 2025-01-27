@@ -3,14 +3,11 @@
 
 use crate::api::PlatformError;
 use crate::platform::{EventLoopProxy, Platform};
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-use crate::thread_local;
 use crate::Property;
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 
-thread_local! {
+crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
         = const { once_cell::unsync::OnceCell::new() }
 }

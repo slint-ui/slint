@@ -11,7 +11,6 @@ use crate::graphics::{PixelFormat, SharedImageBuffer};
 use crate::lengths::{PointLengths as _, SizeLengths as _};
 use crate::Color;
 use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use euclid::Length;
 

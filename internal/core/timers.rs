@@ -10,9 +10,7 @@
 */
 
 #![warn(missing_docs)]
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::{
     cell::{Cell, RefCell},
@@ -424,10 +422,7 @@ impl TimerList {
     }
 }
 
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-use crate::unsafe_single_threaded::thread_local;
-
-thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
+crate::thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
 
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {

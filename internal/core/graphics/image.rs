@@ -421,7 +421,7 @@ impl ImageInner {
                 // Ignore error when rendering a 0x0 image, that's just an empty image
                 Err(resvg::usvg::Error::InvalidSize) => None,
                 Err(err) => {
-                    eprintln!("Error rendering SVG: {err}");
+                    std::eprintln!("Error rendering SVG: {err}");
                     None
                 }
             },

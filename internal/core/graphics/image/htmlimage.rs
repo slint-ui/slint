@@ -53,7 +53,7 @@ impl HTMLImage {
         }
     }
 
-    pub fn source(&self) -> String {
+    pub fn source(&self) -> alloc::string::String {
         self.dom_element.src()
     }
 

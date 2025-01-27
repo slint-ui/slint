@@ -3,8 +3,10 @@
 
 /*! This crate just expose the function used by the C++ integration */
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 use alloc::rc::Rc;
 use core::ffi::c_void;

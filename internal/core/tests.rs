@@ -102,6 +102,7 @@ pub fn default_debug_log(_arguments: core::fmt::Arguments) {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             use wasm_bindgen::prelude::*;
+            use std::string::ToString;
 
             #[wasm_bindgen]
             extern "C" {
@@ -111,7 +112,7 @@ pub fn default_debug_log(_arguments: core::fmt::Arguments) {
 
             log(&_arguments.to_string());
         } else if #[cfg(feature = "std")] {
-            eprintln!("{}", _arguments);
+            std::eprintln!("{}", _arguments);
         }
     }
 }

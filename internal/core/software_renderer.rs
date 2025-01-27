@@ -34,7 +34,6 @@ use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
-#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -811,7 +810,7 @@ impl RendererSealed for SoftwareRenderer {
     fn register_font_from_memory(
         &self,
         data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
         self::fonts::systemfonts::register_font_from_memory(data)
     }
 
@@ -819,7 +818,7 @@ impl RendererSealed for SoftwareRenderer {
     fn register_font_from_path(
         &self,
         path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
         self::fonts::systemfonts::register_font_from_path(path)
     }
 
