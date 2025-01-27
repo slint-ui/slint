@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { dispatchTS } from "./bolt-utils.js";
 
 export function writeTextToClipboard(str: string) {
     const prevActive = document.activeElement;
