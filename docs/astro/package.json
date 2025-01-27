@@ -23,7 +23,7 @@
     "@expressive-code/plugin-line-numbers": "0.40.1",
     "@types/node": "20.16.10",
     "astro": "5.1.9",
-    "playwright": "1.49.1",
+    "playwright": "1.50.0",
     "playwright-ctrf-json-reporter": "0.0.18",
     "rehype-external-links": "3.0.0",
     "sharp": "0.33.5",
@@ -32,7 +32,7 @@
     "typescript": "5.7.3"
   },
   "devDependencies": {
-    "@playwright/test": "1.49.1",
+    "@playwright/test": "1.50.0",
     "cspell": "8.17.2"
   }
 }
