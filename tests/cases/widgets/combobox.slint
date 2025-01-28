@@ -170,19 +170,28 @@ assert_eq!(instance.get_has_focus(), true);
 assert_eq!(combobox.accessible_expanded(), Some(false));
 
 // Scroll with the wheel
+let wheel_change_value = !module_path!().contains("cupertino");
 instance.set_output(Default::default());
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(100.0, 100.0), delta_x: 0.0, delta_y: 20.0 });
-assert_eq!(instance.get_has_focus(), true);
-assert_eq!(instance.get_current_value(), "Aaa");
-assert_eq!(instance.get_current_index(), 0);
-assert_eq!(instance.get_output(), "selected(Aaa,0)\n");
+if wheel_change_value {
+    assert_eq!(instance.get_current_value(), "Aaa");
+    assert_eq!(instance.get_current_index(), 0);
+    assert_eq!(instance.get_output(), "selected(Aaa,0)\n");
+} else {
+    assert_eq!(instance.get_current_value(), "Bbb");
+    assert_eq!(instance.get_current_index(), 1);
+    assert_eq!(instance.get_output(), "");
+}
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(100.0, 100.0), delta_x: 0.0, delta_y: -5.0 });
 assert_eq!(instance.get_has_focus(), true);
 assert_eq!(instance.get_current_value(), "Bbb");
 assert_eq!(instance.get_current_index(), 1);
-assert_eq!(instance.get_output(), "selected(Aaa,0)\nselected(Bbb,1)\n");
+if wheel_change_value {
+    assert_eq!(instance.get_output(), "selected(Aaa,0)\nselected(Bbb,1)\n");
+}
 // When not having focus, do nothing
 instance.invoke_unfocus();
+instance.set_output(Default::default());
 assert_eq!(instance.get_has_focus(), false);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(100.0, 100.0), delta_x: 0.0, delta_y: 20.0 });
 assert_eq!(instance.get_current_value(), "Bbb");
@@ -191,7 +200,7 @@ instance.window().dispatch_event(WindowEvent::PointerScrolled { position: Logica
 assert_eq!(instance.get_has_focus(), false);
 assert_eq!(instance.get_current_value(), "Bbb");
 assert_eq!(instance.get_current_index(), 1);
-assert_eq!(instance.get_output(), "selected(Aaa,0)\nselected(Bbb,1)\n");
+assert_eq!(instance.get_output(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq!(instance.get_has_focus(), true);
 

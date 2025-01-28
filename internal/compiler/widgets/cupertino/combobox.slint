@@ -47,6 +47,9 @@ export component ComboBox {
         width: 100%;
         height: 100%;
 
+        // Mac doesn't react on mouse wheel on the ComboBox.
+        scroll-delta: 1000000px;
+
         show-popup => {
             popup.show();
         }
