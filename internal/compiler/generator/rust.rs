@@ -696,6 +696,9 @@ fn generate_sub_component(
                 false,
             )
         })
+        .chain(component.menu_item_trees.iter().map(|tree| {
+            generate_item_tree(&tree, root, Some(ParentCtx::new(&ctx, None)), None, false)
+        }))
         .collect::<Vec<_>>();
 
     let mut declared_property_vars = vec![];
@@ -2769,7 +2772,7 @@ fn compile_builtin_function_call(
             let context_menu = access_member(context_menu_ref, ctx);
             let context_menu_rc = access_item_rc(context_menu_ref, ctx);
             let position = compile_expression(position, ctx);
-            let entries = compile_expression(entries, ctx);
+
             let popup = ctx
                 .compilation_unit
                 .popup_menu
@@ -2786,34 +2789,71 @@ fn compile_builtin_function_call(
                 None,
             );
             let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
-            let forward_callback = |pr, cb| {
-                let access = access_member(pr, &popup_ctx).unwrap();
-                let call = context_menu
-                    .clone()
-                    .map_or_default(|context_menu| quote!(#context_menu.#cb.call(entry)));
-                quote!(
-                    let self_weak = parent_weak.clone();
-                    #access.set_handler(move |entry| {
-                        let self_rc = self_weak.upgrade().unwrap();
-                        let _self = self_rc.as_pin_ref();
-                        #call
+            let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx).unwrap();
+            let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
+
+            let init_popup = if let Expression::NumberLiteral(tree_index) = entries {
+                // We have an MenuItem tree
+                let current_sub_component = ctx.current_sub_component().unwrap();
+                let item_tree_id = inner_component_id(
+                    &ctx.compilation_unit.sub_components
+                        [current_sub_component.menu_item_trees[*tree_index as usize].root],
+                );
+                quote!({
+                    let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                    let context_menu_item_tree = sp::Rc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
+                    let mut entries = sp::SharedVector::default();
+                    sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
+                    let _self = popup_instance_vrc.as_pin_ref();
+                    #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                    let context_menu_item_tree_ = context_menu_item_tree.clone();
+                    #access_sub_menu.set_handler(move |entry| {
+                        let mut entries = sp::SharedVector::default();
+                        sp::Menu::sub_menu(&*context_menu_item_tree_, sp::Option::Some(&entry.0), &mut entries);
+                        sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+                    });
+                    #access_activated.set_handler(move |entry| {
+                        sp::Menu::activate(&*context_menu_item_tree, &entry.0);
+                    });
+                })
+            } else {
+                // entries should be an expression of type array of MenuEntry
+                debug_assert!(
+                    matches!(entries.ty(ctx), Type::Array(ty) if matches!(&*ty, Type::Struct{..}))
+                );
+                let entries = compile_expression(entries, ctx);
+                let forward_callback = |access, cb| {
+                    let call = context_menu
+                        .clone()
+                        .map_or_default(|context_menu| quote!(#context_menu.#cb.call(entry)));
+                    quote!(
+                        let self_weak = parent_weak.clone();
+                        #access.set_handler(move |entry| {
+                            let self_rc = self_weak.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
+                            #call
+                        });
+                    )
+                };
+                let fw_sub_menu = forward_callback(access_sub_menu, quote!(sub_menu));
+                let fw_activated = forward_callback(access_activated, quote!(activated));
+                quote! {
+                    let entries = #entries;
+                    {
+                        let _self = popup_instance_vrc.as_pin_ref();
+                        #access_entries.set(entries);
+                        #fw_sub_menu
+                        #fw_activated
                     }
-                ))
+                }
             };
-            let fw_sub_menu = forward_callback(&popup.sub_menu, quote!(sub_menu));
-            let fw_activated = forward_callback(&popup.activated, quote!(activated));
+
             quote!({
-                let entries = #entries;
                 let position = #position;
                 let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
                 let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                 let parent_weak = _self.self_weak.get().unwrap().clone();
-                {
-                    let _self = popup_instance_vrc.as_pin_ref();
-                    #access_entries.set(entries);
-                    #fw_sub_menu;
-                    #fw_activated;
-                };
+                #init_popup
                 #popup_id::user_init(popup_instance_vrc.clone());
                 sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
@@ -3023,41 +3063,78 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupNativeMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            let [entries, Expression::PropertyReference(sub_menu), Expression::PropertyReference(activated)] =
+            if let [Expression::PropertyReference(entries_r), Expression::PropertyReference(sub_menu_r), Expression::PropertyReference(activated_r), Expression::NumberLiteral(tree_index)] =
                 arguments
-            else {
-                panic!("internal error: incorrect arguments to SetupNativeMenuBar")
-            };
-            let entries = compile_expression(entries, ctx);
-            let sub_menu = access_member(sub_menu, ctx).unwrap();
-            let activated = access_member(activated, ctx).unwrap();
-            let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
-            quote! {
-                if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                    // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
-                    struct MenuBarWrapper(sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>);
-                    const _ : () = {
-                        use slint::private_unstable_api::re_exports::*;
-                        MenuVTable_static!(static VT for MenuBarWrapper);
-                    };
-                    impl sp::Menu for MenuBarWrapper {
-                        fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
-                            let Some(self_rc) = self.0.upgrade() else { return };
-                            let _self = self_rc.as_pin_ref();
-                            let model = match parent {
-                                None => #entries,
-                                Some(parent) => #sub_menu.call(&(parent.clone(),))
-                            };
-                            *result = model.iter().map(|v| v.try_into().unwrap()).collect();
-                        }
-                        fn activate(&self, entry: &sp::MenuEntry) {
-                            let Some(self_rc) = self.0.upgrade() else { return };
-                            let _self = self_rc.as_pin_ref();
-                            #activated.call(&(entry.clone(),))
-                        }
+            {
+                // We have an MenuItem tree
+                let current_sub_component = ctx.current_sub_component().unwrap();
+                let item_tree_id = inner_component_id(
+                    &ctx.compilation_unit.sub_components
+                        [current_sub_component.menu_item_trees[*tree_index as usize].root],
+                );
+
+                let access_entries = access_member(entries_r, ctx).unwrap();
+                let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
+                let access_activated = access_member(activated_r, ctx).unwrap();
+
+                quote!({
+                    let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                    let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));
+                    if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(menu_item_tree));
+                    } else {
+                        let menu_item_tree = sp::Rc::new(menu_item_tree);
+                        let mut entries = sp::SharedVector::default();
+                        sp::Menu::sub_menu(&*menu_item_tree, sp::Option::None, &mut entries);
+                        #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                        let menu_item_tree_ = menu_item_tree.clone();
+                        #access_sub_menu.set_handler(move |entry| {
+                            let mut entries = sp::SharedVector::default();
+                            sp::Menu::sub_menu(&*menu_item_tree_, sp::Option::Some(&entry.0), &mut entries);
+                            sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+                        });
+                        #access_activated.set_handler(move |entry| {
+                            sp::Menu::activate(&*menu_item_tree, &entry.0);
+                        });
                     }
-                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(MenuBarWrapper(_self.self_weak.get().unwrap().clone())));
+                })
+            } else if let [entries, Expression::PropertyReference(sub_menu), Expression::PropertyReference(activated)] =
+                arguments
+            {
+                let entries = compile_expression(entries, ctx);
+                let sub_menu = access_member(sub_menu, ctx).unwrap();
+                let activated = access_member(activated, ctx).unwrap();
+                let inner_component_id =
+                    self::inner_component_id(ctx.current_sub_component().unwrap());
+                quote! {
+                    if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                        // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
+                        struct MenuBarWrapper(sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>);
+                        const _ : () = {
+                            use slint::private_unstable_api::re_exports::*;
+                            MenuVTable_static!(static VT for MenuBarWrapper);
+                        };
+                        impl sp::Menu for MenuBarWrapper {
+                            fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
+                                let Some(self_rc) = self.0.upgrade() else { return };
+                                let _self = self_rc.as_pin_ref();
+                                let model = match parent {
+                                    None => #entries,
+                                    Some(parent) => #sub_menu.call(&(parent.clone(),))
+                                };
+                                *result = model.iter().map(|v| v.try_into().unwrap()).collect();
+                            }
+                            fn activate(&self, entry: &sp::MenuEntry) {
+                                let Some(self_rc) = self.0.upgrade() else { return };
+                                let _self = self_rc.as_pin_ref();
+                                #activated.call(&(entry.clone(),))
+                            }
+                        }
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(MenuBarWrapper(_self.self_weak.get().unwrap().clone())));
+                    }
                 }
+            } else {
+                panic!("internal error: incorrect arguments to SetupNativeMenuBar")
             }
         }
         BuiltinFunction::MonthDayCount => {

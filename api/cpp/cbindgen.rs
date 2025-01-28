@@ -298,6 +298,7 @@ fn gen_corelib(
         "Opacity",
         "Layer",
         "ContextMenu",
+        "MenuItem",
     ];
 
     config.export.include = [

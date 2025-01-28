@@ -9,8 +9,6 @@
 #endif
 
 #include "slint_internal.h"
-#include "slint_size.h"
-#include "slint_point.h"
 #include "slint_platform_internal.h"
 #include "slint_qt_internal.h"
 #include "slint_window.h"
@@ -1259,6 +1257,35 @@ public:
         }
     }
 };
+
+inline void setup_popup_menu_from_menu_item_tree(
+        const ItemTreeRc &menu_item_tree,
+        Property<std::shared_ptr<Model<cbindgen_private::MenuEntry>>> &entries,
+        Callback<std::shared_ptr<Model<cbindgen_private::MenuEntry>>(cbindgen_private::MenuEntry)>
+                &sub_menu,
+        Callback<void(cbindgen_private::MenuEntry)> &activated)
+{
+    using cbindgen_private::MenuEntry;
+    using cbindgen_private::MenuVTable;
+    auto shared = std::make_shared<vtable::VBox<MenuVTable>>(nullptr, nullptr);
+    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &*shared);
+    SharedVector<MenuEntry> entries_sv;
+    vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
+    shared->vtable->sub_menu(ref, nullptr, &entries_sv);
+    std::vector<MenuEntry> entries_vec(entries_sv.begin(), entries_sv.end());
+    entries.set(std::make_shared<VectorModel<MenuEntry>>(std::move(entries_vec)));
+    sub_menu.set_handler([shared](const auto &entry) {
+        vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
+        SharedVector<MenuEntry> entries_sv;
+        shared->vtable->sub_menu(ref, &entry, &entries_sv);
+        std::vector<MenuEntry> entries_vec(entries_sv.begin(), entries_sv.end());
+        return std::make_shared<VectorModel<MenuEntry>>(std::move(entries_vec));
+    });
+    activated.set_handler([shared](const auto &entry) {
+        vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
+        shared->vtable->activate(ref, &entry);
+    });
+}
 
 inline SharedString translate(const SharedString &original, const SharedString &context,
                               const SharedString &domain,

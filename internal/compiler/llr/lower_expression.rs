@@ -7,7 +7,6 @@ use std::num::NonZeroUsize;
 use std::rc::{Rc, Weak};
 
 use itertools::Either;
-
 use smol_str::{format_smolstr, SmolStr};
 
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
@@ -81,11 +80,25 @@ pub fn lower_expression(
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         }
         tree_Expression::ElementReference(e) => {
+            let elem = e.upgrade().unwrap();
+            let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
+            // When within a ShowPopupMenu builtin function, this is a reference to the root of the menu item tree
+            if Rc::ptr_eq(&elem, &enclosing.root_element) {
+                if let Some(idx) = ctx
+                    .component
+                    .menu_item_tree
+                    .borrow()
+                    .iter()
+                    .position(|c| Rc::ptr_eq(c, &enclosing))
+                {
+                    return llr_Expression::NumberLiteral(idx as _);
+                }
+            }
+
             // We map an element reference to a reference to the property "" inside that native item
-            llr_Expression::PropertyReference(ctx.map_property_reference(&NamedReference::new(
-                &e.upgrade().unwrap(),
-                SmolStr::default(),
-            )))
+            llr_Expression::PropertyReference(
+                ctx.map_property_reference(&NamedReference::new(&elem, SmolStr::default())),
+            )
         }
         tree_Expression::RepeaterIndexReference { element } => {
             repeater_special_property(element, ctx.component, 1usize.into())
@@ -118,9 +131,11 @@ pub fn lower_expression(
             llr_Expression::CodeBlock(expr.iter().map(|e| lower_expression(e, ctx)).collect::<_>())
         }
         tree_Expression::FunctionCall { function, arguments, .. } => match function {
-            Callable::Builtin(BuiltinFunction::ShowPopupWindow) => lower_show_popup(arguments, ctx),
+            Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
+                lower_show_popup_window(arguments, ctx)
+            }
             Callable::Builtin(BuiltinFunction::ClosePopupWindow) => {
-                lower_close_popup(arguments, ctx)
+                lower_close_popup_window(arguments, ctx)
             }
             Callable::Builtin(f) => {
                 let mut arguments =
@@ -354,7 +369,10 @@ fn repeater_special_property(
     llr_Expression::PropertyReference(r)
 }
 
-fn lower_show_popup(args: &[tree_Expression], ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
+fn lower_show_popup_window(
+    args: &[tree_Expression],
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
@@ -390,7 +408,10 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &mut ExpressionLoweringCtx) -
     }
 }
 
-fn lower_close_popup(args: &[tree_Expression], ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
+fn lower_close_popup_window(
+    args: &[tree_Expression],
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();

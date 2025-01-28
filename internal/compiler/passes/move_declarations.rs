@@ -28,6 +28,7 @@ pub fn move_declarations(component: &Rc<Component>) {
 fn do_move_declarations(component: &Rc<Component>) {
     let mut decl = Declarations::take_from_element(&mut component.root_element.borrow_mut());
     component.popup_windows.borrow().iter().for_each(|f| do_move_declarations(&f.component));
+    component.menu_item_tree.borrow().iter().for_each(|f| do_move_declarations(f));
 
     let mut new_root_bindings = HashMap::new();
     let mut new_root_change_callbacks = HashMap::new();
@@ -101,6 +102,9 @@ fn do_move_declarations(component: &Rc<Component>) {
         fixup_reference(&mut t.interval);
         fixup_reference(&mut t.running);
         fixup_reference(&mut t.triggered);
+    });
+    component.menu_item_tree.borrow_mut().iter_mut().for_each(|c| {
+        visit_all_named_references(c, &mut fixup_reference);
     });
     component.init_code.borrow_mut().iter_mut().for_each(|expr| {
         visit_named_references_in_expression(expr, &mut fixup_reference);

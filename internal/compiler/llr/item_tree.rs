@@ -256,6 +256,8 @@ pub struct SubComponent {
     pub repeated: TiVec<RepeatedElementIdx, RepeatedElement>,
     pub component_containers: Vec<ComponentContainerElement>,
     pub popup_windows: Vec<PopupWindow>,
+    /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupNativeMenuBar
+    pub menu_item_trees: Vec<ItemTree>,
     pub timers: Vec<Timer>,
     pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
     /// The initial value or binding for properties.
@@ -416,6 +418,9 @@ impl CompilationUnit {
                     visitor,
                     Some(ParentCtx::new(&ctx, None)),
                 );
+            }
+            for menu_tree in &sc.menu_item_trees {
+                visit_component(root, menu_tree.root, visitor, Some(ParentCtx::new(&ctx, None)));
             }
         }
         for c in &self.used_sub_components {

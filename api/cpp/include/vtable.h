@@ -40,6 +40,7 @@ struct VBox
 {
     const T *vtable = nullptr;
     void *instance = nullptr;
+    explicit VBox(const T *vtable, void *instance) : vtable(vtable), instance(instance) { }
     VBox(const VBox &) = delete;
     VBox() = default;
     VBox &operator=(const VBox &) = delete;

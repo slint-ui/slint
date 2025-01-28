@@ -383,6 +383,7 @@ pub struct Component {
 
     pub popup_windows: RefCell<Vec<PopupWindow>>,
     pub timers: RefCell<Vec<Timer>>,
+    pub menu_item_tree: RefCell<Vec<Rc<Component>>>,
 
     /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
     pub inherits_popup_window: Cell<bool>,
@@ -2153,7 +2154,12 @@ pub fn recurse_elem_including_sub_components<State>(
         .popup_windows
         .borrow()
         .iter()
-        .for_each(|p| recurse_elem_including_sub_components(&p.component, state, vis))
+        .for_each(|p| recurse_elem_including_sub_components(&p.component, state, vis));
+    component
+        .menu_item_tree
+        .borrow()
+        .iter()
+        .for_each(|c| recurse_elem_including_sub_components(c, state, vis));
 }
 
 /// Same as recurse_elem, but will take the children from the element as to not keep the element borrow

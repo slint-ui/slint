@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::api::{SetPropertyError, Struct, Value};
-use crate::dynamic_item_tree::InstanceRef;
+use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ColorScheme, ItemRef, MenuEntry, PropertyAnimation};
@@ -18,6 +18,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
+use i_slint_core::menus::MenuFromItemTree;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -713,39 +714,51 @@ fn call_builtin_function(
 
             generativity::make_guard!(guard);
             let inst_ref = inst.unerase(guard);
-            let entries = eval_expression(entries, local_context);
-            compiled.set_property(inst_ref.borrow(), "entries", entries).unwrap();
-            let item_rc_ = item_rc.clone();
-            compiled
-                .set_callback_handler(
-                    inst_ref.borrow(),
-                    "sub-menu",
-                    Box::new(move |args: &[Value]| -> Value {
-                        item_rc_
-                            .downcast::<corelib::items::ContextMenu>()
-                            .unwrap()
-                            .sub_menu
-                            .call(&(args[0].clone().try_into().unwrap(),))
-                            .into()
-                    }),
-                )
-                .unwrap();
-            let item_rc_ = item_rc.clone();
-            compiled
-                .set_callback_handler(
-                    inst_ref.borrow(),
-                    "activated",
-                    Box::new(move |args: &[Value]| -> Value {
-                        item_rc_
-                            .downcast::<corelib::items::ContextMenu>()
-                            .unwrap()
-                            .activated
-                            .call(&(args[0].clone().try_into().unwrap(),))
-                            .into()
-                    }),
-                )
-                .unwrap();
-
+            if let Expression::ElementReference(e) = entries {
+                let menu_item_tree =
+                    e.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+                let (entries, sub_menu, activated) =
+                    menu_item_tree_properties(crate::dynamic_item_tree::make_menu_item_tree(
+                        &menu_item_tree,
+                        &enclosing_component,
+                    ));
+                compiled.set_property(inst_ref.borrow(), "entries", entries).unwrap();
+                compiled.set_callback_handler(inst_ref.borrow(), "sub-menu", sub_menu).unwrap();
+                compiled.set_callback_handler(inst_ref.borrow(), "activated", activated).unwrap();
+            } else {
+                let entries = eval_expression(entries, local_context);
+                compiled.set_property(inst_ref.borrow(), "entries", entries).unwrap();
+                let item_rc_ = item_rc.clone();
+                compiled
+                    .set_callback_handler(
+                        inst_ref.borrow(),
+                        "sub-menu",
+                        Box::new(move |args: &[Value]| -> Value {
+                            item_rc_
+                                .downcast::<corelib::items::ContextMenu>()
+                                .unwrap()
+                                .sub_menu
+                                .call(&(args[0].clone().try_into().unwrap(),))
+                                .into()
+                        }),
+                    )
+                    .unwrap();
+                let item_rc_ = item_rc.clone();
+                compiled
+                    .set_callback_handler(
+                        inst_ref.borrow(),
+                        "activated",
+                        Box::new(move |args: &[Value]| -> Value {
+                            item_rc_
+                                .downcast::<corelib::items::ContextMenu>()
+                                .unwrap()
+                                .activated
+                                .call(&(args[0].clone().try_into().unwrap(),))
+                                .into()
+                        }),
+                    )
+                    .unwrap();
+            }
             component.access_window(|window| {
                 window.show_popup(
                     &vtable::VRc::into_dyn(inst),
@@ -1137,10 +1150,42 @@ fn call_builtin_function(
             let ComponentInstance::InstanceRef(component) = local_context.component_instance else {
                 panic!("SetupNativeMenuBar from a global");
             };
+            if let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root)] =
+                arguments
+            {
+                let menu_item_tree = item_tree_root
+                    .upgrade()
+                    .unwrap()
+                    .borrow()
+                    .enclosing_component
+                    .upgrade()
+                    .unwrap();
+                let menu_item_tree =
+                    crate::dynamic_item_tree::make_menu_item_tree(&menu_item_tree, &component);
+
+                if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
+                    if w.supports_native_menu_bar() {
+                        w.setup_menubar(vtable::VBox::new(menu_item_tree));
+                        return Value::Void;
+                    }
+                }
+
+                let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
+
+                store_property(component, &entries_nr.element(), entries_nr.name(), entries)
+                    .unwrap();
+                let i = &local_context.component_instance;
+                set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu)
+                    .unwrap();
+                set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
+                    .unwrap();
+
+                return Value::Void;
+            }
             let [entries, Expression::PropertyReference(sub_menu), Expression::PropertyReference(activated)] =
                 arguments
             else {
-                panic!("internal error: incorrect arguments to SetupNativeMenuBar")
+                panic!("internal error: incorrect arguments to SetupNativeMenuBar: {arguments:?}")
             };
             if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
                 if w.supports_native_menu_bar() {
@@ -1669,6 +1714,42 @@ pub(crate) fn invoke_callback(
     }
 }
 
+pub(crate) fn set_callback_handler(
+    component_instance: &ComponentInstance,
+    element: &ElementRc,
+    callback_name: &str,
+    handler: CallbackHandler,
+) -> Result<(), ()> {
+    generativity::make_guard!(guard);
+    match enclosing_component_instance_for_element(element, component_instance, guard) {
+        ComponentInstance::InstanceRef(enclosing_component) => {
+            let description = enclosing_component.description;
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+            {
+                if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
+                    let callback = callback_offset.apply(&*enclosing_component.instance);
+                    callback.set_handler(handler);
+                    return Ok(());
+                } else if enclosing_component.description.original.is_global() {
+                    return Err(());
+                }
+            };
+            let item_info = &description.items[element.id.as_str()];
+            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+            if let Some(callback) = item_info.rtti.callbacks.get(callback_name) {
+                callback.set_handler(item, handler);
+                Ok(())
+            } else {
+                Err(())
+            }
+        }
+        ComponentInstance::GlobalComponent(global) => {
+            global.as_ref().set_callback_handler(callback_name, handler)
+        }
+    }
+}
+
 /// Invoke the function.
 ///
 /// Return None if the function don't exist
@@ -1928,4 +2009,26 @@ impl Menu for MenuWrapper {
         )
         .unwrap();
     }
+}
+
+fn menu_item_tree_properties(menu: MenuFromItemTree) -> (Value, CallbackHandler, CallbackHandler) {
+    let context_menu_item_tree = Rc::new(menu);
+    let mut entries = SharedVector::default();
+    context_menu_item_tree.sub_menu(None, &mut entries);
+    let entries = Value::Model(ModelRc::new(VecModel::from(
+        entries.into_iter().map(|x| Value::from(x)).collect::<Vec<_>>(),
+    )));
+    let context_menu_item_tree_ = context_menu_item_tree.clone();
+    let sub_menu = Box::new(move |args: &[Value]| -> Value {
+        let mut entries = SharedVector::default();
+        context_menu_item_tree_.sub_menu(Some(&args[0].clone().try_into().unwrap()), &mut entries);
+        Value::Model(ModelRc::new(VecModel::from(
+            entries.into_iter().map(|x| Value::from(x)).collect::<Vec<_>>(),
+        )))
+    });
+    let activated = Box::new(move |args: &[Value]| -> Value {
+        context_menu_item_tree.activate(&args[0].clone().try_into().unwrap());
+        Value::Void
+    });
+    (entries, sub_menu, activated)
 }

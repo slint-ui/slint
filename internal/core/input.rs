@@ -434,22 +434,24 @@ pub enum TextShortcut {
 /// Represents how an item's key_event handler dealt with a key event.
 /// An accepted event results in no further event propagation.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum KeyEventResult {
     /// The event was handled.
     EventAccepted,
     /// The event was not handled and should be sent to other items.
+    #[default]
     EventIgnored,
 }
 
 /// Represents how an item's focus_event handler dealt with a focus event.
 /// An accepted event results in no further event propagation.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum FocusEventResult {
     /// The event was handled.
     FocusAccepted,
     /// The event was not handled and should be sent to other items.
+    #[default]
     FocusIgnored,
 }
 

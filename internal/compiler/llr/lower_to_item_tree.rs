@@ -43,7 +43,7 @@ pub fn lower_to_item_tree(
 
     for c in &document.used_types.borrow().sub_components {
         let sc = lower_sub_component(c, &mut state, None, compiler_config);
-        let idx = state.sub_components.push_and_get_key(sc);
+        let idx = state.push_sub_component(sc);
         state.sub_component_mapping.insert(ByAddress(c.clone()), idx);
     }
 
@@ -55,7 +55,7 @@ pub fn lower_to_item_tree(
             sc.sub_component.name = component.id.clone();
             let item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
-                root: state.sub_components.push_and_get_key(sc),
+                root: state.push_sub_component(sc),
                 parent_context: None,
             };
             // For C++ codegen, the root component must have the same name as the public component
@@ -84,7 +84,7 @@ pub fn lower_to_item_tree(
         );
         let item_tree = ItemTree {
             tree: make_tree(&state, &c.root_element, &sc, &[]),
-            root: state.sub_components.push_and_get_key(sc),
+            root: state.push_sub_component(sc),
             parent_context: None,
         };
         PopupMenu { item_tree, sub_menu, activated, entries }
@@ -182,7 +182,7 @@ pub struct LoweredSubComponent {
 pub struct LoweringState {
     global_properties: HashMap<NamedReference, PropertyReference>,
     sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
-    sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
+    pub sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<super::translations::TranslationsBuilder>,
 }
@@ -252,6 +252,7 @@ fn lower_sub_component(
         repeated: Default::default(),
         component_containers: Default::default(),
         popup_windows: Default::default(),
+        menu_item_trees: Vec::new(),
         timers: Default::default(),
         sub_components: Default::default(),
         property_init: Default::default(),
@@ -402,8 +403,10 @@ fn lower_sub_component(
 
         Some(element.clone())
     });
+
     let inner = ExpressionLoweringCtxInner { mapping: &mapping, parent: parent_context, component };
     let mut ctx = ExpressionLoweringCtx { inner, state };
+
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
         let nr = NamedReference::new(e, p.clone());
         let prop = ctx.map_property_reference(&nr);
@@ -496,6 +499,20 @@ fn lower_sub_component(
         .borrow()
         .iter()
         .map(|popup| lower_popup_component(popup, &mut ctx, compiler_config))
+        .collect();
+
+    sub_component.menu_item_trees = component
+        .menu_item_tree
+        .borrow()
+        .iter()
+        .map(|c| {
+            let sc = lower_sub_component(c, ctx.state, Some(&ctx.inner), compiler_config);
+            ItemTree {
+                tree: make_tree(&ctx.state, &c.root_element, &sc, &[]),
+                root: ctx.state.push_sub_component(sc),
+                parent_context: None,
+            }
+        })
         .collect();
 
     sub_component.timers =
@@ -651,16 +668,17 @@ fn lower_repeated_component(
 
     let sc = lower_sub_component(&component, ctx.state, Some(&ctx.inner), compiler_config);
 
-    let geom = component.root_element.borrow().geometry_props.clone().unwrap();
-
-    let listview = repeated.is_listview.as_ref().map(|lv| ListViewInfo {
-        viewport_y: ctx.map_property_reference(&lv.viewport_y),
-        viewport_height: ctx.map_property_reference(&lv.viewport_height),
-        viewport_width: ctx.map_property_reference(&lv.viewport_width),
-        listview_height: ctx.map_property_reference(&lv.listview_height),
-        listview_width: ctx.map_property_reference(&lv.listview_width),
-        prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
-        prop_height: sc.mapping.map_property_reference(&geom.height, ctx.state),
+    let listview = repeated.is_listview.as_ref().map(|lv| {
+        let geom = component.root_element.borrow().geometry_props.clone().unwrap();
+        ListViewInfo {
+            viewport_y: ctx.map_property_reference(&lv.viewport_y),
+            viewport_height: ctx.map_property_reference(&lv.viewport_height),
+            viewport_width: ctx.map_property_reference(&lv.viewport_width),
+            listview_height: ctx.map_property_reference(&lv.listview_height),
+            listview_width: ctx.map_property_reference(&lv.listview_width),
+            prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
+            prop_height: sc.mapping.map_property_reference(&geom.height, ctx.state),
+        }
     });
 
     RepeatedElement {
