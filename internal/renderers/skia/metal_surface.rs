@@ -186,13 +186,18 @@ impl super::Surface for MetalSurface {
             command_buffer.presentDrawable(ProtocolObject::from_ref(&*drawable));
             command_buffer.commit();
 
-            for (id, age) in self.drawable_ages.borrow_mut().iter_mut() {
+            self.drawable_ages.borrow_mut().retain_mut(|(id, age)| {
                 if *id == texture_id {
                     *age = 1;
                 } else {
-                    *age += 1;
+                    let Some(new_age) = age.checked_add(1) else {
+                        // texture became too old, remove it.
+                        return false;
+                    };
+                    *age = new_age;
                 }
-            }
+                true
+            });
 
             Ok(())
         })
