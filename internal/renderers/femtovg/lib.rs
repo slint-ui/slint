@@ -286,6 +286,7 @@ impl FemtoVGRenderer {
                         component,
                         &mut item_renderer,
                         *origin,
+                        &self.window_adapter()?,
                     );
                 }
 

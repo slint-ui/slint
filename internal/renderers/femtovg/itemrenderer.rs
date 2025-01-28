@@ -1192,10 +1192,13 @@ impl<'a> GLItemRenderer<'a> {
                     current_render_target: layer_image.as_render_target(),
                 };
 
+                let window_adapter = self.window().window_adapter();
+
                 i_slint_core::item_rendering::render_item_children(
                     self,
                     item_rc.item_tree(),
                     item_rc.index() as isize,
+                    &window_adapter,
                 );
 
                 {

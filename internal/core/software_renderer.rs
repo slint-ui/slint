@@ -501,6 +501,7 @@ impl SoftwareRenderer {
             rotation,
         );
         let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
+        let window_adapter = renderer.window_adapter.clone();
 
         window_inner
             .draw_contents(|components| {
@@ -568,6 +569,7 @@ impl SoftwareRenderer {
                         component,
                         &mut renderer,
                         *origin,
+                        &window_adapter,
                     );
                 }
 
@@ -992,6 +994,7 @@ fn prepare_scene(
     );
     let mut renderer =
         software_renderer.partial_rendering_state.create_partial_renderer(prepare_scene);
+    let window_adapter = renderer.window_adapter.clone();
 
     let mut dirty_region = PhysicalRegion::default();
     window.draw_contents(|components| {
@@ -1034,7 +1037,12 @@ fn prepare_scene(
         drop(i);
 
         for (component, origin) in components {
-            crate::item_rendering::render_component_items(component, &mut renderer, *origin);
+            crate::item_rendering::render_component_items(
+                component,
+                &mut renderer,
+                *origin,
+                &window_adapter,
+            );
         }
     });
 
