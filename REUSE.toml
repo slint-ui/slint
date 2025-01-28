@@ -47,7 +47,7 @@ SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR 
 
 [[annotations]]
 path = [
-  ".github/issue_template.md",
+  ".github/ISSUE_TEMPLATE/4-blank.md",
   ".github/pull_request_template.md",
 
   "api/cpp/docs/**/**.css",
