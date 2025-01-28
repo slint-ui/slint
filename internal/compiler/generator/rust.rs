@@ -2427,7 +2427,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 return sub;
             }
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-            quote!( #op #sub )
+            quote!( (#op #sub) )
         }
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
