@@ -250,8 +250,9 @@ impl Item for Empty {
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        geometry: LogicalRect,
+        mut geometry: LogicalRect,
     ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
         geometry
     }
 }

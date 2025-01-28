@@ -233,8 +233,9 @@ impl Item for TouchArea {
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        geometry: LogicalRect,
+        mut geometry: LogicalRect,
     ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
         geometry
     }
 }
@@ -353,8 +354,9 @@ impl Item for FocusScope {
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        geometry: LogicalRect,
+        mut geometry: LogicalRect,
     ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
         geometry
     }
 }
@@ -550,8 +552,9 @@ impl Item for SwipeGestureHandler {
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        geometry: LogicalRect,
+        mut geometry: LogicalRect,
     ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
         geometry
     }
 }
