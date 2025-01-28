@@ -44,6 +44,11 @@ pub enum BuiltinFunction {
     ClearFocusItem,
     ShowPopupWindow,
     ClosePopupWindow,
+    /// Show a context popup menu.
+    /// Arguments are `(parent, entries, position)`
+    ///
+    /// The second argument (entries) can either be of type Array of MenuEntry, or a reference to a MenuItem tree.
+    /// When it is a menu item tree, it is a ElementReference to the root of the tree, and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
     ShowPopupMenu,
     SetSelectionOffsets,
     /// A function that belongs to an item (such as TextInput's select-all function).
@@ -70,6 +75,10 @@ pub enum BuiltinFunction {
     Hsv,
     ColorScheme,
     SupportsNativeMenuBar,
+    /// Setup the native menu bar, or the item-tree based menu bar
+    /// arguments ate: `(ref entries, ref sub-menu, ref activated, item_tree_root?)`
+    /// When there are 4 arguments, the last one is a reference to the MenuItem tree root (just like the entries in the [`Self::ShowPopupMenu`] call)
+    /// then the code will assign the callback handler and properties
     SetupNativeMenuBar,
     Use24HourFormat,
     MonthDayCount,

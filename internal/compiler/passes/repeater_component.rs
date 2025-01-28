@@ -98,6 +98,9 @@ fn create_repeater_components(component: &Rc<Component>) {
     for p in component.popup_windows.borrow().iter() {
         create_repeater_components(&p.component);
     }
+    for c in component.menu_item_tree.borrow().iter() {
+        create_repeater_components(c);
+    }
 }
 
 /// Make sure that references to property within the repeated element actually point to the reference

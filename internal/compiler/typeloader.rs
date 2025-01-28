@@ -343,7 +343,13 @@ impl Snapshotter {
             let root_constraints = RefCell::new(
                 self.snapshot_layout_constraints(&component.root_constraints.borrow()),
             );
-
+            let menu_item_tree = component
+                .menu_item_tree
+                .borrow()
+                .iter()
+                .map(|it| self.create_component(it))
+                .collect::<Vec<_>>()
+                .into();
             object_tree::Component {
                 node: component.node.clone(),
                 id: component.id.clone(),
@@ -358,6 +364,7 @@ impl Snapshotter {
                 parent_element,
                 popup_windows,
                 timers,
+                menu_item_tree,
                 private_properties: RefCell::new(component.private_properties.borrow().clone()),
                 root_constraints,
                 root_element,

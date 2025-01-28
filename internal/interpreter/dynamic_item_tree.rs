@@ -17,10 +17,8 @@ use i_slint_core::accessibility::{
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::item_tree::{
-    IndexRange, ItemTree, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
-};
-use i_slint_core::item_tree::{
-    ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
+    IndexRange, ItemRc, ItemTree, ItemTreeNode, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable,
+    ItemTreeWeak, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
     VisitChildrenResult,
 };
 use i_slint_core::items::{
@@ -28,7 +26,8 @@ use i_slint_core::items::{
 };
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
-use i_slint_core::model::{RepeatedItemTree, Repeater};
+use i_slint_core::menus::MenuFromItemTree;
+use i_slint_core::model::{ModelRc, RepeatedItemTree, Repeater};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::properties::{ChangeTracker, InterpolatedPropertyValue};
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
@@ -48,6 +47,8 @@ use std::{pin::Pin, rc::Rc};
 
 pub const SPECIAL_PROPERTY_INDEX: &str = "$index";
 pub const SPECIAL_PROPERTY_MODEL_DATA: &str = "$model_data";
+
+pub(crate) type CallbackHandler = Box<dyn Fn(&[Value]) -> Value>;
 
 pub struct ItemTreeBox<'id> {
     instance: InstanceBox<'id>,
@@ -605,7 +606,7 @@ impl<'id> ItemTreeDescription<'id> {
         &self,
         component: Pin<ItemTreeRef>,
         name: &str,
-        handler: Box<dyn Fn(&[Value]) -> Value>,
+        handler: CallbackHandler,
     ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -621,33 +622,8 @@ impl<'id> ItemTreeDescription<'id> {
             generativity::make_guard!(guard);
             // Safety: we just verified that the component has the right vtable
             let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
-            generativity::make_guard!(guard);
-            let element = alias.element();
-            match eval::enclosing_component_instance_for_element(
-                &element,
-                &eval::ComponentInstance::InstanceRef(c),
-                guard,
-            ) {
-                eval::ComponentInstance::InstanceRef(enclosing_component) => {
-                    let description = enclosing_component.description;
-                    let item_info = &description.items[element.borrow().id.as_str()];
-                    let item =
-                        unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                    if let Some(callback) = item_info.rtti.callbacks.get(alias.name().as_str()) {
-                        callback.set_handler(item, handler)
-                    } else if let Some(callback_offset) =
-                        description.custom_callbacks.get(alias.name())
-                    {
-                        let callback = callback_offset.apply(&*enclosing_component.instance);
-                        callback.set_handler(handler)
-                    } else {
-                        return Err(());
-                    }
-                }
-                eval::ComponentInstance::GlobalComponent(glob) => {
-                    return glob.as_ref().set_callback_handler(alias.name(), handler);
-                }
-            }
+            let inst = eval::ComponentInstance::InstanceRef(c);
+            eval::set_callback_handler(&inst, &alias.element(), alias.name(), handler)?
         } else {
             let x = self.custom_callbacks.get(name).ok_or(())?;
             let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
@@ -988,6 +964,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Opacity>(),
             rtti_for::<Layer>(),
             rtti_for::<ContextMenu>(),
+            rtti_for::<MenuItem>(),
         ]
         .iter()
         .cloned(),
@@ -1710,7 +1687,7 @@ pub fn instantiate(
             if let Value::Model(m) = m {
                 m.clone()
             } else {
-                i_slint_core::model::ModelRc::new(crate::value_model::ValueModel::new(m))
+                ModelRc::new(crate::value_model::ValueModel::new(m))
             }
         });
     }
@@ -2429,6 +2406,29 @@ pub fn close_popup(
     {
         WindowInner::from_pub(parent_window_adapter.window()).close_popup(current_id);
     }
+}
+
+pub fn make_menu_item_tree(
+    menu_item_tree: &Rc<object_tree::Component>,
+    enclosing_component: &InstanceRef,
+) -> MenuFromItemTree {
+    generativity::make_guard!(guard);
+    let mit_compiled = generate_item_tree(
+        menu_item_tree,
+        None,
+        enclosing_component.description.popup_menu_description.clone(),
+        false,
+        guard,
+    );
+    let mit_inst = instantiate(
+        mit_compiled.clone(),
+        Some(enclosing_component.self_weak().get().unwrap().clone()),
+        None,
+        None,
+        Default::default(),
+    );
+    mit_inst.run_setup_code();
+    MenuFromItemTree::new(vtable::VRc::into_dyn(mit_inst))
 }
 
 pub fn update_timers(instance: InstanceRef) {

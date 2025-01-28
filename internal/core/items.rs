@@ -53,6 +53,7 @@ mod image;
 pub use self::image::*;
 #[cfg(feature = "std")]
 mod path;
+pub use crate::menus::MenuItem;
 #[cfg(feature = "std")]
 pub use path::*;
 
@@ -1274,6 +1275,10 @@ declare_item_vtable! {
 #[cfg(feature = "std")]
 declare_item_vtable! {
     fn slint_get_PathVTable() -> PathVTable for Path
+}
+
+declare_item_vtable! {
+    fn slint_get_MenuItemVTable() -> MenuItemVTable for MenuItem
 }
 
 macro_rules! declare_enums {

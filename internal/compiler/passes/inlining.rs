@@ -402,6 +402,7 @@ fn duplicate_sub_component(
         init_code: component_to_duplicate.init_code.clone(),
         popup_windows: Default::default(),
         timers: component_to_duplicate.timers.clone(),
+        menu_item_tree: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         used: component_to_duplicate.used.clone(),
         private_properties: Default::default(),
@@ -431,6 +432,16 @@ fn duplicate_sub_component(
         fixup_reference(&mut t.running, mapping);
         fixup_reference(&mut t.triggered, mapping);
     }
+    *new_component.menu_item_tree.borrow_mut() = component_to_duplicate
+        .menu_item_tree
+        .borrow()
+        .iter()
+        .map(|it| {
+            let new_parent =
+                mapping.get(&element_key(it.parent_element.upgrade().unwrap())).unwrap().clone();
+            duplicate_sub_component(it, &new_parent, mapping, priority_delta)
+        })
+        .collect();
     new_component
         .root_constraints
         .borrow_mut()

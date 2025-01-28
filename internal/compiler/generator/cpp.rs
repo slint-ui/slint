@@ -1306,6 +1306,9 @@ fn generate_public_component(
         for popup in &sc.popup_windows {
             add_friends(friends, unit, popup.item_tree.root, false)
         }
+        for menu in &sc.menu_item_trees {
+            add_friends(friends, unit, menu.root, false)
+        }
     }
 
     file.definitions.extend(component_struct.extract_definitions().collect::<Vec<_>>());
@@ -1915,9 +1918,26 @@ fn generate_sub_component(
             file,
             conditional_includes,
         );
-        file.definitions.extend(popup_struct.extract_definitions().collect::<Vec<_>>());
+        file.definitions.extend(popup_struct.extract_definitions());
         file.declarations.push(Declaration::Struct(popup_struct));
     });
+    for menu in &component.menu_item_trees {
+        let component_id = ident(&root.sub_components[menu.root].name);
+        let mut menu_struct = Struct { name: component_id.clone(), ..Default::default() };
+        generate_item_tree(
+            &mut menu_struct,
+            menu,
+            root,
+            Some(ParentCtx::new(&ctx, None)),
+            false,
+            component_id,
+            Access::Public,
+            file,
+            conditional_includes,
+        );
+        file.definitions.extend(menu_struct.extract_definitions());
+        file.declarations.push(Declaration::Struct(menu_struct));
+    }
 
     for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
@@ -3645,17 +3665,37 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupNativeMenuBar => {
             let window = access_window_field(ctx);
-            let [entries, llr::Expression::PropertyReference(sub_menu), llr::Expression::PropertyReference(activated)] =
-                arguments
-            else {
+            if let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index)] = arguments {
+                let current_sub_component = ctx.current_sub_component().unwrap();
+                let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
+                let access_entries = access_member(entries_r, ctx);
+                let access_sub_menu = access_member(sub_menu_r, ctx);
+                let access_activated = access_member(activated_r, ctx);
+                format!(r"
+                    if ({window}.supports_native_menu_bar()) {{
+                        auto item_tree = {item_tree_id}::create(self);
+                        auto item_tree_dyn = item_tree.into_dyn();
+                        vtable::VBox<slint::cbindgen_private::MenuVTable> box{{}};
+                        slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &box);
+                        slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), const_cast<slint::cbindgen_private::MenuVTable*>(box.vtable), box.instance);
+                        // The ownership of the VBox is transferred to slint_windowrc_setup_native_menu_bar
+                        box.instance = nullptr;
+                        box.vtable = nullptr;
+                    }} else {{
+                        auto item_tree = {item_tree_id}::create(self);
+                        auto item_tree_dyn = item_tree.into_dyn();
+                        slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
+                    }}")
+            } else if let [entries, llr::Expression::PropertyReference(sub_menu), llr::Expression::PropertyReference(activated)] = arguments {
+                let entries = compile_expression(entries, ctx);
+                let sub_menu = access_member(sub_menu, ctx);
+                let activated = access_member(activated, ctx);
+                format!("{window}.setup_native_menu_bar(self,
+                    [](auto &self, const slint::cbindgen_private::MenuEntry *parent){{ return parent ? {sub_menu}.call(*parent) : {entries}; }},
+                    [](auto &self, const slint::cbindgen_private::MenuEntry &entry){{ {activated}.call(entry); }})")
+            } else {
                 panic!("internal error: incorrect arguments to SetupNativeMenuBar")
-            };
-            let entries = compile_expression(entries, ctx);
-            let sub_menu = access_member(sub_menu, ctx);
-            let activated = access_member(activated, ctx);
-            format!("{window}.setup_native_menu_bar(self,
-                [](auto &self, const slint::cbindgen_private::MenuEntry *parent){{ return parent ? {sub_menu}.call(*parent) : {entries}; }},
-                [](auto &self, const slint::cbindgen_private::MenuEntry &entry){{ {activated}.call(entry); }})")
+            }
         }
         BuiltinFunction::Use24HourFormat => {
             format!("slint::cbindgen_private::slint_date_time_use_24_hour_format()")
@@ -3754,7 +3794,6 @@ fn compile_builtin_function_call(
             let context_menu = access_member(context_menu_ref, ctx);
             let context_menu_rc = access_item_rc(context_menu_ref, ctx);
             let position = compile_expression(position, ctx);
-            let entries = compile_expression(entries, ctx);
             let popup = ctx
                 .compilation_unit
                 .popup_menu
@@ -3770,25 +3809,39 @@ fn compile_builtin_function_call(
                 None,
             );
             let access_entries = access_member(&popup.entries, &popup_ctx);
-            let forward_callback = |pr, cb| {
-                let access = access_member(pr, &popup_ctx);
-                format!("{access}.set_handler(
-                    [context_menu](const auto &entry) {{
-                        return context_menu->{cb}.call(entry);
-                    }});")
-            };
-            let fw_sub_menu = forward_callback(&popup.sub_menu, "sub_menu");
-            let fw_activated = forward_callback(&popup.activated, "activated");
-            let init = format!(r"
-                auto entries = {entries};
-                const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
-                {{
+            let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx);
+            let access_activated = access_member(&popup.activated, &popup_ctx);
+            let init = if let llr::Expression::NumberLiteral(tree_index) = entries {
+                // We have an MenuItem tree
+                let current_sub_component = ctx.current_sub_component().unwrap();
+                let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
+                format!(r"
+                    auto item_tree = {item_tree_id}::create(self);
+                    auto item_tree_dyn = item_tree.into_dyn();
                     auto self = popup_menu;
-                    {access_entries}.set(std::move(entries));
-                    {fw_sub_menu}
-                    {fw_activated}
-                }}");
+                    slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
+                ")
 
+            } else {
+                let forward_callback = |access, cb| {
+                    format!("{access}.set_handler(
+                        [context_menu](const auto &entry) {{
+                            return context_menu->{cb}.call(entry);
+                        }});")
+                };
+                let fw_sub_menu = forward_callback(access_sub_menu, "sub_menu");
+                let fw_activated = forward_callback(access_activated, "activated");
+                let entries = compile_expression(entries, ctx);
+                format!(r"
+                    const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
+                    auto entries = {entries};
+                    {{
+                        auto self = popup_menu;
+                        {access_entries}.set(std::move(entries));
+                        {fw_sub_menu}
+                        {fw_activated}
+                    }}")
+            };
             format!("{window}.show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{ {init} }})", globals = ctx.generator_state.global_access)
         }
         BuiltinFunction::SetSelectionOffsets => {

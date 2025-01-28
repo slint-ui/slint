@@ -103,6 +103,10 @@ impl<'a> PrettyPrinter<'a> {
             write!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
             self.print_component(root, r.sub_tree.root, Some(ParentCtx::new(&ctx, Some(idx))))?
         }
+        for t in &sc.menu_item_trees {
+            self.indent()?;
+            self.print_component(root, t.root, Some(ParentCtx::new(&ctx, None)))?
+        }
         for w in &sc.popup_windows {
             self.indent()?;
             self.print_component(root, w.item_tree.root, Some(ParentCtx::new(&ctx, None)))?

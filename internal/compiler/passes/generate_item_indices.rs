@@ -41,6 +41,9 @@ pub fn generate_item_indices(component: &Rc<Component>) {
     for p in component.popup_windows.borrow().iter() {
         generate_item_indices(&p.component)
     }
+    for c in component.menu_item_tree.borrow().iter() {
+        generate_item_indices(c);
+    }
 }
 
 struct Helper {
