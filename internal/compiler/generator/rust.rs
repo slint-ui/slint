@@ -225,6 +225,7 @@ pub fn generate(
         #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
         #[allow(clippy::all, clippy::pedantic, clippy::nursery)]
+        #[allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
         mod #generated_mod {
             use slint::private_unstable_api::re_exports as sp;
             #[allow(unused_imports)]
