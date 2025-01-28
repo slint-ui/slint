@@ -489,6 +489,7 @@ impl SkiaRenderer {
         components: &[(&i_slint_core::item_tree::ItemTreeRc, LogicalPoint)],
     ) -> Option<DirtyRegion> {
         let window_inner = WindowInner::from_pub(window);
+        let window_adapter = window_inner.window_adapter();
 
         let mut box_shadow_cache = Default::default();
 
@@ -612,6 +613,7 @@ impl SkiaRenderer {
                     component,
                     item_renderer,
                     *origin,
+                    &window_adapter,
                 );
             }
 

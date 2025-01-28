@@ -189,13 +189,18 @@ pub fn is_clipping_item(item: Pin<ItemRef>) -> bool {
 }
 
 /// Renders the children of the item with the specified index into the renderer.
-pub fn render_item_children(renderer: &mut dyn ItemRenderer, component: &ItemTreeRc, index: isize) {
+pub fn render_item_children(
+    renderer: &mut dyn ItemRenderer,
+    component: &ItemTreeRc,
+    index: isize,
+    window_adapter: &Rc<dyn WindowAdapter>,
+) {
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
             let item_rc = ItemRc::new(component.clone(), index);
 
-            let (do_draw, item_geometry) = renderer.filter_item(&item_rc);
+            let (do_draw, item_geometry) = renderer.filter_item(&item_rc, window_adapter);
 
             let item_origin = item_geometry.origin;
             renderer.translate(item_origin.to_vector());
@@ -217,7 +222,7 @@ pub fn render_item_children(renderer: &mut dyn ItemRenderer, component: &ItemTre
             };
 
             if matches!(render_result, RenderingResult::ContinueRenderingChildren) {
-                render_item_children(renderer, component, index as isize);
+                render_item_children(renderer, component, index as isize, window_adapter);
             }
             renderer.restore_state();
             VisitChildrenResult::CONTINUE
@@ -236,11 +241,12 @@ pub fn render_component_items(
     component: &ItemTreeRc,
     renderer: &mut dyn ItemRenderer,
     origin: LogicalPoint,
+    window_adapter: &Rc<dyn WindowAdapter>,
 ) {
     renderer.save_state();
     renderer.translate(origin.to_vector());
 
-    render_item_children(renderer, component, -1);
+    render_item_children(renderer, component, -1, window_adapter);
 
     renderer.restore_state();
 }
@@ -497,9 +503,18 @@ pub trait ItemRenderer {
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
     ///  - the geometry of the item
-    fn filter_item(&mut self, item: &ItemRc) -> (bool, LogicalRect) {
+    fn filter_item(
+        &mut self,
+        item: &ItemRc,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> (bool, LogicalRect) {
         let item_geometry = item.geometry();
-        (self.get_current_clip().intersects(&item_geometry), item_geometry)
+        // Query bounding rect untracked, as properties that affect the bounding rect are already tracked
+        // when rendering the item.
+        let bounding_rect = crate::properties::evaluate_no_tracking(|| {
+            item.bounding_rect_for_geometry(&item_geometry, window_adapter)
+        });
+        (self.get_current_clip().intersects(&bounding_rect), item_geometry)
     }
 
     fn window(&self) -> &crate::window::WindowInner;
@@ -529,15 +544,15 @@ pub enum CachedItemGeometryAndTransform {
     RegularItem {
         /// The item's bounding rect relative to its parent.
         bounding_rect: LogicalRect,
-        /// The item's geometry relative to its parent.
-        geometry: LogicalRect,
+        /// The item's offset relative to its parent.
+        offset: LogicalVector,
     },
     /// An item such as Rotate that defines an additional transformation
     ItemWithTransform {
         /// The item's bounding rect relative to its parent.
         bounding_rect: LogicalRect,
-        /// The item's geometry relative to its parent, as well as the transform to apply to children.
-        geometry_and_transform: Box<(LogicalRect, ItemTransform)>,
+        /// The item's transform to apply to children.
+        transform: Box<ItemTransform>,
     },
     /// A clip item.
     ClipItem {
@@ -559,25 +574,13 @@ impl CachedItemGeometryAndTransform {
 
     fn transform(&self) -> ItemTransform {
         match self {
-            CachedItemGeometryAndTransform::RegularItem { geometry, .. } => {
-                ItemTransform::translation(geometry.origin.x as f32, geometry.origin.y as f32)
+            CachedItemGeometryAndTransform::RegularItem { offset, .. } => {
+                ItemTransform::translation(offset.x as f32, offset.y as f32)
             }
-            CachedItemGeometryAndTransform::ItemWithTransform {
-                geometry_and_transform, ..
-            } => geometry_and_transform.1,
+            CachedItemGeometryAndTransform::ItemWithTransform { transform, .. } => **transform,
             CachedItemGeometryAndTransform::ClipItem { geometry } => {
                 ItemTransform::translation(geometry.origin.x as f32, geometry.origin.y as f32)
             }
-        }
-    }
-
-    fn geometry(&self) -> &LogicalRect {
-        match self {
-            CachedItemGeometryAndTransform::RegularItem { geometry, .. } => geometry,
-            CachedItemGeometryAndTransform::ItemWithTransform {
-                geometry_and_transform, ..
-            } => &geometry_and_transform.0,
-            CachedItemGeometryAndTransform::ClipItem { geometry } => geometry,
         }
     }
 
@@ -591,21 +594,23 @@ impl CachedItemGeometryAndTransform {
             return Self::ClipItem { geometry };
         }
 
-        let bounding_rect = item_rc.bounding_rect_for_geometry(&geometry, window_adapter);
+        // Evaluate the bounding rect untracked, as properties that affect the bounding rect are already tracked
+        // at rendering time.
+        let bounding_rect = crate::properties::evaluate_no_tracking(|| {
+            item_rc.bounding_rect_for_geometry(&geometry, window_adapter)
+        });
 
         if let Some(complex_child_transform) =
             T::SUPPORTS_TRANSFORMATIONS.then(|| item_rc.children_transform()).flatten()
         {
             Self::ItemWithTransform {
                 bounding_rect,
-                geometry_and_transform: (
-                    geometry,
-                    complex_child_transform.then_translate(geometry.origin.to_vector().cast()),
-                )
+                transform: complex_child_transform
+                    .then_translate(geometry.origin.to_vector().cast())
                     .into(),
             }
         } else {
-            Self::RegularItem { bounding_rect, geometry }
+            Self::RegularItem { bounding_rect, offset: geometry.origin.to_vector() }
         }
     }
 }
@@ -754,7 +759,8 @@ pub struct PartialRenderer<'a, T> {
     pub dirty_region: DirtyRegion,
     /// The actual renderer which the drawing call will be forwarded to
     pub actual_renderer: T,
-    window_adapter: Rc<dyn WindowAdapter>,
+    /// The window adapter the renderer is rendering into.
+    pub window_adapter: Rc<dyn WindowAdapter>,
 }
 
 impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
@@ -1004,37 +1010,44 @@ macro_rules! forward_rendering_call2 {
 }
 
 impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'a, T> {
-    fn filter_item(&mut self, item_rc: &ItemRc) -> (bool, LogicalRect) {
+    fn filter_item(
+        &mut self,
+        item_rc: &ItemRc,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> (bool, LogicalRect) {
         let item = item_rc.borrow();
         let eval = || {
             // registers dependencies on the geometry and clip properties.
-            CachedItemGeometryAndTransform::new::<T>(item_rc, &self.window_adapter)
+            CachedItemGeometryAndTransform::new::<T>(item_rc, &window_adapter)
         };
 
         let rendering_data = item.cached_rendering_data_offset();
         let mut cache = self.cache.borrow_mut();
-        let item_geometry = match rendering_data.get_entry(&mut cache) {
+        let item_bounding_rect = match rendering_data.get_entry(&mut cache) {
             Some(CachedGraphicsData { data, dependency_tracker }) => {
                 dependency_tracker
                     .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
                     .as_ref()
                     .evaluate_if_dirty(|| *data = eval());
-                *data.geometry()
+                *data.bounding_rect()
             }
             None => {
                 let cache_entry = crate::graphics::CachedGraphicsData::new(eval);
                 let geom = cache_entry.data.clone();
                 rendering_data.cache_index.set(cache.insert(cache_entry));
                 rendering_data.cache_generation.set(cache.generation());
-                *geom.geometry()
+                *geom.bounding_rect()
             }
         };
 
-        let clipped_geom = self.get_current_clip().intersection(&item_geometry);
+        let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
         let draw = clipped_geom.map_or(false, |clipped_geom| {
             let clipped_geom = clipped_geom.translate(self.translation());
             self.dirty_region.draw_intersects(clipped_geom)
         });
+
+        // Query untracked, as the bounding rect calculation already registers a dependency on the geometry.
+        let item_geometry = crate::properties::evaluate_no_tracking(|| item_rc.geometry());
 
         (draw, item_geometry)
     }

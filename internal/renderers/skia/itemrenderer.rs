@@ -344,6 +344,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 &mut sub_renderer,
                 &item_rc.item_tree(),
                 item_rc.index() as isize,
+                &WindowInner::from_pub(self.window).window_adapter(),
             );
 
             Some(surface.image_snapshot())
@@ -972,10 +973,13 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             self.state_stack.push(self.current_state);
             self.current_state.alpha = 1.0;
 
+            let window_adapter = WindowInner::from_pub(self.window).window_adapter();
+
             i_slint_core::item_rendering::render_item_children(
                 self,
                 &item_rc.item_tree(),
                 item_rc.index() as isize,
+                &window_adapter,
             );
 
             self.current_state = self.state_stack.pop().unwrap();

@@ -1591,10 +1591,12 @@ impl QtItemRenderer<'_> {
 
             std::mem::swap(&mut self.painter, &mut layer_painter);
 
+            let window_adapter = self.window().window_adapter();
+
             i_slint_core::item_rendering::render_item_children(
                 self,
                 &item_rc.item_tree(),
-                item_rc.index() as isize,
+                item_rc.index() as isize, &window_adapter
             );
 
             std::mem::swap(&mut self.painter, &mut layer_painter);
@@ -1713,6 +1715,7 @@ impl QtWindow {
 
     fn paint_event(&self, painter: QPainterPtr) {
         let runtime_window = WindowInner::from_pub(&self.window);
+        let window_adapter = runtime_window.window_adapter();
         runtime_window.draw_contents(|components| {
             i_slint_core::animations::update_animations();
             let mut renderer = QtItemRenderer {
@@ -1727,6 +1730,7 @@ impl QtWindow {
                     component,
                     &mut renderer,
                     *origin,
+                    &window_adapter,
                 );
             }
 
