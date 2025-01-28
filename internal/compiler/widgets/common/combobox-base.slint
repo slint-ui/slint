@@ -109,6 +109,9 @@ export component ComboBoxBase {
             }
 
             scroll-event(event) => {
+                if (!root.has-focus) {
+                    return reject;
+                }
                 if (event.delta-y < -root.scroll-delta) {
                     root.move-selection-down();
                     return accept;
