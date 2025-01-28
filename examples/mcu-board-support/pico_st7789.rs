@@ -126,7 +126,7 @@ pub fn init() {
     });
 
     let rst = pins.gpio15.into_push_pull_output();
-    let mut backlight = pins.gpio13.into_push_pull_output();
+    let backlight = pins.gpio13.into_push_pull_output();
 
     let dc = pins.gpio8.into_push_pull_output();
     let cs = pins.gpio9.into_push_pull_output();
@@ -160,7 +160,6 @@ pub fn init() {
         .invert_colors(mipidsi::options::ColorInversion::Inverted)
         .init(&mut timer)
         .unwrap();
-    backlight.set_high().unwrap();
 
     let touch = xpt2046::XPT2046::new(
         &IRQ_PIN,
@@ -198,14 +197,16 @@ pub fn init() {
         window: Default::default(),
         buffer_provider: buffer_provider.into(),
         touch: touch.into(),
+        backlight: Some(backlight).into(),
     }))
     .expect("backend already initialized");
 }
 
-struct PicoBackend<DrawBuffer, Touch> {
+struct PicoBackend<DrawBuffer, Touch, Backlight> {
     window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow>>>,
     buffer_provider: RefCell<DrawBuffer>,
     touch: RefCell<Touch>,
+    backlight: RefCell<Option<Backlight>>,
 }
 
 impl<
@@ -217,10 +218,12 @@ impl<
         CS_: OutputPin<Error = Infallible>,
         IRQ: InputPin<Error = Infallible>,
         SPI: SpiDevice,
+        BL: OutputPin<Error = Infallible>,
     > slint::platform::Platform
     for PicoBackend<
         DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>,
         xpt2046::XPT2046<IRQ, SPI>,
+        BL,
     >
 {
     fn create_window_adapter(
@@ -252,6 +255,9 @@ impl<
                     let mut buffer_provider = self.buffer_provider.borrow_mut();
                     renderer.render_by_line(&mut *buffer_provider);
                     buffer_provider.flush_frame();
+                    if let Some(mut backlight) = self.backlight.take() {
+                        backlight.set_high().unwrap();
+                    }
                 });
 
                 // handle touch event
