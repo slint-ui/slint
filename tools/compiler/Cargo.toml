@@ -19,8 +19,10 @@ path = "main.rs"
 
 [features]
 software-renderer = ["i-slint-compiler/software-renderer"]
+jemalloc = ["dep:tikv-jemallocator"]
 
-default = ["software-renderer"]
+# Keep defaults in sync with defaults applied in api/cpp/CMakeLists.txt for slint-compiler
+default = ["software-renderer", "jemalloc"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics", "bundle-translations", "cpp", "rust"]}
@@ -31,4 +33,4 @@ spin_on = { workspace = true }
 itertools = { workspace = true }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = { workspace = true }
+tikv-jemallocator = { workspace = true, optional = true }
