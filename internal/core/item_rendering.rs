@@ -539,7 +539,7 @@ pub trait ItemRendererFeatures {
 /// children.
 #[derive(Clone)]
 
-pub enum CachedItemGeometryAndTransform {
+pub enum CachedItemBoundingBoxAndTransform {
     /// A regular item with a translation
     RegularItem {
         /// The item's bounding rect relative to its parent.
@@ -561,24 +561,24 @@ pub enum CachedItemGeometryAndTransform {
     },
 }
 
-impl CachedItemGeometryAndTransform {
+impl CachedItemBoundingBoxAndTransform {
     fn bounding_rect(&self) -> &LogicalRect {
         match self {
-            CachedItemGeometryAndTransform::RegularItem { bounding_rect, .. } => bounding_rect,
-            CachedItemGeometryAndTransform::ItemWithTransform { bounding_rect, .. } => {
+            CachedItemBoundingBoxAndTransform::RegularItem { bounding_rect, .. } => bounding_rect,
+            CachedItemBoundingBoxAndTransform::ItemWithTransform { bounding_rect, .. } => {
                 bounding_rect
             }
-            CachedItemGeometryAndTransform::ClipItem { geometry } => geometry,
+            CachedItemBoundingBoxAndTransform::ClipItem { geometry } => geometry,
         }
     }
 
     fn transform(&self) -> ItemTransform {
         match self {
-            CachedItemGeometryAndTransform::RegularItem { offset, .. } => {
+            CachedItemBoundingBoxAndTransform::RegularItem { offset, .. } => {
                 ItemTransform::translation(offset.x as f32, offset.y as f32)
             }
-            CachedItemGeometryAndTransform::ItemWithTransform { transform, .. } => **transform,
-            CachedItemGeometryAndTransform::ClipItem { geometry } => {
+            CachedItemBoundingBoxAndTransform::ItemWithTransform { transform, .. } => **transform,
+            CachedItemBoundingBoxAndTransform::ClipItem { geometry } => {
                 ItemTransform::translation(geometry.origin.x as f32, geometry.origin.y as f32)
             }
         }
@@ -616,7 +616,7 @@ impl CachedItemGeometryAndTransform {
 }
 
 /// The cache that needs to be held by the Window for the partial rendering
-pub type PartialRenderingCache = RenderingCache<CachedItemGeometryAndTransform>;
+pub type PartialRenderingCache = RenderingCache<CachedItemBoundingBoxAndTransform>;
 
 /// A region composed of a few rectangles that need to be redrawn.
 #[derive(Default, Clone, Debug)]
@@ -820,7 +820,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             let old_geom = cached_geom.clone();
                             drop(borrowed);
                             let new_geom = crate::properties::evaluate_no_tracking(|| {
-                                CachedItemGeometryAndTransform::new::<T>(
+                                CachedItemBoundingBoxAndTransform::new::<T>(
                                     &item_rc,
                                     &self.window_adapter,
                                 )
@@ -875,7 +875,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                 &cached_geom.transform(),
                             );
 
-                            if let CachedItemGeometryAndTransform::ClipItem { geometry } =
+                            if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } =
                                 &cached_geom
                             {
                                 new_state.clipped = new_state
@@ -900,7 +900,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     _ => {
                         drop(borrowed);
                         let bounding_rect = crate::properties::evaluate_no_tracking(|| {
-                            let geom = CachedItemGeometryAndTransform::new::<T>(
+                            let geom = CachedItemBoundingBoxAndTransform::new::<T>(
                                 &item_rc,
                                 &self.window_adapter,
                             );
@@ -908,7 +908,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             new_state
                                 .adjust_transforms_for_child(&geom.transform(), &geom.transform());
 
-                            if let CachedItemGeometryAndTransform::ClipItem { geometry } = geom {
+                            if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } = geom {
                                 new_state.clipped = new_state
                                     .clipped
                                     .intersection(
@@ -961,7 +961,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     fn do_rendering(
         cache: &RefCell<PartialRenderingCache>,
         rendering_data: &CachedRenderingData,
-        render_fn: impl FnOnce() -> CachedItemGeometryAndTransform,
+        render_fn: impl FnOnce() -> CachedItemBoundingBoxAndTransform,
     ) {
         let mut cache = cache.borrow_mut();
         if let Some(entry) = rendering_data.get_entry(&mut cache) {
@@ -989,7 +989,7 @@ macro_rules! forward_rendering_call {
             let mut ret = None;
             Self::do_rendering(&self.cache, &obj.cached_rendering_data, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size));
-                CachedItemGeometryAndTransform::new::<T>(&item_rc, &self.window_adapter)
+                CachedItemBoundingBoxAndTransform::new::<T>(&item_rc, &self.window_adapter)
             });
             ret.unwrap_or_default()
         }
@@ -1002,7 +1002,7 @@ macro_rules! forward_rendering_call2 {
             let mut ret = None;
             Self::do_rendering(&self.cache, &cache, || {
                 ret = Some(self.actual_renderer.$fn(obj, item_rc, size, &cache));
-                CachedItemGeometryAndTransform::new::<T>(&item_rc, &self.window_adapter)
+                CachedItemBoundingBoxAndTransform::new::<T>(&item_rc, &self.window_adapter)
             });
             ret.unwrap_or_default()
         }
@@ -1018,7 +1018,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
         let item = item_rc.borrow();
         let eval = || {
             // registers dependencies on the geometry and clip properties.
-            CachedItemGeometryAndTransform::new::<T>(item_rc, &window_adapter)
+            CachedItemBoundingBoxAndTransform::new::<T>(item_rc, &window_adapter)
         };
 
         let rendering_data = item.cached_rendering_data_offset();
