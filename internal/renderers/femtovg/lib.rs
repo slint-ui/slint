@@ -260,16 +260,24 @@ impl FemtoVGRenderer {
                     height.get(),
                 );
 
-                // Draws the window background as gradient
-                match window_background_brush {
-                    Some(Brush::SolidColor(..)) | None => {}
-                    Some(brush) => {
-                        item_renderer.draw_rect(
-                            i_slint_core::lengths::logical_size_from_api(
-                                window.size().to_logical(window_inner.scale_factor()),
-                            ),
-                            brush,
-                        );
+                if let Some(window_item_rc) = window_inner.window_item_rc() {
+                    let window_item =
+                        window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
+                    match window_item.as_pin_ref().background() {
+                        Brush::SolidColor(..) => {
+                            // clear_rect is called earlier
+                        }
+                        _ => {
+                            // Draws the window background as gradient
+                            item_renderer.draw_rectangle(
+                                window_item.as_pin_ref(),
+                                &window_item_rc,
+                                i_slint_core::lengths::logical_size_from_api(
+                                    window.size().to_logical(window_inner.scale_factor()),
+                                ),
+                                &window_item.as_pin_ref().cached_rendering_data,
+                            );
+                        }
                     }
                 }
 

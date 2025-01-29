@@ -187,7 +187,23 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        self.draw_rect(size, rect.background());
+        let geometry = PhysicalRect::from(size * self.scale_factor);
+        if geometry.is_empty() {
+            return;
+        }
+        if self.global_alpha_transparent() {
+            return;
+        }
+        // TODO: cache path in item to avoid re-tesselation
+        let path = rect_to_path(geometry);
+        let paint = match self.brush_to_paint(rect.background(), &path) {
+            Some(paint) => paint,
+            None => return,
+        }
+        // Since we're filling a straight rectangle with either color or gradient, save
+        // the extra stroke triangle strip around the edges
+        .with_anti_alias(false);
+        self.canvas.borrow_mut().fill_path(&path, &paint);
     }
 
     fn draw_border_rectangle(
@@ -268,6 +284,17 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 &border_paint,
             );
         }
+    }
+
+    fn draw_window_background(
+        &mut self,
+        rect: Pin<&dyn RenderRectangle>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
+        // register a dependency for the partial renderer's dirty tracker. The actual rendering is done earlier in SkiaRenderer.
+        let _ = rect.background();
     }
 
     fn draw_image(
@@ -1019,27 +1046,6 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.fill_path(&path, &fill_paint);
         })
-    }
-
-    /// Draws a `Rectangle` using the `GLItemRenderer`.
-    fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
-        let geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
-            return;
-        }
-        if self.global_alpha_transparent() {
-            return;
-        }
-        // TODO: cache path in item to avoid re-tesselation
-        let path = rect_to_path(geometry);
-        let paint = match self.brush_to_paint(brush, &path) {
-            Some(paint) => paint,
-            None => return,
-        }
-        // Since we're filling a straight rectangle with either color or gradient, save
-        // the extra stroke triangle strip around the edges
-        .with_anti_alias(false);
-        self.canvas.borrow_mut().fill_path(&path, &paint);
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {

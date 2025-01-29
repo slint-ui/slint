@@ -475,3 +475,29 @@ fn rotated_image() {
         Some(slint::LogicalPosition { x: 1., y: 50. })
     );
 }
+
+#[test]
+fn window_background() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <color> c: yellow;
+            background: c;
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_c(slint::Color::from_rgb_u8(45, 12, 13));
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    ui.set_c(slint::Color::from_rgb_u8(45, 12, 13));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
