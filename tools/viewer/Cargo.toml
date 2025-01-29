@@ -53,18 +53,18 @@ default = ["backend-default", "renderer-femtovg", "renderer-software"]
 [dependencies]
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
-slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-10", "internal", "accessibility", "image-default-formats"] }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-10", "internal", "accessibility", "image-default-formats", "internal-json"] }
 i-slint-backend-selector = { workspace = true }
 
 clap = { workspace = true }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
-serde_json = { workspace = true }
 shlex = "1"
 spin_on = { workspace = true }
 env_logger = "0.11.0"
 itertools = { workspace = true }
+serde_json = { workspace = true }
 smol_str = { workspace = true }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
