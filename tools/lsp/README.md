@@ -35,6 +35,12 @@ Alternatively, you can download one of our pre-built binaries for Linux or Windo
 
 As the next step, configure your editor to use the binary, no arguments are required
 
+Make sure the required dependencies are found. On Debian-like systems install them with the following command:
+
+```shell
+sudo apt install -y build-essential libx11-xcb1 libx11-dev libxcb1-dev libxkbcommon0 libinput10 libinput-dev libgbm1 libgbm-dev
+```
+
 ## Code formatting
 
 The slint code formatting tool is part of the lsp. To learn how to use it as a standalone tool, see [fmt README](./fmt/README.md)
