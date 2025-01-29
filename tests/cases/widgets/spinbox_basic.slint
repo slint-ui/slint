@@ -56,13 +56,13 @@ let position = LogicalPosition::new(40.0, 50.0);
 // scroll up
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: 50.0 });
 assert_eq!(instance.get_value(), 41);
-assert_eq!(&*edits.borrow(), &[41]);
+assert_eq!(&*edits.borrow(), &[41_i32]);
 edits.borrow_mut().clear();
 
 // scroll down
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: -10.0 });
 assert_eq!(instance.get_value(), 40);
-assert_eq!(&*edits.borrow(), &[40]);
+assert_eq!(&*edits.borrow(), &[40_i32]);
 edits.borrow_mut().clear();
 
 // step size
@@ -70,19 +70,19 @@ instance.set_step_size(2);
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: 50.0 });
 assert_eq!(instance.get_value(), 42);
-assert_eq!(&*edits.borrow(), &[42]);
+assert_eq!(&*edits.borrow(), &[42_i32]);
 edits.borrow_mut().clear();
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: -10.0 });
 assert_eq!(instance.get_value(), 40);
-assert_eq!(&*edits.borrow(), &[40]);
+assert_eq!(&*edits.borrow(), &[40_i32]);
 edits.borrow_mut().clear();
 
 instance.set_value(0);
 // scroll down should do nothing when the value is 0
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: -10.0 });
 assert_eq!(instance.get_value(), 0);
-assert_eq!(&*edits.borrow(), &[]);
+assert!(edits.borrow().is_empty());
 edits.borrow_mut().clear();
 
 instance.set_value(30);

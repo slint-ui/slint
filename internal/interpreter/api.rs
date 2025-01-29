@@ -526,7 +526,7 @@ pub(crate) fn normalize_identifier_smolstr(ident: &str) -> SmolStr {
 /// assert_eq!(s.get_field("foo").cloned().unwrap().try_into(), Ok(45u32));
 /// ```
 #[derive(Clone, PartialEq, Debug, Default)]
-pub struct Struct(HashMap<String, Value>);
+pub struct Struct(pub(crate) HashMap<String, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
