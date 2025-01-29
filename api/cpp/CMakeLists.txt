@@ -136,6 +136,21 @@ endif()
 
 if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
     corrosion_set_hostbuild(slint-compiler)
+    set_property(
+        TARGET slint-compiler
+        PROPERTY CORROSION_NO_DEFAULT_FEATURES
+        ON
+    )
+    list(APPEND slint_compiler_features "software-renderer")
+    # Enable jemalloc, except when cross-compiling. (#7463)
+    if(NOT CMAKE_CROSSCOMPILING)
+        list(APPEND slint_compiler_features "jemalloc")
+    endif()
+    set_property(
+        TARGET slint-compiler
+        PROPERTY CORROSION_FEATURES
+        ${slint_compiler_features}
+    )
 endif()
 
 if (SLINT_BUILD_RUNTIME)
