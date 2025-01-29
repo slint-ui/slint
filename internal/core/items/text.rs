@@ -125,7 +125,7 @@ impl Item for ComplexText {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -299,7 +299,7 @@ impl Item for SimpleText {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -988,7 +988,7 @@ impl Item for TextInput {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,

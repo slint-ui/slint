@@ -131,7 +131,7 @@ impl Item for Path {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,

@@ -438,12 +438,12 @@ impl ItemRc {
         comp_ref_pin.as_ref().item_geometry(self.index)
     }
 
-    pub fn bounding_rect_for_geometry(
+    pub fn bounding_rect(
         &self,
         geometry: &LogicalRect,
         window_adapter: &WindowAdapterRc,
     ) -> LogicalRect {
-        self.borrow().as_ref().bounding_rect_for_geometry(window_adapter, self, *geometry)
+        self.borrow().as_ref().bounding_rect(window_adapter, self, *geometry)
     }
 
     /// Returns an absolute position of `p` in the parent item coordinate system
