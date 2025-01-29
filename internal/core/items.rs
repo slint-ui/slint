@@ -170,7 +170,7 @@ pub struct ItemVTable {
         size: LogicalSize,
     ) -> RenderingResult,
 
-    pub bounding_rect_for_geometry: extern "C" fn(
+    pub bounding_rect: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
@@ -246,7 +246,7 @@ impl Item for Empty {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -334,7 +334,7 @@ impl Item for Rectangle {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -430,7 +430,7 @@ impl Item for BasicBorderRectangle {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -539,7 +539,7 @@ impl Item for BorderRectangle {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -673,7 +673,7 @@ impl Item for Clip {
         (*backend).visit_clip(self, self_rc, size)
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -769,7 +769,7 @@ impl Item for Opacity {
         backend.visit_opacity(self, self_rc, size)
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -882,7 +882,7 @@ impl Item for Layer {
         backend.visit_layer(self, self_rc, size)
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -975,7 +975,7 @@ impl Item for Rotate {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -1111,7 +1111,7 @@ impl Item for WindowItem {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -1245,7 +1245,7 @@ impl Item for ContextMenu {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
@@ -1337,7 +1337,7 @@ impl Item for BoxShadow {
         RenderingResult::ContinueRenderingChildren
     }
 
-    fn bounding_rect_for_geometry(
+    fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,

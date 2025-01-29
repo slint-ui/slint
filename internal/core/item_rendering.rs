@@ -512,7 +512,7 @@ pub trait ItemRenderer {
         // Query bounding rect untracked, as properties that affect the bounding rect are already tracked
         // when rendering the item.
         let bounding_rect = crate::properties::evaluate_no_tracking(|| {
-            item.bounding_rect_for_geometry(&item_geometry, window_adapter)
+            item.bounding_rect(&item_geometry, window_adapter)
         });
         (self.get_current_clip().intersects(&bounding_rect), item_geometry)
     }
@@ -597,7 +597,7 @@ impl CachedItemGeometryAndTransform {
         // Evaluate the bounding rect untracked, as properties that affect the bounding rect are already tracked
         // at rendering time.
         let bounding_rect = crate::properties::evaluate_no_tracking(|| {
-            item_rc.bounding_rect_for_geometry(&geometry, window_adapter)
+            item_rc.bounding_rect(&geometry, window_adapter)
         });
 
         if let Some(complex_child_transform) =
