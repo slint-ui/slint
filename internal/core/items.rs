@@ -25,7 +25,7 @@ use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
     KeyEventType, MouseEvent,
 };
-use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle};
+use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRectangle};
 pub use crate::item_tree::ItemRc;
 use crate::layout::LayoutInfo;
 use crate::lengths::{
@@ -311,8 +311,14 @@ impl Item for Rectangle {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_rectangle(self, self_rc, size);
+        (*backend).draw_rectangle(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl RenderRectangle for Rectangle {
+    fn background(self: Pin<&Self>) -> Brush {
+        self.background()
     }
 }
 

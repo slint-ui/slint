@@ -23,6 +23,7 @@ use crate::graphics::{
 };
 use crate::item_rendering::{
     CachedRenderingData, DirtyRegion, PartialRenderingState, RenderBorderRectangle, RenderImage,
+    RenderRectangle,
 };
 use crate::items::{ItemRc, TextOverflow, TextWrap};
 use crate::lengths::{
@@ -1657,9 +1658,10 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     #[allow(clippy::unnecessary_cast)] // Coord!
     fn draw_rectangle(
         &mut self,
-        rect: Pin<&crate::items::Rectangle>,
+        rect: Pin<&dyn RenderRectangle>,
         _: &ItemRc,
         size: LogicalSize,
+        _cache: &CachedRenderingData,
     ) {
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {

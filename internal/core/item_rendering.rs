@@ -284,6 +284,12 @@ pub fn item_children_bounding_rect(
 
 /// Trait for an item that represent a Rectangle to the Renderer
 #[allow(missing_docs)]
+pub trait RenderRectangle {
+    fn background(self: Pin<&Self>) -> Brush;
+}
+
+/// Trait for an item that represent a Rectangle with a border to the Renderer
+#[allow(missing_docs)]
 pub trait RenderBorderRectangle {
     fn background(self: Pin<&Self>) -> Brush;
     fn border_width(self: Pin<&Self>) -> LogicalLength;
@@ -324,7 +330,13 @@ pub trait RenderText {
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
 pub trait ItemRenderer {
-    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>, _self_rc: &ItemRc, _size: LogicalSize);
+    fn draw_rectangle(
+        &mut self,
+        rect: Pin<&dyn RenderRectangle>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+        _cache: &CachedRenderingData,
+    );
     fn draw_border_rectangle(
         &mut self,
         rect: Pin<&dyn RenderBorderRectangle>,
@@ -949,7 +961,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
         (draw, item_geometry)
     }
 
-    forward_rendering_call!(fn draw_rectangle(Rectangle));
+    forward_rendering_call2!(fn draw_rectangle(dyn RenderRectangle));
     forward_rendering_call2!(fn draw_border_rectangle(dyn RenderBorderRectangle));
     forward_rendering_call2!(fn draw_image(dyn RenderImage));
     forward_rendering_call2!(fn draw_text(dyn RenderText));

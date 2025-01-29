@@ -371,9 +371,10 @@ impl<'a> SkiaItemRenderer<'a> {
 impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     fn draw_rectangle(
         &mut self,
-        rect: Pin<&i_slint_core::items::Rectangle>,
+        rect: Pin<&dyn i_slint_core::item_rendering::RenderRectangle>,
         _self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
+        _cache: &CachedRenderingData,
     ) {
         self.draw_rect(size, rect.background());
     }

@@ -13,7 +13,8 @@ use i_slint_core::graphics::{
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
+    RenderRectangle, RenderText,
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
@@ -641,7 +642,13 @@ struct QtItemRenderer<'a> {
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
-    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>, _: &ItemRc, size: LogicalSize) {
+    fn draw_rectangle(
+        &mut self,
+        rect_: Pin<&dyn RenderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
         let rect: qttypes::QRectF = check_geometry!(size);
         let brush: qttypes::QBrush = into_qbrush(rect_.background(), rect.width, rect.height);
         let painter: &mut QPainterPtr = &mut self.painter;

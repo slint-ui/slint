@@ -7,13 +7,13 @@ This module contains the builtin `ComponentContainer` and related items
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{Item, ItemConsts, ItemRc, Rectangle, RenderingResult};
+use super::{Item, ItemConsts, ItemRc, RenderingResult};
 use crate::component_factory::{ComponentFactory, FactoryContext};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
 };
-use crate::item_rendering::CachedRenderingData;
+use crate::item_rendering::{CachedRenderingData, RenderRectangle};
 use crate::item_tree::{IndexRange, ItemTreeRc, ItemTreeWeak, ItemWeak};
 use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::{LayoutInfo, Orientation};
@@ -218,19 +218,23 @@ impl Item for ComponentContainer {
         item_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        if let Some(item_tree) = self.item_tree.borrow().clone() {
-            let item_tree = vtable::VRc::borrow_pin(&item_tree);
-            let root_item = item_tree.as_ref().get_item_ref(0);
-            if let Some(window_item) =
-                crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
-            {
-                let mut rect = Rectangle::default();
-                rect.background.set(window_item.background());
-                backend.draw_rectangle(core::pin::pin!(rect).as_ref(), item_rc, size);
-            }
-        }
-
+        backend.draw_rectangle(self, item_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl RenderRectangle for ComponentContainer {
+    fn background(self: Pin<&Self>) -> crate::Brush {
+        self.item_tree
+            .borrow()
+            .clone()
+            .and_then(|item_tree| {
+                let item_tree = vtable::VRc::borrow_pin(&item_tree);
+                let root_item = item_tree.as_ref().get_item_ref(0);
+                crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+                    .map(|window_item| window_item.background())
+            })
+            .unwrap_or_default()
     }
 }
 

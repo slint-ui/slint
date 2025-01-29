@@ -12,7 +12,8 @@ use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
+    RenderRectangle, RenderText,
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
@@ -179,7 +180,13 @@ impl<'a> GLItemRenderer<'a> {
 }
 
 impl<'a> ItemRenderer for GLItemRenderer<'a> {
-    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc, size: LogicalSize) {
+    fn draw_rectangle(
+        &mut self,
+        rect: Pin<&dyn RenderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
         self.draw_rect(size, rect.background());
     }
 
