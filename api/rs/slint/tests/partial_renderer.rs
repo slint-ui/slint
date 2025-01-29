@@ -566,3 +566,64 @@ fn touch_area_doesnt_cause_redraw() {
         do_test_render_region(renderer, 60, 0, 61, 1);
     }));
 }
+
+#[test]
+fn shadow_redraw_beyond_geometry() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <length> x-pos: 10px;
+            Rectangle {
+                x: root.x-pos;
+                y: 10px;
+                width: 20px;
+                height: 20px;
+                drop-shadow-blur: 5px;
+                drop-shadow-offset-x: 15px;
+                drop-shadow-offset-y: 5px;
+                drop-shadow-color: red;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 250., height: 250. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 0., y: 0. })
+    );
+
+    assert!(!window.draw_if_needed());
+
+    ui.set_x_pos(20.);
+
+    assert!(window.draw_if_needed());
+
+    let shadow_width = /* rect width */ 20. + 2. * /* blur */ 5.;
+    let move_delta = 10.;
+    let shadow_height = /* rect height */ 20. + 2. * /*blur */ 5.;
+
+    let old_shadow_x = /* rect x */ 10. + /* shadow offset */ 15. - /* blur */ 5.;
+    let old_shadow_y = /* rect y */ 10. + /* shadow offset */ 5. - /* blur */ 5.;
+
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: shadow_width + move_delta, height: shadow_height })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: old_shadow_x, y: old_shadow_y })
+    );
+}
