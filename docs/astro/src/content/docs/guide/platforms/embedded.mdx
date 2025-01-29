@@ -6,6 +6,7 @@ description: Embedded Platforms on which Slint has been tested
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
+import ReleaseLink from '/src/components/ReleaseLink.astro';
 
 Slint runs on many embedded platforms.
 
@@ -163,10 +164,10 @@ CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xte
 <Tabs syncKey="dev-language">
 <TabItem label="C++">
 #### STM32H735G-DK
-You can start with the template [slint-cpp-template-stm32h735g-dk.zip](https://github.com/slint-ui/slint/releases/download/%7Bdownload_version%7D/slint-cpp-template-stm32h735g-dk.zip)
+You can start with the template <ReleaseLink id="slint-cpp-template-stm32h735g-dk.zip" />
 
 #### STM32H747I-DISCO
-You can start with the template [slint-cpp-template-stm32h747i-disco.zip](https://github.com/slint-ui/slint/releases/download/%7Bdownload_version%7D/slint-cpp-template-stm32h747i-disco.zip)
+You can start with the template <ReleaseLink id="slint-cpp-template-stm32h747i-disco.zip" />
 
 </TabItem>
 <TabItem label="Rust">

@@ -3,3 +3,4 @@
 
 export const BASE_URL = "https://localhost";
 export const BASE_PATH = "/docs/";
+export const SLINT_DOWNLOAD_VERSION = "nightly";
