@@ -501,3 +501,68 @@ fn window_background() {
     ui.set_c(slint::Color::from_rgb_u8(45, 12, 13));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
+
+#[test]
+fn touch_area_doesnt_cause_redraw() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <color> c: yellow;
+            in property <length> touch-area-1-x <=> ta1.x;
+            in property <length> touch-area-2-x <=> ta2.x;
+            in property <color> sole-pixel-color: red;
+            background: black;
+            ta1 := TouchArea {
+                x: 10px;
+                y: 0px;
+                width: 20px;
+                height: 40px;
+                Rectangle {
+                    x: 1phx;
+                    y: 20phx;
+                    width: 15phx;
+                    height: 17phx;
+                    background: c;
+                }
+            }
+            ta2 := TouchArea {
+                x: 10px;
+                y: 0px;
+                width: 20px;
+                height: 40px;
+            }
+            sole-pixel := Rectangle {
+                x: 60px;
+                y: 0px;
+                width: 1px;
+                height: 1px;
+                background: sole-pixel-color;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_c(slint::Color::from_rgb_u8(45, 12, 13));
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10 + 1, 20, 10 + 1 + 15, 20 + 17);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_touch_area_1_x(20.);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10 + 1, 20, 10 + 1 + 15 + 10, 20 + 17);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_touch_area_2_x(20.);
+    ui.set_sole_pixel_color(slint::Color::from_rgb_u8(45, 12, 13));
+    // Moving the touch area should not cause it to be redrawn.
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 60, 0, 61, 1);
+    }));
+}
