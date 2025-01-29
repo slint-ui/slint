@@ -344,6 +344,13 @@ pub trait ItemRenderer {
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     );
+    fn draw_window_background(
+        &mut self,
+        rect: Pin<&dyn RenderRectangle>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+        cache: &CachedRenderingData,
+    );
     fn draw_image(
         &mut self,
         image: Pin<&dyn RenderImage>,
@@ -461,12 +468,6 @@ pub trait ItemRenderer {
     fn draw_string(&mut self, string: &str, color: crate::Color);
 
     fn draw_image_direct(&mut self, image: crate::graphics::Image);
-
-    /// Fills a rectangle at (0,0) with the given size. This is used for example by the Skia renderer to
-    /// handle window backgrounds with a brush (gradient).
-    fn draw_rect(&mut self, _size: LogicalSize, _brush: Brush) {
-        unimplemented!()
-    }
 
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
@@ -963,6 +964,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
 
     forward_rendering_call2!(fn draw_rectangle(dyn RenderRectangle));
     forward_rendering_call2!(fn draw_border_rectangle(dyn RenderBorderRectangle));
+    forward_rendering_call2!(fn draw_window_background(dyn RenderRectangle));
     forward_rendering_call2!(fn draw_image(dyn RenderImage));
     forward_rendering_call2!(fn draw_text(dyn RenderText));
     forward_rendering_call!(fn draw_text_input(TextInput));
@@ -1027,10 +1029,6 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
 
     fn draw_image_direct(&mut self, image: crate::graphics::image::Image) {
         self.actual_renderer.draw_image_direct(image)
-    }
-
-    fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
-        self.actual_renderer.draw_rect(size, brush);
     }
 
     fn window(&self) -> &crate::window::WindowInner {

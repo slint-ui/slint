@@ -674,6 +674,16 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
+    fn draw_window_background(
+        &mut self,
+        _rect: Pin<&dyn RenderRectangle>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+        _cache: &CachedRenderingData,
+    ) {
+        // Background is applied via WindowProperties::background()
+    }
+
     fn draw_image(
         &mut self,
         image: Pin<&dyn RenderImage>,

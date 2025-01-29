@@ -1247,6 +1247,19 @@ impl WindowInner {
         self.strong_component_ref.borrow().is_some()
     }
 
+    /// Returns the window item that is the first item in the component. When Some()
+    /// is returned, it's guaranteed to be safe to downcast to `WindowItem`.
+    pub fn window_item_rc(&self) -> Option<ItemRc> {
+        self.try_component().and_then(|component_rc| {
+            let item_rc = ItemRc::new(component_rc, 0);
+            if item_rc.downcast::<crate::items::WindowItem>().is_some() {
+                Some(item_rc)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ItemTreeVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {

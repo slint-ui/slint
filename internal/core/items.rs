@@ -1021,11 +1021,18 @@ impl Item for WindowItem {
 
     fn render(
         self: Pin<&Self>,
-        _backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
-        _size: LogicalSize,
+        backend: &mut ItemRendererRef,
+        self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
+        backend.draw_window_background(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl RenderRectangle for WindowItem {
+    fn background(self: Pin<&Self>) -> Brush {
+        self.background()
     }
 }
 
