@@ -613,8 +613,8 @@ impl DirtyRegion {
             if let Some(x) = ret.rectangles[i].intersection(&other) {
                 ret.rectangles[i] = x;
             } else {
-                ret.rectangles.swap(i, ret.count);
                 ret.count -= 1;
+                ret.rectangles.swap(i, ret.count);
                 continue;
             }
             i += 1;
@@ -1119,4 +1119,15 @@ impl PartialRenderingState {
     pub fn force_screen_refresh(&self) {
         self.force_screen_refresh.set(true);
     }
+}
+
+#[test]
+fn dirty_region_no_intersection() {
+    let mut region = DirtyRegion::default();
+    region.add_rect(LogicalRect::new(LogicalPoint::new(10., 10.), LogicalSize::new(16., 16.)));
+    region.add_rect(LogicalRect::new(LogicalPoint::new(100., 100.), LogicalSize::new(16., 16.)));
+    region.add_rect(LogicalRect::new(LogicalPoint::new(200., 100.), LogicalSize::new(16., 16.)));
+    let i = region
+        .intersection(LogicalRect::new(LogicalPoint::new(50., 50.), LogicalSize::new(10., 10.)));
+    assert_eq!(i.iter().count(), 0);
 }
