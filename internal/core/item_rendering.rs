@@ -340,16 +340,18 @@ pub trait RenderText {
         let font_request = self.font_request(window_inner);
         let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
         let max_width = geometry.size.width_length();
-        geometry.size = window_adapter
-            .renderer()
-            .text_size(
-                font_request.clone(),
-                text_string.as_str(),
-                Some(max_width.cast()),
-                scale_factor,
-                self.wrap(),
-            )
-            .cast();
+        geometry.size = geometry.size.max(
+            window_adapter
+                .renderer()
+                .text_size(
+                    font_request.clone(),
+                    text_string.as_str(),
+                    Some(max_width.cast()),
+                    scale_factor,
+                    self.wrap(),
+                )
+                .cast(),
+        );
         geometry
     }
 }

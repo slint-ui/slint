@@ -999,13 +999,13 @@ impl Item for TextInput {
         let font_request = self.font_request(window_adapter);
         let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
         let max_width = geometry.size.width_length();
-        geometry.size = window_adapter.renderer().text_size(
+        geometry.size = geometry.size.max(window_adapter.renderer().text_size(
             font_request.clone(),
             text_string.as_str(),
             Some(max_width),
             scale_factor,
             self.wrap(),
-        );
+        ));
         geometry
     }
 }
