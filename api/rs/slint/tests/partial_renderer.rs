@@ -627,3 +627,54 @@ fn shadow_redraw_beyond_geometry() {
         Some(slint::LogicalPosition { x: old_shadow_x, y: old_shadow_y })
     );
 }
+
+#[test]
+fn text_alignment() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <color> c: green;
+            Text {
+                x: 10px;
+                y: 10px;
+                width: 200px;
+                height: 50px;
+                text: "Ok";
+                color: c;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 250., height: 250. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 0., y: 0. })
+    );
+
+    assert!(!window.draw_if_needed());
+
+    ui.set_c(slint::Color::from_rgb_u8(45, 12, 13));
+
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 200., height: 50. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 10., y: 10. })
+    );
+}
