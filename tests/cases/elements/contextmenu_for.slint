@@ -1,0 +1,85 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+
+
+export global The_Global {
+    in-out property <string> filename: "foo.txt";
+}
+
+export component TestCase inherits Window {
+    in-out property <string> app_title: "Application";
+    width: 700px;
+    height: 700px;
+    //if true :
+     ContextMenu {
+        MenuItem {
+            title: "Entry1";
+            activated => { debug("Entry1"); }
+        }
+        MenuItem {
+            title: "Entry2";
+            MenuItem {
+                title: "New";
+                activated => { debug("New"); }
+            }
+            if true: MenuItem {
+                title: "Open";
+                MenuItem {
+                    title: "Open 1";
+                    activated => { debug("1"); }
+                }
+                MenuItem {
+                    title: "Open 2";
+                    activated => { debug("2"); }
+                }
+                for num in 45 : MenuItem {
+                    title: "Open " + (num + 3);
+                    activated => { debug(num+3); }
+                }
+            }
+            MenuItem {
+                title: "Save " + The_Global.filename;
+
+            }
+            MenuItem {
+                title: "Exit " + app_title;
+                activated => {
+                    app_title = "Exited";
+                }
+            }
+            MenuItem {
+                property <physical-length> scale_factor: 25px;
+                title: "Sacle factor " + scale_factor/1phx;
+                activated => {
+                    xxx.show();
+                }
+            }
+        }
+
+        // When this focus scope has the focus, the ContextMenu can handle the Menu key
+        fs := FocusScope {}
+    }
+
+    xxx := PopupWindow {
+        Text { text: "Hello"; }
+    }
+
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/
