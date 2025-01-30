@@ -92,6 +92,12 @@
     "LinuxkmsBackend": {
         "href": "guide/backends-and-renderers/backend_linuxkms/"
     },
+    "MenuBar": {
+        "href": "reference/window/window/#menubar"
+    },
+    "MenuItem": {
+        "href": "reference/window/contextmenu/#menuitem"
+    },
     "Modules": {
         "href": "guide/language/coding/file/#modules"
     },

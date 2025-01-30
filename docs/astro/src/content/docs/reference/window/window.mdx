@@ -4,6 +4,7 @@ title: Window
 description: Window element api.
 ---
 import SlintProperty  from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
 
 `Window` is the root of the tree of elements that are visible on the screen.
 
@@ -57,3 +58,43 @@ Whether the window should be borderless/frameless or not.
 <SlintProperty propName="title" typeName="string">
 The window title that is shown in the title bar.
 </SlintProperty>
+
+## `MenuBar` element
+
+A `Window` can contain one `MenuBar` element. This special element is used to create a menu bar for that window.
+There can only be one `MenuBar` element in a `Window` and it must not be in a `for` or a `if`.
+The `MenuBar` doesn't have properties, but it should contain <Link type="MenuItem" /> as children that represent top level entries in the menu bar.
+Each `MenuItem` can contain further `MenuItem` as children that represent sub-menu
+
+Depending on the platform, the menu bar might be native or rendered by Slint.
+This means that for example, on MacOs, the menu bar be in top bar on the desktop where application usually have their top bar.
+The `width` and `height` property of the `Window` are the one of the client area, without counting the menu bar.
+The `x` and `y` properties of `Window` children are also relative to the client area.
+
+### Example
+
+```slint
+export component Example inherits Window {
+    MenuBar {
+        MenuItem {
+            title: "File";
+            MenuItem {
+                title: "New";
+            }
+            MenuItem {
+                title: "Open";
+            }
+        }
+        MenuItem {
+            title: "Edit";
+            MenuItem {
+                title: "Copy";
+            }
+            MenuItem {
+                title: "Paste";
+            }
+        }
+    }
+    // ... actual window content goes here
+}
+```
