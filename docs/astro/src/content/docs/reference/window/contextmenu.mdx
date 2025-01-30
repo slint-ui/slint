@@ -1,0 +1,62 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Window
+description: Window element api.
+---
+import SlintProperty from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
+
+`ContextMenu` is an invisible element that is used to show a context menu.
+
+The context menu is shown if the user right-clicks on the area covered by the `ContextMenu` element,
+or if the user presses the "Menu" key on their keyboard while a `FocusScope` within the `ContextMenu` is focused.
+It is also possible to show the context menu by calling the `show` function on the `ContextMenu` element.
+
+In addition to normal sub elements, the `ContextMenu` element can contain `MenuItem` elements.
+The MenuItem elements are defining the actual menu.
+
+## Function
+
+### show(Point)
+
+Call this function to programmatically show the context menu at the given position relative to the `ContextMenu` element.
+
+## `MenuItem`
+
+A `MenuItem` represents a single menu entry. It can be placed as a child of a `ContextMenu`,
+<Link type="MenuBar" />, or another `MenuItem`.
+
+### Properties of `MenuItem`
+
+#### title
+<SlintProperty propName="title" typeName="string" defaultValue='""'>
+The label of the entry within the menu.
+</SlintProperty>
+
+### Callbacks of `MenuItem`
+
+#### activated()
+
+Invoked when the menu entry is activated.
+This is only called if the menu entry doesn't have submenus
+
+## Example
+
+```slint
+export component Example {
+    ContextMenu {
+        MenuItem {
+            title: "Copy";
+            activated => { debug("Copy"); }
+        }
+        MenuItem {
+            title: "Paste";
+            activated => { debug("Paste"); }
+        }
+        MenuItem {
+            title: "Cut";
+            activated => { debug("Cut"); }
+        }
+    }
+}
+```
