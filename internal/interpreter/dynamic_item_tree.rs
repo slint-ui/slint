@@ -460,7 +460,7 @@ pub enum WindowOptions {
     },
 }
 
-impl<'id> ItemTreeDescription<'id> {
+impl ItemTreeDescription<'_> {
     /// The name of this Component as written in the .slint file
     pub fn id(&self) -> &str {
         self.original.id.as_str()
@@ -1001,7 +1001,7 @@ pub(crate) fn generate_item_tree<'id>(
     //dbg!(&*component.root_element.borrow());
 
     thread_local! {
-        static RTTI: Lazy<HashMap<&'static str, Rc<ItemRTTI>>> = Lazy::new(|| generate_rtti());
+        static RTTI: Lazy<HashMap<&'static str, Rc<ItemRTTI>>> = Lazy::new(generate_rtti);
     }
 
     struct TreeBuilder<'id> {
@@ -1016,7 +1016,7 @@ pub(crate) fn generate_item_tree<'id>(
         change_callbacks: Vec<(NamedReference, Expression)>,
         popup_menu_description: PopupMenuDescription,
     }
-    impl<'id> generator::ItemTreeBuilder for TreeBuilder<'id> {
+    impl generator::ItemTreeBuilder for TreeBuilder<'_> {
         type SubComponentState = ();
 
         fn push_repeated_item(
@@ -1197,7 +1197,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Bool => property_info::<bool>(),
             Type::ComponentFactory => property_info::<ComponentFactory>(),
             Type::Struct(s)
-                if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo")) =>
+                if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")) =>
             {
                 property_info::<i_slint_core::properties::StateInfo>()
             }
@@ -1307,7 +1307,7 @@ pub(crate) fn generate_item_tree<'id>(
         .collect();
 
     // only the public exported component needs the public property list
-    let public_properties = if !component.parent_element.upgrade().is_some() {
+    let public_properties = if component.parent_element.upgrade().is_none() {
         component.root_element.borrow().property_declarations.clone()
     } else {
         Default::default()
@@ -1562,7 +1562,7 @@ pub fn instantiate(
                 &elem.borrow().enclosing_component.upgrade().unwrap().root_element,
             );
             let elem = elem.borrow();
-            let is_const = binding.analysis.as_ref().map_or(false, |a| a.is_const);
+            let is_const = binding.analysis.as_ref().is_some_and(|a| a.is_const);
 
             let property_type = elem.lookup_property(prop_name).property_type;
             if let Type::Function { .. } = property_type {
@@ -1594,7 +1594,7 @@ pub fn instantiate(
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
                 description.custom_properties.get(prop_name).filter(|_| is_root)
             {
-                let is_state_info = matches!(property_type, Type::Struct (s) if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo")));
+                let is_state_info = matches!(property_type, Type::Struct (s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)
@@ -2335,11 +2335,11 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
     pub fn toplevel_instance<'id2>(
         &self,
-        guard: generativity::Guard<'id2>,
+        _guard: generativity::Guard<'id2>,
     ) -> InstanceRef<'a, 'id2> {
         generativity::make_guard!(guard2);
         if let Some(parent) = self.parent_instance(guard2) {
-            let tl = parent.toplevel_instance(guard);
+            let tl = parent.toplevel_instance(_guard);
             // assuming that the parent lives at least for lifetime 'a.
             // FIXME: this may not be sound
             unsafe { std::mem::transmute::<InstanceRef<'_, 'id2>, InstanceRef<'a, 'id2>>(tl) }

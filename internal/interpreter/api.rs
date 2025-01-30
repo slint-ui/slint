@@ -498,7 +498,7 @@ pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
 
 pub(crate) fn normalize_identifier_smolstr(ident: &str) -> SmolStr {
     if ident.contains('_') {
-        ident.replace_smolstr("_", "-").into()
+        ident.replace_smolstr("_", "-")
     } else {
         ident.into()
     }
@@ -1260,7 +1260,7 @@ impl ComponentInstance {
             .borrow()
             .property_declarations
             .get(name.as_ref())
-            .map_or(true, |d| !d.expose_in_public_api)
+            .is_none_or(|d| !d.expose_in_public_api)
         {
             return Err(GetPropertyError::NoSuchProperty);
         }
