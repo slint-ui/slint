@@ -722,7 +722,7 @@ fn call_builtin_function(
                         &menu_item_tree,
                         &enclosing_component,
                     ));
-                compiled.set_property(inst_ref.borrow(), "entries", entries).unwrap();
+                compiled.set_binding(inst_ref.borrow(), "entries", entries).unwrap();
                 compiled.set_callback_handler(inst_ref.borrow(), "sub-menu", sub_menu).unwrap();
                 compiled.set_callback_handler(inst_ref.borrow(), "activated", activated).unwrap();
             } else {
@@ -1172,7 +1172,14 @@ fn call_builtin_function(
 
                 let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
 
-                store_property(component, &entries_nr.element(), entries_nr.name(), entries)
+                assert_eq!(
+                    entries_nr.element().borrow().id,
+                    component.description.original.root_element.borrow().id,
+                    "entries need to be in the main element"
+                );
+                component
+                    .description
+                    .set_binding(component.borrow(), entries_nr.name(), entries)
                     .unwrap();
                 let i = &local_context.component_instance;
                 set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu)
@@ -2011,13 +2018,18 @@ impl Menu for MenuWrapper {
     }
 }
 
-fn menu_item_tree_properties(menu: MenuFromItemTree) -> (Value, CallbackHandler, CallbackHandler) {
+fn menu_item_tree_properties(
+    menu: MenuFromItemTree,
+) -> (Box<dyn Fn() -> Value>, CallbackHandler, CallbackHandler) {
     let context_menu_item_tree = Rc::new(menu);
-    let mut entries = SharedVector::default();
-    context_menu_item_tree.sub_menu(None, &mut entries);
-    let entries = Value::Model(ModelRc::new(VecModel::from(
-        entries.into_iter().map(|x| Value::from(x)).collect::<Vec<_>>(),
-    )));
+    let context_menu_item_tree_ = context_menu_item_tree.clone();
+    let entries = Box::new(move || {
+        let mut entries = SharedVector::default();
+        context_menu_item_tree_.sub_menu(None, &mut entries);
+        Value::Model(ModelRc::new(VecModel::from(
+            entries.into_iter().map(|x| Value::from(x)).collect::<Vec<_>>(),
+        )))
+    });
     let context_menu_item_tree_ = context_menu_item_tree.clone();
     let sub_menu = Box::new(move |args: &[Value]| -> Value {
         let mut entries = SharedVector::default();

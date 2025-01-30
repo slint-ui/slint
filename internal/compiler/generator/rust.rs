@@ -3084,9 +3084,12 @@ fn compile_builtin_function_call(
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(menu_item_tree));
                     } else {
                         let menu_item_tree = sp::Rc::new(menu_item_tree);
-                        let mut entries = sp::SharedVector::default();
-                        sp::Menu::sub_menu(&*menu_item_tree, sp::Option::None, &mut entries);
-                        #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                        let menu_item_tree_ = menu_item_tree.clone();
+                        #access_entries.set_binding(move || {
+                            let mut entries = sp::SharedVector::default();
+                            sp::Menu::sub_menu(&*menu_item_tree_, sp::Option::None, &mut entries);
+                            sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+                        });
                         let menu_item_tree_ = menu_item_tree.clone();
                         #access_sub_menu.set_handler(move |entry| {
                             let mut entries = sp::SharedVector::default();
