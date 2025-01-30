@@ -228,9 +228,6 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             };
                             window.try_dispatch_event(event).map_err(Self::Error::other)?;
                         }
-                        input::event::PointerEvent::ScrollWheel(_) => todo!(),
-                        input::event::PointerEvent::ScrollFinger(_) => todo!(),
-                        input::event::PointerEvent::ScrollContinuous(_) => todo!(),
                         _ => {}
                     }
                 }
