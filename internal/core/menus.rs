@@ -7,6 +7,7 @@
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
 use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
+use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::string::ToSharedString;
@@ -15,6 +16,7 @@ use crate::{Callback, Property, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use i_slint_core_macros::SlintElement;
 use vtable::{VRef, VRefMut};
@@ -38,46 +40,51 @@ struct ShadowTreeNode {
 
 pub struct MenuFromItemTree {
     item_tree: ItemTreeRc,
-    item_cache: BTreeMap<SharedString, ShadowTreeNode>,
-    root: SharedVector<MenuEntry>,
+    item_cache: RefCell<BTreeMap<SharedString, ShadowTreeNode>>,
+    root: RefCell<SharedVector<MenuEntry>>,
+    next_id: Cell<usize>,
+    tracker: Pin<Box<PropertyTracker>>,
 }
 
 impl MenuFromItemTree {
     pub fn new(item_tree: ItemTreeRc) -> Self {
-        let mut this = Self { item_tree, item_cache: Default::default(), root: Default::default() };
-        this.update_shadow_tree();
-        this
-    }
-    pub fn update_shadow_tree(&mut self) {
-        self.root =
-            self.update_shadow_tree_recursive(&ItemRc::new(self.item_tree.clone(), 0), &mut 0);
+        Self {
+            item_tree,
+            item_cache: Default::default(),
+            root: Default::default(),
+            tracker: Box::pin(PropertyTracker::default()),
+            next_id: 0.into(),
+        }
     }
 
-    fn update_shadow_tree_recursive(
-        &mut self,
-        parent: &ItemRc,
-        next_id: &mut usize,
-    ) -> SharedVector<MenuEntry> {
+    fn update_shadow_tree(&self) {
+        self.tracker.as_ref().evaluate_if_dirty(|| {
+            self.item_cache.replace(Default::default());
+            self.root
+                .replace(self.update_shadow_tree_recursive(&ItemRc::new(self.item_tree.clone(), 0)))
+        });
+    }
+
+    fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> SharedVector<MenuEntry> {
         let mut result = SharedVector::default();
 
-        let mut actual_visitor = |item_tree: &ItemTreeRc,
-                                  index: u32,
-                                  item_pin: core::pin::Pin<ItemRef>|
-         -> VisitChildrenResult {
-            if let Some(menu_item) = ItemRef::downcast_pin::<MenuItem>(item_pin) {
-                let id = next_id.to_shared_string();
-                *next_id += 1;
-                let item = ItemRc::new(item_tree.clone(), index);
-                let children = self.update_shadow_tree_recursive(&item, next_id);
-                let has_sub_menu = !children.is_empty();
-                self.item_cache.insert(
-                    id.clone(),
-                    ShadowTreeNode { item: ItemRc::downgrade(&item), children },
-                );
-                result.push(MenuEntry { title: menu_item.title(), id, has_sub_menu });
-            }
-            VisitChildrenResult::CONTINUE
-        };
+        let mut actual_visitor =
+            |item_tree: &ItemTreeRc, index: u32, item_pin: Pin<ItemRef>| -> VisitChildrenResult {
+                if let Some(menu_item) = ItemRef::downcast_pin::<MenuItem>(item_pin) {
+                    let next_id = self.next_id.get();
+                    self.next_id.set(next_id + 1);
+                    let id = next_id.to_shared_string();
+                    let item = ItemRc::new(item_tree.clone(), index);
+                    let children = self.update_shadow_tree_recursive(&item);
+                    let has_sub_menu = !children.is_empty();
+                    self.item_cache.borrow_mut().insert(
+                        id.clone(),
+                        ShadowTreeNode { item: ItemRc::downgrade(&item), children },
+                    );
+                    result.push(MenuEntry { title: menu_item.title(), id, has_sub_menu });
+                }
+                VisitChildrenResult::CONTINUE
+            };
         vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
 
         vtable::VRc::borrow_pin(parent.item_tree()).as_ref().visit_children_item(
@@ -91,21 +98,22 @@ impl MenuFromItemTree {
 
 impl Menu for MenuFromItemTree {
     fn sub_menu(&self, parent: Option<&MenuEntry>, result: &mut SharedVector<MenuEntry>) {
+        self.update_shadow_tree();
         match parent {
             Some(parent) => {
-                if let Some(r) = self.item_cache.get(parent.id.as_str()) {
+                if let Some(r) = self.item_cache.borrow().get(parent.id.as_str()) {
                     *result = r.children.clone();
                 }
             }
             None => {
-                *result = self.root.clone();
+                *result = self.root.borrow().clone();
             }
         }
     }
 
     fn activate(&self, entry: &MenuEntry) {
         if let Some(menu_item) =
-            self.item_cache.get(entry.id.as_str()).and_then(|e| e.item.upgrade())
+            self.item_cache.borrow().get(entry.id.as_str()).and_then(|e| e.item.upgrade())
         {
             if let Some(menu_item) = menu_item.downcast::<MenuItem>() {
                 menu_item.activated.call(&());

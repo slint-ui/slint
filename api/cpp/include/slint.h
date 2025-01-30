@@ -1269,11 +1269,13 @@ inline void setup_popup_menu_from_menu_item_tree(
     using cbindgen_private::MenuVTable;
     auto shared = std::make_shared<vtable::VBox<MenuVTable>>(nullptr, nullptr);
     cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &*shared);
-    SharedVector<MenuEntry> entries_sv;
-    vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
-    shared->vtable->sub_menu(ref, nullptr, &entries_sv);
-    std::vector<MenuEntry> entries_vec(entries_sv.begin(), entries_sv.end());
-    entries.set(std::make_shared<VectorModel<MenuEntry>>(std::move(entries_vec)));
+    entries.set_binding([shared] {
+        vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
+        SharedVector<MenuEntry> entries_sv;
+        shared->vtable->sub_menu(ref, nullptr, &entries_sv);
+        std::vector<MenuEntry> entries_vec(entries_sv.begin(), entries_sv.end());
+        return std::make_shared<VectorModel<MenuEntry>>(std::move(entries_vec));
+    });
     sub_menu.set_handler([shared](const auto &entry) {
         vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
         SharedVector<MenuEntry> entries_sv;

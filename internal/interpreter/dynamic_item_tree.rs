@@ -550,7 +550,6 @@ impl<'id> ItemTreeDescription<'id> {
     ///
     /// Returns an error if the instance does not corresponds to this ItemTreeDescription,
     /// or if the property with this name does not exist in this component
-    #[allow(unused)]
     pub fn set_binding(
         &self,
         component: ItemTreeRefPin,
