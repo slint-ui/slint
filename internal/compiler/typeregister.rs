@@ -493,14 +493,6 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
-        match &mut register.elements.get_mut("ContextMenu").unwrap() {
-            ElementType::Builtin(ref mut b) => {
-                let b = Rc::get_mut(b).unwrap();
-                Rc::get_mut(&mut b.native_class).unwrap().properties.remove("entries");
-            }
-            _ => unreachable!(),
-        };
-
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
             ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,
@@ -567,23 +559,6 @@ impl TypeRegister {
 
         register.elements.remove("ComponentContainer");
         register.types.remove("component-factory");
-        match register.elements.get_mut("Window").unwrap() {
-            &mut ElementType::Builtin(ref mut b) => {
-                Rc::get_mut(b)
-                    .unwrap()
-                    .additional_accepted_child_types
-                    .remove("MenuBar")
-                    .expect("MenuBar is an experimental type");
-            }
-            _ => panic!("Window is a builtin type"),
-        };
-        register.context_restricted_types.remove("MenuBar");
-        match register.elements.get_mut("ContextMenu").unwrap() {
-            &mut ElementType::Builtin(ref mut b) => {
-                Rc::get_mut(b).unwrap().is_internal = true;
-            }
-            _ => panic!("Window is a builtin type"),
-        };
 
         Rc::new(RefCell::new(register))
     }

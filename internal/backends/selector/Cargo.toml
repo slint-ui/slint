@@ -47,7 +47,7 @@ i-slint-backend-testing = { workspace = true, optional = true }
 i-slint-core-macros = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-i-slint-backend-winit = { workspace = true, features = ["default"], optional = true }
+i-slint-backend-winit = { workspace = true, features = ["default", "muda"], optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "wasm"))'.dependencies]
