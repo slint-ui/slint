@@ -1140,7 +1140,7 @@ fn call_builtin_function(
             ComponentInstance::InstanceRef(component) => component
                 .window_adapter()
                 .internal(corelib::InternalToken)
-                .map_or(false, |x| x.supports_native_menu_bar())
+                .is_some_and(|x| x.supports_native_menu_bar())
                 .into(),
             ComponentInstance::GlobalComponent(_) => {
                 panic!("Cannot get the window from a global component")
@@ -1660,7 +1660,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
             matches!(value, Value::Model(m) if m.iter().all(|v| check_value_type(&v, inner)))
         }
         Type::Struct(s) => {
-            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| s.fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
+            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| s.fields.get(k).is_some_and(|ty| check_value_type(v, ty))))
         }
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
@@ -2027,7 +2027,7 @@ fn menu_item_tree_properties(
         let mut entries = SharedVector::default();
         context_menu_item_tree_.sub_menu(None, &mut entries);
         Value::Model(ModelRc::new(VecModel::from(
-            entries.into_iter().map(|x| Value::from(x)).collect::<Vec<_>>(),
+            entries.into_iter().map(Value::from).collect::<Vec<_>>(),
         )))
     });
     let context_menu_item_tree_ = context_menu_item_tree.clone();
@@ -2035,7 +2035,7 @@ fn menu_item_tree_properties(
         let mut entries = SharedVector::default();
         context_menu_item_tree_.sub_menu(Some(&args[0].clone().try_into().unwrap()), &mut entries);
         Value::Model(ModelRc::new(VecModel::from(
-            entries.into_iter().map(|x| Value::from(x)).collect::<Vec<_>>(),
+            entries.into_iter().map(Value::from).collect::<Vec<_>>(),
         )))
     });
     let activated = Box::new(move |args: &[Value]| -> Value {

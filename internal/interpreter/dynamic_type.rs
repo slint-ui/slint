@@ -192,7 +192,7 @@ impl<'id> Instance<'id> {
     }
 }
 
-impl<'id> core::fmt::Debug for Instance<'id> {
+impl core::fmt::Debug for Instance<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Instance({:p})", self)
     }
@@ -216,7 +216,7 @@ impl<'id> InstanceBox<'id> {
     }
 }
 
-impl<'id> Drop for InstanceBox<'id> {
+impl Drop for InstanceBox<'_> {
     fn drop(&mut self) {
         unsafe { TypeInfo::delete_instance(self.0.as_mut()) }
     }

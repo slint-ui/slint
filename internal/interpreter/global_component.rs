@@ -203,7 +203,7 @@ pub fn instantiate(
                 None,
                 Some(root),
                 None,
-                GlobalStorage::Weak(Rc::downgrade(&globals)),
+                GlobalStorage::Weak(Rc::downgrade(globals)),
             );
             inst.run_setup_code();
             Rc::pin(GlobalComponentInstance(inst))
