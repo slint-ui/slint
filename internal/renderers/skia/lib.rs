@@ -96,15 +96,25 @@ enum DirtyRegionDebugMode {
     Log,
 }
 
-fn create_partial_renderer_state() -> (Option<PartialRenderingState>, DirtyRegionDebugMode) {
-    let dirty_region_debug_mode = match std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref() {
-        Ok("visualize") => DirtyRegionDebugMode::Visualize,
-        Ok("log") => DirtyRegionDebugMode::Log,
-        Ok(_) => DirtyRegionDebugMode::NoDebug,
-        _ => return (None, DirtyRegionDebugMode::NoDebug),
-    };
+impl Default for DirtyRegionDebugMode {
+    fn default() -> Self {
+        match std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref() {
+            Ok("visualize") => DirtyRegionDebugMode::Visualize,
+            Ok("log") => DirtyRegionDebugMode::Log,
+            _ => DirtyRegionDebugMode::NoDebug,
+        }
+    }
+}
 
-    (Some(PartialRenderingState::default()), dirty_region_debug_mode)
+fn create_partial_renderer_state(
+    maybe_surface: Option<&dyn Surface>,
+) -> Option<PartialRenderingState> {
+    maybe_surface
+        .map_or_else(
+            || std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref().is_ok(),
+            |surface| surface.use_partial_rendering(),
+        )
+        .then(|| PartialRenderingState::default())
 }
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
@@ -132,7 +142,6 @@ pub struct SkiaRenderer {
 
 impl Default for SkiaRenderer {
     fn default() -> Self {
-        let (partial_rendering_state, dirty_region_debug_mode) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -143,8 +152,8 @@ impl Default for SkiaRenderer {
             surface: Default::default(),
             surface_factory: create_default_surface,
             pre_present_callback: Default::default(),
-            partial_rendering_state,
-            dirty_region_debug_mode,
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
         }
     }
@@ -154,7 +163,6 @@ impl SkiaRenderer {
     #[cfg(skia_backend_software)]
     /// Creates a new SkiaRenderer that will always use Skia's software renderer.
     pub fn default_software() -> Self {
-        let (partial_rendering_state, dirty_region_debug_mode) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -173,8 +181,8 @@ impl SkiaRenderer {
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
-            partial_rendering_state,
-            dirty_region_debug_mode,
+            partial_rendering_state: PartialRenderingState::default().into(),
+            dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
         }
     }
@@ -182,7 +190,6 @@ impl SkiaRenderer {
     #[cfg(not(target_os = "ios"))]
     /// Creates a new SkiaRenderer that will always use Skia's OpenGL renderer.
     pub fn default_opengl() -> Self {
-        let (partial_rendering_state, dirty_region_debug_mode) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -201,8 +208,8 @@ impl SkiaRenderer {
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
-            partial_rendering_state,
-            dirty_region_debug_mode,
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
         }
     }
@@ -210,7 +217,6 @@ impl SkiaRenderer {
     #[cfg(target_vendor = "apple")]
     /// Creates a new SkiaRenderer that will always use Skia's Metal renderer.
     pub fn default_metal() -> Self {
-        let (partial_rendering_state, dirty_region_debug_mode) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -229,8 +235,8 @@ impl SkiaRenderer {
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
-            partial_rendering_state,
-            dirty_region_debug_mode,
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
         }
     }
@@ -238,7 +244,6 @@ impl SkiaRenderer {
     #[cfg(skia_backend_vulkan)]
     /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
     pub fn default_vulkan() -> Self {
-        let (partial_rendering_state, dirty_region_debug_mode) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -257,8 +262,8 @@ impl SkiaRenderer {
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
-            partial_rendering_state,
-            dirty_region_debug_mode,
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
         }
     }
@@ -266,7 +271,6 @@ impl SkiaRenderer {
     #[cfg(target_family = "windows")]
     /// Creates a new SkiaRenderer that will always use Skia's Direct3D renderer.
     pub fn default_direct3d() -> Self {
-        let (partial_rendering_state, dirty_region_debug_mode) = create_partial_renderer_state();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -285,8 +289,8 @@ impl SkiaRenderer {
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
-            partial_rendering_state,
-            dirty_region_debug_mode,
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
         }
     }
@@ -307,7 +311,7 @@ impl SkiaRenderer {
 
     /// Creates a new renderer with the given surface trait implementation.
     pub fn new_with_surface(surface: Box<dyn Surface + 'static>) -> Self {
-        let (partial_rendering_state, dirty_region_debug_mode) = create_partial_renderer_state();
+        let partial_rendering_state = create_partial_renderer_state(Some(surface.as_ref())).into();
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -321,7 +325,7 @@ impl SkiaRenderer {
             },
             pre_present_callback: Default::default(),
             partial_rendering_state,
-            dirty_region_debug_mode,
+            dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
         }
     }
@@ -966,6 +970,10 @@ pub trait Surface {
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     fn bits_per_pixel(&self) -> Result<u8, PlatformError>;
 
+    fn use_partial_rendering(&self) -> bool {
+        false
+    }
+
     /// Implementations should return self to allow upcasting.
     fn as_any(&self) -> &dyn core::any::Any {
         &()
@@ -980,8 +988,6 @@ pub trait SkiaRendererExt {
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
-    /// Remove this when partial rendering becomes enabled by default.
-    fn enable_partial_rendering(&mut self);
 }
 
 impl SkiaRendererExt for SkiaRenderer {
@@ -998,8 +1004,5 @@ impl SkiaRendererExt for SkiaRenderer {
             surface_size,
             post_render_cb,
         )
-    }
-    fn enable_partial_rendering(&mut self) {
-        self.partial_rendering_state = Some(PartialRenderingState::default())
     }
 }

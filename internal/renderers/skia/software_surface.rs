@@ -190,6 +190,10 @@ impl super::Surface for SoftwareSurface {
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
         Ok(24)
     }
+
+    fn use_partial_rendering(&self) -> bool {
+        true
+    }
 }
 
 impl<T: RenderBuffer + 'static> From<T> for SoftwareSurface {
