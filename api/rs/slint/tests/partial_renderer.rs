@@ -72,10 +72,9 @@ struct SkiaTestWindow {
 impl SkiaTestWindow {
     fn new() -> Rc<Self> {
         let render_buffer = Rc::new(SkiaTestSoftwareBuffer::default());
-        let mut renderer = SkiaRenderer::new_with_surface(Box::new(
+        let renderer = SkiaRenderer::new_with_surface(Box::new(
             i_slint_renderer_skia::software_surface::SoftwareSurface::from(render_buffer.clone()),
         ));
-        i_slint_renderer_skia::SkiaRendererExt::enable_partial_rendering(&mut renderer);
         Rc::new_cyclic(|w: &Weak<Self>| Self {
             window: slint::Window::new(w.clone()),
             renderer,
