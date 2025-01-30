@@ -61,14 +61,18 @@ The window title that is shown in the title bar.
 
 ## `MenuBar` element
 
-A `Window` can contain one `MenuBar` element. This special element is used to create a menu bar for that window.
+Place a single `MenuBar` element into a `Window` to declare a menu bar for the window.
+
+:::note{Note}
 There can only be one `MenuBar` element in a `Window` and it must not be in a `for` or a `if`.
+:::
+
 The `MenuBar` doesn't have properties, but it should contain <Link type="MenuItem" /> as children that represent top level entries in the menu bar.
-Each `MenuItem` can contain further `MenuItem` as children that represent sub-menu
+Nest `MenuItem` elements to declare sub-menus.
 
 Depending on the platform, the menu bar might be native or rendered by Slint.
-This means that for example, on MacOs, the menu bar be in top bar on the desktop where application usually have their top bar.
-The `width` and `height` property of the `Window` are the one of the client area, without counting the menu bar.
+This means that for example, on macOS, the menu bar will be at the top of the screen.
+The `width` and `height` property of the `Window` define the client area, excluding the menu bar.
 The `x` and `y` properties of `Window` children are also relative to the client area.
 
 ### Example
@@ -77,21 +81,33 @@ The `x` and `y` properties of `Window` children are also relative to the client 
 export component Example inherits Window {
     MenuBar {
         MenuItem {
-            title: "File";
+            title: @tr("File");
             MenuItem {
-                title: "New";
+                title: @tr("New");
             }
             MenuItem {
-                title: "Open";
+                title: @tr("Open");
             }
         }
         MenuItem {
-            title: "Edit";
+            title: @tr("Edit");
             MenuItem {
-                title: "Copy";
+                title: @tr("Copy");
             }
             MenuItem {
-                title: "Paste";
+                title: @tr("Paste");
+            }
+            MenuItem {
+                title: @tr("Find");
+                MenuItem {
+                    title: @tr("Find in document...");
+                }
+                MenuItem {
+                    title: @tr("Find Next");
+                }
+                MenuItem {
+                    title: @tr("Find Previous");
+                }
             }
         }
     }

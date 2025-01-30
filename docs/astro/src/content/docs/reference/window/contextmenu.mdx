@@ -1,19 +1,18 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: Window
-description: Window element api.
+title: ContextMenu
+description: ContextMenu element api.
 ---
 import SlintProperty from '/src/components/SlintProperty.astro';
 import Link from '/src/components/Link.astro';
 
-`ContextMenu` is an invisible element that is used to show a context menu.
+Use the non-visual `ContextMenu` element to declare a context menu.
 
 The context menu is shown if the user right-clicks on the area covered by the `ContextMenu` element,
-or if the user presses the "Menu" key on their keyboard while a `FocusScope` within the `ContextMenu` is focused.
-It is also possible to show the context menu by calling the `show` function on the `ContextMenu` element.
+or if the user presses the "Menu" key on their keyboard while a `FocusScope` within the `ContextMenu` has focus.
+Call the `show()` function on the `ContextMenu` element to programmatically show the context menu.
 
-In addition to normal sub elements, the `ContextMenu` element can contain `MenuItem` elements.
-The MenuItem elements are defining the actual menu.
+Define the structure of the menu by placing `MenuItem` elements into the `ContextMenu`.
 
 ## Function
 
@@ -38,7 +37,10 @@ The label of the entry within the menu.
 #### activated()
 
 Invoked when the menu entry is activated.
-This is only called if the menu entry doesn't have submenus
+
+:::note{Note}
+This is only called if the menu entry doesn't have submenus.
+:::
 
 ## Example
 
@@ -46,16 +48,16 @@ This is only called if the menu entry doesn't have submenus
 export component Example {
     ContextMenu {
         MenuItem {
-            title: "Copy";
+            title: @tr("Cut");
+            activated => { debug("Cut"); }
+        }
+        MenuItem {
+            title: @tr("Copy");
             activated => { debug("Copy"); }
         }
         MenuItem {
-            title: "Paste";
+            title: @tr("Paste");
             activated => { debug("Paste"); }
-        }
-        MenuItem {
-            title: "Cut";
-            activated => { debug("Cut"); }
         }
     }
 }
