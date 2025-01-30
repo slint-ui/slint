@@ -10,6 +10,7 @@ hero:
 ---
 
 import { LinkButton, LinkCard, Card, CardGrid } from '@astrojs/starlight/components';
+import { YouTube } from 'astro-embed';
 import { Image } from 'astro:assets';
 import mattermostLogoLight from '/src/assets/mattermost-logo-dark.svg';
 import mattermostLogoDark from '/src/assets/mattermost-logo-light.svg';
@@ -25,6 +26,8 @@ import LineHighlight from '/src/assets/getting-started/line-highlight.webp';
 <div style="display: flex; justify-content: center;">
   <Image src={BannerImage} style={{width: "700px"}} width="1200px" alt="Slint examples running on a range of devices"/>
 </div>
+
+<YouTube id="vWLXaXJkCWw" poster="https://github.com/user-attachments/assets/769bb54d-2c85-4c12-b761-06e888be2fe2"/>
 
 The documentation is split into several sections:
 
