@@ -6,6 +6,7 @@ description: Translations
 ---
 
 import { Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
+import LangRefLink from '/src/components/LangRefLink.astro';
 
 Slint's translation infrastructure makes your application available in different languages.
 
@@ -207,7 +208,7 @@ Slint looks for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 First, enable the `gettext` feature of the `slint` crate in the `features` section to gain access to the translations API
 and activate run-time translation support.
 
-Next, use the [`slint::init_translations!`](https://slint.dev/docs/rust/slint/macro.init_translations) macro to specify the base location of your `.mo` files.
+Next, use the <LangRefLink lang="rust-slint" relpath="macro.init_translations">`slint::init_translations!`</LangRefLink> macro to specify the base location of your `.mo` files.
 This is the `dir_name` in the scheme of the previous section. Slint expects the `.mo` files to be in the
 corresponding sub-directories and their file name - `domain_name` - must match the package name
 in your `Cargo.toml`. This is often the same as the crate name.
@@ -244,7 +245,7 @@ path/<lang>/LC_MESSAGES/<domain>.po
 ### Bundling
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Set the [`SLINT_BUNDLE_TRANSLATIONS`](https://slint.dev/docs/cpp/cmake_reference.html#bundle-translations) property in CMake:
+Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_BUNDLE_TRANSLATIONS`</LangRefLink> property in CMake:
 
 ```cmake
 set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
@@ -255,7 +256,7 @@ the `<domain>` is the cmake target name.
 </TabItem>
 <TabItem label="Rust" icon="rust">
 
-Use `slint_build::CompilerConfiguration`'s [`with_bundled_translations()`](https://slint.dev/docs/rust/slint_build/struct.compilerconfiguration#method.with_bundled_translations) function to set up bundling in
+Use `slint_build::CompilerConfiguration`'s <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.with_bundled_translations">`with_bundled_translations()`</LangRefLink> function to set up bundling in
 `build.rs`:
 
 ```rust
@@ -276,10 +277,10 @@ if one of the bundled language matches the selected locale, it will be used.
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Use the [`slint::select_bundled_translation`](https://slint.dev/docs/cpp/api/function_namespaceslint_1a18aba736373254f5be3362941f3ddbcd.html#_CPPv4N5slint26select_bundled_translationENSt11string_viewE) function to change translations at runtime.
+Use the <LangRefLink lang="cpp" relpath="api/function_namespaceslint_1a18aba736373254f5be3362941f3ddbcd.html#_CPPv4N5slint26select_bundled_translationENSt11string_viewE">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
 </TabItem>
 <TabItem label="Rust" icon="rust">
-Use the [`slint::select_bundled_translation`](https://slint.dev/docs/rust/slint/fn.select_bundled_translation.html) function to change translations at runtime.
+Use the <LangRefLink lang="rust-slint" relpath="fn.select_bundled_translation.html">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
 </TabItem>
 </Tabs>
 

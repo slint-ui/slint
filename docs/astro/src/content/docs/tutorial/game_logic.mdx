@@ -7,6 +7,8 @@ description: Game Logic
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import { extractLines } from '/src/utils/utils.ts';
 import { Code } from '@astrojs/starlight/components';
+import LangRefLink from '/src/components/LangRefLink.astro';
+
 
 This step implements the rules of the game in your coding language of choice.
 
@@ -49,7 +51,7 @@ import gameLogicInCpp from '/src/content/code/main_game_logic.cpp?raw'
 <Code code={extractLines(gameLogicInCpp, 29, 65)} lang="cpp"  />
 
 
-The code uses a [ComponentWeakHandle](https://slint.dev/docs/cpp/api/classslint_1_1ComponentWeakHandle) pointer of the `main_window`. This is
+The code uses a <LangRefLink lang="cpp" relpath="api/classslint_1_1ComponentWeakHandle">`ComponentWeakHandle`</LangRefLink> pointer of the `main_window`. This is
 important because capturing a copy of the `main_window` itself within the callback handler would result in circular ownership.
 The `MainWindow` owns the callback handler, which itself owns a reference to the `MainWindow`, which must be weak
 instead of strong to avoid a memory leak.
@@ -107,7 +109,7 @@ Add this code before the `main_window.run().unwrap();` call:
 
 <Code code={extractLines(gameLogicInRust, 25, 52)} lang="rust"  />
 
-The code uses a [Weak](https://slint.dev/docs/rust/slint/struct.Weak) pointer of the `main_window`. This is
+The code uses a <LangRefLink lang="rust-slint" relpath="struct.Weak">Weak</LangRefLink> pointer of the `main_window`. This is
 important because capturing a copy of the `main_window` itself within the callback handler would result in circular ownership.
 The `MainWindow` owns the callback handler, which itself owns a reference to the `MainWindow`, which must be weak
 instead of strong to avoid a memory leak.

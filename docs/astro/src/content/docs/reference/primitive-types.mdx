@@ -8,6 +8,7 @@ description: All Slint types
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import Link from '/src/components/Link.astro';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
+import LangRefLink from '/src/components/LangRefLink.astro';
 
 Slint is a statically typed language and offers a rich range of primitive types.
 
@@ -150,16 +151,16 @@ AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, We
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++">
-In C++, properties or struct fields of the image type are mapped to [`slint::Image`](https://docs.slint.dev/latest/docs/cpp/api/structslint_1_1Image).
+In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/structslint_1_1Image">`slint::Image`</LangRefLink>.
 </TabItem>
 <TabItem label="Rust">
-In Rust, properties or struct fields of the image type are mapped to [`slint::Image`](https://docs.slint.dev/latest/docs/rust/slint/struct.Image).
+In Rust, properties or struct fields of the image type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Image">`slint::Image`</LangRefLink>.
 :::note[Note]
 Some image formats can be disabled using cargo features to reduce binary size and speed up compilation.
 :::
 </TabItem>
 <TabItem label="NodeJS" >
-In JavaScript properties or struct fields of the image type are mapped an object that implement the [ImageData interface](https://docs.slint.dev/latest/docs/node/interfaces/ImageData).
+In JavaScript properties or struct fields of the image type are mapped an object that implement the <LangRefLink lang="nodejs" relpath="interfaces/ImageData.html">ImageData interface</LangRefLink>.
 </TabItem>
 
 </Tabs>
