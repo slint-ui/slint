@@ -683,7 +683,7 @@ impl<'id> ItemTreeDescription<'id> {
     }
 }
 
-extern "C" fn visit_children_item(
+extern "C-unwind" fn visit_children_item(
     component: ItemTreeRefPin,
     index: isize,
     order: TraversalOrder,
@@ -1822,7 +1822,10 @@ pub fn get_repeater_by_name<'a, 'id>(
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.item_tree_to_repeat.clone())
 }
 
-extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -> LayoutInfo {
+extern "C-unwind" fn layout_info(
+    component: ItemTreeRefPin,
+    orientation: Orientation,
+) -> LayoutInfo {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ItemTreeDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1852,7 +1855,7 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
     result
 }
 
-unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
+unsafe extern "C-unwind" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
     let tree = get_item_tree(component);
     match &tree[index as usize] {
         ItemTreeNode::Item { item_array_index, .. } => {
@@ -1867,7 +1870,7 @@ unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<
     }
 }
 
-extern "C" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexRange {
+extern "C-unwind" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     if index as usize >= instance_ref.description.repeater.len() {
@@ -1896,7 +1899,7 @@ extern "C" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexR
     }
 }
 
-extern "C" fn get_subtree(
+extern "C-unwind" fn get_subtree(
     component: ItemTreeRefPin,
     index: u32,
     subtree_index: usize,
@@ -1934,14 +1937,14 @@ extern "C" fn get_subtree(
     }
 }
 
-extern "C" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
+extern "C-unwind" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let tree = instance_ref.description.item_tree.as_slice();
     unsafe { core::mem::transmute::<&[ItemTreeNode], &[ItemTreeNode]>(tree) }.into()
 }
 
-extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
+extern "C-unwind" fn subtree_index(component: ItemTreeRefPin) -> usize {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     if let Ok(value) = instance_ref.description.get_property(component, SPECIAL_PROPERTY_INDEX) {
@@ -1951,7 +1954,7 @@ extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
     }
 }
 
-unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
+unsafe extern "C-unwind" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
 
@@ -1990,7 +1993,7 @@ unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWea
     }
 }
 
-unsafe extern "C" fn embed_component(
+unsafe extern "C-unwind" fn embed_component(
     component: ItemTreeRefPin,
     parent_component: &ItemTreeWeak,
     parent_item_tree_index: u32,
@@ -2020,7 +2023,7 @@ unsafe extern "C" fn embed_component(
     extra_data.embedding_position.set((parent_component.clone(), parent_item_tree_index)).is_ok()
 }
 
-extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> LogicalRect {
+extern "C-unwind" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> LogicalRect {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
@@ -2042,7 +2045,7 @@ extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> Logic
 
 // silence the warning despite `AccessibleRole` is a `#[non_exhaustive]` enum from another crate.
 #[allow(improper_ctypes_definitions)]
-extern "C" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
+extern "C-unwind" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let nr = instance_ref.description.original_elements[item_index as usize]
@@ -2060,7 +2063,7 @@ extern "C" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> Acc
     }
 }
 
-extern "C" fn accessible_string_property(
+extern "C-unwind" fn accessible_string_property(
     component: ItemTreeRefPin,
     item_index: u32,
     what: AccessibleStringProperty,
@@ -2089,7 +2092,7 @@ extern "C" fn accessible_string_property(
     }
 }
 
-extern "C" fn accessibility_action(
+extern "C-unwind" fn accessibility_action(
     component: ItemTreeRefPin,
     item_index: u32,
     action: &AccessibilityAction,
@@ -2123,7 +2126,7 @@ extern "C" fn accessibility_action(
     };
 }
 
-extern "C" fn supported_accessibility_actions(
+extern "C-unwind" fn supported_accessibility_actions(
     component: ItemTreeRefPin,
     item_index: u32,
 ) -> SupportedAccessibilityAction {
@@ -2145,7 +2148,7 @@ extern "C" fn supported_accessibility_actions(
     val
 }
 
-extern "C" fn item_element_infos(
+extern "C-unwind" fn item_element_infos(
     component: ItemTreeRefPin,
     item_index: u32,
     result: &mut SharedString,
@@ -2159,7 +2162,7 @@ extern "C" fn item_element_infos(
     true
 }
 
-extern "C" fn window_adapter(
+extern "C-unwind" fn window_adapter(
     component: ItemTreeRefPin,
     do_create: bool,
     result: &mut Option<WindowAdapterRc>,
