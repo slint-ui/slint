@@ -112,7 +112,7 @@ impl AccessKitAdapter {
         if !self.initial_tree_sent {
             return;
         }
-        // Don't end a tree update now with an empty tree/node list when we know that the structure
+        // Don't send a tree update now with an empty tree/node list when we know that the structure
         // of the tree has changed. It might be that the focus node is not known yet to AccessKit.
         // The pending update will take care of setting the focus node.
         if self.pending_update {
