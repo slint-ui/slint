@@ -6,7 +6,13 @@ import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import rehypeExternalLinks from "rehype-external-links";
 import starlightSidebarTopics from "starlight-sidebar-topics";
-import { BASE_PATH, BASE_URL } from "./src/utils/site-config";
+import {
+    BASE_PATH,
+    BASE_URL,
+    CPP_BASE_URL,
+    RUST_SLINT_CRATE_URL,
+    NODEJS_BASE_URL,
+} from "./src/utils/site-config";
 
 // https://astro.build/config
 export default defineConfig({
@@ -380,12 +386,12 @@ export default defineConfig({
                         items: [
                             {
                                 label: "C++ ↗",
-                                link: "https://docs.slint.dev/latest/docs/cpp/",
+                                link: `${CPP_BASE_URL}`,
                                 attrs: { target: "_blank" },
                             },
                             {
                                 label: "Rust ↗",
-                                link: "https://docs.slint.dev/latest/docs/rust/slint/",
+                                link: `${RUST_SLINT_CRATE_URL}`,
                                 attrs: { target: "_blank" },
                             },
                             {
@@ -394,7 +400,7 @@ export default defineConfig({
                                     text: "beta",
                                     variant: "caution",
                                 },
-                                link: "https://docs.slint.dev/latest/docs/node/",
+                                link: `${NODEJS_BASE_URL}`,
                                 attrs: { target: "_blank" },
                             },
                         ],

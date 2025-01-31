@@ -7,6 +7,7 @@ description:  The `.slint` File
 
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import Link from '/src/components/Link.astro';
+import LangRefLink from '/src/components/LangRefLink.astro';
 
 
 You write user interfaces in the Slint language and saved in files with the `.slint` extension.
@@ -338,9 +339,9 @@ The path to each library, as file or directory, must be defined separately at co
 Use one of the following methods to help the Slint compiler resolve libraries to the correct
 path on disk:
 
-* When using Rust and `build.rs`, call [`with_library_paths`](https://slint.dev/docs/rust/slint_build/struct.CompilerConfiguration#method.with_library_paths)
+* When using Rust and `build.rs`, call <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration#method.with_library_paths">`with_library_paths`</LangRefLink>
   to provide a mapping from library name to path.
-* When using C++, use `LIBRARY_PATHS` with [`slint_target_sources`](https://slint.dev/docs/cpp/cmake_reference#slint-target-sources).
+* When using C++, use `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake_reference#slint-target-sources">`slint_target_sources`</LangRefLink>.
 * When invoking the `slint-viewer` from the command line, pass `-Lmylibrary=/path/to/my/library` for each component
   library.
 * When using the VS Code extension, configure the Slint extension's library path
