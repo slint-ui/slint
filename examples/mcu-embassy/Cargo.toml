@@ -33,7 +33,7 @@ heapless = { version = "0.8", default-features = false, features = [
     "defmt-03",
 ] }
 tinybmp = { version = "0.5" }
-static_cell = { version = "2", optional = true }
+static_cell = { version = "2" }
 
 #slint = { version = "1.9.1", default-features = false, features = [
 #    "compat-1-2",
@@ -47,9 +47,9 @@ slint = { path = "../../api/rs/slint", default-features = false, features = [
     "libm",
 ] }
 
-embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", optional = true, features = [
+embassy-stm32 = { version = "0.2.0", optional = true, features = [
     "stm32u5g9zj",
-    "time-driver-tim2",
+    "time-driver-any",
     "exti",
     "memory-x",
     "unstable-pac",
@@ -57,20 +57,19 @@ embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe"
     "time",
     "defmt",
 ] }
-embassy-sync = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe" }
-embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe", features = [
+embassy-sync = { version = "0.6.1" }
+embassy-executor = { version = "0.7.0", features = [
     "task-arena-size-32768",
     "executor-thread",
-    "integrated-timers",
 ] }
-embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe" }
-embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "72976fe" }
+embassy-time = { version = "0.4.0" }
+embassy-futures = { version = "0.1.1" }
 
 env_logger = { version = "0.9.0", optional = true }
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2.git", rev = "400e033", optional = true }
+sdl2 = { version = "0.37.0", optional = true }
 object-pool = { version = "0.6.0", optional = true }
 embedded-hal = { version = "1.0.0", optional = true }
-gt911 = { version = "0.1", features = ["defmt"], optional = true }
+gt911 = { version = "0.3", features = ["defmt"], optional = true }
 
 [features]
 default = ["mcu"]
@@ -102,7 +101,6 @@ simulator = [
     "env_logger",
     "sdl2",
     "object-pool",
-    "static_cell",
 ]
 
 [profile.release]
