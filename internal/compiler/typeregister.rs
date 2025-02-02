@@ -84,14 +84,14 @@ pub struct BuiltinTypes {
     pub strarg_callback_type: Type,
     pub logical_point_type: Type,
     pub font_metrics_type: Type,
-    pub layout_info_type: Type,
+    pub layout_info_type: Rc<Struct>,
     pub path_element_type: Type,
     pub box_layout_cell_data_type: Type,
 }
 
 impl BuiltinTypes {
     fn new() -> Self {
-        let layout_info_type = Type::Struct(Rc::new(Struct {
+        let layout_info_type = Rc::new(Struct {
             fields: ["min", "max", "preferred"]
                 .iter()
                 .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
@@ -104,7 +104,7 @@ impl BuiltinTypes {
             name: Some("slint::private_api::LayoutInfo".into()),
             node: None,
             rust_attributes: None,
-        }));
+        });
         Self {
             enums: BuiltinEnums::new(),
             logical_point_type: Type::Struct(Rc::new(Struct {
@@ -147,7 +147,7 @@ impl BuiltinTypes {
                 rust_attributes: None,
             })),
             box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
-                fields: IntoIterator::into_iter([("constraint".into(), layout_info_type)])
+                fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
                     .collect(),
                 name: Some("BoxLayoutCellData".into()),
                 node: None,
@@ -700,7 +700,7 @@ pub fn font_metrics_type() -> Type {
 }
 
 /// The [`Type`] for a runtime LayoutInfo structure
-pub fn layout_info_type() -> Type {
+pub fn layout_info_type() -> Rc<Struct> {
     BUILTIN.with(|types| types.layout_info_type.clone())
 }
 

@@ -3193,7 +3193,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 (Type::Struct { .. }, Type::PathData)
                     if matches!(
                         from.as_ref(),
-                        Expression::Struct { ty: Type::Struct { .. }, .. }
+                        Expression::Struct { .. }
                     ) =>
                 {
                     let (events, points) = match from.as_ref() {
@@ -3354,32 +3354,26 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::Struct { ty, values } => {
-            match ty {
-                Type::Struct(s) if s.name.is_none() => {
-                    let mut elem = s.fields.iter().map(|(k, t)| {
-                        values
-                            .get(k)
-                            .map(|e| compile_expression(e, ctx))
-                            .map(|e| {
-                                // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
-                                if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
-                            })
-                            .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
-                    });
-                    format!("std::make_tuple({})", elem.join(", "))
-                },
-                Type::Struct(_) => {
-                    format!(
-                        "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
-                        args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
-                        ty = ty.cpp_type().unwrap(),
-                        fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
-                        vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
-                    )
-                },
-                _ => {
-                panic!("Expression::Object is not a Type::Object")
-                }
+            if ty.name.is_none()  {
+                let mut elem = ty.fields.iter().map(|(k, t)| {
+                    values
+                        .get(k)
+                        .map(|e| compile_expression(e, ctx))
+                        .map(|e| {
+                            // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
+                            if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
+                        })
+                        .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
+                });
+                format!("std::make_tuple({})", elem.join(", "))
+            }else {
+                format!(
+                    "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
+                    args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
+                    ty = Type::Struct(ty.clone()).cpp_type().unwrap(),
+                    fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
+                    vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
+                )
             }
         }
         Expression::EasingCurve(EasingCurve::Linear) => "slint::cbindgen_private::EasingCurve()".into(),

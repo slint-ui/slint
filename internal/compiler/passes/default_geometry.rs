@@ -217,12 +217,12 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     let li_v = crate::layout::create_new_prop(
         elem,
         SmolStr::new_static("layoutinfo-v"),
-        crate::typeregister::layout_info_type(),
+        crate::typeregister::layout_info_type().into(),
     );
     let li_h = crate::layout::create_new_prop(
         elem,
         SmolStr::new_static("layoutinfo-h"),
-        crate::typeregister::layout_info_type(),
+        crate::typeregister::layout_info_type().into(),
     );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
     let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
@@ -307,7 +307,7 @@ fn merge_explicit_constraints(
             debug_assert!(!matches!(e, Expression::Invalid));
             values.insert(s.into(), e);
         }
-        *expr = Expression::CodeBlock([store, Expression::Struct { ty, values }].into());
+        *expr = Expression::CodeBlock([store, Expression::Struct { ty: s.clone(), values }].into());
     }
 }
 

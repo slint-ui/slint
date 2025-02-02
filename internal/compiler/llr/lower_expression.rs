@@ -271,32 +271,30 @@ fn lower_assignment(
             let lower_base =
                 tree_Expression::ReadLocalVariable { name: unique_name, ty: ty.clone() };
             let mut values = HashMap::new();
-            match &ty {
-                Type::Struct(s) => {
-                    for field in s.fields.keys() {
-                        let e = if field != name {
-                            tree_Expression::StructFieldAccess {
-                                base: lower_base.clone().into(),
-                                name: field.clone(),
-                            }
-                        } else if op == '=' {
-                            rhs.clone()
-                        } else {
-                            tree_Expression::BinaryExpression {
-                                lhs: tree_Expression::StructFieldAccess {
-                                    base: lower_base.clone().into(),
-                                    name: field.clone(),
-                                }
-                                .into(),
-                                rhs: Box::new(rhs.clone()),
-                                op,
-                            }
-                        };
-                        values.insert(field.clone(), e);
+            let Type::Struct(ty) = ty else { unreachable!() };
+
+            for field in ty.fields.keys() {
+                let e = if field != name {
+                    tree_Expression::StructFieldAccess {
+                        base: lower_base.clone().into(),
+                        name: field.clone(),
                     }
-                }
-                _ => unreachable!(),
+                } else if op == '=' {
+                    rhs.clone()
+                } else {
+                    tree_Expression::BinaryExpression {
+                        lhs: tree_Expression::StructFieldAccess {
+                            base: lower_base.clone().into(),
+                            name: field.clone(),
+                        }
+                        .into(),
+                        rhs: Box::new(rhs.clone()),
+                        op,
+                    }
+                };
+                values.insert(field.clone(), e);
             }
+
             let new_value =
                 tree_Expression::CodeBlock(vec![s, tree_Expression::Struct { ty, values }]);
             lower_assignment(base, &new_value, '=', ctx)
@@ -475,13 +473,13 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
         ])
     }
 
-    fn animation_ty() -> Type {
-        Type::Struct(Rc::new(Struct {
+    fn animation_ty() -> Rc<Struct> {
+        Rc::new(Struct {
             fields: animation_fields().collect(),
             name: Some("slint::private_api::PropertyAnimation".into()),
             node: None,
             rust_attributes: None,
-        }))
+        })
     }
 
     match a {
@@ -491,7 +489,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                 name: "state".into(),
                 value: Box::new(lower_expression(state_ref, ctx)),
             };
-            let animation_ty = animation_ty();
+            let animation_ty = Type::Struct(animation_ty());
             let mut get_anim = llr_Expression::default_value_for_type(&animation_ty).unwrap();
             for tr in animations.iter().rev() {
                 let condition = lower_expression(
@@ -509,7 +507,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             }
             let result = llr_Expression::Struct {
                 // This is going to be a tuple
-                ty: Type::Struct(Rc::new(Struct {
+                ty: Rc::new(Struct {
                     fields: IntoIterator::into_iter([
                         (SmolStr::new_static("0"), animation_ty),
                         // The type is an instant, which does not exist in our type system
@@ -519,7 +517,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                     name: None,
                     node: None,
                     rust_attributes: None,
-                })),
+                }),
                 values: IntoIterator::into_iter([
                     (SmolStr::new_static("0"), get_anim),
                     (
@@ -553,7 +551,7 @@ fn compute_layout_info(
             llr_Expression::ExtraBuiltinFunctionCall {
                 function: "grid_layout_info".into(),
                 arguments: vec![cells, spacing, padding],
-                return_ty: crate::typeregister::layout_info_type(),
+                return_ty: crate::typeregister::layout_info_type().into(),
             }
         }
         crate::layout::Layout::BoxLayout(layout) => {
@@ -563,13 +561,13 @@ fn compute_layout_info(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info".into(),
                     arguments: vec![bld.cells, spacing, padding, bld.alignment],
-                    return_ty: crate::typeregister::layout_info_type(),
+                    return_ty: crate::typeregister::layout_info_type().into(),
                 }
             } else {
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info_ortho".into(),
                     arguments: vec![bld.cells, padding],
-                    return_ty: crate::typeregister::layout_info_type(),
+                    return_ty: crate::typeregister::layout_info_type().into(),
                 }
             };
             match bld.compute_cells {
@@ -749,7 +747,11 @@ fn box_layout_data(
                         get_layout_info(&li.element, ctx, &li.constraints, orientation);
                     make_struct(
                         "BoxLayoutCellData",
-                        [("constraint", crate::typeregister::layout_info_type(), layout_info)],
+                        [(
+                            "constraint",
+                            crate::typeregister::layout_info_type().into(),
+                            layout_info,
+                        )],
                     )
                 })
                 .collect(),
@@ -772,13 +774,13 @@ fn box_layout_data(
                     get_layout_info(&item.element, ctx, &item.constraints, orientation);
                 elements.push(Either::Left(make_struct(
                     "BoxLayoutCellData",
-                    [("constraint", crate::typeregister::layout_info_type(), layout_info)],
+                    [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
                 )));
             }
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type())),
+            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
     }
@@ -802,7 +804,7 @@ fn grid_layout_cell_data(
                 make_struct(
                     "GridLayoutCellData",
                     [
-                        ("constraint", crate::typeregister::layout_info_type(), layout_info),
+                        ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
                         ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
                         ("span", Type::Int32, llr_Expression::NumberLiteral(span as _)),
                     ],
@@ -818,7 +820,7 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("col_or_row"), Type::Int32),
             (SmolStr::new_static("span"), Type::Int32),
-            (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type()),
+            (SmolStr::new_static("constraint"), crate::typeregister::layout_info_type().into()),
         ])
         .collect(),
         name: Some("GridLayoutCellData".into()),
@@ -879,11 +881,8 @@ pub fn get_layout_info(
             value: layout_info.into(),
         };
         let ty = crate::typeregister::layout_info_type();
-        let fields = match &ty {
-            Type::Struct(s) => &s.fields,
-            _ => panic!(),
-        };
-        let mut values = fields
+        let mut values = ty
+            .fields
             .keys()
             .map(|p| {
                 (
@@ -891,7 +890,7 @@ pub fn get_layout_info(
                     llr_Expression::StructFieldAccess {
                         base: llr_Expression::ReadLocalVariable {
                             name: "layout_info".into(),
-                            ty: ty.clone(),
+                            ty: ty.clone().into(),
                         }
                         .into(),
                         name: p.clone(),
@@ -933,7 +932,7 @@ fn compile_path(
             let converted_elements = elements
                 .iter()
                 .map(|element| {
-                    let element_type = Type::Struct(Rc::new(Struct {
+                    let element_type = Rc::new(Struct {
                         fields: element
                             .element_type
                             .properties
@@ -943,7 +942,7 @@ fn compile_path(
                         name: element.element_type.native_class.cpp_type.clone(),
                         node: None,
                         rust_attributes: None,
-                    }));
+                    });
 
                     llr_Expression::Struct {
                         ty: element_type,
@@ -986,7 +985,7 @@ fn compile_path(
 
             llr_Expression::Cast {
                 from: llr_Expression::Struct {
-                    ty: Type::Struct(Rc::new(Struct {
+                    ty: Rc::new(Struct {
                         fields: IntoIterator::into_iter([
                             (SmolStr::new_static("events"), Type::Array(event_type.clone().into())),
                             (SmolStr::new_static("points"), Type::Array(point_type.clone().into())),
@@ -995,7 +994,7 @@ fn compile_path(
                         name: None,
                         node: None,
                         rust_attributes: None,
-                    })),
+                    }),
                     values: IntoIterator::into_iter([
                         (
                             SmolStr::new_static("events"),
@@ -1039,12 +1038,12 @@ pub fn make_struct(
     }
 
     llr_Expression::Struct {
-        ty: Type::Struct(Rc::new(Struct {
+        ty: Rc::new(Struct {
             fields,
             name: Some(format_smolstr!("slint::private_api::{name}")),
             node: None,
             rust_attributes: None,
-        })),
+        }),
         values,
     }
 }

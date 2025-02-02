@@ -1158,12 +1158,12 @@ impl Expression {
                 )
             })
             .collect();
-        let ty = Type::Struct(Rc::new(Struct {
+        let ty = Rc::new(Struct {
             fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             name: None,
             node: None,
             rust_attributes: None,
-        }));
+        });
         Expression::Struct { ty, values }
     }
 

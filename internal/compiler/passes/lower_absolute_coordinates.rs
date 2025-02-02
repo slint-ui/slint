@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     recurse_elem_including_sub_components_no_borrow, visit_all_named_references_in_element,
@@ -26,7 +27,10 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
         });
     });
 
-    let point_type = BuiltinFunction::ItemAbsolutePosition.ty().return_type.clone();
+    let Type::Struct(point_type) = BuiltinFunction::ItemAbsolutePosition.ty().return_type.clone()
+    else {
+        unreachable!()
+    };
 
     for nr in to_materialize {
         let elem = nr.element();
@@ -36,7 +40,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
 
         let parent_position_var = Box::new(Expression::ReadLocalVariable {
             name: "parent_position".into(),
-            ty: point_type.clone(),
+            ty: point_type.clone().into(),
         });
 
         let binding = Expression::CodeBlock(vec![

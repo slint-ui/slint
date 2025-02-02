@@ -155,22 +155,7 @@ impl Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
-            Type::Struct(t) => {
-                if let Some(name) = &t.name {
-                    if let Some(separator_pos) = name.rfind("::") {
-                        // write the slint type and not the native type
-                        write!(f, "{}", &name[separator_pos + 2..])
-                    } else {
-                        write!(f, "{}", name)
-                    }
-                } else {
-                    write!(f, "{{ ")?;
-                    for (k, v) in &t.fields {
-                        write!(f, "{}: {},", k, v)?;
-                    }
-                    write!(f, "}}")
-                }
-            }
+            Type::Struct(t) => write!(f, "{}", t),
             Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
@@ -194,6 +179,12 @@ impl Display for Type {
             Type::ElementReference => write!(f, "element ref"),
             Type::LayoutCache => write!(f, "layout cache"),
         }
+    }
+}
+
+impl From<Rc<Struct>> for Type {
+    fn from(value: Rc<Struct>) -> Self {
+        Self::Struct(value)
     }
 }
 
@@ -790,6 +781,25 @@ pub struct Struct {
     pub node: Option<syntax_nodes::ObjectType>,
     /// derived
     pub rust_attributes: Option<Vec<SmolStr>>,
+}
+
+impl Display for Struct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(name) = &self.name {
+            if let Some(separator_pos) = name.rfind("::") {
+                // write the slint type and not the native type
+                write!(f, "{}", &name[separator_pos + 2..])
+            } else {
+                write!(f, "{}", name)
+            }
+        } else {
+            write!(f, "{{ ")?;
+            for (k, v) in &self.fields {
+                write!(f, "{}: {},", k, v)?;
+            }
+            write!(f, "}}")
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -124,8 +124,8 @@ fn simplify_expression(expr: &mut Expression) -> bool {
                     (Expression::NumberLiteral(x, Unit::None), Type::String) => {
                         Some(Expression::StringLiteral((*x).to_smolstr()))
                     }
-                    (Expression::Struct { values, .. }, to @ Type::Struct { .. }) => {
-                        Some(Expression::Struct { ty: to.clone(), values: values.clone() })
+                    (Expression::Struct { values, .. }, Type::Struct(ty)) => {
+                        Some(Expression::Struct { ty: ty.clone(), values: values.clone() })
                     }
                     _ => None,
                 }
@@ -224,7 +224,7 @@ export component Foo {
     );
     let (doc, diag, _) =
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
-    assert!(!diag.has_errors());
+    assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
     let out_binding = doc
         .inner_components

@@ -182,7 +182,7 @@ declare_builtin_function_types!(
     StringIsFloat: (Type::String) -> Type::Bool,
     StringIsEmpty: (Type::String) -> Type::Bool,
     StringCharacterCount: (Type::String) -> Type::Int32,
-    ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type(),
+    ImplicitLayoutInfo(..): (Type::ElementReference) -> Type::Struct(typeregister::layout_info_type()),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
@@ -662,7 +662,7 @@ pub enum Expression {
         values: Vec<Expression>,
     },
     Struct {
-        ty: Type,
+        ty: Rc<Struct>,
         values: HashMap<SmolStr, Expression>,
     },
 
@@ -810,7 +810,7 @@ impl Expression {
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Rc::new(element_ty.clone())),
-            Expression::Struct { ty, .. } => ty.clone(),
+            Expression::Struct { ty, .. } => Type::Struct(ty.clone()),
             Expression::PathData { .. } => Type::PathData,
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
@@ -821,7 +821,7 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Expression::ComputeLayoutInfo(..) => typeregister::layout_info_type(),
+            Expression::ComputeLayoutInfo(..) => typeregister::layout_info_type().into(),
             Expression::SolveLayout(..) => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
@@ -1126,7 +1126,7 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
-                (ref from_ty @ Type::Struct(ref left), Type::Struct(ref right))
+                (ref from_ty @ Type::Struct(ref left), Type::Struct(right))
                     if left.fields != right.fields =>
                 {
                     if let Expression::Struct { mut values, .. } = self {
@@ -1138,7 +1138,7 @@ impl Expression {
                             );
                             new_values.insert(key, expression);
                         }
-                        return Expression::Struct { values: new_values, ty: target_type };
+                        return Expression::Struct { values: new_values, ty: right.clone() };
                     }
                     static COUNT: std::sync::atomic::AtomicUsize =
                         std::sync::atomic::AtomicUsize::new(0);
@@ -1164,7 +1164,7 @@ impl Expression {
                     }
                     return Expression::CodeBlock(vec![
                         Expression::StoreLocalVariable { name: var_name, value: Box::new(self) },
-                        Expression::Struct { values: new_values, ty: target_type },
+                        Expression::Struct { values: new_values, ty: right.clone() },
                     ]);
                 }
                 (left, right) => match (left.as_unit_product(), right.as_unit_product()) {
@@ -1248,7 +1248,7 @@ impl Expression {
             for (f, t) in fields {
                 new_values.insert(f, Expression::default_value_for_type(&t));
             }
-            Expression::Struct { ty: target_type, values: new_values }
+            Expression::Struct { ty: struct_type.clone(), values: new_values }
         } else {
             let mut message = format!("Cannot convert {} to {}", ty, target_type);
             // Explicit error message for unit conversion
@@ -1313,7 +1313,7 @@ impl Expression {
                 Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
             }
             Type::Struct(s) => Expression::Struct {
-                ty: ty.clone(),
+                ty: s.clone(),
                 values: s
                     .fields
                     .iter()
