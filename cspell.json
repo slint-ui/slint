@@ -75,7 +75,13 @@
                 "Sonoma",
                 "SUBDIR",
                 "Torizon",
-                "Yocto"
+                "Yocto",
+                "relpath",
+                "classslint",
+                "vectormodel",
+                "structslint",
+                "namespaceslint",
+                "compilerconfiguration"
             ],
         }
     ],
