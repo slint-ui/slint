@@ -810,7 +810,7 @@ impl Expression {
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Rc::new(element_ty.clone())),
-            Expression::Struct { ty, .. } => Type::Struct(ty.clone()),
+            Expression::Struct { ty, .. } => ty.clone().into(),
             Expression::PathData { .. } => Type::PathData,
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
