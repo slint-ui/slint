@@ -294,6 +294,9 @@ pub struct WinitWindowAdapter {
 
     #[cfg(muda)]
     pub(crate) muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
+
+    #[cfg(all(muda, target_os = "macos"))]
+    muda_enable_default_menu_bar: bool,
 }
 
 impl WinitWindowAdapter {
@@ -303,6 +306,7 @@ impl WinitWindowAdapter {
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
         #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintUserEvent>,
+        #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
     ) -> Result<Rc<Self>, PlatformError> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::from(corelib::api::Window::new(self_weak.clone() as _)),
@@ -331,6 +335,8 @@ impl WinitWindowAdapter {
             xdg_settings_watcher: Default::default(),
             #[cfg(muda)]
             muda_adapter: Default::default(),
+            #[cfg(all(muda, target_os = "macos"))]
+            muda_enable_default_menu_bar,
         });
 
         let winit_window = self_rc.ensure_window()?;
@@ -672,14 +678,16 @@ impl WinitWindowAdapter {
             )?;
         }
 
-        #[cfg(all(feature = "muda", target_os = "macos"))]
+        #[cfg(all(muda, target_os = "macos"))]
         {
-            if self.muda_adapter.borrow().is_none() {
+            if self.muda_adapter.borrow().is_none() && self.muda_enable_default_menu_bar {
                 *self.muda_adapter.borrow_mut() =
                     Some(crate::muda::MudaAdapter::setup_default_menu()?);
             }
 
-            self.muda_adapter.borrow().as_ref().unwrap().window_activation_changed(is_active);
+            if let Some(muda_adapter) = self.muda_adapter.borrow().as_ref() {
+                muda_adapter.window_activation_changed(is_active);
+            }
         }
 
         Ok(())

@@ -285,14 +285,9 @@ pub fn send_message_to_lsp(message: PreviewToLspMessage) {
 fn init_apple_platform(
 ) -> Result<(muda::MenuItem, muda::MenuItem, muda::CheckMenuItem), i_slint_core::api::PlatformError>
 {
-    use i_slint_backend_winit::winit;
     use muda::{accelerator, CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
-    use winit::platform::macos::EventLoopBuilderExtMacOS;
-    let mut builder = winit::event_loop::EventLoop::with_user_event();
-    builder.with_default_menu(false);
 
-    let backend =
-        i_slint_backend_winit::Backend::builder().with_event_loop_builder(builder).build()?;
+    let backend = i_slint_backend_winit::Backend::builder().with_default_menu_bar(false).build()?;
 
     slint::platform::set_platform(Box::new(backend)).map_err(|set_platform_err| {
         i_slint_core::api::PlatformError::from(set_platform_err.to_string())
