@@ -15,6 +15,7 @@ use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextSize};
+use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
@@ -545,26 +546,68 @@ fn resolve_element_scope(
         .collect::<Vec<_>>();
 
     if !matches!(element_type, ElementType::Global) {
-        result.extend(
-            i_slint_compiler::typeregister::reserved_properties()
-                .filter_map(|(k, ty, _)| {
+        fn accepts_children(
+            element_type: &ElementType,
+            tr: &TypeRegister,
+        ) -> (bool, bool, Vec<SmolStr>) {
+            match element_type {
+                ElementType::Component(component) => {
+                    let base_type = match &*component.child_insertion_point.borrow() {
+                        Some(insert_in) => insert_in.0.borrow().base_type.clone(),
+                        None => {
+                            let base_type = component.root_element.borrow().base_type.clone();
+                            if base_type == tr.empty_type() {
+                                return (false, true, vec![]);
+                            }
+                            base_type
+                        }
+                    };
+                    return accepts_children(&base_type, tr);
+                }
+                ElementType::Builtin(builtin_element) => {
+                    let mut extra: Vec<SmolStr> =
+                        builtin_element.additional_accepted_child_types.keys().cloned().collect();
+                    if builtin_element.additional_accept_self {
+                        extra.push(builtin_element.name.clone())
+                    }
+                    (
+                        !builtin_element.disallow_global_types_as_child_elements,
+                        !builtin_element.is_non_item_type,
+                        extra,
+                    )
+                }
+                _ => (true, true, vec![]),
+            }
+        }
+        let (accepts_children, is_item, extra) = accepts_children(&element_type, tr);
+        if is_item {
+            result.extend(i_slint_compiler::typeregister::reserved_properties().filter_map(
+                |(k, ty, _)| {
                     if matches!(ty, Type::Function { .. }) {
                         return None;
                     }
                     let c = CompletionItem::new_simple(k.into(), ty.to_string());
                     Some(apply_property_ty(c, &ty, None))
-                })
-                .chain(tr.all_elements().into_iter().filter_map(|(k, t)| {
-                    match t {
-                        ElementType::Component(c) if !c.is_global() => (),
-                        ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
-                        _ => return None,
-                    };
-                    let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
-                    c.kind = Some(CompletionItemKind::CLASS);
-                    Some(with_insert_text(c, &format!("{k} {{$1}}"), with_snippets))
-                })),
-        );
+                },
+            ));
+        }
+        result.extend(extra.into_iter().map(|k| {
+            let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
+            c.kind = Some(CompletionItemKind::CLASS);
+            with_insert_text(c, &format!("{k} {{$1}}"), with_snippets)
+        }));
+        if accepts_children {
+            result.extend(tr.all_elements().into_iter().filter_map(|(k, t)| {
+                match t {
+                    ElementType::Component(c) if !c.is_global() => (),
+                    ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
+                    _ => return None,
+                };
+                let mut c = CompletionItem::new_simple(k.to_string(), "element".into());
+                c.kind = Some(CompletionItemKind::CLASS);
+                Some(with_insert_text(c, &format!("{k} {{$1}}"), with_snippets))
+            }));
+        }
     };
     Some(result)
 }
@@ -1109,6 +1152,7 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "Rectangle").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "TouchArea").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "VerticalLayout").unwrap().kind, class);
+        assert!(!res.iter().any(|ci| ci.label == "MenuItem"));
 
         // keywords
         assert_eq!(
@@ -1174,6 +1218,55 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "Flickable").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "Rectangle").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "HorizontalLayout").unwrap().kind, class);
+        assert!(!res.iter().any(|ci| ci.label == "MenuItem"));
+    }
+
+    #[test]
+    fn in_menu_item() {
+        let source = r#"
+            component Foo inherits Window {
+                property <int> local-prop;
+                MenuBar {
+                    MenuItem {
+                        property <int> local-prop2;
+                        🔺
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+
+        const P: Option<CompletionItemKind> = Some(CompletionItemKind::PROPERTY);
+        const M: Option<CompletionItemKind> = Some(CompletionItemKind::METHOD);
+
+        // general
+        assert!(!res.iter().any(|ci| ci.label == "width"));
+        assert!(!res.iter().any(|ci| ci.label == "y"));
+        assert!(!res.iter().any(|ci| ci.label == "accessible-role"));
+        assert!(!res.iter().any(|ci| ci.label == "opacity"));
+
+        // elements
+        assert!(!res.iter().any(|ci| ci.label == "Rectangle"));
+        let class = Some(CompletionItemKind::CLASS);
+        assert_eq!(res.iter().find(|ci| ci.label == "MenuItem").unwrap().kind, class);
+
+        // properties
+        assert_eq!(res.iter().find(|ci| ci.label == "title").unwrap().kind, P);
+        assert_eq!(res.iter().find(|ci| ci.label == "activated").unwrap().kind, M);
+
+        // local
+        assert!(!res.iter().any(|ci| ci.label == "local-prop"));
+        assert_eq!(res.iter().find(|ci| ci.label == "local-prop2").unwrap().kind, P);
+
+        // keywords
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "for").unwrap().kind,
+            Some(CompletionItemKind::KEYWORD)
+        );
+        assert_eq!(
+            res.iter().find(|ci| ci.label == "if").unwrap().kind,
+            Some(CompletionItemKind::KEYWORD)
+        );
     }
 
     #[test]
