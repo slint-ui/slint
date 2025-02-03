@@ -1750,6 +1750,8 @@ fn generate_item_tree(
         create_code.push("self->globals = globals;".into());
         create_parameters.push("const SharedGlobals *globals".into());
     } else if parent_ctx.is_none() {
+        create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());
+
         #[cfg(feature = "bundle-translations")]
         if let Some(translations) = &root.translations {
             let lang_len = translations.languages.len();
@@ -1766,7 +1768,6 @@ fn generate_item_tree(
 
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
-        create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());
     }
 
     let global_access = if parent_ctx.is_some() { "parent->globals" } else { "self->globals" };
