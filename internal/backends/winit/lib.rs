@@ -128,6 +128,7 @@ fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
 fn try_create_window_with_fallback_renderer(
     attrs: winit::window::WindowAttributes,
     _proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
+    #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
 ) -> Option<Rc<WinitWindowAdapter>> {
     [
         #[cfg(any(
@@ -149,6 +150,8 @@ fn try_create_window_with_fallback_renderer(
             None,
             #[cfg(any(enable_accesskit, muda))]
             _proxy.clone(),
+            #[cfg(all(muda, target_os = "macos"))]
+            muda_enable_default_menu_bar,
         )
         .ok()
     })
@@ -173,6 +176,8 @@ pub struct BackendBuilder {
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
     renderer_name: Option<String>,
     event_loop_builder: Option<winit::event_loop::EventLoopBuilder<SlintUserEvent>>,
+    #[cfg(all(muda, target_os = "macos"))]
+    muda_enable_default_menu_bar_bar: bool,
 }
 
 impl BackendBuilder {
@@ -224,6 +229,18 @@ impl BackendBuilder {
         self
     }
 
+    /// Configures this builder to enable or disable the default menu bar.
+    /// By default, the menu bar is provided by Slint. Set this to false
+    /// if you're providing your own menu bar.
+    /// Note that an application provided menu bar will be overriden by a `MenuBar`
+    /// declared in Slint code.
+    #[must_use]
+    #[cfg(all(muda, target_os = "macos"))]
+    pub fn with_default_menu_bar(mut self, enable: bool) -> Self {
+        self.muda_enable_default_menu_bar_bar = enable;
+        self
+    }
+
     /// Builds the backend with the parameters configured previously. Set the resulting backend
     /// with `slint::platform::set_platform()`:
     ///
@@ -241,6 +258,8 @@ impl BackendBuilder {
         let mut event_loop_builder =
             self.event_loop_builder.unwrap_or_else(winit::event_loop::EventLoop::with_user_event);
 
+        // Never use winit's menu bar. Either we provide one ourselves with muda, or
+        // the user provides one.
         #[cfg(all(feature = "muda", target_os = "macos"))]
         winit::platform::macos::EventLoopBuilderExtMacOS::with_default_menu(
             &mut event_loop_builder,
@@ -327,6 +346,8 @@ impl BackendBuilder {
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: clipboard.into(),
             proxy,
+            #[cfg(all(muda, target_os = "macos"))]
+            muda_enable_default_menu_bar_bar: self.muda_enable_default_menu_bar_bar,
         })
     }
 }
@@ -364,6 +385,9 @@ pub struct Backend {
 
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: Weak<std::cell::RefCell<clipboard::ClipboardPair>>,
+
+    #[cfg(all(muda, target_os = "macos"))]
+    muda_enable_default_menu_bar_bar: bool,
 }
 
 impl Backend {
@@ -398,6 +422,8 @@ impl Backend {
             window_attributes_hook: None,
             renderer_name: None,
             event_loop_builder: None,
+            #[cfg(all(muda, target_os = "macos"))]
+            muda_enable_default_menu_bar_bar: true,
         }
     }
 }
@@ -450,10 +476,17 @@ impl i_slint_core::platform::Platform for Backend {
             self.requested_graphics_api.clone(),
             #[cfg(any(enable_accesskit, muda))]
             self.proxy.clone(),
+            #[cfg(all(muda, target_os = "macos"))]
+            self.muda_enable_default_menu_bar_bar,
         )
         .or_else(|e| {
-            try_create_window_with_fallback_renderer(attrs, &self.proxy)
-                .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
+            try_create_window_with_fallback_renderer(
+                attrs,
+                &self.proxy,
+                #[cfg(all(muda, target_os = "macos"))]
+                self.muda_enable_default_menu_bar_bar,
+            )
+            .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
         })?;
         Ok(adapter)
     }
