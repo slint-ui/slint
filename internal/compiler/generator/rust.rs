@@ -2229,7 +2229,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             .iter()
                             .map(|path_elem_expr|
                                 // Close{} is a struct with no fields in markup, and PathElement::Close has no fields
-                                if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct (s), .. } if s.fields.is_empty()) {
+                                if matches!(path_elem_expr, Expression::Struct { ty, .. } if ty.fields.is_empty()) {
                                     quote!(sp::PathElement::Close)
                                 } else {
                                     compile_expression(path_elem_expr, ctx)
@@ -2241,12 +2241,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     };
                     quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
                 }
-                (Type::Struct { .. }, Type::PathData)
-                    if matches!(
-                        from.as_ref(),
-                        Expression::Struct { ty: Type::Struct { .. }, .. }
-                    ) =>
-                {
+                (Type::Struct { .. }, Type::PathData) if matches!(from.as_ref(), Expression::Struct { .. }) => {
                     let (events, points) = match from.as_ref() {
                         Expression::Struct { ty: _, values } => (
                             compile_expression(&values["events"], ctx),
@@ -2488,32 +2483,28 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct (s) = ty {
-                let elem = s.fields.keys().map(|k| values.get(k).map(|e| compile_expression(e, ctx)));
-                if let Some(name) = &s.name {
-                    let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
-                    let keys = s.fields.keys().map(|k| ident(k));
-                    if name.starts_with("slint::private_api::") && name.ends_with("LayoutData") {
-                        quote!(#name_tokens{#(#keys: #elem as _,)*})
-                    } else {
-                        quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
-                    }
+            let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression(e, ctx)));
+            if let Some(name) = &ty.name {
+                let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
+                let keys = ty.fields.keys().map(|k| ident(k));
+                if name.starts_with("slint::private_api::") && name.ends_with("LayoutData") {
+                    quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
-                    let as_ = s.fields.values().map(|t| {
-                        if t.as_unit_product().is_some() {
-                            // number needs to be converted to the right things because intermediate
-                            // result might be f64 and that's usually not what the type of the tuple is in the end
-                            let t = rust_primitive_type(t).unwrap();
-                            quote!(as #t)
-                        } else {
-                            quote!()
-                        }
-                    });
-                    // This will produce a tuple
-                    quote!((#(#elem #as_,)*))
+                    quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
                 }
             } else {
-                panic!("Expression::Struct is not a Type::Struct")
+                let as_ = ty.fields.values().map(|t| {
+                    if t.as_unit_product().is_some() {
+                        // number needs to be converted to the right things because intermediate
+                        // result might be f64 and that's usually not what the type of the tuple is in the end
+                        let t = rust_primitive_type(t).unwrap();
+                        quote!(as #t)
+                    } else {
+                        quote!()
+                    }
+                });
+                // This will produce a tuple
+                quote!((#(#elem #as_,)*))
             }
         }
 

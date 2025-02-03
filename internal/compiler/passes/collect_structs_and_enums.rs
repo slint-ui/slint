@@ -16,7 +16,7 @@ pub fn collect_structs_and_enums(doc: &Document) {
 
     for (_, exp) in doc.exports.iter() {
         if let Some(ty) = exp.as_ref().right() {
-            maybe_collect_object(ty, &mut hash);
+            maybe_collect_struct(ty, &mut hash);
         }
     }
 
@@ -32,7 +32,7 @@ pub fn collect_structs_and_enums(doc: &Document) {
     }
 }
 
-fn maybe_collect_object(ty: &Type, hash: &mut BTreeMap<SmolStr, Type>) {
+fn maybe_collect_struct(ty: &Type, hash: &mut BTreeMap<SmolStr, Type>) {
     visit_declared_type(ty, &mut |name, sub_ty| {
         hash.entry(name.clone()).or_insert_with(|| sub_ty.clone());
     });
@@ -41,16 +41,16 @@ fn maybe_collect_object(ty: &Type, hash: &mut BTreeMap<SmolStr, Type>) {
 fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<SmolStr, Type>) {
     recurse_elem_including_sub_components_no_borrow(root_component, &(), &mut |elem, _| {
         for x in elem.borrow().property_declarations.values() {
-            maybe_collect_object(&x.property_type, hash);
+            maybe_collect_struct(&x.property_type, hash);
         }
     });
 
     visit_all_expressions(root_component, |expr, _| {
         expr.visit_recursive(&mut |expr| match expr {
-            Expression::Struct { ty, .. } => maybe_collect_object(ty, hash),
-            Expression::Array { element_ty, .. } => maybe_collect_object(element_ty, hash),
+            Expression::Struct { ty, .. } => maybe_collect_struct(&Type::Struct(ty.clone()), hash),
+            Expression::Array { element_ty, .. } => maybe_collect_struct(element_ty, hash),
             Expression::EnumerationValue(ev) => {
-                maybe_collect_object(&Type::Enumeration(ev.enumeration.clone()), hash)
+                maybe_collect_struct(&Type::Enumeration(ev.enumeration.clone()), hash)
             }
             _ => (),
         })

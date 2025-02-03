@@ -158,12 +158,12 @@ fn lower_grid_layout(
     let layout_info_prop_h = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layoutinfo-h"),
-        layout_info_type(),
+        layout_info_type().into(),
     );
     let layout_info_prop_v = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layoutinfo-v"),
-        layout_info_type(),
+        layout_info_type().into(),
     );
 
     let mut row = 0;
@@ -351,10 +351,16 @@ fn lower_box_layout(
 
     let layout_cache_prop =
         create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
-    let layout_info_prop_v =
-        create_new_prop(layout_element, SmolStr::new_static("layoutinfo-v"), layout_info_type());
-    let layout_info_prop_h =
-        create_new_prop(layout_element, SmolStr::new_static("layoutinfo-h"), layout_info_type());
+    let layout_info_prop_v = create_new_prop(
+        layout_element,
+        SmolStr::new_static("layoutinfo-v"),
+        layout_info_type().into(),
+    );
+    let layout_info_prop_h = create_new_prop(
+        layout_element,
+        SmolStr::new_static("layoutinfo-h"),
+        layout_info_type().into(),
+    );
 
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
 
@@ -497,10 +503,16 @@ fn lower_dialog_layout(
         create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::LayoutCache);
     let layout_cache_prop_v =
         create_new_prop(dialog_element, SmolStr::new_static("layout-cache-v"), Type::LayoutCache);
-    let layout_info_prop_h =
-        create_new_prop(dialog_element, SmolStr::new_static("layoutinfo-h"), layout_info_type());
-    let layout_info_prop_v =
-        create_new_prop(dialog_element, SmolStr::new_static("layoutinfo-v"), layout_info_type());
+    let layout_info_prop_h = create_new_prop(
+        dialog_element,
+        SmolStr::new_static("layoutinfo-h"),
+        layout_info_type().into(),
+    );
+    let layout_info_prop_v = create_new_prop(
+        dialog_element,
+        SmolStr::new_static("layoutinfo-v"),
+        layout_info_type().into(),
+    );
 
     let mut main_widget = None;
     let mut button_roles = vec![];

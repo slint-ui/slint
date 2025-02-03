@@ -11,6 +11,7 @@ use core::num::NonZeroUsize;
 use itertools::Either;
 use smol_str::SmolStr;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -137,7 +138,7 @@ pub enum Expression {
         as_model: bool,
     },
     Struct {
-        ty: Type,
+        ty: Rc<crate::langtype::Struct>,
         values: HashMap<SmolStr, Expression>,
     },
 
@@ -240,7 +241,7 @@ impl Expression {
                 as_model: true,
             },
             Type::Struct(s) => Expression::Struct {
-                ty: ty.clone(),
+                ty: s.clone(),
                 values: s
                     .fields
                     .iter()
@@ -302,7 +303,7 @@ impl Expression {
             Self::ImageReference { .. } => Type::Image,
             Self::Condition { false_expr, .. } => false_expr.ty(ctx),
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
-            Self::Struct { ty, .. } => ty.clone(),
+            Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,

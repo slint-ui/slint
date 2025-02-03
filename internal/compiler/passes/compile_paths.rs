@@ -144,7 +144,7 @@ fn compile_path_from_string_literal(
     let path = builder.build();
 
     let event_enum = crate::typeregister::BUILTIN.with(|e| e.enums.PathEvent.clone());
-    let point_type = Type::Struct(Rc::new(Struct {
+    let point_type = Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("x"), Type::Float32),
             (SmolStr::new_static("y"), Type::Float32),
@@ -153,7 +153,7 @@ fn compile_path_from_string_literal(
         name: Some("slint::private_api::Point".into()),
         node: None,
         rust_attributes: None,
-    }));
+    });
 
     let mut points = Vec::new();
     let events = path

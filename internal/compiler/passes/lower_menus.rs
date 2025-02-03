@@ -597,8 +597,8 @@ fn generate_menu_entries(
 }
 
 fn mk_struct(ty: Type, mut values: HashMap<SmolStr, Expression>) -> Expression {
-    let Type::Struct(s) = &ty else { panic!("Not a struct") };
-    for (k, v) in s.fields.iter() {
+    let Type::Struct(ty) = ty else { panic!("Not a struct") };
+    for (k, v) in ty.fields.iter() {
         values.entry(k.clone()).or_insert_with(|| Expression::default_value_for_type(v));
     }
     Expression::Struct { ty, values }
