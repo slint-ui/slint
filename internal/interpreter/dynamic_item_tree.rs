@@ -406,12 +406,12 @@ pub struct ItemTreeDescription<'id> {
 
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     pub(crate) type_loader:
         std::cell::OnceCell<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     pub(crate) raw_type_loader:
         std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
 }
@@ -831,7 +831,7 @@ pub async fn load(
     }
 
     let diag = BuildDiagnostics::default();
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     let (path, mut diag, loader, raw_type_loader) =
         i_slint_compiler::load_root_file_with_raw_type_loader(
             &path,
@@ -841,7 +841,7 @@ pub async fn load(
             compiler_config,
         )
         .await;
-    #[cfg(not(feature = "highlight"))]
+    #[cfg(not(feature = "internal-highlight"))]
     let (path, mut diag, loader) =
         i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
     if diag.has_errors() {
@@ -855,9 +855,9 @@ pub async fn load(
         };
     }
 
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     let loader = Rc::new(loader);
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     let raw_type_loader = raw_type_loader.map(Rc::new);
 
     let doc = loader.get_document(&path).unwrap();
@@ -890,7 +890,7 @@ pub async fn load(
             false,
             guard,
         );
-        #[cfg(feature = "highlight")]
+        #[cfg(feature = "internal-highlight")]
         {
             let _ = it.type_loader.set(loader.clone());
             let _ = it.raw_type_loader.set(raw_type_loader.clone());
@@ -1355,9 +1355,9 @@ pub(crate) fn generate_item_tree<'id>(
         timers,
         popup_ids: std::cell::RefCell::new(HashMap::new()),
         popup_menu_description: builder.popup_menu_description,
-        #[cfg(feature = "highlight")]
+        #[cfg(feature = "internal-highlight")]
         type_loader: std::cell::OnceCell::new(),
-        #[cfg(feature = "highlight")]
+        #[cfg(feature = "internal-highlight")]
         raw_type_loader: std::cell::OnceCell::new(),
     };
 
