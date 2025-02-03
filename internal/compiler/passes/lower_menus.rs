@@ -387,15 +387,16 @@ fn process_window(
 
     if let Some(item_tree_root) = item_tree_root {
         arguments.push(item_tree_root.into());
-        for prop in [ENTRIES, SUB_MENU, ACTIVATED] {
-            menu_bar
-                .borrow()
-                .property_analysis
-                .borrow_mut()
-                .entry(SmolStr::new_static(prop))
-                .or_default()
-                .is_set = true;
-        }
+    }
+
+    for prop in [ENTRIES, SUB_MENU, ACTIVATED] {
+        menu_bar
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(SmolStr::new_static(prop))
+            .or_default()
+            .is_set = true;
     }
 
     let setup_menubar = Expression::FunctionCall {
