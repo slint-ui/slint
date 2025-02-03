@@ -253,8 +253,8 @@ importers:
         specifier: 2.1.8
         version: 2.1.8
       '@lumino/widgets':
-        specifier: 2.5.0
-        version: 2.5.0
+        specifier: 2.6.0
+        version: 2.6.0
       '@playwright/test':
         specifier: 1.50.0
         version: 1.50.0
@@ -1387,9 +1387,6 @@ packages:
 
   '@lumino/virtualdom@2.0.2':
     resolution: {integrity: sha512-HYZThOtZSoknjdXA102xpy5CiXtTFCVz45EXdWeYLx3NhuEwuAIX93QBBIhupalmtFlRg1yhdDNV40HxJ4kcXg==}
-
-  '@lumino/widgets@2.5.0':
-    resolution: {integrity: sha512-RSRpc6aIEiuw79jqWUHYWXLJ2GBy7vhwuqgo94UVzg6oeh3XBECX0OvXGjK2k7N2BhmRrIs9bXky7Dm861S6mQ==}
 
   '@lumino/widgets@2.6.0':
     resolution: {integrity: sha512-UjLtRod9QfUBzASP4geUzfW3P+qzF+d9I9/4CwrIsL9JIQ7VIxeB3nEMuhKMLOQttaJleL488lmUW9zSs5+AuQ==}
@@ -5985,20 +5982,6 @@ snapshots:
   '@lumino/virtualdom@2.0.2':
     dependencies:
       '@lumino/algorithm': 2.0.2
-
-  '@lumino/widgets@2.5.0':
-    dependencies:
-      '@lumino/algorithm': 2.0.2
-      '@lumino/commands': 2.3.1
-      '@lumino/coreutils': 2.2.0
-      '@lumino/disposable': 2.1.3
-      '@lumino/domutils': 2.0.2
-      '@lumino/dragdrop': 2.1.5
-      '@lumino/keyboard': 2.0.2
-      '@lumino/messaging': 2.0.2
-      '@lumino/properties': 2.0.2
-      '@lumino/signaling': 2.1.3
-      '@lumino/virtualdom': 2.0.2
 
   '@lumino/widgets@2.6.0':
     dependencies:
