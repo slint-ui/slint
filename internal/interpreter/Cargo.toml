@@ -43,10 +43,6 @@ image-default-formats = ["i-slint-core/image-default-formats"]
 # (internal) export C++ FFI functions
 ffi = ["spin_on", "i-slint-core/ffi"]
 
-# (internal) Draw an highlight on a specified element
-# NOTE: this is not a semver compatible feature
-highlight = []
-
 # unused (std is mandatory for the interpreter)
 std = []
 
@@ -124,6 +120,10 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## Features used internally by Slint tooling that are not stable and come without
 ## any stability guarantees whatsoever.
 internal = []
+
+# (internal) Draw an highlight on a specified element
+# NOTE: this is not a semver compatible feature
+internal-highlight = []
 
 [dependencies]
 i-slint-compiler = { workspace = true  }

@@ -1170,7 +1170,7 @@ impl ComponentDefinition {
     /// Return the `TypeLoader` used when parsing the code in the interpreter.
     ///
     /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).type_loader.get().unwrap().clone()
@@ -1183,7 +1183,7 @@ impl ComponentDefinition {
     /// so this is a fairly expensive function!
     ///
     /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner
@@ -1493,7 +1493,7 @@ impl ComponentInstance {
     /// Find all positions of the components which are pointed by a given source location.
     ///
     /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
         path: &Path,
@@ -1505,7 +1505,7 @@ impl ComponentInstance {
     /// Find the position of the `element`.
     ///
     /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     pub fn element_positions(
         &self,
         element: &i_slint_compiler::object_tree::ElementRc,
@@ -1516,7 +1516,7 @@ impl ComponentInstance {
     /// Find the the `element` that was defined at the text position.
     ///
     /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
+    #[cfg(feature = "internal-highlight")]
     pub fn element_node_at_source_code_position(
         &self,
         path: &Path,
@@ -2162,7 +2162,7 @@ fn test_multi_components() {
     assert!(result.component("xyz").is_none());
 }
 
-#[cfg(all(test, feature = "highlight"))]
+#[cfg(all(test, feature = "internal-highlight"))]
 fn compile(code: &str) -> (ComponentInstance, PathBuf) {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
@@ -2184,7 +2184,7 @@ fn compile(code: &str) -> (ComponentInstance, PathBuf) {
     (instance, path)
 }
 
-#[cfg(feature = "highlight")]
+#[cfg(feature = "internal-highlight")]
 #[test]
 fn test_element_node_at_source_code_position() {
     let code = r#"
