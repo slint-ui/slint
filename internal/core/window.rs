@@ -791,6 +791,16 @@ impl WindowInner {
             return;
         }
 
+        let popup_wa = self.active_popups.borrow().last().and_then(|p| match &p.location {
+            PopupWindowLocation::TopLevel(wa) => Some(wa.clone()),
+            PopupWindowLocation::ChildWindow(..) => None,
+        });
+        if let Some(popup_wa) = popup_wa {
+            // Set the focus item on the popup's Window instead
+            popup_wa.window().0.set_focus_item(new_focus_item, set_focus);
+            return;
+        }
+
         let current_focus_item = self.focus_item.borrow().clone();
         if let Some(current_focus_item_rc) = current_focus_item.upgrade() {
             if set_focus {
@@ -1205,7 +1215,9 @@ impl WindowInner {
         let maybe_index = active_popups.iter().position(|popup| popup.popup_id == popup_id);
 
         if let Some(popup_index) = maybe_index {
-            self.close_popup_impl(&active_popups.remove(popup_index));
+            let p = active_popups.remove(popup_index);
+            drop(active_popups);
+            self.close_popup_impl(&p);
         }
     }
 
