@@ -791,6 +791,16 @@ impl WindowInner {
             return;
         }
 
+        let popup_wa = self.active_popups.borrow().last().and_then(|p| match &p.location {
+            PopupWindowLocation::TopLevel(wa) => Some(wa.clone()),
+            PopupWindowLocation::ChildWindow(..) => None,
+        });
+        if let Some(popup_wa) = popup_wa {
+            // Set the focus item on the popup's Window instead
+            popup_wa.window().0.set_focus_item(new_focus_item, set_focus);
+            return;
+        }
+
         let current_focus_item = self.focus_item.borrow().clone();
         if let Some(current_focus_item_rc) = current_focus_item.upgrade() {
             if set_focus {
@@ -810,15 +820,6 @@ impl WindowInner {
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
             window_adapter.handle_focus_change(old, new);
-        }
-
-        let popup_wa = self.active_popups.borrow().last().and_then(|p| match &p.location {
-            PopupWindowLocation::TopLevel(wa) => Some(wa.clone()),
-            PopupWindowLocation::ChildWindow(..) => None,
-        });
-        if let Some(popup_wa) = popup_wa {
-            // Also set the focus item on the inner window
-            popup_wa.window().0.set_focus_item(new_focus_item, set_focus);
         }
     }
 
