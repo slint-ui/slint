@@ -221,6 +221,8 @@ fn lower_popup_window(
         });
     });
 
+    super::focus_handling::call_focus_on_init(&popup_comp);
+
     parent_component.popup_windows.borrow_mut().push(PopupWindow {
         component: popup_comp,
         x: coord_x,

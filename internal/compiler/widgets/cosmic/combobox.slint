@@ -97,13 +97,10 @@ export component ComboBox {
         y: root.height + 4px;
         width: root.width;
         height: root.visible-items * CosmicSizeSettings.item-height  + 2 * root.popup-padding;
+        forward-focus: inner-fs;
 
-        FocusScope {
-            init => {
-                self.focus();
-                base.popup-has-focus = true;
-            }
-            changed has-focus => {
+        inner-fs := FocusScope {
+            focus-changed-event => {
                 base.popup-has-focus = self.has-focus;
             }
             key-pressed(event) => {

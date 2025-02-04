@@ -44,8 +44,6 @@ export component TestCase inherits Window {
         x: 100px;
         y: 100px;
         forward-focus: inner-le;
-        // FIXME: Would be nice if forward focus worked in popups, but it doesn't, so simulate it with an init
-        init => { inner-le.focus();  }
         close-policy: close-on-click-outside;
         VerticalBox {
             alignment: center;

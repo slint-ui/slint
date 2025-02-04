@@ -95,6 +95,7 @@ export component ComboBox {
         y: root.height;
         width: root.width;
         height: root.visible-items * MaterialSizeSettings.item-height;
+        forward-focus: inner-fs;
 
         popup-container := Rectangle {
             background: MaterialPalette.alternate-background;
@@ -104,12 +105,8 @@ export component ComboBox {
             border-radius: 4px;
         }
 
-        FocusScope {
-            init => {
-                self.focus();
-                base.popup-has-focus = true;
-            }
-            changed has-focus => {
+        inner-fs := FocusScope {
+            focus-changed-event => {
                 base.popup-has-focus = self.has-focus;
             }
             key-pressed(event) => {
