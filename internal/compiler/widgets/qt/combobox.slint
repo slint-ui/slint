@@ -53,18 +53,15 @@ export component ComboBox {
         width: root.width;
         // Try to hardcode about the size of 6 items
         height: 6 * 2rem;
+        forward-focus: inner-fs;
 
         NativeComboBoxPopup {
             width: 100%;
             height: 100%;
         }
 
-        FocusScope {
-            init => {
-                self.focus();
-                base.popup-has-focus = true;
-            }
-            changed has-focus => {
+        inner-fs := FocusScope {
+            focus-changed-event => {
                 base.popup-has-focus = self.has-focus;
             }
             key-pressed(event) => {

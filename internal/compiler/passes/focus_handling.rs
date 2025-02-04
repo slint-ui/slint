@@ -40,35 +40,14 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
         local_forwards.remove_uncallable_forwards();
 
         // Phase 3: For `focus-forward` in the root element, create `focus()` and `clear-focus()` functions that are callable from the outside
-        if let Some((root_focus_forward, focus_forward_location)) =
-            local_forwards.focus_forward_for_element(&component.root_element)
-        {
-            for function in FocusFunctionType::iter() {
-                if let Some(set_or_clear_focus_code) = call_set_focus_function(
-                    &root_focus_forward,
-                    Some(&focus_forward_location),
-                    function,
-                ) {
-                    component.root_element.borrow_mut().property_declarations.insert(
-                        function.name().into(),
-                        PropertyDeclaration {
-                            property_type: Type::Function(Rc::new(Function {
-                                return_type: Type::Void.into(),
-                                args: vec![],
-                                arg_names: vec![],
-                            })),
-                            visibility: PropertyVisibility::Public,
-                            pure: Some(false),
-                            ..Default::default()
-                        },
-                    );
-                    component.root_element.borrow_mut().bindings.insert(
-                        function.name().into(),
-                        RefCell::new(set_or_clear_focus_code.into()),
-                    );
-                }
+        local_forwards.gen_focus_functions(&component.root_element);
+
+        // Phase 3b: also for PopupWindow
+        recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+            if elem.borrow().builtin_type().is_some_and(|b| b.name == "PopupWindow") {
+                local_forwards.gen_focus_functions(elem);
             }
-        }
+        });
 
         // Phase 4: All calls to `.focus()` may need to be changed with `focus-forward` resolved or changed from the built-in
         // SetFocusItem() call to a regular function call to the component's focus() function.
@@ -218,6 +197,38 @@ impl<'a> LocalFocusForwards<'a> {
                             source_location,
                         );
                     }
+                }
+            }
+        }
+    }
+
+    fn gen_focus_functions(&mut self, elem: &ElementRc) {
+        if let Some((root_focus_forward, focus_forward_location)) =
+            self.focus_forward_for_element(&elem)
+        {
+            for function in FocusFunctionType::iter() {
+                if let Some(set_or_clear_focus_code) = call_set_focus_function(
+                    &root_focus_forward,
+                    Some(&focus_forward_location),
+                    function,
+                ) {
+                    elem.borrow_mut().property_declarations.insert(
+                        function.name().into(),
+                        PropertyDeclaration {
+                            property_type: Type::Function(Rc::new(Function {
+                                return_type: Type::Void.into(),
+                                args: vec![],
+                                arg_names: vec![],
+                            })),
+                            visibility: PropertyVisibility::Public,
+                            pure: Some(false),
+                            ..Default::default()
+                        },
+                    );
+                    elem.borrow_mut().bindings.insert(
+                        function.name().into(),
+                        RefCell::new(set_or_clear_focus_code.into()),
+                    );
                 }
             }
         }
