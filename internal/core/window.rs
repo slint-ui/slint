@@ -811,6 +811,15 @@ impl WindowInner {
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
             window_adapter.handle_focus_change(old, new);
         }
+
+        let popup_wa = self.active_popups.borrow().last().and_then(|p| match &p.location {
+            PopupWindowLocation::TopLevel(wa) => Some(wa.clone()),
+            PopupWindowLocation::ChildWindow(..) => None,
+        });
+        if let Some(popup_wa) = popup_wa {
+            // Also set the focus item on the inner window
+            popup_wa.window().0.set_focus_item(new_focus_item, set_focus);
+        }
     }
 
     /// Take the focus_item out of this Window
@@ -1205,7 +1214,9 @@ impl WindowInner {
         let maybe_index = active_popups.iter().position(|popup| popup.popup_id == popup_id);
 
         if let Some(popup_index) = maybe_index {
-            self.close_popup_impl(&active_popups.remove(popup_index));
+            let p = active_popups.remove(popup_index);
+            drop(active_popups);
+            self.close_popup_impl(&p);
         }
     }
 
