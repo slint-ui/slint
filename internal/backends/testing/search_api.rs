@@ -90,6 +90,7 @@ impl ElementQueryInstruction {
         query_stack: &[Self],
         element: ElementHandle,
         control_flow_after_first_match: ControlFlow<()>,
+        active_popups: &[(ItemRc, ItemTreeRc)],
     ) -> (ControlFlow<()>, Vec<ElementHandle>) {
         let Some((query, tail)) = query_stack.split_first() else {
             return (control_flow_after_first_match, vec![element]);
@@ -98,12 +99,19 @@ impl ElementQueryInstruction {
         match query {
             ElementQueryInstruction::MatchDescendants => {
                 let mut results = vec![];
-                match element.visit_descendants(|child| {
-                    let (next_control_flow, sub_results) =
-                        Self::match_recursively(tail, child, control_flow_after_first_match);
-                    results.extend(sub_results);
-                    next_control_flow
-                }) {
+                match element.visit_descendants_impl(
+                    &mut |child| {
+                        let (next_control_flow, sub_results) = Self::match_recursively(
+                            tail,
+                            child,
+                            control_flow_after_first_match,
+                            active_popups,
+                        );
+                        results.extend(sub_results);
+                        next_control_flow
+                    },
+                    active_popups,
+                ) {
                     Some(_) => (ControlFlow::Break(()), results),
                     None => (ControlFlow::Continue(()), results),
                 }
@@ -111,8 +119,12 @@ impl ElementQueryInstruction {
             ElementQueryInstruction::MatchSingleElement(criteria) => {
                 let mut results = vec![];
                 let control_flow = if criteria.matches(&element) {
-                    let (next_control_flow, sub_results) =
-                        Self::match_recursively(tail, element, control_flow_after_first_match);
+                    let (next_control_flow, sub_results) = Self::match_recursively(
+                        tail,
+                        element,
+                        control_flow_after_first_match,
+                        active_popups,
+                    );
                     results.extend(sub_results);
                     next_control_flow
                 } else {
@@ -202,6 +214,7 @@ impl ElementQuery {
             &self.query_stack,
             self.root.clone(),
             ControlFlow::Break(()),
+            &self.root.active_popups(),
         )
         .1
         .into_iter()
@@ -214,6 +227,7 @@ impl ElementQuery {
             &self.query_stack,
             self.root.clone(),
             ControlFlow::Continue(()),
+            &self.root.active_popups(),
         )
         .1
     }
@@ -247,11 +261,46 @@ impl ElementHandle {
         &self,
         mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
     ) -> Option<R> {
+        self.visit_descendants_impl(&mut |e| visitor(e), &self.active_popups())
+    }
+
+    /// Visit all descendants of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    fn visit_descendants_impl<R>(
+        &self,
+        visitor: &mut dyn FnMut(ElementHandle) -> ControlFlow<R>,
+        active_popups: &[(ItemRc, ItemTreeRc)],
+    ) -> Option<R> {
         let self_item = self.item.upgrade()?;
-        self_item.visit_descendants(|item_rc| {
+
+        let visit_attached_popups =
+            |item_rc: &ItemRc, visitor: &mut dyn FnMut(ElementHandle) -> ControlFlow<R>| {
+                for (popup_elem, popup_item_tree) in active_popups {
+                    if popup_elem == item_rc {
+                        if let Some(result) = (ElementHandle {
+                            item: ItemRc::new(popup_item_tree.clone(), 0).downgrade(),
+                            element_index: 0,
+                        })
+                        .visit_descendants_impl(visitor, active_popups)
+                        {
+                            return Some(result);
+                        }
+                    }
+                }
+                None
+            };
+
+        visit_attached_popups(&self_item, visitor);
+
+        self_item.visit_descendants(move |item_rc| {
             if !item_rc.is_visible() {
                 return ControlFlow::Continue(());
             }
+
+            if let Some(result) = visit_attached_popups(item_rc, visitor) {
+                return ControlFlow::Break(result);
+            }
+
             let elements = ElementHandle::collect_elements(item_rc.clone());
             for e in elements {
                 let result = visitor(e);
@@ -825,6 +874,23 @@ impl ElementHandle {
             i_slint_core::platform::WindowEvent::PointerReleased { position, button },
         );
     }
+
+    fn active_popups(&self) -> Vec<(ItemRc, ItemTreeRc)> {
+        self.item
+            .upgrade()
+            .and_then(|item| item.window_adapter())
+            .map(|window_adapter| {
+                let window = WindowInner::from_pub(window_adapter.window());
+                window
+                    .active_popups()
+                    .iter()
+                    .filter_map(|popup| {
+                        Some((popup.parent_item.upgrade()?, popup.component.clone()))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 }
 
 async fn wait_for(duration: std::time::Duration) {
@@ -1076,4 +1142,98 @@ fn test_opacity() {
         .unwrap()
         .computed_opacity()
         .approx_eq(&1.0));
+}
+
+#[test]
+fn test_popups() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            popup := PopupWindow {
+                close-policy: close-on-click-outside;
+                Rectangle {
+                    ok-label := Text {
+                        accessible-role: text;
+                        accessible-value: self.text;
+                        text: "Ok";
+                    }
+                    ta := TouchArea {
+                        clicked => {
+                            another-popup.show();
+                        }
+                        accessible-role: button;
+                        accessible-action-default => {
+                            another-popup.show();
+                        }
+                    }
+                    another-popup := PopupWindow {
+                        inner-rect := Rectangle {
+                            nested-label := Text {
+                                accessible-role: text;
+                                accessible-value: self.text;
+                                text: "Nested";
+                            }
+                        }
+                    }
+                }
+            }
+            Rectangle {
+            }
+            first-button := TouchArea {
+                clicked => {
+                    popup.show();
+                }
+                accessible-role: button;
+                accessible-action-default => {
+                    popup.show();
+                }
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+
+    let root = app.root_element();
+
+    assert!(root
+        .query_descendants()
+        .match_accessible_role(crate::AccessibleRole::Text)
+        .find_all()
+        .into_iter()
+        .filter_map(|elem| elem.accessible_label())
+        .collect::<Vec<_>>()
+        .is_empty());
+
+    root.query_descendants()
+        .match_id("App::first-button")
+        .find_first()
+        .unwrap()
+        .invoke_accessible_default_action();
+
+    assert_eq!(
+        root.query_descendants()
+            .match_accessible_role(crate::AccessibleRole::Text)
+            .find_all()
+            .into_iter()
+            .filter_map(|elem| elem.accessible_label())
+            .collect::<Vec<_>>(),
+        ["Ok"]
+    );
+
+    root.query_descendants()
+        .match_id("App::ta")
+        .find_first()
+        .unwrap()
+        .invoke_accessible_default_action();
+
+    assert_eq!(
+        root.query_descendants()
+            .match_accessible_role(crate::AccessibleRole::Text)
+            .find_all()
+            .into_iter()
+            .filter_map(|elem| elem.accessible_label())
+            .collect::<Vec<_>>(),
+        ["Nested", "Ok"]
+    );
 }
