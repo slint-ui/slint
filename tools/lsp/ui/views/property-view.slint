@@ -3,16 +3,16 @@
 
 import { Palette, VerticalBox, ScrollView }  from "std-widgets.slint";
 
-import { Api, ElementInformation, PropertyGroup } from "../api.slint";
+import { Api, ElementInformation, PropertyGroup, PropertyInformation, PropertyValueKind } from "../api.slint";
 import { GroupHeader } from "../components/group.slint";
-import { EditorSizeSettings } from "../components/styling.slint";
+import { EditorSizeSettings, EditorSpaceSettings } from "../components/styling.slint";
 
-import { ExpandableGroup } from "../components/property-widgets.slint";
+import { BooleanWidget, ColorWidget, CodeWidget, EnumWidget, ExpandableGroup, FloatWidget, IntegerWidget, StringWidget } from "../components/property-widgets.slint";
 
 export component PropertyView {
     in property <bool> enabled;
 
-    property <ElementInformation> current-element <=> Api.current-element;
+    property <ElementInformation> element-information <=> Api.current-element;
     property <[PropertyGroup]> properties <=> Api.properties;
 
     property <length> key-width: self.width / 2.5;
@@ -22,7 +22,7 @@ export component PropertyView {
 
     content-layer := VerticalLayout {
         GroupHeader {
-            title: @tr("{} Properties", root.current-element.type-name);
+            title: @tr("{} Properties", root.element-information.type-name);
             vertical-stretch: 0;
         }
 
@@ -38,13 +38,63 @@ export component PropertyView {
             groups := VerticalBox {
                 alignment: start;
 
-                for group in root.properties: ExpandableGroup {
+                for group in root.properties: eg := ExpandableGroup {
+                    property <[PropertyInformation]> properties: group.properties;
+                    
                     enabled: root.enabled;
 
                     text: group.group-name;
                     panel-width: content-layer.width;
-                    element-information <=> root.current-element;
-                    properties: group.properties;
+
+                    VerticalLayout {
+                        spacing: EditorSpaceSettings.property-spacing;
+                        padding-left: EditorSpaceSettings.group-indent;
+                        padding-right: EditorSpaceSettings.group-indent;
+                        padding-top: EditorSpaceSettings.default-padding;
+                        padding-bottom: EditorSpaceSettings.default-padding;
+
+                        for property in eg.properties: HorizontalLayout {
+                            alignment: stretch;
+
+                            if property.value.kind == PropertyValueKind.boolean: BooleanWidget {
+                                enabled: root.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                            if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
+                                enabled: root.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+
+                            if property.value.kind == PropertyValueKind.code: CodeWidget {
+                                enabled: root.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                            if property.value.kind == PropertyValueKind.enum:  EnumWidget {
+                                enabled: root.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                            if property.value.kind == PropertyValueKind.float: FloatWidget {
+                                enabled: root.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                            if property.value.kind == PropertyValueKind.integer: IntegerWidget {
+                                enabled: root.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                            if property.value.kind == PropertyValueKind.string: StringWidget {
+                                enabled: root.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                        }
+                    }
+                    
                 }
             }
         }

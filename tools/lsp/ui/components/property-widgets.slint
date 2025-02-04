@@ -121,7 +121,7 @@ component ResettingLineEdit {
     }
 }
 
-component CodeWidget inherits VerticalLayout {
+export component CodeWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -234,7 +234,7 @@ component SecondaryContent inherits Rectangle {
     }
 }
 
-component FloatWidget inherits VerticalLayout {
+export component FloatWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -321,7 +321,7 @@ component FloatWidget inherits VerticalLayout {
     }
 }
 
-component StringWidget {
+export component StringWidget {
     in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -429,7 +429,7 @@ component ColorLineEdit inherits HorizontalLayout {
     }
 }
 
-component ColorWidget inherits Rectangle {
+export component ColorWidget inherits Rectangle {
     in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -533,7 +533,7 @@ component ColorWidget inherits Rectangle {
     }
 }
 
-component IntegerWidget inherits VerticalLayout {
+export component IntegerWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -576,7 +576,7 @@ component IntegerWidget inherits VerticalLayout {
     }
 }
 
-component EnumWidget inherits VerticalLayout {
+export component EnumWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -606,7 +606,7 @@ component EnumWidget inherits VerticalLayout {
     }
 }
 
-component BooleanWidget inherits VerticalLayout {
+export component BooleanWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <ElementInformation> element-information;
     in property <PropertyInformation> property-information;
@@ -649,9 +649,7 @@ component BooleanWidget inherits VerticalLayout {
 
 export component ExpandableGroup {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
     in property <string> text;
-    in property <[PropertyInformation]> properties;
     in property <length> panel-width;
 
     property <bool> open: true;
@@ -700,56 +698,10 @@ export component ExpandableGroup {
                 }
             }
 
-            if root.open: Rectangle {
-                // background: Palette.alternate-background;
-                VerticalLayout {
-                    spacing: EditorSpaceSettings.property-spacing;
-                    padding-left: EditorSpaceSettings.group-indent;
-                    padding-right: EditorSpaceSettings.group-indent;
-                    padding-top: EditorSpaceSettings.default-padding;
-                    padding-bottom: EditorSpaceSettings.default-padding;
+            Rectangle {
+                height: root.open ? self.preferred-height : 0px;
 
-                    for property in root.properties: HorizontalLayout {
-                        alignment: stretch;
-
-                        if property.value.kind == PropertyValueKind.boolean: BooleanWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
-                        if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
-
-                        if property.value.kind == PropertyValueKind.code: CodeWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
-                        if property.value.kind == PropertyValueKind.enum:  EnumWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
-                        if property.value.kind == PropertyValueKind.integer: IntegerWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
-                        if property.value.kind == PropertyValueKind.string: StringWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
-                        if property.value.kind == PropertyValueKind.float: FloatWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
-                    }
-                }
+                @children
             }
         }
     }
