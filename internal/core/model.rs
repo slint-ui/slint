@@ -315,10 +315,15 @@ impl<M: Model> Model for Rc<M> {
 }
 
 /// A [`Model`] backed by a `Vec<T>`, using interior mutability.
-#[derive(Default)]
 pub struct VecModel<T> {
     array: RefCell<Vec<T>>,
     notify: ModelNotify,
+}
+
+impl<T> Default for VecModel<T> {
+    fn default() -> Self {
+        Self { array: Default::default(), notify: Default::default() }
+    }
 }
 
 impl<T: 'static> VecModel<T> {
@@ -1539,5 +1544,16 @@ mod tests {
 
         assert_eq!(model.iter().max().unwrap(), 9);
         assert_eq!(model.max_requested_row.get(), 9);
+    }
+
+    #[test]
+    fn vecmodel_doesnt_require_default() {
+        #[derive(Clone)]
+        struct MyNoDefaultType {
+            _foo: bool,
+        }
+        let model = VecModel::<MyNoDefaultType>::default();
+        assert_eq!(model.row_count(), 0);
+        model.push(MyNoDefaultType { _foo: true });
     }
 }
