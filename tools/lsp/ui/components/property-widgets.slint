@@ -700,7 +700,7 @@ export component ExpandableGroup {
 
             Rectangle {
                 height: root.open ? self.preferred-height : 0px;
-
+                clip: true;
                 @children
             }
         }
