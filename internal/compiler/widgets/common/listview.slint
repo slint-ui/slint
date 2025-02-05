@@ -155,6 +155,17 @@ component StandardListViewBase inherits ListView {
             }
         }
     }
+
+    changed model => {
+        if root.model.length == 0 {
+            self.current-item = -1;
+            return;
+        }
+
+        self.current-item = min(self.current-item, root.model.length - 1);
+        debug(self.current-item);
+        self.focus-current-item();
+    }
 }
 
 export component StandardListView inherits StandardListViewBase {
