@@ -128,6 +128,16 @@ export component StandardTableView {
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
+    in property <bool> enabled <=> scroll-view.enabled;
+    out property <length> visible-width <=> scroll-view.visible-width;
+    out property <length> visible-height <=> scroll-view.visible-height;
+    in-out property <bool> has-focus <=> scroll-view.has-focus;
+    in-out property <length> viewport-width <=> scroll-view.viewport-width;
+    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    in-out property <length> viewport-x <=> scroll-view.viewport-x;
+    in-out property <length> viewport-y <=> scroll-view.viewport-y;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
 
     callback sort-ascending(column: int);
     callback sort-descending(column: int);

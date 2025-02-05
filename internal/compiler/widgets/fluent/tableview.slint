@@ -7,21 +7,21 @@ import { ListView } from "../common/listview.slint";
 component TableViewColumn inherits Rectangle {
     in property <SortOrder> sort-order: SortOrder.unsorted;
 
-    callback clicked <=> i-touch-area.clicked;
+    callback clicked <=> touch-area.clicked;
     callback adjust_size(length);
 
     background: FluentPalette.background;
 
     states [
-        pressed when i-touch-area.pressed : {
+        pressed when touch-area.pressed : {
             background: FluentPalette.control-secondary;
         }
-        hover when i-touch-area.has-hover : {
+        hover when touch-area.has-hover : {
             background: FluentPalette.sub-title-tertiary;
         }
     ]
 
-    i-touch-area := TouchArea {
+    touch-area := TouchArea {
         width: parent.width - 11px;
     }
 
@@ -34,7 +34,7 @@ component TableViewColumn inherits Rectangle {
             @children
         }
 
-        i-icon := Image {
+        icon := Image {
             image-fit: contain;
             colorize: FluentPalette.text-secondary;
             visible: root.sort-order != SortOrder.unsorted;
@@ -59,14 +59,14 @@ component TableViewColumn inherits Rectangle {
         width: 1px;
 
         states [
-            hover when i-movable-touch-area.has-hover : {
+            hover when movable-touch-area.has-hover : {
                 background: FluentPalette.control-secondary;
             }
         ]
 
         animate background { duration: 150ms; }
 
-        i-movable-touch-area := TouchArea {
+        movable-touch-area := TouchArea {
             width: 10px;
             mouse-cursor: ew-resize;
 
@@ -96,29 +96,29 @@ component TableViewRow inherits Rectangle {
     in property <bool> selected;
     in property <bool> even;
 
-    callback clicked <=> i-touch-area.clicked;
+    callback clicked <=> touch-area.clicked;
     callback pointer-event(event: PointerEvent, position: Point);
 
-    min-width: i-layout.min-width;
-    min-height: max(34px, i-layout.min-height);
+    min-width: layout.min-width;
+    min-height: max(34px, layout.min-height);
     border-radius: 4px;
     background: root.even ? FluentPalette.control-background : transparent;
 
     states [
-        pressed when i-touch-area.pressed : {
+        pressed when touch-area.pressed : {
             root.background: selected ? FluentPalette.subtle-secondary : FluentPalette.subtle-tertiary;
         }
-        hover when i-touch-area.has-hover : {
+        hover when touch-area.has-hover : {
             root.background: selected ? FluentPalette.subtle-tertiary : FluentPalette.subtle-secondary;
-            i-selector.height: root.selected ? 16px : 0;
+            selector.height: root.selected ? 16px : 0;
         }
         selected when root.selected : {
             root.background: FluentPalette.subtle-secondary;
-            i-selector.height: 16px;
+            selector.height: 16px;
         }
     ]
 
-    i-touch-area := TouchArea {
+    touch-area := TouchArea {
         pointer-event(pe) => {
             root.pointer-event(pe, {
                 x: self.absolute-position.x + self.mouse-x,
@@ -127,11 +127,11 @@ component TableViewRow inherits Rectangle {
         }
     }
 
-    i-layout := HorizontalLayout {
+    layout := HorizontalLayout {
        @children
     }
 
-    i-selector := Rectangle {
+    selector := Rectangle {
         x: 0px;
         y: (parent.height - self.height) / 2;
         width: 3px;
@@ -148,6 +148,16 @@ export component StandardTableView {
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
+    in property <bool> enabled <=> scroll-view.enabled;
+    out property <length> visible-width <=> scroll-view.visible-width;
+    out property <length> visible-height <=> scroll-view.visible-height;
+    in-out property <bool> has-focus <=> scroll-view.has-focus;
+    in-out property <length> viewport-width <=> scroll-view.viewport-width;
+    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    in-out property <length> viewport-x <=> scroll-view.viewport-x;
+    in-out property <length> viewport-y <=> scroll-view.viewport-y;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
 
     callback sort-ascending(column: int);
     callback sort-descending(column: int);
@@ -163,17 +173,17 @@ export component StandardTableView {
         current-row-changed(current-row);
 
         if (current-item-y < 0) {
-            i-scroll-view.viewport-y += 0 - current-item-y;
+            scroll-view.viewport-y += 0 - current-item-y;
         }
 
-        if (current-item-y + item-height > i-scroll-view.visible-height) {
-            i-scroll-view.viewport-y -= current-item-y + item-height - i-scroll-view.visible-height;
+        if (current-item-y + item-height > scroll-view.visible-height) {
+            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
         }
     }
 
     private property <length> min-header-height: 42px;
-    private property <length> item-height: i-scroll-view.viewport-height / rows.length;
-    private property <length> current-item-y: i-scroll-view.viewport-y + current-row * item-height;
+    private property <length> item-height: scroll-view.viewport-height / rows.length;
+    private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
 
     function sort(index: int) {
         if (root.current-sort-column != index) {
@@ -195,18 +205,18 @@ export component StandardTableView {
     min-height: 200px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
-    forward-focus: i-focus-scope;
+    forward-focus: focus-scope;
     accessible-role: table;
 
     VerticalLayout {
         Rectangle {
             clip: true;
             vertical-stretch: 0;
-            min-height: i-header-layout.min-height;
+            min-height: header-layout.min-height;
 
-            i-header-layout := HorizontalLayout {
+            header-layout := HorizontalLayout {
                 width: max(self.preferred-width, parent.width);
-                x: i-scroll-view.viewport-x;
+                x: scroll-view.viewport-x;
                 padding-right: 6px;
                 min-height: root.min-header-height;
 
@@ -237,7 +247,7 @@ export component StandardTableView {
             }
         }
 
-        i-scroll-view := ListView {
+        scroll-view := ListView {
             for row[idx] in root.rows : TableViewRow {
                 selected: idx == root.current-row;
                 even: mod(idx, 2) == 0;
@@ -279,7 +289,7 @@ export component StandardTableView {
         }
     }
 
-    i-focus-scope := FocusScope {
+    focus-scope := FocusScope {
         x: 0;
         width: 0; // Do not react on clicks
 
