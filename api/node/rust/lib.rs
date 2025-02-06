@@ -36,13 +36,9 @@ pub enum ProcessEventsResult {
 #[napi]
 pub fn process_events() -> napi::Result<ProcessEventsResult> {
     // Using std::time::Duration::Zero with the winit backend in wayland causes slint to consume 100% of a cpu core
-    // https://github.com/slint-ui/slint/issues/5780 
+    // https://github.com/slint-ui/slint/issues/5780
     let min_timeout = std::time::Duration::from_millis(16);
-    let timeout = if *IS_WAYLAND {
-        min_timeout
-    } else {
-        std::time::Duration::ZERO
-    };
+    let timeout = if *IS_WAYLAND { min_timeout } else { std::time::Duration::ZERO };
 
     i_slint_backend_selector::with_platform(|b| {
         b.process_events(timeout, i_slint_core::InternalToken)
