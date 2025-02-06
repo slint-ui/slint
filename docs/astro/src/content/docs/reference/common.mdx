@@ -122,10 +122,40 @@ not support layer opacity and this will result in a different end result as show
 
 <CodeSnippetMD skip="true" imagePath="/src/assets/generated/layer-opacity.png" scale="3" imageWidth="150" imageHeight="390"  imageAlt='layer opacity'>
 ```slint playground
+export component CheckerBoardRow inherits HorizontalLayout {
+    property <length> size: 15px;
+    property <int> columns: root.width / size;
+    in property <bool> isOdd: true;
+    property <int> isModOdd: isOdd ? 1 : 0;
+
+    height: size;
+    width: 200px;
+    for i in columns : Rectangle {
+        width: size;
+        height: size;
+        background: i.mod(2) == isModOdd ? #262626 : #2c2c2e;
+    }
+}
+
+export component CheckerBoard inherits VerticalLayout {
+    in property <length> size: 15px;
+    property <int> rows: root.height / size;
+
+    width: 200px;
+    height: 400px;
+    for i in rows : CheckerBoardRow {
+        isOdd: i.mod(2) != 0;
+
+    }
+}
 export component ExportedComponent2 inherits Window {
     width: 150px;
     height: 410px;
     background: transparent;
+    CheckerBoard {
+        width: parent.width;
+        height: parent.height;
+    }
 
     VerticalLayout {
         spacing: 15px;
@@ -187,7 +217,7 @@ export component ExportedComponent2 inherits Window {
             }
 
             Text {
-                text: "Without Layer Opacity";
+                text: "Without Layer Opacity\n(Software Renderer Only)";
                 color: white;
                 horizontal-alignment: center;
             }
