@@ -710,7 +710,6 @@ fn call_builtin_function(
                 )),
                 Default::default(),
             );
-            inst.run_setup_code();
 
             generativity::make_guard!(guard);
             let inst_ref = inst.unerase(guard);
@@ -761,12 +760,13 @@ fn call_builtin_function(
             }
             component.access_window(|window| {
                 window.show_popup(
-                    &vtable::VRc::into_dyn(inst),
+                    &vtable::VRc::into_dyn(inst.clone()),
                     position,
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                 )
             });
+            inst.run_setup_code();
             Value::Void
         }
         BuiltinFunction::SetSelectionOffsets => {

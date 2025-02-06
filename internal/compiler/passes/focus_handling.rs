@@ -44,7 +44,11 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
 
         // Phase 3b: also for PopupWindow
         recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-            if elem.borrow().builtin_type().is_some_and(|b| b.name == "PopupWindow") {
+            if elem
+                .borrow()
+                .builtin_type()
+                .is_some_and(|b| matches!(b.name.as_str(), "Window" | "PopupWindow"))
+            {
                 local_forwards.gen_focus_functions(elem);
             }
         });

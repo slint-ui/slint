@@ -2845,13 +2845,13 @@ fn compile_builtin_function_call(
                 let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                 let parent_weak = _self.self_weak.get().unwrap().clone();
                 #init_popup
-                #popup_id::user_init(popup_instance_vrc.clone());
                 sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
                     position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
                 );
+                #popup_id::user_init(popup_instance_vrc);
             })
         }
         BuiltinFunction::SetSelectionOffsets => {
