@@ -10,51 +10,27 @@ import { StateLayer } from "../components/state-layer.slint";
 import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorFontSettings } from "../components/styling.slint";
 
 component CodeButton inherits Button {
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
-
     text: @tr("Code");
-    clicked => {
-        Api.show-document-offset-range(
-            element-information.source-uri,
-            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-            true,
-        );
-    }
 }
 
 component ResetButton inherits Button {
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
-
     text: @tr("Reset");
-
-    clicked => {
-        Api.set-code-binding(
-            element-information.source-uri,
-            element-information.source-version,
-            element-information.range.start,
-            property-information.name,
-            "",
-        );
-    }
 }
 
 component NameLabel inherits HorizontalLayout {
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
 
     horizontal-stretch: 0;
 
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
 
-        text: root.property-information.name;
+        text: root.property-name;
 
         font-size: 1rem;
-        font-weight: property-information.value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
-        font-italic: property-information.value.code == "";
+        font-weight: root.property-value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
+        font-italic: root.property-value.code == "";
 
         overflow: elide;
     }
@@ -121,19 +97,21 @@ component ResettingLineEdit {
     }
 }
 
-export component CodeWidget inherits VerticalLayout {
+component CodeWidget inherits VerticalLayout {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback code-action();
+    callback reset-action();
 
     padding-bottom: EditorSpaceSettings.default-spacing;
-
     NameLabel {
-        property-information: property-information;
-        element-information: element-information;
+        property-name: root.property-name;
+        property-value: root.property-value;
     }
 
-    if property-information.value.code == "": Rectangle {
+    if root.property-value.code == "": Rectangle {
         min-height: 2rem;
         width: 100%;
         background: Palette.alternate-background;
@@ -145,18 +123,20 @@ export component CodeWidget inherits VerticalLayout {
             font-italic: true;
         }
     }
-    if property-information.value.code != "": HorizontalLayout {
+    if root.property-value.code != "": HorizontalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         ResetButton {
             enabled: root.enabled;
-            element-information <=> element-information;
-            property-information: property-information;
+            clicked() => {
+                root.reset-action();
+            }
         }
 
         CodeButton {
             enabled: root.enabled;
-            element-information <=> element-information;
-            property-information: property-information;
+            clicked() => {
+                root.code-action();
+            }
         }
     }
 }
@@ -188,13 +168,13 @@ component ChildIndicator {
 }
 
 component SecondaryContent inherits Rectangle {
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
     in property <bool> enabled;
-
     in property <bool> open: false;
 
     callback reset();
+
+    callback code-action();
+    callback reset-action();
 
     background: Palette.background;
     clip: true;
@@ -219,27 +199,32 @@ component SecondaryContent inherits Rectangle {
                 spacing: EditorSpaceSettings.default-spacing;
                 ResetButton {
                     enabled: root.enabled;
-                    element-information <=> element-information;
-                    property-information: property-information;
-                    clicked() => { root.reset(); }
+                    clicked() => {
+                        root.reset-action();
+                        root.reset();
+                    }
                 }
 
                 CodeButton {
                     enabled: root.enabled;
-                    element-information <=> element-information;
-                    property-information: property-information;
+                    clicked() => {
+                        root.code-action();
+                    }
                 }
             }
         }
     }
 }
 
-export component FloatWidget inherits VerticalLayout {
+component FloatWidget inherits VerticalLayout {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
 
-    private property <string> current-unit: find_current_unit(property-information.value);
+    callback test-float-binding(text: string) -> bool;
+    callback set-float-binding(text: string);
+
+    private property <string> current-unit: find_current_unit(property-value);
 
     pure function find_current_unit(value: PropertyValue) -> string {
         if value.visual-items.length == 0 {
@@ -255,18 +240,12 @@ export component FloatWidget inherits VerticalLayout {
     width: 100%;
 
     NameLabel {
-        property-information: root.property-information;
-        element-information: root.element-information;
+        property-name: root.property-name;
+        property-value: root.property-value;
     }
 
     function set-binding() {
-        Api.set-code-binding(
-            self.element-information.source-uri,
-            self.element-information.source-version,
-            self.element-information.range.start,
-            self.property-information.name,
-            number.text == "" ? "" : number.text + self.current-unit,
-        );
+        root.set-float-binding(number.text == "" ? "" : number.text + self.current-unit);
     }
 
     HorizontalLayout {
@@ -280,16 +259,10 @@ export component FloatWidget inherits VerticalLayout {
             min-width: EditorSizeSettings.float-size;
             horizontal-stretch: 0;
 
-            default-text: property-information.value.value-float;
+            default-text: property-value.value-float;
 
             edited(text) => {
-                self.can-compile = Api.test-code-binding(
-                    root.element-information.source-uri,
-                    root.element-information.source-version,
-                    root.element-information.range.start,
-                    root.property-information.name,
-                    number.text == "" ? "" : number.text + root.current-unit,
-                );
+                self.can-compile = test-float-binding(number.text == "" ? "" : number.text + root.current-unit);
             }
 
             accepted(text) => {
@@ -297,22 +270,22 @@ export component FloatWidget inherits VerticalLayout {
             }
         }
 
-        if property-information.value.visual-items.length > 1: ComboBox {
+        if property-value.visual-items.length > 1: ComboBox {
             enabled: root.enabled;
 
             horizontal-stretch: 0;
 
             min-width: EditorSizeSettings.length-combo;
-            model: property-information.value.visual-items;
-            current-index: root.find_current_index(root.property-information.value);
+            model: property-value.visual-items;
+            current-index: root.find_current_index(root.property-value);
 
             selected(unit) => {
                 root.current-unit = unit;
-                set-binding();
+                root.set-float-binding(number.text == "" ? "" : number.text + root.current-unit);
             }
         }
-        if property-information.value.visual-items.length == 1: Text {
-            text: property-information.value.visual-items[0];
+        if property-value.visual-items.length == 1: Text {
+            text: property-value.visual-items[0];
 
             changed text => {
                 root.current-unit = self.text;
@@ -321,21 +294,27 @@ export component FloatWidget inherits VerticalLayout {
     }
 }
 
-export component StringWidget {
+component StringWidget {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback code-action();
+    callback reset-action();
+
+    callback test-string-binding(text: string) -> bool;
+    callback set-string-binding(text: string);
 
     property <bool> open: false;
 
-           childIndicator := ChildIndicator {
-        y: content.y + EditorSpaceSettings.default-spacing/2;
+    childIndicator := ChildIndicator {
+        y: content.y + EditorSpaceSettings.default-spacing / 2;
     }
 
     VerticalLayout {
         NameLabel {
-            element-information: element-information;
-            property-information: property-information;
+            property-name: root.property-name;
+            property-value: root.property-value;
         }
 
         content := HorizontalLayout {
@@ -343,41 +322,26 @@ export component StringWidget {
             height: 2rem;
             ResettingLineEdit {
                 enabled: root.enabled;
-                default-text: property-information.value.value-string;
+                default-text: property-value.value-string;
                 edited(text) => {
-                    self.can-compile = Api.test-string-binding(
-                        root.element-information.source-uri,
-                        root.element-information.source-version,
-                        root.element-information.range.start,
-                        property-information.name,
-                        text,
-                        property-information.value.is-translatable,
-                        property-information.value.tr-context,
-                        property-information.value.tr-plural,
-                        property-information.value.tr-plural-expression,
-                    );
+                    self.can-compile = root.test-string-binding(text);
                 }
                 accepted(text) => {
-                    Api.set-string-binding(
-                        root.element-information.source-uri,
-                        root.element-information.source-version,
-                        root.element-information.range.start,
-                        property-information.name,
-                        text,
-                        property-information.value.is-translatable,
-                        property-information.value.tr-context,
-                        property-information.value.tr-plural,
-                        property-information.value.tr-plural-expression,
-                    );
+                    root.set-string-binding(text);
                 }
             }
         }
 
         sub := SecondaryContent {
             enabled: root.enabled;
-            element-information: element-information;
-            property-information: property-information;
             open: childIndicator.open;
+
+            code-action() => {
+                root.code-action();
+            }
+            reset-action => {
+                root.reset-action();
+            }
 
             CheckBox {
                 enabled: root.enabled;
@@ -397,7 +361,7 @@ component ColorLineEdit inherits HorizontalLayout {
     in property <string> channel: "R";
     in-out property <int> value;
 
-          alignment: stretch;
+    alignment: stretch;
     spacing: EditorSpaceSettings.default-spacing;
 
     Text {
@@ -429,25 +393,32 @@ component ColorLineEdit inherits HorizontalLayout {
     }
 }
 
-export component ColorWidget inherits Rectangle {
+component ColorWidget inherits Rectangle {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
 
     private property <bool> open: false;
-    private property <color> current-color: property-information.value.value-brush;
+
+    callback code-action();
+    callback reset-action();
+
+    callback test-color-binding(text: string) -> bool;
+    callback set-color-binding(text: string);
+
+    private property <color> current-color: property-value.value-brush;
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 
     childIndicator := ChildIndicator {
-        y: content.y + EditorSpaceSettings.default-spacing/2;
+        y: content.y + EditorSpaceSettings.default-spacing / 2;
     }
 
     all := VerticalLayout {
         padding-bottom: EditorSpaceSettings.default-spacing;
         width: 100%;
         NameLabel {
-            property-information: root.property-information;
-            element-information: root.element-information;
+            property-name: root.property-name;
+            property-value: root.property-value;
         }
 
         content := HorizontalLayout {
@@ -464,7 +435,7 @@ export component ColorWidget inherits Rectangle {
                     self.can-compile = true;
                         color-preview.background = Colors.transparent;
                     } else {
-                        self.can-compile = Api.string-is-color(text);
+                        self.can-compile = root.test-color-binding(text);
                         if self.can-compile {
                             color-preview.background = Api.string-to-color(text);
                         }
@@ -472,13 +443,7 @@ export component ColorWidget inherits Rectangle {
                 }
 
                 accepted(text) => {
-                    Api.set-code-binding(
-                        root.element-information.source-uri,
-                        root.element-information.source-version,
-                        root.element-information.range.start,
-                        root.property-information.name,
-                        text,
-                    );
+                    root.set-color-binding(text);
                 }
             }
 
@@ -500,7 +465,6 @@ export component ColorWidget inherits Rectangle {
             }
 
             open: childIndicator.open;
-
 
             r := ColorLineEdit {
                 enabled: root.enabled;
@@ -527,20 +491,30 @@ export component ColorWidget inherits Rectangle {
             }
 
             reset => {
-                root.current-color = root.property-information.value.value-brush;
+                root.current-color = root.property-value.value-brush;
+            }
+
+            code-action() => {
+                root.code-action();
+            }
+            reset-action() => {
+                root.reset-action();
             }
         }
     }
 }
 
-export component IntegerWidget inherits VerticalLayout {
+component IntegerWidget inherits VerticalLayout {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback test-integer-binding(text: string) -> bool;
+    callback set-integer-binding(text: string);
 
     NameLabel {
-        property-information: property-information;
-        element-information: element-information;
+        property-name: root.property-name;
+        property-value: root.property-value;
     }
 
     HorizontalLayout {
@@ -551,69 +525,54 @@ export component IntegerWidget inherits VerticalLayout {
             horizontal-alignment: right;
             input-type: number;
 
-            default-text: property-information.value.value-int;
+            default-text: property-value.value-int;
 
             edited(text) => {
-                self.can-compile = Api.test-code-binding(
-                    element-information.source-uri,
-                    element-information.source-version,
-                    element-information.range.start,
-                    property-information.name,
-                    text,
-                );
+                self.can-compile = test-integer-binding(text);
             }
-
             accepted(text) => {
-                Api.set-code-binding(
-                    element-information.source-uri,
-                    element-information.source-version,
-                    element-information.range.start,
-                    property-information.name,
-                    text,
-                );
+                set-integer-binding(text);
             }
         }
     }
 }
 
-export component EnumWidget inherits VerticalLayout {
+component EnumWidget inherits VerticalLayout {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback set-enum-binding(text: string);
 
     NameLabel {
-        property-information: property-information;
-        element-information: element-information;
+        property-name: root.property-name;
+        property-value: root.property-value;
     }
 
     HorizontalLayout {
         ComboBox {
             enabled: root.enabled;
-            current-index: property-information.value.value-int;
+            current-index: property-value.value-int;
 
-            model: property-information.value.visual-items;
+            model: property-value.visual-items;
 
             selected(value) => {
-                Api.set-code-binding(
-            element-information.source-uri,
-            element-information.source-version,
-            element-information.range.start,
-            property-information.name,
-            property-information.value.value_string + "." + value,
-        )
+                root.set-enum-binding(property-value.value-string + "." + value);
             }
         }
     }
 }
 
-export component BooleanWidget inherits VerticalLayout {
+component BooleanWidget inherits VerticalLayout {
     in property <bool> enabled;
-    in property <ElementInformation> element-information;
-    in property <PropertyInformation> property-information;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback set-bool-binding(text: string);
 
     NameLabel {
-        property-information: property-information;
-        element-information: element-information;
+        property-name: root.property-name;
+        property-value: root.property-value;
     }
 
     HorizontalLayout {
@@ -629,20 +588,161 @@ export component BooleanWidget inherits VerticalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 checkbox := CheckBox {
                     enabled: root.enabled;
-                    checked: property-information.value.value_bool;
+                    checked: property-value.value_bool;
                     text: self.checked ? "True" : "False";
 
                     toggled() => {
-                        Api.set-code-binding(
-                            element-information.source-uri,
-                            element-information.source-version,
-                            element-information.range.start,
-                            property-information.name,
-                            self.checked ? "true" : "false",
-                        );
+                        root.set-bool-binding(self.checked ? "true" : "false");
                     }
                 }
             }
+        }
+    }
+}
+
+export component PropertyValueWidget inherits HorizontalLayout {
+    in property <PropertyInformation> property-information;
+    in property <ElementInformation> element-information;
+    in property <bool> enabled;
+    alignment: stretch;
+
+    function set-code-binding(text: string) {
+        Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.range.start,
+            property-information.name,
+            text,
+        );
+    }
+
+    function test-code-binding(text: string) -> bool {
+        return (Api.test-code-binding(
+            root.element-information.source-uri,
+            root.element-information.source-version,
+            root.element-information.range.start,
+            root.property-information.name,
+            text,
+        ));
+    }
+
+    function reset-action() {
+        set-code-binding("");
+    }
+
+    function code-action() {
+        Api.show-document-offset-range(
+            element-information.source-uri,
+            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+            true,
+        );
+    }
+
+    if root.property-information.value.kind == PropertyValueKind.boolean: BooleanWidget {
+        enabled <=> root.enabled;
+        property-name: root.property-information.name;
+        property-value: root.property-information.value;
+
+        set-bool-binding(text) => {
+            root.set-code-binding(text);
+        }
+    }
+    if (root.property-information.value.kind == PropertyValueKind.color) || (root.property-information.value.kind == PropertyValueKind.brush): ColorWidget {
+        enabled <=> root.enabled;
+        property-name: root.property-information.name;
+        property-value: root.property-information.value;
+
+        test-color-binding(text) => {
+            return (Api.string-is-color(text));
+        }
+        set-color-binding(text) => {
+            root.set-code-binding(text);
+        }
+    }
+
+    if root.property-information.value.kind == PropertyValueKind.code: CodeWidget {
+        enabled <=> root.enabled;
+        property-name: root.property-information.name;
+        property-value: root.property-information.value;
+
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
+        }
+    }
+    if root.property-information.value.kind == PropertyValueKind.enum:  EnumWidget {
+        enabled <=> root.enabled;
+        property-name: root.property-information.name;
+        property-value: root.property-information.value;
+
+        set-enum-binding(text) => {
+            root.set-code-binding(text);
+        }
+    }
+    if root.property-information.value.kind == PropertyValueKind.float: FloatWidget {
+        enabled <=> root.enabled;
+        property-name: root.property-information.name;
+        property-value: root.property-information.value;
+
+        test-float-binding(text) => {
+            return (root.test-code-binding(text));
+        }
+        set-float-binding(text) => {
+            root.set-code-binding(text);
+        }
+    }
+    if root.property-information.value.kind == PropertyValueKind.integer: IntegerWidget {
+        enabled <=> root.enabled;
+        property-name: root.property-information.name;
+        property-value: root.property-information.value;
+
+        test-integer-binding(text) => {
+            return (root.test-code-binding(text));
+        }
+        set-integer-binding(text) => {
+            root.set-code-binding(text);
+        }
+    }
+    if root.property-information.value.kind == PropertyValueKind.string: StringWidget {
+        enabled <=> root.enabled;
+        property-name: root.property-information.name;
+        property-value: root.property-information.value;
+
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
+        }
+
+        test-string-binding(text) => {
+            return Api.test-string-binding(
+                root.element-information.source-uri,
+                root.element-information.source-version,
+                root.element-information.range.start,
+                property-information.name,
+                text,
+                property-information.value.is-translatable,
+                property-information.value.tr-context,
+                property-information.value.tr-plural,
+                property-information.value.tr-plural-expression,
+            );
+        }
+        set-string-binding(text) => {
+            Api.set-string-binding(
+                root.element-information.source-uri,
+                root.element-information.source-version,
+                root.element-information.range.start,
+                property-information.name,
+                text,
+                property-information.value.is-translatable,
+                property-information.value.tr-context,
+                property-information.value.tr-plural,
+                property-information.value.tr-plural-expression,
+            );
         }
     }
 }
@@ -675,7 +775,7 @@ export component ExpandableGroup {
 
                 HorizontalLayout {
                     padding-left: -EditorSpaceSettings.group-indent;
-                    spacing: EditorSpaceSettings.default-spacing/2;
+                    spacing: EditorSpaceSettings.default-spacing / 2;
                     icon-image := Image {
                         width: EditorSizeSettings.default-icon-width;
                         colorize: Palette.alternate-foreground.transparentize(0.7);
@@ -706,4 +806,3 @@ export component ExpandableGroup {
         }
     }
 }
-

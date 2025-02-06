@@ -7,7 +7,7 @@ import { Api, ElementInformation, PropertyGroup, PropertyInformation, PropertyVa
 import { GroupHeader } from "../components/group.slint";
 import { EditorSizeSettings, EditorSpaceSettings } from "../components/styling.slint";
 
-import { BooleanWidget, ColorWidget, CodeWidget, EnumWidget, ExpandableGroup, FloatWidget, IntegerWidget, StringWidget } from "../components/property-widgets.slint";
+import { ExpandableGroup, PropertyValueWidget } from "../components/property-widgets.slint";
 
 export component PropertyView {
     in property <bool> enabled;
@@ -53,45 +53,10 @@ export component PropertyView {
                         padding-top: EditorSpaceSettings.default-padding;
                         padding-bottom: EditorSpaceSettings.default-padding;
 
-                        for property in eg.properties: HorizontalLayout {
-                            alignment: stretch;
-
-                            if property.value.kind == PropertyValueKind.boolean: BooleanWidget {
-                                enabled: root.enabled;
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
-                            if (property.value.kind == PropertyValueKind.color) || (property.value.kind == PropertyValueKind.brush): ColorWidget {
-                                enabled: root.enabled;
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
-
-                            if property.value.kind == PropertyValueKind.code: CodeWidget {
-                                enabled: root.enabled;
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
-                            if property.value.kind == PropertyValueKind.enum:  EnumWidget {
-                                enabled: root.enabled;
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
-                            if property.value.kind == PropertyValueKind.float: FloatWidget {
-                                enabled: root.enabled;
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
-                            if property.value.kind == PropertyValueKind.integer: IntegerWidget {
-                                enabled: root.enabled;
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
-                            if property.value.kind == PropertyValueKind.string: StringWidget {
-                                enabled: root.enabled;
-                                element-information <=> root.element-information;
-                                property-information: property;
-                            }
+                        for property in eg.properties: PropertyValueWidget {
+                            enabled: root.enabled;
+                            element-information <=> root.element-information;
+                            property-information: property;
                         }
                     }
 
