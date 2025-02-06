@@ -46,7 +46,7 @@ system-testing = ["i-slint-backend-selector/system-testing"]
 
 std = ["i-slint-core/default", "i-slint-core/image-default-formats", "i-slint-backend-selector"]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
-experimental = []
+experimental = ["i-slint-core/experimental"]
 
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 
