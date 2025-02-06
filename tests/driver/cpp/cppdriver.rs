@@ -86,13 +86,11 @@ namespace slint_testing = slint::private_api::testing;
 
     let mut cpp_file = tempfile::Builder::new().suffix(".cpp").tempfile()?;
 
-    cpp_file
-        .write(&generated_cpp)
-        .map_err(|err| format!("Error writing generated code: {}", err))?;
+    cpp_file.write(&generated_cpp).map_err(|err| format!("Error writing generated code: {err}"))?;
     cpp_file
         .as_file()
         .sync_all()
-        .map_err(|err| format!("Error flushing generated code to disk: {}", err))?;
+        .map_err(|err| format!("Error flushing generated code to disk: {err}"))?;
 
     let cpp_file = cpp_file.into_temp_path();
 
@@ -165,15 +163,15 @@ namespace slint_testing = slint::private_api::testing;
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|err| format!("Error launching testcase binary: {}", err))?
+        .map_err(|err| format!("Error launching testcase binary: {err}"))?
         .wait_with_output()
-        .map_err(|err| format!("Test case could not be run: {}", err))?;
+        .map_err(|err| format!("Test case could not be run: {err}"))?;
 
     if !output.status.success() {
         print!("{}", String::from_utf8_lossy(output.stdout.as_ref()));
         print!("{}", String::from_utf8_lossy(output.stderr.as_ref()));
         if let Some(exit_code) = output.status.code() {
-            return Err(format!("Test case exited with non-zero code: {}", exit_code).into());
+            return Err(format!("Test case exited with non-zero code: {exit_code}").into());
         } else {
             return Err("Test case exited by signal".into());
         }

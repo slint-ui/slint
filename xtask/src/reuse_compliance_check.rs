@@ -14,7 +14,7 @@ where
     I::Item: AsRef<OsStr>,
 {
     let home_dir = std::env::var("HOME").context("HOME is not set in the environment")?;
-    Ok(sh.cmd(command).args(args).env("PATH", &format!("/bin:/usr/bin:{}/.local/bin", home_dir)))
+    Ok(sh.cmd(command).args(args).env("PATH", &format!("/bin:/usr/bin:{home_dir}/.local/bin")))
 }
 
 pub fn find_reuse() -> Result<PathBuf> {

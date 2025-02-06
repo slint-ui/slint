@@ -39,7 +39,7 @@ impl DummyWeatherController {
                 return weather_data;
             }
             Err(e) => {
-                log::warn!("Cannot read dummy weather data! Error: {}", e);
+                log::warn!("Cannot read dummy weather data! Error: {e}");
             }
         }
 

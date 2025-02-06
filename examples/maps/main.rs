@@ -180,7 +180,7 @@ impl World {
                         let response = match response {
                             Ok(response) => response,
                             Err(err) => {
-                                eprintln!("Error loading {url}: {}", err);
+                                eprintln!("Error loading {url}: {err}");
                                 return slint::Image::default();
                             }
                         };
@@ -195,7 +195,7 @@ impl World {
                             let image = match image::load_from_memory(&bytes) {
                                 Ok(image) => image,
                                 Err(err) => {
-                                    eprintln!("Error reading {url}: {}", err);
+                                    eprintln!("Error reading {url}: {err}");
                                     return None;
                                 }
                             };

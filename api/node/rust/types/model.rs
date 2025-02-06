@@ -184,8 +184,7 @@ impl Model for JsModel {
             &[self.env.create_double(row as f64).unwrap().into_unknown(), js_data],
         ) {
             eprintln!(
-                "Node.js: JavaScript Model<T>'s setRowData function threw an exception: {}",
-                exception
+                "Node.js: JavaScript Model<T>'s setRowData function threw an exception: {exception}"
             );
         }
     }

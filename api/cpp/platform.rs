@@ -254,7 +254,7 @@ impl Platform for CppPlatform {
 
     #[cfg(feature = "esp-println")]
     fn debug_log(&self, arguments: core::fmt::Arguments) {
-        esp_println::println!("{}", arguments);
+        esp_println::println!("{arguments}");
     }
 }
 

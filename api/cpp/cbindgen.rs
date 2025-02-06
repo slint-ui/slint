@@ -262,7 +262,7 @@ extern "C" {{
 "#,
         items
             .iter()
-            .map(|item_name| format!("SLINT_DECL_ITEM({});", item_name))
+            .map(|item_name| format!("SLINT_DECL_ITEM({item_name});"))
             .collect::<Vec<_>>()
             .join("\n")
     )
@@ -644,7 +644,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("window.rs"))
             .with_include("slint_enums_internal.h")
             .generate()
-            .with_context(|| format!("Unable to generate bindings for {}", internal_header))?
+            .with_context(|| format!("Unable to generate bindings for {internal_header}"))?
             .write_to_file(include_dir.join(internal_header));
     }
 

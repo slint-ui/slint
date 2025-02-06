@@ -84,8 +84,7 @@ impl i_slint_core::model::Model for PyModelShared {
                 Ok(result) => result,
                 Err(err) => {
                     eprintln!(
-                        "Python: Model implementation of row_count() threw an exception: {}",
-                        err
+                        "Python: Model implementation of row_count() threw an exception: {err}"
                     );
                     return 0;
                 }
@@ -94,7 +93,7 @@ impl i_slint_core::model::Model for PyModelShared {
             match result.extract::<usize>(py) {
                 Ok(count) => count,
                 Err(err) => {
-                    eprintln!("Python: Model implementation of row_count() returned value that cannot be cast to usize: {}", err);
+                    eprintln!("Python: Model implementation of row_count() returned value that cannot be cast to usize: {err}");
                     0
                 }
             }
@@ -114,8 +113,7 @@ impl i_slint_core::model::Model for PyModelShared {
                 Err(err) if err.is_instance_of::<PyIndexError>(py) => return None,
                 Err(err) => {
                     eprintln!(
-                        "Python: Model implementation of row_data() threw an exception: {}",
-                        err
+                        "Python: Model implementation of row_data() threw an exception: {err}"
                     );
                     return None;
                 }
@@ -124,7 +122,7 @@ impl i_slint_core::model::Model for PyModelShared {
             match result.extract::<PyValue>(py) {
                 Ok(pv) => Some(pv.0),
                 Err(err) => {
-                    eprintln!("Python: Model implementation of row_data() returned value that cannot be converted to Rust: {}", err);
+                    eprintln!("Python: Model implementation of row_data() returned value that cannot be converted to Rust: {err}");
                     None
                 }
             }
@@ -141,8 +139,7 @@ impl i_slint_core::model::Model for PyModelShared {
 
             if let Err(err) = obj.call_method1(py, "set_row_data", (row, PyValue::from(data))) {
                 eprintln!(
-                    "Python: Model implementation of set_row_data() threw an exception: {}",
-                    err
+                    "Python: Model implementation of set_row_data() threw an exception: {err}"
                 );
             };
         });

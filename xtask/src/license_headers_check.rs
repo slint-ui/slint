@@ -201,7 +201,7 @@ impl<'a> SourceFileWithTags<'a> {
         let new_header = if next_char == Some(&b'\n') || next_char.is_none() {
             new_header
         } else {
-            format!("{}\n", new_header)
+            format!("{new_header}\n")
         };
 
         match loc {
@@ -842,7 +842,7 @@ impl LicenseHeaderCheck {
             if result.is_err() {
                 seen_errors = true;
                 if self.show_all {
-                    eprintln!("Error: {:?}", result);
+                    eprintln!("Error: {result:?}");
                 } else {
                     return result.map_err(|e| e.into());
                 }
@@ -1014,7 +1014,7 @@ impl LicenseHeaderCheck {
             }
             LicenseLocation::NoLicense => {
                 if self.verbose {
-                    println!("Skipping {} as configured", path_str);
+                    println!("Skipping {path_str} as configured");
                 }
                 Ok(())
             }

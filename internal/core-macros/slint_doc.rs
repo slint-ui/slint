@@ -58,7 +58,7 @@ impl Visitor {
                     .expect("invalid string in link-data.json");
                 format!("https://releases.slint.dev/{}/docs/slint/{dst}", env!("CARGO_PKG_VERSION"),)
             } else {
-                panic!("Unknown link {}", link);
+                panic!("Unknown link {link}");
             };
             doc.replace_range(pos..pos + NEEDLE.len() + link.len(), &dst);
             begin = pos + dst.len();

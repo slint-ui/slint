@@ -264,7 +264,7 @@ impl WeatherController for OpenWeatherController {
 
     fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(storage_path) = &self.storage_path {
-            log::debug!("Saving data to: {:?}", storage_path.to_str());
+            log::debug!("Saving data to: {:?}", storage_path.display());
 
             // Ensure the parent directories exist
             if let Some(parent_dir) = storage_path.parent() {

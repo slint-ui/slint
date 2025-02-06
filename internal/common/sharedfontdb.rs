@@ -154,7 +154,7 @@ fn init_fontdb() -> FontDatabase {
                         fontconfig_fallback_families = fallback_families;
                     }
                     Err(e) => {
-                        eprintln!("Error opening libfontconfig.so.1: {}", e);
+                        eprintln!("Error opening libfontconfig.so.1: {e}");
                     }
                 }
             }
