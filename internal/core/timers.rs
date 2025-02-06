@@ -284,7 +284,7 @@ impl TimerList {
                     }
                 }
 
-                for future_timer in timers_not_activated_this_time.into_iter() {
+                for future_timer in timers_not_activated_this_time.iter() {
                     timers.register_active_timer(*future_timer);
                 }
 

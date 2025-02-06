@@ -39,7 +39,7 @@ type GlyphCache = clru::CLruCache<
 crate::thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
     core::cell::RefCell::new(
         clru::CLruCache::with_config(
-            clru::CLruCacheConfig::new(core::num::NonZeroUsize::new(1 * 1024 * 1024).unwrap())
+            clru::CLruCacheConfig::new(core::num::NonZeroUsize::new(1024 * 1024).unwrap())
                 .with_scale(RenderableGlyphWeightScale)
         )
     )

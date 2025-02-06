@@ -237,8 +237,7 @@ fn main() {
     if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {
         let default_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
-            let _ =
-                std::path::Path::new(&panic_log_file).parent().map(|x| std::fs::create_dir_all(x));
+            let _ = std::path::Path::new(&panic_log_file).parent().map(std::fs::create_dir_all);
             if let Ok(mut file) = std::fs::File::create(&panic_log_file) {
                 let _ = writeln!(
                     file,

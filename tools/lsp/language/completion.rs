@@ -118,7 +118,7 @@ pub(crate) fn completion_at(
         });
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
         if let Some(colon) = n.child_token(SyntaxKind::Colon) {
-            if offset >= colon.text_range().end().into() {
+            if offset >= colon.text_range().end() {
                 return with_lookup_ctx(document_cache, node, |ctx| {
                     resolve_expression_scope(ctx, document_cache, snippet_support).map(Into::into)
                 })?;
@@ -137,7 +137,7 @@ pub(crate) fn completion_at(
     } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
         let double_arrow_range =
             n.children_with_tokens().find(|n| n.kind() == SyntaxKind::DoubleArrow)?.text_range();
-        if offset < double_arrow_range.end().into() {
+        if offset < double_arrow_range.end() {
             return None;
         }
         return with_lookup_ctx(document_cache, node, |ctx| {
@@ -146,8 +146,8 @@ pub(crate) fn completion_at(
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() == SyntaxKind::Whitespace || token.kind() == SyntaxKind::FatArrow {
             let ident = n.child_token(SyntaxKind::Identifier)?;
-            if offset >= ident.text_range().end().into()
-                && offset <= n.child_token(SyntaxKind::FatArrow)?.text_range().start().into()
+            if offset >= ident.text_range().end()
+                && offset <= n.child_token(SyntaxKind::FatArrow)?.text_range().start()
                 && ident.text() == "changed"
             {
                 return properties_for_changed_callbacks(node, document_cache);
@@ -357,7 +357,7 @@ pub(crate) fn completion_at(
     } else if let Some(c) = syntax_nodes::Component::new(node.clone()) {
         let id_range = c.DeclaredIdentifier().text_range();
         if !id_range.is_empty()
-            && offset >= id_range.end().into()
+            && offset >= id_range.end()
             && !c
                 .children_with_tokens()
                 .any(|c| c.as_token().map_or(false, |t| t.text() == "inherits"))
@@ -399,7 +399,7 @@ pub(crate) fn completion_at(
             return properties_for_changed_callbacks(parent, document_cache);
         }
     } else if node.kind() == SyntaxKind::PropertyChangedCallback {
-        if offset > node.child_token(SyntaxKind::Identifier)?.text_range().end().into() {
+        if offset > node.child_token(SyntaxKind::Identifier)?.text_range().end() {
             return properties_for_changed_callbacks(node, document_cache);
         }
     }
@@ -505,12 +505,12 @@ fn resolve_element_scope(
             }
             let mut lk = element_type.lookup_property(k);
             lk.is_local_to_component = false;
-            return lk.is_valid_for_assignment();
+            lk.is_valid_for_assignment()
         })
         .map(|(k, ty)| {
             let cb_args = if let Type::Callback(f) = &ty {
                 if with_snippets
-                    && f.args.len() >= 1
+                    && !f.args.is_empty()
                     && f.args.len() == f.arg_names.len()
                     && f.arg_names.iter().all(|x| !x.is_empty())
                 {
@@ -562,7 +562,7 @@ fn resolve_element_scope(
                             base_type
                         }
                     };
-                    return accepts_children(&base_type, tr);
+                    accepts_children(&base_type, tr)
                 }
                 ElementType::Builtin(builtin_element) => {
                     let mut extra: Vec<SmolStr> =
@@ -1502,10 +1502,10 @@ mod tests {
             res.iter().find(|ci| ci.label == "xyz").unwrap();
             res.iter().find(|ci| ci.label == "from_bar").unwrap();
 
-            assert!(res.iter().find(|ci| ci.label == "Text").is_none());
-            assert!(res.iter().find(|ci| ci.label == "edited").is_none());
-            assert!(res.iter().find(|ci| ci.label == "focus").is_none());
-            assert!(res.iter().find(|ci| ci.label == "nope").is_none());
+            assert!(!res.iter().any(|ci| ci.label == "Text"));
+            assert!(!res.iter().any(|ci| ci.label == "edited"));
+            assert!(!res.iter().any(|ci| ci.label == "focus"));
+            assert!(!res.iter().any(|ci| ci.label == "nope"));
         }
     }
 

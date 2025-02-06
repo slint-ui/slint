@@ -76,10 +76,10 @@ fn signature_info(
             .filter(|t| t.kind() == SyntaxKind::Identifier);
         let first_tok = it.next()?;
         let mut expr_it = i_slint_compiler::lookup::global_lookup()
-            .lookup(ctx, &i_slint_compiler::parser::normalize_identifier(&first_tok.text()))?;
+            .lookup(ctx, &i_slint_compiler::parser::normalize_identifier(first_tok.text()))?;
         for cur_tok in it {
             expr_it = expr_it
-                .lookup(ctx, &i_slint_compiler::parser::normalize_identifier(&cur_tok.text()))?;
+                .lookup(ctx, &i_slint_compiler::parser::normalize_identifier(cur_tok.text()))?;
         }
         Some(expr_it)
     })?;

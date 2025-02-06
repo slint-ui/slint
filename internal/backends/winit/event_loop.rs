@@ -40,8 +40,7 @@ impl NotRunningEventLoop {
     pub(crate) fn new(
         builder: Option<winit::event_loop::EventLoopBuilder<SlintUserEvent>>,
     ) -> Result<Self, PlatformError> {
-        let mut builder =
-            builder.unwrap_or_else(|| winit::event_loop::EventLoop::with_user_event());
+        let mut builder = builder.unwrap_or_else(winit::event_loop::EventLoop::with_user_event);
 
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
@@ -128,12 +127,12 @@ impl EventLoopInterface for NotRunningEventLoop {
     }
     #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
     fn is_wayland(&self) -> bool {
-        use winit::platform::wayland::EventLoopExtWayland;
-        return self.instance.is_wayland();
+        use winit::platform::wayland::EventLoopExtWayland as _;
+        self.instance.is_wayland()
     }
 }
 
-impl<'a> EventLoopInterface for RunningEventLoop<'a> {
+impl EventLoopInterface for RunningEventLoop<'_> {
     fn create_window(
         &self,
         window_attributes: winit::window::WindowAttributes,
@@ -145,8 +144,8 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
     }
     #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
     fn is_wayland(&self) -> bool {
-        use winit::platform::wayland::ActiveEventLoopExtWayland;
-        return self.active_event_loop.is_wayland();
+        use winit::platform::wayland::ActiveEventLoopExtWayland as _;
+        self.active_event_loop.is_wayland()
     }
 }
 
@@ -562,7 +561,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                         .process_accesskit_event(window_event);
                     // access kit adapter not borrowed anymore, now invoke the deferred action
                     if let Some(deferred_action) = deferred_action {
-                        deferred_action.invoke(&window.window());
+                        deferred_action.invoke(window.window());
                     }
                 }
             }

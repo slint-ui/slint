@@ -157,13 +157,8 @@ pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
         // The root element has no debug set if it is a window inserted by the compiler.
         // That window will have one child -- the "real root", but it might
         // have a few more compiler-generated nodes in front or behind the "real root"!
-        let child = root_element
-            .borrow()
-            .children
-            .iter()
-            .filter(|c| !c.borrow().debug.is_empty())
-            .next()
-            .cloned();
+        let child =
+            root_element.borrow().children.iter().find(|c| !c.borrow().debug.is_empty()).cloned();
         child.unwrap_or(root_element)
     } else {
         root_element
@@ -208,7 +203,7 @@ fn collect_all_element_nodes_covering_impl(
         collect_all_element_nodes_covering_impl(position, component_instance, c, result);
     }
 
-    if let Some(geometry) = element_covers_point(position, component_instance, &current_element) {
+    if let Some(geometry) = element_covers_point(position, component_instance, current_element) {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !common::is_element_node_ignored(&d.node)
                 && !d.node.source_file.path().starts_with("builtin:/")
@@ -218,7 +213,7 @@ fn collect_all_element_nodes_covering_impl(
                     element: ce.clone(),
                     debug_index: i,
                     is_in_root_component: false,
-                    geometry: geometry.clone(),
+                    geometry,
                 });
             }
         }
@@ -373,28 +368,23 @@ pub fn selection_stack_at(
                 })
                 .unwrap_or_default();
 
-            if path.strip_prefix("/@").is_err() {
-                if path != PathBuf::new() {
-                    if longest_path_prefix == PathBuf::new() {
-                        longest_path_prefix = path.clone();
-                    } else {
-                        longest_path_prefix =
-                            std::iter::zip(longest_path_prefix.components(), path.components())
-                                .take_while(|(l, p)| l == p)
-                                .map(|(l, _)| l)
-                                .collect();
-                    }
+            if path.strip_prefix("/@").is_err() && path != PathBuf::new() {
+                if longest_path_prefix == PathBuf::new() {
+                    longest_path_prefix = path.clone();
+                } else {
+                    longest_path_prefix =
+                        std::iter::zip(longest_path_prefix.components(), path.components())
+                            .take_while(|(l, p)| l == p)
+                            .map(|(l, _)| l)
+                            .collect();
                 }
             }
 
-            let width = (sc.geometry.size.width as f32 / root_geometry.size.width as f32) * 100.0;
-            let height =
-                (sc.geometry.size.height as f32 / root_geometry.size.height as f32) * 100.0;
-            let x = ((sc.geometry.origin.x as f32 + root_geometry.origin.x)
-                / root_geometry.size.width as f32)
+            let width = (sc.geometry.size.width / root_geometry.size.width) * 100.0;
+            let height = (sc.geometry.size.height / root_geometry.size.height) * 100.0;
+            let x = ((sc.geometry.origin.x + root_geometry.origin.x) / root_geometry.size.width)
                 * 100.0;
-            let y = ((sc.geometry.origin.y as f32 + root_geometry.origin.y)
-                / root_geometry.size.height as f32)
+            let y = ((sc.geometry.origin.y + root_geometry.origin.y) / root_geometry.size.height)
                 * 100.0;
 
             let is_interactive = known_components
@@ -426,16 +416,14 @@ pub fn selection_stack_at(
         let new_file_name = {
             if let Some(library) = file_name.to_string_lossy().strip_prefix("/@") {
                 format!("@{library:?}")
+            } else if file_name == longest_path_prefix {
+                file_name.file_name().unwrap_or_default().to_string_lossy().to_string()
             } else {
-                if file_name == longest_path_prefix {
-                    file_name.file_name().unwrap_or_default().to_string_lossy().to_string()
-                } else {
-                    file_name
-                        .strip_prefix(&longest_path_prefix)
-                        .unwrap_or(&file_name)
-                        .to_string_lossy()
-                        .to_string()
-                }
+                file_name
+                    .strip_prefix(&longest_path_prefix)
+                    .unwrap_or(&file_name)
+                    .to_string_lossy()
+                    .to_string()
             }
         };
         frame.file_name = new_file_name.into();
@@ -695,7 +683,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&select.path_and_offset(), covers_center.get(0).unwrap());
+        assert_eq!(&select.path_and_offset(), covers_center.first().unwrap());
 
         // Try to move towards the viewer:
         assert!(super::select_element_behind_impl(
@@ -772,7 +760,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(0).unwrap());
+        assert_eq!(&prev.path_and_offset(), covers_center.first().unwrap());
 
         // Select with crossing component boundaries
         // --------------------------------------------------------------------
@@ -782,7 +770,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&select.path_and_offset(), covers_center.get(0).unwrap());
+        assert_eq!(&select.path_and_offset(), covers_center.first().unwrap());
 
         // Move deeper into the image:
         let next = super::select_element_behind_impl(
@@ -849,7 +837,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(0).unwrap());
+        assert_eq!(&prev.path_and_offset(), covers_center.first().unwrap());
 
         assert!(super::select_element_behind_impl(
             &component_instance,

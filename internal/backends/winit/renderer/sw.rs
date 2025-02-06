@@ -118,7 +118,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 buffer: &'a mut [u32],
                 line: Vec<i_slint_core::software_renderer::Rgb565Pixel>,
             }
-            impl<'a> i_slint_core::software_renderer::LineBufferProvider for FrameBuffer<'a> {
+            impl i_slint_core::software_renderer::LineBufferProvider for FrameBuffer<'_> {
                 type TargetPixel = i_slint_core::software_renderer::Rgb565Pixel;
                 fn process_line(
                     &mut self,

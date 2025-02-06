@@ -17,7 +17,7 @@ pub enum Placement {
 pub fn place_popup(placement: Placement, clip_region: &Option<LogicalRect>) -> LogicalRect {
     match placement {
         Placement::Fixed(rect) => {
-            let clip = clip_region.unwrap_or_else(|| rect.clone());
+            let clip = clip_region.unwrap_or(rect);
             if clip.contains_rect(&rect) {
                 rect
             } else {
@@ -48,7 +48,7 @@ fn r(x: i32, y: i32, w: i32, h: i32) -> LogicalRect {
 #[track_caller]
 fn fixed_placement(input: LogicalRect, expected: LogicalRect, clip: Option<LogicalRect>) {
     std::eprintln!("fixed: {input:?}, clip({clip:?}) => {expected:?}");
-    let result = place_popup(Placement::Fixed(input.clone()), &clip);
+    let result = place_popup(Placement::Fixed(input), &clip);
     if let Some(clip) = clip {
         clip.contains_rect(&result);
     }
@@ -58,27 +58,27 @@ fn fixed_placement(input: LogicalRect, expected: LogicalRect, clip: Option<Logic
 #[test]
 fn test_place_popup_fixed_unclipped() {
     let data = r(5, 5, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
 
     let data = r(5, -20, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
     let data = r(2000, -20, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
     let data = r(2000, 5, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
     let data = r(2000, 2000, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
     let data = r(5, 2000, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
     let data = r(-20, 2000, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
     let data = r(-20, 5, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
     let data = r(-20, -20, 100, 100);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
 
     let data = r(-20, -20, 2000, 2000);
-    fixed_placement(data.clone(), data, None);
+    fixed_placement(data, data, None);
 }
 
 #[test]
@@ -114,219 +114,179 @@ fn test_place_popup_fixed_clipped() {
             assert!(clip_height > 105 && clip_height < 1000);
 
             // smaller, inside
-            fixed_placement(r(x_c, y_c, 100, 100), r(x_c, y_c, 100, 100), Some(clip.clone()));
+            fixed_placement(r(x_c, y_c, 100, 100), r(x_c, y_c, 100, 100), Some(clip));
 
             // smaller, partial outside
-            fixed_placement(r(x_c, y_n, 100, 100), r(x_c, y_min, 100, 100), Some(clip.clone()));
-            fixed_placement(
-                r(x_e, y_n, 100, 100),
-                r(x_max - 100, y_min, 100, 100),
-                Some(clip.clone()),
-            );
-            fixed_placement(
-                r(x_e, y_c, 100, 100),
-                r(x_max - 100, y_c, 100, 100),
-                Some(clip.clone()),
-            );
+            fixed_placement(r(x_c, y_n, 100, 100), r(x_c, y_min, 100, 100), Some(clip));
+            fixed_placement(r(x_e, y_n, 100, 100), r(x_max - 100, y_min, 100, 100), Some(clip));
+            fixed_placement(r(x_e, y_c, 100, 100), r(x_max - 100, y_c, 100, 100), Some(clip));
             fixed_placement(
                 r(x_e, y_s, 100, 100),
                 r(x_max - 100, y_max - 100, 100, 100),
-                Some(clip.clone()),
+                Some(clip),
             );
-            fixed_placement(
-                r(x_c, y_s, 100, 100),
-                r(x_c, y_max - 100, 100, 100),
-                Some(clip.clone()),
-            );
-            fixed_placement(
-                r(x_c, y_s, 100, 100),
-                r(x_c, y_max - 100, 100, 100),
-                Some(clip.clone()),
-            );
-            fixed_placement(
-                r(x_w, y_s, 100, 100),
-                r(x_min, y_max - 100, 100, 100),
-                Some(clip.clone()),
-            );
-            fixed_placement(r(x_w, y_c, 100, 100), r(x_min, y_c, 100, 100), Some(clip.clone()));
-            fixed_placement(r(x_w, y_n, 100, 100), r(x_min, y_min, 100, 100), Some(clip.clone()));
+            fixed_placement(r(x_c, y_s, 100, 100), r(x_c, y_max - 100, 100, 100), Some(clip));
+            fixed_placement(r(x_c, y_s, 100, 100), r(x_c, y_max - 100, 100, 100), Some(clip));
+            fixed_placement(r(x_w, y_s, 100, 100), r(x_min, y_max - 100, 100, 100), Some(clip));
+            fixed_placement(r(x_w, y_c, 100, 100), r(x_min, y_c, 100, 100), Some(clip));
+            fixed_placement(r(x_w, y_n, 100, 100), r(x_min, y_min, 100, 100), Some(clip));
 
             // smaller, totally outside
-            fixed_placement(r(x_c, -2000, 100, 100), r(x_c, y_min, 100, 100), Some(clip.clone()));
-            fixed_placement(
-                r(2000, -2000, 100, 100),
-                r(x_max - 100, y_min, 100, 100),
-                Some(clip.clone()),
-            );
-            fixed_placement(
-                r(2000, y_c, 100, 100),
-                r(x_max - 100, y_c, 100, 100),
-                Some(clip.clone()),
-            );
+            fixed_placement(r(x_c, -2000, 100, 100), r(x_c, y_min, 100, 100), Some(clip));
+            fixed_placement(r(2000, -2000, 100, 100), r(x_max - 100, y_min, 100, 100), Some(clip));
+            fixed_placement(r(2000, y_c, 100, 100), r(x_max - 100, y_c, 100, 100), Some(clip));
             fixed_placement(
                 r(2000, 2000, 100, 100),
                 r(x_max - 100, y_max - 100, 100, 100),
-                Some(clip.clone()),
+                Some(clip),
             );
-            fixed_placement(
-                r(x_c, 2000, 100, 100),
-                r(x_c, y_max - 100, 100, 100),
-                Some(clip.clone()),
-            );
-            fixed_placement(
-                r(-2000, 2000, 100, 100),
-                r(x_min, y_max - 100, 100, 100),
-                Some(clip.clone()),
-            );
-            fixed_placement(r(-2000, y_c, 100, 100), r(x_min, y_c, 100, 100), Some(clip.clone()));
-            fixed_placement(
-                r(-2000, -2000, 100, 100),
-                r(x_min, y_min, 100, 100),
-                Some(clip.clone()),
-            );
+            fixed_placement(r(x_c, 2000, 100, 100), r(x_c, y_max - 100, 100, 100), Some(clip));
+            fixed_placement(r(-2000, 2000, 100, 100), r(x_min, y_max - 100, 100, 100), Some(clip));
+            fixed_placement(r(-2000, y_c, 100, 100), r(x_min, y_c, 100, 100), Some(clip));
+            fixed_placement(r(-2000, -2000, 100, 100), r(x_min, y_min, 100, 100), Some(clip));
 
             // matching size, covering
             fixed_placement(
                 r(x_min, y_min, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
 
             // matching size, overlapping
             fixed_placement(
                 r(x_c, y_c, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_c, y_n, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
 
             fixed_placement(
                 r(x_e, y_n, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_e, y_c, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_e, y_s, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_c, y_s, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_w, y_s, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_w, y_c, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_w, y_n, clip_width, clip_height),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
 
             // too big, overlapping
             fixed_placement(
                 r(x_c, y_c, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_c, y_n, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_e, y_n, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_e, y_c, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_e, y_s, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_c, y_s, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_w, y_s, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_w, y_c, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_w, y_n, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
 
             // too big, outside
             fixed_placement(
                 r(x_c, -3000, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(3000, -3000, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(3000, y_c, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(3000, 3000, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(x_c, 3000, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(-3000, 3000, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(-3000, y_c, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
             fixed_placement(
                 r(-3000, -3000, clip_width + 5, clip_height + 5),
                 r(x_min, y_min, clip_width, clip_height),
-                Some(clip.clone()),
+                Some(clip),
             );
         }
     }

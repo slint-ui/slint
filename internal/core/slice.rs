@@ -42,16 +42,16 @@ pub struct Slice<'a, T> {
     phantom: PhantomData<&'a [T]>,
 }
 
-impl<'a, T: Debug> Debug for Slice<'a, T> {
+impl<T: Debug> Debug for Slice<'_, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.as_slice().fmt(f)
     }
 }
 
 // Need to implement manually otherwise it is not implemented if T do not implement Copy / Clone
-impl<'a, T> Copy for Slice<'a, T> {}
+impl<T> Copy for Slice<'_, T> {}
 
-impl<'a, T> Clone for Slice<'a, T> {
+impl<T> Clone for Slice<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
@@ -81,14 +81,14 @@ impl<'a, T> From<&'a [T]> for Slice<'a, T> {
     }
 }
 
-impl<'a, T> core::ops::Deref for Slice<'a, T> {
+impl<T> core::ops::Deref for Slice<'_, T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<'a, T> Default for Slice<'a, T> {
+impl<T> Default for Slice<'_, T> {
     fn default() -> Self {
         Self::from_slice(&[])
     }

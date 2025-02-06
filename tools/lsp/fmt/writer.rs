@@ -22,7 +22,7 @@ pub struct FileWriter<'a, W> {
     pub file: &'a mut W,
 }
 
-impl<'a, W: Write> TokenWriter for FileWriter<'a, W> {
+impl<W: Write> TokenWriter for FileWriter<'_, W> {
     fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()> {
         self.file.write_all(token.text().as_bytes())
     }

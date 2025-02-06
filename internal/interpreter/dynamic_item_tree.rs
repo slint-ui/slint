@@ -449,7 +449,7 @@ fn internal_properties_to_public<'a>(
             })
             .map(|n| n.to_smolstr())
             .unwrap_or_else(|| s.to_smolstr());
-        (name, v.property_type.clone(), v.visibility.clone())
+        (name, v.property_type.clone(), v.visibility)
     })
 }
 

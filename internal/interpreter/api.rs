@@ -474,7 +474,7 @@ fn value_model_conversion() {
     assert_eq!(int_model.row_count(), 2);
     assert_eq!(int_model.iter().collect::<Vec<_>>(), vec![42, 12]);
 
-    let Value::Model(m3) = int_model.clone().try_into().unwrap() else { panic!("not a model?") };
+    let Value::Model(m3) = int_model.clone().into() else { panic!("not a model?") };
     assert_eq!(m3.row_count(), 2);
     assert_eq!(m3.iter().collect::<Vec<_>>(), vec![Value::Number(42.), Value::Number(12.)]);
 
@@ -2215,7 +2215,7 @@ export component Foo2 inherits Window  {
 
     let (handle, path) = compile(code);
 
-    for i in 0..code.as_bytes().len() as u32 {
+    for i in 0..code.len() as u32 {
         let elements = handle.element_node_at_source_code_position(&path, i);
         eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
         match i {

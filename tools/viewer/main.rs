@@ -161,7 +161,7 @@ fn main() -> Result<()> {
         for (name, _) in c.properties() {
             match component.get_property(&name).unwrap().to_json() {
                 Ok(v) => {
-                    obj.insert(name.into(), v);
+                    obj.insert(name, v);
                 }
                 Err(e) => {
                     eprintln!("Failed to turn property {name} into JSON: {e}");

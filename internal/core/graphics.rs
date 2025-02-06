@@ -16,7 +16,6 @@ use crate::lengths::LogicalLength;
 use crate::Coord;
 use crate::SharedString;
 use alloc::boxed::Box;
-use alloc::format;
 
 pub use euclid;
 /// 2D Rectangle
@@ -59,7 +58,7 @@ pub use border_radius::*;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
-/// for a lazy computation. Typically back ends store either compute intensive data or handles that refer to
+/// for a lazy computation. Typically, back ends store either compute intensive data or handles that refer to
 /// data that's stored in GPU memory.
 pub struct CachedGraphicsData<T> {
     /// The backend specific data.
@@ -197,13 +196,13 @@ impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
         match requested_graphics_api {
             RequestedGraphicsAPI::OpenGL(requested_open_glversion) => Ok(requested_open_glversion),
             RequestedGraphicsAPI::Metal => {
-                Err(format!("Metal rendering is not supported with an OpenGL renderer").into())
+                Err("Metal rendering is not supported with an OpenGL renderer".into())
             }
             RequestedGraphicsAPI::Vulkan => {
-                Err(format!("Vulkan rendering is not supported with an OpenGL renderer").into())
+                Err("Vulkan rendering is not supported with an OpenGL renderer".into())
             }
             RequestedGraphicsAPI::Direct3D => {
-                Err(format!("Direct3D rendering is not supported with an OpenGL renderer").into())
+                Err("Direct3D rendering is not supported with an OpenGL renderer".into())
             }
         }
     }

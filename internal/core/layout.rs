@@ -684,7 +684,7 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
         std::env::var("XDG_CURRENT_DESKTOP")
             .ok()
             .and_then(|v| v.as_bytes().first().copied())
-            .map_or(false, |x| x.to_ascii_uppercase() == b'K')
+            .map_or(false, |x| x.eq_ignore_ascii_case(&b'K'))
     }
     #[cfg(not(feature = "std"))]
     let is_kde = || true;

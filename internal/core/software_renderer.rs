@@ -325,7 +325,7 @@ fn region_line_ranges(
             line_ranges.retain_mut(|it| {
                 if let Some(r) = &mut tmp {
                     if it.end < r.start {
-                        return true;
+                        true
                     } else if it.start <= r.start {
                         if it.end >= r.end {
                             tmp = None;
@@ -346,19 +346,17 @@ fn region_line_ranges(
                         return true;
                     }
                 } else {
-                    return true;
+                    true
                 }
             });
             if let Some(r) = tmp {
                 line_ranges.push(r);
             }
             continue;
-        } else {
-            if geom.min.y >= line {
-                match &mut next_validity {
-                    Some(val) => *val = geom.min.y.min(*val),
-                    None => next_validity = Some(geom.min.y),
-                }
+        } else if geom.min.y >= line {
+            match &mut next_validity {
+                Some(val) => *val = geom.min.y.min(*val),
+                None => next_validity = Some(geom.min.y),
             }
         }
     }
@@ -1091,7 +1089,7 @@ struct RenderToBuffer<'a, TargetPixel> {
     dirty_region: PhysicalRegion,
 }
 
-impl<'a, T: TargetPixel> RenderToBuffer<'a, T> {
+impl<T: TargetPixel> RenderToBuffer<'_, T> {
     fn foreach_ranges(
         &mut self,
         geometry: &PhysicalRect,
@@ -1144,7 +1142,7 @@ impl<'a, T: TargetPixel> RenderToBuffer<'a, T> {
     }
 }
 
-impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
+impl<T: TargetPixel> ProcessScene for RenderToBuffer<'_, T> {
     fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         self.process_texture_impl(geometry, texture)
     }
@@ -1662,7 +1660,7 @@ struct RenderState {
     clip: LogicalRect,
 }
 
-impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {
+impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
     #[allow(clippy::unnecessary_cast)] // Coord!
     fn draw_rectangle(
         &mut self,
@@ -2330,6 +2328,6 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     }
 }
 
-impl<'a, T: ProcessScene> crate::item_rendering::ItemRendererFeatures for SceneBuilder<'a, T> {
+impl<T: ProcessScene> crate::item_rendering::ItemRendererFeatures for SceneBuilder<'_, T> {
     const SUPPORTS_TRANSFORMATIONS: bool = false;
 }

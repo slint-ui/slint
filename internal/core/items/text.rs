@@ -882,14 +882,10 @@ impl Item for TextInput {
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyReleased => {
-                return match Self::FIELD_OFFSETS
-                    .key_released
-                    .apply_pin(self)
-                    .call(&(event.clone(),))
-                {
+                match Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),)) {
                     EventResult::Accept => KeyEventResult::EventAccepted,
                     EventResult::Reject => KeyEventResult::EventIgnored,
-                };
+                }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 let cursor = self.cursor_position(&self.text()) as i32;
@@ -2083,11 +2079,11 @@ pub fn slint_text_item_fontmetrics(
     item_ref: Pin<ItemRef<'_>>,
 ) -> FontMetrics {
     if let Some(simple_text) = ItemRef::downcast_pin::<SimpleText>(item_ref) {
-        simple_text.font_metrics(&window_adapter)
+        simple_text.font_metrics(window_adapter)
     } else if let Some(complex_text) = ItemRef::downcast_pin::<ComplexText>(item_ref) {
-        complex_text.font_metrics(&window_adapter)
+        complex_text.font_metrics(window_adapter)
     } else if let Some(text_input) = ItemRef::downcast_pin::<TextInput>(item_ref) {
-        text_input.font_metrics(&window_adapter)
+        text_input.font_metrics(window_adapter)
     } else {
         Default::default()
     }

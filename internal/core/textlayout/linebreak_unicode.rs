@@ -14,7 +14,7 @@ pub struct LineBreakIterator<'a> {
     phantom: PhantomData<&'a str>,
 }
 
-impl<'a> LineBreakIterator<'a> {
+impl LineBreakIterator<'_> {
     pub fn new(text: &str) -> Self {
         let iterator = unicode_linebreak::linebreaks(text).filter(|(offset, opportunity)| {
             // unicode-linebreaks emits a mandatory break at the end of the text. We're not interested
@@ -26,7 +26,7 @@ impl<'a> LineBreakIterator<'a> {
     }
 }
 
-impl<'a> Iterator for LineBreakIterator<'a> {
+impl Iterator for LineBreakIterator<'_> {
     type Item = (usize, unicode_linebreak::BreakOpportunity);
 
     fn next(&mut self) -> Option<Self::Item> {

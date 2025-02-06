@@ -647,7 +647,7 @@ impl WinitWindowAdapter {
         let Some(self_) = self_weak.upgrade() else { return };
         let winit_window_or_none = self_.winit_window_or_none.borrow();
         match &*winit_window_or_none {
-            WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => callback(&accesskit_adapter),
+            WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => callback(accesskit_adapter),
             WinitWindowOrNone::None(..) => {}
         }
     }
@@ -816,20 +816,18 @@ impl WindowAdapter for WinitWindowAdapter {
                 Err(_) => None,
             },
             WinitWindowOrNone::None(attributes) => {
-                attributes.borrow().position.and_then(|pos| {
+                attributes.borrow().position.map(|pos| {
                     match pos {
                         winit::dpi::Position::Physical(phys_pos) => {
-                            Some(corelib::api::PhysicalPosition::new(phys_pos.x, phys_pos.y))
+                            corelib::api::PhysicalPosition::new(phys_pos.x, phys_pos.y)
                         }
                         winit::dpi::Position::Logical(logical_pos) => {
                             // Best effort: Use the last known scale factor
-                            Some(
-                                corelib::api::LogicalPosition::new(
-                                    logical_pos.x as _,
-                                    logical_pos.y as _,
-                                )
-                                .to_physical(self.window().scale_factor()),
+                            corelib::api::LogicalPosition::new(
+                                logical_pos.x as _,
+                                logical_pos.y as _,
                             )
+                            .to_physical(self.window().scale_factor())
                         }
                     }
                 })

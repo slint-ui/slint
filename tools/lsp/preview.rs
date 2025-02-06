@@ -384,7 +384,7 @@ fn rename_component(
     if let Ok(edit) = rename_component::find_declaration_node(
         &document_cache,
         &identifiers
-            .get(0)
+            .first()
             .unwrap()
             .child_token(i_slint_compiler::parser::SyntaxKind::Identifier)
             .unwrap(),
@@ -441,7 +441,7 @@ fn evaluate_binding(
 }
 
 fn convert_simple_string(input: slint::SharedString) -> String {
-    format!("\"{}\"", str::escape_debug(&input.to_string()))
+    format!("\"{}\"", str::escape_debug(input.as_ref()))
 }
 
 fn convert_string(
@@ -684,7 +684,7 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
         let preview_state = preview_state.borrow();
 
         if let Some(component) = preview_state.known_components.get(component_index as usize) {
-            drop_location::can_drop_at(&document_cache, position, &component)
+            drop_location::can_drop_at(&document_cache, position, component)
         } else {
             false
         }
@@ -1232,10 +1232,7 @@ async fn reload_timer_function() {
                     };
                     let (path, pos) = element_node.with_element_node(|node| {
                         let sf = &node.source_file;
-                        (
-                            sf.path().to_owned(),
-                            util::text_size_to_lsp_position(sf, se.offset.into()),
-                        )
+                        (sf.path().to_owned(), util::text_size_to_lsp_position(sf, se.offset))
                     });
                     ask_editor_to_show_document(
                         &path.to_string_lossy(),
@@ -1446,7 +1443,7 @@ fn set_preview_factory(
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
 pub fn highlight(url: Option<Url>, offset: TextSize) {
-    let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(&u).ok()) else {
+    let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
         return;
     };
 
@@ -1603,7 +1600,7 @@ fn set_selected_element(
         let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
         let (layout_kind, parent_layout_kind) = selection_node
             .as_ref()
-            .map(|en| (en.layout_kind(), element_selection::parent_layout_kind(&en)))
+            .map(|en| (en.layout_kind(), element_selection::parent_layout_kind(en)))
             .unwrap_or((ui::LayoutKind::None, ui::LayoutKind::None));
         let type_name = selection_node
             .and_then(|n| {

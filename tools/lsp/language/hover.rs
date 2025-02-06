@@ -84,10 +84,10 @@ fn from_property_in_type(base: &ElementType, name: &str) -> Option<MarkupContent
 fn property_tooltip(ty: &Type, name: &str, pure: bool) -> Option<MarkupContent> {
     let pure = if pure { "pure " } else { "" };
     if let Type::Callback(callback) = ty {
-        let sig = signature_from_function_ty(&callback);
+        let sig = signature_from_function_ty(callback);
         Some(from_slint_code(&format!("{pure}callback {name}{sig}")))
     } else if let Type::Function(function) = &ty {
-        let sig = signature_from_function_ty(&function);
+        let sig = signature_from_function_ty(function);
         Some(from_slint_code(&format!("{pure}function {name}{sig}")))
     } else if ty.is_property_type() {
         Some(from_slint_code(&format!("property <{ty}> {name}")))

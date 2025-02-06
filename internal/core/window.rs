@@ -296,7 +296,7 @@ pub struct LayoutConstraints {
 /// element, and is used with [`WindowAdapter::update_window_properties`].
 pub struct WindowProperties<'a>(&'a WindowInner);
 
-impl<'a> WindowProperties<'a> {
+impl WindowProperties<'_> {
     /// Returns the Window's title
     pub fn title(&self) -> SharedString {
         self.0.window_item().map(|w| w.as_pin_ref().title()).unwrap_or_default()
@@ -1365,7 +1365,7 @@ impl WindowInner {
 
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
-        &*self.ctx
+        &self.ctx
     }
 }
 

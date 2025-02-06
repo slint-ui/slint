@@ -73,7 +73,7 @@ pub fn fallbackfont(font_request: &super::FontRequest, scale_factor: ScaleFactor
             .query_with_family(query, None)
             .expect("fatal: query for fallback font returned empty font list");
 
-        let fontdue_font = get_or_create_fontdue_font(&fonts, fallback_font_id);
+        let fontdue_font = get_or_create_fontdue_font(fonts, fallback_font_id);
         VectorFont::new(fallback_font_id, fontdue_font, requested_pixel_size)
     })
 }

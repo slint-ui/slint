@@ -95,7 +95,7 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
     }
 }
 
-impl<'a, Font: TextShaper> Iterator for TextLineBreaker<'a, Font> {
+impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
     type Item = TextLine<Font::Length>;
 
     fn next(&mut self) -> Option<Self::Item> {

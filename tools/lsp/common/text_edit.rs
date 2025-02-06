@@ -494,7 +494,7 @@ fn test_edit_iterator_changes_two() {
     for r in EditIterator::new(&workspace_edit) {
         // random order!
         if r.0.uri.to_string() == "file://foo/bar.slint" {
-            assert_eq!(seen1, false);
+            assert!(!seen1);
             assert_eq!(&r.0.uri.to_string(), "file://foo/bar.slint");
             assert_eq!(r.0.version, None);
             assert_eq!(&r.1.new_text, "Replacement");
@@ -502,7 +502,7 @@ fn test_edit_iterator_changes_two() {
             assert_eq!(&r.1.range.end, &lsp_types::Position::new(41, 22));
             seen1 = true;
         } else {
-            assert_eq!(seen2, false);
+            assert!(!seen2);
             assert_eq!(&r.0.uri.to_string(), "file://foo/baz.slint");
             assert_eq!(r.0.version, None);
             assert_eq!(&r.1.new_text, "Foo");
@@ -766,9 +766,9 @@ fn test_edit_iterator_document_mixed() {
     for r in EditIterator::new(&workspace_edit) {
         // random order!
         if r.0.uri.to_string() == "file://foo/bar.slint" {
-            assert_eq!(seen[0], false);
-            assert_eq!(seen[2], false);
-            assert_eq!(seen[3], false);
+            assert!(!seen[0]);
+            assert!(!seen[2]);
+            assert!(!seen[3]);
             assert_eq!(&r.0.uri.to_string(), "file://foo/bar.slint");
             assert_eq!(r.0.version, None);
             assert_eq!(&r.1.new_text, "Replacement");
@@ -776,9 +776,9 @@ fn test_edit_iterator_document_mixed() {
             assert_eq!(&r.1.range.end, &lsp_types::Position::new(41, 22));
             seen[0] = true;
         } else if r.0.uri.to_string() == "file://foo/baz.slint" {
-            assert_eq!(seen[1], false);
-            assert_eq!(seen[2], false);
-            assert_eq!(seen[3], false);
+            assert!(!seen[1]);
+            assert!(!seen[2]);
+            assert!(!seen[3]);
             assert_eq!(&r.0.uri.to_string(), "file://foo/baz.slint");
             assert_eq!(r.0.version, None);
             assert_eq!(&r.1.new_text, "Foo");
@@ -786,10 +786,10 @@ fn test_edit_iterator_document_mixed() {
             assert_eq!(&r.1.range.end, &lsp_types::Position::new(43, 12));
             seen[1] = true;
         } else if r.0.uri.to_string() == "file://doc/bar.slint" {
-            assert_eq!(seen[0], true);
-            assert_eq!(seen[1], true);
-            assert_eq!(seen[2], false);
-            assert_eq!(seen[3], false);
+            assert!(seen[0]);
+            assert!(seen[1]);
+            assert!(!seen[2]);
+            assert!(!seen[3]);
             assert_eq!(&r.0.uri.to_string(), "file://doc/bar.slint");
             assert_eq!(r.0.version, Some(99));
             assert_eq!(&r.1.new_text, "Doc Replacement");
@@ -797,10 +797,10 @@ fn test_edit_iterator_document_mixed() {
             assert_eq!(&r.1.range.end, &lsp_types::Position::new(41, 22));
             seen[2] = true;
         } else {
-            assert_eq!(seen[0], true);
-            assert_eq!(seen[1], true);
-            assert_eq!(seen[2], true);
-            assert_eq!(seen[3], false);
+            assert!(seen[0]);
+            assert!(seen[1]);
+            assert!(seen[2]);
+            assert!(!seen[3]);
             assert_eq!(&r.0.uri.to_string(), "file://doc/baz.slint");
             assert_eq!(r.0.version, Some(98));
             assert_eq!(&r.1.new_text, "Doc Foo");

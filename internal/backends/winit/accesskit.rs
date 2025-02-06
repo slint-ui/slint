@@ -287,7 +287,7 @@ impl NodeCollection {
                     })
                     .map(|focus_item| self.find_node_id_by_item_rc(focus_item))
             })
-            .unwrap_or_else(|| self.root_node_id)
+            .unwrap_or(self.root_node_id)
     }
 
     fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {

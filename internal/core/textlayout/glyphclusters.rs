@@ -40,8 +40,8 @@ impl<'a, Length> GlyphClusterIterator<'a, Length> {
     }
 }
 
-impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign> Iterator
-    for GlyphClusterIterator<'a, Length>
+impl<Length: Copy + Clone + Zero + core::ops::AddAssign> Iterator
+    for GlyphClusterIterator<'_, Length>
 {
     type Item = GlyphCluster<Length>;
 

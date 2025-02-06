@@ -143,7 +143,7 @@ struct ToLyonPathEventIterator<'a> {
     last: Option<&'a lyon_path::math::Point>,
 }
 
-impl<'a> Iterator for ToLyonPathEventIterator<'a> {
+impl Iterator for ToLyonPathEventIterator<'_> {
     type Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
     fn next(&mut self) -> Option<Self::Item> {
         use lyon_path::Event;
@@ -179,7 +179,7 @@ impl<'a> Iterator for ToLyonPathEventIterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
+impl ExactSizeIterator for ToLyonPathEventIterator<'_> {}
 
 struct TransformedLyonPathIterator<EventIt> {
     it: EventIt,

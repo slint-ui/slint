@@ -88,7 +88,7 @@ struct TestingLineBuffer<'a> {
     region: Option<IntRect>,
 }
 
-impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
+impl LineBufferProvider for TestingLineBuffer<'_> {
     type TargetPixel = Rgb8Pixel;
 
     fn process_line(

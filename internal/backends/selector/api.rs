@@ -21,6 +21,7 @@ use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
 ///     eprintln!("Error selecting backend with OpenGL ES support: {err}");
 /// }
 /// ```
+#[derive(Default)]
 pub struct BackendSelector {
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     backend: Option<String>,
@@ -31,13 +32,8 @@ pub struct BackendSelector {
 impl BackendSelector {
     /// Creates a new BackendSelector.
     #[must_use]
-    pub fn new() -> BackendSelector {
-        BackendSelector {
-            requested_graphics_api: None,
-            backend: None,
-            renderer: None,
-            selected: false,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Adds the requirement to the selector that the backend must render with OpenGL ES
@@ -167,7 +163,7 @@ impl BackendSelector {
                 }
                 Box::new(i_slint_backend_qt::Backend::new())
             }
-            requested_backend @ _ => {
+            requested_backend => {
                 return Err(format!(
                     "{requested_backend} backend requested but it is not available"
                 )
@@ -175,8 +171,7 @@ impl BackendSelector {
             }
         };
 
-        i_slint_core::platform::set_platform(backend)
-            .map_err(|set_platform_error| PlatformError::SetPlatformError(set_platform_error))
+        i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError)
     }
 }
 
