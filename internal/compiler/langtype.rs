@@ -123,7 +123,7 @@ impl Display for Type {
                         if i > 0 {
                             write!(f, ",")?;
                         }
-                        write!(f, "{}", arg)?;
+                        write!(f, "{arg}")?;
                     }
                     write!(f, ")")?
                 }
@@ -137,7 +137,7 @@ impl Display for Type {
                     if i > 0 {
                         write!(f, ",")?;
                     }
-                    write!(f, "{}", arg)?;
+                    write!(f, "{arg}")?;
                 }
                 write!(f, ") -> {}", function.return_type)
             }
@@ -154,8 +154,8 @@ impl Display for Type {
             Type::Image => write!(f, "image"),
             Type::Bool => write!(f, "bool"),
             Type::Model => write!(f, "model"),
-            Type::Array(t) => write!(f, "[{}]", t),
-            Type::Struct(t) => write!(f, "{}", t),
+            Type::Array(t) => write!(f, "[{t}]"),
+            Type::Struct(t) => write!(f, "{t}"),
             Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
@@ -540,7 +540,7 @@ impl ElementType {
                         if !tr.expose_internal_types
                             && matches!(&t, Self::Builtin(e) if e.is_internal)
                         {
-                            format!("Unknown element '{}'. (The type exist as an internal type, but cannot be accessed in this scope)", name)
+                            format!("Unknown element '{name}'. (The type exist as an internal type, but cannot be accessed in this scope)")
                         } else {
                             return Ok(t);
                         }
@@ -558,7 +558,7 @@ impl ElementType {
             }
             _ => tr.lookup_element(name).and_then(|t| {
                 if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
-                    Err(format!("Unknown element '{}'. (The type exist as an internal type, but cannot be accessed in this scope)", name))
+                    Err(format!("Unknown element '{name}'. (The type exist as an internal type, but cannot be accessed in this scope)"))
                 } else {
                     Ok(t)
                 }
@@ -651,7 +651,7 @@ pub struct NativeClass {
 
 impl NativeClass {
     pub fn new(class_name: &str) -> Self {
-        let cpp_vtable_getter = format!("SLINT_GET_ITEM_VTABLE({}VTable)", class_name);
+        let cpp_vtable_getter = format!("SLINT_GET_ITEM_VTABLE({class_name}VTable)");
         Self {
             class_name: class_name.into(),
             cpp_vtable_getter,
@@ -790,12 +790,12 @@ impl Display for Struct {
                 // write the slint type and not the native type
                 write!(f, "{}", &name[separator_pos + 2..])
             } else {
-                write!(f, "{}", name)
+                write!(f, "{name}")
             }
         } else {
             write!(f, "{{ ")?;
             for (k, v) in &self.fields {
-                write!(f, "{}: {},", k, v)?;
+                write!(f, "{k}: {v},")?;
             }
             write!(f, "}}")
         }

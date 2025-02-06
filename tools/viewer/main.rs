@@ -367,13 +367,13 @@ fn install_callbacks(instance: &ComponentInstance, callbacks: &[String]) {
             match instance.set_callback(callback, move |args| {
                 match execute_cmd(&cmd, args) {
                     Ok(()) => (),
-                    Err(e) => eprintln!("Error: {:?}", e),
+                    Err(e) => eprintln!("Error: {e:?}"),
                 }
                 Value::Void
             }) {
                 Ok(()) => (),
                 Err(e) => {
-                    eprintln!("Warning: cannot set callback handler for '{}': {}", callback, e)
+                    eprintln!("Warning: cannot set callback handler for '{callback}': {e}")
                 }
             }
         }
@@ -408,7 +408,7 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
                     }
                     serde_json::to_string_pretty(&obj)?
                 }
-                _ => return Err(format!("Cannot convert argument to string: {:?}", v).into()),
+                _ => return Err(format!("Cannot convert argument to string: {v:?}").into()),
             })
         })
         .collect::<Result<Vec<String>>>()?;

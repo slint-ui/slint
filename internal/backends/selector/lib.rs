@@ -78,7 +78,7 @@ cfg_if::cfg_if! {
                     Ok(platform) => return Ok(platform),
                     Err(err) => {
                         backend_errors.push(if !backend_name.is_empty() {
-                            format!("Error from {} backend: {}", backend_name, err).into()
+                            format!("Error from {backend_name} backend: {err}").into()
                         } else {
                             "No backends configured.".into()
                         });
@@ -115,7 +115,7 @@ cfg_if::cfg_if! {
             }
 
             if !backend_config.is_empty() {
-                eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
+                eprintln!("Could not load rendering backend {backend_config}, fallback to default")
             }
             create_default_backend()
         }

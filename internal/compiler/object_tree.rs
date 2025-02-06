@@ -788,7 +788,7 @@ pub fn pretty_print(
     for (name, expr) in &e.bindings {
         let expr = expr.borrow();
         indent!();
-        write!(f, "{}: ", name)?;
+        write!(f, "{name}: ")?;
         expression_tree::pretty_print(f, &expr.expression)?;
         if expr.analysis.as_ref().map_or(false, |a| a.is_const) {
             write!(f, "/*const*/")?;
@@ -797,11 +797,11 @@ pub fn pretty_print(
         //writeln!(f, "; /*{}*/", expr.priority)?;
         if let Some(anim) = &expr.animation {
             indent!();
-            writeln!(f, "animate {} {:?}", name, anim)?;
+            writeln!(f, "animate {name} {anim:?}")?;
         }
         for nr in &expr.two_way_bindings {
             indent!();
-            writeln!(f, "{} <=> {:?};", name, nr)?;
+            writeln!(f, "{name} <=> {nr:?};")?;
         }
     }
     for (name, ch) in &e.change_callbacks {
@@ -826,7 +826,7 @@ pub fn pretty_print(
     }
     if let Some(g) = &e.geometry_props {
         indent!();
-        writeln!(f, "geometry {:?} ", g)?;
+        writeln!(f, "geometry {g:?} ")?;
     }
 
     /*if let Type::Component(base) = &e.base_type {
@@ -948,7 +948,7 @@ impl Element {
         } else if parent_type == ElementType::Global {
             // This must be a global component it can only have properties and callback
             let mut error_on = |node: &dyn Spanned, what: &str| {
-                diag.push_error(format!("A global component cannot have {}", what), node);
+                diag.push_error(format!("A global component cannot have {what}"), node);
             };
             node.SubElement().for_each(|n| error_on(&n, "sub elements"));
             node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
@@ -1019,14 +1019,14 @@ impl Element {
             match maybe_existing_prop_type {
                 Type::Callback { .. } => {
                     diag.push_error(
-                        format!("Cannot declare property '{}' when a callback with the same name exists", prop_name),
+                        format!("Cannot declare property '{prop_name}' when a callback with the same name exists"),
                         &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
                     );
                     continue;
                 }
                 Type::Function { .. } => {
                     diag.push_error(
-                        format!("Cannot declare property '{}' when a function with the same name exists", prop_name),
+                        format!("Cannot declare property '{prop_name}' when a function with the same name exists"),
                         &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
                     );
                     continue;
@@ -1034,7 +1034,7 @@ impl Element {
                 Type::Invalid => {} // Ok to proceed with a new declaration
                 _ => {
                     diag.push_error(
-                        format!("Cannot override property '{}'", unresolved_prop_name),
+                        format!("Cannot override property '{unresolved_prop_name}'"),
                         &prop_decl
                             .DeclaredIdentifier()
                             .child_token(SyntaxKind::Identifier)
@@ -1147,7 +1147,7 @@ impl Element {
                         );
                     } else {
                         diag.push_error(
-                            format!("Cannot override callback '{}'", existing_name),
+                            format!("Cannot override callback '{existing_name}'"),
                             &sig_decl.DeclaredIdentifier(),
                         )
                     }
@@ -1224,12 +1224,12 @@ impl Element {
                 if matches!(maybe_existing_prop_type, Type::Callback { .. } | Type::Function { .. })
                 {
                     diag.push_error(
-                        format!("Cannot override '{}'", existing_name),
+                        format!("Cannot override '{existing_name}'"),
                         &func.DeclaredIdentifier(),
                     )
                 } else {
                     diag.push_error(
-                        format!("Cannot declare function '{}' when a property with the same name exists", existing_name),
+                        format!("Cannot declare function '{existing_name}' when a property with the same name exists"),
                         &func.DeclaredIdentifier(),
                     );
                 }
@@ -1587,7 +1587,7 @@ impl Element {
         let mut id = parser::identifier_text(&node).unwrap_or_default();
         if matches!(id.as_ref(), "parent" | "self" | "root") {
             diag.push_error(
-                format!("'{}' is a reserved id", id),
+                format!("'{id}' is a reserved id"),
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
             id = SmolStr::default();
@@ -1721,7 +1721,7 @@ impl Element {
                             }
                         }
                         Type::Callback { .. } => {
-                            diag.push_error(format!("'{}' is a callback. Use `=>` to connect", unresolved_name),
+                            diag.push_error(format!("'{unresolved_name}' is a callback. Use `=>` to connect"),
                             &name_token)
                         }
                         _ => diag.push_error(format!(
@@ -1922,10 +1922,10 @@ pub fn type_from_node(
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
         if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
-            diag.push_error(format!("Unknown type '{}'", qualified_type), &qualified_type_node);
+            diag.push_error(format!("Unknown type '{qualified_type}'"), &qualified_type_node);
         } else if !prop_type.is_property_type() {
             diag.push_error(
-                format!("'{}' is not a valid type", qualified_type),
+                format!("'{qualified_type}' is not a valid type"),
                 &qualified_type_node,
             );
         }
@@ -2029,7 +2029,7 @@ fn lookup_property_from_qualified_name_for_state(
         [unresolved_prop_name] => {
             let lookup_result = r.borrow().lookup_property(unresolved_prop_name.as_ref());
             if !lookup_result.property_type.is_property_type() {
-                diag.push_error(format!("'{}' is not a valid property", qualname), &node);
+                diag.push_error(format!("'{qualname}' is not a valid property"), &node);
             } else if !lookup_result.is_valid_for_assignment() {
                 diag.push_error(
                     format!(
@@ -2049,7 +2049,7 @@ fn lookup_property_from_qualified_name_for_state(
                 let lookup_result = element.borrow().lookup_property(unresolved_prop_name.as_ref());
                 if !lookup_result.is_valid() {
                     diag.push_error(
-                        format!("'{}' not found in '{}'", unresolved_prop_name, elem_id),
+                        format!("'{unresolved_prop_name}' not found in '{elem_id}'"),
                         &node,
                     );
                 } else if !lookup_result.is_valid_for_assignment() {
@@ -2066,12 +2066,12 @@ fn lookup_property_from_qualified_name_for_state(
                     lookup_result.property_type,
                 ))
             } else {
-                diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
+                diag.push_error(format!("'{elem_id}' is not a valid element id"), &node);
                 None
             }
         }
         _ => {
-            diag.push_error(format!("'{}' is not a valid property", qualname), &node);
+            diag.push_error(format!("'{qualname}' is not a valid property"), &node);
             None
         }
     }
@@ -2527,12 +2527,12 @@ impl Exports {
                     || type_registry.lookup(internal_name) != Type::Invalid
                 {
                     diag.push_error(
-                        format!("Cannot export '{}' because it is not a component", internal_name,),
+                        format!("Cannot export '{internal_name}' because it is not a component",),
                         internal_name_node,
                     );
                     None
                 } else {
-                    diag.push_error(format!("'{}' not found", internal_name,), internal_name_node);
+                    diag.push_error(format!("'{internal_name}' not found",), internal_name_node);
                     None
                 }
             };

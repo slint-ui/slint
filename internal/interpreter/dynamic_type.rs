@@ -194,7 +194,7 @@ impl<'id> Instance<'id> {
 
 impl core::fmt::Debug for Instance<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Instance({:p})", self)
+        write!(f, "Instance({self:p})")
     }
 }
 

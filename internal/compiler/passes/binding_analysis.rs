@@ -87,9 +87,7 @@ impl PropertyPath {
                         &element,
                         last.borrow().base_type.as_component()
                     ),
-                    "The element is not in the component pointed at by the path ({:?} / {:?})",
-                    self,
-                    second
+                    "The element is not in the component pointed at by the path ({self:?} / {second:?})"
                 );
                 element = last.0;
             } else {

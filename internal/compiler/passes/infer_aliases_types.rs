@@ -126,7 +126,7 @@ fn resolve_alias(
     if old_type == Type::InferredProperty {
         if !ty.is_property_type() {
             diag.push_error(
-                format!("Could not infer type of property '{}'", prop),
+                format!("Could not infer type of property '{prop}'"),
                 &elem.borrow().property_declarations[prop].type_node(),
             );
         } else {
@@ -138,7 +138,7 @@ fn resolve_alias(
                 debug_assert!(diag.has_errors());
             } else {
                 diag.push_error(
-                    format!("Binding to callback '{}' must bind to another callback", prop),
+                    format!("Binding to callback '{prop}' must bind to another callback"),
                     &elem.borrow().property_declarations[prop].type_node(),
                 );
             }

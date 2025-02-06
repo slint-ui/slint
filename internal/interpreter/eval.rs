@@ -231,7 +231,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     if let (Some(a), Some(b)) = (a, b) {
                         a.merge(&b).into()
                     } else {
-                        panic!("unsupported {:?} {} {:?}", a, op, b);
+                        panic!("unsupported {a:?} {op} {b:?}");
                     }
                 }
                 ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
@@ -249,7 +249,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 ('!', a, b) => Value::Bool(a != b),
                 ('&', Value::Bool(a), Value::Bool(b)) => Value::Bool(a && b),
                 ('|', Value::Bool(a), Value::Bool(b)) => Value::Bool(a || b),
-                (op, lhs, rhs) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
+                (op, lhs, rhs) => panic!("unsupported {lhs:?} {op} {rhs:?}"),
             }
         }
         Expression::UnaryOp { sub, op } => {
@@ -258,7 +258,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (Value::Number(a), '+') => Value::Number(a),
                 (Value::Number(a), '-') => Value::Number(-a),
                 (Value::Bool(a), '!') => Value::Bool(!a),
-                (sub, op) => panic!("unsupported {} {:?}", op, sub),
+                (sub, op) => panic!("unsupported {op} {sub:?}"),
             }
         }
         Expression::ImageReference{ resource_ref, nine_slice, .. } => {
@@ -287,7 +287,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     todo!()
                 }
             }.unwrap_or_else(|_| {
-                eprintln!("Could not load image {:?}",resource_ref );
+                eprintln!("Could not load image {resource_ref:?}" );
                 Default::default()
             });
             if let Some(n) = nine_slice {
@@ -1294,7 +1294,7 @@ fn call_builtin_function(
                     .layout_info(crate::eval_layout::to_runtime(orient), &window_adapter)
                     .into()
             } else {
-                panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);
+                panic!("internal error: incorrect arguments to ImplicitLayoutInfo {arguments:?}");
             }
         }
         BuiltinFunction::ItemAbsolutePosition => {
@@ -1405,7 +1405,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
         (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
         (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
         (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
-        (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
+        (lhs, rhs, op) => panic!("unsupported {lhs:?} {op} {rhs:?}"),
     };
     match lhs {
         Expression::PropertyReference(nr) => {

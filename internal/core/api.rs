@@ -275,7 +275,7 @@ impl<'a> core::fmt::Debug for GraphicsAPI<'a> {
         match self {
             GraphicsAPI::NativeOpenGL { .. } => write!(f, "GraphicsAPI::NativeOpenGL"),
             GraphicsAPI::WebGL { context_type, .. } => {
-                write!(f, "GraphicsAPI::WebGL(context_type = {})", context_type)
+                write!(f, "GraphicsAPI::WebGL(context_type = {context_type})")
             }
         }
     }

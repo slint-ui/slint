@@ -148,7 +148,7 @@ impl OpenGLContext {
             gl_display
                 .create_context(&gl_config, &preferred_context_attributes)
                 .or_else(|_| gl_display.create_context(&gl_config, &fallback_context_attributes))
-                .map_err(|glutin_err| format!("Cannot create OpenGL context: {}", glutin_err))?
+                .map_err(|glutin_err| format!("Cannot create OpenGL context: {glutin_err}"))?
         };
 
         let window = match window {
@@ -162,7 +162,7 @@ impl OpenGLContext {
                 }
             }
             .map_err(|winit_os_error| {
-                format!("Error finalizing window for OpenGL rendering: {}", winit_os_error)
+                format!("Error finalizing window for OpenGL rendering: {winit_os_error}")
             })?,
         };
 
@@ -193,7 +193,7 @@ impl OpenGLContext {
 
         let surface = unsafe {
             gl_display.create_window_surface(&gl_config, &attrs).map_err(|glutin_err| {
-                format!("Error creating OpenGL Window surface: {}", glutin_err)
+                format!("Error creating OpenGL Window surface: {glutin_err}")
             })?
         };
 

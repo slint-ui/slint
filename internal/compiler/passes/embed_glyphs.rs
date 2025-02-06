@@ -82,8 +82,7 @@ pub fn embed_glyphs<'a>(
             } else {
                 diag.push_error(
                     format!(
-                        "Invalid font size '{}' specified in `SLINT_FONT_SIZES`",
-                        custom_size_str
+                        "Invalid font size '{custom_size_str}' specified in `SLINT_FONT_SIZES`"
                     ),
                     &generic_diag_location,
                 );
@@ -131,7 +130,7 @@ fn embed_glyphs_with_fontdb<'a>(
             for (font_path, import_token) in doc.custom_fonts.iter() {
                 let face_count = fontdb_mut.faces().count();
                 if let Err(e) = fontdb_mut.make_mut().load_font_file(font_path) {
-                    diag.push_error(format!("Error loading font: {}", e), import_token);
+                    diag.push_error(format!("Error loading font: {e}"), import_token);
                 } else {
                     custom_fonts.extend(fontdb_mut.faces().skip(face_count).map(|info| info.id))
                 }

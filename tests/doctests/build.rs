@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .replace(['.'], "ᐧ")
             .to_lowercase();
 
-        writeln!(tests_file, "\nmod {} {{", stem)?;
+        writeln!(tests_file, "\nmod {stem} {{")?;
 
         let mut rest = file.as_str();
         let mut line = 1;

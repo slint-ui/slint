@@ -46,7 +46,7 @@ unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
 /// Allocate the memory for the SharedVector with the given capacity. Return the inner with size and refcount set to 1
 fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedVectorInner<T>> {
     let ptr = unsafe { ::alloc::alloc::alloc(compute_inner_layout::<T>(capacity)) };
-    assert!(!ptr.is_null(), "allocation of {:?} bytes failed", capacity);
+    assert!(!ptr.is_null(), "allocation of {capacity:?} bytes failed");
     unsafe {
         core::ptr::write(
             ptr as *mut SharedVectorHeader,

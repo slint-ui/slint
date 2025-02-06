@@ -87,7 +87,7 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
     let mut images = stream::iter(i.meta.images)
         .map(|(k, v)| async move {
             let mut resp = reqwest::Client::new().get(&v).send().await?.bytes_stream();
-            let mut file = tokio::fs::File::create(format!("figma_output/images/{}", k)).await?;
+            let mut file = tokio::fs::File::create(format!("figma_output/images/{k}")).await?;
             while let Some(bytes) = resp.next().await {
                 file.write_all(&(bytes?)).await?;
             }
@@ -123,11 +123,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let render_node = if let Some(node_id) = &opt.node_id {
                 doc.nodeHash
                     .get(node_id.as_str())
-                    .ok_or_else(|| Error(format!("Could not find node id {}", node_id)))?
+                    .ok_or_else(|| Error(format!("Could not find node id {node_id}")))?
             } else if let Some(child_index) = opt.child_index {
                 node.children
                     .get(child_index)
-                    .ok_or_else(|| Error(format!("The index {} does not exist", child_index)))?
+                    .ok_or_else(|| Error(format!("The index {child_index} does not exist")))?
             } else {
                 doc.nodeHash
                     .get(

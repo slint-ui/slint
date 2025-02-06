@@ -665,12 +665,12 @@ fn resolve_expression_scope(
                 },
                 &mut |exported_name, file, the_import| {
                     r.push(CompletionItem {
-                        label: format!("{} (import from \"{}\")", exported_name, file),
+                        label: format!("{exported_name} (import from \"{file}\")"),
                         insert_text: Some(exported_name.to_string()),
                         insert_text_format: Some(InsertTextFormat::SNIPPET),
                         filter_text: Some(exported_name.to_string()),
                         kind: Some(CompletionItemKind::CLASS),
-                        detail: Some(format!("(import from \"{}\")", file)),
+                        detail: Some(format!("(import from \"{file}\")")),
                         additional_text_edits: Some(vec![the_import]),
                         ..Default::default()
                     });
@@ -834,16 +834,16 @@ fn add_components_to_import(
         },
         &mut |exported_name, file, the_import| {
             result.push(CompletionItem {
-                label: format!("{} (import from \"{}\")", exported_name, file),
+                label: format!("{exported_name} (import from \"{file}\")"),
                 insert_text: if is_followed_by_brace(token) {
                     Some(exported_name.to_string())
                 } else {
-                    Some(format!("{} {{$1}}", exported_name))
+                    Some(format!("{exported_name} {{$1}}"))
                 },
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 filter_text: Some(exported_name.to_string()),
                 kind: Some(CompletionItemKind::CLASS),
-                detail: Some(format!("(import from \"{}\")", file)),
+                detail: Some(format!("(import from \"{file}\")")),
                 additional_text_edits: Some(vec![the_import]),
                 ..Default::default()
             });
@@ -927,10 +927,10 @@ fn create_import_edit_impl(
         || {
             TextEdit::new(
                 Range::new(*missing_import_location, *missing_import_location),
-                format!("import {{ {} }} from \"{}\";\n", component, import_path),
+                format!("import {{ {component} }} from \"{import_path}\";\n"),
             )
         },
-        |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {}", component)),
+        |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {component}")),
     )
 }
 

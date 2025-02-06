@@ -28,8 +28,7 @@ pub(crate) fn lower_property_to_element(
     if let Some(b) = component.root_element.borrow().bindings.get(property_name) {
         diag.push_warning(
             format!(
-                "The {} property cannot be used on the root element, it will not be applied",
-                property_name
+                "The {property_name} property cannot be used on the root element, it will not be applied"
             ),
             &*b.borrow(),
         );

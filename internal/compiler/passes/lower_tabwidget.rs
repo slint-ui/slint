@@ -267,7 +267,7 @@ fn set_geometry_prop(
     );
     if let Some(old) = old.map(RefCell::into_inner) {
         diag.push_error(
-            format!("The property '{}' cannot be set for Tabs inside a TabWidget", prop),
+            format!("The property '{prop}' cannot be set for Tabs inside a TabWidget"),
             &old,
         );
     }

@@ -210,10 +210,7 @@ fn process_context_menu(
 
         for (name, _) in &components.context_menu_internal.property_list() {
             if let Some(decl) = context_menu_elem.borrow().property_declarations.get(name) {
-                diag.push_error(
-                    format!("Cannot re-define internal property '{}'", name),
-                    &decl.node,
-                );
+                diag.push_error(format!("Cannot re-define internal property '{name}'"), &decl.node);
             }
         }
 
@@ -365,7 +362,7 @@ fn process_window(
             .property_declarations
             .insert(prop.into(), PropertyDeclaration { property_type: ty, ..Default::default() });
         if let Some(old) = old {
-            diag.push_error(format!("Cannot re-define internal property '{}'", prop), &old.node);
+            diag.push_error(format!("Cannot re-define internal property '{prop}'"), &old.node);
         }
     }
 

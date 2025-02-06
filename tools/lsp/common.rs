@@ -596,7 +596,7 @@ pub mod lsp_to_editor {
                     message: Some(message.into()),
                 },
             )
-            .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+            .unwrap_or_else(|e| eprintln!("Error sending notification: {e:?}"));
     }
 
     pub fn notify_lsp_diagnostics(

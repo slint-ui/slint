@@ -676,8 +676,7 @@ impl PropertyHandle {
                     *(dependencies as *mut *const u32),
                     (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
                 ),
-                "Constant property being changed {}",
-                debug_name
+                "Constant property being changed {debug_name}"
             );
             mark_dependencies_dirty(dependencies)
         };

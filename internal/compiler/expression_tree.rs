@@ -434,7 +434,7 @@ pub fn operator_class(op: char) -> OperatorClass {
         '=' | '!' | '<' | '>' | '≤' | '≥' => OperatorClass::ComparisonOp,
         '&' | '|' => OperatorClass::LogicalOp,
         '+' | '-' | '/' | '*' => OperatorClass::ArithmeticOp,
-        _ => panic!("Invalid operator {:?}", op),
+        _ => panic!("Invalid operator {op:?}"),
     }
 }
 
@@ -1241,7 +1241,7 @@ impl Expression {
                 if let Some(t) = fields.remove(f) {
                     new_values.insert(f.clone(), v.clone().maybe_convert_to(t, node, diag));
                 } else {
-                    diag.push_error(format!("Cannot convert {} to {}", ty, target_type), node);
+                    diag.push_error(format!("Cannot convert {ty} to {target_type}"), node);
                     return self;
                 }
             }
@@ -1250,14 +1250,12 @@ impl Expression {
             }
             Expression::Struct { ty: struct_type.clone(), values: new_values }
         } else {
-            let mut message = format!("Cannot convert {} to {}", ty, target_type);
+            let mut message = format!("Cannot convert {ty} to {target_type}");
             // Explicit error message for unit conversion
             if let Some(from_unit) = ty.default_unit() {
                 if matches!(&target_type, Type::Int32 | Type::Float32 | Type::String) {
-                    message = format!(
-                        "{}. Divide by 1{} to convert to a plain number",
-                        message, from_unit
-                    );
+                    message =
+                        format!("{message}. Divide by 1{from_unit} to convert to a plain number");
                 }
             } else if let Some(to_unit) = target_type.default_unit() {
                 if matches!(ty, Type::Int32 | Type::Float32) {
@@ -1268,8 +1266,7 @@ impl Expression {
                         }
                     }
                     message = format!(
-                        "{}. Use an unit, or multiply by 1{} to convert explicitly",
-                        message, to_unit
+                        "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
                     );
                 }
             }
@@ -1573,12 +1570,12 @@ pub enum ImageReference {
 pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std::fmt::Result {
     match expression {
         Expression::Invalid => write!(f, "<invalid>"),
-        Expression::Uncompiled(u) => write!(f, "{:?}", u),
-        Expression::StringLiteral(s) => write!(f, "{:?}", s),
-        Expression::NumberLiteral(vl, unit) => write!(f, "{}{}", vl, unit),
-        Expression::BoolLiteral(b) => write!(f, "{:?}", b),
-        Expression::PropertyReference(a) => write!(f, "{:?}", a),
-        Expression::ElementReference(a) => write!(f, "{:?}", a),
+        Expression::Uncompiled(u) => write!(f, "{u:?}"),
+        Expression::StringLiteral(s) => write!(f, "{s:?}"),
+        Expression::NumberLiteral(vl, unit) => write!(f, "{vl}{unit}"),
+        Expression::BoolLiteral(b) => write!(f, "{b:?}"),
+        Expression::PropertyReference(a) => write!(f, "{a:?}"),
+        Expression::ElementReference(a) => write!(f, "{a:?}"),
         Expression::RepeaterIndexReference { element } => {
             crate::namedreference::pretty_print_element_ref(f, element)
         }
@@ -1586,15 +1583,15 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             crate::namedreference::pretty_print_element_ref(f, element)?;
             write!(f, ".@model")
         }
-        Expression::FunctionParameterReference { index, ty: _ } => write!(f, "_arg_{}", index),
+        Expression::FunctionParameterReference { index, ty: _ } => write!(f, "_arg_{index}"),
         Expression::StoreLocalVariable { name, value } => {
-            write!(f, "{} = ", name)?;
+            write!(f, "{name} = ")?;
             pretty_print(f, value)
         }
-        Expression::ReadLocalVariable { name, ty: _ } => write!(f, "{}", name),
+        Expression::ReadLocalVariable { name, ty: _ } => write!(f, "{name}"),
         Expression::StructFieldAccess { base, name } => {
             pretty_print(f, base)?;
-            write!(f, ".{}", name)
+            write!(f, ".{name}")
         }
         Expression::ArrayIndex { array, index } => {
             pretty_print(f, array)?;
@@ -1605,7 +1602,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::Cast { from, to } => {
             write!(f, "(")?;
             pretty_print(f, from)?;
-            write!(f, "/* as {} */)", to)
+            write!(f, "/* as {to} */)")
         }
         Expression::CodeBlock(c) => {
             write!(f, "{{ ")?;
@@ -1617,8 +1614,8 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::FunctionCall { function, arguments, source_location: _ } => {
             match function {
-                Callable::Builtin(b) => write!(f, "{:?}", b)?,
-                Callable::Callback(nr) | Callable::Function(nr) => write!(f, "{:?}", nr)?,
+                Callable::Builtin(b) => write!(f, "{b:?}")?,
+                Callable::Callback(nr) | Callable::Function(nr) => write!(f, "{nr:?}")?,
             }
             write!(f, "(")?;
             for e in arguments {
@@ -1636,17 +1633,17 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "(")?;
             pretty_print(f, lhs)?;
             match *op {
-                '=' | '!' => write!(f, " {}= ", op)?,
-                _ => write!(f, " {} ", op)?,
+                '=' | '!' => write!(f, " {op}= ")?,
+                _ => write!(f, " {op} ")?,
             };
             pretty_print(f, rhs)?;
             write!(f, ")")
         }
         Expression::UnaryOp { sub, op } => {
-            write!(f, "{}", op)?;
+            write!(f, "{op}")?;
             pretty_print(f, sub)
         }
-        Expression::ImageReference { resource_ref, .. } => write!(f, "{:?}", resource_ref),
+        Expression::ImageReference { resource_ref, .. } => write!(f, "{resource_ref:?}"),
         Expression::Condition { condition, true_expr, false_expr } => {
             write!(f, "if (")?;
             pretty_print(f, condition)?;
@@ -1667,14 +1664,14 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::Struct { ty: _, values } => {
             write!(f, "{{ ")?;
             for (name, e) in values {
-                write!(f, "{}: ", name)?;
+                write!(f, "{name}: ")?;
                 pretty_print(f, e)?;
                 write!(f, ", ")?;
             }
             write!(f, " }}")
         }
-        Expression::PathData(data) => write!(f, "{:?}", data),
-        Expression::EasingCurve(e) => write!(f, "{:?}", e),
+        Expression::PathData(data) => write!(f, "{data:?}"),
+        Expression::EasingCurve(e) => write!(f, "{e:?}"),
         Expression::LinearGradient { angle, stops } => {
             write!(f, "@linear-gradient(")?;
             pretty_print(f, angle)?;

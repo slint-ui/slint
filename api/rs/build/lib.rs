@@ -477,7 +477,7 @@ pub fn compile_with_output_path(
         }
     });
 
-    write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
+    write!(code_formatter, "{generated}").map_err(CompileError::SaveError)?;
     dependencies.push(input_slint_file_path.as_ref().to_path_buf());
 
     for resource in doc.embedded_file_resources.borrow().keys() {
@@ -502,7 +502,7 @@ pub fn print_rustc_flags() -> std::io::Result<()> {
             toml.get("link_args").and_then(toml_edit::Item::as_array).into_iter().flatten()
         {
             if let Some(option) = link_arg.as_str() {
-                println!("cargo:rustc-link-arg={}", option);
+                println!("cargo:rustc-link-arg={option}");
             }
         }
 

@@ -187,7 +187,7 @@ fn main() -> std::io::Result<()> {
             if !fileaccess::load_file(std::path::Path::new(resource))
                 .map_or(false, |f| f.is_builtin())
             {
-                write!(f, " {}", resource)?;
+                write!(f, " {resource}")?;
             }
         }
 

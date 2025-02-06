@@ -72,7 +72,7 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                 if let Some(c) = string_to_color(s) {
                     Ok(Value::Brush(i_slint_core::Brush::SolidColor(c)))
                 } else {
-                    Err(format!("Failed to parse color: {}", s))
+                    Err(format!("Failed to parse color: {s}"))
                 }
             }
             langtype::Type::String => Ok(SharedString::from(s.as_str()).into()),

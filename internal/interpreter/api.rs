@@ -184,22 +184,22 @@ impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Void => write!(f, "Value::Void"),
-            Value::Number(n) => write!(f, "Value::Number({:?})", n),
-            Value::String(s) => write!(f, "Value::String({:?})", s),
-            Value::Bool(b) => write!(f, "Value::Bool({:?})", b),
-            Value::Image(i) => write!(f, "Value::Image({:?})", i),
+            Value::Number(n) => write!(f, "Value::Number({n:?})"),
+            Value::String(s) => write!(f, "Value::String({s:?})"),
+            Value::Bool(b) => write!(f, "Value::Bool({b:?})"),
+            Value::Image(i) => write!(f, "Value::Image({i:?})"),
             Value::Model(m) => {
                 write!(f, "Value::Model(")?;
                 f.debug_list().entries(m.iter()).finish()?;
                 write!(f, "])")
             }
-            Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
-            Value::Brush(b) => write!(f, "Value::Brush({:?})", b),
-            Value::PathData(e) => write!(f, "Value::PathElements({:?})", e),
-            Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
-            Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
-            Value::LayoutCache(v) => write!(f, "Value::LayoutCache({:?})", v),
-            Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({:?})", factory),
+            Value::Struct(s) => write!(f, "Value::Struct({s:?})"),
+            Value::Brush(b) => write!(f, "Value::Brush({b:?})"),
+            Value::PathData(e) => write!(f, "Value::PathElements({e:?})"),
+            Value::EasingCurve(c) => write!(f, "Value::EasingCurve({c:?})"),
+            Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({n:?}, {v:?})"),
+            Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
+            Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
         }
     }
 }
@@ -2064,7 +2064,7 @@ fn component_definition_model_properties() {
                 assert_eq!(m.row_data(i).unwrap(), Value::Number(*v));
             }
         } else {
-            panic!("{:?} not a model", val);
+            panic!("{val:?} not a model");
         }
     }
 

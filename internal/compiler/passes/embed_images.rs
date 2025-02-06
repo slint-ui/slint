@@ -158,7 +158,7 @@ fn embed_image(
                         }
                         Err(err) => {
                             diag.push_error(
-                                format!("Cannot load image file {}: {}", path, err),
+                                format!("Cannot load image file {path}: {err}"),
                                 source_location,
                             );
                             return ImageReference::None;
@@ -167,7 +167,7 @@ fn embed_image(
                 }
                 e.insert(EmbeddedResources { id: maybe_id, kind })
             } else {
-                diag.push_error(format!("Cannot find image file {}", path), source_location);
+                diag.push_error(format!("Cannot find image file {path}"), source_location);
                 return ImageReference::None;
             }
         }

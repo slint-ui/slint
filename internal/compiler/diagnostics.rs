@@ -320,8 +320,7 @@ impl BuildDiagnostics {
     ) {
         debug_assert!(
             !message.as_str().ends_with('.'),
-            "Error message should not end with a period: ({:?})",
-            message
+            "Error message should not end with a period: ({message:?})"
         );
         self.inner.push(Diagnostic { message, span, level });
     }
@@ -349,8 +348,7 @@ impl BuildDiagnostics {
     ) {
         self.push_diagnostic_with_span(
             format!(
-                "The property '{}' has been deprecated. Please use '{}' instead",
-                old_property, new_property
+                "The property '{old_property}' has been deprecated. Please use '{new_property}' instead"
             ),
             source.to_source_location(),
             crate::diagnostics::DiagnosticLevel::Warning,
