@@ -365,6 +365,59 @@ fn region_line_ranges(
     next_validity
 }
 
+mod private_api {
+    use super::*;
+
+    /// This trait represents access to a buffer of pixels the software renderer can render into, as well
+    /// as certain operations that the renderer will try to delegate to this trait. Implement these functions
+    /// to delegate rendering further to hardware-provided 2D acceleration units, such as DMA2D or PXP.
+    pub trait TargetPixelBuffer {
+        /// The pixel type the buffer represents.
+        type Pixel: TargetPixel;
+
+        /// Returns a slice of pixels for the given line.
+        fn line_slice(&mut self, line_numer: usize) -> &mut [Self::Pixel];
+
+        /// Returns the number of lines the buffer has. This is typically the height in pixels.
+        fn num_lines(&self) -> usize;
+
+        /// Fills the buffer with a rectangle at the specified position with the given size and the
+        /// provided color. Returns true if the operation was successful; false if it could not be
+        /// implemented and instead the software renderer needs to draw the rectangle.
+        fn fill_rectangle(
+            &mut self,
+            _x: i16,
+            _y: i16,
+            _width: i16,
+            _height: i16,
+            _color: PremultipliedRgbaColor,
+        ) -> bool {
+            false
+        }
+    }
+}
+
+#[cfg(feature = "experimental")]
+pub use private_api::TargetPixelBuffer;
+
+struct TargetPixelSlice<'a, T> {
+    data: &'a mut [T],
+    pixel_stride: usize,
+}
+
+impl<'a, T: TargetPixel> private_api::TargetPixelBuffer for TargetPixelSlice<'a, T> {
+    type Pixel = T;
+
+    fn line_slice(&mut self, line_number: usize) -> &mut [Self::Pixel] {
+        let offset = line_number * self.pixel_stride;
+        &mut self.data[offset..offset + self.pixel_stride]
+    }
+
+    fn num_lines(&self) -> usize {
+        self.data.len() / self.pixel_stride
+    }
+}
+
 /// A Renderer that do the rendering in software
 ///
 /// The renderer can remember what items needs to be redrawn from the previous iteration.
@@ -454,6 +507,34 @@ impl SoftwareRenderer {
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It is affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
+        self.render_buffer_impl(&mut TargetPixelSlice { data: buffer, pixel_stride })
+    }
+
+    /// Render the window to the given frame buffer.
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty. The `extra_draw_region` is an extra region which will also
+    /// be rendered. (eg: the previous dirty region in case of double buffering)
+    /// This function returns the region that was rendered.
+    ///
+    /// The buffer's line slices need to be wide enough to if the `width` of the screen and the line count the `height`,
+    /// or the `height` and `width` swapped if the screen is rotated by 90°.
+    ///
+    /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
+    /// in the window frame of reference. It is affected by the screen rotation.
+    #[cfg(feature = "experimental")]
+    pub fn render_into_buffer(&self, buffer: &mut impl TargetPixelBuffer) -> PhysicalRegion {
+        self.render_buffer_impl(buffer)
+    }
+
+    fn render_buffer_impl(
+        &self,
+        buffer: &mut impl private_api::TargetPixelBuffer,
+    ) -> PhysicalRegion {
+        let pixels_per_line = buffer.line_slice(0).len();
+        let num_lines = buffer.num_lines();
+        let buffer_pixel_count = num_lines * pixels_per_line;
+
         let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
             return Default::default();
@@ -471,31 +552,26 @@ impl SoftwareRenderer {
                 window_item.background(),
             )
         } else if rotation.is_transpose() {
-            (euclid::size2((buffer.len() / pixel_stride) as _, pixel_stride as _), Brush::default())
+            (euclid::size2(num_lines as _, pixels_per_line as _), Brush::default())
         } else {
-            (euclid::size2(pixel_stride as _, (buffer.len() / pixel_stride) as _), Brush::default())
+            (euclid::size2(pixels_per_line as _, num_lines as _), Brush::default())
         };
         if size.is_empty() {
             return Default::default();
         }
         assert!(
             if rotation.is_transpose() {
-                pixel_stride >= size.height as usize && buffer.len() >= (size.width as usize * pixel_stride + size.height as usize) - pixel_stride
+                pixels_per_line >= size.height as usize && buffer_pixel_count >= (size.width as usize * pixels_per_line + size.height as usize) - pixels_per_line
             } else {
-                pixel_stride >= size.width as usize && buffer.len() >= (size.height as usize * pixel_stride + size.width as usize) - pixel_stride
+                pixels_per_line >= size.width as usize && buffer_pixel_count >= (size.height as usize * pixels_per_line + size.width as usize) - pixels_per_line
             },
-            "buffer of size {} with stride {pixel_stride} is too small to handle a window of size {size:?}", buffer.len()
+            "buffer of size {} with {pixels_per_line} pixels per line is too small to handle a window of size {size:?}", buffer_pixel_count
         );
         let buffer_renderer = SceneBuilder::new(
             size,
             factor,
             window_inner,
-            RenderToBuffer {
-                buffer,
-                stride: pixel_stride,
-                dirty_range_cache: vec![],
-                dirty_region: Default::default(),
-            },
+            RenderToBuffer { buffer, dirty_range_cache: vec![], dirty_region: Default::default() },
             rotation,
         );
         let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
@@ -543,6 +619,7 @@ impl SoftwareRenderer {
 
                 let mut bg = TargetPixel::background();
                 // TODO: gradient background
+                // TODO: Use TargetPixelBuffer::fill_rectangle
                 TargetPixel::blend(&mut bg, background.color().into());
                 let mut line = 0;
                 while let Some(next) = region_line_ranges(
@@ -552,7 +629,7 @@ impl SoftwareRenderer {
                 ) {
                     for l in line..next {
                         for r in &renderer.actual_renderer.processor.dirty_range_cache {
-                            renderer.actual_renderer.processor.buffer[l as usize * pixel_stride..]
+                            renderer.actual_renderer.processor.buffer.line_slice(l as usize)
                                 [r.start as usize..r.end as usize]
                                 .fill(bg);
                         }
@@ -1082,14 +1159,13 @@ trait ProcessScene {
     fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand);
 }
 
-struct RenderToBuffer<'a, TargetPixel> {
-    buffer: &'a mut [TargetPixel],
-    stride: usize,
+struct RenderToBuffer<'a, TargetPixelBuffer> {
+    buffer: &'a mut TargetPixelBuffer,
     dirty_range_cache: Vec<core::ops::Range<i16>>,
     dirty_region: PhysicalRegion,
 }
 
-impl<T: TargetPixel> RenderToBuffer<'_, T> {
+impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> RenderToBuffer<'_, B> {
     fn foreach_ranges(
         &mut self,
         geometry: &PhysicalRect,
@@ -1115,11 +1191,47 @@ impl<T: TargetPixel> RenderToBuffer<'_, T> {
                 for l in line..next {
                     f(
                         l,
-                        &mut self.buffer[l as usize * self.stride..][begin as usize..end as usize],
+                        &mut self.buffer.line_slice(l as usize)[begin as usize..end as usize],
                         extra_left_clip,
                         extra_right_clip,
                     );
                 }
+            }
+            if next == geometry.max_y() {
+                break;
+            }
+            line = next;
+        }
+    }
+
+    fn foreach_region(
+        &mut self,
+        geometry: &PhysicalRect,
+        mut f: impl FnMut(&mut B, PhysicalRect, i16, i16),
+    ) {
+        let mut line = geometry.min_y();
+        while let Some(mut next) =
+            region_line_ranges(&self.dirty_region, line, &mut self.dirty_range_cache)
+        {
+            next = next.min(geometry.max_y());
+            for r in &self.dirty_range_cache {
+                if geometry.origin.x >= r.end {
+                    continue;
+                }
+                let begin = r.start.max(geometry.origin.x);
+                let end = r.end.min(geometry.origin.x + geometry.size.width);
+                if begin >= end {
+                    continue;
+                }
+                let extra_left_clip = begin - geometry.origin.x;
+                let extra_right_clip = geometry.origin.x + geometry.size.width - end;
+
+                let region = PhysicalRect {
+                    origin: PhysicalPoint::new(begin, line),
+                    size: PhysicalSize::new(end - begin, next - line),
+                };
+
+                f(&mut self.buffer, region, extra_left_clip, extra_right_clip);
             }
             if next == geometry.max_y() {
                 break;
@@ -1142,7 +1254,9 @@ impl<T: TargetPixel> RenderToBuffer<'_, T> {
     }
 }
 
-impl<T: TargetPixel> ProcessScene for RenderToBuffer<'_, T> {
+impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> ProcessScene
+    for RenderToBuffer<'_, B>
+{
     fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         self.process_texture_impl(geometry, texture)
     }
@@ -1153,8 +1267,23 @@ impl<T: TargetPixel> ProcessScene for RenderToBuffer<'_, T> {
     }
 
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
-        self.foreach_ranges(&geometry, |_line, buffer, _extra_left_clip, _extra_right_clip| {
-            TargetPixel::blend_slice(buffer, color);
+        self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
+            if !buffer.fill_rectangle(
+                rect.origin.x,
+                rect.origin.y,
+                rect.size.width,
+                rect.size.height,
+                color,
+            ) {
+                let begin = rect.min_x();
+                let end = rect.max_x();
+                for l in rect.min_y()..rect.max_y() {
+                    <T as TargetPixel>::blend_slice(
+                        &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
+                        color,
+                    )
+                }
+            }
         });
     }
 
