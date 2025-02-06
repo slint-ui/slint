@@ -122,7 +122,7 @@ pub fn render(
     let mut ctx = Ctx::default();
     writeln!(ctx, "App := Window {{")?;
     ctx.indent += 1;
-    writeln!(ctx, "background: {};", background)?;
+    writeln!(ctx, "background: {background};")?;
     writeln!(ctx, "width: {}px;", frame.absoluteBoundingBox.width)?;
     writeln!(ctx, "height: {}px;", frame.absoluteBoundingBox.height)?;
     ctx.offset = frame.absoluteBoundingBox.origin();
@@ -349,7 +349,7 @@ fn handle_paint(p: &Paint, rc: &mut Ctx, arg: &str) -> Result<bool, Box<dyn std:
         has_something = true;
     } else if let Some(color) = &p.color {
         if !color.is_transparent() {
-            writeln!(rc, "{}: {};", arg, color)?;
+            writeln!(rc, "{arg}: {color};")?;
             has_something = true;
         }
     }

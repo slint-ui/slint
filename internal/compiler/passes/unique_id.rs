@@ -79,7 +79,7 @@ fn check_unique_id_in_component(component: &Rc<Component>, diag: &mut BuildDiagn
         if !id.is_empty() {
             if let Some(other_loc) = seen_ids.get_mut(id) {
                 debug_assert!(!Rc::ptr_eq(&other_loc.element, elem));
-                let message = format!("duplicated element id '{}'", id);
+                let message = format!("duplicated element id '{id}'");
                 if !other_loc.error_reported {
                     diag.push_error(message.clone(), &*other_loc.element.borrow());
                     other_loc.error_reported = true;

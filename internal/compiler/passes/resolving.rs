@@ -945,7 +945,7 @@ impl Expression {
             _ => {
                 if ty != Type::Invalid {
                     ctx.diag.push_error(
-                        format!("the {}= operation cannot be done on a {}", op, ty),
+                        format!("the {op}= operation cannot be done on a {ty}"),
                         &lhs_n,
                     );
                 }
@@ -1140,7 +1140,7 @@ impl Expression {
 
         let ty = array_expr.ty();
         if !matches!(ty, Type::Array(_) | Type::Invalid | Type::Function(_) | Type::Callback(_)) {
-            ctx.diag.push_error(format!("{} is not an indexable type", ty), &node);
+            ctx.diag.push_error(format!("{ty} is not an indexable type"), &node);
         }
         Expression::ArrayIndex { array: Box::new(array_expr), index: Box::new(index_expr) }
     }
@@ -1566,7 +1566,7 @@ fn maybe_lookup_object(
                     LookupResult::Expression { expression, .. } => {
                         let ty_descr = match expression.ty() {
                             Type::Struct { .. } => String::new(),
-                            ty => format!(" of {}", ty),
+                            ty => format!(" of {ty}"),
                         };
                         ctx.diag.push_error(
                             format!("Cannot access the field '{}'{}", next.text(), ty_descr),

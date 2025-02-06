@@ -779,7 +779,7 @@ fn set_prop_from_cache(
     );
     if let Some(old) = old.map(RefCell::into_inner) {
         diag.push_error(
-            format!("The property '{}' cannot be set for elements placed in this layout, because the layout is already setting it", prop),
+            format!("The property '{prop}' cannot be set for elements placed in this layout, because the layout is already setting it"),
             &old,
         );
     }
@@ -794,7 +794,7 @@ fn eval_const_expr(
     match expression {
         Expression::NumberLiteral(v, Unit::None) => {
             if *v < 0. || *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
-                diag.push_error(format!("'{}' must be a positive integer", name), span);
+                diag.push_error(format!("'{name}' must be a positive integer"), span);
                 None
             } else {
                 Some(*v as u16)
@@ -802,7 +802,7 @@ fn eval_const_expr(
         }
         Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
         _ => {
-            diag.push_error(format!("'{}' must be an integer literal", name), span);
+            diag.push_error(format!("'{name}' must be an integer literal"), span);
             None
         }
     }
@@ -812,10 +812,10 @@ fn eval_const_expr(
 fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
     for (prop, expr) in item.borrow().bindings.iter() {
         if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {
-            diag.push_error(format!("{} used outside of a GridLayout", prop), &*expr.borrow());
+            diag.push_error(format!("{prop} used outside of a GridLayout"), &*expr.borrow());
         }
         if matches!(prop.as_ref(), "dialog-button-role") {
-            diag.push_error(format!("{} used outside of a Dialog", prop), &*expr.borrow());
+            diag.push_error(format!("{prop} used outside of a Dialog"), &*expr.borrow());
         }
     }
 }

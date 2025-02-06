@@ -251,14 +251,14 @@ fn whitespace_to_one_of(
                 return Ok(SyntaxMatch::Found(expected_kind));
             }
             _ => {
-                eprintln!("Inconsistency: expected {:?},  found {:?}", elements, n);
+                eprintln!("Inconsistency: expected {elements:?},  found {n:?}");
                 fold(n, writer, state)?;
                 return Ok(SyntaxMatch::NotFound);
             }
         }
         fold(n, writer, state)?;
     }
-    eprintln!("Inconsistency: expected {:?},  not found", elements);
+    eprintln!("Inconsistency: expected {elements:?},  not found");
     Ok(SyntaxMatch::NotFound)
 }
 

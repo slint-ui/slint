@@ -177,7 +177,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             event_loop.create_window(window_attributes).map_err(|winit_os_error| {
-                format!("Error creating native window for software rendering: {}", winit_os_error)
+                format!("Error creating native window for software rendering: {winit_os_error}")
                     .into()
             })
         })?;
@@ -187,7 +187,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
 
         let surface = softbuffer::Surface::new(&context, winit_window.clone()).map_err(
-            |softbuffer_error| format!("Error creating softbuffer surface: {}", softbuffer_error),
+            |softbuffer_error| format!("Error creating softbuffer surface: {softbuffer_error}"),
         )?;
 
         *self._context.borrow_mut() = Some(context);

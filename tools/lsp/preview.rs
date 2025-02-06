@@ -554,7 +554,7 @@ fn set_color_binding(
         element_version,
         element_offset,
         property_name,
-        format!("#{:08x}", value),
+        format!("#{value:08x}"),
     )
 }
 
@@ -716,7 +716,7 @@ fn drop_component(component_index: i32, x: f32, y: f32) {
             SelectionNotification::AfterUpdate,
         );
 
-        send_workspace_edit(format!("Add element {}", component_name), edit, false);
+        send_workspace_edit(format!("Add element {component_name}"), edit, false);
     };
 }
 

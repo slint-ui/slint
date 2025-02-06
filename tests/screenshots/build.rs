@@ -69,14 +69,14 @@ fn main() -> std::io::Result<()> {
             .escape_default()
             .to_string();
 
-        reference_path = format!("\"{}\"", reference_path);
+        reference_path = format!("\"{reference_path}\"");
 
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
             module_name.insert(0, '_');
         }
-        writeln!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};", module_name)?;
+        writeln!(generated_file, "#[path=\"{module_name}.rs\"] mod r#{module_name};")?;
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
         let needle = "SLINT_SCALE_FACTOR=";
@@ -103,7 +103,7 @@ fn main() -> std::io::Result<()> {
         let skip_clipping = source.contains("SKIP_CLIPPING");
 
         let mut output = BufWriter::new(std::fs::File::create(
-            Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
+            Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
         )?);
 
         generate_source(

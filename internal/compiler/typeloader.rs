@@ -870,7 +870,7 @@ impl TypeLoader {
         known_styles.push("native");
         if !known_styles.contains(&style.as_ref())
             && myself
-                .find_file_in_include_path(None, &format!("{}/std-widgets.slint", style))
+                .find_file_in_include_path(None, &format!("{style}/std-widgets.slint"))
                 .is_none()
         {
             diag.push_diagnostic_with_span(

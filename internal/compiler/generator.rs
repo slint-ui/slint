@@ -58,7 +58,7 @@ impl std::str::FromStr for OutputFormat {
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
             "llr" => Ok(Self::Llr),
-            _ => Err(format!("Unknown output format {}", s)),
+            _ => Err(format!("Unknown output format {s}")),
         }
     }
 }
@@ -76,12 +76,12 @@ pub fn generate(
         #[cfg(feature = "cpp")]
         OutputFormat::Cpp(config) => {
             let output = cpp::generate(doc, config, compiler_config)?;
-            write!(destination, "{}", output)?;
+            write!(destination, "{output}")?;
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
-            write!(destination, "{}", output)?;
+            write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {
             return Err(std::io::Error::new(

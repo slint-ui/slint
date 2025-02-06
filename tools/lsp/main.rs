@@ -277,7 +277,7 @@ fn main() {
                 let threads = match run_lsp_server(args) {
                     Ok(threads) => threads,
                     Err(error) => {
-                        eprintln!("Error running LSP server: {}", error);
+                        eprintln!("Error running LSP server: {error}");
                         return;
                     }
                 };

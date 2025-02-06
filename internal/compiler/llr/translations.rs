@@ -50,7 +50,7 @@ impl TranslationsBuilder {
             vec![Some(plural_rule_parser::parse_rule_expression("n!=1").unwrap())];
         for l in std::fs::read_dir(path)? {
             let l = l?;
-            let path = l.path().join("LC_MESSAGES").join(format!("{}.po", domain));
+            let path = l.path().join("LC_MESSAGES").join(format!("{domain}.po"));
             if path.exists() {
                 let catalog = polib::po_file::parse(&path).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))

@@ -112,7 +112,7 @@ pub fn default_debug_log(_arguments: core::fmt::Arguments) {
 
             log(&_arguments.to_string());
         } else if #[cfg(feature = "std")] {
-            std::eprintln!("{}", _arguments);
+            std::eprintln!("{_arguments}");
         }
     }
 }

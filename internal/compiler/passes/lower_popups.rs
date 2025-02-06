@@ -233,7 +233,7 @@ fn lower_popup_window(
 }
 
 fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut BuildDiagnostics) {
-    diag.push_error(format!("The {} property only supports constants at the moment", prop), span);
+    diag.push_error(format!("The {prop} property only supports constants at the moment"), span);
 }
 
 fn check_element(

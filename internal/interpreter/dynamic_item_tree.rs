@@ -1253,7 +1253,7 @@ pub(crate) fn generate_item_tree<'id>(
             | Type::Model
             | Type::PathData
             | Type::UnitProduct(_)
-            | Type::ElementReference => panic!("bad type {:?}", ty),
+            | Type::ElementReference => panic!("bad type {ty:?}"),
         })
     }
 
@@ -1607,7 +1607,7 @@ pub fn instantiate(
                                 Box::new(make_callback_eval_closure(expr, &self_weak)),
                             );
                         } else {
-                            panic!("unknown callback {}", prop_name)
+                            panic!("unknown callback {prop_name}")
                         }
                     }
                 }
@@ -2088,7 +2088,7 @@ extern "C" fn accessible_string_property(
 ) -> bool {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let prop_name = format!("accessible-{}", what);
+    let prop_name = format!("accessible-{what}");
     let nr = instance_ref.description.original_elements[item_index as usize]
         .borrow()
         .accessibility_props

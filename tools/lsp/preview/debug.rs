@@ -159,7 +159,7 @@ fn recurse_into_element(state: &mut State, element: &ElementRc) -> (usize, Vec<S
     for c in &e.children {
         let (child_node_number, child_result) = recurse_into_element(state, c);
         lines.extend_from_slice(&child_result);
-        lines.push(format!("  n{} -> n{}", node_number, child_node_number));
+        lines.push(format!("  n{node_number} -> n{child_node_number}"));
     }
 
     (node_number, lines)

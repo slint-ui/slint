@@ -119,7 +119,7 @@ fn process_diagnostics(
         let rx = m.get(3).unwrap().as_str();
         let r = match regex::Regex::new(rx) {
             Err(e) => {
-                eprintln!("{:?}: Invalid regexp {:?} : {:?}", path, rx, e);
+                eprintln!("{path:?}: Invalid regexp {rx:?} : {e:?}");
                 return Ok(false);
             }
             Ok(r) => r,
@@ -142,7 +142,7 @@ fn process_diagnostics(
         let expected_diag_level = match warning_or_error {
             "warning" => i_slint_compiler::diagnostics::DiagnosticLevel::Warning,
             "error" => i_slint_compiler::diagnostics::DiagnosticLevel::Error,
-            _ => panic!("Unsupported diagnostic level {}", warning_or_error),
+            _ => panic!("Unsupported diagnostic level {warning_or_error}"),
         };
 
         match diags.iter().position(|e| {
@@ -155,10 +155,7 @@ fn process_diagnostics(
             }
             None => {
                 success = false;
-                println!(
-                    "{:?}: {} not found at offset {}: {:?}",
-                    path, warning_or_error, offset, rx
-                );
+                println!("{path:?}: {warning_or_error} not found at offset {offset}: {rx:?}");
             }
         }
     }
@@ -167,7 +164,7 @@ fn process_diagnostics(
     diags.retain(|d| !(d.message().contains("':='") && d.message().contains("deprecated")));
 
     if !diags.is_empty() {
-        println!("{:?}: Unexpected errors/warnings: {:#?}", path, diags);
+        println!("{path:?}: Unexpected errors/warnings: {diags:#?}");
 
         #[cfg(feature = "display-diagnostics")]
         if !_silent {

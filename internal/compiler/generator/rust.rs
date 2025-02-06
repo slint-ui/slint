@@ -2665,7 +2665,7 @@ fn compile_builtin_function_call(
                     sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, true)
                 )
             } else {
-                panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
+                panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
         }
         BuiltinFunction::ClearFocusItem => {
@@ -2676,7 +2676,7 @@ fn compile_builtin_function_call(
                     sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, false)
                 )
             } else {
-                panic!("internal error: invalid args to ClearFocusItem {:?}", arguments)
+                panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
         }
         BuiltinFunction::ShowPopupWindow => {
@@ -2727,7 +2727,7 @@ fn compile_builtin_function_call(
                     #popup_window_id::user_init(popup_instance_vrc.clone());
                 })
             } else {
-                panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
+                panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
         }
         BuiltinFunction::ClosePopupWindow => {
@@ -2751,7 +2751,7 @@ fn compile_builtin_function_call(
                     }
                 )
             } else {
-                panic!("internal error: invalid args to ClosePopupWindow {:?}", arguments)
+                panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
             }
         }
         BuiltinFunction::ShowPopupMenu => {
@@ -2866,7 +2866,7 @@ fn compile_builtin_function_call(
                     #item.set_selection_offsets(#window_adapter_tokens, #item_rc, #start as i32, #end as i32)
                 ))
             } else {
-                panic!("internal error: invalid args to set-selection-offsets {:?}", arguments)
+                panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
             }
         }
         BuiltinFunction::ItemMemberFunction(name) => {
@@ -2881,7 +2881,7 @@ fn compile_builtin_function_call(
                     )
                 })
             } else {
-                panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
+                panic!("internal error: invalid args to ItemMemberFunction {arguments:?}")
             }
         }
         BuiltinFunction::ItemFontMetrics => {
@@ -2894,7 +2894,7 @@ fn compile_builtin_function_call(
                     )
                 })
             } else {
-                panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
+                panic!("internal error: invalid args to ItemMemberFunction {arguments:?}")
             }
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
@@ -2907,7 +2907,7 @@ fn compile_builtin_function_call(
                     )
                 })
             } else {
-                panic!("internal error: invalid args to ImplicitLayoutInfo {:?}", arguments)
+                panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
             }
         }
         BuiltinFunction::RegisterCustomFontByPath => {
@@ -2916,7 +2916,7 @@ fn compile_builtin_function_call(
                 let path = path.as_str();
                 quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
             } else {
-                panic!("internal error: invalid args to RegisterCustomFontByPath {:?}", arguments)
+                panic!("internal error: invalid args to RegisterCustomFontByPath {arguments:?}")
             }
         }
         BuiltinFunction::RegisterCustomFontByMemory => {
@@ -2926,7 +2926,7 @@ fn compile_builtin_function_call(
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(#window_adapter_tokens.renderer().register_font_from_memory(#symbol.into()).unwrap())
             } else {
-                panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
+                panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
             }
         }
         BuiltinFunction::RegisterBitmapFont => {
@@ -3176,7 +3176,7 @@ fn compile_builtin_function_call(
                     sp::logical_position_to_api((*#item_rc).map_to_window(::core::default::Default::default()))
                 )
             } else {
-                panic!("internal error: invalid args to MapPointToWindow {:?}", arguments)
+                panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
             }
         }
         BuiltinFunction::UpdateTimers => {

@@ -245,15 +245,15 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
         let ctx = self.1;
         let e = |e: &'a Expression| DisplayExpression(e, ctx);
         match self.0 {
-            Expression::StringLiteral(x) => write!(f, "{:?}", x),
-            Expression::NumberLiteral(x) => write!(f, "{:?}", x),
-            Expression::BoolLiteral(x) => write!(f, "{:?}", x),
+            Expression::StringLiteral(x) => write!(f, "{x:?}"),
+            Expression::NumberLiteral(x) => write!(f, "{x:?}"),
+            Expression::BoolLiteral(x) => write!(f, "{x:?}"),
             Expression::PropertyReference(x) => write!(f, "{}", DisplayPropertyRef(x, ctx)),
-            Expression::FunctionParameterReference { index } => write!(f, "arg_{}", index),
+            Expression::FunctionParameterReference { index } => write!(f, "arg_{index}"),
             Expression::StoreLocalVariable { name, value } => {
                 write!(f, "{} = {}", name, e(value))
             }
-            Expression::ReadLocalVariable { name, .. } => write!(f, "{}", name),
+            Expression::ReadLocalVariable { name, .. } => write!(f, "{name}"),
             Expression::StructFieldAccess { base, name } => write!(f, "{}.{}", e(base), name),
             Expression::ArrayIndex { array, index } => write!(f, "{}[{}]", e(array), e(index)),
             Expression::Cast { from, to } => write!(f, "{} /*as {:?}*/", e(from), to),
@@ -296,9 +296,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             }
             Expression::UnaryOp { sub, op } => write!(f, "{}{}", op, e(sub)),
             Expression::ImageReference { resource_ref, nine_slice } => {
-                write!(f, "{:?}", resource_ref)?;
+                write!(f, "{resource_ref:?}")?;
                 if let Some(nine_slice) = &nine_slice {
-                    write!(f, "nine-slice({:?})", nine_slice)?;
+                    write!(f, "nine-slice({nine_slice:?})")?;
                 }
                 Ok(())
             }
@@ -313,7 +313,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 "{{ {} }}",
                 values.iter().map(|(k, v)| format!("{}: {}", k, e(v))).join(", ")
             ),
-            Expression::EasingCurve(x) => write!(f, "{:?}", x),
+            Expression::EasingCurve(x) => write!(f, "{x:?}"),
             Expression::LinearGradient { angle, stops } => write!(
                 f,
                 "@linear-gradient({}, {})",
@@ -325,7 +325,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 "@radial-gradient(circle, {})",
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
-            Expression::EnumerationValue(x) => write!(f, "{}", x),
+            Expression::EnumerationValue(x) => write!(f, "{x}"),
             Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index: None } => {
                 write!(f, "{}[{}]", DisplayPropertyRef(layout_cache_prop, ctx), index)
             }

@@ -29,7 +29,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();
-        panic!("Error parsing the builtin elements: {:?}", vec);
+        panic!("Error parsing the builtin elements: {vec:?}");
     }
 
     assert_eq!(node.kind(), crate::parser::SyntaxKind::Document);
@@ -194,7 +194,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             .map(|size_type| match size_type.as_deref() {
                 Some("expands_to_parent_geometry") => DefaultSizeBinding::ExpandsToParentGeometry,
                 Some("implicit_size") => DefaultSizeBinding::ImplicitSize,
-                other => panic!("invalid default size binding {:?}", other),
+                other => panic!("invalid default size binding {other:?}"),
             })
             .unwrap_or(DefaultSizeBinding::None);
         builtin.additional_accepted_child_types = e
@@ -240,7 +240,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();
-        panic!("Error loading the builtin elements: {:?}", vec);
+        panic!("Error loading the builtin elements: {vec:?}");
     }
 }
 
@@ -260,7 +260,7 @@ fn compiled(
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();
-        panic!("Error parsing the builtin elements: {:?}", vec);
+        panic!("Error parsing the builtin elements: {vec:?}");
     }
     e
 }

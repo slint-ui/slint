@@ -541,7 +541,7 @@ mod parser_trait {
         /// Returns true if the token was consumed.
         fn expect(&mut self, kind: SyntaxKind) -> bool {
             if !self.test(kind) {
-                self.error(format!("Syntax error: expected {}", kind));
+                self.error(format!("Syntax error: expected {kind}"));
                 return false;
             }
             true

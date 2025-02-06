@@ -544,11 +544,11 @@ fn extract_param<T: serde::de::DeserializeOwned>(
 ) -> Result<T, LspError> {
     let p = params.get(index).ok_or_else(|| LspError {
         code: LspErrorCode::InvalidParameter,
-        message: format!("{} parameter is missing", name),
+        message: format!("{name} parameter is missing"),
     })?;
     serde_json::from_value(p.clone()).map_err(|e| LspError {
         code: LspErrorCode::InvalidParameter,
-        message: format!("{} parameter is invalid: {}", name, e),
+        message: format!("{name} parameter is invalid: {e}"),
     })
 }
 
@@ -1032,9 +1032,7 @@ fn get_code_actions(
                 .text()
                 .to_string()
                 .lines()
-                .map(
-                    |line| if line.is_empty() { line.to_string() } else { format!("    {}", line) },
-                )
+                .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
                 .collect::<Vec<String>>();
             let edits = vec![TextEdit::new(
                 lsp_types::Range::new(r.start, r.end),

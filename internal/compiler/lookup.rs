@@ -478,7 +478,7 @@ pub fn check_deprecated_stylemetrics(
             .and_then(|x| x.node.source_file())
             .map_or(true, |x| x.path().starts_with("builtin:"))
         && !name.starts_with("layout-"))
-    .then(|| format!("Palette.{}", name))
+    .then(|| format!("Palette.{name}"))
 }
 
 fn expression_from_reference(

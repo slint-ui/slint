@@ -49,7 +49,7 @@ impl Model for ValueModel {
             Value::Number(x) => x.max(Default::default()) as usize,
             Value::Void => 0,
             Value::Model(model_ptr) => model_ptr.row_count(),
-            x => panic!("Invalid model {:?}", x),
+            x => panic!("Invalid model {x:?}"),
         }
     }
 
@@ -61,7 +61,7 @@ impl Model for ValueModel {
                 Value::Bool(_) => Value::Void,
                 Value::Number(_) => Value::Number(row as _),
                 Value::Model(model_ptr) => model_ptr.row_data(row)?,
-                x => panic!("Invalid model {:?}", x),
+                x => panic!("Invalid model {x:?}"),
             })
         }
     }

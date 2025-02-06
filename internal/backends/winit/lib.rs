@@ -315,8 +315,7 @@ impl BackendBuilder {
             (Some(renderer_name), _) => {
                 if self.allow_fallback {
                     eprintln!(
-                        "slint winit: unrecognized renderer {}, falling back to {}",
-                        renderer_name, DEFAULT_RENDERER_NAME
+                        "slint winit: unrecognized renderer {renderer_name}, falling back to {DEFAULT_RENDERER_NAME}"
                     );
                     default_renderer_factory
                 } else {
