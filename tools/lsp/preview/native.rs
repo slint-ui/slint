@@ -7,7 +7,6 @@ use std::collections::HashMap;
 
 use super::PreviewState;
 use crate::common::{PreviewToLspMessage, SourceFileVersion};
-use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 use slint_interpreter::ComponentHandle;
 use std::future::Future;
@@ -250,14 +249,6 @@ pub fn notify_diagnostics(
         crate::common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, version, diagnostics)?;
     }
     Some(())
-}
-
-pub fn send_status(message: &str, health: Health) {
-    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
-        return;
-    };
-
-    crate::common::lsp_to_editor::send_status_notification(&sender, message, health)
 }
 
 pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take_focus: bool) {
