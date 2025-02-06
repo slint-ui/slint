@@ -1296,7 +1296,7 @@ impl TextInput {
             TextCursorDirection::EndOfText => text.len(),
             TextCursorDirection::PageUp => {
                 let offset = self.page_height().get() - font_height;
-                if offset <= 0. {
+                if offset <= 0 as Coord {
                     return false;
                 }
                 reset_preferred_x_pos = false;
@@ -1308,7 +1308,7 @@ impl TextInput {
             }
             TextCursorDirection::PageDown => {
                 let offset = self.page_height().get() - font_height;
-                if offset <= 0. {
+                if offset <= 0 as Coord {
                     return false;
                 }
                 reset_preferred_x_pos = false;
