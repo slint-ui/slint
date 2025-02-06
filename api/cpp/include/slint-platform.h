@@ -538,6 +538,20 @@ struct Rgb565Pixel
     friend bool operator==(const Rgb565Pixel &lhs, const Rgb565Pixel &rhs) = default;
 };
 
+#    ifdef SLINT_FEATURE_EXPERIMENTAL
+template<typename PixelType>
+struct TargetPixelBuffer
+{
+    virtual ~TargetPixelBuffer() { }
+
+    virtual std::span<PixelType> line_slice(std::size_t line_number) = 0;
+    virtual std::size_t num_lines() = 0;
+
+    virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
+                                const RgbaColor<uint8_t> &premultiplied_color) = 0;
+};
+#    endif
+
 /// Slint's software renderer.
 ///
 /// To be used as a template parameter of the WindowAdapter.
@@ -679,6 +693,69 @@ public:
                                                                        buffer.size(), pixel_stride);
         return PhysicalRegion { r };
     }
+
+#    ifdef SLINT_FEATURE_EXPERIMENTAL
+    PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer) const
+    {
+        cbindgen_private::CppRgb8TargetPixelBuffer buffer_wrapper {
+            .user_data = buffer,
+            .line_slice =
+                    [](void *self, uintptr_t line_number, Rgb8Pixel **slice_ptr,
+                       uintptr_t *slice_len) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
+                        auto slice = buffer->line_slice(line_number);
+                        *slice_ptr = slice.data();
+                        *slice_len = slice.size();
+                    },
+            .num_lines =
+                    [](void *self) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
+                        return buffer->num_lines();
+                    },
+            .fill_rectangle =
+                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t height, uint8_t red,
+                       uint8_t green, uint8_t blue, uint8_t alpha) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
+                        return buffer->fill_rectangle(
+                                x, y, width, height,
+                                Color::from_argb_uint8(alpha, red, green, blue));
+                    }
+        };
+        auto r =
+                cbindgen_private::slint_software_renderer_render_accel_rgb8(inner, &buffer_wrapper);
+        return PhysicalRegion { r };
+    }
+    PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer) const
+    {
+        cbindgen_private::CppRgb565TargetPixelBuffer buffer_wrapper {
+            .user_data = buffer,
+            .line_slice =
+                    [](void *self, uintptr_t line_number, uint16_t **slice_ptr,
+                       uintptr_t *slice_len) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
+                        auto slice = buffer->line_slice(line_number);
+                        *slice_ptr = reinterpret_cast<uint16_t *>(slice.data());
+                        *slice_len = slice.size();
+                    },
+            .num_lines =
+                    [](void *self) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
+                        return buffer->num_lines();
+                    },
+            .fill_rectangle =
+                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t height, uint8_t red,
+                       uint8_t green, uint8_t blue, uint8_t alpha) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
+                        return buffer->fill_rectangle(
+                                x, y, width, height,
+                                Color::from_argb_uint8(alpha, red, green, blue));
+                    }
+        };
+        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner,
+                                                                               &buffer_wrapper);
+        return PhysicalRegion { r };
+    }
+#    endif
 
     /// Render the window scene into an RGB 565 encoded pixel buffer
     ///

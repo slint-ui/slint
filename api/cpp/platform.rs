@@ -356,9 +356,138 @@ mod software_renderer {
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_core::software_renderer::{
-        PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+        PhysicalRegion, PremultipliedRgbaColor, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+        TargetPixelBuffer,
     };
     use i_slint_core::SharedVector;
+
+    type CppTargetPixelBufferUserData = *mut c_void;
+
+    #[repr(C)]
+    pub struct CppRgb8TargetPixelBuffer {
+        user_data: CppTargetPixelBufferUserData,
+        line_slice: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            usize,
+            slice_ptr: &mut *mut Rgb8Pixel,
+            slice_len: *mut usize,
+        ),
+        num_lines: unsafe extern "C" fn(CppTargetPixelBufferUserData) -> usize,
+        fill_rectangle: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            i16,
+            i16,
+            i16,
+            i16,
+            u8,
+            u8,
+            u8,
+            u8,
+        ) -> bool,
+    }
+
+    impl TargetPixelBuffer for CppRgb8TargetPixelBuffer {
+        type Pixel = Rgb8Pixel;
+
+        fn line_slice(&mut self, line_number: usize) -> &mut [Self::Pixel] {
+            unsafe {
+                let mut data = core::ptr::null_mut();
+                let mut len = 0;
+                (self.line_slice)(self.user_data, line_number, &mut data, &mut len);
+                core::slice::from_raw_parts_mut(data, len)
+            }
+        }
+
+        fn num_lines(&self) -> usize {
+            unsafe { (self.num_lines)(self.user_data) }
+        }
+
+        fn fill_rectangle(
+            &mut self,
+            x: i16,
+            y: i16,
+            width: i16,
+            height: i16,
+            color: PremultipliedRgbaColor,
+        ) -> bool {
+            unsafe {
+                (self.fill_rectangle)(
+                    self.user_data,
+                    x,
+                    y,
+                    width,
+                    height,
+                    color.red,
+                    color.green,
+                    color.blue,
+                    color.alpha,
+                )
+            }
+        }
+    }
+
+    #[repr(C)]
+    pub struct CppRgb565TargetPixelBuffer {
+        user_data: CppTargetPixelBufferUserData,
+        line_slice: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            usize,
+            slice_ptr: &mut *mut u16,
+            slice_len: *mut usize,
+        ),
+        num_lines: unsafe extern "C" fn(CppTargetPixelBufferUserData) -> usize,
+        fill_rectangle: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            i16,
+            i16,
+            i16,
+            i16,
+            u8,
+            u8,
+            u8,
+            u8,
+        ) -> bool,
+    }
+
+    impl TargetPixelBuffer for CppRgb565TargetPixelBuffer {
+        type Pixel = Rgb565Pixel;
+
+        fn line_slice(&mut self, line_number: usize) -> &mut [Self::Pixel] {
+            unsafe {
+                let mut data = core::ptr::null_mut();
+                let mut len = 0;
+                (self.line_slice)(self.user_data, line_number, &mut data, &mut len);
+                core::slice::from_raw_parts_mut(data as *mut Rgb565Pixel, len)
+            }
+        }
+
+        fn num_lines(&self) -> usize {
+            unsafe { (self.num_lines)(self.user_data) }
+        }
+
+        fn fill_rectangle(
+            &mut self,
+            x: i16,
+            y: i16,
+            width: i16,
+            height: i16,
+            color: PremultipliedRgbaColor,
+        ) -> bool {
+            unsafe {
+                (self.fill_rectangle)(
+                    self.user_data,
+                    x,
+                    y,
+                    width,
+                    height,
+                    color.red,
+                    color.green,
+                    color.blue,
+                    color.alpha,
+                )
+            }
+        }
+    }
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(
@@ -389,6 +518,26 @@ mod software_renderer {
         let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
         let renderer = &*(r as *const SoftwareRenderer);
         renderer.render(buffer, pixel_stride)
+    }
+
+    #[cfg(feature = "experimental")]
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb8(
+        r: SoftwareRendererOpaque,
+        buffer: *mut CppRgb8TargetPixelBuffer,
+    ) -> PhysicalRegion {
+        let renderer = &*(r as *const SoftwareRenderer);
+        unsafe { renderer.render_into_buffer(&mut *buffer) }
+    }
+
+    #[cfg(feature = "experimental")]
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb565(
+        r: SoftwareRendererOpaque,
+        buffer: *mut CppRgb565TargetPixelBuffer,
+    ) -> PhysicalRegion {
+        let renderer = &*(r as *const SoftwareRenderer);
+        unsafe { renderer.render_into_buffer(&mut *buffer) }
     }
 
     #[no_mangle]
