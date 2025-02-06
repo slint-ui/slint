@@ -7,7 +7,6 @@
 pub mod common;
 mod fmt;
 mod language;
-pub mod lsp_ext;
 #[cfg(feature = "preview-engine")]
 mod preview;
 pub mod util;
@@ -271,13 +270,6 @@ impl SlintServer {
         };
 
         match message {
-            M::Status { message, health } => {
-                crate::common::lsp_to_editor::send_status_notification(
-                    &self.ctx.server_notifier,
-                    &message,
-                    health,
-                );
-            }
             M::Diagnostics { diagnostics, version, uri } => {
                 crate::common::lsp_to_editor::notify_lsp_diagnostics(
                     &self.ctx.server_notifier,

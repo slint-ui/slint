@@ -151,10 +151,6 @@ function startClient(
         // Just make sure that the output channel is always present.
         cl?.outputChannel.append("");
 
-        cl?.onNotification(common.serverStatus, (params: any) =>
-            common.setServerStatus(params, statusBar),
-        );
-
         cl?.onDidChangeState((event) => {
             const properly_stopped = cl.hasOwnProperty("slint_stopped");
             if (

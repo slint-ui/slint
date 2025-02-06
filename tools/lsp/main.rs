@@ -10,7 +10,6 @@ compile_error!("Feature preview-engine and preview-builtin need to be enabled to
 mod common;
 mod fmt;
 mod language;
-pub mod lsp_ext;
 #[cfg(feature = "preview-engine")]
 mod preview;
 pub mod util;
@@ -544,13 +543,6 @@ async fn handle_preview_to_lsp_message(
 ) -> Result<()> {
     use crate::common::PreviewToLspMessage as M;
     match message {
-        M::Status { message, health } => {
-            crate::common::lsp_to_editor::send_status_notification(
-                &ctx.server_notifier,
-                &message,
-                health,
-            );
-        }
         M::Diagnostics { uri, version, diagnostics } => {
             crate::common::lsp_to_editor::notify_lsp_diagnostics(
                 &ctx.server_notifier,
