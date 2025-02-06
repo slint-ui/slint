@@ -12,7 +12,6 @@ import {
 } from "./utils/code-utils";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
-
     figma.codegen.on("generate", async ({ node }) => {
         const slintSnippet = await getSlintSnippet();
         return [
@@ -24,4 +23,3 @@ if (figma.editorType === "dev" && figma.mode === "codegen") {
         ];
     });
 }
-

@@ -12,11 +12,8 @@ export const manifest: PluginManifest = {
     ui: "index.html",
     editorType: ["dev"],
     capabilities: ["codegen", "vscode"],
-    codegenLanguages: [
-        {"label": "Slint", "value": "slint"},
-    ],
-    codegenPreferences: [
-    ],
+    codegenLanguages: [{ label: "Slint", value: "slint" }],
+    codegenPreferences: [],
     documentAccess: "dynamic-page",
     networkAccess: {
         allowedDomains: ["*"],
