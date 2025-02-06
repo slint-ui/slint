@@ -53,7 +53,7 @@ impl Display for Error {
 async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::error::Error>> {
     println!("Fetch document {}...", opt.file);
     let full_doc = reqwest::Client::new()
-        .get(&format!("https://api.figma.com/v1/files/{}?geometry=paths", opt.file))
+        .get(format!("https://api.figma.com/v1/files/{}?geometry=paths", opt.file))
         .header("X-Figma-Token", opt.token.clone())
         .send()
         .await?
@@ -76,7 +76,7 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
     }
 
     let i: ImageResult = reqwest::Client::new()
-        .get(&format!("https://api.figma.com/v1/files/{}/images", opt.file))
+        .get(format!("https://api.figma.com/v1/files/{}/images", opt.file))
         .header("X-Figma-Token", &opt.token)
         .send()
         .await?

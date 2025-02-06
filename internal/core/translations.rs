@@ -52,7 +52,7 @@ mod formatter {
         args: &'a T,
     }
 
-    impl<'a, T: FormatArgs + ?Sized> Display for FormatResult<'a, T> {
+    impl<T: FormatArgs + ?Sized> Display for FormatResult<'_, T> {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             let mut arg_idx = 0;
             let mut pos = 0;
@@ -160,7 +160,7 @@ impl<T: Display> Display for DisplayOrInt<T> {
     }
 }
 
-impl<'a, T: FormatArgs + ?Sized> FormatArgs for WithPlural<'a, T> {
+impl<T: FormatArgs + ?Sized> FormatArgs for WithPlural<'_, T> {
     type Output<'b>
         = DisplayOrInt<T::Output<'b>>
     where
@@ -342,7 +342,7 @@ fn index_for_locale(languages: &[&'static str]) -> Option<usize> {
     // first, try an exact match
     let idx = languages.iter().position(|x| *x == locale);
     // else, only match the language part
-    fn base<'a>(l: &'a str) -> &'a str {
+    fn base(l: &str) -> &str {
         l.find(['-', '_', '@']).map_or(l, |i| &l[..i])
     }
     idx.or_else(|| {
@@ -371,7 +371,7 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
             Ok(())
-        } else if language == "" || language == "en" {
+        } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
             Ok(())
         } else {

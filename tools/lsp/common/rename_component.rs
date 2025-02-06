@@ -97,7 +97,7 @@ fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<Path
         .child_token(SyntaxKind::StringLiteral)
         .and_then(|t| i_slint_compiler::literals::unescape_string(t.text()))?;
 
-    if import == SmolStr::from("std-widgets.slint") || import.starts_with("@") {
+    if import == "std-widgets.slint" || import.starts_with("@") {
         return None; // No need to ever look at this!
     }
 
@@ -139,7 +139,7 @@ fn fix_specifier(
 
     if i_slint_compiler::parser::normalize_identifier(type_name.text()) == ti.name {
         if let Some(renamed_to) = renamed_to {
-            if i_slint_compiler::parser::normalize_identifier(&renamed_to.text())
+            if i_slint_compiler::parser::normalize_identifier(renamed_to.text())
                 == i_slint_compiler::parser::normalize_identifier(new_type)
             {
                 if query.has_parent_token_info() {
@@ -298,7 +298,7 @@ fn fix_import_in_document(
 
         if module.child_token(SyntaxKind::Star).is_some() {
             // Change upstream imports
-            fix_imports(document_cache, &query, document_node.source_file.path(), new_type, edits);
+            fix_imports(document_cache, query, document_node.source_file.path(), new_type, edits);
         } else {
             for specifier in export_item.ExportSpecifier() {
                 if let Some(sub_query) = fix_specifier(
@@ -377,8 +377,7 @@ fn rename_local_symbols(
     while let Some(current) = current_token {
         if current.kind() == SyntaxKind::Identifier
             && i_slint_compiler::parser::normalize_identifier(current.text()) == ti.name
-        {
-            if ![
+            && ![
                 SyntaxKind::ExternalName,
                 SyntaxKind::InternalName,
                 SyntaxKind::ExportIdentifier,
@@ -386,20 +385,19 @@ fn rename_local_symbols(
                 SyntaxKind::PropertyDeclaration,
             ]
             .contains(&current.parent().kind())
-                && ti.is_same_symbol(document_cache, current.clone())
-            {
-                edits.push(
-                    common::SingleTextEdit::from_path(
-                        document_cache,
-                        current.source_file.path(),
-                        lsp_types::TextEdit {
-                            range: util::token_to_lsp_range(&current),
-                            new_text: new_type.to_string(),
-                        },
-                    )
-                    .expect("URL conversion can not fail here"),
+            && ti.is_same_symbol(document_cache, current.clone())
+        {
+            edits.push(
+                common::SingleTextEdit::from_path(
+                    document_cache,
+                    current.source_file.path(),
+                    lsp_types::TextEdit {
+                        range: util::token_to_lsp_range(&current),
+                        new_text: new_type.to_string(),
+                    },
                 )
-            }
+                .expect("URL conversion can not fail here"),
+            )
         }
 
         current_token = current.next_token();
@@ -436,7 +434,7 @@ fn rename_internal_name(
         query,
         new_type,
         main_identifier(&external_name).unwrap(),
-        main_identifier(&internal_name),
+        main_identifier(internal_name),
         &mut edits,
     ) {
         rename_local_symbols(document_cache, document_node, &sub_query, new_type, &mut edits);
@@ -468,7 +466,7 @@ fn rename_export_name(
         query,
         new_type,
         internal_name,
-        main_identifier(&export_name),
+        main_identifier(export_name),
         &mut edits,
     ) {
         // Change exports
@@ -516,13 +514,13 @@ impl DeclarationNode {
     ) -> crate::Result<lsp_types::WorkspaceEdit> {
         match &self.kind {
             DeclarationNodeKind::DeclaredIdentifier(id) => {
-                rename_declared_identifier(document_cache, &self.query, &id, &new_type)
+                rename_declared_identifier(document_cache, &self.query, id, new_type)
             }
             DeclarationNodeKind::InternalName(internal) => {
-                Ok(rename_internal_name(document_cache, &self.query, &internal, &new_type))
+                Ok(rename_internal_name(document_cache, &self.query, internal, new_type))
             }
             DeclarationNodeKind::ExportName(export) => {
-                Ok(rename_export_name(document_cache, &self.query, &export, &new_type))
+                Ok(rename_export_name(document_cache, &self.query, export, new_type))
             }
         }
     }
@@ -540,7 +538,7 @@ fn find_last_declared_identifier_at_or_before(
             if node.kind() == SyntaxKind::DeclaredIdentifier
                 && i_slint_compiler::parser::identifier_text(&node).as_ref() == Some(type_name)
             {
-                return Some(node.into());
+                return Some(node);
             }
         }
         token = t.prev_token();
@@ -712,7 +710,7 @@ impl DeclarationNodeQuery {
 
     /// Find the declaration node we should rename
     fn find_declaration_node(
-        self: Self,
+        self,
         document_cache: &common::DocumentCache,
     ) -> Option<DeclarationNode> {
         let node = self.token_info.token.parent();
@@ -981,7 +979,7 @@ fn rename_declared_identifier(
         return Err(format!("{new_type} is already a registered type").into());
     }
     if parent.kind() == SyntaxKind::Component
-        && document.local_registry.lookup_element(&normalized_new_type.as_str()).is_ok()
+        && document.local_registry.lookup_element(normalized_new_type.as_str()).is_ok()
     {
         return Err(format!("{new_type} is already a registered element").into());
     }
@@ -997,10 +995,10 @@ fn rename_declared_identifier(
     // Change all local usages:
     rename_local_symbols(document_cache, document_node, query, new_type, &mut edits);
 
-    if is_symbol_name_exported(document_cache, document_node, query).is_some() {
-        if fix_export_lists(document_cache, document_node, query, new_type, &mut edits).is_none() {
-            fix_imports(document_cache, query, source_file.path(), new_type, &mut edits);
-        }
+    if is_symbol_name_exported(document_cache, document_node, query).is_some()
+        && fix_export_lists(document_cache, document_node, query, new_type, &mut edits).is_none()
+    {
+        fix_imports(document_cache, query, source_file.path(), new_type, &mut edits);
     }
 
     Ok(common::create_workspace_edit_from_single_text_edits(edits))
@@ -1057,16 +1055,16 @@ mod tests {
     ) -> Vec<text_edit::EditedText> {
         eprintln!("Edit:");
         for it in text_edit::EditIterator::new(edit) {
-            eprintln!("   {} => {:?}", it.0.uri.to_string(), it.1);
+            eprintln!("   {} => {:?}", it.0.uri, it.1);
         }
         eprintln!("*** All edits reported ***");
 
-        let changed_text = text_edit::apply_workspace_edit(&document_cache, &edit).unwrap();
+        let changed_text = text_edit::apply_workspace_edit(document_cache, edit).unwrap();
         assert!(!changed_text.is_empty()); // there was a change!
 
         eprintln!("After changes were applied:");
         for ct in &changed_text {
-            eprintln!("File {}:", ct.url.to_string());
+            eprintln!("File {}:", ct.url);
             for (count, line) in ct.contents.split('\n').enumerate() {
                 eprintln!("    {:3}: {line}", count + 1);
             }
@@ -1111,13 +1109,13 @@ mod tests {
         new_name: &str,
     ) -> Vec<text_edit::EditedText> {
         let edit = find_declaration_node(
-            &document_cache,
-            &find_token_by_comment(&document_cache, document_path, suffix),
+            document_cache,
+            &find_token_by_comment(document_cache, document_path, suffix),
         )
         .unwrap()
-        .rename(&document_cache, new_name)
+        .rename(document_cache, new_name)
         .unwrap();
-        compile_test_changes(&document_cache, &edit, false)
+        compile_test_changes(document_cache, &edit, false)
     }
 
     #[track_caller]
@@ -1371,7 +1369,7 @@ export component Bar inherits Foo /* <- TEST_ME_3 */ {
             "fluent",
             HashMap::from([(
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
-                format!("component Foo/* <- TEST_ME_1 */{{ }}\nexport component _SLINT_LivePreview inherits Foo {{ /* @lsp:ignore-node */ }}\n")
+                "component Foo/* <- TEST_ME_1 */{ }\nexport component _SLINT_LivePreview inherits Foo { /* @lsp:ignore-node */ }\n".to_string()
             )]),
             true,
         );

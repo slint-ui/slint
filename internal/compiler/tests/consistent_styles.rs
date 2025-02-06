@@ -105,7 +105,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                         "focus".into(),
                         PropertyInfo {
                             ty: Type::Function(Rc::new(Function {
-                                return_type: Type::Void.into(),
+                                return_type: Type::Void,
                                 args: vec![],
                                 arg_names: vec![],
                             })),
@@ -117,7 +117,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                         "clear-focus".into(),
                         PropertyInfo {
                             ty: Type::Function(Rc::new(Function {
-                                return_type: Type::Void.into(),
+                                return_type: Type::Void,
                                 args: vec![],
                                 arg_names: vec![],
                             })),

@@ -760,7 +760,7 @@ fn element_at_source_code_position(
         .as_ref()
         .map(|n| n.source_file.clone())
         .ok_or_else(|| "Document had no node".to_string())?;
-    let element_position = util::text_size_to_lsp_position(&source_file, position.offset().into());
+    let element_position = util::text_size_to_lsp_position(&source_file, position.offset());
 
     Ok(document_cache.element_at_position(position.url(), &element_position).ok_or_else(|| {
         format!("No element found at the given start position {:?}", &element_position)
@@ -1468,7 +1468,7 @@ component MainWindow inherits Window {
         assert_eq!(foo_property.ty, Type::Int32);
 
         let declaration = foo_property.declared_at.as_ref().unwrap();
-        let start_position = util::text_size_to_lsp_position(&source, declaration.start_position);
+        let start_position = util::text_size_to_lsp_position(source, declaration.start_position);
         assert_eq!(declaration.path, source.path());
         assert_eq!(start_position.line, 3);
         assert_eq!(start_position.character, 20); // This should probably point to the start of

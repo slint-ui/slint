@@ -44,7 +44,7 @@ pub fn goto_definition(
         }
         TokenInfo::EnumerationValue(v) => {
             // FIXME: this goes to the enum definition instead of the value definition.
-            goto_node(&*v.enumeration.node.as_ref()?)
+            goto_node(v.enumeration.node.as_ref()?)
         }
         TokenInfo::FileName(f) | TokenInfo::Image(f) => {
             if let Some(doc) = document_cache.get_document_by_path(&f) {

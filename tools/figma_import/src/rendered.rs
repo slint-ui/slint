@@ -238,9 +238,8 @@ fn render_rectangle(
             writeln!(rc, "Image {{")?;
             writeln!(rc, "    width: 100%; height: 100%;")?;
             writeln!(rc, "    source: @image-url(\"images/{}\");", imr.escape_debug())?;
-            match p.scaleMode.as_deref() {
-                Some("FIT") => writeln!(rc, "    image-fit: contain;")?,
-                _ => (),
+            if let Some("FIT") = p.scaleMode.as_deref() {
+                writeln!(rc, "    image-fit: contain;")?
             }
             writeln!(rc, "    }}")?;
         }

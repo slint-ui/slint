@@ -99,8 +99,8 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_set_string_binding(super::set_string_binding);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
 
-    api.on_string_to_color(|s| string_to_color(&s.to_string()).unwrap_or_default());
-    api.on_string_is_color(|s| string_to_color(&s.to_string()).is_some());
+    api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
+    api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
     api.on_color_to_data(|c| {
         let encoded = c.as_argb_encoded();
 
@@ -122,7 +122,11 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         }
     });
     api.on_rgba_to_color(|r, g, b, a| {
-        if r >= 0 && r < 256 && g >= 0 && g < 256 && b >= 0 && b < 256 && a >= 0 && a < 256 {
+        if (0..256).contains(&r)
+            && (0..256).contains(&g)
+            && (0..256).contains(&b)
+            && (0..256).contains(&a)
+        {
             slint::Color::from_argb_u8(a as u8, r as u8, g as u8, b as u8)
         } else {
             slint::Color::default()
@@ -351,7 +355,7 @@ fn convert_number_literal(
 
         match expr {
             i_slint_compiler::expression_tree::Expression::NumberLiteral(value, unit) => {
-                return Some((value, unit))
+                Some((value, unit))
             }
             _ => None,
         }
@@ -365,7 +369,7 @@ fn extract_value_with_unit_impl(
     units: &[i_slint_compiler::expression_tree::Unit],
 ) -> Option<(PropertyValueKind, f32, i32)> {
     if let Some(expression) = expression {
-        if let Some((value, unit)) = convert_number_literal(&expression) {
+        if let Some((value, unit)) = convert_number_literal(expression) {
             let index = units.iter().position(|u| u == &unit).or_else(|| {
                 (units.is_empty() && unit == i_slint_compiler::expression_tree::Unit::None)
                     .then_some(0_usize)
@@ -387,7 +391,7 @@ fn extract_value_with_unit_impl(
 }
 
 fn string_to_color(text: &str) -> Option<slint::Color> {
-    literals::parse_color_literal(&text).map(|c| slint::Color::from_argb_encoded(c))
+    literals::parse_color_literal(text).map(slint::Color::from_argb_encoded)
 }
 
 fn extract_value_with_unit(
@@ -437,7 +441,7 @@ fn set_default_brush(
     value.kind = kind;
     if let Some(mut def_val) = def_val {
         if let Expression::Cast { from, .. } = def_val {
-            def_val = &from;
+            def_val = from;
         }
         if let Expression::NumberLiteral(v, _) = def_val {
             value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(*v as _));
@@ -445,7 +449,7 @@ fn set_default_brush(
         }
     }
     let text = "#00000000";
-    let color = literals::parse_color_literal(&text).unwrap();
+    let color = literals::parse_color_literal(text).unwrap();
     value.value_string = text.into();
     value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(color));
 }
@@ -654,7 +658,7 @@ fn map_properties_to_ui(
 
         declarations.insert(pi.name.clone(), declared_at);
 
-        let value = simplify_value(&pi);
+        let value = simplify_value(pi);
 
         property_group_from(
             &mut property_groups,
@@ -895,7 +899,7 @@ mod tests {
         let result =
             property_conversion_test(r#"export component Test { in property <bool> test1; }"#, 0);
         assert_eq!(result.kind, PropertyValueKind::Boolean);
-        assert_eq!(result.value_bool, false);
+        assert!(!result.value_bool);
         assert!(result.code.is_empty());
 
         let result = property_conversion_test(
@@ -903,7 +907,7 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Boolean);
-        assert_eq!(result.value_bool, true);
+        assert!(result.value_bool);
         assert!(!result.code.is_empty());
 
         let result = property_conversion_test(
@@ -911,7 +915,7 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Boolean);
-        assert_eq!(result.value_bool, false);
+        assert!(!result.value_bool);
         assert!(!result.code.is_empty());
 
         let result = property_conversion_test(
@@ -919,7 +923,7 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
-        assert_eq!(result.value_bool, false);
+        assert!(!result.value_bool);
         assert!(!result.code.is_empty());
     }
 
@@ -928,10 +932,10 @@ mod tests {
         let result =
             property_conversion_test(r#"export component Test { in property <string> test1; }"#, 0);
         assert_eq!(result.kind, PropertyValueKind::String);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "");
-        assert_eq!(result.value_bool, false);
+        assert!(!result.value_bool);
         assert!(result.code.is_empty());
 
         let result = property_conversion_test(
@@ -939,10 +943,10 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::String);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "");
-        assert_eq!(result.value_bool, false);
+        assert!(!result.value_bool);
         assert!(!result.code.is_empty());
 
         let result = property_conversion_test(
@@ -950,10 +954,10 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::String);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "");
-        assert_eq!(result.value_bool, false);
+        assert!(!result.value_bool);
         assert!(!result.code.is_empty());
 
         let result = property_conversion_test(
@@ -961,10 +965,10 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "");
-        assert_eq!(result.value_bool, false);
+        assert!(!result.value_bool);
         assert!(!result.code.is_empty());
     }
 
@@ -976,7 +980,7 @@ mod tests {
         );
         assert_eq!(result.kind, PropertyValueKind::String);
         assert_eq!(result.value_string, "test");
-        assert_eq!(result.is_translatable, true);
+        assert!(result.is_translatable);
         assert_eq!(result.tr_context, "Context");
         assert_eq!(result.tr_plural, "");
         assert!(!result.code.is_empty());
@@ -989,7 +993,7 @@ mod tests {
             2,
         );
         assert_eq!(result.kind, PropertyValueKind::String);
-        assert_eq!(result.is_translatable, true);
+        assert!(result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "{n} strings");
         assert_eq!(result.tr_plural_expression, "test");
@@ -1004,7 +1008,7 @@ mod tests {
             2,
         );
         assert_eq!(result.kind, PropertyValueKind::String);
-        assert_eq!(result.is_translatable, true);
+        assert!(result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "{n} strings");
         assert_eq!(result.tr_plural_expression, "self.test");
@@ -1017,7 +1021,7 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "");
         assert_eq!(result.value_string, "");
@@ -1028,7 +1032,7 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "");
         assert_eq!(result.value_string, "");
@@ -1038,7 +1042,7 @@ mod tests {
             0,
         );
         assert_eq!(result.kind, PropertyValueKind::Code);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
         assert_eq!(result.tr_context, "");
         assert_eq!(result.tr_plural, "");
         assert_eq!(result.value_string, "");
@@ -1055,7 +1059,7 @@ mod tests {
         assert_eq!(result.value_string, "ImageFit");
         assert_eq!(result.value_int, 3);
         assert_eq!(result.default_selection, 0);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 4);
 
@@ -1067,7 +1071,7 @@ mod tests {
         assert_eq!(result.value_string, "ImageFit");
         assert_eq!(result.value_int, 3);
         assert_eq!(result.default_selection, 0);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 4);
 
@@ -1079,7 +1083,7 @@ mod tests {
         assert_eq!(result.value_string, "ImageFit");
         assert_eq!(result.value_int, 3);
         assert_eq!(result.default_selection, 0);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 4);
 
@@ -1092,7 +1096,7 @@ export component Test { in property <Foobar> test1: Foobar.bar; }"#,
         assert_eq!(result.value_string, "Foobar");
         assert_eq!(result.value_int, 1);
         assert_eq!(result.default_selection, 0);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 2);
         assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
@@ -1107,7 +1111,7 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.value_string, "Foobar");
         assert_eq!(result.value_int, 0); // default
         assert_eq!(result.default_selection, 0);
-        assert_eq!(result.is_translatable, false);
+        assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 2);
         assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
@@ -1331,28 +1335,28 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::simplify_value(&prop);
+        let result = super::simplify_value(prop);
         assert_eq!(result.kind, PropertyValueKind::Boolean);
-        assert_eq!(result.value_bool, true);
+        assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "enabled").unwrap();
-        let result = super::simplify_value(&prop);
+        let result = super::simplify_value(prop);
         assert_eq!(result.kind, PropertyValueKind::Boolean);
-        assert_eq!(result.value_bool, true);
+        assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "text").unwrap();
-        let result = super::simplify_value(&prop);
+        let result = super::simplify_value(prop);
         assert_eq!(result.kind, PropertyValueKind::String);
         assert_eq!(result.value_string, "Ok");
 
         let prop = pi.iter().find(|pi| pi.name == "alias").unwrap();
-        let result = super::simplify_value(&prop);
+        let result = super::simplify_value(prop);
         assert_eq!(result.kind, PropertyValueKind::Float);
         assert_eq!(result.value_float, 45.);
         assert_eq!(result.visual_items.row_data(result.value_int as usize).unwrap(), "cm");
 
         let prop = pi.iter().find(|pi| pi.name == "color").unwrap();
-        let result = super::simplify_value(&prop);
+        let result = super::simplify_value(prop);
         assert_eq!(result.kind, PropertyValueKind::Color);
         assert_eq!(
             result.value_brush,
@@ -1386,9 +1390,9 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::simplify_value(&prop);
+        let result = super::simplify_value(prop);
         assert_eq!(result.kind, PropertyValueKind::Boolean);
-        assert_eq!(result.value_bool, true);
+        assert!(result.value_bool);
     }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {

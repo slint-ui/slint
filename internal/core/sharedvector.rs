@@ -567,7 +567,7 @@ fn collect_from_iter_with_no_size_hint() {
         i: usize,
     }
 
-    impl<'a> Iterator for NoSizeHintIter<'a> {
+    impl Iterator for NoSizeHintIter<'_> {
         type Item = String;
 
         fn next(&mut self) -> Option<Self::Item> {

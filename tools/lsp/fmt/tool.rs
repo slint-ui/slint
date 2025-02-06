@@ -83,7 +83,7 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
             diag.print();
         }
     }
-    return file.write_all(source_slice.as_bytes());
+    file.write_all(source_slice.as_bytes())
 }
 
 fn process_slint_file(
@@ -118,7 +118,7 @@ fn process_file(
                 return process_slint_file(source, path, file);
             }
             // With other file types, we just output them in their original form.
-            return file.write_all(source.as_bytes());
+            file.write_all(source.as_bytes())
         }
     }
 }

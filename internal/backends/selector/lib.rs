@@ -37,18 +37,18 @@ fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformErro
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "android")] {
-        const DEFAULT_BACKEND_NAME: &'static str = "";
+        const DEFAULT_BACKEND_NAME: &str = "";
     } else if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
-        const DEFAULT_BACKEND_NAME: &'static str = "qt";
+        const DEFAULT_BACKEND_NAME: &str = "qt";
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
-        const DEFAULT_BACKEND_NAME: &'static str = "winit";
+        const DEFAULT_BACKEND_NAME: &str = "winit";
     } else if #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))] {
         use i_slint_backend_linuxkms as default_backend;
-        const DEFAULT_BACKEND_NAME: &'static str = "linuxkms";
+        const DEFAULT_BACKEND_NAME: &str = "linuxkms";
     } else {
-        const DEFAULT_BACKEND_NAME: &'static str = "";
+        const DEFAULT_BACKEND_NAME: &str = "";
     }
 }
 

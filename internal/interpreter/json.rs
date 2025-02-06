@@ -262,14 +262,11 @@ fn test_to_json() {
     let v = value_to_json_string(&Value::Model(model)).unwrap();
     assert_eq!(v, "[true,false]".to_string());
 
-    let v = value_to_json_string(&Value::Struct(crate::Struct::from_iter(
-        [
-            ("kind".to_string(), Value::EnumerationValue("test".to_string(), "foo".to_string())),
-            ("is_bool".to_string(), Value::Bool(false)),
-            ("string-value".to_string(), Value::String("some string".into())),
-        ]
-        .into_iter(),
-    )))
+    let v = value_to_json_string(&Value::Struct(crate::Struct::from_iter([
+        ("kind".to_string(), Value::EnumerationValue("test".to_string(), "foo".to_string())),
+        ("is_bool".to_string(), Value::Bool(false)),
+        ("string-value".to_string(), Value::String("some string".into())),
+    ])))
     .unwrap();
     assert_eq!(
         v,

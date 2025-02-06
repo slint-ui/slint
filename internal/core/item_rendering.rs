@@ -829,12 +829,12 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             });
 
                             self.mark_dirty_rect(
-                                &old_geom.bounding_rect(),
+                                old_geom.bounding_rect(),
                                 state.old_transform_to_screen,
                                 &state.clipped,
                             );
                             self.mark_dirty_rect(
-                                &new_geom.bounding_rect(),
+                                new_geom.bounding_rect(),
                                 state.transform_to_screen,
                                 &state.clipped,
                             );
@@ -861,12 +861,12 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                     != new_state.old_transform_to_screen
                             {
                                 self.mark_dirty_rect(
-                                    &cached_geom.bounding_rect(),
+                                    cached_geom.bounding_rect(),
                                     state.old_transform_to_screen,
                                     &state.clipped,
                                 );
                                 self.mark_dirty_rect(
-                                    &cached_geom.bounding_rect(),
+                                    cached_geom.bounding_rect(),
                                     state.transform_to_screen,
                                     &state.clipped,
                                 );
@@ -936,7 +936,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                 let initial_transform =
                     euclid::Transform2D::translation(origin.x as f32, origin.y as f32);
                 ComputeDirtyRegionState {
-                    transform_to_screen: initial_transform.clone(),
+                    transform_to_screen: initial_transform,
                     old_transform_to_screen: initial_transform,
                     clipped: LogicalRect::from_size(size),
                     must_refresh_children: false,
@@ -1011,7 +1011,7 @@ macro_rules! forward_rendering_call2 {
     };
 }
 
-impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'a, T> {
+impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_, T> {
     fn filter_item(
         &mut self,
         item_rc: &ItemRc,
@@ -1020,7 +1020,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRendere
         let item = item_rc.borrow();
         let eval = || {
             // registers dependencies on the geometry and clip properties.
-            CachedItemBoundingBoxAndTransform::new::<T>(item_rc, &window_adapter)
+            CachedItemBoundingBoxAndTransform::new::<T>(item_rc, window_adapter)
         };
 
         let rendering_data = item.cached_rendering_data_offset();
@@ -1146,10 +1146,10 @@ pub struct PartialRenderingState {
 impl PartialRenderingState {
     /// Creates a partial renderer that's initialized with the partial rendering caches maintained in this state structure.
     /// Call [`Self::apply_dirty_region`] after this function to compute the correct partial rendering region.
-    pub fn create_partial_renderer<'a, T: ItemRenderer + ItemRendererFeatures>(
-        &'a self,
+    pub fn create_partial_renderer<T: ItemRenderer + ItemRendererFeatures>(
+        &self,
         renderer: T,
-    ) -> PartialRenderer<'a, T> {
+    ) -> PartialRenderer<'_, T> {
         PartialRenderer::new(&self.partial_cache, self.force_dirty.take(), renderer)
     }
 

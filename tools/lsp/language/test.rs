@@ -197,7 +197,7 @@ fn accurate_diagnostics_in_dependencies() {
         &lsp_types::TextDocumentIdentifier { uri: foo_url.clone() },
     )
     .expect("foo.slint should still be loaded");
-    assert!(matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if result.len() >= 1));
+    assert!(matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if !result.is_empty()));
 
     let (foo_url, diag) = load(
         ctx.as_ref(),

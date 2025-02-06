@@ -291,7 +291,7 @@ pub struct SceneTexture<'a> {
     pub extra: SceneTextureExtra,
 }
 
-impl<'a> SceneTexture<'a> {
+impl SceneTexture<'_> {
     pub fn source_size(&self) -> PhysicalSize {
         let mut len = self.data.len();
         if self.format == PixelFormat::SignedDistanceField {

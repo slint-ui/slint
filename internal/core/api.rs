@@ -270,7 +270,7 @@ pub enum GraphicsAPI<'a> {
     },
 }
 
-impl<'a> core::fmt::Debug for GraphicsAPI<'a> {
+impl core::fmt::Debug for GraphicsAPI<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             GraphicsAPI::NativeOpenGL { .. } => write!(f, "GraphicsAPI::NativeOpenGL"),
@@ -366,9 +366,9 @@ pub struct WindowHandle {
 
 #[cfg(feature = "raw-window-handle-06")]
 impl raw_window_handle_06::HasWindowHandle for WindowHandle {
-    fn window_handle<'a>(
-        &'a self,
-    ) -> Result<raw_window_handle_06::WindowHandle<'a>, raw_window_handle_06::HandleError> {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError> {
         match &self.inner {
             WindowHandleInner::HandleByAdapter(adapter) => adapter.window_handle_06(),
             WindowHandleInner::HandleByRcRWH { window_handle_provider, .. } => {
@@ -380,9 +380,9 @@ impl raw_window_handle_06::HasWindowHandle for WindowHandle {
 
 #[cfg(feature = "raw-window-handle-06")]
 impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
-    fn display_handle<'a>(
-        &'a self,
-    ) -> Result<raw_window_handle_06::DisplayHandle<'a>, raw_window_handle_06::HandleError> {
+    fn display_handle(
+        &self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         match &self.inner {
             WindowHandleInner::HandleByAdapter(adapter) => adapter.display_handle_06(),
             WindowHandleInner::HandleByRcRWH { display_handle_provider, .. } => {

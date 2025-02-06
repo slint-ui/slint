@@ -649,7 +649,7 @@ pub async fn populate_command(
             } else {
                 return Err(LspError {
                     code: LspErrorCode::InvalidParameter,
-                    message: format!("Document with uri {uri} not found in cache").into(),
+                    message: format!("Document with uri {uri} not found in cache"),
                 });
             }
         }
@@ -667,7 +667,7 @@ pub async fn populate_command(
             });
         };
 
-        let Some(range) = populate_command_range(&node) else {
+        let Some(range) = populate_command_range(node) else {
             return Err(LspError {
                 code: LspErrorCode::InvalidParameter,
                 message: "No slint code range in document".into(),
@@ -770,11 +770,8 @@ pub(crate) async fn reload_document_impl(
         }
     }
 
-    let extra_files = dependencies
-        .iter()
-        .filter_map(|url| common::uri_to_file(url))
-        .chain(core::iter::once(path))
-        .collect();
+    let extra_files =
+        dependencies.iter().filter_map(common::uri_to_file).chain(core::iter::once(path)).collect();
 
     (extra_files, diag)
 }
@@ -1341,12 +1338,12 @@ fn get_code_lenses(
             .children_with_tokens()
             .any(|nt| nt.kind() != SyntaxKind::Whitespace && nt.kind() != SyntaxKind::Eof);
         if !has_non_ws_token {
-            if let Some(range) = populate_command_range(&node) {
+            if let Some(range) = populate_command_range(node) {
                 result.push(CodeLens {
-                    range: range.clone(),
+                    range,
                     command: Some(create_populate_command(
                         text_document.uri.clone(),
-                        version.clone(),
+                        version,
                         "Start with Hello World!".to_string(),
                         r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
 
@@ -1527,7 +1524,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
     send_diagnostics(
         &ctx.server_notifier,
         document_cache,
-        &all_urls.iter().filter_map(|url| common::uri_to_file(url)).collect(),
+        &all_urls.iter().filter_map(common::uri_to_file).collect(),
         diag,
     );
 

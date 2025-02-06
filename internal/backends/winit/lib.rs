@@ -284,7 +284,7 @@ impl BackendBuilder {
             self.requested_graphics_api.as_ref(),
         ) {
             #[cfg(feature = "renderer-femtovg")]
-            (Some("gl"), maybe_graphics_api @ _) | (Some("femtovg"), maybe_graphics_api @ _) => {
+            (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
                 // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
                 if let Some(api) = maybe_graphics_api {
                     RequestedOpenGLVersion::try_from(api.clone())?;
@@ -344,7 +344,7 @@ impl BackendBuilder {
             event_loop_state: Default::default(),
             window_attributes_hook: self.window_attributes_hook,
             #[cfg(not(target_arch = "wasm32"))]
-            clipboard: clipboard.into(),
+            clipboard,
             proxy,
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar_bar: self.muda_enable_default_menu_bar_bar,
@@ -626,15 +626,15 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
         mut callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
             + 'static,
     ) {
-        i_slint_core::window::WindowInner::from_pub(&self)
+        if let Some(adapter) = i_slint_core::window::WindowInner::from_pub(self)
             .window_adapter()
             .internal(i_slint_core::InternalToken)
             .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
-            .map(|adapter| {
-                adapter
-                    .window_event_filter
-                    .set(Some(Box::new(move |window, event| callback(window, event))));
-            });
+        {
+            adapter
+                .window_event_filter
+                .set(Some(Box::new(move |window, event| callback(window, event))));
+        }
     }
 }
 

@@ -266,7 +266,7 @@ impl<'a, T> ModelIterator<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for ModelIterator<'a, T> {
+impl<T> Iterator for ModelIterator<'_, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -289,7 +289,7 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for ModelIterator<'a, T> {}
+impl<T> ExactSizeIterator for ModelIterator<'_, T> {}
 
 impl<M: Model> Model for Rc<M> {
     type Data = M::Data;
@@ -1528,7 +1528,7 @@ mod tests {
 
             fn row_data(&self, row: usize) -> Option<usize> {
                 self.max_requested_row.set(self.max_requested_row.get().max(row));
-                (row < self.length).then(|| row)
+                (row < self.length).then_some(row)
             }
 
             fn model_tracker(&self) -> &dyn ModelTracker {
