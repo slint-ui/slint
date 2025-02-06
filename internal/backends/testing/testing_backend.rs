@@ -181,7 +181,6 @@ impl RendererSealed for TestingWindow {
         i_slint_core::items::FontMetrics { ascent: 7., descent: 3., x_height: 3., cap_height: 7. }
     }
 
-    // this works only for single line text
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
@@ -189,20 +188,31 @@ impl RendererSealed for TestingWindow {
         _font_request: FontRequest,
         _scale_factor: ScaleFactor,
     ) -> usize {
-        let text_len = text_input.text().len();
-        let result = pos.x / 10.;
-        result.min(text_len as f32).max(0.) as usize
+        let text = text_input.text();
+        if pos.y < 0. {
+            return 0;
+        }
+        let line = (pos.y / 10.) as usize;
+        let offset =
+            if line >= 1 { text.split('\n').take(line - 1).map(|l| l.len() + 1).sum() } else { 0 };
+        let Some(line) = text.split('\n').nth(line) else {
+            return text.len();
+        };
+        let column = ((pos.x / 10.).max(0.) as usize).min(line.len());
+        offset + column
     }
 
-    // this works only for single line text
     fn text_input_cursor_rect_for_byte_offset(
         &self,
-        _text_input: Pin<&i_slint_core::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
         _font_request: FontRequest,
         _scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        LogicalRect::new(Point2D::new(byte_offset as f32 * 10., 0.), Size2D::new(1., 10.))
+        let text = text_input.text();
+        let line = text[..byte_offset].chars().filter(|c| *c == '\n').count();
+        let column = text[..byte_offset].split('\n').nth(line).unwrap_or("").len();
+        LogicalRect::new(Point2D::new(column as f32 * 10., line as f32 * 10.), Size2D::new(1., 10.))
     }
 
     fn register_font_from_memory(

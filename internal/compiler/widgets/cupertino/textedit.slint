@@ -155,6 +155,7 @@ export component TextEdit {
             selection-foreground-color: self.color;
             single-line: false;
             wrap: word-wrap;
+            page-height: scroll-view.visible-height;
 
             edited => {
                 root.edited(self.text);
