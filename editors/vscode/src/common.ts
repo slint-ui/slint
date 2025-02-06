@@ -17,17 +17,6 @@ import {
     NotificationType,
 } from "vscode-languageclient";
 
-// server status:
-export interface ServerStatusParams {
-    health: "ok" | "warning" | "error";
-    quiescent: boolean;
-    message?: string;
-}
-
-export const serverStatus = new NotificationType<ServerStatusParams>(
-    "experimental/serverStatus",
-);
-
 export class ClientHandle {
     #client: BaseLanguageClient | null = null;
     #updaters: ((c: BaseLanguageClient | null) => void)[] = [];
@@ -66,33 +55,6 @@ export class ClientHandle {
 }
 
 const client = new ClientHandle();
-
-export function setServerStatus(
-    status: ServerStatusParams,
-    statusBar: vscode.StatusBarItem,
-) {
-    let icon = "";
-    switch (status.health) {
-        case "ok":
-            statusBar.color = undefined;
-            break;
-        case "warning":
-            statusBar.color = new vscode.ThemeColor(
-                "notificationsWarningIcon.foreground",
-            );
-            icon = "$(warning) ";
-            break;
-        case "error":
-            statusBar.color = new vscode.ThemeColor(
-                "notificationsErrorIcon.foreground",
-            );
-            icon = "$(error) ";
-            break;
-    }
-    statusBar.tooltip = "Slint";
-    statusBar.text = `${icon} ${status.message ?? "Slint"}`;
-    statusBar.show();
-}
 
 // LSP related:
 
@@ -187,11 +149,6 @@ export function activate(
     statusBar.text = "Slint";
 
     client.add_updater((cl) => {
-        if (cl !== null) {
-            cl.onNotification(serverStatus, (params: ServerStatusParams) =>
-                setServerStatus(params, statusBar),
-            );
-        }
         wasm_preview.initClientForPreview(context, cl);
     });
 
