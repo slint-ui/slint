@@ -64,6 +64,11 @@ impl MudaAdapter {
         }
 
         let menu = muda::Menu::new();
+
+        // Until we have menu roles, always create an app menu on macOS.
+        #[cfg(target_os = "macos")]
+        create_default_app_menu(&menu).unwrap();
+
         let mut map = EntryMap::new();
         let mut menu_entries = Default::default();
         menubar.sub_menu(None, &mut menu_entries);
@@ -99,31 +104,11 @@ impl MudaAdapter {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn setup_default_menu() -> Result<Self, i_slint_core::api::PlatformError> {
-        let menu = muda::Menu::new();
-
-        let app_menu = muda::Submenu::new("App", true);
-        menu.append(&app_menu)
-            .and_then(|_| {
-                app_menu.append_items(&[
-                    &muda::PredefinedMenuItem::about(None, None),
-                    &muda::PredefinedMenuItem::separator(),
-                    &muda::PredefinedMenuItem::services(None),
-                    &muda::PredefinedMenuItem::separator(),
-                    &muda::PredefinedMenuItem::hide(None),
-                    &muda::PredefinedMenuItem::hide_others(None),
-                    &muda::PredefinedMenuItem::show_all(None),
-                    &muda::PredefinedMenuItem::separator(),
-                    &muda::PredefinedMenuItem::quit(None),
-                ])
-            })
-            .map_err(|menu_bar_err| {
-                i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
-            })?;
-
-        menu.init_for_nsapp();
-
-        Ok(Self { entries: vec![], menubar: None, _menu: menu })
+    pub fn setup_default_menu_bar() -> Result<Self, i_slint_core::api::PlatformError> {
+        let menu_bar = muda::Menu::new();
+        create_default_app_menu(&menu_bar)?;
+        menu_bar.init_for_nsapp();
+        Ok(Self { entries: vec![], menubar: None, _menu: menu_bar })
     }
 
     #[cfg(target_os = "macos")]
@@ -134,4 +119,28 @@ impl MudaAdapter {
             self._menu.remove_for_nsapp();
         }
     }
+}
+
+#[cfg(target_os = "macos")]
+fn create_default_app_menu(menu_bar: &muda::Menu) -> Result<(), i_slint_core::api::PlatformError> {
+    let app_menu = muda::Submenu::new("App", true);
+    menu_bar
+        .append(&app_menu)
+        .and_then(|_| {
+            app_menu.append_items(&[
+                &muda::PredefinedMenuItem::about(None, None),
+                &muda::PredefinedMenuItem::separator(),
+                &muda::PredefinedMenuItem::services(None),
+                &muda::PredefinedMenuItem::separator(),
+                &muda::PredefinedMenuItem::hide(None),
+                &muda::PredefinedMenuItem::hide_others(None),
+                &muda::PredefinedMenuItem::show_all(None),
+                &muda::PredefinedMenuItem::separator(),
+                &muda::PredefinedMenuItem::quit(None),
+            ])
+        })
+        .map_err(|menu_bar_err| {
+            i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
+        })?;
+    Ok(())
 }
