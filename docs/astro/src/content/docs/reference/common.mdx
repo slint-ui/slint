@@ -42,6 +42,50 @@ The width and height of the element. When set, this overrides the default size.
 
 
 ### opacity
+<CodeSnippetMD imagePath="/src/assets/generated/rectangle-opacity.png" scale="3" imageWidth="100" imageHeight="310"  imageAlt='rectangle opacity'>
+```slint playground
+component ImageInfo inherits Rectangle {
+    in property <float> img-opacity: 1.0;
+    background: transparent;
+    VerticalLayout {
+        spacing: 5px;
+        Image {
+            source: @image-url("elements/slint-logo.png");
+            opacity: img-opacity;
+        }
+        Text {
+            text: "opacity: " + img-opacity;
+            color: white;
+            horizontal-alignment: center;
+        }
+    }
+}
+export component Example inherits Window {
+    width: 100px;
+    height: 310px;
+    background: transparent;
+    Rectangle {
+        background: #141414df;
+        border-radius: 10px;
+    }
+    VerticalLayout {
+        spacing: 15px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        ImageInfo {
+            img-opacity: 1.0;
+        }
+        ImageInfo {
+            img-opacity: 0.6;
+        }
+        ImageInfo {
+            img-opacity: 0.3;
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
 <SlintProperty propName="opacity" typeName="float" defaultValue="1">
 A value between 0 and 1 (or a percentage) that is used to draw
 the element and its children with transparency.
@@ -49,39 +93,147 @@ the element and its children with transparency.
 The opacity is applied to the tree of child elements as if they
 were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
 
-:::tip[Tip]
-When an element has 0 opacity it will still take up layout space and any gesture handling will continue
-to work. If the intent is to hide an element so it has no gesture handling or no longer takes up layout space,
-use the `visible` property instead.
-:::
+The following example demonstrates the opacity property with children. Note the software renderer does
+not support layer opacity and this will result in a different end result as shown.
+
+<CodeSnippetMD noScreenShot imagePath="/src/assets/generated/layer-opacity.png" imageWidth="150" imageHeight="390"  imageAlt='layer opacity'>
+```slint playground
+ Rectangle {
+        opacity: 50%;
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: 100px;
+            height: 100px;
+            background: blue;
+        }
+
+        Rectangle {
+            x: 50px;
+            y: 50px;
+            width: 100px;
+            height: 100px;
+            background: green;
+        }
+    }
+```
+</CodeSnippetMD>
+
+
+<CodeSnippetMD skip="true" imagePath="/src/assets/generated/layer-opacity.png" scale="3" imageWidth="150" imageHeight="390"  imageAlt='layer opacity'>
+```slint playground
+export component CheckerBoardRow inherits HorizontalLayout {
+    property <length> size: 15px;
+    property <int> columns: root.width / size;
+    in property <bool> isOdd: true;
+    property <int> isModOdd: isOdd ? 1 : 0;
+
+    height: size;
+    width: 200px;
+    for i in columns : Rectangle {
+        width: size;
+        height: size;
+        background: i.mod(2) == isModOdd ? #262626 : #2c2c2e;
+    }
+}
+
+export component CheckerBoard inherits VerticalLayout {
+    in property <length> size: 15px;
+    property <int> rows: root.height / size;
+
+    width: 200px;
+    height: 400px;
+    for i in rows : CheckerBoardRow {
+        isOdd: i.mod(2) != 0;
+
+    }
+}
+export component ExportedComponent2 inherits Window {
+    width: 150px;
+    height: 410px;
+    background: transparent;
+    CheckerBoard {
+        width: parent.width;
+        height: parent.height;
+    }
+
+    VerticalLayout {
+        spacing: 15px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+
+        VerticalLayout {
+            spacing: 5px;
+            Rectangle {
+                width: 100px;
+                height: 150px;
+                opacity: 50%;
+                Rectangle {
+                    x: 0;
+                    y: 0;
+                    width: 100px;
+                    height: 100px;
+                    background: blue;
+                }
+
+                Rectangle {
+                    x: 50px;
+                    y: 50px;
+                    width: 100px;
+                    height: 100px;
+                    background: green;
+                }
+            }
+
+            Text {
+                text: "With Layer Opacity";
+                color: white;
+                horizontal-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 5px;
+            Rectangle {
+                width: 100px;
+                height: 150px;
+                Rectangle {
+                    x: 0;
+                    y: 0;
+                    width: 100px;
+                    height: 100px;
+                    background: blue;
+                    opacity: 50%;
+                }
+
+                Rectangle {
+                    x: 50px;
+                    y: 50px;
+                    width: 100px;
+                    height: 100px;
+                    background: green;
+                    opacity: 50%;
+                }
+            }
+
+            Text {
+                text: "Without Layer Opacity\n(Software Renderer Only)";
+                color: white;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
 </SlintProperty>
 
 ### visible
 <SlintProperty propName="visible" typeName="bool" defaultValue="true">
-When set to `false`, the element and all his children won't be drawn and not react to mouse input.
+When set to `false`, the element and all his children won't be drawn and not react to mouse input. The element
+will still take up layout space within any layout container.
 
-The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you can't see the red rectangle through the green one.
-<CodeSnippetMD imagePath="/src/assets/generated/rectangle-opacity.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle opacity'>
-```slint
-Rectangle {
-    x: 10px;
-    y: 10px;
-    width: 180px;
-    height: 180px;
-    background: #315afd;
-    opacity: 0.5;
-}
-
-Rectangle {
-    x: 10px;
-    y: 210px;
-    width: 180px;
-    height: 180px;
-    background: green;
-    opacity: 0.5;
-}
-```
-</CodeSnippetMD>
 </SlintProperty>
 
 ### absolute-position
