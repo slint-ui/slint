@@ -506,6 +506,7 @@ pub struct TextInput {
     pub cursor_position_byte_offset: Property<i32>,
     pub anchor_position_byte_offset: Property<i32>,
     pub text_cursor_width: Property<LogicalLength>,
+    pub page_height: Property<LogicalLength>,
     pub cursor_visible: Property<bool>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
@@ -1024,13 +1025,17 @@ pub enum TextCursorDirection {
     BackwardByWord,
     NextLine,
     PreviousLine,
-    PreviousCharacter, // breaks grapheme boundaries, so only used by delete-previous-char
+    /// breaks grapheme boundaries, so only used by delete-previous-char
+    PreviousCharacter,
     StartOfLine,
     EndOfLine,
-    StartOfParagraph, // These don't care about wrapping
+    /// These don't care about wrapping
+    StartOfParagraph,
     EndOfParagraph,
     StartOfText,
     EndOfText,
+    PageUp,
+    PageDown,
 }
 
 impl core::convert::TryFrom<char> for TextCursorDirection {
@@ -1042,6 +1047,8 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::RightArrow => Self::Forward,
             key_codes::UpArrow => Self::PreviousLine,
             key_codes::DownArrow => Self::NextLine,
+            key_codes::PageUp => Self::PageUp,
+            key_codes::PageDown => Self::PageDown,
             // On macos this scrolls to the top or the bottom of the page
             #[cfg(not(target_os = "macos"))]
             key_codes::Home => Self::StartOfLine,
@@ -1287,6 +1294,30 @@ impl TextInput {
             }
             TextCursorDirection::StartOfText => 0,
             TextCursorDirection::EndOfText => text.len(),
+            TextCursorDirection::PageUp => {
+                let offset = self.page_height().get() - font_height;
+                if offset <= 0 as Coord {
+                    return false;
+                }
+                reset_preferred_x_pos = false;
+                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let mut cursor_xy_pos = cursor_rect.center();
+                cursor_xy_pos.y -= offset;
+                cursor_xy_pos.x = self.preferred_x_pos.get();
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+            }
+            TextCursorDirection::PageDown => {
+                let offset = self.page_height().get() - font_height;
+                if offset <= 0 as Coord {
+                    return false;
+                }
+                reset_preferred_x_pos = false;
+                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
+                let mut cursor_xy_pos = cursor_rect.center();
+                cursor_xy_pos.y += offset;
+                cursor_xy_pos.x = self.preferred_x_pos.get();
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
+            }
         };
 
         match anchor_mode {

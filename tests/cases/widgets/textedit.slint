@@ -14,6 +14,7 @@ export component TestCase inherits Window {
     forward-focus: edit;
     out property <bool> textedit-focused <=> edit.has_focus;
     callback edited <=> edit.edited;
+    out property <string> text <=> edit.text;
 }
 
 /*
@@ -22,6 +23,7 @@ export component TestCase inherits Window {
 ```rust
 use std::cell::RefCell;
 use std::rc::Rc;
+use slint::SharedString;
 
 let instance = TestCase::new().unwrap();
 
@@ -51,7 +53,21 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 instance.window().dispatch_event(WindowEvent::PointerExited { });
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
 
-
+// test page up/down
+for x in 0..10 {
+    slint_testing::send_keyboard_string_sequence(&instance, &format!("\nThis is line {x}"));
+}
+slint_testing::send_keyboard_string_sequence(&instance, "\nEnd");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(slint::platform::Key::PageUp));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(slint::platform::Key::PageUp));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(slint::platform::Key::PageUp));
+slint_testing::send_keyboard_string_sequence(&instance, "Begin!");
+assert_eq!(instance.get_text(), "Begin!hello\nThis is line 0\nThis is line 1\nThis is line 2\nThis is line 3\nThis is line 4\nThis is line 5\nThis is line 6\nThis is line 7\nThis is line 8\nThis is line 9\nEnd");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(slint::platform::Key::PageDown));
+slint_testing::send_keyboard_string_sequence(&instance, "XX");
+let test = instance.get_text();
+// The exact position depends on the size of the content which depends on the style, but it should be in the middle
+assert!(test.contains("\nThis iXXs line"));
 ```
 
 */

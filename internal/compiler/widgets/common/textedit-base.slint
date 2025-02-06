@@ -72,6 +72,7 @@ export component TextEditBase inherits Rectangle {
             wrap: word-wrap;
             selection-background-color: root.selection-background-color;
             selection-foreground-color: root.selection-foreground-color;
+            page-height: scroll-view.visible-height;
 
             edited => {
                 root.edited(self.text);
