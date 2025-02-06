@@ -96,14 +96,13 @@ function transformStyle(styleObj: StyleObject): string {
             }
 
             if (value.includes("linear-gradient")) {
-                return `    ${finalKey}: @${finalValue}`;
+                return `  ${finalKey}: @${finalValue}`;
             }
 
-            return `    ${finalKey}: ${finalValue}`;
+            return `  ${finalKey}: ${finalValue}`;
         });
 
-    const properties = filteredEntries.length > 0 ? `${filteredEntries.join(";\n")};` : "";
-    return properties ? `Rectangle {\n${properties}\n}` : "";
+    return filteredEntries.length > 0 ? `${filteredEntries.join(";\n")};` : "";
 }
 
 export async function updateUI() {
@@ -122,5 +121,12 @@ export async function updateUI() {
 export async function getSlintSnippet(): Promise<string> {
     const cssProperties = await figma.currentPage.selection[0].getCSSAsync();
     const slintProperties = transformStyle(cssProperties);
-    return slintProperties;
+
+    let elementName = "Rectangle";
+    const node = figma.currentPage.selection[0].type;
+    if (node === "TEXT") {
+        elementName = "Text";
+    }
+
+    return `${elementName} {\n${slintProperties}\n}`;
 }
