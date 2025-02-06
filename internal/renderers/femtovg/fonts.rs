@@ -717,7 +717,7 @@ pub(crate) fn layout_text_lines(
                     if current_x >= w.get() {
                         let txt = &line[..glyph.byte_index];
                         if elide {
-                            let elided = format!("{}…", txt);
+                            let elided = format!("{txt}…");
                             process_line(&elided, y, start, &text_metrics);
                         } else {
                             process_line(txt, y, start, &text_metrics);

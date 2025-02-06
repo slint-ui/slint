@@ -9,7 +9,7 @@ use core::str::FromStr;
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 
 fn error(e: &str) -> String {
-    format!("::core::compile_error!{{\"{}\"}}", e)
+    format!("::core::compile_error!{{\"{e}\"}}")
 }
 
 fn generate_test(fn_name: &str, doc: &str, extra_args: usize) -> String {
@@ -45,11 +45,10 @@ fn generate_test(fn_name: &str, doc: &str, extra_args: usize) -> String {
         None => String::new(),
         Some(kind) => {
             format!(
-                "syntax_nodes::{}::verify(SyntaxNode {{
+                "syntax_nodes::{kind}::verify(SyntaxNode {{
                     node: rowan::SyntaxNode::new_root(p.builder.finish()),
                     source_file: Default::default(),
                 }});",
-                kind
             )
         }
     };
@@ -173,7 +172,7 @@ pub fn parser_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let test_function = TokenStream::from_str(&generate_test(&fn_name, &doc, extra_args))
         .unwrap_or_else(|e| {
-            TokenStream::from_str(&error(&format!("Lex error in generated test: {:?}", e))).unwrap()
+            TokenStream::from_str(&error(&format!("Lex error in generated test: {e:?}"))).unwrap()
         });
 
     result.extend(test_function);

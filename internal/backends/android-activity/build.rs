@@ -151,7 +151,7 @@ fn test_parse_version() {
 }
 
 fn env_var(var: &str) -> Result<String, env::VarError> {
-    println!("cargo:rerun-if-env-changed={}", var);
+    println!("cargo:rerun-if-env-changed={var}");
     env::var(var)
 }
 

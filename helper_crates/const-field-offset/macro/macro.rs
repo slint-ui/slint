@@ -194,9 +194,8 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     };
 
     let doc = format!(
-        "Helper struct containing the offsets of the fields of the struct [`{}`]\n\n\
-        Generated from the `#[derive(FieldOffsets)]` macro from the [`const-field-offset`]({}) crate",
-        struct_name, crate_
+        "Helper struct containing the offsets of the fields of the struct [`{struct_name}`]\n\n\
+        Generated from the `#[derive(FieldOffsets)]` macro from the [`const-field-offset`]({crate_}) crate",
     );
 
     let (ensure_pin_safe, ensure_no_unpin, pin_flag, new_from_offset) = if !pin {

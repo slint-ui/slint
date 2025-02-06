@@ -141,7 +141,7 @@ impl JsComponentInstance {
 
                     move |args| {
                         let Ok(callback) = function_ref.get::<JsFunction>() else {
-                            eprintln!("Node.js: cannot get reference of callback {} because it has the wrong type", callback_name);
+                            eprintln!("Node.js: cannot get reference of callback {callback_name} because it has the wrong type");
                             return Value::Void;
                         };
 
@@ -175,7 +175,7 @@ impl JsComponentInstance {
             return Ok(());
         }
 
-        Err(napi::Error::from_reason(format!("{} is not a callback", callback_name).as_str()))
+        Err(napi::Error::from_reason(format!("{callback_name} is not a callback").as_str()))
     }
 
     #[napi]
@@ -211,8 +211,7 @@ impl JsComponentInstance {
                     move |args| {
                         let Ok(callback) = function_ref.get::<JsFunction>() else {
                             eprintln!(
-                                "Node.js: cannot get reference of callback {} of global {} because it has the wrong type",
-                                callback_name, global_name
+                                "Node.js: cannot get reference of callback {callback_name} of global {global_name} because it has the wrong type"
                             );
                             return Value::Void;
                         };
@@ -247,7 +246,7 @@ impl JsComponentInstance {
             return Ok(());
         }
 
-        Err(napi::Error::from_reason(format!("{} is not a callback", callback_name).as_str()))
+        Err(napi::Error::from_reason(format!("{callback_name} is not a callback").as_str()))
     }
 
     fn invoke_args(
@@ -291,7 +290,7 @@ impl JsComponentInstance {
             .ok_or(())
             .map_err(|_| {
                 napi::Error::from_reason(
-                    format!("Callback {} not found in the component", callback_name).as_str(),
+                    format!("Callback {callback_name} not found in the component").as_str(),
                 )
             })?;
 
@@ -301,7 +300,7 @@ impl JsComponentInstance {
             }
             _ => {
                 return Err(napi::Error::from_reason(
-                    format!("{} is not a callback or a function", callback_name).as_str(),
+                    format!("{callback_name} is not a callback or a function").as_str(),
                 ));
             }
         };
@@ -331,8 +330,7 @@ impl JsComponentInstance {
             .map_err(|_| {
                 napi::Error::from_reason(
                     format!(
-                        "Callback {} of global {global_name} not found in the component",
-                        callback_name
+                        "Callback {callback_name} of global {global_name} not found in the component"
                     )
                     .as_str(),
                 )
@@ -345,8 +343,7 @@ impl JsComponentInstance {
             _ => {
                 return Err(napi::Error::from_reason(
                     format!(
-                        "{} is not a callback or a function on global {}",
-                        callback_name, global_name
+                        "{callback_name} is not a callback or a function on global {global_name}"
                     )
                     .as_str(),
                 ));

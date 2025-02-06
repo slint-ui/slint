@@ -198,8 +198,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                     let expected_size: usize = (width as usize) * (height as usize) * BPP;
                     if actual_size != expected_size {
                         return Err(napi::Error::from_reason(format!(
-                            "data property does not have the correct size; expected {} (width) * {} (height) * {} = {}; got {}",
-                            width, height, BPP, actual_size, expected_size
+                            "data property does not have the correct size; expected {width} (width) * {height} (height) * {BPP} = {actual_size}; got {expected_size}"
                         )));
                     }
 
@@ -244,8 +243,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                     vec.push(to_value(
                         env,
                         array.get(i)?.ok_or(napi::Error::from_reason(format!(
-                            "Cannot access array element at index {}",
-                            i
+                            "Cannot access array element at index {i}"
                         )))?,
                         a,
                     )?);

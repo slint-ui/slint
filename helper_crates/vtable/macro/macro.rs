@@ -215,10 +215,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         restriction: Default::default(),
     };
 
-    let additional_doc = format!(
-        "\nNote: Was generated from the [`#[vtable]`](vtable) macro on [`{}`]",
-        vtable_name
-    );
+    let additional_doc =
+        format!("\nNote: Was generated from the [`#[vtable]`](vtable) macro on [`{vtable_name}`]");
     generated_trait
         .attrs
         .append(&mut Attribute::parse_outer.parse2(quote!(#[doc = #additional_doc])).unwrap());
@@ -277,7 +275,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             let mut sig_extern = sig.clone();
             sig_extern.abi = Some(parse_str("extern \"C\"").unwrap());
-            sig_extern.generics = parse_str(&format!("<T : {}>", trait_name)).unwrap();
+            sig_extern.generics = parse_str(&format!("<T : {trait_name}>")).unwrap();
 
             // check parameters
             let mut call_code = None;
@@ -577,8 +575,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let generated_trait_assoc_const =
                 generated_trait_assoc_const.get_or_insert_with(|| ItemTrait {
                     attrs: Attribute::parse_outer.parse_str(&format!(
-                        "/** Trait containing the associated constant relative to the trait {}.\n{} */",
-                        trait_name, additional_doc
+                        "/** Trait containing the associated constant relative to the trait {trait_name}.\n{additional_doc} */",
                     )).unwrap(),
                     ident: quote::format_ident!("{}Consts", trait_name),
                     items: vec![],

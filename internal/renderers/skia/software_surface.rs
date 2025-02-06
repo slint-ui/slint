@@ -126,7 +126,7 @@ impl super::Surface for SoftwareSurface {
 
         let surface =
             softbuffer::Surface::new(&_context, window_handle).map_err(|softbuffer_error| {
-                format!("Error creating softbuffer surface: {}", softbuffer_error)
+                format!("Error creating softbuffer surface: {softbuffer_error}")
             })?;
 
         let surface_access =

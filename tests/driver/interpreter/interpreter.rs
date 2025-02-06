@@ -66,7 +66,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
                     for (p, _) in component.properties() {
                         eprintln!(" {}: {:?}", p, instance.get_property(&p));
                     }
-                    panic!("Test Failed: {:?}", result);
+                    panic!("Test Failed: {result:?}");
                 }
             }
         };

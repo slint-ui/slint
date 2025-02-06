@@ -33,7 +33,7 @@ lazy_static::lazy_static! {
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .output()
-                .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
+                .map_err(|err| format!("Could not launch npm install: {err}")).unwrap();
 
         check_output(o);
 
@@ -45,7 +45,7 @@ lazy_static::lazy_static! {
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .output()
-                .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
+                .map_err(|err| format!("Could not launch npm install: {err}")).unwrap();
 
         check_output(o);
 
@@ -94,7 +94,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()
-        .map_err(|err| format!("Could not launch npm start: {}", err))?;
+        .map_err(|err| format!("Could not launch npm start: {err}"))?;
 
     if !output.status.success() {
         print!("{}", String::from_utf8_lossy(output.stdout.as_ref()));

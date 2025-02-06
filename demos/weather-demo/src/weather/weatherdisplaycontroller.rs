@@ -93,16 +93,9 @@ fn forecast_graph_command(
             let cp_day1 = (day_mid + day1) / 2.0;
             let cp_day2 = (day_mid + day2) / 2.0;
 
+            // Q {x1} {y1} {cx1} {cy1} Q {x2} {y2} {cx2} {cy2}
             command += format!(
-                "Q {x1} {y1} {cx1} {cy1} Q {x2} {y2} {cx2} {cy2} ",
-                x1 = cp_day1,
-                y1 = temp1,
-                cx1 = day_mid,
-                cy1 = temp_mid,
-                x2 = cp_day2,
-                y2 = temp2,
-                cx2 = day2,
-                cy2 = temp2
+                "Q {cp_day1} {temp1} {day_mid} {temp_mid} Q {cp_day2} {temp2} {day2} {temp2} "
             )
             .as_str();
         }

@@ -549,7 +549,7 @@ fn test_filter_model_source_model() {
     let expected = &[2, 4, 6];
     assert_eq!(model.row_count(), expected.len());
     for (i, v) in expected.iter().enumerate() {
-        assert_eq!(model.row_data(i), Some(*v), "Expected {} at index {}", v, i);
+        assert_eq!(model.row_data(i), Some(*v), "Expected {v} at index {i}");
     }
 }
 
@@ -1065,7 +1065,7 @@ mod sort_tests {
         let expected = &[1, 2, 3, 4, 5, 6];
         assert_eq!(model.row_count(), expected.len());
         for (i, v) in expected.iter().enumerate() {
-            assert_eq!(model.row_data(i), Some(*v), "Expected {} at index {}", v, i);
+            assert_eq!(model.row_data(i), Some(*v), "Expected {v} at index {i}");
         }
     }
 }
@@ -1226,7 +1226,7 @@ mod reversed_tests {
     fn check_content(model: &ReverseModel<Rc<VecModel<i32>>>, expected: &[i32]) {
         assert_eq!(model.row_count(), expected.len());
         for (i, v) in expected.iter().enumerate() {
-            assert_eq!(model.row_data(i), Some(*v), "Expected {} at index {}", v, i);
+            assert_eq!(model.row_data(i), Some(*v), "Expected {v} at index {i}");
         }
     }
 
@@ -1245,7 +1245,7 @@ mod reversed_tests {
     #[test]
     fn test_reversed_model_insert() {
         for (idx, mapped_idx) in [(0, 4), (1, 3), (2, 2), (3, 1), (4, 0)] {
-            std::println!("Inserting at {} expecting mapped to {}", idx, mapped_idx);
+            std::println!("Inserting at {idx} expecting mapped to {mapped_idx}");
             let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
             let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
             let _checker = ModelChecker::new(model.clone());
@@ -1271,7 +1271,7 @@ mod reversed_tests {
     #[test]
     fn test_reversed_model_remove() {
         for (idx, mapped_idx) in [(0, 3), (1, 2), (2, 1), (3, 0)] {
-            std::println!("Removing at {} expecting mapped to {}", idx, mapped_idx);
+            std::println!("Removing at {idx} expecting mapped to {mapped_idx}");
             let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
             let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
             let _checker = ModelChecker::new(model.clone());
@@ -1296,7 +1296,7 @@ mod reversed_tests {
     #[test]
     fn test_reversed_model_changed() {
         for (idx, mapped_idx) in [(0, 3), (1, 2), (2, 1), (3, 0)] {
-            std::println!("Changing at {} expecting mapped to {}", idx, mapped_idx);
+            std::println!("Changing at {idx} expecting mapped to {mapped_idx}");
             let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3, 4]));
             let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
             let _checker = ModelChecker::new(model.clone());
