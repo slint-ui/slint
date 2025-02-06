@@ -42,13 +42,6 @@ The width and height of the element. When set, this overrides the default size.
 
 
 ### opacity
-<SlintProperty propName="opacity" typeName="float" defaultValue="1">
-A value between 0 and 1 (or a percentage) that is used to draw
-the element and its children with transparency.
-0 is fully transparent (invisible), and 1 is fully opaque.
-The opacity is applied to the tree of child elements as if they
-were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
-
 <CodeSnippetMD imagePath="/src/assets/generated/rectangle-opacity.png" scale="3" imageWidth="100" imageHeight="310"  imageAlt='rectangle opacity'>
 ```slint playground
 component ImageInfo inherits Rectangle {
@@ -87,6 +80,117 @@ export component Example inherits Window {
         }
         ImageInfo {
             img-opacity: 0.3;
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+<SlintProperty propName="opacity" typeName="float" defaultValue="1">
+A value between 0 and 1 (or a percentage) that is used to draw
+the element and its children with transparency.
+0 is fully transparent (invisible), and 1 is fully opaque.
+The opacity is applied to the tree of child elements as if they
+were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
+
+The following example demonstrates the opacity property with children. Note the software renderer does
+not support layer opacity and this will result in a different end result as shown.
+
+<CodeSnippetMD noScreenShot imagePath="/src/assets/generated/layer-opacity.png" imageWidth="150" imageHeight="390"  imageAlt='layer opacity'>
+```slint playground
+ Rectangle {
+        opacity: 50%;
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: 100px;
+            height: 100px;
+            background: blue;
+        }
+
+        Rectangle {
+            x: 50px;
+            y: 50px;
+            width: 100px;
+            height: 100px;
+            background: green;
+        }
+    }
+```
+</CodeSnippetMD>
+
+
+<CodeSnippetMD skip="true" imagePath="/src/assets/generated/layer-opacity.png" scale="3" imageWidth="150" imageHeight="390"  imageAlt='layer opacity'>
+```slint playground
+export component ExportedComponent2 inherits Window {
+    width: 150px;
+    height: 410px;
+    background: transparent;
+
+    VerticalLayout {
+        spacing: 15px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+
+        VerticalLayout {
+            spacing: 5px;
+            Rectangle {
+                width: 100px;
+                height: 150px;
+                opacity: 50%;
+                Rectangle {
+                    x: 0;
+                    y: 0;
+                    width: 100px;
+                    height: 100px;
+                    background: blue;
+                }
+
+                Rectangle {
+                    x: 50px;
+                    y: 50px;
+                    width: 100px;
+                    height: 100px;
+                    background: green;
+                }
+            }
+
+            Text {
+                text: "With Layer Opacity";
+                color: white;
+                horizontal-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 5px;
+            Rectangle {
+                width: 100px;
+                height: 150px;
+                Rectangle {
+                    x: 0;
+                    y: 0;
+                    width: 100px;
+                    height: 100px;
+                    background: blue;
+                    opacity: 50%;
+                }
+
+                Rectangle {
+                    x: 50px;
+                    y: 50px;
+                    width: 100px;
+                    height: 100px;
+                    background: green;
+                    opacity: 50%;
+                }
+            }
+
+            Text {
+                text: "Without Layer Opacity";
+                color: white;
+                horizontal-alignment: center;
+            }
         }
     }
 }
