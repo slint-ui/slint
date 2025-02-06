@@ -738,8 +738,8 @@ fn call_builtin_function(
                                 .downcast::<corelib::items::ContextMenu>()
                                 .unwrap()
                                 .sub_menu
-                                .call(&(args[0].clone().try_into().unwrap(),));
-                            Value::Void
+                                .call(&(args[0].clone().try_into().unwrap(),))
+                                .into()
                         }),
                     )
                     .unwrap();
@@ -753,8 +753,8 @@ fn call_builtin_function(
                                 .downcast::<corelib::items::ContextMenu>()
                                 .unwrap()
                                 .activated
-                                .call(&(args[0].clone().try_into().unwrap(),))
-                                .into()
+                                .call(&(args[0].clone().try_into().unwrap(),));
+                            Value::Void
                         }),
                     )
                     .unwrap();
