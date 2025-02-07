@@ -108,26 +108,24 @@ export component PreviewUi inherits Window {
                                 vertical-alignment: center;
                                 font-size: 1.3rem;
                             }
+
                             TabWidget {
                                 width: EditorSizeSettings.property-bar-width;
                                 current-index: 0;
                                 Tab {
                                     preferred-width: 100px;
                                     title: "Selected";
-                                    ScrollView {
-                                        PropertyView {
-                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                            enabled: preview.preview-is-current;
-                                        }
+                                    PropertyView {
+                                        opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                        enabled: preview.preview-is-current;
                                     }
                                 }
+
                                 runtime_tab := Tab {
                                     title: "Runtime";
-                                    ScrollView {
-                                        RuntimePropertyView {
-                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                            enabled: preview.preview-is-current;
-                                        }
+                                    RuntimePropertyView {
+                                        opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                        enabled: preview.preview-is-current;
                                     }
                                 }
                             }

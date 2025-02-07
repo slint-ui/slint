@@ -11,22 +11,15 @@ import { EditorSizeSettings, EditorSpaceSettings } from "../components/styling.s
 
 import { ExpandableGroup, RuntimePropertyValueWidget } from "../components/property-widgets.slint";
 
-export component RuntimePropertyView {
-    in property <bool> enabled;
+export component RuntimePropertyView inherits ScrollView{
 
     property <[RuntimeComponent]> runtime-components <=> Api.runtime-components;
 
     property <length> key-width: self.width / 2.5;
     property <bool> element-loaded: root.runtime-components.length > 0;
-
     width: EditorSizeSettings.property-bar-width;
 
     content-layer := VerticalLayout {
-        GroupHeader {
-            title: @tr("Runtime Properties");
-            vertical-stretch: 0;
-        }
-
         if !root.element-loaded: Text {
             text: @tr("Waiting for preview to load");
             horizontal-alignment: center;
