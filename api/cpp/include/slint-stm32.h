@@ -162,10 +162,18 @@ struct StmSlintPlatform : public slint::platform::Platform
 
                     SCB_CleanDCache_by_Addr((uint32_t *)buffer1.data(), buffer1.size());
 
+#if defined(BSP_LCD_Relaod)
                     BSP_LCD_Relaod(0, BSP_LCD_RELOAD_NONE);
+#else
+                    BSP_LCD_Reload(0, BSP_LCD_RELOAD_NONE);
+#endif
                     BSP_LCD_SetLayerAddress(0, 0, uintptr_t(buffer1.data()));
                     screen_ready = false;
+#if defined(BSP_LCD_Relaod)
                     BSP_LCD_Relaod(0, BSP_LCD_RELOAD_VERTICAL_BLANKING);
+#else
+                    BSP_LCD_Reload(0, BSP_LCD_RELOAD_VERTICAL_BLANKING);
+#endif
 
                     std::swap(buffer1, buffer2);
                 }
