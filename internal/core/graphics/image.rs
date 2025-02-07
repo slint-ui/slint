@@ -1321,7 +1321,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_image_compare_equal(image1: &Image, image2: &Image) -> bool {
-        return image1.eq(image2);
+        image1.eq(image2)
     }
 
     /// Call [`Image::set_nine_slice_edges`]

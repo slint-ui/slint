@@ -277,6 +277,6 @@ impl ModelIterator {
                 self.model.row_data(row).and_then(|value| to_js_unknown(&self.env, &value).ok()),
             )?
         }
-        return Ok(result.into_unknown());
+        Ok(result.into_unknown())
     }
 }

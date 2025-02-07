@@ -611,36 +611,29 @@ impl<'a, T> EvaluationContext<'a, T> {
         match prop {
             PropertyReference::Local { property_index, .. } => {
                 if let Some(g) = self.current_global() {
-                    return PropertyInfoResult {
+                    PropertyInfoResult {
                         analysis: Some(&g.prop_analysis[*property_index]),
                         binding: g.init_values[*property_index]
                             .as_ref()
                             .map(|b| (b, ContextMap::Identity)),
                         animation: None,
                         property_decl: Some(&g.properties[*property_index]),
-                    };
+                    }
                 } else if let Some(sc) = self.current_sub_component() {
-                    return match_in_sub_component(
-                        self.compilation_unit,
-                        sc,
-                        prop,
-                        ContextMap::Identity,
-                    );
+                    match_in_sub_component(self.compilation_unit, sc, prop, ContextMap::Identity)
                 } else {
                     unreachable!()
                 }
             }
-            PropertyReference::InNativeItem { .. } => {
-                return match_in_sub_component(
-                    self.compilation_unit,
-                    self.current_sub_component().unwrap(),
-                    prop,
-                    ContextMap::Identity,
-                );
-            }
+            PropertyReference::InNativeItem { .. } => match_in_sub_component(
+                self.compilation_unit,
+                self.current_sub_component().unwrap(),
+                prop,
+                ContextMap::Identity,
+            ),
             PropertyReference::Global { global_index, property_index } => {
                 let g = &self.compilation_unit.globals[*global_index];
-                return PropertyInfoResult {
+                PropertyInfoResult {
                     analysis: Some(&g.prop_analysis[*property_index]),
                     animation: None,
                     binding: g
@@ -649,7 +642,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                         .and_then(Option::as_ref)
                         .map(|b| (b, ContextMap::InGlobal(*global_index))),
                     property_decl: Some(&g.properties[*property_index]),
-                };
+                }
             }
             PropertyReference::InParent { level, parent_reference } => {
                 let mut ctx = self;

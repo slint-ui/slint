@@ -507,6 +507,6 @@ mod ffi {
     #[no_mangle]
     pub extern "C" fn slint_translate_select_bundled_translation(language: Slice<u8>) -> bool {
         let language = core::str::from_utf8(&language).unwrap();
-        return select_bundled_translation(language).is_ok();
+        select_bundled_translation(language).is_ok()
     }
 }

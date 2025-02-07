@@ -78,23 +78,23 @@ fn new_geometry_binding(elem: &ElementRc, pos_prop: &str, size_prop: &str, exten
 fn is_layout_base(elem: &ElementRc) -> bool {
     match &elem.borrow().base_type {
         i_slint_compiler::langtype::ElementType::Builtin(b) => {
-            return matches!(
+            matches!(
                 b.name.as_str(),
                 "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "Row" | "Path" | "Dialog"
-            );
+            )
         }
         i_slint_compiler::langtype::ElementType::Component(c) => {
             if c.id == "ListView" {
                 return true;
             }
             if let Some(ins) = &*c.child_insertion_point.borrow() {
-                return is_layout_base(&ins.0);
+                is_layout_base(&ins.0)
             } else {
-                return is_layout_base(&c.root_element);
+                is_layout_base(&c.root_element)
             }
         }
-        _ => return false,
-    };
+        _ => false,
+    }
 }
 
 fn is_path(elem: &ElementRc) -> bool {

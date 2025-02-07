@@ -128,9 +128,9 @@ impl JsComponentCompiler {
                         ))),
                     );
 
-                    return Some((name.to_string(), struct_instance.ok()?));
+                    Some((name.to_string(), struct_instance.ok()?))
                 }
-                _ => return None,
+                _ => None,
             }
         }
 
@@ -156,9 +156,9 @@ impl JsComponentCompiler {
                         )
                         .ok()?;
                     }
-                    return Some((en.name.to_string(), o.into_unknown()));
+                    Some((en.name.to_string(), o.into_unknown()))
                 }
-                _ => return None,
+                _ => None,
             }
         }
 

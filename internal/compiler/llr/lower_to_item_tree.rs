@@ -160,13 +160,11 @@ impl LoweredSubComponentMapping {
                 }
                 unreachable!()
             }
-            LoweredElement::NativeItem { item_index } => {
-                return PropertyReference::InNativeItem {
-                    sub_component_path: vec![],
-                    item_index: *item_index,
-                    prop_name: from.name().to_string(),
-                };
-            }
+            LoweredElement::NativeItem { item_index } => PropertyReference::InNativeItem {
+                sub_component_path: vec![],
+                item_index: *item_index,
+                prop_name: from.name().to_string(),
+            },
             LoweredElement::Repeated { .. } => unreachable!(),
             LoweredElement::ComponentPlaceholder { .. } => unreachable!(),
         }
