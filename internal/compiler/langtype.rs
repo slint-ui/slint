@@ -506,7 +506,7 @@ impl ElementType {
                         base_type
                     }
                 };
-                return base_type.lookup_type_for_child_element(name, tr);
+                base_type.lookup_type_for_child_element(name, tr)
             }
             Self::Builtin(builtin) => {
                 if builtin.disallow_global_types_as_child_elements {

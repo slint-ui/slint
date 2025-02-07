@@ -109,7 +109,7 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
             diag.print();
         }
     }
-    return file.write_all(source_slice.as_bytes());
+    file.write_all(source_slice.as_bytes())
 }
 
 fn process_file(

@@ -636,7 +636,7 @@ impl CargoDependency {
     fn new(encoded_value: &toml_edit::Value) -> Option<Self> {
         match encoded_value {
             toml_edit::Value::String(s) => {
-                return Some(Self::Full { version: s.value().clone(), path: String::new() })
+                Some(Self::Full { version: s.value().clone(), path: String::new() })
             }
             toml_edit::Value::Float(_) => None,
             toml_edit::Value::Datetime(_) => None,

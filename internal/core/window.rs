@@ -1528,12 +1528,12 @@ pub mod ffi {
         parent_item: &ItemRc,
     ) -> NonZeroU32 {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        return WindowInner::from_pub(window_adapter.window()).show_popup(
+        WindowInner::from_pub(window_adapter.window()).show_popup(
             popup,
             position,
             close_policy,
             parent_item,
-        );
+        )
     }
 
     /// Close the popup by the given ID.

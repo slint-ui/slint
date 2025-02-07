@@ -286,21 +286,16 @@ impl SlintBrush {
     #[napi]
     pub fn to_string(&self) -> String {
         match &self.inner {
-            Brush::SolidColor(_) => {
-                return self.slint_color().to_string();
-            }
+            Brush::SolidColor(_) => self.slint_color().to_string(),
             Brush::LinearGradient(gradient) => {
-                return format!(
+                format!(
                     "linear-gradient({}deg, {})",
                     gradient.angle(),
                     gradient_stops_to_string(gradient.stops())
-                );
+                )
             }
             Brush::RadialGradient(gradient) => {
-                return format!(
-                    "radial-gradient(circle, {})",
-                    gradient_stops_to_string(gradient.stops())
-                );
+                format!("radial-gradient(circle, {})", gradient_stops_to_string(gradient.stops()))
             }
             _ => String::default(),
         }

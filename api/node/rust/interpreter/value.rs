@@ -306,10 +306,10 @@ fn brush_from_color(rgb_color: Object) -> Result<Value> {
         return Err(Error::from_reason("A channel of Color cannot be negative"));
     }
 
-    return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
+    Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
         alpha as u8,
         red as u8,
         green as u8,
         blue as u8,
-    ))));
+    ))))
 }

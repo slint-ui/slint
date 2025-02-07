@@ -109,7 +109,7 @@ pub fn extract_enum_docs() -> std::collections::BTreeMap<String, EnumDoc> {
         i_slint_common::for_each_enums!(gen_enums);
     }
 
-    return enums;
+    enums
 }
 
 pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
