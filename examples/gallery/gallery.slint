@@ -14,6 +14,27 @@ export component App inherits Window {
     title: @tr("Slint Widgets Gallery");
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
+    MenuBar {
+        MenuItem {
+            title: @tr("MenuBar" => "File");
+            MenuItem { title: @tr("MenuBar" => "Open"); }
+            MenuItem {
+                title: @tr("MenuBar" => "Open Recent");
+                for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }
+            }
+            MenuItem { title: @tr("MenuBar" => "Save"); }
+            MenuItem {
+                title: @tr("MenuBar" => "Save as");
+                for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }
+            }
+        }
+        MenuItem {
+            title: @tr("MenuBar" => "Edit");
+            MenuItem { title: @tr("MenuBar" => "Copy"); }
+            MenuItem { title: @tr("MenuBar" => "Paste"); }
+        }
+    }
+
     HorizontalLayout {
         side-bar := SideBar {
             title: @tr("Slint Widgets Gallery");
