@@ -68,8 +68,9 @@ pub enum ComponentSelection {
     /// and if no component is exported, the last component is selected
     #[default]
     ExportedWindows,
-    /// The Last component (legacy for the viewer / interpreter)
 
+    /// The Last component (legacy for the viewer / interpreter)
+    ///
     /// Only the last exported component is generated, regardless if this is a Window or not,
     /// (and it will be transformed in a Window)
     LastExported,

@@ -238,7 +238,6 @@ impl Color {
     /// let blue = Color::from_argb_u8(200, 0, 0, 255);
     /// assert_eq!(blue.transparentize(-0.1), Color::from_argb_u8(220, 0, 0, 255));
     /// ```
-
     #[must_use]
     pub fn transparentize(&self, factor: f32) -> Self {
         let mut color = *self;

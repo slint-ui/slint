@@ -268,10 +268,9 @@ pub struct StaticTexture {
     pub index: usize,
 }
 
+/// A texture is stored in read-only memory and may be composed of sub-textures.
 #[repr(C)]
 #[derive(Clone, PartialEq, Debug)]
-/// A texture is stored in read-only memory and may be composed of sub-textures.
-
 pub struct StaticTextures {
     /// The total size of the image (this might not be the size of the full image
     /// as some transparent part are not part of any texture)
