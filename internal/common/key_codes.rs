@@ -20,7 +20,7 @@
 //! i_slint_common::for_each_special_keys!(do_something_with_keys);
 //! ```
 //!
-// NOTE: Update namespaces.md when changing/adding/removing keys, to keep the docs in sync!
+// NOTE: Update docs/astro/src/content/docs/reference/keyboard-input/overview.mdx when changing/adding/removing keys, to keep the docs in sync!
 #[macro_export]
 macro_rules! for_each_special_keys {
     ($macro:ident) => {
