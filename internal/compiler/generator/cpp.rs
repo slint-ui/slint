@@ -3806,7 +3806,7 @@ fn compile_builtin_function_call(
                         {fw_activated}
                     }}")
             };
-            format!("{window}.show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{ {init} }})", globals = ctx.generator_state.global_access)
+            format!("{window}.close_popup({context_menu}.popup_id); {context_menu}.popup_id = {window}.show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{ {init} }})", globals = ctx.generator_state.global_access)
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {

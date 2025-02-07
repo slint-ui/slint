@@ -403,6 +403,9 @@ pub struct PopupWindow {
     focus_item_in_parent: ItemWeak,
     /// The item from where the Popup was invoked from
     pub parent_item: ItemWeak,
+    /// Whether the popup is a popup menu.
+    /// Popup menu allow the mouse event to be propagated on their parent menu/menubar
+    is_menu: bool,
 }
 
 #[pin_project::pin_project]
@@ -623,26 +626,26 @@ impl WindowInner {
         mouse_input_state = if let Some(mut event) =
             crate::input::handle_mouse_grab(event, &window_adapter, &mut mouse_input_state)
         {
-            let (item_tree, offset) = if let Some(PopupWindow {
-                location: PopupWindowLocation::ChildWindow(coordinates),
-                component,
-                ..
-            }) = self.active_popups.borrow().last()
-            {
-                let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(0);
-
-                let mouse_inside_popup = event
-                    .position()
-                    .map_or(true, |pos| geom.contains(pos - coordinates.to_vector()));
-
-                if mouse_inside_popup {
-                    (Some(component.clone()), *coordinates)
-                } else {
-                    (None, LogicalPoint::default())
+            let mut item_tree = self.component.borrow().upgrade();
+            let mut offset = LogicalPoint::default();
+            for popup in self.active_popups.borrow().iter().rev() {
+                item_tree = None;
+                if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
+                    let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
+                    let mouse_inside_popup = event
+                        .position()
+                        .map_or(true, |pos| geom.contains(pos - coordinates.to_vector()));
+                    if mouse_inside_popup {
+                        item_tree = Some(popup.component.clone());
+                        offset = *coordinates;
+                        break;
+                    }
                 }
-            } else {
-                (self.component.borrow().upgrade(), LogicalPoint::default())
-            };
+
+                if !popup.is_menu {
+                    break;
+                }
+            }
 
             if let Some(item_tree) = item_tree {
                 event.translate(-offset.to_vector());
@@ -1055,14 +1058,16 @@ impl WindowInner {
         }
     }
 
-    /// Show a popup at the given position relative to the item and returns its ID.
+    /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
+    /// `is_menu` specifies whether the popup is a popup menu.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
         position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
+        is_menu: bool,
     ) -> NonZeroU32 {
         let position = parent_item
             .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
@@ -1164,6 +1169,7 @@ impl WindowInner {
             close_policy,
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
+            is_menu,
         });
 
         popup_id
@@ -1527,6 +1533,7 @@ pub mod ffi {
         position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
+        is_menu: bool,
     ) -> NonZeroU32 {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         WindowInner::from_pub(window_adapter.window()).show_popup(
@@ -1534,6 +1541,7 @@ pub mod ffi {
             position,
             close_policy,
             parent_item,
+            is_menu,
         )
     }
 

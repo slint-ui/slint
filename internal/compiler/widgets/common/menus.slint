@@ -51,6 +51,13 @@ export component PopupMenuImpl inherits Window {
                         fs.focus();
                         if event.kind == PointerEventKind.move {
                             current = idx;
+                            open-sub-menu-after-timeout.running = true;
+                        }
+                    }
+
+                    changed has-hover => {
+                        if !self.has-hover && current == idx {
+                            current = -1
                         }
                     }
 
@@ -64,6 +71,7 @@ export component PopupMenuImpl inherits Window {
             layout.padding + idx * (layout.height - 2 * layout.padding) / entries.length
         }
         key-pressed(event) => {
+            open-sub-menu-after-timeout.running = false;
             if event.text == Key.UpArrow {
                 if current >= 1 {
                     current -= 1;
@@ -93,6 +101,21 @@ export component PopupMenuImpl inherits Window {
             }
             return reject;
         }
+
+        open-sub-menu-after-timeout := Timer {
+            interval: 500ms;
+            running: false;
+            triggered => {
+                self.running = false;
+                if current >= 0 {
+                    if entries[current].has-sub-menu {
+                        activate(entries[current], y-pos(current));
+                    } else {
+                        subMenu.close();
+                    }
+                }
+            }
+        }
     }
 
     subMenu := ContextMenuInternal {
@@ -102,6 +125,7 @@ export component PopupMenuImpl inherits Window {
     }
 
     function activate(entry : MenuEntry, y: length) {
+        open-sub-menu-after-timeout.running = false;
         if entry.has-sub-menu {
             subMenu.entries = root.sub-menu(entry);
             subMenu.show({
@@ -129,7 +153,8 @@ export component MenuBarImpl {
         alignment: start;
         spacing: 1*px;
         for entry in entries: e := Rectangle {
-            background: ta.has-hover || ta.pressed ? Palette.alternate-background : transparent;
+            // FIXME: note that the fluent style uses the secondary color for highlighted item
+            background: ta.has-hover || ta.pressed ? Palette.accent-background : transparent;
             border-radius: 3*px;
             HorizontalLayout {
                 padding: 11*px;
@@ -137,6 +162,7 @@ export component MenuBarImpl {
                 padding-bottom: 6*px;
                 Text {
                     text: entry.title;
+                    color: ta.has-hover || ta.pressed ? Palette.accent-foreground : Palette.foreground;
                 }
             }
             ta := TouchArea {

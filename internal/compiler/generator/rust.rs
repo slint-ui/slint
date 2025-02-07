@@ -2721,7 +2721,8 @@ fn compile_builtin_function_call(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             position,
                             #close_policy,
-                            #parent_component
+                            #parent_component,
+                            false, // is_menu
                         ))
                     );
                     #popup_window_id::user_init(popup_instance_vrc.clone());
@@ -2838,19 +2839,24 @@ fn compile_builtin_function_call(
                     }
                 }
             };
-
+            let context_menu = context_menu.unwrap();
             quote!({
                 let position = #position;
                 let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
                 let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                 let parent_weak = _self.self_weak.get().unwrap().clone();
                 #init_popup
-                sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                if let Some(current_id) = #context_menu.popup_id.take() {
+                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                }
+                let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
                     position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
+                    true, // is_menu
                 );
+                #context_menu.popup_id.set(Some(id));
                 #popup_id::user_init(popup_instance_vrc);
             })
         }
