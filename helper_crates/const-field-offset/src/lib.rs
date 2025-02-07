@@ -189,13 +189,13 @@ pub trait ConstFieldOffset: Copy {
         Self::OFFSET.apply_mut(x)
     }
 
-    fn apply_pin<'a>(self, x: Pin<&'a Self::Container>) -> Pin<&'a Self::Field>
+    fn apply_pin(self, x: Pin<&Self::Container>) -> Pin<&Self::Field>
     where
         Self: ConstFieldOffset<PinFlag = AllowPin>,
     {
         Self::OFFSET.apply_pin(x)
     }
-    fn apply_pin_mut<'a>(self, x: Pin<&'a mut Self::Container>) -> Pin<&'a mut Self::Field>
+    fn apply_pin_mut(self, x: Pin<&mut Self::Container>) -> Pin<&mut Self::Field>
     where
         Self: ConstFieldOffset<PinFlag = AllowPin>,
     {

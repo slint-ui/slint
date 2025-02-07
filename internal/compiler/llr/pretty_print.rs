@@ -20,7 +20,7 @@ struct PrettyPrinter<'a> {
     indentation: usize,
 }
 
-impl<'a> PrettyPrinter<'a> {
+impl PrettyPrinter<'_> {
     fn print_root(&mut self, root: &CompilationUnit) -> Result {
         for (idx, g) in root.globals.iter_enumerated() {
             if !g.is_builtin {

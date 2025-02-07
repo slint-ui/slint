@@ -73,7 +73,7 @@ struct VRcInner<'vt, VTable: VTableMeta, X> {
     data: X,
 }
 
-impl<'vt, VTable: VTableMeta, X> VRcInner<'vt, VTable, X> {
+impl<VTable: VTableMeta, X> VRcInner<'_, VTable, X> {
     unsafe fn data_ptr(s: *const Self) -> *const X {
         (s as *const u8).add(*core::ptr::addr_of!((*s).data_offset) as usize) as *const X
     }

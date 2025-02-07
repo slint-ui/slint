@@ -468,12 +468,12 @@ pub struct ParentCtx<'a, T = ()> {
     pub repeater_index: Option<RepeatedElementIdx>,
 }
 
-impl<'a, T> Clone for ParentCtx<'a, T> {
+impl<T> Clone for ParentCtx<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<'a, T> Copy for ParentCtx<'a, T> {}
+impl<T> Copy for ParentCtx<'_, T> {}
 
 impl<'a, T> ParentCtx<'a, T> {
     pub fn new(
@@ -686,7 +686,7 @@ impl<'a, T> EvaluationContext<'a, T> {
     }
 }
 
-impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
+impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
     fn property_ty(&self, prop: &PropertyReference) -> &Type {
         match prop {
             PropertyReference::Local { sub_component_path, property_index } => {

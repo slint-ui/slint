@@ -173,13 +173,13 @@ fn clip_path_for_rect_alike_item(
     rect_with_radius_to_path(clip_rect, radius)
 }
 
-impl<'a> GLItemRenderer<'a> {
+impl GLItemRenderer<'_> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
     }
 }
 
-impl<'a> ItemRenderer for GLItemRenderer<'a> {
+impl ItemRenderer for GLItemRenderer<'_> {
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,

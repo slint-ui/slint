@@ -575,7 +575,7 @@ const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
 // Copyright prefix is enforced by the tag scanning (tag_start).
 pub struct LicenseHeader<'a>(&'a str);
 
-impl<'a> LicenseHeader<'a> {
+impl LicenseHeader<'_> {
     fn to_string(&self, style: &LicenseTagStyle, license: &str) -> String {
         let mut result = [style.line_prefix, style.line_indentation, self.0].concat();
 

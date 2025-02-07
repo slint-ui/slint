@@ -746,7 +746,7 @@ pub struct PropertyLookupResult<'a> {
     pub is_in_direct_base: bool,
 }
 
-impl<'a> PropertyLookupResult<'a> {
+impl PropertyLookupResult<'_> {
     pub fn is_valid(&self) -> bool {
         self.property_type != Type::Invalid
     }

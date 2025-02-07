@@ -369,7 +369,7 @@ impl<'a> SkiaItemRenderer<'a> {
     }
 }
 
-impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
+impl ItemRenderer for SkiaItemRenderer<'_> {
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn i_slint_core::item_rendering::RenderRectangle>,
@@ -1032,7 +1032,7 @@ pub fn to_skia_rrect(rect: &PhysicalRect, radius: &PhysicalBorderRadius) -> skia
     }
 }
 
-impl<'a> ItemRendererFeatures for SkiaItemRenderer<'a> {
+impl ItemRendererFeatures for SkiaItemRenderer<'_> {
     const SUPPORTS_TRANSFORMATIONS: bool = true;
 }
 

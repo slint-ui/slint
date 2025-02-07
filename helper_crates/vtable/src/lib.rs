@@ -227,15 +227,15 @@ pub struct VRef<'a, T: ?Sized + VTableMeta> {
 }
 
 // Need to implement manually otherwise it is not implemented if T does not implement Copy / Clone
-impl<'a, T: ?Sized + VTableMeta> Copy for VRef<'a, T> {}
+impl<T: ?Sized + VTableMeta> Copy for VRef<'_, T> {}
 
-impl<'a, T: ?Sized + VTableMeta> Clone for VRef<'a, T> {
+impl<T: ?Sized + VTableMeta> Clone for VRef<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a, T: ?Sized + VTableMeta> Deref for VRef<'a, T> {
+impl<T: ?Sized + VTableMeta> Deref for VRef<'_, T> {
     type Target = T::Target;
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.inner.deref::<T>() }
@@ -319,14 +319,14 @@ pub struct VRefMut<'a, T: ?Sized + VTableMeta> {
     phantom: PhantomData<&'a mut T::Target>,
 }
 
-impl<'a, T: ?Sized + VTableMeta> Deref for VRefMut<'a, T> {
+impl<T: ?Sized + VTableMeta> Deref for VRefMut<'_, T> {
     type Target = T::Target;
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.inner.deref::<T>() }
     }
 }
 
-impl<'a, T: ?Sized + VTableMeta> DerefMut for VRefMut<'a, T> {
+impl<T: ?Sized + VTableMeta> DerefMut for VRefMut<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *(self.inner.deref_mut::<T>() as *mut _) }
     }

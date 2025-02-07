@@ -22,7 +22,7 @@ pub trait LexingRule {
     fn lex(&self, text: &str, state: &mut LexState) -> usize;
 }
 
-impl<'a> LexingRule for &'a str {
+impl LexingRule for &str {
     #[inline]
     fn lex(&self, text: &str, _: &mut LexState) -> usize {
         if text.starts_with(*self) {
