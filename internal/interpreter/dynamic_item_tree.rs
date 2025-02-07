@@ -2411,6 +2411,7 @@ pub fn show_popup(
             pos,
             close_policy,
             parent_item,
+            false,
         ),
     );
     inst.run_setup_code();

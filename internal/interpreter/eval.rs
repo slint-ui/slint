@@ -727,13 +727,15 @@ fn call_builtin_function(
             } else {
                 let entries = eval_expression(entries, local_context);
                 compiled.set_property(inst_ref.borrow(), "entries", entries).unwrap();
-                let item_rc_ = item_rc.clone();
+                let item_weak = item_rc.downgrade();
                 compiled
                     .set_callback_handler(
                         inst_ref.borrow(),
                         "sub-menu",
                         Box::new(move |args: &[Value]| -> Value {
-                            item_rc_
+                            item_weak
+                                .upgrade()
+                                .unwrap()
                                 .downcast::<corelib::items::ContextMenu>()
                                 .unwrap()
                                 .sub_menu
@@ -742,13 +744,15 @@ fn call_builtin_function(
                         }),
                     )
                     .unwrap();
-                let item_rc_ = item_rc.clone();
+                let item_weak = item_rc.downgrade();
                 compiled
                     .set_callback_handler(
                         inst_ref.borrow(),
                         "activated",
                         Box::new(move |args: &[Value]| -> Value {
-                            item_rc_
+                            item_weak
+                                .upgrade()
+                                .unwrap()
                                 .downcast::<corelib::items::ContextMenu>()
                                 .unwrap()
                                 .activated
@@ -759,12 +763,18 @@ fn call_builtin_function(
                     .unwrap();
             }
             component.access_window(|window| {
-                window.show_popup(
+                let context_menu_elem = item_rc.downcast::<corelib::items::ContextMenu>().unwrap();
+                if let Some(old_id) = context_menu_elem.popup_id.take() {
+                    window.close_popup(old_id)
+                }
+                let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
                     position,
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
-                )
+                    true,
+                );
+                context_menu_elem.popup_id.set(Some(id));
             });
             inst.run_setup_code();
             Value::Void
@@ -868,6 +878,15 @@ fn call_builtin_function(
                     match &*name {
                         "cancel" => s.cancel(&window_adapter, &item_rc),
                         _ => panic!("internal: Unknown member function {name} called on SwipeGestureHandler"),
+                    }
+                } else if let Some(s) =
+                    ItemRef::downcast_pin::<corelib::items::ContextMenu>(item_ref)
+                {
+                    match &*name {
+                        "close" => s.close(&window_adapter, &item_rc),
+                        _ => {
+                            panic!("internal: Unknown member function {name} called on ContextMenu")
+                        }
                     }
                 } else {
                     panic!(

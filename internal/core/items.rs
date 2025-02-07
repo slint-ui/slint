@@ -34,10 +34,12 @@ use crate::lengths::{
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{WindowAdapter, WindowAdapterRc};
+use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
+use core::cell::Cell;
+use core::num::NonZeroU32;
 use core::pin::Pin;
 use i_slint_core_macros::*;
 use vtable::*;
@@ -1175,6 +1177,7 @@ pub struct ContextMenu {
     pub activated: Callback<MenuEntryArg>,
     pub show: Callback<PointArg>,
     pub cached_rendering_data: CachedRenderingData,
+    pub popup_id: Cell<Option<NonZeroU32>>,
 }
 
 impl Item for ContextMenu {
@@ -1255,7 +1258,13 @@ impl Item for ContextMenu {
     }
 }
 
-impl ContextMenu {}
+impl ContextMenu {
+    pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _: &ItemRc) {
+        if let Some(id) = self.popup_id.take() {
+            WindowInner::from_pub(window_adapter.window()).close_popup(id);
+        }
+    }
+}
 
 impl ItemConsts for ContextMenu {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =

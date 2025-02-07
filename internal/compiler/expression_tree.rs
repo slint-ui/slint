@@ -47,6 +47,7 @@ pub enum BuiltinFunction {
     /// Show a context popup menu.
     /// Arguments are `(parent, entries, position)`
     ///
+    /// The first argument (parent) is a reference to the `ContectMenu` native item
     /// The second argument (entries) can either be of type Array of MenuEntry, or a reference to a MenuItem tree.
     /// When it is a menu item tree, it is a ElementReference to the root of the tree, and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
     ShowPopupMenu,
