@@ -24,7 +24,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let enabled_features = EnabledFeatures::from_env();
 
-    let dependencies = cbindgen::gen_all(&root_dir, &output_dir, enabled_features)?;
+    let dependencies = cbindgen::gen_all(root_dir, output_dir, enabled_features)?;
     for path in dependencies {
         println!("cargo:rerun-if-changed={}", path.display());
     }

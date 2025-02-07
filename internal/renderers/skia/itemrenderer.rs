@@ -295,7 +295,7 @@ impl<'a> SkiaItemRenderer<'a> {
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                 item_rc.geometry().union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
-                        &item_rc.item_tree(),
+                        item_rc.item_tree(),
                         item_rc.index() as isize,
                         &current_clip,
                     ),
@@ -334,7 +334,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
             let mut sub_renderer = SkiaItemRenderer::new(
                 canvas,
-                &self.window,
+                self.window,
                 self.image_cache,
                 self.path_cache,
                 self.box_shadow_cache,
@@ -342,7 +342,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
             i_slint_core::item_rendering::render_item_children(
                 &mut sub_renderer,
-                &item_rc.item_tree(),
+                item_rc.item_tree(),
                 item_rc.index() as isize,
                 &WindowInner::from_pub(self.window).window_adapter(),
             );
@@ -361,7 +361,7 @@ impl<'a> SkiaItemRenderer<'a> {
         target_point.x = target_point.x.round();
         target_point.y = target_point.y.round();
 
-        let restore_point = skia_safe::AutoCanvasRestore::guard(&self.canvas, true);
+        let restore_point = skia_safe::AutoCanvasRestore::guard(self.canvas, true);
 
         self.canvas.translate(device_to_local.map_point(target_point));
 
@@ -580,15 +580,15 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
         match (stroke_style, stroke_layout) {
             (TextStrokeStyle::Outside, Some((stroke_layout, stroke_layout_top_left))) => {
-                stroke_layout.paint(&mut self.canvas, to_skia_point(stroke_layout_top_left));
-                layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
+                stroke_layout.paint(self.canvas, to_skia_point(stroke_layout_top_left));
+                layout.paint(self.canvas, to_skia_point(layout_top_left));
             }
             (TextStrokeStyle::Center, Some((stroke_layout, stroke_layout_top_left))) => {
-                layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
-                stroke_layout.paint(&mut self.canvas, to_skia_point(stroke_layout_top_left));
+                layout.paint(self.canvas, to_skia_point(layout_top_left));
+                stroke_layout.paint(self.canvas, to_skia_point(stroke_layout_top_left));
             }
             _ => {
-                layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
+                layout.paint(self.canvas, to_skia_point(layout_top_left));
             }
         };
     }
@@ -607,7 +607,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         }
 
         let font_request =
-            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter());
+            text_input.font_request(&WindowInner::from_pub(self.window).window_adapter());
 
         let visual_representation = text_input.visual_representation(None);
         let paint =
@@ -651,7 +651,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             selection.as_ref(),
         );
 
-        layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
+        layout.paint(self.canvas, to_skia_point(layout_top_left));
 
         if let Some(cursor_position) = visual_representation.cursor_position {
             let cursor_rect = super::textlayout::cursor_rect(
@@ -977,7 +977,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
             i_slint_core::item_rendering::render_item_children(
                 self,
-                &item_rc.item_tree(),
+                item_rc.item_tree(),
                 item_rc.index() as isize,
                 &window_adapter,
             );
@@ -1018,10 +1018,10 @@ pub fn to_skia_rect(rect: &PhysicalRect) -> skia_safe::Rect {
 
 pub fn to_skia_rrect(rect: &PhysicalRect, radius: &PhysicalBorderRadius) -> skia_safe::RRect {
     if let Some(radius) = radius.as_uniform() {
-        skia_safe::RRect::new_rect_xy(to_skia_rect(&rect), radius, radius)
+        skia_safe::RRect::new_rect_xy(to_skia_rect(rect), radius, radius)
     } else {
         skia_safe::RRect::new_rect_radii(
-            to_skia_rect(&rect),
+            to_skia_rect(rect),
             &[
                 skia_safe::Point::new(radius.top_left, radius.top_left),
                 skia_safe::Point::new(radius.top_right, radius.top_right),

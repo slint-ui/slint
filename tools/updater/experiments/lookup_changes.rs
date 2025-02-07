@@ -265,7 +265,7 @@ pub(crate) fn with_lookup_ctx<R>(
         .current_elem
         .as_ref()
         .zip(state.property_name.as_ref())
-        .map_or(Type::Invalid, |(e, n)| e.borrow().lookup_property(&n).property_type);
+        .map_or(Type::Invalid, |(e, n)| e.borrow().lookup_property(n).property_type);
 
     lookup_context.property_name = state.property_name.as_ref().map(SmolStr::as_str);
     lookup_context.property_type = ty;
@@ -285,7 +285,7 @@ pub(crate) fn collect_movable_properties(state: &mut crate::State) {
                     .iter()
                     .map(|(name, _)| NamedReference::new(c, name.clone())),
             );
-            collect_movable_properties_recursive(vec, &c);
+            collect_movable_properties_recursive(vec, c);
         }
     }
     if let Some(c) = &state.current_component {

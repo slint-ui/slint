@@ -123,7 +123,7 @@ pub fn count_property_use(root: &CompilationUnit) {
                 root,
                 popup.item_tree.root,
                 (),
-                Some(ParentCtx::new(&ctx, None)),
+                Some(ParentCtx::new(ctx, None)),
             );
             popup.position.borrow().visit_property_references(&popup_ctx, &mut visit_property)
         }
@@ -144,7 +144,7 @@ pub fn count_property_use(root: &CompilationUnit) {
     }
 
     if let Some(p) = &root.popup_menu {
-        let ctx = EvaluationContext::new_sub_component(&root, p.item_tree.root, (), None);
+        let ctx = EvaluationContext::new_sub_component(root, p.item_tree.root, (), None);
         visit_property(&p.entries, &ctx);
         visit_property(&p.sub_menu, &ctx);
         visit_property(&p.activated, &ctx);

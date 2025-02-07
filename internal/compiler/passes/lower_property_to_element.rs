@@ -66,7 +66,7 @@ pub(crate) fn lower_property_to_element(
                             property_name,
                             extra_properties.clone(),
                             default_value_for_extra_properties,
-                            &element_name,
+                            element_name,
                             type_register,
                         ),
                     )
@@ -77,7 +77,7 @@ pub(crate) fn lower_property_to_element(
                     property_name,
                     extra_properties.clone(),
                     default_value_for_extra_properties,
-                    &element_name,
+                    element_name,
                     type_register,
                 );
                 crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
@@ -105,7 +105,7 @@ fn create_property_element(
                 BindingExpression::new_two_way(NamedReference::new(child, property_name.into()));
             if let Some(default_value_for_extra_properties) = default_value_for_extra_properties {
                 if !child.borrow().bindings.contains_key(property_name) {
-                    bind.expression = default_value_for_extra_properties(child, &property_name)
+                    bind.expression = default_value_for_extra_properties(child, property_name)
                 }
             }
             (property_name.into(), bind.into())

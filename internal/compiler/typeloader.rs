@@ -1131,7 +1131,7 @@ impl TypeLoader {
                     if !file_to_import.ends_with(file_name)
                         && len >= file_name.len()
                         && file_name.eq_ignore_ascii_case(
-                            &file_to_import.get(len - file_name.len()..).unwrap_or(""),
+                            file_to_import.get(len - file_name.len()..).unwrap_or(""),
                         )
                     {
                         if import_token.as_ref().and_then(|x| x.source_file()).is_some() {

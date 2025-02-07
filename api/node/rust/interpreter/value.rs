@@ -253,7 +253,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 )))))
             } else {
                 let rust_model =
-                    unknown.coerce_to_object().and_then(|obj| js_into_rust_model(env, &obj, &a))?;
+                    unknown.coerce_to_object().and_then(|obj| js_into_rust_model(env, &obj, a))?;
                 Ok(Value::Model(rust_model))
             }
         }

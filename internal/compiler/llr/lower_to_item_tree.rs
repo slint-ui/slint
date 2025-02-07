@@ -69,7 +69,7 @@ pub fn lower_to_item_tree(
         .collect();
 
     let popup_menu = document.popup_menu_impl.as_ref().map(|c| {
-        let sc = lower_sub_component(&c, &mut state, None, compiler_config);
+        let sc = lower_sub_component(c, &mut state, None, compiler_config);
         let sub_menu = sc.mapping.map_property_reference(
             &NamedReference::new(&c.root_element, SmolStr::new_static("sub-menu")),
             &state,
@@ -508,7 +508,7 @@ fn lower_sub_component(
         .map(|c| {
             let sc = lower_sub_component(c, ctx.state, Some(&ctx.inner), compiler_config);
             ItemTree {
-                tree: make_tree(&ctx.state, &c.root_element, &sc, &[]),
+                tree: make_tree(ctx.state, &c.root_element, &sc, &[]),
                 root: ctx.state.push_sub_component(sc),
                 parent_context: None,
             }

@@ -254,7 +254,7 @@ impl BuiltinFunction {
         thread_local! {
             static TYPES: BuiltinFunctionTypes = BuiltinFunctionTypes::new();
         }
-        TYPES.with(|types| types.ty(&self))
+        TYPES.with(|types| types.ty(self))
     }
 
     /// It is const if the return value only depends on its argument and has no side effect

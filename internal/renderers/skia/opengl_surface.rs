@@ -99,7 +99,7 @@ impl super::Surface for OpenGLSurface {
             if width != surface.width() || height != surface.height() {
                 *surface = Self::create_internal_surface(
                     self.fb_info,
-                    &current_context,
+                    current_context,
                     gr_context,
                     width,
                     height,
@@ -121,7 +121,7 @@ impl super::Surface for OpenGLSurface {
             pre_present_callback();
         }
 
-        self.glutin_surface.swap_buffers(&current_context).map_err(|glutin_error| {
+        self.glutin_surface.swap_buffers(current_context).map_err(|glutin_error| {
             format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()
         })
     }

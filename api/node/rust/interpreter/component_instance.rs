@@ -259,7 +259,7 @@ impl JsComponentInstance {
         let args = arguments
             .into_iter()
             .zip(args.into_iter())
-            .map(|(a, ty)| super::value::to_value(&env, a, &ty))
+            .map(|(a, ty)| super::value::to_value(&env, a, ty))
             .collect::<Result<Vec<_>, _>>()?;
         if args.len() != count {
             return Err(napi::Error::from_reason(
