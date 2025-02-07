@@ -1423,7 +1423,11 @@ fn continue_lookup_within_element(
             ctx.diag.push_error(format!("The property '{}' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components", second.text()), &second);
             return None;
         } else if lookup_result.property_visibility == PropertyVisibility::Fake {
-            ctx.diag.push_error(format!("This special property can only be used to make a binding and cannot be accessed"), &second);
+            ctx.diag.push_error(
+                "This special property can only be used to make a binding and cannot be accessed"
+                    .to_string(),
+                &second,
+            );
             return None;
         } else if lookup_result.resolved_name != prop_name.as_str() {
             ctx.diag.push_property_deprecation_warning(

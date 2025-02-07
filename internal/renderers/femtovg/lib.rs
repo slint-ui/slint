@@ -96,11 +96,11 @@ struct SuspendedRenderer {}
 
 unsafe impl OpenGLInterface for SuspendedRenderer {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        Err(format!("ensure current called on suspended renderer").into())
+        Err("ensure current called on suspended renderer".to_string().into())
     }
 
     fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        Err(format!("swap_buffers called on suspended renderer").into())
+        Err("swap_buffers called on suspended renderer".to_string().into())
     }
 
     fn resize(

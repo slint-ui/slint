@@ -200,7 +200,8 @@ impl OpenGLSurface {
 
             skia_safe::gpu::gl::FramebufferInfo {
                 fboid: fboid.try_into().map_err(|_| {
-                    format!("Skia Renderer: Internal error, framebuffer binding returned signed id")
+                    "Skia Renderer: Internal error, framebuffer binding returned signed id"
+                        .to_string()
                 })?,
                 format: skia_safe::gpu::gl::Format::RGBA8.into(),
                 ..Default::default()
@@ -211,12 +212,12 @@ impl OpenGLSurface {
             current_glutin_context.display().get_proc_address(name) as *const _
         })
         .ok_or_else(|| {
-            format!("Skia Renderer: Internal Error: Could not create OpenGL Interface")
+            "Skia Renderer: Internal Error: Could not create OpenGL Interface".to_string()
         })?;
 
         let mut gr_context =
             skia_safe::gpu::direct_contexts::make_gl(gl_interface, None).ok_or_else(|| {
-                format!("Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface")
+                "Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface".to_string()
             })?;
 
         let width: i32 = size.width.try_into().map_err(|e| {
@@ -396,10 +397,11 @@ impl OpenGLSurface {
             .get_proc_address(&std::ffi::CString::new("glCreateShader").unwrap())
             .is_null()
         {
-            return Err(format!(
+            return Err(
                 "Failed to initialize OpenGL driver: Could not locate glCreateShader symbol"
-            )
-            .into());
+                    .to_string()
+                    .into(),
+            );
         }
 
         // Try to default to vsync and ignore if the driver doesn't support it.
