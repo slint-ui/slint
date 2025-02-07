@@ -24,8 +24,8 @@ export component App inherits Window {
             }
             MenuItem { title: @tr("MenuBar" => "Save"); }
             MenuItem {
-                title: @tr("MenuBar" => "Save as");
-                for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }
+                title: @tr("MenuBar" => "Save As");
+                for x in 10: MenuItem { title: @tr("MenuBar" => "Name {}", x+1);  }
             }
         }
         MenuItem {
