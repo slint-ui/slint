@@ -98,7 +98,7 @@ pub fn embed_glyphs<'a>(
     sharedfontdb::FONT_DB.with(|db| {
         embed_glyphs_with_fontdb(
             compiler_config,
-            &db,
+            db,
             doc,
             pixel_sizes,
             characters_seen,

@@ -407,7 +407,7 @@ fn build_and_snapshot(
     source: String,
     screenshot_path: &Path,
 ) -> Result<()> {
-    let compiler = init_compiler(&args);
+    let compiler = init_compiler(args);
     let r = spin_on::spin_on(compiler.build_from_source(source, doc_file_path.to_path_buf()));
     r.print_diagnostics();
     if r.has_errors() {
@@ -428,7 +428,7 @@ fn build_and_snapshot(
     let component = c.create()?;
 
     // FIXME: The scale factor needs to be set before the size is set!
-    headless::set_window_scale_factor(&component.window(), scale_factor);
+    headless::set_window_scale_factor(component.window(), scale_factor);
 
     if let Some((x, y)) = size {
         component.window().set_size(i_slint_core::api::LogicalSize::new(x as f32, y as f32));

@@ -533,7 +533,7 @@ impl SkiaRenderer {
                     Some(
                         dirty_region_history[0..back_buffer_age as usize - 1]
                             .iter()
-                            .fold(DirtyRegion::default(), |acc, region| acc.union(&region)),
+                            .fold(DirtyRegion::default(), |acc, region| acc.union(region)),
                     )
                 } else {
                     Some(LogicalRect::from_size(logical_window_size).into())

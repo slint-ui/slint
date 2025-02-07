@@ -31,7 +31,7 @@ pub unsafe extern "C" fn slint_testing_element_visit_elements(
     RootWrapper(root)
         .root_element()
         .query_descendants()
-        .match_predicate(move |element| visitor(user_data, &element))
+        .match_predicate(move |element| visitor(user_data, element))
         .find_first()
         .is_some()
 }

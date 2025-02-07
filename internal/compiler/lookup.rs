@@ -391,7 +391,7 @@ impl LookupObject for InScopeLookup {
         Self::visit_scope(
             ctx,
             |str, r| (str == name).then_some(r),
-            |elem| elem.lookup(ctx, &name),
+            |elem| elem.lookup(ctx, name),
             |elem| {
                 elem.borrow().property_declarations.get(name).map(|prop| {
                     expression_from_reference(

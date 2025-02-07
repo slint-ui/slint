@@ -202,7 +202,7 @@ fn process_context_menu(
         });
 
         let item_tree_root = if !items.is_empty() {
-            lower_menu_items(context_menu_elem, items, &components)
+            lower_menu_items(context_menu_elem, items, components)
                 .map(|c| Expression::ElementReference(Rc::downgrade(&c.root_element)))
         } else {
             None
@@ -228,7 +228,7 @@ fn process_context_menu(
             Type::Array(components.menu_entry.clone().into()).into(),
         );
         Expression::PropertyReference(NamedReference::new(
-            &context_menu_elem,
+            context_menu_elem,
             SmolStr::new_static(ENTRIES),
         ))
     };
@@ -291,7 +291,7 @@ fn process_window(
     // Lower MenuItem's into entries
     let children = std::mem::take(&mut menu_bar.borrow_mut().children);
     let item_tree_root = if !children.is_empty() {
-        lower_menu_items(&menu_bar, children, &components)
+        lower_menu_items(&menu_bar, children, components)
             .map(|c| Expression::ElementReference(Rc::downgrade(&c.root_element)))
     } else {
         None
@@ -430,7 +430,7 @@ fn lower_menu_items(
 ) -> Option<Rc<Component>> {
     let mut has_repeated = false;
     for i in &children {
-        recurse_elem(&i, &(), &mut |e, _| {
+        recurse_elem(i, &(), &mut |e, _| {
             if e.borrow().repeated.is_some() {
                 has_repeated = true;
             }
@@ -494,7 +494,7 @@ fn lower_menu_items(
                 node: parent.borrow().debug.first().map(|n| n.node.clone().into()),
                 id: SmolStr::default(),
                 root_element,
-                parent_element: Rc::downgrade(&parent),
+                parent_element: Rc::downgrade(parent),
                 ..Default::default()
             }
         });

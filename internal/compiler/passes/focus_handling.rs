@@ -204,7 +204,7 @@ impl<'a> LocalFocusForwards<'a> {
 
     fn gen_focus_functions(&mut self, elem: &ElementRc) {
         if let Some((root_focus_forward, focus_forward_location)) =
-            self.focus_forward_for_element(&elem)
+            self.focus_forward_for_element(elem)
         {
             for function in FocusFunctionType::iter() {
                 if let Some(set_or_clear_focus_code) = call_set_focus_function(

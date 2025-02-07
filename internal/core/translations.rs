@@ -425,7 +425,7 @@ mod ffi {
         plural: &SharedString,
     ) {
         *to_translate =
-            translate(to_translate.as_str(), &context, &domain, arguments.as_slice(), n, &plural)
+            translate(to_translate.as_str(), context, domain, arguments.as_slice(), n, plural)
     }
 
     /// Mark all translated string as dirty to perform re-translation in case the language change

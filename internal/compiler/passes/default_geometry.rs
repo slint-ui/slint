@@ -357,7 +357,7 @@ fn fix_percent_size(
             parent = crate::object_tree::find_parent_element(&parent).unwrap_or(parent)
         }
         debug_assert_eq!(
-            parent.borrow().lookup_property(&property).property_type,
+            parent.borrow().lookup_property(property).property_type,
             Type::LogicalLength
         );
         let fill =
@@ -416,7 +416,7 @@ fn make_default_aspect_ratio_preserving_binding(
     missing_size_property: &'static str,
     given_size_property: &'static str,
 ) {
-    if elem.borrow().is_binding_set(&missing_size_property, false) {
+    if elem.borrow().is_binding_set(missing_size_property, false) {
         return;
     }
 
@@ -483,7 +483,7 @@ fn maybe_center_in_parent(
     pos_prop: &'static str,
     size_prop: &'static str,
 ) {
-    if elem.borrow().is_binding_set(&pos_prop, false) {
+    if elem.borrow().is_binding_set(pos_prop, false) {
         return;
     }
 

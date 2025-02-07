@@ -201,7 +201,7 @@ pub fn generate(
         .iter_enumerated()
         .filter(|(_, glob)| glob.must_generate())
         .map(|(idx, glob)| generate_global(idx, glob, &llr));
-    let shared_globals = generate_shared_globals(&llr, &compiler_config);
+    let shared_globals = generate_shared_globals(&llr, compiler_config);
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
@@ -697,7 +697,7 @@ fn generate_sub_component(
             )
         })
         .chain(component.menu_item_trees.iter().map(|tree| {
-            generate_item_tree(&tree, root, Some(ParentCtx::new(&ctx, None)), None, false)
+            generate_item_tree(tree, root, Some(ParentCtx::new(&ctx, None)), None, false)
         }))
         .collect::<Vec<_>>();
 
@@ -1780,7 +1780,7 @@ fn generate_repeated_component(
     };
 
     let root_sc = &unit.sub_components[repeated.sub_tree.root];
-    let inner_component_id = self::inner_component_id(&root_sc);
+    let inner_component_id = self::inner_component_id(root_sc);
 
     let extra_fn = if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx).unwrap();
@@ -2702,7 +2702,7 @@ fn compile_builtin_function_call(
                     ctx.compilation_unit,
                     popup.item_tree.root,
                     RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
-                    Some(ParentCtx::new(&ctx, None)),
+                    Some(ParentCtx::new(ctx, None)),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
 

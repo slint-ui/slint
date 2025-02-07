@@ -707,7 +707,7 @@ pub fn generate(
         }
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config)?;
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
 
     #[cfg(feature = "bundle-translations")]
     if let Some(translations) = &llr.translations {
@@ -2200,7 +2200,7 @@ fn generate_sub_component(
     }
 
     target_struct.members.extend(
-        generate_functions(&component.functions.as_ref(), &ctx).map(|x| (Access::Public, x)),
+        generate_functions(component.functions.as_ref(), &ctx).map(|x| (Access::Public, x)),
     );
 
     target_struct.members.push((
@@ -3720,7 +3720,7 @@ fn compile_builtin_function_call(
                     ctx.compilation_unit,
                     popup.item_tree.root,
                     CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
-                    Some(ParentCtx::new(&ctx, None)),
+                    Some(ParentCtx::new(ctx, None)),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);

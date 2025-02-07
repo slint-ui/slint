@@ -80,7 +80,7 @@ fn find_licenses_directories(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut result = Vec::new();
 
     let licenses_name: Option<&OsStr> = Some(OsStr::new("LICENSES"));
-    let dot_name: &OsStr = &OsStr::new(".");
+    let dot_name: &OsStr = OsStr::new(".");
 
     for d in std::fs::read_dir(dir)?
         .filter(|d| d.as_ref().is_ok_and(|e| e.file_type().is_ok_and(|f| f.is_dir())))
