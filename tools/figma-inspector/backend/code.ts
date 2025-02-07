@@ -8,21 +8,18 @@ import {
     dispatchTS,
     getStatus,
     updateUI,
+    getSlintSnippet,
 } from "./utils/code-utils";
 
-figma.showUI(__html__, {
-    themeColors: true,
-    width: 400,
-    height: 320,
-});
-
-listenTS("copyToClipboard", () => {
-    figma.notify("Copied!");
-});
-
-figma.on("selectionchange", () => {
-    updateUI();
-});
-
-// init
-updateUI();
+if (figma.editorType === "dev" && figma.mode === "codegen") {
+    figma.codegen.on("generate", async ({ node }) => {
+        const slintSnippet = await getSlintSnippet();
+        return [
+            {
+                title: "Slint Code: " + node.name,
+                language: "CSS",
+                code: slintSnippet,
+            },
+        ];
+    });
+}

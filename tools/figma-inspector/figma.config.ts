@@ -10,7 +10,10 @@ export const manifest: PluginManifest = {
     api: "1.0.0",
     main: "code.js",
     ui: "index.html",
-    editorType: ["figma", "dev"],
+    editorType: ["dev"],
+    capabilities: ["codegen", "vscode"],
+    codegenLanguages: [{ label: "Slint", value: "slint" }],
+    codegenPreferences: [],
     documentAccess: "dynamic-page",
     networkAccess: {
         allowedDomains: ["*"],
