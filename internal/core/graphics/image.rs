@@ -1343,7 +1343,7 @@ pub(crate) mod ffi {
         width: &mut u32,
         height: &mut u32,
     ) -> bool {
-        image.to_rgb8().map_or(false, |pixel_buffer| {
+        image.to_rgb8().is_some_and(|pixel_buffer| {
             *data = pixel_buffer.data.clone();
             *width = pixel_buffer.width();
             *height = pixel_buffer.height();
@@ -1358,7 +1358,7 @@ pub(crate) mod ffi {
         width: &mut u32,
         height: &mut u32,
     ) -> bool {
-        image.to_rgba8().map_or(false, |pixel_buffer| {
+        image.to_rgba8().is_some_and(|pixel_buffer| {
             *data = pixel_buffer.data.clone();
             *width = pixel_buffer.width();
             *height = pixel_buffer.height();
@@ -1373,7 +1373,7 @@ pub(crate) mod ffi {
         width: &mut u32,
         height: &mut u32,
     ) -> bool {
-        image.to_rgba8_premultiplied().map_or(false, |pixel_buffer| {
+        image.to_rgba8_premultiplied().is_some_and(|pixel_buffer| {
             *data = pixel_buffer.data.clone();
             *width = pixel_buffer.width();
             *height = pixel_buffer.height();

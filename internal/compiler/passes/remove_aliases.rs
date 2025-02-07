@@ -173,7 +173,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 .property_analysis
                 .borrow()
                 .get(remove.name())
-                .map_or(false, |v| v.is_read_externally || v.is_set_externally);
+                .is_some_and(|v| v.is_read_externally || v.is_set_externally);
             if let Some(d) = elem.property_declarations.get_mut(remove.name()) {
                 if d.expose_in_public_api || used_externally {
                     d.is_alias = Some(to.clone());

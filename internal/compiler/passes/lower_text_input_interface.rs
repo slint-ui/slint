@@ -35,7 +35,7 @@ pub fn lower_text_input_interface(component: &Rc<Component>) {
 }
 
 fn is_input_text_focused_prop(nr: &NamedReference) -> bool {
-    if !nr.element().borrow().builtin_type().map_or(false, |bt| bt.name == "TextInputInterface") {
+    if !nr.element().borrow().builtin_type().is_some_and(|bt| bt.name == "TextInputInterface") {
         return false;
     }
     assert_eq!(nr.name(), "text-input-focused");

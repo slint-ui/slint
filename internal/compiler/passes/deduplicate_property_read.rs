@@ -43,7 +43,7 @@ struct DedupPropState<'a> {
 
 impl<'a> DedupPropState<'a> {
     fn add(&self, nr: &NamedReference) {
-        if self.parent_state.map_or(false, |pc| pc.add_from_children(nr)) {
+        if self.parent_state.is_some_and(|pc| pc.add_from_children(nr)) {
             return;
         }
         let mut use_counts = self.counts.borrow_mut();
@@ -62,7 +62,7 @@ impl<'a> DedupPropState<'a> {
     }
 
     fn add_from_children(&self, nr: &NamedReference) -> bool {
-        if self.parent_state.map_or(false, |pc| pc.add_from_children(nr)) {
+        if self.parent_state.is_some_and(|pc| pc.add_from_children(nr)) {
             return true;
         }
         let mut use_counts = self.counts.borrow_mut();

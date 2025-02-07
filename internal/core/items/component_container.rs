@@ -68,7 +68,7 @@ impl ComponentContainer {
             vtable::VRc::borrow_pin(&parent).as_ref().window_adapter(false, &mut window);
         }
         let prevent_focus_change =
-            window.as_ref().map_or(false, |w| w.window().0.prevent_focus_change.replace(true));
+            window.as_ref().is_some_and(|w| w.window().0.prevent_focus_change.replace(true));
 
         let factory_context = FactoryContext {
             parent_item_tree: self.my_component.get().unwrap().clone(),

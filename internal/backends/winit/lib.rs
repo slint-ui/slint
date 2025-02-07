@@ -606,7 +606,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             .window_adapter()
             .internal(i_slint_core::InternalToken)
             .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
-            .map_or(false, |adapter| adapter.winit_window().is_some())
+            .is_some_and(|adapter| adapter.winit_window().is_some())
     }
 
     fn with_winit_window<T>(

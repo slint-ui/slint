@@ -71,7 +71,7 @@ impl<'a> LookupCtx<'a> {
     }
 
     pub fn is_legacy_component(&self) -> bool {
-        self.component_scope.first().map_or(false, |e| e.borrow().is_legacy_syntax)
+        self.component_scope.first().is_some_and(|e| e.borrow().is_legacy_syntax)
     }
 
     /// True if the element is in the same component as the scope
@@ -535,7 +535,7 @@ impl LookupType {
                 if c.root_element
                     .borrow()
                     .builtin_type()
-                    .map_or(false, |x| x.is_internal && x.name == name)
+                    .is_some_and(|x| x.is_internal && x.name == name)
                     && !ctx.type_register.expose_internal_types
                 {
                     None

@@ -147,7 +147,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             Global,
             NativeParent(Rc<BuiltinElement>),
         }
-        let base = if c.child_text(SyntaxKind::Identifier).map_or(false, |t| t == "global") {
+        let base = if c.child_text(SyntaxKind::Identifier).is_some_and(|t| t == "global") {
             Base::Global
         } else if let Some(base) = e.QualifiedName() {
             let base = QualifiedTypeName::from_node(base).to_smolstr();

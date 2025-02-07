@@ -33,10 +33,9 @@ pub fn handle_visible(
         component,
         &(),
         &mut |elem: &ElementRc, _| {
-            let is_lowered_from_visible_property =
-                elem.borrow().native_class().map_or(false, |n| {
-                    Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
-                });
+            let is_lowered_from_visible_property = elem.borrow().native_class().is_some_and(|n| {
+                Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
+            });
             if is_lowered_from_visible_property {
                 // This is the element we just created. Skip it.
                 return;
@@ -55,7 +54,7 @@ pub fn handle_visible(
                             .property_analysis
                             .borrow()
                             .get("visible")
-                            .map_or(false, |a| a.is_set || a.is_linked))
+                            .is_some_and(|a| a.is_set || a.is_linked))
             };
 
             for mut child in old_children {

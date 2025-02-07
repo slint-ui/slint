@@ -27,7 +27,7 @@ pub(crate) fn fold_node(
                             if t.state_id == state_id
                                 && t.node
                                     .parent()
-                                    .map_or(false, |p| p.kind() == SyntaxKind::Transitions)
+                                    .is_some_and(|p| p.kind() == SyntaxKind::Transitions)
                             {
                                 for c in t.node.children_with_tokens() {
                                     if !matches!(

@@ -276,8 +276,7 @@ fn call_set_focus_function(
             }
         }
     };
-    let builtin_focus_function =
-        element.borrow().builtin_type().map_or(false, |ty| ty.accepts_focus);
+    let builtin_focus_function = element.borrow().builtin_type().is_some_and(|ty| ty.accepts_focus);
 
     if declares_focus_function {
         Some(Expression::FunctionCall {

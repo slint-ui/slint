@@ -14,7 +14,7 @@ pub(crate) fn fold_node(
     let kind = node.kind();
     if kind == SyntaxKind::Component && node.child_token(SyntaxKind::ColonEqual).is_some() {
         let is_global =
-            node.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "global");
+            node.child_token(SyntaxKind::Identifier).is_some_and(|t| t.text() == "global");
         if !is_global {
             write!(file, "component ")?;
         }
@@ -22,11 +22,11 @@ pub(crate) fn fold_node(
             if n.kind() == SyntaxKind::ColonEqual {
                 if !is_global {
                     let t = n.as_token().unwrap();
-                    if t.prev_token().map_or(false, |t| t.kind() != SyntaxKind::Whitespace) {
+                    if t.prev_token().is_some_and(|t| t.kind() != SyntaxKind::Whitespace) {
                         write!(file, " ")?;
                     }
                     write!(file, "inherits")?;
-                    if t.next_token().map_or(false, |t| t.kind() != SyntaxKind::Whitespace) {
+                    if t.next_token().is_some_and(|t| t.kind() != SyntaxKind::Whitespace) {
                         write!(file, " ")?;
                     }
                 }

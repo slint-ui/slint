@@ -8,7 +8,7 @@ fn main() {
     println!("cargo:rustc-check-cfg=cfg(no_qt)");
 
     println!("cargo:rerun-if-env-changed=SLINT_NO_QT");
-    if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"))
+    if std::env::var("TARGET").is_ok_and(|t| t.starts_with("wasm"))
         || std::env::var("SLINT_NO_QT").is_ok()
     {
         println!("cargo:rustc-cfg=no_qt");

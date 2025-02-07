@@ -262,7 +262,7 @@ impl NodeCollection {
         window_adapter_weak
             .upgrade()
             .filter(|window_adapter| {
-                window_adapter.winit_window().map_or(false, |winit_window| winit_window.has_focus())
+                window_adapter.winit_window().is_some_and(|winit_window| winit_window.has_focus())
             })
             .and_then(|window_adapter| {
                 let window_inner = WindowInner::from_pub(window_adapter.window());

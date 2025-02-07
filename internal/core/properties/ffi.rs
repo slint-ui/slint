@@ -34,9 +34,10 @@ pub unsafe extern "C" fn slint_property_set_changed(
     handle: &PropertyHandleOpaque,
     value: *const c_void,
 ) {
-    if !handle.0.access(|b| {
-        b.map_or(false, |b| (b.vtable.intercept_set)(&*b as *const BindingHolder, value))
-    }) {
+    if !handle
+        .0
+        .access(|b| b.is_some_and(|b| (b.vtable.intercept_set)(&*b as *const BindingHolder, value)))
+    {
         handle.0.remove_binding();
     }
     handle.0.mark_dirty();
@@ -143,7 +144,7 @@ pub unsafe extern "C" fn slint_property_set_binding_internal(
 /// Returns whether the property behind this handle is marked as dirty
 #[no_mangle]
 pub extern "C" fn slint_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
-    handle.0.access(|binding| binding.map_or(false, |b| b.dirty.get()))
+    handle.0.access(|binding| binding.is_some_and(|b| b.dirty.get()))
 }
 
 /// Marks the property as dirty and notifies dependencies.

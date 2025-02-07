@@ -1503,7 +1503,7 @@ impl TypeLoader {
             ))
             .chain(
                 (file_to_import == "std-widgets.slint"
-                    || referencing_file.map_or(false, |x| x.starts_with("builtin:/")))
+                    || referencing_file.is_some_and(|x| x.starts_with("builtin:/")))
                 .then(|| format!("builtin:/{}", self.style).into()),
             )
             .find_map(|include_dir| {
@@ -1647,7 +1647,7 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<PathBuf>) 
 /// Because from a proc_macro, we don't actually know the path of the current file, and this
 /// is why we must be relative to CARGO_MANIFEST_DIR.
 pub fn base_directory(referencing_file: &Path) -> PathBuf {
-    if referencing_file.extension().map_or(false, |e| e == "rs") {
+    if referencing_file.extension().is_some_and(|e| e == "rs") {
         // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_DIR which is the directory that has a Cargo.toml file.
         let mut candidate = referencing_file;
         loop {

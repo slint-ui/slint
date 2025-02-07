@@ -449,7 +449,7 @@ impl Expression {
                     return Expression::Invalid;
                 }
             };
-            if subs.next().map_or(false, |s| s.kind() != SyntaxKind::Comma) {
+            if subs.next().is_some_and(|s| s.kind() != SyntaxKind::Comma) {
                 ctx.diag.push_error(
                     "Angle expression must be an angle followed by a comma".into(),
                     &node,
@@ -475,7 +475,7 @@ impl Expression {
                 ctx.diag.push_error("'at' in @radial-gradient is not yet supported".into(), &comma);
                 return Expression::Invalid;
             }
-            if comma.as_ref().map_or(false, |s| s.kind() != SyntaxKind::Comma) {
+            if comma.as_ref().is_some_and(|s| s.kind() != SyntaxKind::Comma) {
                 ctx.diag.push_error(
                     "'circle' must be followed by a comma".into(),
                     comma.as_ref().map_or(&node, |x| x as &dyn Spanned),
@@ -1383,15 +1383,11 @@ fn continue_lookup_within_element(
             let e_borrowed = e.borrow();
             let mut id = e_borrowed.id.as_str();
             if id.is_empty() {
-                if ctx.component_scope.last().map_or(false, |x| Rc::ptr_eq(&e, x)) {
+                if ctx.component_scope.last().is_some_and(|x| Rc::ptr_eq(&e, x)) {
                     id = "self";
-                } else if ctx.component_scope.first().map_or(false, |x| Rc::ptr_eq(&e, x)) {
+                } else if ctx.component_scope.first().is_some_and(|x| Rc::ptr_eq(&e, x)) {
                     id = "root";
-                } else if ctx
-                    .component_scope
-                    .iter()
-                    .nth_back(1)
-                    .map_or(false, |x| Rc::ptr_eq(&e, x))
+                } else if ctx.component_scope.iter().nth_back(1).is_some_and(|x| Rc::ptr_eq(&e, x))
                 {
                     id = "parent";
                 }
@@ -1459,7 +1455,7 @@ fn continue_lookup_within_element(
         } else if lookup_result.property_visibility == PropertyVisibility::Protected
             && !local_to_component
             && !(lookup_result.is_in_direct_base
-                && ctx.component_scope.first().map_or(false, |x| Rc::ptr_eq(x, elem)))
+                && ctx.component_scope.first().is_some_and(|x| Rc::ptr_eq(x, elem)))
         {
             ctx.diag.push_error(format!("The function '{}' is protected", second.text()), &second);
         }

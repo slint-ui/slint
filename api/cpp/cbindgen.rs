@@ -192,7 +192,7 @@ fn ensure_cargo_rerun_for_crate(
     dependencies.push(crate_dir.to_path_buf());
     for entry in std::fs::read_dir(crate_dir)? {
         let entry = entry?;
-        if entry.path().extension().map_or(false, |e| e == "rs") {
+        if entry.path().extension().is_some_and(|e| e == "rs") {
             dependencies.push(entry.path());
         }
     }

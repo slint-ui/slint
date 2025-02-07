@@ -121,7 +121,7 @@ pub fn ensure_window(
         } = expr
         {
             for arg in arguments.iter_mut() {
-                if matches!(arg, Expression::ElementReference(elr) if elr.upgrade().map_or(false, |elemrc| Rc::ptr_eq(&elemrc, &win_elem)))
+                if matches!(arg, Expression::ElementReference(elr) if elr.upgrade().is_some_and(|elemrc| Rc::ptr_eq(&elemrc, &win_elem)))
                 {
                     *arg = Expression::ElementReference(Rc::downgrade(&new_root))
                 }

@@ -1357,7 +1357,7 @@ impl Expression {
                         .property_analysis
                         .borrow()
                         .get(nr.name())
-                        .map_or(false, |d| d.is_linked_to_read_only)
+                        .is_some_and(|d| d.is_linked_to_read_only)
                     {
                         true
                     } else if ctx.is_legacy_component() {

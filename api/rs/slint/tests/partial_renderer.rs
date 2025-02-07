@@ -162,7 +162,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareB
 
         let mut shared_pixel_buffer = self.pixels.borrow_mut().take();
 
-        if shared_pixel_buffer.as_ref().map_or(false, |existing_buffer| {
+        if shared_pixel_buffer.as_ref().is_some_and(|existing_buffer| {
             existing_buffer.width() != width.get() || existing_buffer.height() != height.get()
         }) {
             shared_pixel_buffer = None;

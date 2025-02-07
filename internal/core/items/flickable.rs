@@ -241,7 +241,7 @@ impl FlickableData {
             }
             MouseEvent::Moved { position } => {
                 let do_intercept = inner.capture_events
-                    || inner.pressed_time.map_or(false, |pressed_time| {
+                    || inner.pressed_time.is_some_and(|pressed_time| {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
                             return false;
                         }

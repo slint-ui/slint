@@ -414,7 +414,7 @@ impl Component {
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
-                if node.child_text(SyntaxKind::Identifier).map_or(false, |t| t == "global") {
+                if node.child_text(SyntaxKind::Identifier).is_some_and(|t| t == "global") {
                     ElementType::Global
                 } else {
                     ElementType::Error
@@ -790,7 +790,7 @@ pub fn pretty_print(
         indent!();
         write!(f, "{name}: ")?;
         expression_tree::pretty_print(f, &expr.expression)?;
-        if expr.analysis.as_ref().map_or(false, |a| a.is_const) {
+        if expr.analysis.as_ref().is_some_and(|a| a.is_const) {
             write!(f, "/*const*/")?;
         }
         writeln!(f, ";")?;
@@ -959,13 +959,12 @@ impl Element {
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
             node.CallbackDeclaration().for_each(|cb| {
-                if parser::identifier_text(&cb.DeclaredIdentifier()).map_or(false, |s| s == "init")
-                {
+                if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
                     error_on(&cb, "an 'init' callback")
                 }
             });
             node.CallbackConnection().for_each(|cb| {
-                if parser::identifier_text(&cb).map_or(false, |s| s == "init") {
+                if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
                     error_on(&cb, "an 'init' callback")
                 }
             });
@@ -1130,7 +1129,7 @@ impl Element {
                 unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
 
             let pure = Some(
-                sig_decl.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "pure"),
+                sig_decl.child_token(SyntaxKind::Identifier).is_some_and(|t| t.text() == "pure"),
             );
 
             let PropertyLookupResult {
@@ -1819,7 +1818,7 @@ impl Element {
     /// If `need_explicit` is true, then only consider binding set in the code, not the ones set
     /// by the compiler later.
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
-        if self.bindings.get(property_name).map_or(false, |b| {
+        if self.bindings.get(property_name).is_some_and(|b| {
             b.borrow().has_binding() && (!need_explicit || b.borrow().priority > 0)
         }) {
             true

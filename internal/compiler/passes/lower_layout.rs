@@ -102,7 +102,7 @@ fn lower_element_layout(
                     && component
                         .parent_element
                         .upgrade()
-                        .map_or(false, |e| e.borrow().repeated.is_some()),
+                        .is_some_and(|e| e.borrow().repeated.is_some()),
                 "Error should have been caught at element lookup time"
             );
             return;
@@ -709,7 +709,7 @@ fn create_layout_item(
     diag: &mut BuildDiagnostics,
 ) -> Option<CreateLayoutItemResult> {
     let fix_explicit_percent = |prop: &str, item: &ElementRc| {
-        if !item.borrow().bindings.get(prop).map_or(false, |b| b.borrow().ty() == Type::Percent) {
+        if !item.borrow().bindings.get(prop).is_some_and(|b| b.borrow().ty() == Type::Percent) {
             return;
         }
         let mut item = item.borrow_mut();

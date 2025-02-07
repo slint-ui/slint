@@ -223,10 +223,10 @@ fn visit_node(
                     .borrow()
                     .children
                     .iter()
-                    .find(|c| c.borrow().debug.first().map_or(false, |n| n.node.node == node.node))
+                    .find(|c| c.borrow().debug.first().is_some_and(|n| n.node.node == node.node))
                     .cloned()
             } else if let Some(parent_co) = &state.current_component {
-                if node.parent().map_or(false, |n| n.kind() == SyntaxKind::Component) {
+                if node.parent().is_some_and(|n| n.kind() == SyntaxKind::Component) {
                     state.current_elem = Some(parent_co.root_element.clone())
                 }
             }

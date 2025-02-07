@@ -410,7 +410,7 @@ pub fn handle_property_bindings_init(
             return;
         }
         processed.insert(nr);
-        if binding_expression.analysis.as_ref().map_or(false, |a| a.is_const) {
+        if binding_expression.analysis.as_ref().is_some_and(|a| a.is_const) {
             // We must first handle all dependent properties in case it is a constant property
 
             binding_expression.expression.visit_recursive(&mut |e| {
@@ -468,7 +468,7 @@ pub fn for_each_const_properties(
                     .iter()
                     .filter(|(_, x)| {
                         x.property_type.is_property_type() &&
-                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo")))
+                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo")))
                     })
                     .map(|(k, _)| k.clone()),
             );
