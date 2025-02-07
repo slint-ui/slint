@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore Heade
+// cSpell: ignore Header
 
 import { Button, ComboBox, ListView, ScrollView, TabWidget, VerticalBox, Palette } from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary } from "api.slint";
@@ -111,8 +111,8 @@ export component PreviewUi inherits Window {
                                 }
 
                                 TabWidget {
-                                    width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding * 2);
-                                    x: EditorSpaceSettings.default-padding / 2;
+                                    width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
+                                    x: EditorSpaceSettings.default-padding/2;
                                     current-index: 0;
                                     Tab {
                                         preferred-width: 100px;
