@@ -1275,6 +1275,19 @@ declare_item_vtable! {
     fn slint_get_ContextMenuVTable() -> ContextMenuVTable for ContextMenu
 }
 
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_contextmenu_close(
+    s: Pin<&ContextMenu>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    s.close(window_adapter, &self_rc);
+}
+
 /// The implementation of the `BoxShadow` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
