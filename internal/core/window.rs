@@ -1230,7 +1230,8 @@ impl WindowInner {
 
     /// Close the top-most popup.
     pub fn close_top_popup(&self) {
-        if let Some(popup) = self.active_popups.borrow_mut().pop() {
+        let popup = self.active_popups.borrow_mut().pop();
+        if let Some(popup) = popup {
             self.close_popup_impl(&popup);
         }
     }

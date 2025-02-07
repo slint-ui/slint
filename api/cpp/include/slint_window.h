@@ -177,9 +177,11 @@ public:
         auto popup = Component::create(globals);
         init(&*popup);
         auto popup_dyn = popup.into_dyn();
-        return cbindgen_private::slint_windowrc_show_popup(
+        auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn, pos, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
                 &context_menu_rc);
+        popup->user_init();
+        return id;
     }
 
     template<std::invocable<RenderingState, GraphicsAPI> F>

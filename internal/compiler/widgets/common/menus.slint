@@ -10,48 +10,88 @@ export component PopupMenuImpl inherits Window {
     in property <[MenuEntry]> entries: [];
     callback sub-menu(MenuEntry) -> [MenuEntry];
     callback activated(MenuEntry);
+    private property <int> current: -1;
+    forward-focus: fs;
 
     Rectangle {
         border-radius: 7*px;
         border-color: Palette.border;
+        border-width: 1px;
         background: Palette.background;
         drop-shadow-blur: 2px;
         drop-shadow-color: Palette.foreground.transparentize(0.5);
         min-width: 10rem;
-        VerticalLayout {
+    }
+
+    fs := FocusScope {
+        layout := VerticalLayout {
             padding: 5px;
-            for entry in entries: Rectangle {
-                background: ita.has-hover || ita.pressed ? Palette.alternate-background : transparent;
+            for entry[idx] in entries: Rectangle {
+                // FIXME: note that the fluent style uses the secondary color for highlighted item
+                background: current == idx ? Palette.accent-background : Palette.background;
                 border-radius: 3*px;
                 border-width: 1px;
                 HorizontalLayout {
                     spacing: 7*px;
-                    padding: 11*px;
+                    padding-left: 11*px;
                     padding-top: 4*px;
                     padding-bottom: 6*px;
-                    Text {
+                    menu-text := Text {
                         text: entry.title;
                         horizontal-stretch: 1;
+                        color: current == idx ? Palette.accent-foreground : Palette.foreground;
                     }
-                    if entry.has-sub-menu : Text {
-                        text: "▶";
-                        horizontal-stretch: 0;
+                    if entry.has-sub-menu : Image {
+                        source: @image-url("../fluent/_arrow_forward.svg");
+                        colorize: menu-text.color;
                     }
                 }
-                ita := TouchArea {
-                    clicked => {
-                        if entry.has-sub-menu {
-                            subMenu.entries = root.sub-menu(entry);
-                            subMenu.show({
-                                x: root.width,
-                                y: self.absolute-position.y - subMenu.absolute-position.y,
-                            });
-                        } else {
-                            activated(entry);
+                TouchArea {
+                    pointer-event(event) => {
+                        fs.focus();
+                        if event.kind == PointerEventKind.move {
+                            current = idx;
                         }
+                    }
+
+                    clicked => {
+                        activate(entry, self.absolute-position.y);
                     }
                 }
             }
+        }
+        function y-pos(idx: int) -> length {
+            layout.padding + idx * (layout.height - 2 * layout.padding) / entries.length
+        }
+        key-pressed(event) => {
+            if event.text == Key.UpArrow {
+                if current >= 1 {
+                    current -= 1;
+                } else {
+                    current = entries.length - 1;
+                }
+                return accept;
+            } else if event.text == Key.DownArrow {
+                if current < entries.length - 1 {
+                    current += 1;
+                } else {
+                    current = 0;
+                }
+                return accept;
+            } else if event.text == Key.Return {
+                if current >= 0 && current < entries.length {
+                    activate(entries[current], y-pos(current));
+                }
+                return accept;
+            } else if event.text == Key.RightArrow {
+                if current >= 0 && current < entries.length && entries[current].has-sub-menu {
+                    activate(entries[current], y-pos(current));
+                }
+                return accept;
+            } else if event.text == Key.LeftArrow {
+                // TODO: should close only if this menu is a sub menu
+            }
+            return reject;
         }
     }
 
@@ -59,6 +99,18 @@ export component PopupMenuImpl inherits Window {
         x: 0; y: 0; width: 0; height: 0;
         sub-menu(entry) => { root.sub-menu(entry); }
         activated(entry) => { root.activated(entry); }
+    }
+
+    function activate(entry : MenuEntry, y: length) {
+        if entry.has-sub-menu {
+            subMenu.entries = root.sub-menu(entry);
+            subMenu.show({
+                x: root.width,
+                y: y - subMenu.absolute-position.y,
+            });
+        } else {
+            activated(entry);
+        }
     }
 }
 
