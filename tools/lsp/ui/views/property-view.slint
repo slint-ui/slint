@@ -11,8 +11,7 @@ import { EditorSizeSettings, EditorSpaceSettings } from "../components/styling.s
 
 import { ExpandableGroup, PropertyValueWidget } from "../components/property-widgets.slint";
 
-export component PropertyView {
-    in property <bool> enabled;
+export component PropertyView inherits ScrollView{
 
     property <ElementInformation> element-information <=> Api.current-element;
     property <[PropertyGroup]> properties <=> Api.properties;
@@ -23,11 +22,6 @@ export component PropertyView {
     width: EditorSizeSettings.property-bar-width;
 
     content-layer := VerticalLayout {
-        GroupHeader {
-            title: @tr("{} Properties", root.element-information.type-name);
-            vertical-stretch: 0;
-        }
-
         if !root.element-loaded: Text {
             text: @tr("Select an Element");
             horizontal-alignment: center;
