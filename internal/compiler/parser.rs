@@ -591,12 +591,12 @@ mod parser_trait {
     /// and finishes the node on Drop
     #[derive(derive_more::DerefMut)]
     pub struct Node<'a, P: Parser>(&'a mut P);
-    impl<'a, P: Parser> Drop for Node<'a, P> {
+    impl<P: Parser> Drop for Node<'_, P> {
         fn drop(&mut self) {
             self.0.finish_node_impl(NodeToken(()));
         }
     }
-    impl<'a, P: Parser> core::ops::Deref for Node<'a, P> {
+    impl<P: Parser> core::ops::Deref for Node<'_, P> {
         type Target = P;
         fn deref(&self) -> &Self::Target {
             self.0

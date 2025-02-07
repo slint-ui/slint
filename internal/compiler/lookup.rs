@@ -909,7 +909,7 @@ impl LookupObject for Expression {
 }
 
 struct StringExpression<'a>(&'a Expression);
-impl<'a> LookupObject for StringExpression<'a> {
+impl LookupObject for StringExpression<'_> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
@@ -938,7 +938,7 @@ impl<'a> LookupObject for StringExpression<'a> {
     }
 }
 struct ColorExpression<'a>(&'a Expression);
-impl<'a> LookupObject for ColorExpression<'a> {
+impl LookupObject for ColorExpression<'_> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
@@ -987,7 +987,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
 }
 
 struct ImageExpression<'a>(&'a Expression);
-impl<'a> LookupObject for ImageExpression<'a> {
+impl LookupObject for ImageExpression<'_> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
@@ -1010,7 +1010,7 @@ impl<'a> LookupObject for ImageExpression<'a> {
 }
 
 struct ArrayExpression<'a>(&'a Expression);
-impl<'a> LookupObject for ArrayExpression<'a> {
+impl LookupObject for ArrayExpression<'_> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
@@ -1031,7 +1031,7 @@ impl<'a> LookupObject for ArrayExpression<'a> {
 
 /// An expression of type int or float
 struct NumberExpression<'a>(&'a Expression);
-impl<'a> LookupObject for NumberExpression<'a> {
+impl LookupObject for NumberExpression<'_> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
@@ -1061,7 +1061,7 @@ impl<'a> LookupObject for NumberExpression<'a> {
 
 /// An expression of any numerical value with an unit
 struct NumberWithUnitExpression<'a>(&'a Expression);
-impl<'a> LookupObject for NumberWithUnitExpression<'a> {
+impl LookupObject for NumberWithUnitExpression<'_> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,

@@ -33,9 +33,7 @@ enum RenderMode {
 
 struct DrawBuffer<'a, T>(&'a mut [T]);
 
-impl<'a, T: TargetPixel> slint::platform::software_renderer::LineBufferProvider
-    for DrawBuffer<'a, T>
-{
+impl<T: TargetPixel> slint::platform::software_renderer::LineBufferProvider for DrawBuffer<'_, T> {
     type TargetPixel = T;
     fn process_line(
         &mut self,

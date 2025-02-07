@@ -8,7 +8,7 @@ use xshell::{Cmd, Shell};
 use std::collections::BTreeMap;
 use std::{ffi::OsStr, path::Path, path::PathBuf};
 
-fn cmd<'a, I>(sh: &'a Shell, command: impl AsRef<Path>, args: I) -> Result<Cmd<'a>>
+fn cmd<I>(sh: &Shell, command: impl AsRef<Path>, args: I) -> Result<Cmd<'_>>
 where
     I: IntoIterator,
     I::Item: AsRef<OsStr>,

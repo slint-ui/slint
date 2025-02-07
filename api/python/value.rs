@@ -22,14 +22,14 @@ impl ToPyObject for PyValue {
     }
 }
 
-impl<'a> IntoPy<PyObject> for PyValueRef<'a> {
+impl IntoPy<PyObject> for PyValueRef<'_> {
     fn into_py(self, py: Python<'_>) -> PyObject {
         // Share the conversion code below that operates on the reference
         self.to_object(py).into_py(py)
     }
 }
 
-impl<'a> ToPyObject for PyValueRef<'a> {
+impl ToPyObject for PyValueRef<'_> {
     fn to_object(&self, py: Python<'_>) -> PyObject {
         match &self.0 {
             slint_interpreter::Value::Void => ().into_py(py),

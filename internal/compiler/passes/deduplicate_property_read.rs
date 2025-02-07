@@ -41,7 +41,7 @@ struct DedupPropState<'a> {
     counts: RefCell<PropertyReadCounts>,
 }
 
-impl<'a> DedupPropState<'a> {
+impl DedupPropState<'_> {
     fn add(&self, nr: &NamedReference) {
         if self.parent_state.is_some_and(|pc| pc.add_from_children(nr)) {
             return;
