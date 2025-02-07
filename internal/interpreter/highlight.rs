@@ -39,7 +39,14 @@ fn collect_highlight_data(
     for element in elements.iter().filter_map(|e| e.upgrade()) {
         let element = normalize_repeated_element(element);
         if let Some(repeater_path) = repeater_path(&element) {
-            fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
+            fill_highlight_data(
+                &repeater_path,
+                &element,
+                &c,
+                &c,
+                ElementPositionFilter::IncludeClipped,
+                &mut values,
+            );
         }
     }
     values
@@ -61,9 +68,20 @@ pub(crate) fn component_positions(
     )
 }
 
-pub(crate) fn element_positions(
+/// Argument to filter the elements in the [`element_positions`] function
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum ElementPositionFilter {
+    /// Include all elements
+    IncludeClipped,
+    /// Exclude elements that are not visible because they are clipped
+    ExcludeClipped,
+}
+
+/// Return the positions of all instances of a specific element
+pub fn element_positions(
     component_instance: &DynamicComponentVRc,
     element: &ElementRc,
+    filter_clipped: ElementPositionFilter,
 ) -> Vec<LogicalRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
@@ -72,7 +90,7 @@ pub(crate) fn element_positions(
 
     let element = normalize_repeated_element(element.clone());
     if let Some(repeater_path) = repeater_path(&element) {
-        fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
+        fill_highlight_data(&repeater_path, &element, &c, &c, filter_clipped, &mut values);
     }
     values
 }
@@ -93,6 +111,7 @@ fn fill_highlight_data(
     element: &ElementRc,
     component_instance: &ItemTreeBox,
     root_component_instance: &ItemTreeBox,
+    filter_clipped: ElementPositionFilter,
     values: &mut Vec<i_slint_core::lengths::LogicalRect>,
 ) {
     if element.borrow().repeated.is_some() {
@@ -115,6 +134,7 @@ fn fill_highlight_data(
                     element,
                     &c.unerase(guard),
                     root_component_instance,
+                    filter_clipped,
                     values,
                 );
             }
@@ -128,11 +148,12 @@ fn fill_highlight_data(
         );
         let index = element.borrow().item_index.get().copied().unwrap();
         let item_rc = ItemRc::new(vrc.clone(), index);
-        let geometry = item_rc.geometry();
-        let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
-        let size = geometry.size;
-
-        values.push(LogicalRect { origin, size });
+        if filter_clipped == ElementPositionFilter::IncludeClipped || item_rc.is_visible() {
+            let geometry = item_rc.geometry();
+            let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
+            let size = geometry.size;
+            values.push(LogicalRect { origin, size });
+        }
     }
 }
 

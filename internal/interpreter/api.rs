@@ -1525,7 +1525,11 @@ impl ComponentInstance {
         &self,
         element: &i_slint_compiler::object_tree::ElementRc,
     ) -> Vec<i_slint_core::lengths::LogicalRect> {
-        crate::highlight::element_positions(&self.inner, element)
+        crate::highlight::element_positions(
+            &self.inner,
+            element,
+            crate::highlight::ElementPositionFilter::IncludeClipped,
+        )
     }
 
     /// Find the the `element` that was defined at the text position.
