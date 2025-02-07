@@ -804,7 +804,7 @@ export component RuntimePropertyValueWidget inherits HorizontalLayout {
     private property <bool> is-simple: runtime-property.values.length == 1 && !runtime-property.is-array && !runtime-property.prefer-json;
     private property <bool> is-multi-value: runtime-property.values.length > 1 && !runtime-property.prefer-json;
     private property <bool> show-json: runtime-property.prefer-json;
-    
+
 
     private property <string> full-prop-name: self.runtime-property.name + self.suffix;
 
@@ -906,7 +906,7 @@ export component RuntimePropertyValueWidget inherits HorizontalLayout {
         property-name: root.full-prop-name;
         property-value: value;
     }
-    
+
 }
 
 export component ExpandableGroup {
