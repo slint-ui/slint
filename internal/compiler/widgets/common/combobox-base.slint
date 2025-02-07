@@ -73,7 +73,8 @@ export component ComboBoxBase {
         root.update-current-value();
     }
 
-    private property <length> scroll-delta: 2px;
+    /// Minimum scroll delta so that the scroll wheel changes the value.
+    in property <length> scroll-delta: 2px;
 
     forward-focus: i-focus-scope;
 
@@ -109,6 +110,9 @@ export component ComboBoxBase {
             }
 
             scroll-event(event) => {
+                if (!root.has-focus) {
+                    return reject;
+                }
                 if (event.delta-y < -root.scroll-delta) {
                     root.move-selection-down();
                     return accept;
