@@ -37,7 +37,7 @@ fn syntax_tests() -> std::io::Result<()> {
     let mut test_entries = Vec::new();
     for entry in std::fs::read_dir(format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR")))? {
         let entry = entry?;
-        if entry.file_type().map_or(false, |f| f.is_dir()) {
+        if entry.file_type().is_ok_and(|f| f.is_dir()) {
             let path = entry.path();
             for test_entry in path.read_dir()? {
                 let test_entry = test_entry?;

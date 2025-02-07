@@ -1045,7 +1045,7 @@ impl WindowInner {
     pub fn supports_native_menu_bar(&self) -> bool {
         self.window_adapter()
             .internal(crate::InternalToken)
-            .map_or(false, |x| x.supports_native_menu_bar())
+            .is_some_and(|x| x.supports_native_menu_bar())
     }
 
     /// Setup the native menu bar
@@ -1720,9 +1720,7 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter
-            .internal(crate::InternalToken)
-            .map_or(false, |x| x.supports_native_menu_bar())
+        window_adapter.internal(crate::InternalToken).is_some_and(|x| x.supports_native_menu_bar())
     }
 
     /// Setup the native menu bar

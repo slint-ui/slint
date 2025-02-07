@@ -45,11 +45,11 @@ pub(crate) fn fold_node(
 ) -> std::io::Result<bool> {
     let kind = node.kind();
     if kind == SyntaxKind::QualifiedName
-        && node.parent().map_or(false, |n| n.kind() == SyntaxKind::Expression)
+        && node.parent().is_some_and(|n| n.kind() == SyntaxKind::Expression)
     {
         return fully_qualify_property_access(node, file, state);
     } else if kind == SyntaxKind::Element
-        && node.parent().map_or(false, |n| n.kind() == SyntaxKind::Component)
+        && node.parent().is_some_and(|n| n.kind() == SyntaxKind::Component)
     {
         return move_properties_to_root(node, state, file, args);
     } else if kind == SyntaxKind::Element {
@@ -64,7 +64,7 @@ pub(crate) fn fold_node(
         kind,
         SyntaxKind::Binding | SyntaxKind::TwoWayBinding | SyntaxKind::CallbackConnection
     ) && !state.lookup_change.property_mappings.is_empty()
-        && node.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
+        && node.parent().is_some_and(|n| n.kind() == SyntaxKind::Element)
     {
         if let Some(el) = &state.current_elem {
             let prop_name = i_slint_compiler::parser::normalize_identifier(
@@ -139,14 +139,14 @@ fn fully_qualify_property_access(
                     if state
                         .current_component
                         .as_ref()
-                        .map_or(false, |c| Rc::ptr_eq(&element, &c.root_element))
+                        .is_some_and(|c| Rc::ptr_eq(&element, &c.root_element))
                     {
                         write!(file, "root.")?;
                     } else if state
                         .lookup_change
                         .scope
                         .last()
-                        .map_or(false, |e| Rc::ptr_eq(&element, e))
+                        .is_some_and(|e| Rc::ptr_eq(&element, e))
                     {
                         if let Some(replace_self) = &state.lookup_change.replace_self {
                             write!(file, "{replace_self}.")?;
@@ -325,11 +325,7 @@ fn ensure_element_has_id(
 }
 
 pub(crate) fn enter_element(state: &mut crate::State) {
-    if state
-        .lookup_change
-        .scope
-        .last()
-        .map_or(false, |e| e.borrow().base_type.to_string() == "Path")
+    if state.lookup_change.scope.last().is_some_and(|e| e.borrow().base_type.to_string() == "Path")
     {
         // Path's sub-elements have strange lookup rules: They are considering self as the Path
         state.lookup_change.replace_self = Some("parent".into());

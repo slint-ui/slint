@@ -226,7 +226,7 @@ fn compare_images(
 
     if result.is_err()
         && rotated == RenderingRotation::NoRotation
-        && std::env::var("SLINT_CREATE_SCREENSHOTS").map_or(false, |var| var == "1")
+        && std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1")
     {
         eprintln!("saving rendered image as comparison to reference failed");
         image::save_buffer(

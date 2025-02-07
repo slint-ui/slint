@@ -63,11 +63,11 @@ fn can_optimize(elem: &ElementRc) -> bool {
 
     let analysis = e.property_analysis.borrow();
     for coord in ["x", "y"] {
-        if e.bindings.contains_key(coord) || analysis.get(coord).map_or(false, |a| a.is_set) {
+        if e.bindings.contains_key(coord) || analysis.get(coord).is_some_and(|a| a.is_set) {
             return false;
         }
     }
-    if analysis.get("absolute-position").map_or(false, |a| a.is_read) {
+    if analysis.get("absolute-position").is_some_and(|a| a.is_read) {
         return false;
     }
 

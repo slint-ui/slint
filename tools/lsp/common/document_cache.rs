@@ -336,7 +336,7 @@ impl DocumentCache {
                 .borrow()
                 .debug
                 .iter()
-                .position(|n| n.node.parent().map_or(false, |n| n.text_range().contains(offset)))
+                .position(|n| n.node.parent().is_some_and(|n| n.text_range().contains(offset)))
         }
 
         for component in &document.inner_components {

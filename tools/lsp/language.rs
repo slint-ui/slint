@@ -423,7 +423,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             let gp = p.parent();
 
             if p.kind() == SyntaxKind::DeclaredIdentifier
-                && gp.as_ref().map_or(false, |n| n.kind() == SyntaxKind::Component)
+                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component)
             {
                 let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
 
@@ -439,7 +439,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
 
             if p.kind() == SyntaxKind::QualifiedName
-                && gp.as_ref().map_or(false, |n| n.kind() == SyntaxKind::Element)
+                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
             {
                 let range = util::node_to_lsp_range(&p);
 
@@ -448,7 +448,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .unwrap()
                     .parent()
                     .as_ref()
-                    .map_or(false, |n| n.kind() != SyntaxKind::Component)
+                    .is_some_and(|n| n.kind() != SyntaxKind::Component)
                 {
                     ctx.server_notifier.send_message_to_preview(
                         common::LspToPreviewMessage::HighlightFromEditor {
@@ -1070,7 +1070,7 @@ fn get_code_actions(
                     NodeOrToken::Node(_) => is_sub_element(n.kind()),
                     NodeOrToken::Token(t) => {
                         t.kind() == SyntaxKind::Whitespace
-                            && t.next_sibling_or_token().map_or(false, |n| is_sub_element(n.kind()))
+                            && t.next_sibling_or_token().is_some_and(|n| is_sub_element(n.kind()))
                     }
                 })
                 .collect::<Vec<_>>();

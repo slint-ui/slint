@@ -25,7 +25,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             if nr.is_constant()
                 && !match nr.ty() {
                     Type::Struct(s) => {
-                        s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo"))
+                        s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo"))
                     }
                     _ => false,
                 }

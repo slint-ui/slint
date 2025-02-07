@@ -26,7 +26,7 @@ pub fn handle_clip(
         &(),
         &mut |elem_rc: &ElementRc, _| {
             let elem = elem_rc.borrow();
-            if elem.native_class().map_or(false, |n| Rc::ptr_eq(&n, &native_clip)) {
+            if elem.native_class().is_some_and(|n| Rc::ptr_eq(&n, &native_clip)) {
                 return;
             }
             if elem.bindings.contains_key("clip")
@@ -34,7 +34,7 @@ pub fn handle_clip(
                     .property_analysis
                     .borrow()
                     .get("clip")
-                    .map_or(false, |a| a.is_set || a.is_linked)
+                    .is_some_and(|a| a.is_set || a.is_linked)
             {
                 match elem.builtin_type().as_ref().map(|ty| ty.name.as_str()) {
                     Some("Rectangle") => {}

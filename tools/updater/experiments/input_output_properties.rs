@@ -12,13 +12,10 @@ pub(crate) fn fold_node(
     _args: &Cli,
 ) -> std::io::Result<bool> {
     if node.kind() == SyntaxKind::PropertyDeclaration
-        && node
-            .parent()
-            .and_then(|n| n.parent())
-            .map_or(false, |n| n.kind() == SyntaxKind::Component)
+        && node.parent().and_then(|n| n.parent()).is_some_and(|n| n.kind() == SyntaxKind::Component)
     {
         // check that the first identifier is "property" as opposed to an already converted "in-out" token
-        if node.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "property") {
+        if node.child_token(SyntaxKind::Identifier).is_some_and(|t| t.text() == "property") {
             // Consider that all property are in-out, because we don't do enough analysis in the slint-updater to know
             // if they should be private
             write!(file, "in-out ")?;

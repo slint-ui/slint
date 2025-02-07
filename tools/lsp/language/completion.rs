@@ -59,7 +59,7 @@ pub(crate) fn completion_at(
     } else if let Some(element) = syntax_nodes::Element::new(node.clone()) {
         if token.kind() == SyntaxKind::At
             || (token.kind() == SyntaxKind::Identifier
-                && token.prev_token().map_or(false, |t| t.kind() == SyntaxKind::At))
+                && token.prev_token().is_some_and(|t| t.kind() == SyntaxKind::At))
         {
             return Some(vec![CompletionItem::new_simple("children".into(), String::new())]);
         }
@@ -69,7 +69,7 @@ pub(crate) fn completion_at(
             let is_global = node
                 .parent()
                 .and_then(|n| n.child_text(SyntaxKind::Identifier))
-                .map_or(false, |k| k == "global");
+                .is_some_and(|k| k == "global");
 
             // add keywords
             r.extend(
@@ -201,7 +201,7 @@ pub(crate) fn completion_at(
     ) {
         if token.kind() == SyntaxKind::At
             || (token.kind() == SyntaxKind::Identifier
-                && token.prev_token().map_or(false, |t| t.kind() == SyntaxKind::At))
+                && token.prev_token().is_some_and(|t| t.kind() == SyntaxKind::At))
         {
             return Some(
                 [
@@ -360,7 +360,7 @@ pub(crate) fn completion_at(
             && offset >= id_range.end()
             && !c
                 .children_with_tokens()
-                .any(|c| c.as_token().map_or(false, |t| t.text() == "inherits"))
+                .any(|c| c.as_token().is_some_and(|t| t.text() == "inherits"))
         {
             let mut c = CompletionItem::new_simple("inherits".into(), String::new());
             c.kind = Some(CompletionItemKind::KEYWORD);

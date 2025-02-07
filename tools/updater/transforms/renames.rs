@@ -13,7 +13,7 @@ pub(crate) fn fold_node(
 ) -> std::io::Result<bool> {
     let kind = node.kind();
     if kind == SyntaxKind::QualifiedName
-        && node.parent().map_or(false, |n| n.kind() == SyntaxKind::Expression)
+        && node.parent().is_some_and(|n| n.kind() == SyntaxKind::Expression)
     {
         let q = i_slint_compiler::object_tree::QualifiedTypeName::from_node(node.clone().into())
             .to_string();

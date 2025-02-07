@@ -173,7 +173,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
         level: DiagnosticLevel::Error,
     })?;
 
-    if path.extension().map_or(false, |e| e == "rs") {
+    if path.extension().is_some_and(|e| e == "rs") {
         return crate::lexer::extract_rust_macro(string).ok_or_else(|| Diagnostic {
             message: "No `slint!` macro".into(),
             span: SourceLocation {

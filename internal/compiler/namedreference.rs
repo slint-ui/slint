@@ -76,20 +76,20 @@ impl NamedReference {
                 return false;
             }
         }
-        if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set_externally) {
+        if e.property_analysis.borrow().get(self.name()).is_some_and(|a| a.is_set_externally) {
             return false;
         }
         drop(e);
 
         loop {
             let e = elem.borrow();
-            if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set) {
+            if e.property_analysis.borrow().get(self.name()).is_some_and(|a| a.is_set) {
                 // if the property is set somewhere, it is not constant
                 return false;
             }
 
             if let Some(b) = e.bindings.get(self.name()) {
-                if check_binding && !b.borrow().analysis.as_ref().map_or(false, |a| a.is_const) {
+                if check_binding && !b.borrow().analysis.as_ref().is_some_and(|a| a.is_const) {
                     return false;
                 }
                 if !b.borrow().two_way_bindings.iter().all(|n| n.is_constant()) {

@@ -40,13 +40,13 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
     let mut all_styles = vec!["fluent", "material", "cupertino", "cosmic"];
 
     // It is in the target/xxx/build directory
-    if std::env::var_os("OUT_DIR").map_or(false, |path| {
+    if std::env::var_os("OUT_DIR").is_some_and(|path| {
         // Same logic as in i-slint-backend-selector's build script to get the path
         let mut path: PathBuf = path.into();
         path.pop();
         path.pop();
         path.push("SLINT_DEFAULT_STYLE.txt");
-        std::fs::read_to_string(path).map_or(false, |style| style.trim().contains("qt"))
+        std::fs::read_to_string(path).is_ok_and(|style| style.trim().contains("qt"))
     }) {
         all_styles.push("qt");
     }

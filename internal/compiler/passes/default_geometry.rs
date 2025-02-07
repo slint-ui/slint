@@ -193,7 +193,7 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
                     }
                     let explicit_constraints =
                         LayoutConstraints::new(c, diag, DiagnosticLevel::Error);
-                    let use_implicit_size = c.borrow().builtin_type().map_or(false, |b| {
+                    let use_implicit_size = c.borrow().builtin_type().is_some_and(|b| {
                         b.default_size_binding == DefaultSizeBinding::ImplicitSize
                     });
 
@@ -507,7 +507,7 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
 
     if builtin.native_class.properties.keys().any(|p| {
         elem.borrow().bindings.contains_key(p)
-            || elem.borrow().property_analysis.borrow().get(p).map_or(false, |a| a.is_used())
+            || elem.borrow().property_analysis.borrow().get(p).is_some_and(|a| a.is_used())
     }) {
         let source = NamedReference::new(elem, SmolStr::new_static("source"));
         let x = NamedReference::new(elem, SmolStr::new_static("source-clip-x"));

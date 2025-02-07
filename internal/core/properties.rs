@@ -574,7 +574,7 @@ impl PropertyHandle {
     /// Implementation of Self::set_binding.
     fn set_binding_impl(&self, binding: *mut BindingHolder) {
         let previous_binding_intercepted = self.access(|b| {
-            b.map_or(false, |b| unsafe {
+            b.is_some_and(|b| unsafe {
                 // Safety: b is a BindingHolder<T>
                 (b.vtable.intercept_set_binding)(&*b as *const BindingHolder, binding)
             })
@@ -878,7 +878,7 @@ impl<T: Clone> Property<T> {
         T: PartialEq,
     {
         let previous_binding_intercepted = self.handle.access(|b| {
-            b.map_or(false, |b| unsafe {
+            b.is_some_and(|b| unsafe {
                 // Safety: b is a BindingHolder<T>
                 (b.vtable.intercept_set)(&*b as *const BindingHolder, &t as *const T as *const ())
             })
@@ -950,7 +950,7 @@ impl<T: Clone> Property<T> {
     /// Any of the properties accessed during the last evaluation of the closure called
     /// from the last call to evaluate is potentially dirty.
     pub fn is_dirty(&self) -> bool {
-        self.handle.access(|binding| binding.map_or(false, |b| b.dirty.get()))
+        self.handle.access(|binding| binding.is_some_and(|b| b.dirty.get()))
     }
 
     /// Internal function to mark the property as dirty and notify dependencies, regardless of

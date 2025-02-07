@@ -51,31 +51,29 @@ impl SingleElementMatch {
     fn matches(&self, element: &ElementHandle) -> bool {
         match self {
             SingleElementMatch::MatchById { id, root_base } => {
-                if element.id().map_or(false, |candidate_id| candidate_id == id) {
+                if element.id().is_some_and(|candidate_id| candidate_id == id) {
                     return true;
                 }
-                root_base.as_ref().map_or(false, |root_base| {
+                root_base.as_ref().is_some_and(|root_base| {
                     element
                         .type_name()
-                        .map_or(false, |type_name_candidate| type_name_candidate == root_base)
+                        .is_some_and(|type_name_candidate| type_name_candidate == root_base)
                         || element
                             .bases()
-                            .map_or(false, |mut bases| bases.any(|base| base == root_base))
+                            .is_some_and(|mut bases| bases.any(|base| base == root_base))
                 })
             }
             SingleElementMatch::MatchByTypeName(type_name) => element
                 .type_name()
-                .map_or(false, |candidate_type_name| candidate_type_name == type_name),
+                .is_some_and(|candidate_type_name| candidate_type_name == type_name),
             SingleElementMatch::MatchByTypeNameOrBase(type_name) => {
                 element
                     .type_name()
-                    .map_or(false, |candidate_type_name| candidate_type_name == type_name)
-                    || element
-                        .bases()
-                        .map_or(false, |mut bases| bases.any(|base| base == type_name))
+                    .is_some_and(|candidate_type_name| candidate_type_name == type_name)
+                    || element.bases().is_some_and(|mut bases| bases.any(|base| base == type_name))
             }
             SingleElementMatch::MatchByAccessibleRole(role) => {
-                element.accessible_role().map_or(false, |candidate_role| candidate_role == *role)
+                element.accessible_role() == Some(*role)
             }
             SingleElementMatch::MatchByPredicate(predicate) => (predicate)(element),
         }
@@ -285,7 +283,7 @@ impl ElementHandle {
             .root_element()
             .query_descendants()
             .match_predicate(move |elem| {
-                elem.accessible_label().map_or(false, |candidate_label| candidate_label == label)
+                elem.accessible_label().is_some_and(|candidate_label| candidate_label == label)
             })
             .find_all();
         results.into_iter()

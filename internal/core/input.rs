@@ -645,7 +645,7 @@ pub(crate) fn send_exit_events(
     for (idx, it) in old_input_state.item_stack.iter().enumerate() {
         let Some(item) = it.0.upgrade() else { break };
         let g = item.geometry();
-        let contains = pos.map_or(false, |p| g.contains(p));
+        let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
         }
@@ -758,7 +758,7 @@ fn send_mouse_event_to_item(
     let mut event_for_children = mouse_event;
     event_for_children.translate(-geom.origin.to_vector());
 
-    let filter_result = if mouse_event.position().map_or(false, |p| geom.contains(p))
+    let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
         || crate::item_rendering::is_clipping_item(item)
     {
         item.as_ref().input_event_filter_before_children(

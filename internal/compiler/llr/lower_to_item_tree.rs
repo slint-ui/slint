@@ -277,7 +277,7 @@ fn lower_sub_component(
 
     if let Some(parent) = component.parent_element.upgrade() {
         // Add properties for the model data and index
-        if parent.borrow().repeated.as_ref().map_or(false, |x| !x.is_conditional_element) {
+        if parent.borrow().repeated.as_ref().is_some_and(|x| !x.is_conditional_element) {
             sub_component.properties.push(Property {
                 name: "model_data".into(),
                 ty: crate::expression_tree::Expression::RepeaterModelReference {
@@ -429,7 +429,7 @@ fn lower_sub_component(
             let expression =
                 super::lower_expression::lower_expression(&binding.expression, &mut ctx).into();
 
-            let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
+            let is_constant = binding.analysis.as_ref().is_some_and(|a| a.is_const);
             let animation = binding
                 .animation
                 .as_ref()
@@ -446,7 +446,7 @@ fn lower_sub_component(
 
             let is_state_info = matches!(
                 e.borrow().lookup_property(p).property_type,
-                Type::Struct(s) if s.name.as_ref().map_or(false, |name| name.ends_with("::StateInfo"))
+                Type::Struct(s) if s.name.as_ref().is_some_and(|name| name.ends_with("::StateInfo"))
             );
 
             sub_component.property_init.push((
@@ -640,7 +640,7 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
         let base = elem.borrow().base_type.clone();
         match base {
             ElementType::Native(n) => {
-                if n.properties.get(p).map_or(false, |p| p.is_native_output()) {
+                if n.properties.get(p).is_some_and(|p| p.is_native_output()) {
                     a.is_set = true;
                 }
             }
@@ -892,7 +892,7 @@ fn lower_global_expressions(
             }
             _ => unreachable!(),
         };
-        let is_constant = binding.borrow().analysis.as_ref().map_or(false, |a| a.is_const);
+        let is_constant = binding.borrow().analysis.as_ref().is_some_and(|a| a.is_const);
         lowered.init_values[property_index] = Some(BindingExpression {
             expression: expression.into(),
             animation: None,

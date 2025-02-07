@@ -185,7 +185,7 @@ impl<T: Clone> ItemCache<T> {
 pub fn is_clipping_item(item: Pin<ItemRef>) -> bool {
     //(FIXME: there should be some flag in the vtable instead of down-casting)
     ItemRef::downcast_pin::<Flickable>(item).is_some()
-        || ItemRef::downcast_pin::<Clip>(item).map_or(false, |clip_item| clip_item.as_ref().clip())
+        || ItemRef::downcast_pin::<Clip>(item).is_some_and(|clip_item| clip_item.as_ref().clip())
 }
 
 /// Renders the children of the item with the specified index into the renderer.
@@ -1043,7 +1043,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         };
 
         let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
-        let draw = clipped_geom.map_or(false, |clipped_geom| {
+        let draw = clipped_geom.is_some_and(|clipped_geom| {
             let clipped_geom = clipped_geom.translate(self.translation());
             self.dirty_region.draw_intersects(clipped_geom)
         });

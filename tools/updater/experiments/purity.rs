@@ -14,7 +14,7 @@ pub(crate) fn fold_node(
     _args: &Cli,
 ) -> std::io::Result<bool> {
     if let Some(s) = syntax_nodes::CallbackDeclaration::new(node.clone()) {
-        if state.current_elem.as_ref().map_or(false, |e| e.borrow().is_legacy_syntax)
+        if state.current_elem.as_ref().is_some_and(|e| e.borrow().is_legacy_syntax)
             && s.child_text(SyntaxKind::Identifier).as_deref() != Some("pure")
         {
             if s.ReturnType().is_some() {
@@ -42,7 +42,7 @@ pub(crate) fn fold_node(
             }
         }
     } else if let Some(s) = syntax_nodes::Function::new(node.clone()) {
-        if state.current_elem.as_ref().map_or(false, |e| e.borrow().is_legacy_syntax)
+        if state.current_elem.as_ref().is_some_and(|e| e.borrow().is_legacy_syntax)
             && s.ReturnType().is_some()
         {
             let (mut pure, mut public) = (false, false);

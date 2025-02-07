@@ -286,7 +286,7 @@ impl ElementRcNode {
 
     pub fn contains_offset(&self, offset: TextSize) -> bool {
         self.with_element_node(|node| {
-            node.parent().map_or(false, |n| n.text_range().contains(offset))
+            node.parent().is_some_and(|n| n.text_range().contains(offset))
         })
     }
 }

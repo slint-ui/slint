@@ -79,7 +79,7 @@ impl PropertyPath {
                         || enclosing
                             .parent_element
                             .upgrade()
-                            .map_or(false, |e| check_that_element_is_in_the_component(&e, c))
+                            .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
                 }
                 #[cfg(debug_assertions)]
                 debug_assert!(
@@ -207,7 +207,7 @@ fn analyze_binding(
     let mut depends_on_external = DependsOnExternal(false);
     let element = current.prop.element();
     let name = current.prop.name();
-    if context.currently_analyzing.back().map_or(false, |r| r == current)
+    if (context.currently_analyzing.back() == Some(current))
         && !element.borrow().bindings[name].borrow().two_way_bindings.is_empty()
     {
         let span = element.borrow().bindings[name]
@@ -242,7 +242,7 @@ fn analyze_binding(
     }
 
     let binding = &element.borrow().bindings[name];
-    if binding.borrow().analysis.as_ref().map_or(false, |a| a.no_external_dependencies) {
+    if binding.borrow().analysis.as_ref().is_some_and(|a| a.no_external_dependencies) {
         return depends_on_external;
     } else if !context.visited.insert(current.clone()) {
         return DependsOnExternal(true);
@@ -527,7 +527,7 @@ fn visit_implicit_layout_info_dependencies(
                     .property_analysis
                     .borrow()
                     .get("wrap")
-                    .map_or(false, |a| a.is_set || a.is_set_externally);
+                    .is_some_and(|a| a.is_set || a.is_set_externally);
             if wrap_set && orientation == Orientation::Vertical {
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
