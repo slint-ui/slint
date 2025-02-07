@@ -654,11 +654,9 @@ impl SkiaRenderer {
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        self.maybe_window_adapter
-            .borrow()
-            .as_ref()
-            .and_then(|w| w.upgrade())
-            .ok_or_else(|| format!("Renderer must be associated with component before use").into())
+        self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade()).ok_or_else(|| {
+            "Renderer must be associated with component before use".to_string().into()
+        })
     }
 
     /// Sets the specified callback, that's invoked before presenting the rendered buffer to the windowing system.
@@ -892,7 +890,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             None,
             None,
         )
-        .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
+        .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
 
         self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window, None);
 

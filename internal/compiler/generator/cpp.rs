@@ -2170,7 +2170,7 @@ fn generate_sub_component(
     if !component.timers.is_empty() {
         let mut update_timers = vec!["auto self = this;".into()];
         for (i, tmr) in component.timers.iter().enumerate() {
-            user_init.push(format!("self->update_timers();"));
+            user_init.push("self->update_timers();".to_string());
             let name = format_smolstr!("timer{}", i);
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
@@ -3662,7 +3662,7 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::Use24HourFormat => {
-            format!("slint::cbindgen_private::slint_date_time_use_24_hour_format()")
+            "slint::cbindgen_private::slint_date_time_use_24_hour_format()".to_string()
         }
         BuiltinFunction::MonthDayCount => {
             format!("slint::cbindgen_private::slint_date_time_month_day_count({}, {})", a.next().unwrap(), a.next().unwrap())

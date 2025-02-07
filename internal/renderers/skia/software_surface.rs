@@ -173,7 +173,7 @@ impl super::Surface for SoftwareSurface {
                     None,
                 )
                 .ok_or_else(|| {
-                    format!("Error wrapping target buffer for rendering into with Skia")
+                    "Error wrapping target buffer for rendering into with Skia".to_string()
                 })?;
 
                 let dirty_region = callback(surface_borrow.canvas(), None, age);
