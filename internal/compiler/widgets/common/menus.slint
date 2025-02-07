@@ -64,7 +64,6 @@ export component PopupMenuImpl inherits Window {
             layout.padding + idx * (layout.height - 2 * layout.padding) / entries.length
         }
         key-pressed(event) => {
-            debug("key-pressed", event.text, current);
             if event.text == Key.UpArrow {
                 if current >= 1 {
                     current -= 1;
