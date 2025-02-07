@@ -8,7 +8,7 @@ use i_slint_compiler::{
     parser::{SyntaxKind, TextSize},
 };
 use i_slint_core::lengths::{LogicalPoint, LogicalRect};
-use slint_interpreter::ComponentInstance;
+use slint_interpreter::{ComponentHandle, ComponentInstance};
 
 use crate::common;
 
@@ -81,11 +81,14 @@ fn element_covers_point(
     component_instance: &ComponentInstance,
     selected_element: &ElementRc,
 ) -> Option<LogicalRect> {
-    component_instance
-        .element_positions(selected_element)
-        .iter()
-        .find(|p| p.contains(position))
-        .copied()
+    slint_interpreter::highlight::element_positions(
+        &component_instance.clone_strong().into(),
+        selected_element,
+        slint_interpreter::highlight::ElementPositionFilter::ExcludeClipped,
+    )
+    .iter()
+    .find(|p| p.contains(position))
+    .copied()
 }
 
 pub fn unselect_element() {
