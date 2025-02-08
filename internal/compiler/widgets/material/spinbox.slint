@@ -12,8 +12,6 @@ component SpinBoxButton inherits Rectangle {
 
     callback clicked <=> touch-area.clicked;
 
-    width: root.height;
-
     states [
         disabled when !root.enabled : {
             background.background: MaterialPalette.control-foreground;
@@ -125,6 +123,7 @@ export component SpinBox {
 
             VerticalLayout {
                 spacing: 4px;
+                width: (base.min-height.max(56px - layout.padding-top - layout.padding-bottom) - self.spacing) / 2;
 
                 SpinBoxButton {
                     enabled: root.enabled;
