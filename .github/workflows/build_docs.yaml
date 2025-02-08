@@ -140,6 +140,13 @@ jobs:
               run: pnpm run docs
               working-directory: api/node
 
+            - name: Install uv
+              uses: astral-sh/setup-uv@v5
+
+            - name: "Python docs"
+              run: uv run pdoc slint -o docs
+              working-directory: api/python
+
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
               id: app-token
@@ -181,10 +188,11 @@ jobs:
                       target/cppdocs/html
                       docs/astro/dist
                       api/node/docs
+                      api/python/docs
                       docs/site
             - name: "Check for docs warnings in internal crates"
               run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
             - name: Clean cache # Don't cache docs to avoid them including removed classes being published
               run: |
-                  rm -rf target/doc target/cppdocs api/node/docs
+                  rm -rf target/doc target/cppdocs api/node/docs api/python/docs
 
