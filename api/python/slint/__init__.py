@@ -13,8 +13,10 @@ import types
 import logging
 import importlib
 import copy
-from . import models
+from .models import ListModel, Model
+from .slint import Image, Color, Brush, Timer, TimerMode
 
+Struct = native.PyStruct
 
 class CompileError(Exception):
     def __init__(self, message, diagnostics):
@@ -310,16 +312,6 @@ def callback(global_name=None, name=None):
         if global_name:
             info["global_name"] = global_name
         return lambda callback: _callback_decorator(callback, info)
-
-
-Image = native.PyImage
-Color = native.PyColor
-Brush = native.PyBrush
-ListModel = models.ListModel
-Model = models.Model
-Timer = native.Timer
-TimerMode = native.TimerMode
-Struct = native.PyStruct
 
 def set_xdg_app_id(app_id: str):
     native.set_xdg_app_id(app_id)

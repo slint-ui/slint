@@ -30,6 +30,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
 ]
+dependencies = [
+    "maturin>=1.8.2",
+]
 
 [project.urls]
 Homepage = "https://slint.dev"
@@ -46,3 +49,9 @@ dev = [
     "pdoc>=15.0.1",
     "pytest>=8.3.4",
 ]
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs"}]
+# Uncomment to build rust code in development mode
+# config-settings = { build-args = '--profile=dev' }
