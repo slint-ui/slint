@@ -445,6 +445,8 @@ jobs:
 
                 mkdir -p $output_path/docs/node
                 cp -a ../api/node/docs/* $output_path/docs/node/
+                mkdir -p $output_path/docs/python
+                cp -a ../api/python/docs/* $output_path/docs/python/
                 mkdir -p $output_path/docs/slint
                 cp -a ../docs/astro/dist/* $output_path/docs/slint/
 
