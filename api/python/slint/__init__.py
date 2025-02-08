@@ -1,6 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+r'''
+.. include:: ../README.md
+'''
+
 from importlib.machinery import ModuleSpec
 import os
 import sys
@@ -311,7 +315,6 @@ def callback(global_name=None, name=None):
 Image = native.PyImage
 Color = native.PyColor
 Brush = native.PyBrush
-Model = native.PyModelBase
 ListModel = models.ListModel
 Model = models.Model
 Timer = native.Timer
@@ -320,3 +323,6 @@ Struct = native.PyStruct
 
 def set_xdg_app_id(app_id: str):
     native.set_xdg_app_id(app_id)
+
+__all__ = ["CompileError", "Component", "load_file", "loader", "Image", "Color",
+           "Brush", "Model", "ListModel", "Timer", "TimerMode", "set_xdg_app_id"]

@@ -40,3 +40,9 @@ Tracker = "https://github.com/slint-ui/slint/issues"
 
 [project.optional-dependencies]
 dev = ["pytest"]
+
+[dependency-groups]
+dev = [
+    "pdoc>=15.0.1",
+    "pytest>=8.3.4",
+]
