@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 from slint import slint as native
+from slint import Color, Brush
 
-Color = native.PyColor
-Brush = native.PyBrush
 
 
 def test_col_default():

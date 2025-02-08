@@ -3,7 +3,7 @@
 
 use pyo3::prelude::*;
 
-#[pyclass(unsendable)]
+#[pyclass(unsendable, name = "Image")]
 pub struct PyImage {
     pub image: slint_interpreter::Image,
 }

@@ -29,7 +29,7 @@ enum PyColorInput {
     },
 }
 
-#[pyclass]
+#[pyclass(name = "Color")]
 #[derive(Clone)]
 pub struct PyColor {
     pub color: slint_interpreter::Color,
@@ -124,7 +124,7 @@ enum PyBrushInput {
     SolidColor(PyColor),
 }
 
-#[pyclass]
+#[pyclass(name = "Brush")]
 pub struct PyBrush {
     pub brush: slint_interpreter::Brush,
 }

@@ -3,11 +3,9 @@
 
 import pytest
 from slint import slint as native
-from slint.slint import ValueType, PyImage
+from slint.slint import ValueType, Image, Color, Brush
 import os
 
-Color = native.PyColor
-Brush = native.PyBrush
 
 
 def test_property_access():
@@ -94,9 +92,9 @@ def test_property_access():
     assert "cat.jpg" in imageval.path
 
     with pytest.raises(RuntimeError, match="The image cannot be loaded"):
-        PyImage.load_from_path("non-existent.png")
+        Image.load_from_path("non-existent.png")
 
-    instance.set_property("imageprop", PyImage.load_from_path(os.path.join(
+    instance.set_property("imageprop", Image.load_from_path(os.path.join(
         os.path.dirname(__file__), "../../../examples/iot-dashboard/images/humidity.png")))
     imageval = instance.get_property("imageprop")
     assert imageval.size == (36, 36)
