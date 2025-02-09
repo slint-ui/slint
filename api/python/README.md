@@ -85,7 +85,7 @@ app = App()
 app.run()
 ```
 
-1. Run it with `uv run main.py`
+5. Run it with `uv run main.py`
 
 ## API Overview
 
