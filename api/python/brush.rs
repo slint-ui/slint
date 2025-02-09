@@ -2,8 +2,35 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use pyo3::prelude::*;
+use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods, impl_stub_type};
 
 use crate::errors::PyColorParseError;
+
+#[gen_stub_pyclass]
+#[pyclass]
+#[derive(FromPyObject)]
+struct RgbaColor {
+    #[pyo3(get, set)]
+    red: u8,
+    #[pyo3(get, set)]
+    green: u8,
+    #[pyo3(get, set)]
+    blue: u8,
+    #[pyo3(get, set)]
+    alpha: u8,
+}
+
+#[gen_stub_pyclass]
+#[pyclass]
+#[derive(FromPyObject)]
+struct RgbColor {
+    #[pyo3(get, set)]
+    red: u8,
+    #[pyo3(get, set)]
+    green: u8,
+    #[pyo3(get, set)]
+    blue: u8,
+}
 
 #[derive(FromPyObject)]
 enum PyColorInput {
@@ -29,12 +56,16 @@ enum PyColorInput {
     },
 }
 
+impl_stub_type!(PyColorInput = String | RgbaColor | RgbColor);
+
+#[gen_stub_pyclass]
 #[pyclass(name = "Color")]
 #[derive(Clone)]
 pub struct PyColor {
     pub color: slint_interpreter::Color,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyColor {
     #[new]
@@ -124,11 +155,15 @@ enum PyBrushInput {
     SolidColor(PyColor),
 }
 
+impl_stub_type!(PyBrushInput = PyColor);
+
+#[gen_stub_pyclass]
 #[pyclass(name = "Brush")]
 pub struct PyBrush {
     pub brush: slint_interpreter::Brush,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyBrush {
     #[new]

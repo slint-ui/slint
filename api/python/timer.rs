@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use pyo3::prelude::*;
+use pyo3_stub_gen::{
+    derive::gen_stub_pyclass, derive::gen_stub_pyclass_enum, derive::gen_stub_pymethods,
+};
 
 #[derive(Copy, Clone)]
+#[gen_stub_pyclass_enum]
 #[pyclass(name = "TimerMode")]
 pub enum PyTimerMode {
     /// A SingleShot timer is fired only once.
@@ -21,11 +25,13 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
     }
 }
 
+#[gen_stub_pyclass]
 #[pyclass(name = "Timer", unsendable)]
 pub struct PyTimer {
     timer: i_slint_core::timers::Timer,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyTimer {
     #[new]
