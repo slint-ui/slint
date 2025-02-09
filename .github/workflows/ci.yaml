@@ -185,7 +185,7 @@ jobs:
             - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
               working-directory: api/python
-              run: uv run nox --default-venv-backend uv
+              run: nox --default-venv-backend uv
 
     cpp_test_driver:
         env:
