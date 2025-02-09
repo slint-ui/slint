@@ -8,18 +8,12 @@ This is the Python version of the Slint Printer Demo.
 
  * [Python 3](https://python.org/)
  * [pip](https://pypi.org/project/pip/)
- * [Pipenv](https://pipenv.pypa.io/en/latest/installation.html#installing-pipenv)
-
-# Setup
-
-```bash
-pipenv update
-```
+ * [uv](https://docs.astral.sh/uv/)
 
 # Run
 
 ```bash
-pipenv run python main.py
+uv run main.py
 ```
 
 # Source Code

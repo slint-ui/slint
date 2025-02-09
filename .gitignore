@@ -24,5 +24,7 @@ Pipfile.lock
 .env
 .envrc
 __pycache__
+uv.lock
+.python-version
 
 MODULE.bazel.lock
