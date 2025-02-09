@@ -533,6 +533,7 @@ lazy_static! {
         ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.pyi$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.proto$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.bazelrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("MODULE.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
