@@ -144,13 +144,17 @@ print(main_window.counter)
 ### Accessing Globals
 
 [Global Singletons](https://slint.dev/docs/slint/src/language/syntax/globals#global-singletons) are accessible in
-Python as properties in the component instance:
+Python as properties in the component instance.
+
+For example, this Slint code declares a `PrinterJobQueue` singleton:
 
 ```slint,ignore
 export global PrinterJobQueue {
     in-out property <int> job-count;
 }
 ```
+
+Access it as a property on the component instance by its name:
 
 ```python
 print("job count:", instance.PrinterJobQueue.job_count)
@@ -241,7 +245,7 @@ subclasses of `slint.Model`.
 
 Use the `slint.ListModel` class to construct a model from an iterable.
 
-```js
+```python
 component.model = slint.ListModel([1, 2, 3]);
 component.model.append(4)
 del component.model[0]
