@@ -63,6 +63,11 @@ impl AccessKitAdapter {
                 components_by_id: Default::default(),
                 component_ids: Default::default(),
                 all_nodes: Default::default(),
+                focused_node_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
+                    DelegateFocusPropertyTracker {
+                        window_adapter_weak: window_adapter_weak.clone(),
+                    },
+                )),
             },
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
@@ -182,7 +187,7 @@ impl AccessKitAdapter {
     }
 
     fn rebuild_tree_of_dirty_nodes(&mut self) {
-        if !self.global_property_tracker.is_dirty() {
+        if !self.global_property_tracker.is_dirty() && !self.nodes.focused_node_tracker.is_dirty() {
             return;
         }
 
@@ -255,6 +260,7 @@ struct NodeCollection {
     component_ids: HashMap<NonNull<u8>, u32>,
     all_nodes: Vec<CachedNode>,
     root_node_id: NodeId,
+    focused_node_tracker: Pin<Box<PropertyTracker<DelegateFocusPropertyTracker>>>,
 }
 
 impl NodeCollection {
@@ -272,8 +278,13 @@ impl NodeCollection {
                     .upgrade()
                     .map(|focus_item| {
                         let parent = accessible_parent_for_item_rc(focus_item);
-                        parent
-                            .accessible_string_property(AccessibleStringProperty::DelegateFocus)
+                        self.focused_node_tracker
+                            .as_ref()
+                            .evaluate(|| {
+                                parent.accessible_string_property(
+                                    AccessibleStringProperty::DelegateFocus,
+                                )
+                            })
                             .and_then(|s| s.parse::<usize>().ok())
                             .and_then(|i| {
                                 i_slint_core::accessibility::accessible_descendents(&parent).nth(i)
@@ -645,6 +656,24 @@ impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyT
                 win,
                 |self_cell| {
                     self_cell.borrow_mut().rebuild_tree_of_dirty_nodes();
+                },
+            );
+        })
+    }
+}
+
+struct DelegateFocusPropertyTracker {
+    window_adapter_weak: Weak<WinitWindowAdapter>,
+}
+
+impl i_slint_core::properties::PropertyDirtyHandler for DelegateFocusPropertyTracker {
+    fn notify(self: Pin<&Self>) {
+        let win = self.window_adapter_weak.clone();
+        i_slint_core::timers::Timer::single_shot(Default::default(), move || {
+            WinitWindowAdapter::with_access_kit_adapter_from_weak_window_adapter(
+                win,
+                |self_cell| {
+                    self_cell.borrow_mut().handle_focus_item_change();
                 },
             );
         })
