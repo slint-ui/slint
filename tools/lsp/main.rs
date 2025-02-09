@@ -12,6 +12,7 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+mod standalone;
 pub mod util;
 
 use common::{LspToPreview, Result};
@@ -89,15 +90,16 @@ pub struct Cli {
 #[derive(Subcommand, Clone)]
 enum Commands {
     /// Format slint files
-    Format(Format),
+    Format(FormatCmd),
     /// Run live preview
     #[cfg(feature = "preview-engine")]
     #[command(hide(true))]
     LivePreview(LivePreview),
+    Open(OpenCmd),
 }
 
 #[derive(Args, Clone)]
-struct Format {
+struct FormatCmd {
     #[arg(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
 
@@ -116,6 +118,55 @@ struct LivePreview {
     #[arg(long)]
     fullscreen: bool,
 }
+
+#[derive(Args, Clone)]
+struct OpenCmd {
+    #[arg(name = "path to .slint file", action)]
+    path: std::path::PathBuf,
+
+    /// The name of the component to view. If unset, the last exported component of the file is used.
+    /// If the component name is not in the .slint file , nothing will be shown
+    #[arg(long, value_name = "component name", action)]
+    component: Option<String>,
+}
+
+impl Cli {
+    fn into_compiler_config(
+        self,
+        send_message_to_preview: impl Fn(common::LspToPreviewMessage) + Clone + 'static,
+    ) -> CompilerConfiguration {
+        CompilerConfiguration {
+            style: Some(if self.style.is_empty() { "native".into() } else { self.style }),
+            include_paths: self.include_paths,
+            library_paths: self
+                .library_paths
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+            open_import_fallback: Some(Rc::new(move |path| {
+                let send_message_to_preview = send_message_to_preview.clone();
+                Box::pin(async move {
+                    let contents = std::fs::read_to_string(&path);
+                    if let Ok(url) = Url::from_file_path(&path) {
+                        if let Ok(contents) = &contents {
+                            send_message_to_preview(common::LspToPreviewMessage::SetContents {
+                                url: common::VersionedUrl::new(url, None),
+                                contents: contents.clone(),
+                            })
+                        } else {
+                            send_message_to_preview(common::LspToPreviewMessage::ForgetFile { url })
+                        }
+                    }
+                    Some(contents.map(|c| (None, c)))
+                })
+            })),
+            ..Default::default()
+        }
+    }
+}
+
 enum OutgoingRequest {
     Start,
     Pending(Waker),
@@ -211,7 +262,7 @@ impl RequestHandler {
 }
 
 fn main() {
-    let args: Cli = Cli::parse();
+    let mut args: Cli = Cli::parse();
     if !args.backend.is_empty() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
     }
@@ -249,32 +300,36 @@ fn main() {
         }));
     }
 
-    if let Some(command) = &args.command {
-        match command {
-            Commands::Format(fmt) => match fmt::tool::run(&fmt.paths, fmt.inline) {
-                Ok(()) => std::process::exit(0),
-                Err(e) => {
-                    eprintln!("Format Error: {e}");
-                    std::process::exit(1)
-                }
-            },
-            #[cfg(feature = "preview-engine")]
-            Commands::LivePreview(live_preview) => match preview::run(live_preview) {
-                Ok(()) => std::process::exit(0),
-                Err(e) => {
-                    eprintln!("Preview Error: {e}");
-                    std::process::exit(2);
-                }
-            },
-        }
-    } else {
-        match run_lsp_server(args) {
+    match args.command.take() {
+        Some(Commands::Format(fmt)) => match fmt::tool::run(&fmt.paths, fmt.inline) {
+            Ok(()) => (),
+            Err(e) => {
+                eprintln!("Format Error: {e}");
+                std::process::exit(1)
+            }
+        },
+        #[cfg(feature = "preview-engine")]
+        Some(Commands::LivePreview(live_preview)) => match preview::run(&live_preview) {
+            Ok(()) => (),
+            Err(e) => {
+                eprintln!("Preview Error: {e}");
+                std::process::exit(1);
+            }
+        },
+        Some(Commands::Open(cmd)) => match standalone::open(args, cmd.path, cmd.component) {
+            Ok(()) => (),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        },
+        None => match run_lsp_server(args) {
             Ok(threads) => threads.join().unwrap(),
             Err(error) => {
                 eprintln!("Error running LSP server: {error}");
-                std::process::exit(3);
+                std::process::exit(1);
             }
-        }
+        },
     }
 }
 
@@ -327,36 +382,8 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     };
 
     let to_preview_clone = to_preview.clone();
-    let compiler_config = CompilerConfiguration {
-        style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
-        include_paths: cli_args.include_paths,
-        library_paths: cli_args
-            .library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-        open_import_fallback: Some(Rc::new(move |path| {
-            let to_preview = to_preview_clone.clone();
-            // let server_notifier = server_notifier_.clone();
-            Box::pin(async move {
-                let contents = std::fs::read_to_string(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
-                    if let Ok(contents) = &contents {
-                        to_preview
-                            .send(&common::LspToPreviewMessage::SetContents {
-                                url: common::VersionedUrl::new(url, None),
-                                contents: contents.clone(),
-                            })
-                            .unwrap();
-                    } else {
-                        to_preview.send(&common::LspToPreviewMessage::ForgetFile { url }).unwrap();
-                    }
-                }
-                Some(contents.map(|c| (None, c)))
-            })
-        })),
-        ..Default::default()
-    };
+    let compiler_config =
+        cli_args.into_compiler_config(move |m| to_preview_clone.send(&m).unwrap());
 
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
