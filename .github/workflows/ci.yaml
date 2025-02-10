@@ -125,7 +125,7 @@ jobs:
               with:
                 node-version: 20
               id: node-install
-            - uses: pnpm/action-setup@v4.0.0
+            - uses: pnpm/action-setup@v4.1.0
               with:
                 version: 9.11.0
             - uses: ./.github/actions/setup-rust
@@ -323,7 +323,7 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
-            - uses: pnpm/action-setup@v4.0.0
+            - uses: pnpm/action-setup@v4.1.0
               with:
                 version: 9.11.0
             - uses: Swatinem/rust-cache@v2
