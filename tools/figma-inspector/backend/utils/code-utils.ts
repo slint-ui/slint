@@ -95,6 +95,10 @@ function transformStyle(styleObj: StyleObject): string {
                     break;
             }
 
+            if(key === "color") {
+                return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])}`;
+            }
+
             if (value.includes("linear-gradient")) {
                 return `  ${finalKey}: @${finalValue}`;
             }
@@ -119,6 +123,7 @@ export async function updateUI() {
 }
 
 export async function getSlintSnippet(): Promise<string> {
+
     const cssProperties = await figma.currentPage.selection[0].getCSSAsync();
     const slintProperties = transformStyle(cssProperties);
 
@@ -129,4 +134,26 @@ export async function getSlintSnippet(): Promise<string> {
     }
 
     return `${elementName} {\n${slintProperties}\n}`;
+}
+
+function rgbToHex({ r, g, b }) {
+    const red = Math.round(r * 255);
+    const green = Math.round(g * 255);
+    const blue = Math.round(b * 255);
+
+    return (
+        "#" +
+        [red, green, blue].map((x) => x.toString(16).padStart(2, "0")).join("")
+    );
+}
+
+// Manually get the color for now as the CSS API returns figma variables which for now is not supported.
+function getColor(node: SceneNode): string | null {
+
+    if ("fills" in node && Array.isArray(node.fills) && node.fills.length > 0) {
+        const fillColor = node.fills[0].color;
+        return rgbToHex(fillColor);
+    }
+
+    return null;
 }
