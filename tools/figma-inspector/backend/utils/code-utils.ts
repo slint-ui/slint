@@ -95,10 +95,10 @@ function transformStyle(styleObj: StyleObject): string {
                     break;
             }
 
-            if(key === "color") {
+            if (key === "color") {
                 return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])}`;
             }
-            if(key === "border-radius") {
+            if (key === "border-radius") {
                 const borderRadius = getBorderRadius();
                 if (borderRadius !== null) {
                     return borderRadius;
@@ -167,7 +167,6 @@ export async function updateUI() {
 }
 
 export async function getSlintSnippet(): Promise<string> {
-
     const cssProperties = await figma.currentPage.selection[0].getCSSAsync();
     const slintProperties = transformStyle(cssProperties);
 
@@ -193,7 +192,6 @@ function rgbToHex({ r, g, b }) {
 
 // Manually get the color for now as the CSS API returns figma variables which for now is not supported.
 function getColor(node: SceneNode): string | null {
-
     if ("fills" in node && Array.isArray(node.fills) && node.fills.length > 0) {
         const fillColor = node.fills[0].color;
         return rgbToHex(fillColor);
