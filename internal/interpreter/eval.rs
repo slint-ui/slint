@@ -6,9 +6,10 @@ use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ColorScheme, ItemRef, MenuEntry, PropertyAnimation};
-use corelib::menus::{Menu, MenuVTable};
+use corelib::menus::{Menu, MenuFromItemTree, MenuVTable};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
+use corelib::window::WindowInner;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
@@ -18,7 +19,6 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
-use i_slint_core::menus::MenuFromItemTree;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -762,6 +762,26 @@ fn call_builtin_function(
                     )
                     .unwrap();
             }
+            let item_weak = item_rc.downgrade();
+            compiled
+                .set_callback_handler(
+                    inst_ref.borrow(),
+                    "close",
+                    Box::new(move |_args: &[Value]| -> Value {
+                        let Some(item_rc) = item_weak.upgrade() else { return Value::Void };
+                        if let Some(id) = item_rc
+                            .downcast::<corelib::items::ContextMenu>()
+                            .unwrap()
+                            .popup_id
+                            .take()
+                        {
+                            WindowInner::from_pub(item_rc.window_adapter().unwrap().window())
+                                .close_popup(id);
+                        }
+                        Value::Void
+                    }),
+                )
+                .unwrap();
             component.access_window(|window| {
                 let context_menu_elem = item_rc.downcast::<corelib::items::ContextMenu>().unwrap();
                 if let Some(old_id) = context_menu_elem.popup_id.take() {

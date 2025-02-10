@@ -78,6 +78,10 @@ pub fn lower_to_item_tree(
             &NamedReference::new(&c.root_element, SmolStr::new_static("activated")),
             &state,
         );
+        let close = sc.mapping.map_property_reference(
+            &NamedReference::new(&c.root_element, SmolStr::new_static("close")),
+            &state,
+        );
         let entries = sc.mapping.map_property_reference(
             &NamedReference::new(&c.root_element, SmolStr::new_static("entries")),
             &state,
@@ -87,7 +91,7 @@ pub fn lower_to_item_tree(
             root: state.push_sub_component(sc),
             parent_context: None,
         };
-        PopupMenu { item_tree, sub_menu, activated, entries }
+        PopupMenu { item_tree, sub_menu, activated, close, entries }
     });
 
     let root = CompilationUnit {

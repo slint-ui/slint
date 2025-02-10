@@ -6,51 +6,40 @@ import { AboutSlint, Button } from "std-widgets.slint";
 export component TestCase inherits Window {
     width: 700px;
     height: 700px;
-    ContextMenu {
-        /*entries: [
-            { title: "Entry1" },
-            { title: "Entry2", has-sub-menu: true },
-        ];
-        sub-menu(entry) => {
-            if entry.title == "Entry2" {
-                return [
-                    { title: "New" },
-                    { title: "Open" },
-                    { title: "Xxx",  has-sub-menu: true},
-                ];
-            } else if entry.title == "Xxx" {
-                return [
-                    { title: "Aaa" },
-                    { title: "Xxx", has-sub-menu: true },
-                    { title: "Yyy" },
-                ];
-            } else {
-                return [];
-            }
+
+    forward-focus: fs;
+
+    in-out property <string> result;
+    Text {text: result;}
+
+    Rectangle {
+        background: Colors.red;
+        Rectangle {
+            background: Colors.blue.transparentize(0.5);
         }
-        activated(entry) => {
-            debug("Activated", entry);
-        }*/
+    }
+
+    ContextMenu {
 
         MenuItem {
             title: "Entry1";
-            activated => { debug("Entry1"); }
+            activated => { debug("Entry1"); result += "Entry1"; }
         }
         MenuItem {
             title: "Entry2";
             MenuItem {
                 title: "New";
-                activated => { debug("New"); }
+                activated => { debug("New"); result += "New"; }
             }
             MenuItem {
                 title: "Open";
                 MenuItem {
                     title: "Open 1";
-                    activated => { debug("1"); }
+                    activated => { debug("1"); result += "Open1"; }
                 }
                 MenuItem {
                     title: "Open 2";
-                    activated => { debug("2"); }
+                    activated => { debug("2"); result += "Open2"; }
                 }
             }
         }
@@ -65,13 +54,58 @@ export component TestCase inherits Window {
 
 /*
 ```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, platform::Key, LogicalPosition, SharedString};
+
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press on entry1
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1");
+
+// use the keyboard
+instance.set_result("".into());
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Menu));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::RightArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_result(), "Open2");
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+// press on entry1
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1");
+
+// use the keyboard
+instance.set_result("");
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Menu);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::RightArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Return);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::UpArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Return);
+assert_eq(instance.get_result(), "Open2");
+
 ```
 */
