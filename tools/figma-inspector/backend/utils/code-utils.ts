@@ -95,6 +95,16 @@ function transformStyle(styleObj: StyleObject): string {
                     break;
             }
 
+            if (key === "color") {
+                return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])}`;
+            }
+            if (key === "border-radius") {
+                const borderRadius = getBorderRadius();
+                if (borderRadius !== null) {
+                    return borderRadius;
+                }
+            }
+
             if (value.includes("linear-gradient")) {
                 return `  ${finalKey}: @${finalValue}`;
             }
@@ -103,6 +113,44 @@ function transformStyle(styleObj: StyleObject): string {
         });
 
     return filteredEntries.length > 0 ? `${filteredEntries.join(";\n")};` : "";
+}
+
+function getBorderRadius(): string | null {
+    const node = figma.currentPage.selection[0];
+    console.log("node", node);
+
+    if (!("cornerRadius" in node)) {
+        return null;
+    }
+
+    const cornerRadius = node.cornerRadius;
+
+    // Single border value
+    if (typeof cornerRadius === "number") {
+        return `  border-radius: ${cornerRadius}px`;
+    }
+
+    // Multiple border values
+    const corners = [
+        { prop: "topLeftRadius", css: "border-top-left-radius" },
+        { prop: "topRightRadius", css: "border-top-right-radius" },
+        { prop: "bottomLeftRadius", css: "border-bottom-left-radius" },
+        { prop: "bottomRightRadius", css: "border-bottom-right-radius" },
+    ];
+
+    const validCorners = corners.filter(
+        (corner) =>
+            corner.prop in node &&
+            typeof node[corner.prop] === "number" &&
+            node[corner.prop] > 0,
+    );
+
+    const radiusStrings = validCorners.map((corner, index) => {
+        const isLast = index === validCorners.length - 1;
+        return `  ${corner.css}: ${node[corner.prop]}px${isLast ? "" : ";"}`;
+    });
+
+    return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
 }
 
 export async function updateUI() {
@@ -129,4 +177,25 @@ export async function getSlintSnippet(): Promise<string> {
     }
 
     return `${elementName} {\n${slintProperties}\n}`;
+}
+
+function rgbToHex({ r, g, b }) {
+    const red = Math.round(r * 255);
+    const green = Math.round(g * 255);
+    const blue = Math.round(b * 255);
+
+    return (
+        "#" +
+        [red, green, blue].map((x) => x.toString(16).padStart(2, "0")).join("")
+    );
+}
+
+// Manually get the color for now as the CSS API returns figma variables which for now is not supported.
+function getColor(node: SceneNode): string | null {
+    if ("fills" in node && Array.isArray(node.fills) && node.fills.length > 0) {
+        const fillColor = node.fills[0].color;
+        return rgbToHex(fillColor);
+    }
+
+    return null;
 }
