@@ -6,7 +6,7 @@ name = "memory"
 version = "1.10.0"
 description = "Slint Memory Tiles Python Example"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "slint",
 ]
