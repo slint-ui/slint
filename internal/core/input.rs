@@ -466,7 +466,7 @@ pub enum FocusEvent {
     FocusOut,
     /// This event is sent when the window receives the keyboard focus.
     WindowReceivedFocus,
-    /// This event is sent when the window looses the keyboard focus.
+    /// This event is sent when the window looses the keyboard focus. (including if this is because of a popup)
     WindowLostFocus,
 }
 
