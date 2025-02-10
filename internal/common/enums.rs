@@ -352,6 +352,8 @@ macro_rules! for_each_enums {
                 Combobox,
                 /// The element is a `GroupBox` or behaves like one.
                 Groupbox,
+                /// The element is an `Image` or behaves like one.
+                Image,
                 /// The element is a `ListView` or behaves like one.
                 List,
                 /// The element is a `Slider` or behaves like one.

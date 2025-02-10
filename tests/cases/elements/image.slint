@@ -33,15 +33,26 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_img_width(), 320.);
 assert_eq(instance.get_img_height(), 480.);
 assert(instance.get_test());
+
+auto img_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::img");
+assert_eq(img_search.size(), 1);
+auto img = img_search[0];
+assert_eq(*img.accessible_role(), slint::testing::AccessibleRole::Image);
 ```
 
 
 ```rust
+use i_slint_backend_testing::AccessibleRole;
+
 let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_img_width(), 320.);
 assert_eq!(instance.get_img_height(), 480.);
 assert!(instance.get_test());
+
+let mut img_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::img");
+let img = img_search.next().unwrap();
+assert_eq!(img.accessible_role(), Some(AccessibleRole::Image));
 ```
 
 ```js

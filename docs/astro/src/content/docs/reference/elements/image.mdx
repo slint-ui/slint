@@ -251,3 +251,31 @@ Use the <Link type="ImageType" label="`@image-url` macro" /> to specify the imag
 
 Properties in source image coordinates that define the region of the source image that is rendered.
 By default the entire source image is visible:
+
+## Accessibility
+
+### Alternative text
+
+Consider giving an alternative text description of your image by setting the `accessible-label` property:
+
+```slint
+Image {
+    width: 100px;
+    height: 100px;
+    source: @image-url("slint-logo.png");
+    accessible-label: "Slint logo";
+}
+```
+
+### Filtering out images for users of assistive technologies
+
+By default, images have the `accessible-role` property set to `image`.
+If your image is purely decorative and does not convey any information,
+consider removing it from the accessibility tree:
+
+```slint
+Image {
+    source: @image-url("mini-banner.png");
+    accessible-role: none;
+}
+```
