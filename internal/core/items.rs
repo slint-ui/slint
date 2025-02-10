@@ -178,6 +178,8 @@ pub struct ItemVTable {
         self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect,
+
+    pub clips_children: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> bool,
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -256,6 +258,10 @@ impl Item for Empty {
     ) -> LogicalRect {
         geometry.size = LogicalSize::zero();
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -343,6 +349,10 @@ impl Item for Rectangle {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -439,6 +449,10 @@ impl Item for BasicBorderRectangle {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -548,6 +562,10 @@ impl Item for BorderRectangle {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -683,6 +701,10 @@ impl Item for Clip {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        self.clip()
+    }
 }
 
 impl Clip {
@@ -778,6 +800,10 @@ impl Item for Opacity {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -892,6 +918,10 @@ impl Item for Layer {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl ItemConsts for Layer {
@@ -984,6 +1014,10 @@ impl Item for Rotate {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -1121,6 +1155,10 @@ impl Item for WindowItem {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl RenderRectangle for WindowItem {
@@ -1256,6 +1294,10 @@ impl Item for ContextMenu {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl ContextMenu {
@@ -1368,6 +1410,10 @@ impl Item for BoxShadow {
         geometry
             .outer_rect(euclid::SideOffsets2D::from_length_all_same(self.blur()))
             .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 

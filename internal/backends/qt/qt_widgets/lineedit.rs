@@ -164,6 +164,10 @@ impl Item for NativeLineEdit {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl ItemConsts for NativeLineEdit {

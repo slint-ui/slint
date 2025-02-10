@@ -155,6 +155,10 @@ impl Item for Flickable {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        true
+    }
 }
 
 impl ItemConsts for Flickable {

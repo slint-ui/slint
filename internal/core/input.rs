@@ -650,7 +650,7 @@ pub(crate) fn send_exit_events(
             *p -= g.origin.to_vector();
         }
         if !contains || clipped {
-            if crate::item_rendering::is_clipping_item(item.borrow()) {
+            if item.borrow().as_ref().clips_children() {
                 clipped = true;
             }
             item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
@@ -759,7 +759,7 @@ fn send_mouse_event_to_item(
     event_for_children.translate(-geom.origin.to_vector());
 
     let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
-        || crate::item_rendering::is_clipping_item(item)
+        || item.as_ref().clips_children()
     {
         item.as_ref().input_event_filter_before_children(
             event_for_children,
