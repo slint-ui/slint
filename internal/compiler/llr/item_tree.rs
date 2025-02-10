@@ -297,6 +297,7 @@ pub struct PopupMenu {
     pub item_tree: ItemTree,
     pub sub_menu: PropertyReference,
     pub activated: PropertyReference,
+    pub close: PropertyReference,
     pub entries: PropertyReference,
 }
 

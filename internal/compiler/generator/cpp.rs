@@ -1774,12 +1774,10 @@ fn generate_item_tree(
 
     // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
     // And in PopupWindow this is also called by the runtime
-    if parent_ctx.is_none() {
+    if parent_ctx.is_none() && !is_popup_menu {
         create_code.push("self->user_init();".to_string());
-        if !is_popup_menu {
-            // initialize the Window in this point to be consistent with Rust
-            create_code.push("self->window();".to_string())
-        }
+        // initialize the Window in this point to be consistent with Rust
+        create_code.push("self->window();".to_string())
     }
 
     create_code
@@ -3775,6 +3773,7 @@ fn compile_builtin_function_call(
             let access_entries = access_member(&popup.entries, &popup_ctx);
             let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx);
             let access_activated = access_member(&popup.activated, &popup_ctx);
+            let access_close = access_member(&popup.close, &popup_ctx);
             let init = if let llr::Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
                 let current_sub_component = ctx.current_sub_component().unwrap();
@@ -3787,26 +3786,36 @@ fn compile_builtin_function_call(
                 ")
 
             } else {
-                let forward_callback = |access, cb| {
+                let forward_callback = |access, cb, default| {
                     format!("{access}.set_handler(
-                        [context_menu](const auto &entry) {{
-                            return context_menu->{cb}.call(entry);
+                        [context_menu, parent_weak](const auto &entry) {{
+                            if(auto lock = parent_weak.lock()) {{
+                                return context_menu->{cb}.call(entry);
+                            }} else {{
+                                return {default};
+                            }}
                         }});")
                 };
-                let fw_sub_menu = forward_callback(access_sub_menu, "sub_menu");
-                let fw_activated = forward_callback(access_activated, "activated");
+                let fw_sub_menu = forward_callback(access_sub_menu, "sub_menu", "std::shared_ptr<slint::Model<slint::cbindgen_private::MenuEntry>>()");
+                let fw_activated = forward_callback(access_activated, "activated", "");
                 let entries = compile_expression(entries, ctx);
                 format!(r"
-                    const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
                     auto entries = {entries};
-                    {{
-                        auto self = popup_menu;
-                        {access_entries}.set(std::move(entries));
-                        {fw_sub_menu}
-                        {fw_activated}
-                    }}")
+                    const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
+                    auto self = popup_menu;
+                    {access_entries}.set(std::move(entries));
+                    {fw_sub_menu}
+                    {fw_activated}
+                ")
             };
-            format!("{window}.close_popup({context_menu}.popup_id); {context_menu}.popup_id = {window}.show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{ {init} }})", globals = ctx.generator_state.global_access)
+            format!(r"
+                {window}.close_popup({context_menu}.popup_id);
+                {context_menu}.popup_id = {window}.show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{
+                    auto parent_weak = self->self_weak;
+                    auto self_ = self;
+                    {init}
+                    {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {window}.close_popup({context_menu}.popup_id); }} }});
+                }})", globals = ctx.generator_state.global_access)
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {

@@ -10,6 +10,7 @@ export component PopupMenuImpl inherits Window {
     in property <[MenuEntry]> entries: [];
     callback sub-menu(MenuEntry) -> [MenuEntry];
     callback activated(MenuEntry);
+    callback close();
     private property <int> current: -1;
     forward-focus: fs;
 
@@ -48,10 +49,17 @@ export component PopupMenuImpl inherits Window {
                 }
                 TouchArea {
                     pointer-event(event) => {
-                        fs.focus();
-                        if event.kind == PointerEventKind.move {
+                        if event.kind == PointerEventKind.move && current != idx {
+                            fs.focus();
                             current = idx;
                             open-sub-menu-after-timeout.running = true;
+                        } else if event.kind == PointerEventKind.down && entry.has-sub-menu {
+                            activate(entry, self.absolute-position.y);
+                        } else if event.kind == PointerEventKind.up
+                                && self.mouse-y > 0 && self.mouse-y < self.height
+                                && self.mouse-x > 0 && self.mouse-x < self.width {
+                            // can't put this in `clicked` because then the menu would close causing a panic in the pointer-event
+                            activate(entry, self.absolute-position.y);
                         }
                     }
 
@@ -59,10 +67,6 @@ export component PopupMenuImpl inherits Window {
                         if !self.has-hover && current == idx {
                             current = -1
                         }
-                    }
-
-                    clicked => {
-                        activate(entry, self.absolute-position.y);
                     }
                 }
             }
@@ -98,6 +102,7 @@ export component PopupMenuImpl inherits Window {
                 return accept;
             } else if event.text == Key.LeftArrow {
                 // TODO: should close only if this menu is a sub menu
+                root.close();
             }
             return reject;
         }
@@ -121,7 +126,7 @@ export component PopupMenuImpl inherits Window {
     subMenu := ContextMenuInternal {
         x: 0; y: 0; width: 0; height: 0;
         sub-menu(entry) => { root.sub-menu(entry); }
-        activated(entry) => { root.activated(entry); }
+        activated(entry) => { root.activated(entry); root.close(); }
     }
 
     function activate(entry : MenuEntry, y: length) {
@@ -134,6 +139,7 @@ export component PopupMenuImpl inherits Window {
             });
         } else {
             activated(entry);
+            close();
         }
     }
 }
@@ -185,7 +191,7 @@ export component MenuBarImpl {
 
 
     cm := ContextMenuInternal {
-        activated(entry) => { root.activated(entry); }
+        activated(entry) => { root.activated(entry); self.close(); }
         sub-menu(entry) => { root.sub-menu(entry); }
     }
 }

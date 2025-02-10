@@ -2783,6 +2783,13 @@ fn compile_builtin_function_call(
             let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
             let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx).unwrap();
             let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
+            let access_close = access_member(&popup.close, &popup_ctx).unwrap();
+
+            let close_popup = context_menu.clone().then(|context_menu| quote!{
+                if let Some(current_id) = #context_menu.popup_id.take() {
+                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                }
+            });
 
             let init_popup = if let Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
@@ -2806,6 +2813,12 @@ fn compile_builtin_function_call(
                     });
                     #access_activated.set_handler(move |entry| {
                         sp::Menu::activate(&*context_menu_item_tree, &entry.0);
+                    });
+                    let self_weak = parent_weak.clone();
+                    #access_close.set_handler(move |()| {
+                        let self_rc = self_weak.upgrade().unwrap();
+                        let _self = self_rc.as_pin_ref();
+                        #close_popup
                     });
                 })
             } else {
@@ -2836,6 +2849,12 @@ fn compile_builtin_function_call(
                         #access_entries.set(entries);
                         #fw_sub_menu
                         #fw_activated
+                        let self_weak = parent_weak.clone();
+                        #access_close.set_handler(move |()| {
+                            let Some(self_rc) = self_weak.upgrade() else { return };
+                            let _self = self_rc.as_pin_ref();
+                            #close_popup
+                        });
                     }
                 }
             };
@@ -2846,9 +2865,7 @@ fn compile_builtin_function_call(
                 let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                 let parent_weak = _self.self_weak.get().unwrap().clone();
                 #init_popup
-                if let Some(current_id) = #context_menu.popup_id.take() {
-                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
-                }
+                #close_popup
                 let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
                     position,
