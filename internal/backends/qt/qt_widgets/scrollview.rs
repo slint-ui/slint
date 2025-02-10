@@ -454,7 +454,7 @@ impl Item for NativeScrollView {
     ) -> LogicalRect {
         geometry
     }
-    
+
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
         false
     }

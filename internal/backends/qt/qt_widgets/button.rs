@@ -431,7 +431,7 @@ impl Item for NativeButton {
     ) -> LogicalRect {
         geometry
     }
-    
+
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
         false
     }

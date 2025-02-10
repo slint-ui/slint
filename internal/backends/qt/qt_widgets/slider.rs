@@ -372,7 +372,7 @@ impl Item for NativeSlider {
     ) -> LogicalRect {
         geometry
     }
-    
+
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
         false
     }

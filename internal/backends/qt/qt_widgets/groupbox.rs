@@ -243,7 +243,7 @@ impl Item for NativeGroupBox {
     ) -> LogicalRect {
         geometry
     }
-    
+
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
         false
     }
