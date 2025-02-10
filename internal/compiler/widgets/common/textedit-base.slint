@@ -58,48 +58,68 @@ export component TextEditBase inherits Rectangle {
 
     forward-focus: text-input;
 
-    scroll-view := ScrollView {
-        x: root.scroll-view-padding;
-        y: root.scroll-view-padding;
-        width: parent.width - 2 * root.scroll-view-padding;
-        height: parent.height - 2 * root.scroll-view-padding;
-        viewport-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
-        viewport-height: max(self.visible-height, text-input.preferred-height);
+    ContextMenu {
+        MenuItem {
+            title: @tr("Cut");
+            activated => { text-input.cut(); }
+        }
+        MenuItem {
+            title: @tr("Copy");
+            activated => { text-input.copy(); }
+        }
+        MenuItem {
+            title: @tr("Paste");
+            activated => { text-input.paste(); }
+        }
+        MenuItem {
+            title: @tr("Select All");
+            activated => { text-input.select-all(); }
+        }
 
-        text-input := TextInput {
-            enabled: true;
-            single-line: false;
-            wrap: word-wrap;
-            selection-background-color: root.selection-background-color;
-            selection-foreground-color: root.selection-foreground-color;
-            page-height: scroll-view.visible-height;
+        scroll-view := ScrollView {
+            x: root.scroll-view-padding;
+            y: root.scroll-view-padding;
+            width: parent.width - 2 * root.scroll-view-padding;
+            height: parent.height - 2 * root.scroll-view-padding;
+            viewport-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
+            viewport-height: max(self.visible-height, text-input.preferred-height);
 
-            edited => {
-                root.edited(self.text);
-            }
+            text-input := TextInput {
+                enabled: true;
+                single-line: false;
+                wrap: word-wrap;
+                selection-background-color: root.selection-background-color;
+                selection-foreground-color: root.selection-foreground-color;
+                page-height: scroll-view.visible-height;
 
-            key-pressed(event) => {
-                root.key-pressed(event)
-            }
-
-            key-released(event) => {
-                root.key-released(event)
-            }
-
-            cursor-position-changed(cpos) => {
-                if (cpos.x + root.viewport-x < 12px) {
-                    root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px));
-                } else if (cpos.x + root.viewport-x > parent.visible-width - 12px) {
-                    root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px));
+                edited => {
+                    root.edited(self.text);
                 }
-                if (cpos.y + root.viewport-y < 12px) {
-                    root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px));
-                } else if (cpos.y + root.viewport-y > parent.visible-height - 12px - 20px) {
-                    // FIXME: font-height hardcoded to 20px
-                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
+
+                key-pressed(event) => {
+                    root.key-pressed(event)
+                }
+
+                key-released(event) => {
+                    root.key-released(event)
+                }
+
+                cursor-position-changed(cpos) => {
+                    if (cpos.x + root.viewport-x < 12px) {
+                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px));
+                    } else if (cpos.x + root.viewport-x > parent.visible-width - 12px) {
+                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px));
+                    }
+                    if (cpos.y + root.viewport-y < 12px) {
+                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px));
+                    } else if (cpos.y + root.viewport-y > parent.visible-height - 12px - 20px) {
+                        // FIXME: font-height hardcoded to 20px
+                            root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
+                    }
                 }
             }
         }
+
     }
 
     placeholder := Text {
