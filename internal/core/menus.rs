@@ -198,6 +198,10 @@ impl crate::items::Item for MenuItem {
     ) -> crate::lengths::LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl crate::items::ItemConsts for MenuItem {

@@ -238,6 +238,10 @@ impl Item for TouchArea {
         geometry.size = LogicalSize::zero();
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl ItemConsts for TouchArea {
@@ -358,6 +362,10 @@ impl Item for FocusScope {
     ) -> LogicalRect {
         geometry.size = LogicalSize::zero();
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -556,6 +564,10 @@ impl Item for SwipeGestureHandler {
     ) -> LogicalRect {
         geometry.size = LogicalSize::zero();
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 

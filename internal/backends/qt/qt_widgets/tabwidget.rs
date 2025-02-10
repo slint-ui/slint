@@ -324,6 +324,10 @@ impl Item for NativeTabWidget {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl ItemConsts for NativeTabWidget {
@@ -545,6 +549,10 @@ impl Item for NativeTab {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 

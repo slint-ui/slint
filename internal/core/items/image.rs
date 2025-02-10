@@ -117,6 +117,10 @@ impl Item for ImageItem {
     ) -> LogicalRect {
         geometry
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl RenderImage for ImageItem {
@@ -262,6 +266,10 @@ impl Item for ClippedImage {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 

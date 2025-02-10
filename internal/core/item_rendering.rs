@@ -181,13 +181,6 @@ impl<T: Clone> ItemCache<T> {
     }
 }
 
-/// Return true if the item might be a clipping item
-pub fn is_clipping_item(item: Pin<ItemRef>) -> bool {
-    //(FIXME: there should be some flag in the vtable instead of down-casting)
-    ItemRef::downcast_pin::<Flickable>(item).is_some()
-        || ItemRef::downcast_pin::<Clip>(item).is_some_and(|clip_item| clip_item.as_ref().clip())
-}
-
 /// Renders the children of the item with the specified index into the renderer.
 pub fn render_item_children(
     renderer: &mut dyn ItemRenderer,
@@ -208,7 +201,7 @@ pub fn render_item_children(
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
             // they themselves clip their content.
             let render_result = if do_draw
-               || is_clipping_item(item)
+               || item.as_ref().clips_children()
                // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
                || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
             {
@@ -270,7 +263,7 @@ pub fn item_children_bounding_rect(
                 bounding_rect = bounding_rect.union(&clipped_item_geometry);
             }
 
-            if !is_clipping_item(item) {
+            if !item.as_ref().clips_children() {
                 bounding_rect = bounding_rect.union(&item_children_bounding_rect(
                     component,
                     index as isize,
@@ -592,7 +585,7 @@ impl CachedItemBoundingBoxAndTransform {
     ) -> Self {
         let geometry = item_rc.geometry();
 
-        if is_clipping_item(item_rc.borrow()) {
+        if item_rc.borrow().as_ref().clips_children() {
             return Self::ClipItem { geometry };
         }
 

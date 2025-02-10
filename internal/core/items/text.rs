@@ -133,6 +133,10 @@ impl Item for ComplexText {
     ) -> LogicalRect {
         self.text_bounding_rect(window_adapter, geometry.cast()).cast()
     }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl ItemConsts for ComplexText {
@@ -306,6 +310,10 @@ impl Item for SimpleText {
         geometry: LogicalRect,
     ) -> LogicalRect {
         self.text_bounding_rect(window_adapter, geometry.cast()).cast()
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
@@ -1004,6 +1012,10 @@ impl Item for TextInput {
             self.wrap(),
         ));
         geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 

@@ -355,7 +355,7 @@ impl ItemRc {
         let geometry = self.geometry().translate(parent_geometry.origin.to_vector());
 
         let item = self.borrow();
-        if crate::item_rendering::is_clipping_item(item) {
+        if item.as_ref().clips_children() {
             clip = geometry.intersection(&clip).unwrap_or_default();
         }
 

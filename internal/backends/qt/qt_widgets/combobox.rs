@@ -149,6 +149,10 @@ impl Item for NativeComboBox {
     ) -> LogicalRect {
         geometry
     }
+    
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
 }
 
 impl ItemConsts for NativeComboBox {
@@ -267,6 +271,10 @@ impl Item for NativeComboBoxPopup {
         geometry: LogicalRect,
     ) -> LogicalRect {
         geometry
+    }
+    
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
     }
 }
 
