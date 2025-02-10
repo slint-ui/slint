@@ -153,6 +153,9 @@ namespace slint_testing = slint::private_api::testing;
     let mut cmd;
     if std::env::var("USE_VALGRIND").is_ok() {
         cmd = std::process::Command::new("valgrind");
+        cmd.arg("--exit-on-first-error=yes");
+        cmd.arg("--error-exitcode=1");
+        cmd.arg("--num-callers=50");
         cmd.arg(binary_path.deref());
     } else {
         cmd = std::process::Command::new(binary_path.deref());

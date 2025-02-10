@@ -598,7 +598,7 @@ impl WindowInner {
             self.had_popup_on_press.set(!self.active_popups.borrow().is_empty());
         }
 
-        let popup_to_close = self.active_popups.borrow().last().and_then(|popup| {
+        let mut popup_to_close = self.active_popups.borrow().last().and_then(|popup| {
             let mouse_inside_popup = || {
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     event.position().map_or(true, |pos| {
@@ -644,6 +644,9 @@ impl WindowInner {
 
                 if !popup.is_menu {
                     break;
+                } else if popup_to_close.is_some() {
+                    // clicking outside of a popup menu should close all the menus
+                    popup_to_close = Some(popup.popup_id);
                 }
             }
 
@@ -1224,6 +1227,13 @@ impl WindowInner {
             let p = active_popups.remove(popup_index);
             drop(active_popups);
             self.close_popup_impl(&p);
+            if p.is_menu {
+                // close all sub-menus
+                while self.active_popups.borrow().get(popup_index).is_some_and(|p| p.is_menu) {
+                    let p = self.active_popups.borrow_mut().remove(popup_index);
+                    self.close_popup_impl(&p);
+                }
+            }
         }
     }
 
