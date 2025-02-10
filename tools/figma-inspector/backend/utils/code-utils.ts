@@ -98,6 +98,12 @@ function transformStyle(styleObj: StyleObject): string {
             if(key === "color") {
                 return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])}`;
             }
+            if(key === "border-radius") {
+                const borderRadius = getBorderRadius();
+                if (borderRadius !== null) {
+                    return borderRadius;
+                }
+            }
 
             if (value.includes("linear-gradient")) {
                 return `  ${finalKey}: @${finalValue}`;
@@ -107,6 +113,44 @@ function transformStyle(styleObj: StyleObject): string {
         });
 
     return filteredEntries.length > 0 ? `${filteredEntries.join(";\n")};` : "";
+}
+
+function getBorderRadius(): string | null {
+    const node = figma.currentPage.selection[0];
+    console.log("node", node);
+
+    if (!("cornerRadius" in node)) {
+        return null;
+    }
+
+    const cornerRadius = node.cornerRadius;
+
+    // Single border value
+    if (typeof cornerRadius === "number") {
+        return `  border-radius: ${cornerRadius}px`;
+    }
+
+    // Multiple border values
+    const corners = [
+        { prop: "topLeftRadius", css: "border-top-left-radius" },
+        { prop: "topRightRadius", css: "border-top-right-radius" },
+        { prop: "bottomLeftRadius", css: "border-bottom-left-radius" },
+        { prop: "bottomRightRadius", css: "border-bottom-right-radius" },
+    ];
+
+    const validCorners = corners.filter(
+        (corner) =>
+            corner.prop in node &&
+            typeof node[corner.prop] === "number" &&
+            node[corner.prop] > 0,
+    );
+
+    const radiusStrings = validCorners.map((corner, index) => {
+        const isLast = index === validCorners.length - 1;
+        return `  ${corner.css}: ${node[corner.prop]}px${isLast ? "" : ";"}`;
+    });
+
+    return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
 }
 
 export async function updateUI() {
