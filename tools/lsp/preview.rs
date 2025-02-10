@@ -5,7 +5,6 @@ use crate::common::{
     self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
-use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
@@ -967,7 +966,6 @@ fn start_parsing() {
             ui::set_diagnostics(ui, &[]);
         }
     });
-    send_status("Loading Preview…", Health::Ok);
 }
 
 fn extract_resources(
@@ -997,13 +995,8 @@ fn extract_resources(
     result
 }
 
-fn finish_parsing(preview_url: &Url, ok: bool) {
+fn finish_parsing(preview_url: &Url) {
     set_status_text("");
-    if ok {
-        send_status("Preview Loaded", Health::Ok);
-    } else {
-        send_status("Preview not updated", Health::Error);
-    }
 
     let (previewed_url, component, source_code) = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -1398,10 +1391,9 @@ async fn reload_preview_impl(
         notify_diagnostics(diags);
     }
 
-    let success = compiled.is_some();
     update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 
-    finish_parsing(&component.url, success);
+    finish_parsing(&component.url);
     Ok(())
 }
 

@@ -522,8 +522,6 @@ impl PropertyChange {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
-    /// Show a status message in the editor
-    Status { message: String, health: crate::lsp_ext::Health },
     /// Report diagnostics to editor.
     Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
     /// Show a document in the editor.
@@ -583,22 +581,6 @@ impl ComponentInformation {
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub mod lsp_to_editor {
-    pub fn send_status_notification(
-        sender: &crate::ServerNotifier,
-        message: &str,
-        health: crate::lsp_ext::Health,
-    ) {
-        sender
-            .send_notification::<crate::lsp_ext::ServerStatusNotification>(
-                crate::lsp_ext::ServerStatusParams {
-                    health,
-                    quiescent: false,
-                    message: Some(message.into()),
-                },
-            )
-            .unwrap_or_else(|e| eprintln!("Error sending notification: {e:?}"));
-    }
-
     pub fn notify_lsp_diagnostics(
         sender: &crate::ServerNotifier,
         uri: lsp_types::Url,

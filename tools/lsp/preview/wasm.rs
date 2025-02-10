@@ -7,7 +7,6 @@
 use std::collections::HashMap;
 
 use crate::common::SourceFileVersion;
-use crate::lsp_ext::Health;
 use crate::wasm_prelude::*;
 use slint_interpreter::ComponentHandle;
 use std::cell::RefCell;
@@ -208,13 +207,6 @@ pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
             let _ = notifier.call1(&JsValue::UNDEFINED, &value);
         }
     })
-}
-
-pub fn send_status(message: &str, health: Health) {
-    send_message_to_lsp(crate::common::PreviewToLspMessage::Status {
-        message: message.to_string(),
-        health,
-    });
 }
 
 pub fn notify_diagnostics(
