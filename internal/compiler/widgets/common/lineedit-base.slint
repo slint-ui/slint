@@ -67,38 +67,57 @@ export component LineEditBase inherits Rectangle {
         accessible-role: none;
     }
 
-    text-input := TextInput {
-        property <length> computed-x;
+    ContextMenu {
+        MenuItem {
+            title: @tr("Cut");
+            activated => { text-input.cut(); }
+        }
+        MenuItem {
+            title: @tr("Copy");
+            activated => { text-input.copy(); }
+        }
+        MenuItem {
+            title: @tr("Paste");
+            activated => { text-input.paste(); }
+        }
+        MenuItem {
+            title: @tr("Select All");
+            activated => { text-input.select-all(); }
+        }
 
-        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
-        width: max(parent.width - self.text-cursor-width, self.preferred-width);
-        height: 100%;
-        vertical-alignment: center;
-        single-line: true;
-        color: root.text-color;
+        text-input := TextInput {
+            property <length> computed-x;
 
-        cursor-position-changed(cursor-position) => {
-            if cursor-position.x + self.computed_x < root.margin {
-                self.computed_x = - cursor-position.x + root.margin;
-            } else if cursor-position.x + self.computed_x > parent.width - root.margin - self.text-cursor-width {
-                self.computed_x = parent.width - cursor-position.x - root.margin - self.text-cursor-width;
+            x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
+            width: max(parent.width - self.text-cursor-width, self.preferred-width);
+            height: 100%;
+            vertical-alignment: center;
+            single-line: true;
+            color: root.text-color;
+
+            cursor-position-changed(cursor-position) => {
+                if cursor-position.x + self.computed_x < root.margin {
+                    self.computed_x = - cursor-position.x + root.margin;
+                } else if cursor-position.x + self.computed_x > parent.width - root.margin - self.text-cursor-width {
+                    self.computed_x = parent.width - cursor-position.x - root.margin - self.text-cursor-width;
+                }
             }
-        }
 
-        accepted => {
-            root.accepted(self.text);
-        }
+            accepted => {
+                root.accepted(self.text);
+            }
 
-        edited => {
-            root.edited(self.text);
-        }
+            edited => {
+                root.edited(self.text);
+            }
 
-        key-pressed(event) => {
-            root.key-pressed(event)
-        }
+            key-pressed(event) => {
+                root.key-pressed(event)
+            }
 
-        key-released(event) => {
-            root.key-released(event)
+            key-released(event) => {
+                root.key-released(event)
+            }
         }
     }
 }
