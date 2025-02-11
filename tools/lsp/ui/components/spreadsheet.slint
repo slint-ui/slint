@@ -1,0 +1,221 @@
+import { Palette, Button } from "std-widgets.slint";
+import { EditorSpaceSettings } from "styling.slint";
+export struct AddressData {
+    type: string,
+    street: string,
+    city: string,
+    state: string,
+    zip: string,
+}
+export struct CellData {
+    id: string,
+    value: string,
+    row: int,
+    col: int,
+}
+
+export component EditWindow inherits Rectangle {
+    in property <CellData> cell;
+    callback save(string);
+    callback close-window();
+    drop-shadow-blur: 10px;
+    drop-shadow-color: black.transparentize(0.5);
+    drop-shadow-offset-x: 0;
+    drop-shadow-offset-y: 0;
+    x: 0;
+    y: 0;
+    width: self.preferred-width;
+    height: self.preferred-height;
+    background: lightblue;
+    HorizontalLayout {
+        padding: EditorSpaceSettings.default-padding;
+        spacing: EditorSpaceSettings.default-spacing;
+        TextInput {
+            vertical-alignment: center;
+            text: cell.value;
+            edited() => {
+                save(self.text)
+            }
+        }
+
+        HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            Button {
+                height: 30px;
+                text: "Save";
+                clicked => {
+                    save(self.text)
+                }
+            }
+
+            Button {
+                height: 30px;
+                text: "Cancel";
+                clicked => {
+                    close-window()
+                }
+            }
+        }
+    }
+}
+
+component Cell inherits Rectangle {
+    in property <string> id;
+    in property <bool> is-header: false;
+    in property <bool> is-writeable: false;
+    in-out property <bool> is-editing: false;
+    in property <length> cell-width: 100px;
+    property <bool> clicked: false;
+    in property <string> text: "";
+    in-out property <color> bg-color: clicked ? Palette.accent-background.transparentize(0.8) : transparent;
+    callback edit-clicked(CellData);
+
+    width: cell-width;
+    height: 30px;
+    border-width: 1px;
+    border-color: Palette.border;
+    background: is-header ? Palette.foreground.transparentize(0.9) : bg-color;
+    HorizontalLayout {
+        Rectangle {
+            width: EditorSpaceSettings.default-padding;
+        }
+        Text {
+            font-weight: is-header ? 700 : 400;
+            width: root.width;
+            height: root.height;
+            vertical-alignment: center;
+            text: root.text;
+        }
+    }
+
+    if is-writeable: TouchArea {
+        clicked => {
+            if (root.is-writeable) {
+                root.edit-clicked({
+                    id: root.id,
+                    value: root.text,
+                    row: 0,
+                    col: 0
+                });
+            }
+        }
+        }
+}
+
+export component Spreadsheet inherits Rectangle {
+    in-out property <[AddressData]> foorray: [
+        { type: "home", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226" },
+        { type: "work", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" },
+        { type: "history", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226" },
+        { type: "world", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" }
+    ];
+    property <CellData> current-cell: { id: "", value: "", row: 0, col: 0 };
+    property <bool> edit-window-visible: false;
+
+    width: self.preferred-width;
+    height: self.preferred-height;
+
+    VerticalLayout {
+            // Header row
+            HorizontalLayout {
+            alignment: space-between;
+            Cell {
+                is-header: true;
+                    text: "Type";
+            }
+
+            Cell {
+                is-header: true;
+                width: 200px;
+                    text: "Street";
+            }
+
+            Cell {
+                is-header: true;
+                    text: "City";
+            }
+
+            Cell {
+                is-header: true;
+                    text: "State";
+            }
+
+            Cell {
+                is-header: true;
+                    text: "ZIP";
+            }
+        }
+            
+            // Data rows
+            for address[index] in foorray: HorizontalLayout {
+            alignment: space-between;
+            Cell {
+                id: "1," + index;
+                is-writeable: true;
+                padding-left: 2px;
+                edit-clicked(cell-data) => {
+                    root.current-cell = cell-data;
+                    debug(cell-data);
+                    root.edit-window-visible = true;
+                    }
+                    text: address.type;
+            }
+
+            Cell {
+                id: "2," + index;
+                is-writeable: true;
+                padding-left: 2px;
+                cell-width: 200px;
+                edit-clicked(cell-data) => {
+                    root.current-cell = cell-data;
+                    root.edit-window-visible = true;
+                    }
+                    text: address.street;
+            }
+
+            Cell {
+                id: "3," + index;
+                is-writeable: true;
+                padding-left: 2px;
+                edit-clicked(cell-data) => {
+                    root.current-cell = cell-data;
+                    root.edit-window-visible = true;
+                    }
+                    text: address.city;
+            }
+
+            Cell {
+                id: "4," + index;
+                is-writeable: true;
+                padding-left: 2px;
+                edit-clicked(cell-data) => {
+                    root.current-cell = cell-data;
+                    root.edit-window-visible = true;
+                    }
+                    text: address.state;
+            }
+
+            Cell {
+                id: "5," + index;
+                is-writeable: true;
+                padding-left: 2px;
+                edit-clicked(cell-data) => {
+                    root.current-cell = cell-data;
+                    root.edit-window-visible = true;
+                    }
+                    text: address.zip;
+            }
+        }
+    }
+    if (edit-window-visible):EditWindow {
+        cell: root.current-cell;
+        save(new-value) => {
+            // Update the data model with new value
+            root.edit-window-visible = false;
+        }
+        close-window => {
+            root.edit-window-visible = false;
+        }
+    }
+        
+}
