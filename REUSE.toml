@@ -190,6 +190,7 @@ path = [
   "internal/compiler/widgets/cupertino/_**.svg",
   "internal/compiler/widgets/qt/_**.svg",
   "examples/todo-mvc/assets/**.svg",
+  "demos/usecases/ui/assets/**.svg"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
