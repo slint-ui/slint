@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file.
  - Fixed panic when using gradient backgrounds with `Window`.
  - Software renderer: fixed changing the window background
  - Fixed panic when PopupWindow is opened while AccessKit is active
+ - Implemented `forward-focus` on `PopupWindow` (#7529)
+ - Qt backend: fixed crash at exit with Qt 5.8 (#7570)
 
 ### Slint language
 
@@ -26,6 +28,7 @@ All notable changes to this project are documented in this file.
  - special sub elements (Row, Tab, MenuItem) are now accepted in `@children`
  - Added `accessible-expandable`, `accessible-expanded` and `accessible-action-expand` properties and callback
  - Made `forward-focus` in a `PopupWindow` to focus a widget when a popup is open
+ - Added `TextInput::page-height` to support PageUp and PageDown shortcuts
 
 ### Widgets
 
@@ -33,7 +36,10 @@ All notable changes to this project are documented in this file.
  - Fixed positions of elements in a ListView with millions of item (3700)
  - ListView: adapt the viewport's width based on the minimum-width of delegate
  - Slider: Reac to Home and End keys
- - Combobox: improved accessibility
+ - ComboBox: improved accessibility
+ - ComboBox: don't change selected item on mouse wheel (unless it has focus) (#5929)
+ - StandardTableView: Added missing properties from `ListView` (#7543)
+ - LineEdit/TextEdit: Added a context menu with copy/paste/select all
 
 ### Rust
  - Upgraded image crate to 0.25, added a new cargo feature
@@ -42,23 +48,31 @@ All notable changes to this project are documented in this file.
  - Ignore pendentic and nursery clippy warning in generated code
  - Fixed edition 2024 warnings in generated code.
  - Fixed Sync and Send bound on SharedVector, SharedString, and Weak
+ - Removed the requirement that for `VecModel<T>::default()` `T` has to implement `Default`.
+ - Implement `Default` for `BackendSelector`
 
 ### C++
 
  - esp-idf: Added support for RGB8 rendering
  - esp-idf: Rename SlintPlatformConfiguration's color_swap_16 to byte_swap
+ - esp-idf: Deprecated old version of `slint_esp_init` and restore 1.6 behavior with regards to color swap
  - Fixed bundled translation without custom backend
+
+### Javascript
+
+ - Fixed 100% CPU usage on Wayland by enforcing minimum event timeout (#7550)
 
 
 ### LSP and Tooling
 
  - live-preview: Fix loading the library path config
  - live-preview (macOS): Add a Window menu with keep the window on top
+ - live-preview: selection popup no longer contains invisible or clipped items
  - LSP: no longer suggest private properties in auto-completion
  - LSP: add ability to rename properties and globals
  - Simple Figma inspector plugin
  - Use jemalloc as default allocator for our binaries
-
+ - VSCode extension: Removed the status bar item for the preview
 
 ## 1.9.2 - 2025-01-13
 
