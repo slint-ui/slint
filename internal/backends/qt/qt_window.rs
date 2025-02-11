@@ -19,8 +19,7 @@ use i_slint_core::item_rendering::{
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, MouseCursor,
-    Opacity, PointerEventButton, PopupClosePolicy, RenderingResult, TextOverflow, TextStrokeStyle,
-    TextWrap,
+    Opacity, PointerEventButton, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -107,7 +106,7 @@ cpp! {{
         void paintEvent(QPaintEvent *) override {
             if (!rust_window)
                 return;
-           auto painter = std::unique_ptr<QPainter>(new QPainter(this));
+            auto painter = std::unique_ptr<QPainter>(new QPainter(this));
             painter->setClipRect(rect());
             painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
             QPainterPtr *painter_ptr = &painter;
@@ -129,11 +128,27 @@ cpp! {{
             });
         }
 
+        /// If this window is a PopupWindow and the mouse event is outside of the popup, then adjust the event to map to the parent window
+        /// Returns the position and the rust_window to which we need to deliver the event
+        std::tuple<QPoint, void*> adjust_mouse_event_to_popup_parent(QMouseEvent *event) {
+            auto pos = event->pos();
+            if (auto p = dynamic_cast<const SlintWidget*>(parent()); p && !rect().contains(pos)) {
+                while (auto pp = dynamic_cast<const SlintWidget*>(p->parent())) {
+                    if (p->rect().contains(p->mapFromGlobal(event->globalPosition().toPoint())))
+                        break;
+                    p = pp;
+                }
+                return { p->mapFromGlobal(event->globalPosition().toPoint()), p->rust_window };
+            } else {
+                return { pos, rust_window };
+            }
+        }
+
         void mousePressEvent(QMouseEvent *event) override {
+            isMouseButtonDown = true;
+            auto [pos, rust_window] = adjust_mouse_event_to_popup_parent(event);
             if (!rust_window)
                 return;
-            isMouseButtonDown = true;
-            QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
@@ -159,45 +174,20 @@ cpp! {{
             }
             isMouseButtonDown = false;
 
-            void *parent_of_popup_to_close = nullptr;
-            int popup_id_to_close = 0;
-            if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
-                while (auto pp = dynamic_cast<const SlintWidget*>(p->parent())) {
-                    p = pp;
-                }
-                void *parent_window = p->rust_window;
-                bool inside = rect().contains(event->pos());
-                popup_id_to_close = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", inside: bool as "bool"] -> u32 as "int" {
-                    let active_popups = WindowInner::from_pub(&parent_window.window).active_popups();
-                    if let Some(popup) = active_popups.last() {
-                        if popup.close_policy == PopupClosePolicy::CloseOnClick || (popup.close_policy == PopupClosePolicy::CloseOnClickOutside && !inside) {
-                            return popup.popup_id.get();
-                        }
-                    }
-                    0
-                });
-                if (popup_id_to_close) {
-                    parent_of_popup_to_close = parent_window;
-                }
-            }
-
-            QPoint pos = event->pos();
+            auto [pos, rust_window] = adjust_mouse_event_to_popup_parent(event);
+            if (!rust_window)
+                return;
             int button = event->button();
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0 })
             });
-            if (popup_id_to_close) {
-                rust!(Slint_mouseReleaseEventClosePopup [parent_of_popup_to_close: &QtWindow as "void*", popup_id_to_close: std::num::NonZeroU32 as "int"] {
-                    WindowInner::from_pub(&parent_of_popup_to_close.window).close_popup(popup_id_to_close);
-                });
-            }
         }
         void mouseMoveEvent(QMouseEvent *event) override {
+            auto [pos, rust_window] = adjust_mouse_event_to_popup_parent(event);
             if (!rust_window)
                 return;
-            QPoint pos = event->pos();
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 rust_window.mouse_event(MouseEvent::Moved{position})
