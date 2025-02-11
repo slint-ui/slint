@@ -70,8 +70,7 @@ int main()
 
                 (*app_lock)->global<MailBoxViewAdapter>().set_mails(
                         std::make_shared<slint::FilterModel<CardListViewItem>>(
-                                mails,
-                                [text_str](auto e) {
+                                mails, [text_str](auto e) {
                                     std::string title_str(e.title.data());
                                     return title_str.find(text_str) != std::string::npos;
                                 }));

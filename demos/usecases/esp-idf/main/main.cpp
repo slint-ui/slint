@@ -20,8 +20,6 @@
 #undef BSP_LCD_V_RES
 #define BSP_LCD_V_RES 1280
 
-
-
 extern "C" void app_main(void)
 {
 
@@ -30,7 +28,7 @@ extern "C" void app_main(void)
 
     /* Initialize display  */
     esp_lcd_panel_handle_t panel_handle = NULL;
-    bsp_lcd_handles_t handles{};
+    bsp_lcd_handles_t handles {};
 
     bsp_display_new_with_handles(nullptr, &handles);
 
