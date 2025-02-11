@@ -1643,8 +1643,14 @@ cpp! {{
     {
         void operator()(QWidget *widget_ptr)
         {
-            widget_ptr->hide();
-            widget_ptr->deleteLater();
+            if (widget_ptr->parent()) {
+                // if the widget is a popup, use deleteLater (#4129)
+                widget_ptr->hide();
+                widget_ptr->deleteLater();
+            } else {
+                // Otherwise, use normal delete as it would otherwise cause crash at exit (#7570)
+                delete widget_ptr;
+            }
         }
     };
 }}
