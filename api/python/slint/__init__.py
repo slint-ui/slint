@@ -317,4 +317,5 @@ def set_xdg_app_id(app_id: str):
     native.set_xdg_app_id(app_id)
 
 __all__ = ["CompileError", "Component", "load_file", "loader", "Image", "Color",
-           "Brush", "Model", "ListModel", "Timer", "TimerMode", "set_xdg_app_id"]
+           "Brush", "Model", "ListModel", "Timer", "TimerMode", "set_xdg_app_id",
+           "callback"]

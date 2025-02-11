@@ -9,7 +9,8 @@ import datetime
 import os
 import pathlib
 import typing
-from typing import Self
+from typing import Any, overload
+from collections.abc import Callable
 from enum import Enum, auto
 
 
@@ -31,25 +32,25 @@ class Color:
     blue: builtins.int
     alpha: builtins.int
     def __new__(cls,maybe_value:typing.Optional[builtins.str | RgbaColor | RgbColor]): ...
-    def brighter(self, factor:builtins.float) -> Self:
+    def brighter(self, factor:builtins.float) -> "Color":
         ...
 
-    def darker(self, factor:builtins.float) -> Self:
+    def darker(self, factor:builtins.float) -> "Color":
         ...
 
-    def transparentize(self, factor:builtins.float) -> Self:
+    def transparentize(self, factor:builtins.float) -> "Color":
         ...
 
-    def mix(self, other:Self, factor:builtins.float) -> Self:
+    def mix(self, other:"Image", factor:builtins.float) -> "Color":
         ...
 
-    def with_alpha(self, alpha:builtins.float) -> Self:
+    def with_alpha(self, alpha:builtins.float) -> "Color":
         ...
 
     def __str__(self) -> builtins.str:
         ...
 
-    def __eq__(self, other:Self) -> builtins.bool:
+    def __eq__(self, other:object) -> builtins.bool:
         ...
 
 
@@ -63,19 +64,19 @@ class Brush:
     def is_opaque(self) -> builtins.bool:
         ...
 
-    def brighter(self, factor:builtins.float) -> Self:
+    def brighter(self, factor:builtins.float) -> "Brush":
         ...
 
-    def darker(self, factor:builtins.float) -> Self:
+    def darker(self, factor:builtins.float) -> "Brush":
         ...
 
-    def transparentize(self, amount:builtins.float) -> Self:
+    def transparentize(self, amount:builtins.float) -> "Brush":
         ...
 
-    def with_alpha(self, alpha:builtins.float) -> Self:
+    def with_alpha(self, alpha:builtins.float) -> "Brush":
         ...
 
-    def __eq__(self, other:Self) -> builtins.bool:
+    def __eq__(self, other:object) -> builtins.bool:
         ...
 
 
@@ -90,14 +91,14 @@ class Image:
     path: typing.Optional[builtins.str]
     def __new__(cls,): ...
     @staticmethod
-    def load_from_path(path:builtins.str | os.PathLike | pathlib.Path) -> Self:
+    def load_from_path(path:builtins.str | os.PathLike | pathlib.Path) -> "Image":
         r"""
         Loads the image from the specified path. Returns None if the image can't be loaded.
         """
         ...
 
     @staticmethod
-    def load_from_svg_data(data:typing.Sequence[builtins.int]) -> Self:
+    def load_from_svg_data(data:typing.Sequence[builtins.int]) -> "Image":
         r"""
         Creates a new image from a string that describes the image in SVG format.
         """
@@ -131,4 +132,8 @@ class Timer:
         ...
 
 
+@overload
+def callback(func: Callable[..., Any], /) -> Callable[..., Any]: ...
 
+@overload
+def callback(*, global_name: typing.Optional[str], name: typing.Optional[str]) -> Callable[..., Any]: ...
