@@ -394,6 +394,31 @@ mod private_api {
         ) -> bool {
             false
         }
+
+        /// Draw a texture into the buffer at the specified position with the given size and
+        /// colorized if needed. Returns true if the operation was successful; false if it could not be
+        /// implemented and instead the software renderer needs to draw the texture
+        fn draw_texture(
+            &mut self,
+            _x: i16,
+            _y: i16,
+            _width: i16,
+            _height: i16,
+            _src: *const u8,
+            _src_stride: u16,
+            _src_width: i16,
+            _src_height: i16,
+            _src_pixel_format: u8,
+            _src_dx: u16,
+            _src_dy: u16,
+            _src_off_x: u16,
+            _src_off_y: u16,
+            _colorize: u32,
+            _alpha: u8,
+            _rotation: u8,
+        ) -> bool {
+            false
+        }
     }
 }
 
@@ -617,27 +642,14 @@ impl SoftwareRenderer {
                 };
                 drop(i);
 
-                let mut bg = TargetPixel::background();
+                let mut bg = PremultipliedRgbaColor::background();
                 // TODO: gradient background
-                // TODO: Use TargetPixelBuffer::fill_rectangle
-                TargetPixel::blend(&mut bg, background.color().into());
-                let mut line = 0;
-                while let Some(next) = region_line_ranges(
-                    &dirty_region,
-                    line,
-                    &mut renderer.actual_renderer.processor.dirty_range_cache,
-                ) {
-                    for l in line..next {
-                        for r in &renderer.actual_renderer.processor.dirty_range_cache {
-                            renderer.actual_renderer.processor.buffer.line_slice(l as usize)
-                                [r.start as usize..r.end as usize]
-                                .fill(bg);
-                        }
-                    }
-                    line = next;
-                }
-
+                PremultipliedRgbaColor::blend(&mut bg, background.color().into());
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
+                renderer.actual_renderer.processor.process_rectangle(
+                    PhysicalRect::from_size(euclid::Size2D::new(size.width, size.height)),
+                    bg,
+                );
 
                 for (component, origin) in components {
                     crate::item_rendering::render_component_items(
@@ -1241,15 +1253,38 @@ impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> RenderToBuffe
     }
 
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_texture_line(
-                &geometry,
-                PhysicalLength::new(line),
-                &texture,
-                buffer,
-                extra_left_clip,
-                extra_right_clip,
-            );
+        self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
+            if !buffer.draw_texture(
+                rect.origin.x,
+                rect.origin.y,
+                rect.size.width,
+                rect.size.height,
+                texture.data.as_ptr(),
+                texture.pixel_stride,
+                texture.source_size().width,
+                texture.source_size().height,
+                texture.format as u8,
+                texture.extra.dx.0,
+                texture.extra.dy.0,
+                texture.extra.off_x.0,
+                texture.extra.off_y.0,
+                texture.extra.colorize.as_argb_encoded(),
+                texture.extra.alpha,
+                texture.extra.rotation as u8,
+            ) {
+                let begin = rect.min_x();
+                let end = rect.max_x();
+                for l in rect.min_y()..rect.max_y() {
+                    draw_functions::draw_texture_line(
+                        &geometry,
+                        PhysicalLength::new(l),
+                        &texture,
+                        &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
+                        extra_left_clip,
+                        extra_right_clip,
+                    );
+                }
+            }
         });
     }
 }
