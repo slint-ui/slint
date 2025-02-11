@@ -28,9 +28,9 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                os: [ubuntu-20.04, macOS-13, macos-14, windows-2022]
+                os: [ubuntu-22.04, macOS-13, macos-14, windows-2022]
                 include:
-                    - os: ubuntu-20.04
+                    - os: ubuntu-22.04
                       package_suffix: linux
                     - os: macOS-13
                       package_suffix: macos-x86_64
@@ -47,7 +47,7 @@ jobs:
                   old-ubuntu: true
             - name: Install Qt (Ubuntu)
               uses: jurplel/install-qt-action@v4
-              if: matrix.os == 'ubuntu-20.04'
+              if: matrix.os == 'ubuntu-22.04'
               with:
                   version: 6.2.2
                   cache: true
@@ -92,7 +92,7 @@ jobs:
             matrix:
                 target: [thumbv7em-none-eabihf]
 
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
@@ -229,9 +229,9 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                os: [ubuntu-20.04, macOS-13, macos-14, windows-2022]
+                os: [ubuntu-22.04, macOS-13, macos-14, windows-2022]
                 include:
-                    - os: ubuntu-20.04
+                    - os: ubuntu-22.04
                       package_suffix: Linux-x86_64
                     - os: macOS-13
                       package_suffix: Darwin-x86_64

@@ -83,7 +83,7 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: ubuntu-20.04
+                    - os: ubuntu-22.04
                       toolchain: x86_64-unknown-linux-gnu
                       binary_built: slint-lsp
                       artifact_name: slint-lsp-x86_64-unknown-linux-gnu
@@ -210,7 +210,7 @@ jobs:
                 target:
                     - armv7-unknown-linux-gnueabihf
                     - aarch64-unknown-linux-gnu
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/setup-rust
@@ -320,7 +320,7 @@ jobs:
 
     #  publish_tree_sitter:
     #    if: github.event.inputs.private != 'true'
-    #    runs-on: ubuntu-20.04
+    #    runs-on: ubuntu-22.04
     #    steps:
     #      - uses: actions/checkout@v4
     #      - name: Upload artifact
@@ -332,7 +332,7 @@ jobs:
     publish_artifacts:
         if: ${{ github.event.inputs.private != 'true' }}
         needs: [docs, wasm_demo, wasm, check-for-secrets, android]
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-22.04
         steps:
             - uses: actions/download-artifact@v4
               with:
