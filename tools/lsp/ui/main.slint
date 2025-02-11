@@ -67,8 +67,8 @@ export component PreviewUi inherits Window {
                 }
 
                 HorizontalLayout {
-                    spacing: EditorSpaceSettings.default-spacing;
 
+                    // spacing: EditorSpaceSettings.default-spacing;
                     if  root.show-left-sidebar: LibraryView {
                         known-components: Api.known-components;
 
@@ -99,33 +99,36 @@ export component PreviewUi inherits Window {
 
                     if  root.show-right-sidebar: Rectangle {
                         width: EditorSizeSettings.property-bar-width;
-                        VerticalLayout {
-                            Text {
-                                text: "Property Inspector";
-                                horizontal-alignment: center;
-                                height: 40px;
-                                font-weight: 400;
-                                vertical-alignment: center;
-                                font-size: 1.3rem;
+                        HorizontalLayout {
+                            Rectangle {
+                                width: 4px;
+                                background: @linear-gradient(90deg, #0000, #0002);
                             }
 
-                            TabWidget {
-                                width: EditorSizeSettings.property-bar-width;
-                                current-index: 0;
-                                Tab {
-                                    preferred-width: 100px;
-                                    title: "Selected";
-                                    PropertyView {
-                                        opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                        enabled: preview.preview-is-current;
-                                    }
+                            VerticalLayout {
+                                Rectangle {
+                                    height: EditorSpaceSettings.default-padding;
                                 }
 
-                                runtime_tab := Tab {
-                                    title: "Runtime";
-                                    RuntimePropertyView {
-                                        opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                        enabled: preview.preview-is-current;
+                                TabWidget {
+                                    width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
+                                    x: EditorSpaceSettings.default-padding/2;
+                                    current-index: 0;
+                                    Tab {
+                                        preferred-width: 100px;
+                                        title: "Properties";
+                                        PropertyView {
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                        }
+                                    }
+
+                                    runtime_tab := Tab {
+                                        title: "Data";
+                                        RuntimePropertyView {
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                        }
                                     }
                                 }
                             }
