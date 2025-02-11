@@ -298,8 +298,8 @@ importers:
         specifier: 9.0.1
         version: 9.0.1
       vscode-uri:
-        specifier: 3.0.8
-        version: 3.0.8
+        specifier: 3.1.0
+        version: 3.1.0
 
 packages:
 
@@ -4627,8 +4627,8 @@ packages:
     resolution: {integrity: sha512-Wg6Pz+ePAT1O+F/A1Fc4wS5vY2X+HNtgN4qMdL+65NLQYd1/zdDWH4fhwsLjX8wTzeXkMy49Cr4ZqWTJ7VnVxg==}
     hasBin: true
 
-  vscode-uri@3.0.8:
-    resolution: {integrity: sha512-AyFQ0EVmsOZOlAnxoFOGOq1SQDWAB7C6aqMGS23svWAllfOaxbuFvcT8D1i8z3Gyn8fraVeZNNmN6e9bxxXkKw==}
+  vscode-uri@3.1.0:
+    resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
 
   vscode-ws-jsonrpc@3.3.2:
     resolution: {integrity: sha512-jxGHxAuow67sNRkkS2svsW00ZACX+Zrbury9Au2A22px6sg4pe858Nnnwvtg0Pm4D0L/W9Yzn7N7X3R/RIMxsQ==}
@@ -4863,7 +4863,7 @@ snapshots:
       volar-service-typescript-twoslash-queries: 0.0.62(@volar/language-service@2.4.10)
       volar-service-yaml: 0.0.62(@volar/language-service@2.4.10)
       vscode-html-languageservice: 5.3.1
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
     optionalDependencies:
       prettier: 3.4.2
     transitivePeerDependencies:
@@ -6515,7 +6515,7 @@ snapshots:
       typesafe-path: 0.2.2
       typescript: 5.7.3
       vscode-languageserver-textdocument: 1.0.12
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   '@volar/language-core@2.4.10':
     dependencies:
@@ -6531,14 +6531,14 @@ snapshots:
       vscode-languageserver: 9.0.1
       vscode-languageserver-protocol: 3.17.5
       vscode-languageserver-textdocument: 1.0.12
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   '@volar/language-service@2.4.10':
     dependencies:
       '@volar/language-core': 2.4.10
       vscode-languageserver-protocol: 3.17.5
       vscode-languageserver-textdocument: 1.0.12
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   '@volar/source-map@2.4.10': {}
 
@@ -6546,7 +6546,7 @@ snapshots:
     dependencies:
       '@volar/language-core': 2.4.10
       path-browserify: 1.0.1
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   '@vscode/emmet-helper@2.11.0':
     dependencies:
@@ -6554,7 +6554,7 @@ snapshots:
       jsonc-parser: 2.3.1
       vscode-languageserver-textdocument: 1.0.12
       vscode-languageserver-types: 3.17.5
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   '@vscode/iconv-lite-umd@0.7.0': {}
 
@@ -7171,7 +7171,7 @@ snapshots:
       import-fresh: 3.3.1
       resolve-from: 5.0.0
       vscode-languageserver-textdocument: 1.0.12
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
       xdg-basedir: 5.1.0
 
   cspell-trie-lib@8.17.3:
@@ -9825,7 +9825,7 @@ snapshots:
     dependencies:
       vscode-css-languageservice: 6.3.2
       vscode-languageserver-textdocument: 1.0.12
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
     optionalDependencies:
       '@volar/language-service': 2.4.10
 
@@ -9834,7 +9834,7 @@ snapshots:
       '@emmetio/css-parser': 0.4.0
       '@emmetio/html-matcher': 1.3.0
       '@vscode/emmet-helper': 2.11.0
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
     optionalDependencies:
       '@volar/language-service': 2.4.10
 
@@ -9842,20 +9842,20 @@ snapshots:
     dependencies:
       vscode-html-languageservice: 5.3.1
       vscode-languageserver-textdocument: 1.0.12
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
     optionalDependencies:
       '@volar/language-service': 2.4.10
 
   volar-service-prettier@0.0.62(@volar/language-service@2.4.10)(prettier@3.4.2):
     dependencies:
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
     optionalDependencies:
       '@volar/language-service': 2.4.10
       prettier: 3.4.2
 
   volar-service-typescript-twoslash-queries@0.0.62(@volar/language-service@2.4.10):
     dependencies:
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
     optionalDependencies:
       '@volar/language-service': 2.4.10
 
@@ -9866,13 +9866,13 @@ snapshots:
       typescript-auto-import-cache: 0.3.5
       vscode-languageserver-textdocument: 1.0.12
       vscode-nls: 5.2.0
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
     optionalDependencies:
       '@volar/language-service': 2.4.10
 
   volar-service-yaml@0.0.62(@volar/language-service@2.4.10):
     dependencies:
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
       yaml-language-server: 1.15.0
     optionalDependencies:
       '@volar/language-service': 2.4.10
@@ -9882,14 +9882,14 @@ snapshots:
       '@vscode/l10n': 0.0.18
       vscode-languageserver-textdocument: 1.0.12
       vscode-languageserver-types: 3.17.5
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   vscode-html-languageservice@5.3.1:
     dependencies:
       '@vscode/l10n': 0.0.18
       vscode-languageserver-textdocument: 1.0.12
       vscode-languageserver-types: 3.17.5
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   vscode-json-languageservice@4.1.8:
     dependencies:
@@ -9897,7 +9897,7 @@ snapshots:
       vscode-languageserver-textdocument: 1.0.12
       vscode-languageserver-types: 3.17.5
       vscode-nls: 5.2.0
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
 
   vscode-jsonrpc@6.0.0: {}
 
@@ -9953,7 +9953,7 @@ snapshots:
       vscode-oniguruma: 1.7.0
       vscode-textmate: 7.0.4
 
-  vscode-uri@3.0.8: {}
+  vscode-uri@3.1.0: {}
 
   vscode-ws-jsonrpc@3.3.2:
     dependencies:
@@ -10042,7 +10042,7 @@ snapshots:
       vscode-languageserver-textdocument: 1.0.12
       vscode-languageserver-types: 3.17.5
       vscode-nls: 5.2.0
-      vscode-uri: 3.0.8
+      vscode-uri: 3.1.0
       yaml: 2.2.2
     optionalDependencies:
       prettier: 2.8.7
