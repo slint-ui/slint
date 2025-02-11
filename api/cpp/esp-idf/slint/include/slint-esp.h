@@ -81,21 +81,14 @@ SlintPlatformConfiguration(Args...) -> SlintPlatformConfiguration<>;
  *
  * Note: For compatibility, this function overload selects RGB16 byte swapping if single-buffering
  * is selected as rendering method.
+ *
+ *  \deprecated Prefer the overload taking a SlintPlatformConfiguration
  */
+[[deprecated("Use the overload taking a SlintPlatformConfiguration")]]
 void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<esp_lcd_touch_handle_t> touch,
                     std::span<slint::platform::Rgb565Pixel> buffer1,
                     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {});
-
-#ifdef SLINT_FEATURE_EXPERIMENTAL
-/**
- * Same as the other overload but do rendering line-by-line, by allocating a line buffer with
- * MALLOC_CAP_INTERNAL, and flush it to the screen with esp_lcd_panel_draw_bitmap. (experimental)
- */
-void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
-                    std::optional<esp_lcd_touch_handle_t> touch,
-                    slint::platform::SoftwareRenderer::RenderingRotation rotation = {});
-#endif
 
 /**
  * Initialize the Slint platform for ESP-IDF.
