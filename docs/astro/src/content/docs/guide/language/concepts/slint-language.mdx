@@ -1,5 +1,6 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+// cSpell:ignore GLloeHGWb3A
 title: Slint Language
 description: Slint Language
 ---
@@ -80,14 +81,14 @@ The Text elements `text` property depends on the `counter` property. When it cha
 updated. There is no need to opt in. In Slint every expression is automatically re-evaluated. However this
 is done in a performant way that only updates expressions where the dependencies have changed.
 
-Slint makes it trivial to create your own components by composing together the built in elements or other compoents.
+Slint makes it trivial to create your own components by composing together the built in elements or other components.
 Text and Rectangles can become buttons. Buttons and input fields can become forms or dialogs. Forms and dialogs can become Views.
 And finally Views combine to become applications.
 
 ```slint no-test
 export component MyView {
   Dialog {
-    title: "Can UI Developement Be Easy?";
+    title: "Can UI Development Be Easy?";
     Button {
       text: "Yes";
     }
