@@ -1016,7 +1016,7 @@ impl ComponentDefinition {
 
     /// List of publicly declared properties or callback.
     ///
-    /// This is internal because it exposes the `Type` from compilerlib.
+    /// This is internal because it exposes the `Type` and `PropertyVisibility` from `i_slint_compiler`.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub fn properties_and_callbacks(

@@ -16,7 +16,7 @@ use lsp_types::Url;
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -126,6 +126,15 @@ struct PreviewState {
     workspace_edit_sent: bool,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
+    property_change_tracker: OnceCell<
+        std::pin::Pin<Box<i_slint_core::properties::PropertyTracker<RuntimePropertyDirtyHandler>>>,
+    >,
+}
+
+impl PreviewState {
+    fn component_instance(&self) -> Option<ComponentInstance> {
+        self.handle.borrow().as_ref().map(|ci| ci.clone_strong())
+    }
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -996,6 +1005,40 @@ fn extract_resources(
     result
 }
 
+struct RuntimePropertyDirtyHandler {}
+
+impl i_slint_core::properties::PropertyDirtyHandler for RuntimePropertyDirtyHandler {
+    fn notify(self: std::pin::Pin<&Self>) {
+        PREVIEW_STATE.with(|preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+
+            let runtime_properties = &track_runtime_properties(&mut preview_state);
+
+            if let Some(ui) = &preview_state.ui {
+                ui::ui_set_runtime_properties(ui, runtime_properties);
+            }
+        });
+    }
+}
+
+fn track_runtime_properties(
+    preview_state: &mut std::cell::RefMut<PreviewState>,
+) -> HashMap<runtime_properties::RuntimeComponent, Vec<runtime_properties::RuntimeProperty>> {
+    let Some(component_instance) = preview_state.component_instance() else {
+        return Default::default();
+    };
+
+    let mut tracker = preview_state.property_change_tracker.get_or_init(move || {
+        Box::pin(i_slint_core::properties::PropertyTracker::new_with_dirty_handler(
+            RuntimePropertyDirtyHandler {},
+        ))
+    });
+
+    tracker.borrow_mut().as_ref().evaluate_as_dependency_root(|| {
+        runtime_properties::query_runtime_properties_and_callbacks(&component_instance)
+    })
+}
+
 fn finish_parsing(preview_url: &Url) {
     set_status_text("");
 
@@ -1008,9 +1051,6 @@ fn finish_parsing(preview_url: &Url) {
             cache.source_code.clone(),
         )
     };
-
-    let runtime_properties = component_instance()
-        .map(|ci| runtime_properties::query_runtime_properties_and_callbacks(&ci));
 
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
@@ -1069,12 +1109,12 @@ fn finish_parsing(preview_url: &Url) {
 
             preview_state.document_cache.borrow_mut().replace(Some(Rc::new(document_cache)));
 
+            let runtime_properties = track_runtime_properties(&mut preview_state);
+
             if let Some(ui) = &preview_state.ui {
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
-                if let Some(ep) = &runtime_properties {
-                    ui::ui_set_runtime_properties(ui, &ep)
-                }
+                ui::ui_set_runtime_properties(ui, &runtime_properties);
             }
         });
     }
@@ -1726,9 +1766,7 @@ fn selected_element() -> Option<ElementSelection> {
 }
 
 fn component_instance() -> Option<ComponentInstance> {
-    PREVIEW_STATE.with(move |preview_state| {
-        preview_state.borrow().handle.borrow().as_ref().map(|ci| ci.clone_strong())
-    })
+    PREVIEW_STATE.with(move |preview_state| preview_state.borrow().component_instance())
 }
 
 /// This is a *read-only* snapshot of the raw type loader, use this when you

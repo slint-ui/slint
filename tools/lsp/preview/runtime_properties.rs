@@ -20,6 +20,14 @@ impl Display for RuntimeComponent {
     }
 }
 
+fn has_getter(visibility: &i_slint_compiler::object_tree::PropertyVisibility) -> bool {
+    matches!(
+        visibility,
+        i_slint_compiler::object_tree::PropertyVisibility::Output
+            | i_slint_compiler::object_tree::PropertyVisibility::InOut
+    )
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeProperty {
     pub name: String,
@@ -51,11 +59,7 @@ impl RuntimeProperty {
     }
 
     pub fn has_getter(&self) -> bool {
-        matches!(
-            self.visibility,
-            i_slint_compiler::object_tree::PropertyVisibility::Output
-                | i_slint_compiler::object_tree::PropertyVisibility::InOut
-        )
+        has_getter(&self.visibility)
     }
 
     pub fn has_setter(&self) -> bool {
@@ -89,6 +93,7 @@ pub fn query_runtime_properties_and_callbacks(
         let mut v = it
             .map(|(name, (ty, visibility))| {
                 let value = value_query(&name);
+
                 RuntimeProperty { name, ty, visibility, value }
             })
             .collect::<Vec<_>>();

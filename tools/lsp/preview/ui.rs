@@ -1062,7 +1062,87 @@ pub fn ui_set_runtime_properties(
     }
 
     let api = ui.global::<Api>();
-    api.set_runtime_components(Rc::new(slint::VecModel::from(result)).into())
+
+    let mut old_model = api.get_runtime_components();
+
+    fn update_model(
+        old_model: &mut slint::ModelRc<RuntimeComponent>,
+        new_model: Vec<RuntimeComponent>,
+    ) -> Option<slint::ModelRc<RuntimeComponent>> {
+        // The structure should never change as the API between business logic and UI should be pretty
+        // fixed.
+
+        fn m(model: Vec<RuntimeComponent>) -> Option<slint::ModelRc<RuntimeComponent>> {
+            Some(Rc::new(VecModel::from(model)).into())
+        }
+
+        fn is_semantic_equal(o: &RuntimeProperty, n: &RuntimeProperty) -> bool {
+            fn is_value_equal(o: &PropertyValue, n: &PropertyValue) -> bool {
+                o == n
+            }
+
+            if o.name != n.name
+                || o.has_getter != n.has_getter
+                || o.has_setter != n.has_setter
+                || o.is_array != n.is_array
+                || o.prefer_json != n.prefer_json
+            {
+                return false;
+            }
+            if o.values.row_count() != n.values.row_count() {
+                return false;
+            }
+            for (ov, nv) in o.values.iter().zip(n.values.iter()) {
+                if ov.name != nv.name || !is_value_equal(&ov.value, &nv.value) {
+                    return false;
+                }
+            }
+
+            if o.array_values.row_count() != n.array_values.row_count() {
+                return false;
+            }
+            for (oav, nav) in o.array_values.iter().zip(n.array_values.iter()) {
+                if oav.row_count() != nav.row_count() {
+                    return false;
+                }
+
+                for (oavv, navv) in oav.iter().zip(nav.iter()) {
+                    if !is_value_equal(&oavv, &navv) {
+                        return false;
+                    }
+                }
+            }
+
+            true
+        }
+
+        if old_model.row_count() != new_model.len() {
+            return m(new_model);
+        }
+
+        for (oc, nc) in old_model.iter().zip(new_model.iter()) {
+            if oc.component_name != nc.component_name
+                || oc.properties.row_count() != nc.properties.row_count()
+            {
+                return m(new_model);
+            }
+            for (i, (o, n)) in oc.properties.iter().zip(nc.properties.iter()).enumerate() {
+                if o.name != n.name {
+                    return m(new_model);
+                }
+                if !is_semantic_equal(&o, &n) {
+                    eprintln!("Updating property {}@{i} of {}", o.name, oc.component_name);
+                    oc.properties.set_row_data(i, n.clone());
+                }
+            }
+        }
+
+        None
+    }
+
+    if let Some(m) = update_model(&mut old_model, result) {
+        api.set_runtime_components(m)
+    }
 }
 
 fn update_properties(

@@ -1484,8 +1484,8 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     /// Sets the specified callback handler function, which will be called if any
     /// properties that this tracker depends on becomes dirty.
     ///
-    /// The `handler` `PropertyDirtyHandler` is a trait which is implemented for
-    /// any `Fn()` closure
+    /// The `handler` `PropertyDirtyHandler` is a trait which is implemented for any
+    /// `Fn()` closure
     ///
     /// Note that the handler will be invoked immediately when a property is modified or
     /// marked as dirty. In particular, the involved property are still in a locked
