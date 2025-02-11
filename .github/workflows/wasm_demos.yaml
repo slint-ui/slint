@@ -82,6 +82,7 @@ jobs:
                       demos/energy-monitor/
                       demos/home-automation/rust
                       demos/weather-demo/
+                      demos/usecases/rust
                       !/**/.gitignore
             - name: Clean cache # Otherwise the cache is much too big
               run: |
