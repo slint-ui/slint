@@ -594,21 +594,40 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
+        // Try to get the root window in case `self` is the popup itself (to get the active_popups list)
+        let mut root_adapter = None;
+        ItemTreeRc::borrow_pin(&self.component()).as_ref().window_adapter(false, &mut root_adapter);
+        let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
+        let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
+        let native_popup_index = active_popups.borrow().iter().position(|p| {
+            if let PopupWindowLocation::TopLevel(wa) = &p.location {
+                Rc::ptr_eq(wa, &window_adapter)
+            } else {
+                false
+            }
+        });
+
         if pressed_event {
-            self.had_popup_on_press.set(!self.active_popups.borrow().is_empty());
+            self.had_popup_on_press.set(!active_popups.borrow().is_empty());
         }
 
-        let mut popup_to_close = self.active_popups.borrow().last().and_then(|popup| {
+        let mut popup_to_close = active_popups.borrow().last().and_then(|popup| {
             let mouse_inside_popup = || {
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
-                    event.position().map_or(true, |pos| {
+                    event.position().is_none_or(|pos| {
                         ItemTreeRc::borrow_pin(&popup.component)
                             .as_ref()
                             .item_geometry(0)
                             .contains(pos - coordinates.to_vector())
                     })
                 } else {
-                    false
+                    native_popup_index.is_some_and(|idx| idx == active_popups.borrow().len() - 1)
+                        && event.position().is_none_or(|pos| {
+                            ItemTreeRc::borrow_pin(&self.component())
+                                .as_ref()
+                                .item_geometry(0)
+                                .contains(pos)
+                        })
                 }
             };
             match popup.close_policy {
@@ -628,18 +647,21 @@ impl WindowInner {
         {
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
-            for popup in self.active_popups.borrow().iter().rev() {
+            for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
                 item_tree = None;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                     let mouse_inside_popup = event
                         .position()
-                        .map_or(true, |pos| geom.contains(pos - coordinates.to_vector()));
+                        .is_none_or(|pos| geom.contains(pos - coordinates.to_vector()));
                     if mouse_inside_popup {
                         item_tree = Some(popup.component.clone());
                         offset = *coordinates;
                         break;
                     }
+                } else if native_popup_index.is_some_and(|i| i == idx) {
+                    item_tree = self.component.borrow().upgrade();
+                    break;
                 }
 
                 if !popup.is_menu {
@@ -683,7 +705,7 @@ impl WindowInner {
         self.mouse_input_state.set(mouse_input_state);
 
         if let Some(popup_id) = popup_to_close {
-            self.close_popup(popup_id);
+            WindowInner::from_pub(root_adapter.window()).close_popup(popup_id);
         }
 
         crate::properties::ChangeTracker::run_change_handlers();
