@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 const itemsToKeep = [
     "color",
     "font-family",
@@ -29,7 +32,6 @@ export async function getSlintSnippet(): Promise<string> {
     return `${elementName} {\n${slintProperties}\n}`;
 }
 
-
 function transformStyle(styleObj: StyleObject): string {
     const filteredEntries = Object.entries(styleObj)
         .filter(([key]) => itemsToKeep.includes(key))
@@ -52,10 +54,10 @@ function transformStyle(styleObj: StyleObject): string {
                     break;
             }
 
-            if(key === "color") {
+            if (key === "color") {
                 return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])};`;
             }
-            if(key === "border-radius") {
+            if (key === "border-radius") {
                 const borderRadius = getBorderRadius();
                 if (borderRadius !== null) {
                     return borderRadius;
@@ -71,7 +73,6 @@ function transformStyle(styleObj: StyleObject): string {
 
     return filteredEntries.length > 0 ? `${filteredEntries.join("\n")}` : "";
 }
-
 
 function rgbToHex({ r, g, b }) {
     const red = Math.round(r * 255);
