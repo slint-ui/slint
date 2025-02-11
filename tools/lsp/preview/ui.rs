@@ -917,7 +917,7 @@ pub fn ui_set_runtime_properties(
                 mapping.values.push(NamedPropertyValue {
                     name: mapping.name_prefix.clone().into(),
                     value: PropertyValue {
-                        kind: PropertyValueKind::Boolean,
+                        kind: PropertyValueKind::Color,
                         value_brush: slint::Brush::SolidColor(color).into(),
                         value_string: color_string.into(),
                         code: get_code(value),
