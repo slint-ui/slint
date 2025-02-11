@@ -53,7 +53,7 @@ function transformStyle(styleObj: StyleObject): string {
             }
 
             if(key === "color") {
-                return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])}`;
+                return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])};`;
             }
             if(key === "border-radius") {
                 const borderRadius = getBorderRadius();
@@ -63,13 +63,13 @@ function transformStyle(styleObj: StyleObject): string {
             }
 
             if (value.includes("linear-gradient")) {
-                return `  ${finalKey}: @${finalValue}`;
+                return `  ${finalKey}: @${finalValue};`;
             }
 
-            return `  ${finalKey}: ${finalValue}`;
+            return `  ${finalKey}: ${finalValue};`;
         });
 
-    return filteredEntries.length > 0 ? `${filteredEntries.join(";\n")};` : "";
+    return filteredEntries.length > 0 ? `${filteredEntries.join("\n")}` : "";
 }
 
 
@@ -106,15 +106,15 @@ function getBorderRadius(): string | null {
 
     // Single border value
     if (typeof cornerRadius === "number") {
-        return `  border-radius: ${cornerRadius}px`;
+        return `  border-radius: ${cornerRadius}px;`;
     }
 
     // Multiple border values
     const corners = [
-        { prop: "topLeftRadius", css: "border-top-left-radius" },
-        { prop: "topRightRadius", css: "border-top-right-radius" },
-        { prop: "bottomLeftRadius", css: "border-bottom-left-radius" },
-        { prop: "bottomRightRadius", css: "border-bottom-right-radius" },
+        { prop: "topLeftRadius", slint: "border-top-left-radius" },
+        { prop: "topRightRadius", slint: "border-top-right-radius" },
+        { prop: "bottomLeftRadius", slint: "border-bottom-left-radius" },
+        { prop: "bottomRightRadius", slint: "border-bottom-right-radius" },
     ];
 
     const validCorners = corners.filter(
@@ -125,8 +125,7 @@ function getBorderRadius(): string | null {
     );
 
     const radiusStrings = validCorners.map((corner, index) => {
-        const isLast = index === validCorners.length - 1;
-        return `  ${corner.css}: ${node[corner.prop]}px${isLast ? "" : ";"}`;
+        return `  ${corner.slint}: ${node[corner.prop]}px;`;
     });
 
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
