@@ -48,7 +48,9 @@ impl TranslationsBuilder {
         let mut catalogs = Vec::new();
         let mut plural_rules =
             vec![Some(plural_rule_parser::parse_rule_expression("n!=1").unwrap())];
-        for l in std::fs::read_dir(path)? {
+        for l in std::fs::read_dir(path)
+            .map_err(|e| std::io::Error::other(format!("Error reading directory {path:?}: {e}")))?
+        {
             let l = l?;
             let path = l.path().join("LC_MESSAGES").join(format!("{domain}.po"));
             if path.exists() {
