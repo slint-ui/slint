@@ -54,7 +54,7 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: ubuntu-20.04
+                    - os: ubuntu-22.04
                       rust-target: x86_64-unknown-linux-gnu
                       napi-rs-target: linux-x64-gnu
                     - os: ubuntu-22.04-arm

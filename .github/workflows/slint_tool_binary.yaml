@@ -86,7 +86,7 @@ jobs:
                       pkg
 
     build_linux:
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
@@ -115,7 +115,7 @@ jobs:
                   path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
 
     build_linux_arm:
-      runs-on: ubuntu-20.04
+      runs-on: ubuntu-22.04
       strategy:
         matrix:
             target:
