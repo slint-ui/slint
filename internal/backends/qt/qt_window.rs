@@ -354,7 +354,8 @@ cpp! {{
                         text: i_slint_core::format!("{}", commit_string),
                         preedit_text: i_slint_core::format!("{}", preedit_string),
                         preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
-                        replacement_range: Some(replacement_start..replacement_start+replacement_length),
+                        replacement_range: (!commit_string.is_empty() || !preedit_string.is_empty() || preedit_cursor >= 0)
+                            .then_some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
                     runtime_window.process_key_input(event);
