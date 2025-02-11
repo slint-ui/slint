@@ -175,7 +175,8 @@ export struct RuntimeProperty {
     has-setter: bool,
     is-array: bool,
     prefer-json: bool,
-    values: [NamedPropertyValue],
+    values: [NamedPropertyValue], // "Simple" values + table headers
+    array-values: [[PropertyValue]] // The "Table values"
 }
 
 /// Information on exported components and their properties

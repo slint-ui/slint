@@ -860,6 +860,7 @@ pub fn ui_set_runtime_properties(
         is_too_complex: bool,
         is_array: bool,
         values: Vec<NamedPropertyValue>,
+        array_values: Vec<Vec<PropertyValue>>,
     }
 
     fn map_value_and_type(
@@ -1010,6 +1011,13 @@ pub fn ui_set_runtime_properties(
         }
         eprintln!("      >>> complete values for {}: Done", rp.name);
 
+        let array_values = mapping
+            .array_values
+            .drain(..)
+            .map(|v| Rc::new(slint::VecModel::from(v)).into())
+            .collect::<Vec<slint::ModelRc<_>>>();
+        let array_values = Rc::new(slint::VecModel::from(array_values)).into();
+
         Some(RuntimeProperty {
             name: rp.name.clone().into(),
             has_getter,
@@ -1017,6 +1025,7 @@ pub fn ui_set_runtime_properties(
             prefer_json: mapping.is_too_complex,
             is_array: mapping.is_array,
             values: Rc::new(VecModel::from(mapping.values)).into(),
+            array_values,
         })
     }
 
