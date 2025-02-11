@@ -549,6 +549,11 @@ struct TargetPixelBuffer
 
     virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
                                 const RgbaColor<uint8_t> &premultiplied_color) = 0;
+    virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height,
+                              const uint8_t *src, uint16_t src_stride, int16_t src_width,
+                              int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
+                              uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y,
+                              uint32_t colorize, uint8_t alpha, uint8_t rotation) = 0;
 };
 #    endif
 
@@ -719,6 +724,18 @@ public:
                         return buffer->fill_rectangle(
                                 x, y, width, height,
                                 Color::from_argb_uint8(alpha, red, green, blue));
+                    },
+            .draw_texture =
+                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t handle,
+                       const uint8_t *src, uint16_t src_stride, int16_t src_width,
+                       int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
+                       uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y, uint32_t colorize,
+                       uint8_t alpha, uint8_t rotation) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
+                        return buffer->draw_texture(x, y, width, handle, src, src_stride, src_width,
+                                                    src_height, src_pixel_format, src_dx, src_dy,
+                                                    src_off_x, src_off_y, colorize, alpha,
+                                                    rotation);
                     }
         };
         auto r =
@@ -749,6 +766,18 @@ public:
                         return buffer->fill_rectangle(
                                 x, y, width, height,
                                 Color::from_argb_uint8(alpha, red, green, blue));
+                    },
+            .draw_texture =
+                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t handle,
+                       const uint8_t *src, uint16_t src_stride, int16_t src_width,
+                       int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
+                       uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y, uint32_t colorize,
+                       uint8_t alpha, uint8_t rotation) {
+                        auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
+                        return buffer->draw_texture(x, y, width, handle, src, src_stride, src_width,
+                                                    src_height, src_pixel_format, src_dx, src_dy,
+                                                    src_off_x, src_off_y, colorize, alpha,
+                                                    rotation);
                     }
         };
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner,
