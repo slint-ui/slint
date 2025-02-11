@@ -384,6 +384,25 @@ mod software_renderer {
             u8,
             u8,
         ) -> bool,
+        draw_texture: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            i16,
+            i16,
+            i16,
+            i16,
+            *const u8,
+            u16,
+            i16,
+            i16,
+            u8,
+            u16,
+            u16,
+            u16,
+            u16,
+            u32,
+            u8,
+            u8,
+        ) -> bool,
     }
 
     impl TargetPixelBuffer for CppRgb8TargetPixelBuffer {
@@ -424,6 +443,48 @@ mod software_renderer {
                 )
             }
         }
+
+        fn draw_texture(
+            &mut self,
+            x: i16,
+            y: i16,
+            width: i16,
+            height: i16,
+            src: *const u8,
+            src_stride: u16,
+            src_width: i16,
+            src_height: i16,
+            src_pixel_format: u8,
+            dx: u16,
+            dy: u16,
+            off_x: u16,
+            off_y: u16,
+            colorize: u32,
+            alpha: u8,
+            rotation: u8,
+        ) -> bool {
+            unsafe {
+                (self.draw_texture)(
+                    self.user_data,
+                    x,
+                    y,
+                    width,
+                    height,
+                    src,
+                    src_stride,
+                    src_width,
+                    src_height,
+                    src_pixel_format,
+                    dx,
+                    dy,
+                    off_x,
+                    off_y,
+                    colorize,
+                    alpha,
+                    rotation,
+                )
+            }
+        }
     }
 
     #[repr(C)]
@@ -444,6 +505,25 @@ mod software_renderer {
             i16,
             u8,
             u8,
+            u8,
+            u8,
+        ) -> bool,
+        draw_texture: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            i16,
+            i16,
+            i16,
+            i16,
+            *const u8,
+            u16,
+            i16,
+            i16,
+            u8,
+            u16,
+            u16,
+            u16,
+            u16,
+            u32,
             u8,
             u8,
         ) -> bool,
@@ -484,6 +564,48 @@ mod software_renderer {
                     color.green,
                     color.blue,
                     color.alpha,
+                )
+            }
+        }
+
+        fn draw_texture(
+            &mut self,
+            x: i16,
+            y: i16,
+            width: i16,
+            height: i16,
+            src: *const u8,
+            src_stride: u16,
+            src_width: i16,
+            src_height: i16,
+            src_pixel_format: u8,
+            dx: u16,
+            dy: u16,
+            off_x: u16,
+            off_y: u16,
+            colorize: u32,
+            alpha: u8,
+            rotation: u8,
+        ) -> bool {
+            unsafe {
+                (self.draw_texture)(
+                    self.user_data,
+                    x,
+                    y,
+                    width,
+                    height,
+                    src,
+                    src_stride,
+                    src_width,
+                    src_height,
+                    src_pixel_format,
+                    dx,
+                    dy,
+                    off_x,
+                    off_y,
+                    colorize,
+                    alpha,
+                    rotation,
                 )
             }
         }
