@@ -9,7 +9,7 @@ import Link from '/src/components/Link.astro';
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import { YouTube } from 'astro-embed';
 
-This following section gives you an insight into the thinking behind the language and the core concepts it is made up from.
+This following section gives you an insight into the thinking behind the language and the core concepts it's made up from.
 
 <YouTube id="GLloeHGWb3A" poster="https://github.com/user-attachments/assets/e4a9e699-2f87-4030-9f56-69fd52b25fa8"/>
 
@@ -23,11 +23,11 @@ Text {
     color: #0044ff;
 }
 ```
-This simple example shows the core of how Slint works. You name the element or component you want e.g. `Text`.
-This is followed by open and closed braces `Text {}`. Then within the braces you customize the element or component
-to your need with properties e.g. `font-size: 24px`.
 
-To nest elements inside each other they simply are placed within the parents braces. For example the following
+This example shows the core of how Slint works. Use elements with their name followed by open and closed braces,
+e.g. `Text {}`. Then within the braces customize it with properties e.g. `font-size: 24px`.
+
+To nest elements inside each other place them within the parents braces. For example the following
 `Rectangle` has a `Text` element as its child.
 
 <CodeSnippetMD imagePath="/src/assets/generated/intro-nesting.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Image showing text nested inside a rectangle'>
@@ -49,7 +49,7 @@ Rectangle {
 
 </CodeSnippetMD>
 
-The final core part are binding expressions.
+The final core part are binding expressions:
 
 ```slint showLineNumbers=true {10}
 property <int> counter: 0;
@@ -73,16 +73,16 @@ Rectangle {
 }
 ```
 
-In this simple example a property called `counter` is declared. Then the `Rectangle` has a
-`TouchArea` inside that automatically fills its parent and responds to clicks or taps. On click
+In this example a property called `counter` is declared. Then the `Rectangle` has a
+`TouchArea` inside, that automatically fills its parent and responds to clicks or taps. On click
 it increments `counter`. Here is where the magic of fine grained reactivity comes in.
 
-The Text elements `text` property depends on the `counter` property. When it changes the UI is automatically
-updated. There is no need to opt in. In Slint every expression is automatically re-evaluated. However this
+The `Text` element's `text` property depends on the `counter` property. When `counter` changes, the UI is automatically
+updated. There's no need to opt in. In Slint every expression is automatically re-evaluated. However this
 is done in a performant way that only updates expressions where the dependencies have changed.
 
 Slint makes it trivial to create your own components by composing together the built in elements or other components.
-Text and Rectangles can become buttons. Buttons and input fields can become forms or dialogs. Forms and dialogs can become Views.
+`Text` and `Rectangles` can become buttons. Buttons and input fields can become forms or dialogs. Forms and dialogs can become Views.
 And finally Views combine to become applications.
 
 ```slint no-test
@@ -96,8 +96,7 @@ export component MyView {
 }
 ```
 
-The end result is with practice you can reduce any level of complexity to easy to manage and maintainable UI
-components.
+With practice you can reduce any level of complexity to simple, maintainable UI components.
 
 
 
