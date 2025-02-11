@@ -133,12 +133,17 @@ cpp! {{
         std::tuple<QPoint, void*> adjust_mouse_event_to_popup_parent(QMouseEvent *event) {
             auto pos = event->pos();
             if (auto p = dynamic_cast<const SlintWidget*>(parent()); p && !rect().contains(pos)) {
+    #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                QPoint eventPos = event->globalPosition().toPoint();
+    #else
+                QPoint eventPos = event->globalPos();
+    #endif
                 while (auto pp = dynamic_cast<const SlintWidget*>(p->parent())) {
-                    if (p->rect().contains(p->mapFromGlobal(event->globalPosition().toPoint())))
+                    if (p->rect().contains(p->mapFromGlobal(eventPos)))
                         break;
                     p = pp;
                 }
-                return { p->mapFromGlobal(event->globalPosition().toPoint()), p->rust_window };
+                return { p->mapFromGlobal(eventPos), p->rust_window };
             } else {
                 return { pos, rust_window };
             }
