@@ -1,5 +1,5 @@
-import { Palette, Button } from "std-widgets.slint";
-import { EditorSpaceSettings } from "styling.slint";
+import { Palette, Button, LineEdit } from "std-widgets.slint";
+import { EditorSpaceSettings, EditorSizeSettings } from "styling.slint";
 export struct AddressData {
     type: string,
     street: string,
@@ -12,31 +12,43 @@ export struct CellData {
     value: string,
     row: int,
     col: int,
+    x: length,
+    y: length,
+    width: length,
+    height: length
 }
 
 export component EditWindow inherits Rectangle {
-    in property <CellData> cell;
+    in property <CellData> current-cell: {
+        id: "",
+        value: "",
+        row: 0,
+        col: 0,
+        x: 0px,
+        y: 0px,
+        width: 0px,
+        height: 0px
+    };
     callback save(string);
-    callback close-window();
+    callback close-editor();
     drop-shadow-blur: 10px;
     drop-shadow-color: black.transparentize(0.5);
     drop-shadow-offset-x: 0;
     drop-shadow-offset-y: 0;
-    x: 0;
-    y: 0;
+    border-radius:EditorSizeSettings.radius;
     width: self.preferred-width;
     height: self.preferred-height;
-    background: lightblue;
+    background: Palette.alternate-background;
     HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
-        TextInput {
-            vertical-alignment: center;
-            text: cell.value;
+        editor := LineEdit {
+            text: current-cell.value;
             edited() => {
                 save(self.text)
             }
         }
+        forward-focus: editor ;
 
         HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
@@ -52,10 +64,15 @@ export component EditWindow inherits Rectangle {
                 height: 30px;
                 text: "Cancel";
                 clicked => {
-                    close-window()
+                    close-editor()
                 }
             }
         }
+        TouchArea {
+            mouse-cursor: default;
+            clicked => { }  // Empty handler to catch clicks
+        }
+    
     }
 }
 
@@ -103,119 +120,75 @@ component Cell inherits Rectangle {
 }
 
 export component Spreadsheet inherits Rectangle {
-    in-out property <[AddressData]> foorray: [
+    in-out property <[AddressData]> addresses: [
         { type: "home", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226" },
         { type: "work", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" },
         { type: "history", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226" },
         { type: "world", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" }
     ];
-    property <CellData> current-cell: { id: "", value: "", row: 0, col: 0 };
+    property <CellData> current-cell: {
+        id: "",
+        value: "",
+        row: 0,
+        col: 0,
+        x: 0px,
+        y: 0px,
+        width: 0px,
+        height: 0px
+    };
     property <bool> edit-window-visible: false;
 
     width: self.preferred-width;
     height: self.preferred-height;
 
+
+
     VerticalLayout {
-            // Header row
-            HorizontalLayout {
-            alignment: space-between;
-            Cell {
+        HorizontalLayout {
+            for header in ["Type", "Street", "City", "State", "ZIP"]: Cell {
                 is-header: true;
-                    text: "Type";
-            }
-
-            Cell {
-                is-header: true;
-                width: 200px;
-                    text: "Street";
-            }
-
-            Cell {
-                is-header: true;
-                    text: "City";
-            }
-
-            Cell {
-                is-header: true;
-                    text: "State";
-            }
-
-            Cell {
-                is-header: true;
-                    text: "ZIP";
+                text: header;
             }
         }
-            
-            // Data rows
-            for address[index] in foorray: HorizontalLayout {
-            alignment: space-between;
-            Cell {
-                id: "1," + index;
+        
+        for address[row] in addresses: HorizontalLayout {
+            for cell[col] in [
+                address.type, 
+                address.street, 
+                address.city, 
+                address.state, 
+                address.zip
+            ]: Cell {
+                text: cell;
                 is-writeable: true;
-                padding-left: 2px;
-                edit-clicked(cell-data) => {
-                    root.current-cell = cell-data;
-                    debug(cell-data);
+                edit-clicked(data) => {
+                    root.current-cell = {
+                        id: data.id,
+                        value: data.value,
+                        row: row,
+                        col: col,
+                        x: self.x,
+                        y: parent.y,
+                        width: self.width,
+                        height: self.height
+                    };
                     root.edit-window-visible = true;
-                    }
-                    text: address.type;
-            }
-
-            Cell {
-                id: "2," + index;
-                is-writeable: true;
-                padding-left: 2px;
-                cell-width: 200px;
-                edit-clicked(cell-data) => {
-                    root.current-cell = cell-data;
-                    root.edit-window-visible = true;
-                    }
-                    text: address.street;
-            }
-
-            Cell {
-                id: "3," + index;
-                is-writeable: true;
-                padding-left: 2px;
-                edit-clicked(cell-data) => {
-                    root.current-cell = cell-data;
-                    root.edit-window-visible = true;
-                    }
-                    text: address.city;
-            }
-
-            Cell {
-                id: "4," + index;
-                is-writeable: true;
-                padding-left: 2px;
-                edit-clicked(cell-data) => {
-                    root.current-cell = cell-data;
-                    root.edit-window-visible = true;
-                    }
-                    text: address.state;
-            }
-
-            Cell {
-                id: "5," + index;
-                is-writeable: true;
-                padding-left: 2px;
-                edit-clicked(cell-data) => {
-                    root.current-cell = cell-data;
-                    root.edit-window-visible = true;
-                    }
-                    text: address.zip;
+                }
             }
         }
     }
+       
     if (edit-window-visible):EditWindow {
-        cell: root.current-cell;
-        save(new-value) => {
+        x: current-cell.x;
+        y: current-cell.y;
+        current-cell: current-cell;
+         save(new-value) => {
             // Update the data model with new value
             root.edit-window-visible = false;
         }
-        close-window => {
+        close-editor => {
             root.edit-window-visible = false;
         }
     }
-        
+    
 }
