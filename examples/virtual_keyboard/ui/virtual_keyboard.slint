@@ -161,6 +161,8 @@ export global VirtualKeyboardHandler {
 export component VirtualKeyboard  {
     private property <bool> shift;
 
+    callback close();
+
     preferred-width: 100%;
 
     TouchArea {}
@@ -239,6 +241,14 @@ export component VirtualKeyboard  {
 
         HorizontalLayout {
             spacing: 4px;
+
+             VirtualKeyboardButton {
+                icon: Icons.expand-more;
+
+                key-pressed(key) => {
+                    root.close();
+                }
+            }
 
             VirtualKeyboardButton {
                 icon: Icons.globe;
