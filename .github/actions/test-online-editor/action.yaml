@@ -56,7 +56,7 @@ runs:
         - name: Install NPM dependencies
           uses: pnpm/action-setup@v4.0.0
           with:
-            version: 9.11.0
+            version: 10.3.0
           run: pnpm install --frozen-lockfile
           shell: bash
           working-directory: tools/slintpad
