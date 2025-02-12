@@ -17,8 +17,7 @@ def test_magic_import_path() -> None:
     oldsyspath = sys.path
     assert loader.printerdemo == None
     try:
-        sys.path.append(os.path.join(os.path.dirname(__file__),
-                        "..", "..", ".."))
+        sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
         instance = loader.demos.printerdemo.ui.printerdemo.MainWindow()
         del instance
     finally:

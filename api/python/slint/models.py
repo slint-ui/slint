@@ -25,7 +25,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     def __iter__(self) -> Iterator[T]:
         return ModelIterator(self)
-    
+
     def notify_row_changed(self, row: int) -> None:
         super().notify_row_changed(row)
 
@@ -38,8 +38,9 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def row_data(self, row: int) -> typing.Optional[T]:
         return cast(T, super().row_data(row))
 
+
 class ListModel[T](Model[T]):
-    def __init__(self, iterable: typing.Optional[Iterable[T]]=None):
+    def __init__(self, iterable: typing.Optional[Iterable[T]] = None):
         super().__init__()
         if iterable is not None:
             self.list = list(iterable)
@@ -49,7 +50,7 @@ class ListModel[T](Model[T]):
     def row_count(self) -> int:
         return len(self.list)
 
-    def row_data(self, row:int ) -> typing.Optional[T]:
+    def row_data(self, row: int) -> typing.Optional[T]:
         return self.list[row]
 
     def set_row_data(self, row: int, data: T) -> None:

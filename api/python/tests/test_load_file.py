@@ -14,10 +14,14 @@ def base_dir() -> str:
     assert base_dir is not None
     return base_dir
 
+
 def test_load_file(caplog: pytest.LogCaptureFixture) -> None:
     module = load_file(os.path.join(base_dir(), "test-load-file.slint"), quiet=False)
 
-    assert "The property 'color' has been deprecated. Please use 'background' instead" in caplog.text
+    assert (
+        "The property 'color' has been deprecated. Please use 'background' instead"
+        in caplog.text
+    )
 
     assert len(list(module.__dict__.keys())) == 6
     assert "App" in module.__dict__

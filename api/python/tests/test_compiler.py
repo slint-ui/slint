@@ -15,7 +15,8 @@ def test_basic_compiler() -> None:
 
     assert len(compiler.build_from_source("Garbage", "").component_names) == 0
 
-    result = compiler.build_from_source("""
+    result = compiler.build_from_source(
+        """
         export global TestGlobal {
             in property <string> theglobalprop;
             callback globallogic();
@@ -35,7 +36,9 @@ def test_basic_compiler() -> None:
             callback test-callback();
             public function ff() {}
         }
-    """, "")
+    """,
+        "",
+    )
     assert result.component_names == ["Test"]
     compdef = result.component("Test")
 
@@ -44,8 +47,16 @@ def test_basic_compiler() -> None:
     assert compdef.name == "Test"
 
     props = [(name, type) for name, type in compdef.properties.items()]
-    assert props == [('boolprop', ValueType.Bool), ('brushprop', ValueType.Brush), ('colprop', ValueType.Brush), ('floatprop', ValueType.Number),
-                     ('imgprop', ValueType.Image), ('intprop', ValueType.Number), ('modelprop', ValueType.Model), ('strprop', ValueType.String)]
+    assert props == [
+        ("boolprop", ValueType.Bool),
+        ("brushprop", ValueType.Brush),
+        ("colprop", ValueType.Brush),
+        ("floatprop", ValueType.Number),
+        ("imgprop", ValueType.Image),
+        ("intprop", ValueType.Number),
+        ("modelprop", ValueType.Model),
+        ("strprop", ValueType.String),
+    ]
 
     assert compdef.callbacks == ["test-callback"]
     assert compdef.functions == ["ff"]
@@ -53,8 +64,9 @@ def test_basic_compiler() -> None:
     assert compdef.globals == ["TestGlobal"]
 
     assert compdef.global_properties("Garbage") == None
-    assert [(name, type) for name, type in compdef.global_properties(
-        "TestGlobal").items()] == [('theglobalprop', ValueType.String)]
+    assert [
+        (name, type) for name, type in compdef.global_properties("TestGlobal").items()
+    ] == [("theglobalprop", ValueType.String)]
 
     assert compdef.global_callbacks("Garbage") == None
     assert compdef.global_callbacks("TestGlobal") == ["globallogic"]

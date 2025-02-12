@@ -5,7 +5,6 @@ from slint import slint as native
 from slint import Color, Brush
 
 
-
 def test_col_default() -> None:
     col = Color()
     assert col.red == 0
@@ -24,7 +23,7 @@ def test_col_from_str() -> None:
 
 
 def test_col_from_rgb_dict() -> None:
-    coldict = {'red': 0x12, 'green': 0x34, 'blue': 0x56}
+    coldict = {"red": 0x12, "green": 0x34, "blue": 0x56}
     col = Color(coldict)
     assert col.red == 0x12
     assert col.green == 0x34
@@ -33,7 +32,7 @@ def test_col_from_rgb_dict() -> None:
 
 
 def test_col_from_rgba_dict() -> None:
-    coldict = {'red': 0x12, 'green': 0x34, 'blue': 0x56, 'alpha': 128}
+    coldict = {"red": 0x12, "green": 0x34, "blue": 0x56, "alpha": 128}
     col = Color(coldict)
     assert col.red == 0x12
     assert col.green == 0x34
