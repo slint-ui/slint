@@ -549,7 +549,7 @@ struct TargetPixelBuffer
 
     virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
                                 const RgbaColor<uint8_t> &premultiplied_color) = 0;
-    virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height,
+    virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height, int16_t span_y,
                               const uint8_t *src, uint16_t src_stride, int16_t src_width,
                               int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
                               uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y,
@@ -726,15 +726,15 @@ public:
                                 Color::from_argb_uint8(alpha, red, green, blue));
                     },
             .draw_texture =
-                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t handle,
-                       const uint8_t *src, uint16_t src_stride, int16_t src_width,
+                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
+                       int16_t span_y, const uint8_t *src, uint16_t src_stride, int16_t src_width,
                        int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
                        uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y, uint32_t colorize,
                        uint8_t alpha, uint8_t rotation) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
-                        return buffer->draw_texture(x, y, width, handle, src, src_stride, src_width,
-                                                    src_height, src_pixel_format, src_dx, src_dy,
-                                                    src_off_x, src_off_y, colorize, alpha,
+                        return buffer->draw_texture(x, y, width, height, span_y, src, src_stride,
+                                                    src_width, src_height, src_pixel_format, src_dx,
+                                                    src_dy, src_off_x, src_off_y, colorize, alpha,
                                                     rotation);
                     }
         };
@@ -768,15 +768,15 @@ public:
                                 Color::from_argb_uint8(alpha, red, green, blue));
                     },
             .draw_texture =
-                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t handle,
-                       const uint8_t *src, uint16_t src_stride, int16_t src_width,
+                    [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
+                       int16_t span_y, const uint8_t *src, uint16_t src_stride, int16_t src_width,
                        int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
                        uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y, uint32_t colorize,
                        uint8_t alpha, uint8_t rotation) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
-                        return buffer->draw_texture(x, y, width, handle, src, src_stride, src_width,
-                                                    src_height, src_pixel_format, src_dx, src_dy,
-                                                    src_off_x, src_off_y, colorize, alpha,
+                        return buffer->draw_texture(x, y, width, height, span_y, src, src_stride,
+                                                    src_width, src_height, src_pixel_format, src_dx,
+                                                    src_dy, src_off_x, src_off_y, colorize, alpha,
                                                     rotation);
                     }
         };
