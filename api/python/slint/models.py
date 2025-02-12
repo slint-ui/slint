@@ -35,6 +35,9 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def notify_row_added(self, row: int, count: int) -> None:
         super().notify_row_added(row, count)
 
+    def set_row_data(self, row: int, value: T) -> None:
+        super().set_row_data(row, value)
+
     def row_data(self, row: int) -> typing.Optional[T]:
         return cast(T, super().row_data(row))
 
