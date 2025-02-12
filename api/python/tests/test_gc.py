@@ -10,12 +10,15 @@ import typing
 def test_callback_gc() -> None:
     compiler = native.Compiler()
 
-    compdef = compiler.build_from_source("""
+    compdef = compiler.build_from_source(
+        """
         export component Test {
             out property <string> test-value: "Ok";
             callback test-callback(string) -> string;
         }
-    """, "").component("Test")
+    """,
+        "",
+    ).component("Test")
     assert compdef != None
 
     instance: native.ComponentInstance | None = compdef.create()
@@ -30,8 +33,7 @@ def test_callback_gc() -> None:
 
     handler: Handler | None = Handler(instance)
     assert handler is not None
-    instance.set_callback(
-        "test-callback", handler.python_callback)
+    instance.set_callback("test-callback", handler.python_callback)
     handler = None
 
     assert instance.invoke("test-callback", "World") == "WorldOk"

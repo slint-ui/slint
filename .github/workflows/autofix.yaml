@@ -55,6 +55,14 @@ jobs:
               run: cargo xtask check_license_headers --fix-it
             - name: remove trailing whitespace
               run: git grep -I -l -O'sed -i "s/[[:space:]]*$//"' -e '' -- ':!*.patch'
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.12"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v5
+            - name: Format Python
+              working-directory: api/python
+              run: uv tool run ruff format
             - name: Suggest format changes
               uses: autofix-ci/action@551dded8c6cc8a1054039c8bc0b8b48c51dfc6ef
             - name: Build wasm-interpreter before type check

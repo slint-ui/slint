@@ -7,11 +7,11 @@ from slint.slint import ValueType, Image, Color, Brush
 import os
 
 
-
 def test_property_access() -> None:
     compiler = native.Compiler()
 
-    compdef = compiler.build_from_source("""
+    compdef = compiler.build_from_source(
+        """
         export global TestGlobal {
             in property <string> theglobalprop: "Hey";
             callback globallogic();
@@ -41,7 +41,9 @@ def test_property_access() -> None:
 
             callback test-callback();
         }
-    """, os.path.join(os.path.dirname(__file__), "main.slint")).component("Test")
+    """,
+        os.path.join(os.path.dirname(__file__), "main.slint"),
+    ).component("Test")
     assert compdef != None
 
     instance = compdef.create()
@@ -80,7 +82,8 @@ def test_property_access() -> None:
     assert structval.finished == True
     assert structval.dash_prop == True
     instance.set_property(
-        "structprop", {'title': 'new', 'finished': False, 'dash_prop': False})
+        "structprop", {"title": "new", "finished": False, "dash_prop": False}
+    )
     structval = instance.get_property("structprop")
     assert structval.title == "new"
     assert structval.finished == False
@@ -94,14 +97,23 @@ def test_property_access() -> None:
     with pytest.raises(RuntimeError, match="The image cannot be loaded"):
         Image.load_from_path("non-existent.png")
 
-    instance.set_property("imageprop", Image.load_from_path(os.path.join(
-        os.path.dirname(__file__), "../../../examples/iot-dashboard/images/humidity.png")))
+    instance.set_property(
+        "imageprop",
+        Image.load_from_path(
+            os.path.join(
+                os.path.dirname(__file__),
+                "../../../examples/iot-dashboard/images/humidity.png",
+            )
+        ),
+    )
     imageval = instance.get_property("imageprop")
     assert imageval.size == (36, 36)
     assert "humidity.png" in imageval.path
 
-    with pytest.raises(TypeError, match="'int' object cannot be converted to 'PyString'"):
-        instance.set_property("structprop", {42: 'wrong'})
+    with pytest.raises(
+        TypeError, match="'int' object cannot be converted to 'PyString'"
+    ):
+        instance.set_property("structprop", {42: "wrong"})
 
     brushval = instance.get_property("brushprop")
     assert str(brushval.color) == "argb(255, 255, 0, 255)"
@@ -128,7 +140,8 @@ def test_property_access() -> None:
 def test_callbacks() -> None:
     compiler = native.Compiler()
 
-    compdef = compiler.build_from_source("""
+    compdef = compiler.build_from_source(
+        """
         export global TestGlobal {
             callback globallogic(string) -> string;
             globallogic(value) => {
@@ -143,7 +156,9 @@ def test_callbacks() -> None:
             }
             callback void-callback();
         }
-    """, "").component("Test")
+    """,
+        "",
+    ).component("Test")
     assert compdef != None
 
     instance = compdef.create()
@@ -151,8 +166,7 @@ def test_callbacks() -> None:
 
     assert instance.invoke("test-callback", "foo") == "local foo"
 
-    assert instance.invoke_global(
-        "TestGlobal", "globallogic", "foo") == "global foo"
+    assert instance.invoke_global("TestGlobal", "globallogic", "foo") == "global foo"
 
     with pytest.raises(RuntimeError, match="no such callback"):
         instance.set_callback("non-existent", lambda x: x)
@@ -164,9 +178,12 @@ def test_callbacks() -> None:
         instance.set_global_callback("TestGlobal", "non-existent", lambda x: x)
 
     instance.set_global_callback(
-        "TestGlobal", "globallogic", lambda x: "python global " + x)
-    assert instance.invoke_global(
-        "TestGlobal", "globallogic", "foo") == "python global foo"
+        "TestGlobal", "globallogic", lambda x: "python global " + x
+    )
+    assert (
+        instance.invoke_global("TestGlobal", "globallogic", "foo")
+        == "python global foo"
+    )
 
     instance.set_callback("void-callback", lambda: None)
     instance.invoke("void-callback")
@@ -174,9 +191,8 @@ def test_callbacks() -> None:
 
 if __name__ == "__main__":
     import slint
-    module = slint.load_file(
-        "../../demos/printerdemo/ui/printerdemo.slint")
+
+    module = slint.load_file("../../demos/printerdemo/ui/printerdemo.slint")
     instance = module.MainWindow()
-    instance.PrinterQueue.start_job = lambda title: print(
-        f"new print job {title}")
+    instance.PrinterQueue.start_job = lambda title: print(f"new print job {title}")
     instance.run()

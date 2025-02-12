@@ -9,7 +9,8 @@ import typing
 def test_model_notify() -> None:
     compiler = native.Compiler()
 
-    compdef = compiler.build_from_source("""
+    compdef = compiler.build_from_source(
+        """
   export component App {
     width: 300px;
     height: 300px;
@@ -29,7 +30,9 @@ def test_model_notify() -> None:
     }
 
   }
-    """, "").component("App")
+    """,
+        "",
+    ).component("App")
     assert compdef != None
 
     instance = compdef.create()
@@ -37,8 +40,7 @@ def test_model_notify() -> None:
 
     model = models.ListModel([100, 0])
 
-    instance.set_property(
-        "fixed-height-model", model)
+    instance.set_property("fixed-height-model", model)
 
     assert instance.get_property("layout-height") == 100
     model.set_row_data(1, 50)
@@ -48,18 +50,20 @@ def test_model_notify() -> None:
     del model[1:]
     assert instance.get_property("layout-height") == 100
 
-    assert isinstance(instance.get_property(
-        "fixed-height-model"), models.ListModel)
+    assert isinstance(instance.get_property("fixed-height-model"), models.ListModel)
 
 
 def test_model_from_list() -> None:
     compiler = native.Compiler()
 
-    compdef = compiler.build_from_source("""
+    compdef = compiler.build_from_source(
+        """
   export component App {
     in-out property<[int]> data: [1, 2, 3, 4];
   }
-    """, "").component("App")
+    """,
+        "",
+    ).component("App")
     assert compdef != None
 
     instance = compdef.create()
@@ -100,11 +104,14 @@ def test_python_model_iterable() -> None:
 def test_rust_model_sequence() -> None:
     compiler = native.Compiler()
 
-    compdef = compiler.build_from_source("""
+    compdef = compiler.build_from_source(
+        """
   export component App {
     in-out property<[int]> data: [1, 2, 3, 4, 5];
   }
-    """, "").component("App")
+    """,
+        "",
+    ).component("App")
     assert compdef != None
 
     instance = compdef.create()
@@ -120,7 +127,8 @@ def test_rust_model_sequence() -> None:
 def test_model_writeback() -> None:
     compiler = native.Compiler()
 
-    compdef = compiler.build_from_source("""
+    compdef = compiler.build_from_source(
+        """
   export component App {
     width: 300px;
     height: 300px;
@@ -132,7 +140,9 @@ def test_model_writeback() -> None:
     }
 
   }
-    """, "").component("App")
+    """,
+        "",
+    ).component("App")
     assert compdef != None
 
     instance = compdef.create()
@@ -140,8 +150,7 @@ def test_model_writeback() -> None:
 
     model = models.ListModel([100, 0])
 
-    instance.set_property(
-        "model", model)
+    instance.set_property("model", model)
 
     instance.invoke("write-to-model", 1, 42)
     assert list(instance.get_property("model")) == [100, 42]

@@ -19,7 +19,7 @@ def base_dir() -> str:
 def test_callback_decorators(caplog: pytest.LogCaptureFixture) -> None:
     module = load_file(os.path.join(base_dir(), "test-load-file.slint"), quiet=False)
 
-    class SubClass(module.App): # type: ignore
+    class SubClass(module.App):  # type: ignore
         @slint.callback()
         def say_hello_again(self, arg: str) -> str:
             return "say_hello_again:" + arg
