@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 import { Palette, Button, LineEdit, CheckBox } from "std-widgets.slint";
 import { EditorSpaceSettings, EditorSizeSettings } from "styling.slint";
 export struct AddressData {
@@ -102,7 +105,7 @@ export component EditWindow inherits Rectangle {
     HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
-        // if (current-cell.value.kind == "text"): 
+        // if (current-cell.value.kind == "text"):
         StringEdit {
             current-cell: current-cell;
             save(new-value) => {
@@ -162,7 +165,7 @@ component Cell inherits Rectangle {
                 value: { kind: "text", text-value: root.text, number-value: 0.0, bool-value: false },
                 row: 0,
                 col: 0
-            });  
+            });
         }
     }
 }
