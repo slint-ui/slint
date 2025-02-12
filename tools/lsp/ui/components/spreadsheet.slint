@@ -4,11 +4,11 @@
 import { Palette, Button, LineEdit, CheckBox } from "std-widgets.slint";
 import { EditorSpaceSettings, EditorSizeSettings } from "styling.slint";
 import { Api, ColorData, ElementInformation, RuntimeComponent, RuntimeProperty, NamedPropertyValue, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
-import { RuntimePropertyValueWidget } from "../components/property-widgets.slint";
+import { PropertyValueWidget } from "../components/property-widgets.slint";
 
 export struct CellData {
     id: string,
-    runtime-property: RuntimeProperty,
+    value: PropertyValue,
     row: int,
     col: int,
     x: length,
@@ -22,10 +22,6 @@ export component StringEdit {
     in property <bool> is-visible;
     callback save(string);
     callback close-editor();
-    function on-open() {
-        editor.focus();
-        editor.select-all();
-    }
 
     TouchArea {
         width: parent.width;
@@ -93,33 +89,11 @@ export component EditWindow inherits Rectangle {
     HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
-        // if (current-cell.value.kind == "text"):
-        StringEdit {
-            current-cell: current-cell;
-            save(new-value) => {
-                save(new-value)
-            }
-            close-editor => {
-                close-editor()
-            }
+        PropertyValueWidget {
+            property-value: current-cell.value;
+            property-name: "";
+            enabled: true;
         }
-        // if (current-cell.value.kind == "boolean"): CheckBox {
-        //     text: "Yes";
-        //     checked: current-cell.value.bool-value;
-        //     toggled => {
-        //         save(self.checked ? "true" : "false");
-        //     }
-        // }
-        // if (current-cell.value.kind == PropertyValueKind.string): 
-        // StringEdit {
-        //     current-cell: current-cell;
-        //     save(new-value) => {
-        //         save(new-value)
-        //     }
-        //     close-editor => {
-        //         close-editor()
-        //     }
-        // }
     }
 }
 
@@ -160,12 +134,7 @@ component Cell inherits Rectangle {
         clicked => {
             root.edit-clicked({
                 id: root.id,
-                value: {
-                    kind: PropertyValueKind.string,
-                    value-string: root.text,
-                    value-float: 0.0,
-                    value-bool: false
-                },
+                value: cell-data.value,
                 row: 0,
                 col: 0
             });
@@ -175,7 +144,7 @@ component Cell inherits Rectangle {
 
 export component Spreadsheet inherits Rectangle {
     in-out property <RuntimeProperty> runtime-property: Api.runtime-components[0].properties[1];
-    property <CellData> current-cell: defaults.cell-default;
+    property <CellData> current-cell;
     property <bool> edit-window-visible: false;
 
     width: self.preferred-width;
@@ -192,7 +161,6 @@ export component Spreadsheet inherits Rectangle {
         for data-row[row] in root.runtime-property.array-values: HorizontalLayout {
             for value[col] in data-row: Cell {
                 text: value.value-string;
-                // text: value.kind == PropertyValueKind.boolean ? (value.value-bool ? "Yes" : "No") : value.kind == PropertyValueKind.string ? value.value-string : value.kind == PropertyValueKind.float ? value.value-float : "";
                 is-writeable: true;
                 edit-clicked(data) => {
                     root.current-cell = {
