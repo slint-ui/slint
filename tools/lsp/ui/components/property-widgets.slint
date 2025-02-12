@@ -26,7 +26,7 @@ component NameLabel inherits HorizontalLayout {
 
     BodyText {
         min-width: EditorSizeSettings.min-prefix-text-width;
-
+        height: root.property-name != "" ? self.preferred-height : 0;
         text: root.property-name;
 
         font-size: 1rem;
@@ -148,7 +148,7 @@ component ChildIndicator {
 
             indicator := Image {
                 colorize: Palette.foreground;
-                visible: expand.has-hover;
+                opacity: expand.has-hover ? 0.9 : 0.15;
                 source: Icons.chevron-down;
                 width: 16px;
                 height: 16px;
