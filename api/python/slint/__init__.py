@@ -238,7 +238,7 @@ def load_file(
         typing.List[str | os.PathLike[Any] | pathlib.Path]
     ] = None,
     translation_domain: typing.Optional[str] = None,
-) -> Any:
+) -> types.SimpleNamespace:
     compiler = native.Compiler()
 
     if style is not None:
