@@ -1,4 +1,7 @@
-import { Palette, Button, LineEdit } from "std-widgets.slint";
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, Button, LineEdit, CheckBox } from "std-widgets.slint";
 import { EditorSpaceSettings, EditorSizeSettings } from "styling.slint";
 export struct AddressData {
     type: string,
@@ -15,34 +18,21 @@ export struct CellData {
     x: length,
     y: length,
     width: length,
-    height: length
-}
+    height: length}
 
-export component EditWindow inherits Rectangle {
-    in property <CellData> current-cell: {
-        id: "",
-        value: "",
-        row: 0,
-        col: 0,
-        x: 0px,
-        y: 0px,
-        width: 0px,
-        height: 0px
-    };
+export component StringEdit {
+    in property <CellData> current-cell: { id: "", value: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
+    in property <bool> is-visible;
     callback save(string);
     callback close-editor();
-    
-    drop-shadow-blur: 10px;
-    drop-shadow-color: black.transparentize(0.5);
-    drop-shadow-offset-x: 0;
-    drop-shadow-offset-y: 0;
-    border-radius:EditorSizeSettings.radius;
-    width: self.preferred-width;
-    height: self.preferred-height;
-    background: Palette.alternate-background;
-    forward-focus: editor ;
-       // Add TouchArea as first child
-    TouchArea {
+
+    init => {
+        editor.focus();
+        editor.select-all();
+    }
+
+           // Add TouchArea as first child
+           TouchArea {
         width: parent.width;
         height: parent.height;
         clicked => {
@@ -51,35 +41,100 @@ export component EditWindow inherits Rectangle {
     }
 
     HorizontalLayout {
+        alignment: LayoutAlignment.stretch;
+        spacing: EditorSpaceSettings.default-spacing * 2;
+        Rectangle {
+            width: self.preferred-width;
+            VerticalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                editor := LineEdit {
+                    text: current-cell.value;
+                    accepted() => {
+                        save(self.text)
+                    }
+                    key-pressed(event) => {
+                        if (event.text == Key.Escape) {
+                            close-editor();
+                            return accept;
+                        }
+                        if (event.text == Key.Return) {
+                            save(editor.text);
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    CheckBox {
+                        text: "Translatable";
+                        checked: false;
+                    }
+
+                    CheckBox {
+                        text: "Bold";
+                        checked: false;
+                    }
+                }
+            }
+        }
+
+        /*
+        HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing/2;
+            VerticalLayout {
+                alignment: end;
+
+                Button {
+                    height: 30px;
+                    text: "Save";
+                    clicked => {
+                        save(editor.text)
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: end;
+                Button {
+                    height: 30px;
+                    text: "Cancel";
+                    clicked => {
+                        close-editor()
+                    }
+                }
+            }
+        }
+        */
+    }
+}
+
+export component EditWindow inherits Rectangle {
+    in property <CellData> current-cell: { id: "", value: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
+    drop-shadow-blur: 10px;
+    drop-shadow-color: black.transparentize(0.5);
+    drop-shadow-offset-x: 0;
+    drop-shadow-offset-y: 0;
+    border-radius: EditorSizeSettings.radius;
+    width: self.preferred-width;
+    height: self.preferred-height;
+    background: Palette.alternate-background;
+    callback save(string);
+    callback close-editor();
+
+    HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
-        forward-focus: editor ;
-        editor := LineEdit {
-            text: current-cell.value;
-            accepted() => {
-                save(self.text)
+        editor := StringEdit {
+            current-cell: current-cell;
+            save(new-value) => {
+                save(new-value)
+            }
+            close-editor => {
+                close-editor()
             }
         }
-
-        HorizontalLayout {
-            spacing: EditorSpaceSettings.default-spacing;
-            Button {
-                height: 30px;
-                text: "Save";
-                clicked => {
-                    save(editor.text)
-                }
-            }
-
-            Button {
-                height: 30px;
-                text: "Cancel";
-                clicked => {
-                    close-editor()
-                }
-            }
-        }
-    
     }
 }
 
@@ -101,13 +156,16 @@ component Cell inherits Rectangle {
     background: is-header ? Palette.foreground.transparentize(0.9) : bg-color;
     HorizontalLayout {
         Rectangle {
-            width: EditorSpaceSettings.default-padding;
+            width: EditorSpaceSettings.default-padding / 2;
         }
+
         Text {
             font-weight: is-header ? 700 : 400;
-            width: root.width;
+            width: root.width - EditorSpaceSettings.default-padding;
             height: root.height;
+            horizontal-alignment: TextHorizontalAlignment.left;
             vertical-alignment: center;
+            overflow: TextOverflow.elide;
             text: root.text;
         }
     }
@@ -115,15 +173,10 @@ component Cell inherits Rectangle {
     if is-writeable: TouchArea {
         clicked => {
             if (root.is-writeable) {
-                root.edit-clicked({
-                    id: root.id,
-                    value: root.text,
-                    row: 0,
-                    col: 0
-                });
+                root.edit-clicked({ id: root.id, value: root.text, row: 0, col: 0 });
             }
         }
-        }
+    }
 }
 
 export component Spreadsheet inherits Rectangle {
@@ -133,22 +186,11 @@ export component Spreadsheet inherits Rectangle {
         { type: "history", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226" },
         { type: "world", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" }
     ];
-    property <CellData> current-cell: {
-        id: "",
-        value: "",
-        row: 0,
-        col: 0,
-        x: 0px,
-        y: 0px,
-        width: 0px,
-        height: 0px
-    };
+    property <CellData> current-cell: { id: "", value: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
     property <bool> edit-window-visible: false;
 
     width: self.preferred-width;
     height: self.preferred-height;
-
-
 
     VerticalLayout {
         HorizontalLayout {
@@ -157,15 +199,9 @@ export component Spreadsheet inherits Rectangle {
                 text: header;
             }
         }
-        
+
         for address[row] in addresses: HorizontalLayout {
-            for cell[col] in [
-                address.type, 
-                address.street, 
-                address.city, 
-                address.state, 
-                address.zip
-            ]: Cell {
+            for cell[col] in [address.type, address.street, address.city, address.state, address.zip]: Cell {
                 text: cell;
                 is-writeable: true;
                 edit-clicked(data) => {
@@ -184,11 +220,10 @@ export component Spreadsheet inherits Rectangle {
             }
         }
     }
-       
-    
+
     if (edit-window-visible): ew := EditWindow {
-        x: current-cell.x;
-        y: current-cell.y;
+        x: current-cell.x - EditorSpaceSettings.default-padding;
+        y: current-cell.y - EditorSpaceSettings.default-padding/2;
         current-cell: current-cell;
         save(new-value) => {
             // Update the specific field based on col index
@@ -208,5 +243,5 @@ export component Spreadsheet inherits Rectangle {
         close-editor => {
             root.edit-window-visible = false;
         }
-    }    
+    }
 }
