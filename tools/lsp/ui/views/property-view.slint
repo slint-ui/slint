@@ -9,9 +9,9 @@ import { Api, ColorData, ElementInformation, RuntimeComponent, PropertyDeclarati
 import { GroupHeader } from "../components/group.slint";
 import { EditorSizeSettings, EditorSpaceSettings } from "../components/styling.slint";
 
-import { ExpandableGroup, PropertyValueWidget } from "../components/property-widgets.slint";
+import { ExpandableGroup, PropertyInformationWidget } from "../components/property-widgets.slint";
 
-export component PropertyView inherits ScrollView{
+export component PropertyView inherits ScrollView {
 
     property <ElementInformation> element-information <=> Api.current-element;
     property <[PropertyGroup]> properties <=> Api.properties;
@@ -49,7 +49,7 @@ export component PropertyView inherits ScrollView{
                         padding-top: EditorSpaceSettings.default-padding;
                         padding-bottom: EditorSpaceSettings.default-padding;
 
-                        for property in eg.properties: PropertyValueWidget {
+                        for property in eg.properties: PropertyInformationWidget {
                             enabled: root.enabled;
                             element-information <=> root.element-information;
                             property-information: property;
