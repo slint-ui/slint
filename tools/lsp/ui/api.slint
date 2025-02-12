@@ -407,6 +407,7 @@ export global Api {
     ];
 
     // ## Runtime properties
+    
     in-out property <[RuntimeComponent]> runtime-components: [
         {
             component-name: "Fruits",
@@ -428,27 +429,127 @@ export global Api {
                     ],
                 },
                 {
-                    name: "BananaGetter",
+                    name: "Addresses",
                     has-getter: true,
-                    has-setter: false,
+                    has-setter: true,
                     is-array: true,
                     prefer-json: false,
                     values: [
                         {
-                            name: "peel",
+                            name: "type",
                             value: {
-                                kind: PropertyValueKind.boolean,
-                                value-bool: true,
+                                kind: PropertyValueKind.string,
                             }
                         },
                         {
-                            name: "fruit",
+                            name: "street",
                             value: {
                                 kind: PropertyValueKind.string,
-                                value-string: "banananananana"
+                            }
+                        },                        
+                        {
+                            name: "city",
+                            value: {
+                                kind: PropertyValueKind.string,
+                            }
+                        },                        
+                        {
+                            name: "state",
+                            value: {
+                                kind: PropertyValueKind.string,
+                            }
+                        },                       
+                        {
+                            name: "zip",
+                            value: {
+                                kind: PropertyValueKind.string,
+                            }
+                        },
+                        {
+                            name: "favorite",
+                            value: {
+                                kind: PropertyValueKind.boolean,
                             }
                         }
                     ],
+                    array-values: [[{
+                        kind: PropertyValueKind.string,
+                        value-string: "home"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "123 Oak Lane"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "Richmond"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "VA"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "23226"
+                    }, {
+                        kind: PropertyValueKind.boolean,
+                        value-bool: true,
+                        value-string: "True"
+                    }], [{
+                        kind: PropertyValueKind.string,
+                        value-string: "work"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "456 Corporate Blvd"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "Richmond"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "VA"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "23219"
+                    }, {
+                        kind: PropertyValueKind.boolean,
+                        value-bool: false,
+                        value-string: "False"
+                    }], [{
+                        kind: PropertyValueKind.string,
+                        value-string: "history"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "123 Oak Lane"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "Richmond"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "VA"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "23226"
+                    }, {
+                        kind: PropertyValueKind.boolean,
+                        value-bool: false,
+                        value-string: "False"
+                    }], [{
+                        kind: PropertyValueKind.string,
+                        value-string: "world"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "456 Corporate Blvd"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "Richmond"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "VA"
+                    }, {
+                        kind: PropertyValueKind.string,
+                        value-string: "23219"
+                    }, {
+                        kind: PropertyValueKind.boolean,
+                        value-bool: false,
+                        value-string: "False"
+                    }]
+                    ]
                 },
                 {
                     name: "BananaGetter",
