@@ -131,9 +131,3 @@ class Timer:
     def set_interval(self, interval:datetime.timedelta) -> None:
         ...
 
-
-@overload
-def callback(func: Callable[..., Any], /) -> Callable[..., Any]: ...
-
-@overload
-def callback(*, global_name: typing.Optional[str], name: typing.Optional[str]) -> Callable[..., Any]: ...
