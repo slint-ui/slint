@@ -199,7 +199,7 @@ impl CompilationResult {
 
 #[gen_stub_pyclass]
 #[pyclass(unsendable)]
-struct ComponentDefinition {
+pub struct ComponentDefinition {
     definition: slint_interpreter::ComponentDefinition,
 }
 
