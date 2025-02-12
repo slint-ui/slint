@@ -131,3 +131,22 @@ class Timer:
     def set_interval(self, interval:datetime.timedelta) -> None:
         ...
 
+def set_xdg_app_id(app_id: str):
+    ...
+
+class PyModelBase:
+    ...
+
+class PyStruct:
+    ...
+
+
+class ValueType(Enum):
+    Void = auto()
+    Number = auto()
+    String = auto()
+    Bool = auto()
+    Model = auto()
+    Struct = auto()
+    Brush = auto()
+    Image = auto()
