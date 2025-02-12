@@ -3,9 +3,11 @@
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::collections::HashMap;
 
+#[gen_stub_pyclass]
 pub struct PyValue(pub slint_interpreter::Value);
 struct PyValueRef<'a>(&'a slint_interpreter::Value);
 
@@ -120,12 +122,14 @@ impl From<slint_interpreter::Value> for PyValue {
     }
 }
 
+#[gen_stub_pyclass]
 #[pyclass(subclass, unsendable)]
 #[derive(Clone, Default)]
 pub struct PyStruct {
     data: slint_interpreter::Struct,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyStruct {
     #[new]
@@ -171,11 +175,13 @@ impl From<slint_interpreter::Struct> for PyStruct {
     }
 }
 
+#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 struct PyStructFieldIterator {
     inner: std::collections::hash_map::IntoIter<String, slint_interpreter::Value>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyStructFieldIterator {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {

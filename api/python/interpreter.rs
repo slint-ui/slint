@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use pyo3_stub_gen::derive::gen_stub_pyclass_enum;
 use slint_interpreter::{ComponentHandle, Value};
 
 use i_slint_compiler::langtype::Type;
@@ -244,6 +245,7 @@ impl ComponentDefinition {
     }
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(name = "ValueType")]
 pub enum PyValueType {
     Void,
