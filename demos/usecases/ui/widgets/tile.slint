@@ -1,0 +1,191 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+import { CosmicFontSettings } from "styling.slint";
+
+export struct BarTileModel {
+    title: string,
+    icon: image,
+    max: int,
+    min: int,
+    absolute-min: int,
+    absolute-max: int,
+    unit: string,
+}
+
+component ValueLabel {
+    in property <string> text;
+    in property <string> unit;
+
+    HorizontalLayout {
+        Text {
+            color: Palette.foreground;
+            vertical-stretch: 0;
+            horizontal-alignment: right;
+            text: root.text;
+            font-size: CosmicFontSettings.body-strong.font-size;
+            font-weight: CosmicFontSettings.body-strong.font-weight;
+        }
+
+        Text {
+            color: Palette.foreground;
+            vertical-stretch: 0;
+            horizontal-alignment: left;
+            text: "°";
+            font-size: CosmicFontSettings.body-strong.font-size;
+            font-weight: CosmicFontSettings.body-strong.font-weight;
+        }
+    }
+}
+
+component BarTile {
+    in property <string> title <=> i-title.text;
+    in property <image> icon <=> i-icon.source;
+    in property <float> max;
+    in property <float> min;
+    in property <string> unit;
+    in property <float> absolute-min;
+    in property <float> absolute-max;
+
+    HorizontalLayout {
+        alignment: center;
+
+        VerticalLayout {
+            spacing: 7px;
+
+            i-title := Text {
+                color: Palette.foreground;
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                font-size: CosmicFontSettings.body-strong.font-size;
+                font-weight: CosmicFontSettings.body-strong.font-weight;
+            }
+
+            i-icon := Image {
+                height: 20px;
+                vertical-stretch: 0;
+                colorize: Palette.accent-background;
+            }
+
+            ValueLabel {
+                text: floor(max);
+                unit: unit;
+            }
+
+            Rectangle {
+                private property <int> range: root.absolute-max - root.absolute-min;
+                private property <length> max-y: self.height * (root.max - root.absolute-min) / range;
+                private property <length> min-y: self.height * (root.min - root.absolute-min) / range;
+
+                vertical-stretch: 1;
+
+                HorizontalLayout {
+                    alignment: center;
+                    y: parent.height - max-y;
+                    height: max-y - min-y;
+
+                    Rectangle {
+                        min_width: 12px;
+                        border-radius: 6px;
+
+                        background: Palette.accent-background;
+                    }
+                }
+            }
+
+            ValueLabel {
+                text: floor(min);
+                unit: unit;
+            }
+        }
+    }
+}
+
+
+
+export component BarTiles {
+    in property <[BarTileModel]> model;
+    in property <bool> active;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    HorizontalLayout {
+        padding-right: 16px;
+        padding-left: 16px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+
+        for tile in model : BarTile {
+            private property <float> display-max: tile.max;
+
+            horizontal-stretch: 1;
+            title: tile.title;
+            icon: tile.icon;
+            min: tile.min;
+            absolute-min: tile.absolute-min;
+            absolute-max: tile.absolute-max;
+            unit: tile.unit;
+
+            states [
+                active when active : {
+                    max: display-max;
+
+                    in {
+                        animate max { duration: 240ms; easing: cubic-bezier(0, 0, 0, 1); }
+                    }
+                }
+            ]
+        }
+    }
+}
+
+export component Tile {
+    in property <image> icon <=> i-icon.source;
+    in property <string> value <=> i-value.text;
+    in property <string> text <=> i-text.text;
+    in property <string> sub-text <=> i-sub-text.text;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 1;
+
+    VerticalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 8px;
+        alignment: center;
+
+        i-icon := Image {
+            height: 34px;
+            horizontal-alignment: center;
+            colorize: Palette.foreground;
+            image-fit: contain;
+        }
+
+        i-value := Text {
+            horizontal-alignment: center;
+            color: Palette.foreground;
+            font-size: CosmicFontSettings.title-2.font-size;
+            font-weight: CosmicFontSettings.title-2.font-weight;
+        }
+
+        VerticalLayout {
+            i-text := Text {
+                horizontal-alignment: center;
+                color: Palette.foreground;
+                font-size: CosmicFontSettings.body-strong.font-size;
+                font-weight: CosmicFontSettings.body-strong.font-weight;
+            }
+
+            i-sub-text := Text {
+                horizontal-alignment: center;
+                color: Palette.accent-background;
+                font-size: CosmicFontSettings.body-strong.font-size;
+                font-weight: CosmicFontSettings.body-strong.font-weight;
+            }
+        }
+    }
+}

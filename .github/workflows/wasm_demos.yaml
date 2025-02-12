@@ -46,7 +46,7 @@ jobs:
             - name: Remaining wasm demos
               if: ${{ inputs.build_artifacts }}
               run: |
-                  for demo in demos/printerdemo/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust; do
+                  for demo in demos/printerdemo/rust demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust; do
                       pushd $demo
                       sed -i "s/#wasm# //" Cargo.toml
                       wasm-pack build --release --target web
@@ -82,6 +82,7 @@ jobs:
                       demos/energy-monitor/
                       demos/home-automation/rust
                       demos/weather-demo/
+                      demos/usecases/rust
                       !/**/.gitignore
             - name: Clean cache # Otherwise the cache is much too big
               run: |

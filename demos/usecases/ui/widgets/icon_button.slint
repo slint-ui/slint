@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+import { StateContainer } from "container.slint";
+
+export component IconButton {
+    callback clicked <=> state-container.clicked;
+
+    in property <image> icon <=> icon.source;
+
+    width: self.height;
+    min-height: 32px;
+
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+
+    state-container := StateContainer {
+        background: transparent;
+        border-radius: max(self.width, self.height) / 2;
+        icon := Image {
+            height: 16px;
+            colorize: Palette.foreground;
+        }
+    }
+}

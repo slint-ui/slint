@@ -1,0 +1,91 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListView, Palette, VerticalBox } from "std-widgets.slint";
+import { StateContainer } from "container.slint";
+
+export component CardListItem {
+    callback clicked <=> state-container.clicked;
+
+    in property <string> title <=> title.text;
+    in property <string> sub-title <=> sub-title.text;
+    in property <string> note <=> note.text;
+    in property <string> caption <=> caption.text;
+    in property <bool> selected <=> state-container.checked;
+
+    min-height: max(41px, layout.min-height);
+
+    layout :=  HorizontalLayout {
+        padding-bottom: 8px;
+
+        state-container := StateContainer {
+            VerticalBox {
+                padding: 16px;
+
+                HorizontalLayout {
+                    spacing: 4px;
+
+                    title := Text {
+                        horizontal-stretch: 1;
+                        color: Palette.foreground;
+                        font-size: 10px;
+                        font-weight: 400;
+                        overflow: elide;
+                    }
+
+                    note := Text {
+                        horizontal-stretch: 0;
+                        color: Palette.foreground;
+                        font-size: 10px;
+                        font-weight: 400;
+                    }
+                }
+
+                sub-title := Text {
+                    horizontal-stretch: 1;
+                    color: Palette.foreground;
+                    font-size: 14px;
+                    font-weight: 600;
+                    overflow: elide;
+                }
+
+                caption := Text {
+                    height: 40px;
+                    wrap: word-wrap;
+                    overflow: elide;
+                    color: Palette.foreground;
+                    font-size: 14px;
+                    font-weight: 400;
+                }
+            }
+        }
+    }
+}
+
+export struct CardListViewItem {
+    title: string,
+    sub-title: string,
+    note: string,
+    caption: string
+}
+
+export component CardListView inherits ListView {
+    callback current-item-changed(/* current-item */ int);
+
+    in property <[CardListViewItem]> model;
+    in-out property <int> current-item;
+
+    for item[index] in root.model : CardListItem {
+        height: self.min-height;
+        title: item.title;
+        sub-title: item.sub-title;
+        note: item.note;
+        caption: item.caption;
+        selected: index == root.current-item;
+
+        clicked => {
+            root.current-item = index;
+            root.current-item-changed(index);
+        }
+    }
+}
