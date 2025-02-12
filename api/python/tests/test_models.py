@@ -3,9 +3,10 @@
 
 from slint import slint as native
 from slint import models as models
+import typing
 
 
-def test_model_notify():
+def test_model_notify() -> None:
     compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
@@ -51,7 +52,7 @@ def test_model_notify():
         "fixed-height-model"), models.ListModel)
 
 
-def test_model_from_list():
+def test_model_from_list() -> None:
     compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
@@ -73,7 +74,7 @@ def test_model_from_list():
     assert list(instance.get_property("data")) == [1, 2, 3, 4]
 
 
-def test_python_model_sequence():
+def test_python_model_sequence() -> None:
     model = models.ListModel([1, 2, 3, 4, 5])
 
     assert len(model) == 5
@@ -83,8 +84,8 @@ def test_python_model_sequence():
     assert model[2] == 3
 
 
-def test_python_model_iterable():
-    def test_generator(max):
+def test_python_model_iterable() -> None:
+    def test_generator(max: int) -> typing.Iterator[int]:
         i = 0
         while i < max:
             yield i
@@ -96,7 +97,7 @@ def test_python_model_iterable():
     assert list(model) == [0, 1, 2, 3, 4]
 
 
-def test_rust_model_sequence():
+def test_rust_model_sequence() -> None:
     compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
@@ -116,7 +117,7 @@ def test_rust_model_sequence():
     assert model[2] == 3
 
 
-def test_model_writeback():
+def test_model_writeback() -> None:
     compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""

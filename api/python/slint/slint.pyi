@@ -9,7 +9,7 @@ import datetime
 import os
 import pathlib
 import typing
-from typing import Any, overload
+from typing import Any, List
 from collections.abc import Callable
 from enum import Enum, auto
 
@@ -31,7 +31,7 @@ class Color:
     green: builtins.int
     blue: builtins.int
     alpha: builtins.int
-    def __new__(cls,maybe_value:typing.Optional[builtins.str | RgbaColor | RgbColor]): ...
+    def __new__(cls,maybe_value:typing.Optional[builtins.str | RgbaColor | RgbColor | typing.Dict[str, int]] = None): ...
     def brighter(self, factor:builtins.float) -> "Color":
         ...
 
@@ -111,7 +111,7 @@ class TimerMode(Enum):
 
 
 class Timer:
-    def __new__(cls,): ...
+    def __new__(cls,) -> "Timer": ...
     def start(self, mode:TimerMode, interval:datetime.timedelta, callback:typing.Any) -> None:
         ...
 
@@ -134,10 +134,14 @@ class Timer:
 def set_xdg_app_id(app_id: str):
     ...
 
+def run_event_loop() -> None: ...
+
+def quit_event_loop() -> None: ...
+
 class PyModelBase:
     ...
 
-class PyStruct:
+class PyStruct(Any):
     ...
 
 
@@ -150,3 +154,48 @@ class ValueType(Enum):
     Struct = auto()
     Brush = auto()
     Image = auto()
+
+class DiagnosticLevel(Enum):
+    Error = auto()
+    Warning = auto()
+
+class PyDiagnostic:
+    level: DiagnosticLevel
+    message: str
+    line_number: int
+    column_number: int
+    source_file: typing.Optional[str]
+
+
+class ComponentInstance:
+    def invoke(self, callback_name: str, *args): ...
+    def invoke_global(self, global_name: str, callback_name: str, *args): ...
+    def set_property(self, property_name: str, value: Any): ...
+    def get_property(self, property_name: str): ...
+    def set_callback(self, callback_name: str, callback: Callable[..., Any]): ...
+    def set_global_callback(self, global_name: str, callback_name: str, callback: Callable[..., Any]): ...
+    def set_global_property(self, global_name: str, property_name: str, value: Any): ...
+    def get_global_property(self, global_name: str, property_name: str): ...
+
+
+class ComponentDefinition:
+    def create(self) -> ComponentInstance: ...
+    name: str
+    globals: list[str]
+    functions: list[str]
+    callbacks: list[str]
+    properties: dict[str, ValueType]
+    def global_functions(self, global_name: str) -> list[str]: ...
+    def global_callbacks(self, global_name: str) -> list[str]: ...
+    def global_properties(self, global_name: str) -> typing.Dict[str, ValueType]: ...
+
+
+class CompilationResult:
+    component_names: list[str]
+    diagnostics: list[PyDiagnostic]
+    def component(self, name: str) -> ComponentDefinition: ...
+
+class Compiler:
+    include_paths: list[str]
+    def build_from_path(self, path:str) -> CompilationResult: ...
+    def build_from_source(self, source:str, path: str) -> CompilationResult: ...

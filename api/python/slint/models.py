@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 from . import slint as native
+from collections.abc import Iterable
+import typing
 
 
-class Model(native.PyModelBase):
+class Model[T](native.PyModelBase):
     def __new__(cls, *args):
         return super().__new__(cls)
 
-    def __init__(self, lst=None):
+    def __init__(self):
         self.init_self(self)
 
     def __len__(self):
@@ -24,25 +26,25 @@ class Model(native.PyModelBase):
         return ModelIterator(self)
 
 
-class ListModel(Model):
-    def __init__(self, iterable=None):
+class ListModel[T](Model):
+    def __init__(self, iterable: typing.Optional[Iterable[T]]=None):
         super().__init__()
         if iterable is not None:
             self.list = list(iterable)
         else:
             self.list = []
 
-    def row_count(self):
+    def row_count(self) -> int:
         return len(self.list)
 
-    def row_data(self, row):
+    def row_data(self, row:int ) -> typing.Optional[T]:
         return self.list[row]
 
-    def set_row_data(self, row, data):
+    def set_row_data(self, row: int, data: T):
         self.list[row] = data
         super().notify_row_changed(row)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: int | slice):
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self.list))
             del self.list[key]
@@ -52,7 +54,7 @@ class ListModel(Model):
             del self.list[key]
             super().notify_row_removed(key, 1)
 
-    def append(self, value):
+    def append(self, value: T):
         index = len(self.list)
         self.list.append(value)
         super().notify_row_added(index, 1)

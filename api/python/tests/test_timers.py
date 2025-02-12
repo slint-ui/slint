@@ -6,10 +6,13 @@ from slint import slint as native
 from slint.slint import ValueType;
 from datetime import timedelta
 
-def test_timer():
+counter: int
+
+
+def test_timer() -> None:
     global counter
     counter = 0
-    def quit_after_two_invocations():
+    def quit_after_two_invocations() -> None:
         global counter
         counter = min(counter + 1, 2)
         if counter == 2:
@@ -21,6 +24,6 @@ def test_timer():
     test_timer.stop()
     assert(counter == 2)
 
-def test_single_shot():
+def test_single_shot() -> None:
     native.Timer.single_shot(timedelta(milliseconds=100), native.quit_event_loop)
     native.run_event_loop()

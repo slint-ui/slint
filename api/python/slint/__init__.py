@@ -13,6 +13,9 @@ import types
 import logging
 import importlib
 import copy
+import typing
+import builtins
+import pathlib
 from .models import ListModel, Model
 from .slint import Image, Color, Brush, Timer, TimerMode
 
@@ -215,7 +218,7 @@ def _build_struct(name, struct_prototype):
     return type(name, (), type_dict)
 
 
-def load_file(path, quiet=False, style=None, include_paths=None, library_paths=None, translation_domain=None):
+def load_file(path: builtins.str | os.PathLike | pathlib.Path, quiet:bool=False, style:typing.Optional[str]=None, include_paths:typing.Optional[typing.List[builtins.str | os.PathLike | pathlib.Path]]=None, library_paths:typing.Optional[typing.List[builtins.str | os.PathLike | pathlib.Path]]=None, translation_domain:typing.Optional[str]=None):
     compiler = native.Compiler()
 
     if style is not None:
@@ -301,7 +304,7 @@ def _callback_decorator(callable, info):
     return callable
 
 
-def callback(global_name=None, name=None):
+def callback(global_name=None, name=None) -> typing.Callable[..., typing.Any]:
     if callable(global_name):
         callback = global_name
         return _callback_decorator(callback, {})

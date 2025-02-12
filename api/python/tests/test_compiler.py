@@ -6,7 +6,7 @@ from slint import slint as native
 from slint.slint import ValueType
 
 
-def test_basic_compiler():
+def test_basic_compiler() -> None:
     compiler = native.Compiler()
 
     assert compiler.include_paths == []
@@ -66,7 +66,7 @@ def test_basic_compiler():
     assert instance != None
 
 
-def test_compiler_build_from_path():
+def test_compiler_build_from_path() -> None:
     compiler = native.Compiler()
 
     result = compiler.build_from_path("Nonexistent.slint")

@@ -5,18 +5,22 @@ use pyo3_stub_gen::{define_stub_info_gatherer, derive::gen_stub_pyfunction};
 
 mod image;
 mod interpreter;
-use interpreter::{CompilationResult, Compiler, PyDiagnostic, PyDiagnosticLevel, PyValueType};
+use interpreter::{
+    CompilationResult, Compiler, ComponentInstance, PyDiagnostic, PyDiagnosticLevel, PyValueType,
+};
 mod brush;
 mod errors;
 mod models;
 mod timer;
 mod value;
 
+#[gen_stub_pyfunction]
 #[pyfunction]
 fn run_event_loop() -> Result<(), errors::PyPlatformError> {
     slint_interpreter::run_event_loop().map_err(|e| e.into())
 }
 
+#[gen_stub_pyfunction]
 #[pyfunction]
 fn quit_event_loop() -> Result<(), errors::PyEventLoopError> {
     slint_interpreter::quit_event_loop().map_err(|e| e.into())
@@ -40,6 +44,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<Compiler>()?;
     m.add_class::<CompilationResult>()?;
+    m.add_class::<ComponentInstance>()?;
     m.add_class::<image::PyImage>()?;
     m.add_class::<PyValueType>()?;
     m.add_class::<PyDiagnosticLevel>()?;
