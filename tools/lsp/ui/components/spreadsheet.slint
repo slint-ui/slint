@@ -28,7 +28,7 @@ export struct CellData {
     height: length}
 
 export component StringEdit {
-    in property <CellData> current-cell: { id: "", value:{kind:"text"}, row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
+    in property <CellData> current-cell: { id: "", value:{kind:"text", text-value:""}, row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
     in property <bool> is-visible;
     callback save(string);
     callback close-editor();
@@ -86,39 +86,11 @@ export component StringEdit {
                 }
             }
         }
-
-        /*
-        HorizontalLayout {
-            spacing: EditorSpaceSettings.default-spacing/2;
-            VerticalLayout {
-                alignment: end;
-
-                Button {
-                    height: 30px;
-                    text: "Save";
-                    clicked => {
-                        save(editor.text)
-                    }
-                }
-            }
-
-            VerticalLayout {
-                alignment: end;
-                Button {
-                    height: 30px;
-                    text: "Cancel";
-                    clicked => {
-                        close-editor()
-                    }
-                }
-            }
-        }
-        */
     }
 }
 
 export component EditWindow inherits Rectangle {
-    in property <CellData> current-cell: { id: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
+    in property <CellData> current-cell;
     drop-shadow-blur: 10px;
     drop-shadow-color: black.transparentize(0.5);
     drop-shadow-offset-x: 0;
@@ -154,6 +126,7 @@ export component EditWindow inherits Rectangle {
 }
 
 component Cell inherits Rectangle {
+    in property <CellData> cell-data;
     in property <string> id;
     in property <bool> is-header: false;
     in property <bool> is-writeable: false;
@@ -187,14 +160,12 @@ component Cell inherits Rectangle {
 
     if is-writeable: TouchArea {
         clicked => {
-            if (root.is-writeable) {
-                root.edit-clicked({
-                    id: root.id,
-                    value: { kind: "text", text-value: root.text, number-value: 0.0, bool-value: false },
-                    row: 0,
-                    col: 0
-                });
-            }
+            root.edit-clicked({
+                id: root.id,
+                value: { kind: "text", text-value: root.text, number-value: 0.0, bool-value: false },
+                row: 0,
+                col: 0
+            });
         }
     }
 }
