@@ -6,11 +6,17 @@ export struct AddressData {
     city: string,
     state: string,
     zip: string,
-    favorite: bool
+    favorite: bool}
+export struct CellValue {
+    kind: string, // "text", "number", "boolean"
+    text-value: string,
+    number-value: float,
+    bool-value: bool,
 }
+
 export struct CellData {
     id: string,
-    value: string,
+    value: CellValue,
     row: int,
     col: int,
     x: length,
@@ -19,7 +25,7 @@ export struct CellData {
     height: length}
 
 export component StringEdit {
-    in property <CellData> current-cell: { id: "", value: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
+    in property <CellData> current-cell: { id: "", value:{kind:"text"}, row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
     in property <bool> is-visible;
     callback save(string);
     callback close-editor();
@@ -46,7 +52,7 @@ export component StringEdit {
             VerticalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 editor := LineEdit {
-                    text: current-cell.value;
+                    text: current-cell.value.text-value;
                     accepted() => {
                         save(self.text)
                     }
@@ -109,7 +115,7 @@ export component StringEdit {
 }
 
 export component EditWindow inherits Rectangle {
-    in property <CellData> current-cell: { id: "", value: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
+    in property <CellData> current-cell: { id: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
     drop-shadow-blur: 10px;
     drop-shadow-color: black.transparentize(0.5);
     drop-shadow-offset-x: 0;
@@ -124,7 +130,10 @@ export component EditWindow inherits Rectangle {
     HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
-        editor := StringEdit {
+        @children // Default editor placeholder
+        
+        // if (current-cell.value.kind == "text"): 
+        StringEdit {
             current-cell: current-cell;
             save(new-value) => {
                 save(new-value)
@@ -133,6 +142,13 @@ export component EditWindow inherits Rectangle {
                 close-editor()
             }
         }
+        // if (current-cell.value.kind == "boolean"): CheckBox {
+        //     text: "Yes";
+        //     checked: current-cell.value.bool-value;
+        //     toggled => {
+        //         save(self.checked ? "true" : "false");
+        //     }
+        // }
     }
 }
 
@@ -171,7 +187,12 @@ component Cell inherits Rectangle {
     if is-writeable: TouchArea {
         clicked => {
             if (root.is-writeable) {
-                root.edit-clicked({ id: root.id, value: root.text, row: 0, col: 0 });
+                root.edit-clicked({
+                    id: root.id,
+                    value: { kind: "text", text-value: root.text, number-value: 0.0, bool-value: false },
+                    row: 0,
+                    col: 0
+                });
             }
         }
     }
@@ -179,12 +200,40 @@ component Cell inherits Rectangle {
 
 export component Spreadsheet inherits Rectangle {
     in-out property <[AddressData]> addresses: [
-        { type: "home", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226", favorite: true },
-        { type: "work", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219", favorite: false},
-        { type: "history", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226", favorite: false },
-        { type: "world", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" , favorite: false}
+        {
+            type: "home",
+            street: "123 Oak Lane",
+            city: "Richmond",
+            state: "VA",
+            zip: "23226",
+            favorite: true
+        },
+        {
+            type: "work",
+            street: "456 Corporate Blvd",
+            city: "Richmond",
+            state: "VA",
+            zip: "23219",
+            favorite: false
+        },
+        {
+            type: "history",
+            street: "123 Oak Lane",
+            city: "Richmond",
+            state: "VA",
+            zip: "23226",
+            favorite: false
+        },
+        {
+            type: "world",
+            street: "456 Corporate Blvd",
+            city: "Richmond",
+            state: "VA",
+            zip: "23219",
+            favorite: false
+        }
     ];
-    property <CellData> current-cell: { id: "", value: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
+    property <CellData> current-cell: { id: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
     property <bool> edit-window-visible: false;
 
     width: self.preferred-width;
@@ -199,13 +248,20 @@ export component Spreadsheet inherits Rectangle {
         }
 
         for address[row] in addresses: HorizontalLayout {
-            for cell[col] in [address.type, address.street, address.city, address.state, address.zip, address.favorite?"true":"false"]: Cell {
-                text: cell;
+            for cell[col] in [
+                { kind: "text", text-value: address.type, number-value: 0.0, bool-value: false },
+                { kind: "text", text-value: address.street, number-value: 0.0, bool-value: false },
+                { kind: "text", text-value: address.city, number-value: 0.0, bool-value: false },
+                { kind: "text", text-value: address.state, number-value: 0.0, bool-value: false },
+                { kind: "text", text-value: address.zip, number-value: 0.0, bool-value: false },
+                { kind: "boolean", text-value: "", number-value: 0.0, bool-value: address.favorite }
+            ]: Cell {
+                text: cell.kind == "boolean" ? (cell.bool-value ? "Yes" : "No") : cell.text-value;
                 is-writeable: true;
                 edit-clicked(data) => {
                     root.current-cell = {
                         id: data.id,
-                        value: data.value,
+                        value: cell,  // Now passing the properly typed CellValue
                         row: row,
                         col: col,
                         x: self.x,
@@ -221,7 +277,7 @@ export component Spreadsheet inherits Rectangle {
 
     if (edit-window-visible): ew := EditWindow {
         x: current-cell.x - EditorSpaceSettings.default-padding;
-        y: current-cell.y - EditorSpaceSettings.default-padding/2;
+        y: current-cell.y - EditorSpaceSettings.default-padding / 2;
         current-cell: current-cell;
         save(new-value) => {
             // Update the specific field based on col index
