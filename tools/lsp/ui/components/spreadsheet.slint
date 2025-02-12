@@ -31,6 +31,7 @@ export component EditWindow inherits Rectangle {
     };
     callback save(string);
     callback close-editor();
+    
     drop-shadow-blur: 10px;
     drop-shadow-color: black.transparentize(0.5);
     drop-shadow-offset-x: 0;
@@ -39,16 +40,26 @@ export component EditWindow inherits Rectangle {
     width: self.preferred-width;
     height: self.preferred-height;
     background: Palette.alternate-background;
+    forward-focus: editor ;
+       // Add TouchArea as first child
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            editor.focus();
+        }
+    }
+
     HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
         spacing: EditorSpaceSettings.default-spacing;
+        forward-focus: editor ;
         editor := LineEdit {
             text: current-cell.value;
-            edited() => {
+            accepted() => {
                 save(self.text)
             }
         }
-        forward-focus: editor ;
 
         HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
@@ -56,7 +67,7 @@ export component EditWindow inherits Rectangle {
                 height: 30px;
                 text: "Save";
                 clicked => {
-                    save(self.text)
+                    save(editor.text)
                 }
             }
 
@@ -68,10 +79,6 @@ export component EditWindow inherits Rectangle {
                 }
             }
         }
-        TouchArea {
-            mouse-cursor: default;
-            clicked => { }  // Empty handler to catch clicks
-        }
     
     }
 }
@@ -82,9 +89,9 @@ component Cell inherits Rectangle {
     in property <bool> is-writeable: false;
     in-out property <bool> is-editing: false;
     in property <length> cell-width: 100px;
-    property <bool> clicked: false;
+    property <bool> cell-clicked: false;
     in property <string> text: "";
-    in-out property <color> bg-color: clicked ? Palette.accent-background.transparentize(0.8) : transparent;
+    in-out property <color> bg-color: cell-clicked ? Palette.accent-background.transparentize(0.8) : transparent;
     callback edit-clicked(CellData);
 
     width: cell-width;
@@ -178,17 +185,28 @@ export component Spreadsheet inherits Rectangle {
         }
     }
        
-    if (edit-window-visible):EditWindow {
+    
+    if (edit-window-visible): ew := EditWindow {
         x: current-cell.x;
         y: current-cell.y;
         current-cell: current-cell;
-         save(new-value) => {
-            // Update the data model with new value
+        save(new-value) => {
+            // Update the specific field based on col index
+            if (current-cell.col == 0) {
+                addresses[current-cell.row].type = new-value;
+            } else if (current-cell.col == 1) {
+                addresses[current-cell.row].street = new-value;
+            } else if (current-cell.col == 2) {
+                addresses[current-cell.row].city = new-value;
+            } else if (current-cell.col == 3) {
+                addresses[current-cell.row].state = new-value;
+            } else if (current-cell.col == 4) {
+                addresses[current-cell.row].zip = new-value;
+            }
             root.edit-window-visible = false;
         }
         close-editor => {
             root.edit-window-visible = false;
         }
-    }
-    
+    }    
 }
