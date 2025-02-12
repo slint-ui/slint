@@ -31,6 +31,7 @@ macro_rules! test_example {
 }
 
 test_example!(example_printerdemo, "demos/printerdemo/ui/printerdemo.slint");
+test_example!(example_usecases, "demos/usecases/ui/app.slint");
 test_example!(example_memory, "examples/memory/memory.slint");
 test_example!(example_slide_puzzle, "examples/slide_puzzle/slide_puzzle.slint");
 test_example!(example_todo, "examples/todo/ui/todo.slint");

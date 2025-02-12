@@ -11,7 +11,7 @@ void init_virtual_keyboard(slint::ComponentHandle<App> app)
     });
 }
 
-int main()
+void run()
 {
     auto app = App::create();
 
@@ -77,4 +77,9 @@ int main()
             });
 
     app->run();
+}
+
+int main()
+{
+    run();
 }
