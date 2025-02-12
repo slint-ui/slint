@@ -188,7 +188,7 @@ jobs:
               run: nox --default-venv-backend uv
             - name: Run mypy
               working-directory: api/python
-              run: uv run mypy -p tests
+              run: uv run mypy -p tests -p slint
 
     cpp_test_driver:
         env:

@@ -14,7 +14,7 @@ import logging
 import importlib
 import copy
 import typing
-import builtins
+from typing import Any
 import pathlib
 from .models import ListModel, Model
 from .slint import Image, Color, Brush, Timer, TimerMode
@@ -22,27 +22,29 @@ from .slint import Image, Color, Brush, Timer, TimerMode
 Struct = native.PyStruct
 
 class CompileError(Exception):
-    def __init__(self, message, diagnostics):
+    def __init__(self, message: str, diagnostics: list[native.PyDiagnostic]):
         self.message = message
         self.diagnostics = diagnostics
 
 
 class Component:
-    def show(self):
+    __instance__: native.ComponentInstance
+
+    def show(self) -> None:
         self.__instance__.show()
 
-    def hide(self):
+    def hide(self) -> None:
         self.__instance__.hide()
 
-    def run(self):
+    def run(self) -> None:
         self.__instance__.run()
 
 
-def _normalize_prop(name):
+def _normalize_prop(name: str) -> str:
     return name.replace("-", "_")
 
 
-def _build_global_class(compdef, global_name):
+def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
     properties_and_callbacks = {}
 
     for prop_name in compdef.global_properties(global_name).keys():
@@ -51,12 +53,12 @@ def _build_global_class(compdef, global_name):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(prop_name):
-            def getter(self):
+        def mk_setter_getter(prop_name: str): # type: ignore
+            def getter(self): # type: ignore
                 return self.__instance__.get_global_property(
                     global_name, prop_name)
 
-            def setter(self, value):
+            def setter(self, value): # type: ignore
                 return self.__instance__.set_global_property(
                     global_name, prop_name, value)
 
@@ -70,13 +72,13 @@ def _build_global_class(compdef, global_name):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(callback_name):
-            def getter(self):
-                def call(*args):
+        def mk_setter_getter(callback_name: str): # type: ignore
+            def getter(self): # type: ignore
+                def call(*args: Any) -> Any:
                     return self.__instance__.invoke_global(global_name, callback_name, *args)
                 return call
 
-            def setter(self, value):
+            def setter(self, value): # type: ignore
                 return self.__instance__.set_global_callback(
                     global_name, callback_name, value)
 
@@ -90,9 +92,9 @@ def _build_global_class(compdef, global_name):
             logging.warning(f"Duplicated function {prop_name}")
             continue
 
-        def mk_getter(function_name):
-            def getter(self):
-                def call(*args):
+        def mk_getter(function_name: str): # type: ignore
+            def getter(self): # type: ignore
+                def call(*args: Any) -> Any:
                     return self.__instance__.invoke_global(global_name, function_name, *args)
                 return call
 
@@ -103,17 +105,17 @@ def _build_global_class(compdef, global_name):
     return type("SlintGlobalClassWrapper", (), properties_and_callbacks)
 
 
-def _build_class(compdef):
+def _build_class(compdef: native.ComponentDefinition): # type: ignore
 
-    def cls_init(self, **kwargs):
+    def cls_init(self: Any, **kwargs) -> Any: # type: ignore
         self.__instance__ = compdef.create()
         for name, value in self.__class__.__dict__.items():
             if hasattr(value, "slint.callback"):
                 callback_info = getattr(value, "slint.callback")
                 name = callback_info["name"]
 
-                def mk_callback(self, callback):
-                    def invoke(*args, **kwargs):
+                def mk_callback(self: Any, callback: typing.Callable[..., Any]) -> typing.Callable[..., Any]:
+                    def invoke(*args: Any, **kwargs: Any) -> Any:
                         return callback(self, *args, **kwargs)
                     return invoke
 
@@ -137,12 +139,12 @@ def _build_class(compdef):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(prop_name):
-            def getter(self):
+        def mk_setter_getter(prop_name: str) -> Any:
+            def getter(self) -> Any: # type: ignore
                 return self.__instance__.get_property(prop_name)
 
-            def setter(self, value):
-                return self.__instance__.set_property(
+            def setter(self, value: Any) -> None: # type: ignore
+                self.__instance__.set_property(
                     prop_name, value)
 
             return property(getter, setter)
@@ -155,15 +157,14 @@ def _build_class(compdef):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(callback_name):
-            def getter(self):
-                def call(*args):
+        def mk_setter_getter(callback_name: str) -> Any: # type: ignore
+            def getter(self): # type: ignore
+                def call(*args: Any) -> Any:
                     return self.__instance__.invoke(callback_name, *args)
                 return call
 
-            def setter(self, value):
-                return self.__instance__.set_callback(
-                    callback_name, value)
+            def setter(self, value: any): # type: ignore
+                self.__instance__.set_callback(callback_name, value)
 
             return property(getter, setter)
 
@@ -175,9 +176,9 @@ def _build_class(compdef):
             logging.warning(f"Duplicated function {prop_name}")
             continue
 
-        def mk_getter(function_name):
-            def getter(self):
-                def call(*args):
+        def mk_getter(function_name: str): # type: ignore
+            def getter(self) -> Any: # type: ignore
+                def call(*args: Any) -> Any:
                     return self.__instance__.invoke(function_name, *args)
                 return call
 
@@ -188,8 +189,8 @@ def _build_class(compdef):
     for global_name in compdef.globals:
         global_class = _build_global_class(compdef, global_name)
 
-        def mk_global(global_class):
-            def global_getter(self):
+        def mk_global(global_class: typing.Callable[..., Any]): # type: ignore
+            def global_getter(self) -> Any: # type: ignore
                 wrapper = global_class()
                 setattr(wrapper, "__instance__", self.__instance__)
                 return wrapper
@@ -201,9 +202,9 @@ def _build_class(compdef):
     return type("SlintClassWrapper", (Component,), properties_and_callbacks)
 
 
-def _build_struct(name, struct_prototype):
+def _build_struct(name: str, struct_prototype: native.PyStruct) -> type:
 
-    def new_struct(cls, *args, **kwargs):
+    def new_struct(cls: Any, *args: Any, **kwargs: Any) -> native.PyStruct:
         inst = copy.copy(struct_prototype)
 
         for prop, val in kwargs.items():
@@ -218,7 +219,7 @@ def _build_struct(name, struct_prototype):
     return type(name, (), type_dict)
 
 
-def load_file(path: builtins.str | os.PathLike | pathlib.Path, quiet:bool=False, style:typing.Optional[str]=None, include_paths:typing.Optional[typing.List[builtins.str | os.PathLike | pathlib.Path]]=None, library_paths:typing.Optional[typing.List[builtins.str | os.PathLike | pathlib.Path]]=None, translation_domain:typing.Optional[str]=None):
+def load_file(path: str | os.PathLike[Any] | pathlib.Path, quiet:bool=False, style:typing.Optional[str]=None, include_paths:typing.Optional[typing.List[str | os.PathLike[Any] | pathlib.Path]]=None, library_paths:typing.Optional[typing.List[str | os.PathLike[Any] | pathlib.Path]]=None, translation_domain:typing.Optional[str]=None) -> Any:
     compiler = native.Compiler()
 
     if style is not None:
@@ -264,13 +265,12 @@ def load_file(path: builtins.str | os.PathLike | pathlib.Path, quiet:bool=False,
 
 
 class SlintAutoLoader:
-    def __init__(self, base_dir=None):
+    def __init__(self, base_dir: str | None=None):
+        self.local_dirs: typing.List[str] | None = None
         if base_dir:
             self.local_dirs = [base_dir]
-        else:
-            self.local_dirs = None
-
-    def __getattr__(self, name):
+ 
+    def __getattr__(self, name: str) -> Any:
         for path in self.local_dirs or sys.path:
             dir_candidate = os.path.join(path, name)
             if os.path.isdir(dir_candidate):
@@ -297,14 +297,14 @@ class SlintAutoLoader:
 loader = SlintAutoLoader()
 
 
-def _callback_decorator(callable, info):
+def _callback_decorator(callable: typing.Callable[..., Any], info: typing.Dict[str, Any]) -> typing.Callable[..., Any]:
     if "name" not in info:
         info["name"] = callable.__name__
     setattr(callable, "slint.callback", info)
     return callable
 
 
-def callback(global_name=None, name=None) -> typing.Callable[..., typing.Any]:
+def callback(global_name: str | None=None, name : str | None=None) -> typing.Callable[..., Any]:
     if callable(global_name):
         callback = global_name
         return _callback_decorator(callback, {})
@@ -316,7 +316,7 @@ def callback(global_name=None, name=None) -> typing.Callable[..., typing.Any]:
             info["global_name"] = global_name
         return lambda callback: _callback_decorator(callback, info)
 
-def set_xdg_app_id(app_id: str):
+def set_xdg_app_id(app_id: str) -> None:
     native.set_xdg_app_id(app_id)
 
 __all__ = ["CompileError", "Component", "load_file", "loader", "Image", "Color",
