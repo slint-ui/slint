@@ -4,23 +4,32 @@
 from slint import load_file, CompileError
 import slint
 import os
+import pytest
+import typing
 
 
-def test_callback_decorators(caplog):
-    module = load_file(os.path.join(os.path.dirname(
-        __spec__.origin), "test-load-file.slint"), quiet=False)
+def base_dir() -> str:
+    origin = __spec__.origin
+    assert origin is not None
+    base_dir = os.path.dirname(origin)
+    assert base_dir is not None
+    return base_dir
 
-    class SubClass(module.App):
+
+def test_callback_decorators(caplog: pytest.LogCaptureFixture) -> None:
+    module = load_file(os.path.join(base_dir(), "test-load-file.slint"), quiet=False)
+
+    class SubClass(module.App): # type: ignore
         @slint.callback()
-        def say_hello_again(self, arg):
+        def say_hello_again(self, arg: str) -> str:
             return "say_hello_again:" + arg
 
         @slint.callback(name="say-hello")
-        def renamed(self, arg):
+        def renamed(self, arg: str) -> str:
             return "renamed:" + arg
 
         @slint.callback(global_name="MyGlobal", name="global-callback")
-        def global_callback(self, arg):
+        def global_callback(self, arg: str) -> str:
             return "global:" + arg
 
     instance = SubClass()

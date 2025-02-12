@@ -8,12 +8,12 @@ import sys
 import os
 
 
-def test_magic_import():
+def test_magic_import() -> None:
     instance = loader.test_load_file.App()
     del instance
 
 
-def test_magic_import_path():
+def test_magic_import_path() -> None:
     oldsyspath = sys.path
     assert loader.printerdemo == None
     try:

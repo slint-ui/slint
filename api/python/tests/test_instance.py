@@ -8,7 +8,7 @@ import os
 
 
 
-def test_property_access():
+def test_property_access() -> None:
     compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
@@ -125,7 +125,7 @@ def test_property_access():
     assert instance.get_global_property("TestGlobal", "theglobalprop") == "Ok"
 
 
-def test_callbacks():
+def test_callbacks() -> None:
     compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""

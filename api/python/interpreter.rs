@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use pyo3_stub_gen::derive::gen_stub_pyclass_enum;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 use slint_interpreter::{ComponentHandle, Value};
 
 use i_slint_compiler::langtype::Type;
@@ -22,11 +22,13 @@ use crate::errors::{
 };
 use crate::value::{PyStruct, PyValue};
 
+#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct Compiler {
     compiler: slint_interpreter::Compiler,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl Compiler {
     #[new]
@@ -81,9 +83,11 @@ impl Compiler {
 }
 
 #[derive(Debug, Clone)]
+#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct PyDiagnostic(slint_interpreter::Diagnostic);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyDiagnostic {
     #[getter]
@@ -120,17 +124,20 @@ impl PyDiagnostic {
     }
 }
 
+#[gen_stub_pyclass_enum]
 #[pyclass(name = "DiagnosticLevel")]
 pub enum PyDiagnosticLevel {
     Error,
     Warning,
 }
 
+#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct CompilationResult {
     result: slint_interpreter::CompilationResult,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl CompilationResult {
     #[getter]
@@ -190,6 +197,7 @@ impl CompilationResult {
     }
 }
 
+#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 struct ComponentDefinition {
     definition: slint_interpreter::ComponentDefinition,
@@ -274,8 +282,9 @@ impl From<slint_interpreter::ValueType> for PyValueType {
     }
 }
 
+#[gen_stub_pyclass]
 #[pyclass(unsendable, weakref)]
-struct ComponentInstance {
+pub struct ComponentInstance {
     instance: slint_interpreter::ComponentInstance,
     callbacks: GcVisibleCallbacks,
     global_callbacks: HashMap<String, GcVisibleCallbacks>,
