@@ -6,6 +6,7 @@ export struct AddressData {
     city: string,
     state: string,
     zip: string,
+    favorite: bool
 }
 export struct CellData {
     id: string,
@@ -178,10 +179,10 @@ component Cell inherits Rectangle {
 
 export component Spreadsheet inherits Rectangle {
     in-out property <[AddressData]> addresses: [
-        { type: "home", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226" },
-        { type: "work", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" },
-        { type: "history", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226" },
-        { type: "world", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" }
+        { type: "home", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226", favorite: true },
+        { type: "work", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219", favorite: false},
+        { type: "history", street: "123 Oak Lane", city: "Richmond", state: "VA", zip: "23226", favorite: false },
+        { type: "world", street: "456 Corporate Blvd", city: "Richmond", state: "VA", zip: "23219" , favorite: false}
     ];
     property <CellData> current-cell: { id: "", value: "", row: 0, col: 0, x: 0px, y: 0px, width: 0px, height: 0px };
     property <bool> edit-window-visible: false;
@@ -191,14 +192,14 @@ export component Spreadsheet inherits Rectangle {
 
     VerticalLayout {
         HorizontalLayout {
-            for header in ["Type", "Street", "City", "State", "ZIP"]: Cell {
+            for header in ["Type", "Street", "City", "State", "ZIP", "Favorite"]: Cell {
                 is-header: true;
                 text: header;
             }
         }
 
         for address[row] in addresses: HorizontalLayout {
-            for cell[col] in [address.type, address.street, address.city, address.state, address.zip]: Cell {
+            for cell[col] in [address.type, address.street, address.city, address.state, address.zip, address.favorite?"true":"false"]: Cell {
                 text: cell;
                 is-writeable: true;
                 edit-clicked(data) => {
