@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, Button, LineEdit, CheckBox } from "std-widgets.slint";
+import { Palette, Button, LineEdit, CheckBox, ScrollView } from "std-widgets.slint";
 import { EditorSpaceSettings, EditorSizeSettings } from "styling.slint";
 import { Api, ColorData, ElementInformation, RuntimeComponent, RuntimeProperty, NamedPropertyValue, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
 import { PropertyValueWidget } from "../components/property-widgets.slint";
@@ -17,62 +17,6 @@ export struct CellData {
     height: length
 }
 
-export component StringEdit {
-    in property <CellData> current-cell;
-    in property <bool> is-visible;
-    callback save(string);
-    callback close-editor();
-
-    TouchArea {
-        width: parent.width;
-        height: parent.height;
-        clicked => {
-            editor.focus();
-        }
-    }
-
-    HorizontalLayout {
-        alignment: LayoutAlignment.stretch;
-        spacing: EditorSpaceSettings.default-spacing * 2;
-        Rectangle {
-            width: self.preferred-width;
-            VerticalLayout {
-                spacing: EditorSpaceSettings.default-spacing;
-                editor := LineEdit {
-                    text: current-cell.value.value-string;
-                    accepted() => {
-                        save(self.text)
-                    }
-                    key-pressed(event) => {
-                        if (event.text == Key.Escape) {
-                            close-editor();
-                            return accept;
-                        }
-                        if (event.text == Key.Return) {
-                            save(editor.text);
-                            return accept;
-                        }
-                        return reject;
-                    }
-                }
-
-                HorizontalLayout {
-                    alignment: space-between;
-                    CheckBox {
-                        text: "Translatable";
-                        checked: false;
-                    }
-
-                    CheckBox {
-                        text: "Bold";
-                        checked: false;
-                    }
-                }
-            }
-        }
-    }
-}
-
 export component EditWindow inherits Rectangle {
     in property <CellData> current-cell: defaults.cell-default;
     drop-shadow-blur: 10px;
@@ -85,13 +29,15 @@ export component EditWindow inherits Rectangle {
     background: Palette.alternate-background;
     callback save(string);
     callback close-editor();
-
+    
     HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
+        padding-left: EditorSpaceSettings.default-padding + 15px;
         spacing: EditorSpaceSettings.default-spacing;
         PropertyValueWidget {
             property-value: current-cell.value;
-            property-name: "";
+            visible: true;
+            property-name: current-cell.id;
             enabled: true;
         }
     }
@@ -142,14 +88,12 @@ component Cell inherits Rectangle {
     }
 }
 
-export component Spreadsheet inherits Rectangle {
+export component Spreadsheet inherits ScrollView {
     in-out property <RuntimeProperty> runtime-property: Api.runtime-components[0].properties[1];
     property <CellData> current-cell;
     property <bool> edit-window-visible: false;
 
-    width: self.preferred-width;
-    height: self.preferred-height;
-
+    
     VerticalLayout {
         HorizontalLayout {
             for header in root.runtime-property.values: Cell {
@@ -180,8 +124,8 @@ export component Spreadsheet inherits Rectangle {
     }
 
     if (edit-window-visible): ew := EditWindow {
-        x: current-cell.x - EditorSpaceSettings.default-padding;
-        y: current-cell.y - EditorSpaceSettings.default-padding / 2;
+        x: current-cell.x > 15px ? current-cell.x - EditorSpaceSettings.default-padding - 15px : 0; // TODO the end needs to be windowWidth - current-cell.x < current.cell.width * 2;
+        y: current-cell.y - EditorSpaceSettings.default-padding;
         current-cell: current-cell;
         save(new-value) => {
             // Update the specific field based on col index

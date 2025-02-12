@@ -19,6 +19,7 @@ export component PropertyView inherits ScrollView {
     property <length> key-width: self.width / 2.5;
     property <bool> element-loaded: root.properties.length > 0;
 
+    vertical-scrollbar-policy: ScrollBarPolicy.always-on;
     width: EditorSizeSettings.property-bar-width;
 
     content-layer := VerticalLayout {
