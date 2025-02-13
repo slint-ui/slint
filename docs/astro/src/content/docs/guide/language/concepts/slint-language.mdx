@@ -34,16 +34,16 @@ To nest elements inside each other place them within the parents braces. For exa
 
 ```slint
 Rectangle {
-  width: 150px;
-  height: 60px;
-  background: white;
-  border-radius: 10px;
+    width: 150px;
+    height: 60px;
+    background: white;
+    border-radius: 10px;
 
-  Text {
-      text: "Hello World!";
-      font-size: 24px;
-      color: black;
-  }
+    Text {
+        text: "Hello World!";
+        font-size: 24px;
+        color: black;
+    }
 }
 ```
 
@@ -55,21 +55,22 @@ The final core part are binding expressions:
 property <int> counter: 0;
 
 Rectangle {
-  width: 150px;
-  height: 60px;
-  background: white;
-  border-radius: 10px;
+    width: 150px;
+    height: 60px;
+    background: white;
+    border-radius: 10px;
 
-  Text {
-      text: "Count: " + counter;
-      font-size: 24px;
-      color: black;
-  }
-  TouchArea {
-      clicked => {
-          counter += 1;
-      }
-  }
+    Text {
+        text: "Count: " + counter;
+        font-size: 24px;
+        color: black;
+    }
+    
+    TouchArea {
+        clicked => {
+            counter += 1;
+        }
+    }
 }
 ```
 
@@ -87,12 +88,13 @@ And finally Views combine to become applications.
 
 ```slint no-test
 export component MyView {
-  Dialog {
-    title: "Can UI Development Be Easy?";
-    Button {
-      text: "Yes";
+    MyDialog {
+        title: "Can UI Development Be Easy?";
+
+        MyButton {
+            text: "Yes";
+        }
     }
-  }
 }
 ```
 
