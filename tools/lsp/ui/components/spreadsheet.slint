@@ -87,7 +87,17 @@ component Cell inherits Rectangle {
         }
     }
 }
-
+component RowMarker inherits Rectangle {
+    in property <int> number;
+    width: 20px;
+    background: Palette.alternate-background;
+    height: 100%;
+    t := Text {
+        vertical-alignment: center;
+        horizontal-alignment: right;
+        text: number;
+    }
+}
 export component Spreadsheet inherits ScrollView {
     in-out property <RuntimeProperty> runtime-property: Api.runtime-components[0].properties[1];
     property <CellData> current-cell;
@@ -103,6 +113,9 @@ export component Spreadsheet inherits ScrollView {
         }
 
         for data-row[row] in root.runtime-property.array-values: HorizontalLayout {
+            RowMarker {
+                number:row;
+            }
             for value[col] in data-row: Cell {
                 text: value.value-string;
                 is-writeable: true;
