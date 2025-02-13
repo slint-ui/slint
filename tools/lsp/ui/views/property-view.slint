@@ -20,7 +20,6 @@ export component PropertyView inherits ScrollView {
     property <bool> element-loaded: root.properties.length > 0;
 
     vertical-scrollbar-policy: ScrollBarPolicy.always-on;
-    width: EditorSizeSettings.property-bar-width;
 
     content-layer := VerticalLayout {
         if !root.element-loaded: Text {
@@ -30,9 +29,7 @@ export component PropertyView inherits ScrollView {
             vertical-stretch: 1;
         }
 
-        if root.element-loaded: ScrollView {
-            preferred-height: groups.preferred-height;
-            groups := VerticalBox {
+        if root.element-loaded: groups := VerticalBox {
                 alignment: start;
 
                 for group in root.properties: eg := ExpandableGroup {
@@ -58,14 +55,9 @@ export component PropertyView inherits ScrollView {
                     }
 
                 }
-            }
+            
         }
     }
 
-    Rectangle {
-        x: 0;
-        width: 1px;
-        background: Palette.border;
-    }
 }
 
