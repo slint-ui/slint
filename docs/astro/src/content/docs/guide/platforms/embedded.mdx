@@ -189,29 +189,59 @@ Only Rust programs are currently supported on the Raspberry Pi Pico.
 
 #### On the Raspberry Pi Pico
 
+Ensure the right target is set:
+
+```sh
+rustup target add thumbv6m-none-eabi
+```
+
 Build the Slint Printer demo with:
 
 ```sh
 cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
-The resulting file can be flashed conveniently with [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs). Install it using `cargo install`:
+The resulting file can be flashed with [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs). Install it using:
 
 ```sh
 cargo install elf2uf2-rs
 ```
 
-Then upload the demo to the Raspberry Pi Pico: push the "bootsel" white button on the device while connecting the
-micro-usb cable to the device, this connect some storage where you can store the binary.
+<Tabs syncKey="dev-platform">
+<TabItem label="macOS" icon="apple">
 
-Or from the command on linux: (connect the device while pressing the "bootsel" button.
+
+Now power off the Pico and connect it while holding down the "bootsel" button. The device will show up as a storage device
+with the name `RPI-RP2`.
+
+
+Then flash the demo to the Pico with:
 
 ```sh
-# If you're on Linux: mount the device
-udisksctl mount -b /dev/sda1
-# upload
 elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 ```
+
+When the flashing completes the Pico will reboot and show the Slint Printer demo. The Mac will
+warn the drive was unmounted unexpectedly. This is expected and can be ignored.
+
+</TabItem>
+<TabItem label="Linux" icon="linux">
+
+Now power off the Pico and connect it while holding down the "bootsel" button. The device will show up as a storage device.
+
+Mount the device:
+```sh
+udisksctl mount -b /dev/sda1
+```
+
+Then flash the demo to the Pico with:
+```sh
+elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
+```
+
+</TabItem>
+</Tabs>
+
 
 #### On the Raspberry Pi Pico2
 
