@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, Button, LineEdit, CheckBox, ScrollView } from "std-widgets.slint";
-import { EditorSpaceSettings, EditorSizeSettings } from "styling.slint";
+import { Palette, Button, LineEdit, CheckBox, ScrollView, VerticalBox } from "std-widgets.slint";
+import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings, EditorFontSettings, EditorPalette } from "../components/styling.slint";
 import { Api, ColorData, ElementInformation, RuntimeComponent, RuntimeProperty, NamedPropertyValue, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
-import { PropertyValueWidget } from "../components/property-widgets.slint";
+import { RuntimePropertyValueWidget } from "../components/property-widgets.slint";
+import { PropertyValueWidget } from "property-widgets.slint";
 
 export struct CellData {
     id: string,
@@ -14,11 +15,10 @@ export struct CellData {
     x: length,
     y: length,
     width: length,
-    height: length
-}
+    height: length}
 
 export component EditWindow inherits Rectangle {
-    in property <CellData> current-cell: defaults.cell-default;
+    in property <CellData> current-cell;
     drop-shadow-blur: 10px;
     drop-shadow-color: black.transparentize(0.5);
     drop-shadow-offset-x: 0;
@@ -29,7 +29,6 @@ export component EditWindow inherits Rectangle {
     background: Palette.alternate-background;
     callback save(string);
     callback close-editor();
-    
     HorizontalLayout {
         padding: EditorSpaceSettings.default-padding;
         padding-left: EditorSpaceSettings.default-padding + 15px;
@@ -43,15 +42,51 @@ export component EditWindow inherits Rectangle {
     }
 }
 
+component RowMarker inherits Rectangle {
+    in property <int> value;
+    in property <bool> header: false;
+    width: 30px;
+    if (value > 0):   Rectangle {
+        height: 30px;
+        background: header ? transparent : Palette.alternate-background;
+        VerticalLayout {
+            HorizontalLayout {
+                t := Text {
+                    vertical-alignment: center;
+                    horizontal-alignment: right;
+                    text: value;
+                }
+
+                VerticalLayout {
+                    alignment: LayoutAlignment.center;
+                    padding: EditorSpaceSettings.default-padding / 4;
+                    indicator := Image {
+                        colorize: Palette.foreground;
+                        source: Icons.chevron-down;
+                        width: 10px;
+                        height: 10px;
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                background: Palette.border;
+                width: 100%;
+            }
+        }
+    }
+}
+
 component Cell inherits Rectangle {
-    in property <CellData> cell-data: defaults.cell-default;
+    in property <CellData> cell-data;
     in property <string> id;
     in property <bool> is-header: false;
     in property <bool> is-writeable: false;
     in-out property <bool> is-editing: false;
     in property <length> cell-width: 100px;
     property <bool> cell-clicked: false;
-    in property <string> text: "text";
+    in property <string> text: "";
     in-out property <color> bg-color: cell-clicked ? Palette.accent-background.transparentize(0.8) : transparent;
     callback edit-clicked(CellData);
 
@@ -78,34 +113,42 @@ component Cell inherits Rectangle {
 
     if is-writeable: TouchArea {
         clicked => {
-            root.edit-clicked({
-                id: root.id,
-                value: cell-data.value,
-                row: 0,
-                col: 0
-            });
+            root.edit-clicked({ id: root.id, value: cell-data.value, row: 0, col: 0 });
         }
     }
 }
-component RowMarker inherits Rectangle {
-    in property <int> number;
-    width: 20px;
-    background: Palette.alternate-background;
-    height: 100%;
-    t := Text {
-        vertical-alignment: center;
-        horizontal-alignment: right;
-        text: number;
+
+component RowMenuItem inherits Rectangle {
+    in property <string> text;
+    width: 100%;
+    background: ta.has-hover ? Palette.accent-background : transparent;
+    VerticalLayout {
+        padding:EditorSpaceSettings.default-padding;
+        Rectangle {
+            height: EditorSpaceSettings.default-spacing/2;
+        }
+    Text { 
+        text: text;
+        color: ta.has-hover ? Palette.background : Palette.foreground;
     }
+    Rectangle {
+        height: EditorSpaceSettings.default-spacing/2;
+    }
+
+}
+    ta := TouchArea {}
 }
 export component Spreadsheet inherits ScrollView {
     in-out property <RuntimeProperty> runtime-property: Api.runtime-components[0].properties[1];
     property <CellData> current-cell;
     property <bool> edit-window-visible: false;
+    private property <length> selection-x;
+    private property <length> selection-y;
 
-    
     VerticalLayout {
         HorizontalLayout {
+            RowMarker { }
+
             for header in root.runtime-property.values: Cell {
                 is-header: true;
                 text: header.name;
@@ -114,8 +157,16 @@ export component Spreadsheet inherits ScrollView {
 
         for data-row[row] in root.runtime-property.array-values: HorizontalLayout {
             RowMarker {
-                number:row;
+                value: row + 1;
+                TouchArea {
+                    clicked => {
+                        root.selection-x = self.absolute-position.x;
+                        root.selection-y = self.absolute-position.y;
+                        row_pop.show();
+                    }
+                }
             }
+
             for value[col] in data-row: Cell {
                 text: value.value-string;
                 is-writeable: true;
@@ -157,6 +208,35 @@ export component Spreadsheet inherits ScrollView {
         }
         close-editor => {
             root.edit-window-visible = false;
+        }
+    }
+    row_pop := PopupWindow {
+        close-policy: PopupClosePolicy.close-on-click-outside;
+        x: root.selection-x + content.width / 2 + 10px;
+        y: root.selection-y - 65px;
+        content := Rectangle {
+            drop-shadow-blur: 10px;
+            drop-shadow-color: #000.transparentize(0.7);
+            HorizontalLayout {
+                    Path {
+                        width: 5px;
+                        height: 10px;
+                        y: 10px;
+                        commands: "M 10.5 0 L 0 10.5 L 10.5 21 L 10.5 0 Z";
+                        fill: Palette.alternate-background;
+                        stroke: transparent;
+                        stroke-width: 0px;
+                    }
+                Rectangle {
+                    background: Palette.alternate-background;
+                    border-radius: EditorSizeSettings.radius;
+                    VerticalLayout {
+                        RowMenuItem {text:"Add Row Above";}
+                        RowMenuItem {text:"Add Row Below";}
+                        RowMenuItem {text:"Delete Row";}
+                    }
+                }
+            }
         }
     }
 }
