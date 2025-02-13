@@ -302,9 +302,15 @@ component StringWidget {
     callback code-action();
     callback reset-action();
 
-    callback test-string-binding(text: string) -> bool;
-    callback set-string-binding(text: string);
+    callback test-string-binding(text: string, is-translatable: bool, tr-context: string, tr-plural: string, tr-plural-expression: string) -> bool;
+    callback set-string-binding(text: string, is-translatable: bool, tr-context: string, tr-plural: string, tr-plural-expression: string);
 
+    function tsb() -> bool {
+        return test-string-binding(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text);
+    }
+    function ssb() {
+        set-string-binding(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text);
+    }
     property <bool> open: false;
 
     childIndicator := ChildIndicator {
@@ -320,14 +326,14 @@ component StringWidget {
         content := HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
             height: 2rem;
-            ResettingLineEdit {
+            text_rle:= ResettingLineEdit {
                 enabled: root.enabled;
                 default-text: property-value.value-string;
                 edited(text) => {
-                    self.can-compile = root.test-string-binding(text);
+                    self.can-compile = root.tsb();
                 }
                 accepted(text) => {
-                    root.set-string-binding(text);
+                    root.ssb();
                 }
             }
         }
@@ -342,15 +348,71 @@ component StringWidget {
             reset-action => {
                 root.reset-action();
             }
-
-            CheckBox {
-                enabled: root.enabled;
-                text: "Translatable";
-            }
-
-            CheckBox {
-                enabled: root.enabled;
-                text: "Disambiguate";
+            GridLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                Row {
+                    tr-cb := CheckBox {
+                        colspan: 2;
+                        checked: root.property-value.is-translatable;
+                        toggled => {
+                            root.ssb();
+                        }
+                        enabled: root.enabled;
+                        text: "Translatable";
+                    }
+                }
+                Row {
+                    Text {
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        text: "Context";
+                    }
+                    tr-context := ResettingLineEdit {
+                        enabled: root.enabled && tr-cb.checked;
+                        default-text: root.property-value.tr-context;
+                        edited(text) => {
+                            self.can-compile = root.tsb();
+                        }
+                        accepted(text) => {
+                            root.ssb();
+                        }
+                    }
+                }
+                Row {
+                    Text {
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        text: "Plural";
+                    }
+                    tr-plural := ResettingLineEdit {
+                        enabled: root.enabled && tr-cb.checked;
+                        default-text: root.property-value.tr-plural;
+                        edited(text) => {
+                            self.can-compile = root.tsb();
+                        }
+                        accepted(text) => {
+                            root.ssb();
+                        }
+                    }
+                }
+                Row {
+                    Text {
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        text: "Expression";
+                    }
+                    tr-plural-expression := ResettingLineEdit {
+                        enabled: root.enabled && tr-cb.checked;
+                        default-text: root.property-value.tr-plural-expression;
+                        edited(text) => {
+                            self.can-compile = root.tsb();
+                            tr-plural.can-compile = self.can-compile;
+                        }
+                        accepted(text) => {
+                            root.ssb();
+                        }
+                    }
+                }
             }
         }
     }
@@ -718,30 +780,30 @@ export component PropertyValueWidget inherits HorizontalLayout {
             root.code-action();
         }
 
-        test-string-binding(text) => {
+        test-string-binding(text, is-translatable, tr-context, tr-plural, tr-plural-expression) => {
             return Api.test-string-binding(
                 root.element-information.source-uri,
                 root.element-information.source-version,
                 root.element-information.range.start,
                 property-information.name,
                 text,
-                property-information.value.is-translatable,
-                property-information.value.tr-context,
-                property-information.value.tr-plural,
-                property-information.value.tr-plural-expression,
+                is-translatable,
+                tr-context,
+                tr-plural,
+                tr-plural-expression,
             );
         }
-        set-string-binding(text) => {
+        set-string-binding(text, is-translatable, tr-context, tr-plural, tr-plural-expression) => {
             Api.set-string-binding(
                 root.element-information.source-uri,
                 root.element-information.source-version,
                 root.element-information.range.start,
                 property-information.name,
                 text,
-                property-information.value.is-translatable,
-                property-information.value.tr-context,
-                property-information.value.tr-plural,
-                property-information.value.tr-plural-expression,
+                is-translatable,
+                tr-context,
+                tr-plural,
+                tr-plural-expression,
             );
         }
     }
