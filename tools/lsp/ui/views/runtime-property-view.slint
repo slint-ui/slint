@@ -17,7 +17,6 @@ export component RuntimePropertyView inherits ScrollView{
 
     property <length> key-width: self.width / 2.5;
     property <bool> element-loaded: root.runtime-components.length > 0;
-    width: EditorSizeSettings.property-bar-width;
 
     content-layer := VerticalLayout {
         if !root.element-loaded: Text {
@@ -27,27 +26,24 @@ export component RuntimePropertyView inherits ScrollView{
             vertical-stretch: 1;
         }
 
-        if root.element-loaded: ScrollView {
-            preferred-height: component.preferred-height;
-            component := VerticalBox {
-                alignment: start;
+        if root.element-loaded: component := VerticalBox {
+            alignment: start;
 
-                for ep in root.runtime-components: ExpandableGroup {
-                    enabled: root.enabled;
+            for ep in root.runtime-components: ExpandableGroup {
+                enabled: root.enabled;
 
-                    text: ep.component-name;
-                    panel-width: content-layer.width;
+                text: ep.component-name;
+                panel-width: content-layer.width;
 
-                    VerticalLayout {
-                        spacing: EditorSpaceSettings.property-spacing;
-                        padding-left: EditorSpaceSettings.group-indent;
-                        padding-right: EditorSpaceSettings.group-indent;
-                        padding-top: EditorSpaceSettings.default-padding;
-                        padding-bottom: EditorSpaceSettings.default-padding;
+                VerticalLayout {
+                    spacing: EditorSpaceSettings.property-spacing;
+                    padding-left: EditorSpaceSettings.group-indent;
+                    padding-right: EditorSpaceSettings.group-indent;
+                    padding-top: EditorSpaceSettings.default-padding;
+                    padding-bottom: EditorSpaceSettings.default-padding;
 
-                        for p in ep.properties: RuntimePropertyValueWidget {
-                            runtime-property: p;
-                        }
+                    for p in ep.properties: RuntimePropertyValueWidget {
+                        runtime-property: p;
                     }
                 }
             }

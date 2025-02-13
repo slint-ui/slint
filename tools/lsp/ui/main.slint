@@ -67,8 +67,6 @@ export component PreviewUi inherits Window {
                 }
 
                 HorizontalLayout {
-                    spacing: EditorSpaceSettings.default-spacing;
-
                     if  root.show-left-sidebar: LibraryView {
                         known-components: Api.known-components;
 
@@ -97,24 +95,17 @@ export component PreviewUi inherits Window {
                         visible-component <=> root.visible-component;
                     }
 
-                    if  root.show-right-sidebar: Rectangle {
-                        width: EditorSizeSettings.property-bar-width;
+                    if  root.show-right-sidebar: HorizontalLayout {
+                        Rectangle {
+                            width: 4px;
+                            background: @linear-gradient(90deg, #0000, #0002);
+                        }
                         VerticalLayout {
-                            Text {
-                                text: "Property Inspector";
-                                horizontal-alignment: center;
-                                height: 40px;
-                                font-weight: 400;
-                                vertical-alignment: center;
-                                font-size: 1.3rem;
-                            }
-
                             TabWidget {
-                                width: EditorSizeSettings.property-bar-width;
+                                width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
                                 current-index: 0;
                                 Tab {
-                                    preferred-width: 100px;
-                                    title: "Selected";
+                                    title: "Properties";
                                     PropertyView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
@@ -122,7 +113,7 @@ export component PreviewUi inherits Window {
                                 }
 
                                 runtime_tab := Tab {
-                                    title: "Runtime";
+                                    title: "Data";
                                     RuntimePropertyView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
@@ -131,6 +122,7 @@ export component PreviewUi inherits Window {
                             }
                         }
                     }
+                    
                 }
 
                 StatusLine { }
