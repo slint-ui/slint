@@ -160,8 +160,8 @@ export component Spreadsheet inherits ScrollView {
                 value: row + 1;
                 TouchArea {
                     clicked => {
-                        root.selection-x = self.absolute-position.x;
-                        root.selection-y = self.absolute-position.y;
+                        root.selection-x = self.x;
+                        root.selection-y = self.y;
                         row_pop.show();
                     }
                 }
