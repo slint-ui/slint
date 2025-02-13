@@ -1,6 +1,6 @@
 # Slint Software License
 
-Version 3.0.2
+Version 3.0.3
 
 ## Preamble
 
@@ -32,7 +32,7 @@ The grant of rights in section 1 are conditional, provided that You do all of th
 
 The License does not permit to distribute or make the Software publicly available alone and without integration into an Application or into an Embedded System. For this purpose you may use the Software under the GNU General Public License, version 3.
 
-The License is limited to only the versions of Software that were made available to you under the purchased Pricing Plan. For all other versions, you may use the Software under either the GNU General Public License, version 3 or the Slint Royalty-free Desktop, Mobile, and Web Applications License.
+The License is limited to only the versions of Software that were made available to you under the Paid License Plan. For all other versions, you may use the Software under either the GNU General Public License, version 3 or the Slint Royalty-free Desktop, Mobile, and Web Applications License.
 
 The License does not permit the distribution of Application that exposes the APIs, in part or in total, of the Software.
 
@@ -54,7 +54,7 @@ SixtyFPS or an independent certified auditor on SixtyFPS's behalf, may, upon its
 
 ## 6. Assignment
 
-You may assign this License, in whole or in part (whether by operation of law or otherwise), with prior consent from SixtyFPS, which shall not be unreasonably withheld or delayed. SixtyFPS may assign any of its rights hereunder or delegate any of its obligations hereunder with prior notice to You. Any attempt to assign this License other than in accordance with this Section 6 shall be null and void.
+You may assign this License, in whole or in part (whether by operation of law or otherwise), with prior consent from SixtyFPS, which shall not be unreasonably withheld or delayed. SixtyFPS may assign any of its rights or delegate any of its obligations hereunder with prior notice to You, provided that the successor maintains at least the same level of security, confidentiality, and data protection measures as in place at the time of assignment or delegation. Any attempt to assign this License other than in accordance with this Section 6 shall be null and void.
 
 ## 7. Severability
 
