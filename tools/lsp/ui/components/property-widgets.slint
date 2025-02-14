@@ -143,25 +143,27 @@ component CodeWidget inherits VerticalLayout {
 
 component ChildIndicator {
     out property <bool> open: false;
+    in property <bool> control-hover: false;
 
-    x: -1.0 * EditorSpaceSettings.group-indent * 2;
+    x: -1 * EditorSpaceSettings.group-indent * 2 / 3 ;
 
     Rectangle {
-        width: 100%;
+        width: 1cm;
         height: 1cm;
-
-        expand := TouchArea {
-            clicked => {
-                root.open = !root.open;
-            }
-
+        Rectangle {
             indicator := Image {
+                vertical-alignment: center;
                 colorize: Palette.foreground;
-                visible: expand.has-hover;
+                visible: expand.has-hover || root.control-hover;
                 source: Icons.chevron-down;
                 width: 16px;
                 height: 16px;
                 rotation-angle: root.open ? 0deg : -90deg;
+            }
+        }
+        expand := TouchArea {
+            clicked => {
+                root.open = !root.open;
             }
         }
     }
@@ -320,6 +322,7 @@ component StringWidget {
 
     childIndicator := ChildIndicator {
         y: content.y + EditorSpaceSettings.default-spacing / 2;
+        control-hover: text_rle.has-focus;
     }
 
     VerticalLayout {
@@ -478,6 +481,7 @@ component ColorWidget inherits Rectangle {
 
     childIndicator := ChildIndicator {
         y: content.y + EditorSpaceSettings.default-spacing / 2;
+        control-hover: rle.has-focus;
     }
 
     all := VerticalLayout {
@@ -492,7 +496,7 @@ component ColorWidget inherits Rectangle {
             spacing: EditorSpaceSettings.default-spacing;
             alignment: stretch;
 
-            ResettingLineEdit {
+            rle := ResettingLineEdit {
                 enabled: root.enabled;
                 default-text: root.current-color-data.text;
 
@@ -667,11 +671,10 @@ component BooleanWidget inherits VerticalLayout {
     }
 }
 
-export component PropertyValueWidget inherits HorizontalLayout {
+export component PropertyValueWidget inherits VerticalLayout {
     in property <PropertyInformation> property-information;
     in property <ElementInformation> element-information;
     in property <bool> enabled;
-    alignment: stretch;
 
     function set-string-binding(text: string, is-translated: bool) {
         set-code-binding(text);
@@ -804,7 +807,7 @@ export component PropertyValueWidget inherits HorizontalLayout {
     }
 }
 
-export component ExpandableGroup {
+export component ExpandableGroup  {
     in property <bool> enabled;
     in property <string> text;
     in property <length> panel-width;
@@ -814,7 +817,6 @@ export component ExpandableGroup {
     group-layer := Rectangle {
 
         content-layer := VerticalLayout {
-
             if text != "": Rectangle {
                 touch-area := TouchArea {
                     clicked => {
@@ -831,7 +833,6 @@ export component ExpandableGroup {
                 }
 
                 HorizontalLayout {
-                    padding-left: -EditorSpaceSettings.group-indent;
                     spacing: EditorSpaceSettings.default-spacing / 2;
                     icon-image := Image {
                         width: EditorSizeSettings.default-icon-width;
