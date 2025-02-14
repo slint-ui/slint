@@ -15,7 +15,7 @@ const itemsToKeep = [
     "stroke",
 ];
 
-const indentation = "  ";
+export const indentation = "  ";
 
 type StyleObject = {
     [key: string]: string;
@@ -60,7 +60,9 @@ function transformStyle(styleObj: StyleObject): string {
                 return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])};`;
             }
             if (key === "border-radius") {
-                const borderRadius = getBorderRadius();
+                const borderRadius = getBorderRadius(
+                    figma.currentPage.selection[0],
+                );
                 if (borderRadius !== null) {
                     return borderRadius;
                 }
@@ -97,15 +99,13 @@ function getColor(node: SceneNode): string | null {
     return null;
 }
 
-function getBorderRadius(): string | null {
-    const node = figma.currentPage.selection[0];
-
+export function getBorderRadius(node: SceneNode): string | null {
     if (!("cornerRadius" in node)) {
         return null;
     }
 
     const cornerRadius = node.cornerRadius;
-
+    console.log("Corner radius", cornerRadius);
     // Single border value
     if (typeof cornerRadius === "number") {
         return `${indentation}border-radius: ${cornerRadius}px;`;
