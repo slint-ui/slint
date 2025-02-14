@@ -15,6 +15,8 @@ const itemsToKeep = [
     "stroke",
 ];
 
+const indentation = "  ";
+
 type StyleObject = {
     [key: string]: string;
 };
@@ -65,16 +67,16 @@ function transformStyle(styleObj: StyleObject): string {
             }
 
             if (value.includes("linear-gradient")) {
-                return `  ${finalKey}: @${finalValue};`;
+                return `${indentation}${finalKey}: @${finalValue};`;
             }
 
-            return `  ${finalKey}: ${finalValue};`;
+            return `${indentation}${finalKey}: ${finalValue};`;
         });
 
     return filteredEntries.length > 0 ? `${filteredEntries.join("\n")}` : "";
 }
 
-function rgbToHex({ r, g, b }) {
+export function rgbToHex({ r, g, b }) {
     const red = Math.round(r * 255);
     const green = Math.round(g * 255);
     const blue = Math.round(b * 255);
@@ -97,7 +99,6 @@ function getColor(node: SceneNode): string | null {
 
 function getBorderRadius(): string | null {
     const node = figma.currentPage.selection[0];
-    console.log("node", node);
 
     if (!("cornerRadius" in node)) {
         return null;
@@ -107,7 +108,7 @@ function getBorderRadius(): string | null {
 
     // Single border value
     if (typeof cornerRadius === "number") {
-        return `  border-radius: ${cornerRadius}px;`;
+        return `${indentation}border-radius: ${cornerRadius}px;`;
     }
 
     // Multiple border values
@@ -126,7 +127,7 @@ function getBorderRadius(): string | null {
     );
 
     const radiusStrings = validCorners.map((corner, index) => {
-        return `  ${corner.slint}: ${node[corner.prop]}px;`;
+        return `${indentation}${corner.slint}: ${node[corner.prop]}px;`;
     });
 
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
