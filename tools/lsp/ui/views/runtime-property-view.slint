@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, VerticalBox, ScrollView }  from "std-widgets.slint";
+import { Palette, VerticalBox, ScrollView, Button }  from "std-widgets.slint";
 
 import { ExpandableGroup } from "../components/property-widgets.slint";
 
@@ -44,6 +44,13 @@ export component RuntimePropertyView inherits ScrollView{
 
                     for p in ep.properties: RuntimePropertyValueWidget {
                         runtime-property: p;
+                    }
+
+                    Button {
+                        text: "Import JSON";
+                        clicked => {
+                            Api.set-runtime-json-properties(ep.component-id, "", "{ \"test-value-bool\": true, \"test-value-color\": \"#05ff80ff\", \"test-value-int\": 23, \"test-value-string\": \"New value\" }");
+                        }
                     }
                 }
             }

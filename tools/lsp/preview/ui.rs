@@ -101,7 +101,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
 
     // api.on_set_runtime_property();
     // api.on_set_runtime_array_property();
-    api.on_set_runtime_json_property(set_runtime_json_property);
+    api.on_set_runtime_json_properties(set_runtime_json_properties);
 
     api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
     api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
@@ -1091,21 +1091,21 @@ pub fn ui_set_runtime_properties(
 
     fn fill_component(
         component_name: String,
+        component_id: String,
         properties: &[runtime_properties::RuntimeProperty],
     ) -> Option<RuntimeComponent> {
-        eprintln!("*** Mapping Runtime properties for {component_name}");
         let properties =
             properties.iter().filter_map(|rp| map_runtime_property(&rp)).collect::<Vec<_>>();
-        eprintln!("*** Actual Mapping for {component_name}: DONE");
 
         (!properties.is_empty()).then(|| RuntimeComponent {
             component_name: component_name.into(),
+            component_id: component_id.into(),
             properties: Rc::new(slint::VecModel::from(properties)).into(),
         })
     }
 
     if let Some(main) = runtime_properties.get(&runtime_properties::RuntimeComponent::Main) {
-        if let Some(c) = fill_component("<MAIN>".to_string(), &main) {
+        if let Some(c) = fill_component("<MAIN>".to_string(), String::new(), &main) {
             result.push(c)
         }
     }
@@ -1113,7 +1113,8 @@ pub fn ui_set_runtime_properties(
         runtime_properties.keys().filter(|k| **k != runtime_properties::RuntimeComponent::Main)
     {
         if let Some(component) = runtime_properties.get(component_key) {
-            if let Some(c) = fill_component(component_key.to_string(), &component) {
+            let component_key = component_key.to_string();
+            if let Some(c) = fill_component(component_key.clone(), component_key, &component) {
                 result.push(c);
             }
         }
@@ -1203,12 +1204,27 @@ pub fn ui_set_runtime_properties(
     }
 }
 
-fn set_runtime_json_property(
+fn set_runtime_json_properties(
     component: SharedString,
     property_name: SharedString,
     json_string: SharedString,
 ) {
-    eprintln!("APPLYING JSON VALUE FROM UI: {component}.{property_name}: {json_string}");
+    let component = if component.is_empty() {
+        runtime_properties::RuntimeComponent::Main
+    } else {
+        runtime_properties::RuntimeComponent::Global(component.to_string())
+    };
+    let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
+
+    if let Err(errors) = crate::preview::set_runtime_json_properties(
+        component,
+        property_name,
+        json_string.to_string(),
+    ) {
+        for e in errors {
+            eprintln!("ERROR setting property value: {e}");
+        }
+    }
 }
 
 fn update_properties(

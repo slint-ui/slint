@@ -4,6 +4,11 @@
 import { Button, LineEdit, HorizontalBox } from "std-widgets.slint";
 
 export component Counter inherits Window {
+    in-out property <bool> test-value-bool: false;
+    in-out property <color> test-value-color: #ffff;
+    in-out property <int> test-value-int: 42;
+    in-out property <string> test-value-string: "Initial Value";
+
     private property <int> value: 0;
 
     preferred-height: 30px;

@@ -28,6 +28,23 @@ fn has_getter(visibility: &i_slint_compiler::object_tree::PropertyVisibility) ->
     )
 }
 
+fn has_setter(visibility: &i_slint_compiler::object_tree::PropertyVisibility) -> bool {
+    matches!(
+        visibility,
+        i_slint_compiler::object_tree::PropertyVisibility::Input
+            | i_slint_compiler::object_tree::PropertyVisibility::InOut
+    )
+}
+
+fn is_property(ty: &i_slint_compiler::langtype::Type) -> bool {
+    !matches!(
+        *ty,
+        i_slint_compiler::langtype::Type::Function(_)
+            | i_slint_compiler::langtype::Type::Callback(_)
+            | i_slint_compiler::langtype::Type::InferredCallback
+    )
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeProperty {
     pub name: String,
@@ -50,12 +67,7 @@ impl RuntimeProperty {
     }
 
     pub fn is_property(&self) -> bool {
-        !matches!(
-            self.ty,
-            i_slint_compiler::langtype::Type::Function(_)
-                | i_slint_compiler::langtype::Type::Callback(_)
-                | i_slint_compiler::langtype::Type::InferredCallback
-        )
+        is_property(&self.ty)
     }
 
     pub fn has_getter(&self) -> bool {
@@ -63,11 +75,7 @@ impl RuntimeProperty {
     }
 
     pub fn has_setter(&self) -> bool {
-        matches!(
-            self.visibility,
-            i_slint_compiler::object_tree::PropertyVisibility::Input
-                | i_slint_compiler::object_tree::PropertyVisibility::InOut
-        )
+        has_setter(&self.visibility)
     }
 }
 
@@ -122,6 +130,98 @@ pub fn query_runtime_properties_and_callbacks(
     }
 
     result
+}
+
+pub fn set_runtime_json_properties(
+    component_instance: &ComponentInstance,
+    component: RuntimeComponent,
+    property_name: Option<String>,
+    json: serde_json::Value,
+) -> Result<(), Vec<String>> {
+    eprintln!("APPLYING JSON VALUE FROM UI: CI + {component}.{property_name:?}: {json:?}");
+
+    let definition = &component_instance.definition();
+
+    let mut properties_set = 0_usize;
+    let mut failed_properties = vec![];
+
+    let it: Box<dyn Iterator<Item = _>> = match &component {
+        RuntimeComponent::Main => Box::new(definition.properties_and_callbacks()),
+        RuntimeComponent::Global(g) => Box::new(
+            definition
+                .global_properties_and_callbacks(g)
+                .ok_or(vec![format!("Global {g} does not exist")])?,
+        ),
+    };
+
+    let it: Box<dyn Iterator<Item = _>> = match &property_name {
+        None => Box::new(it.filter(|(_, (it, iv))| is_property(it) && has_setter(iv))),
+        Some(p) => {
+            let p = p.clone();
+            Box::new(it.filter(move |(ip, (it, iv))| &p == ip && is_property(it) && has_setter(iv)))
+        }
+    };
+
+    for (name, (ty, _)) in it {
+        let (name, json_value) = if let Some(pn) = &property_name {
+            (pn.clone(), Some(&json))
+        } else {
+            let json_value = match &json {
+                serde_json::Value::Object(obj) => {
+                    if let Some(j) = obj.get(&name) {
+                        j
+                    } else {
+                        failed_properties
+                            .push(format!("Value for property {name} not found in JSON object"));
+                        continue;
+                    }
+                }
+                _ => {
+                    failed_properties.push(
+                    "JSON value must be an object when setting all properties of a Slint Element"
+                        .to_string(),
+                    );
+                    continue;
+                }
+            };
+            (name.clone(), Some(json_value))
+        };
+
+        let Some(json_value) = json_value else {
+            // already logged an error for this!
+            continue;
+        };
+        eprintln!("   *** properties to look at: {name} of type {ty:?} <= JS: {json_value:?}");
+
+        let Ok(value) = slint_interpreter::json::value_from_json(&ty, json_value) else {
+            failed_properties.push(format!("Could not convert JSON value for property {name}"));
+            continue;
+        };
+
+        eprintln!("   *** properties to look at: {name} of type {ty:?} <= V: {value:?}");
+
+        let result = match &component {
+            RuntimeComponent::Main => component_instance.set_property(&name, value),
+            RuntimeComponent::Global(g) => component_instance.set_global_property(g, &name, value),
+        };
+
+        if let Err(msg) = result {
+            failed_properties.push(format!("Could not set property {name}: {msg}"));
+            continue;
+        } else {
+            properties_set += 1;
+        }
+    }
+
+    if !failed_properties.is_empty() {
+        return Err(failed_properties);
+    }
+
+    if properties_set == 0 {
+        Err(vec![format!("No property set")])
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

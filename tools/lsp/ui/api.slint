@@ -182,6 +182,7 @@ export struct RuntimeProperty {
 /// Information on exported components and their properties
 export struct RuntimeComponent {
     component-name: string,
+    component-id: string,
     properties: [RuntimeProperty],
 }
 
@@ -661,7 +662,7 @@ export global Api {
     // ## Runtime properties
     callback set-runtime-property(component: string, name: string, raw-values: [string]);
     callback set-runtime-array-property(component: string, name: string, raw-values: [[string]]);
-    callback set-runtime-json-property(component: string, name: string, json-value: string);
+    callback set-runtime-json-properties(component: string, name: string, json-value: string);
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;
