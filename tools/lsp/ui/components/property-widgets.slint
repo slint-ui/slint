@@ -138,21 +138,22 @@ component ChildIndicator {
     x: -1.0 * EditorSpaceSettings.group-indent * 2;
 
     Rectangle {
-        width: 100%;
+        width: 1cm;
         height: 1cm;
-
-        expand := TouchArea {
-            clicked => {
-                root.open = !root.open;
-            }
-
+        Rectangle {
             indicator := Image {
+                vertical-alignment: center;
                 colorize: Palette.foreground;
                 opacity: expand.has-hover ? 0.9 : 0.15;
                 source: Icons.chevron-down;
                 width: 16px;
                 height: 16px;
                 rotation-angle: root.open ? 0deg : -90deg;
+            }
+        }
+        expand := TouchArea {
+            clicked => {
+                root.open = !root.open;
             }
         }
     }
@@ -691,11 +692,10 @@ component EditJsonWidget inherits VerticalLayout {
     }
 }
 
-export component PropertyValueWidget inherits HorizontalLayout {
+export component PropertyValueWidget inherits VerticalLayout {
     in property <PropertyValue> property-value;
     in property <string> property-name;
     in property <bool> enabled;
-    alignment: stretch;
 
     callback set-code-binding(text: string);
     callback test-code-binding(text: string) -> bool;
@@ -979,7 +979,6 @@ export component ExpandableGroup {
 
             Rectangle {
                 height: root.open ? self.preferred-height : 0px;
-                clip: true;
 
                 @children
 
