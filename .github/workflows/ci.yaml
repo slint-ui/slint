@@ -638,4 +638,3 @@ jobs:
               with:
                   name: figma-plugin
                   path: tools/figma-inspector/zip
-        
