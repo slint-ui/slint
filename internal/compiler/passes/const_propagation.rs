@@ -105,6 +105,19 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             }
             can_inline
         }
+        Expression::UnaryOp { sub, op } => {
+            let can_inline = simplify_expression(sub);
+            let new = match (*op, &mut **sub) {
+                ('!', Expression::BoolLiteral(b)) => Some(Expression::BoolLiteral(!*b)),
+                ('-', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(-*n, *u)),
+                ('+', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(*n, *u)),
+                _ => None,
+            };
+            if let Some(new) = new {
+                *expr = new;
+            }
+            can_inline
+        }
         Expression::StructFieldAccess { base, name } => {
             let r = simplify_expression(base);
             if let Expression::Struct { values, .. } = &mut **base {
@@ -147,6 +160,25 @@ fn simplify_expression(expr: &mut Expression) -> bool {
                 *expr = Expression::NumberLiteral(v, *u);
             }
             can_inline
+        }
+        Expression::Condition { condition, true_expr, false_expr } => {
+            let mut can_inline = simplify_expression(condition);
+            can_inline &= match &**condition {
+                Expression::BoolLiteral(true) => {
+                    *expr = *true_expr.clone();
+                    simplify_expression(expr)
+                }
+                Expression::BoolLiteral(false) => {
+                    *expr = *false_expr.clone();
+                    simplify_expression(expr)
+                }
+                _ => simplify_expression(true_expr) && simplify_expression(false_expr),
+            };
+            can_inline
+        }
+        Expression::CodeBlock(stmts) if stmts.len() == 1 => {
+            *expr = stmts[0].clone();
+            simplify_expression(expr)
         }
         Expression::ElementReference { .. } => false,
         Expression::LayoutCacheAccess { .. } => false,
