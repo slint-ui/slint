@@ -147,21 +147,22 @@ component ChildIndicator {
     x: -1.0 * EditorSpaceSettings.group-indent * 2;
 
     Rectangle {
-        width: 100%;
+        width: 1cm;
         height: 1cm;
-
-        expand := TouchArea {
-            clicked => {
-                root.open = !root.open;
-            }
-
+        Rectangle {
             indicator := Image {
+                vertical-alignment: center;
                 colorize: Palette.foreground;
                 visible: expand.has-hover;
                 source: Icons.chevron-down;
                 width: 16px;
                 height: 16px;
                 rotation-angle: root.open ? 0deg : -90deg;
+            }
+        }
+        expand := TouchArea {
+            clicked => {
+                root.open = !root.open;
             }
         }
     }
@@ -667,11 +668,10 @@ component BooleanWidget inherits VerticalLayout {
     }
 }
 
-export component PropertyValueWidget inherits HorizontalLayout {
+export component PropertyValueWidget inherits VerticalLayout {
     in property <PropertyInformation> property-information;
     in property <ElementInformation> element-information;
     in property <bool> enabled;
-    alignment: stretch;
 
     function set-string-binding(text: string, is-translated: bool) {
         set-code-binding(text);
@@ -857,7 +857,7 @@ export component ExpandableGroup {
 
             Rectangle {
                 height: root.open ? self.preferred-height : 0px;
-                clip: true;
+
                 @children
             }
         }
