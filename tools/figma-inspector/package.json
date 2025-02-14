@@ -15,7 +15,8 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "format": "biome format",
-    "format:fix": "biome format --write"
+    "format:fix": "biome format --write",
+    "test": "vitest"
   },
   "dependencies": {
     "react": "19.0.0",
