@@ -180,6 +180,19 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             *expr = stmts[0].clone();
             simplify_expression(expr)
         }
+        Expression::FunctionCall { function, arguments, .. } => {
+            let mut args_can_inline = true;
+            for arg in arguments.iter_mut() {
+                args_can_inline &= simplify_expression(arg);
+            }
+            if args_can_inline {
+                if let Some(inlined) = try_inline_function(function, arguments) {
+                    *expr = inlined;
+                    true;
+                }
+            }
+            false
+        }
         Expression::ElementReference { .. } => false,
         Expression::LayoutCacheAccess { .. } => false,
         Expression::SolveLayout { .. } => false,
@@ -229,6 +242,30 @@ fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression
         return None;
     }
     Some(expression)
+}
+
+fn try_inline_function(function: &Callable, arguments: &[Expression]) -> Option<Expression> {
+    let Callable::Function(function) = function else {
+        return None;
+    };
+    if !function.is_constant() {
+        return None;
+    }
+    let mut body = extract_constant_property_reference(function)?;
+
+    body.visit_recursive_mut(&mut |e| {
+        if let Expression::FunctionParameterReference { index, ty } = e {
+            let Some(e_new) = arguments.get(*index).cloned() else { return };
+            if e_new.ty() == *ty {
+                *e = e_new;
+            }
+        }
+    });
+    if simplify_expression(&mut body) {
+        Some(body)
+    } else {
+        None
+    }
 }
 
 #[test]

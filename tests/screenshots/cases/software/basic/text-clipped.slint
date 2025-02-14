@@ -3,6 +3,10 @@
 
 // SLINT_SCALE_FACTOR=1.5
 
+export global ZeroHelper {
+    in property<float> zero: 0;
+}
+
 export component TestCase inherits Window {
     width: 64phx;
     height: 64phx;
@@ -115,9 +119,8 @@ export component TestCase inherits Window {
     }
 
     Text {
-        property <float> zero: 0;
         text: "Zero";
-        x: zero * 5px / zero;
+        x: ZeroHelper.zero * 5px / ZeroHelper.zero;
     }
 
 
