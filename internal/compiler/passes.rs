@@ -198,7 +198,6 @@ pub async fn run_passes(
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
-        deduplicate_property_read::deduplicate_property_read(component);
         // Don't perform the empty rectangle removal when debug info is requested, because the resulting
         // item tree ends up with a hierarchy where certain items have children that aren't child elements
         // but siblings or sibling children. We need a new data structure to perform a correct element tree
@@ -217,6 +216,7 @@ pub async fn run_passes(
             // binding loop causes panics in const_propagation
             const_propagation::const_propagation(component);
         }
+        deduplicate_property_read::deduplicate_property_read(component);
         if !component.is_global() {
             resolve_native_classes::resolve_native_classes(component);
         }
