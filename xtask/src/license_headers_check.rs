@@ -466,6 +466,7 @@ lazy_static! {
         ("(^|/)pnpm-lock\\.yaml$", LicenseLocation::NoLicense),
         ("(^|/)biome\\.json$", LicenseLocation::NoLicense),
         ("(^|/)package-lock\\.json$", LicenseLocation::NoLicense),
+        ("(^|/)py.typed$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
 
         // Path prefix matches:
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
