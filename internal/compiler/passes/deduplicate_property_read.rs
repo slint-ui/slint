@@ -8,7 +8,7 @@ use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{format_smolstr, SmolStr};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub fn deduplicate_property_read(component: &Component) {
     visit_all_expressions(component, |expr, ty| {
@@ -106,17 +106,21 @@ fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
     }
 
     if new_state.counts.borrow().has_duplicate {
-        let mut stores = vec![];
+        let mut stores = BTreeMap::<SmolStr, NamedReference>::new();
         for (nr, c) in &new_state.counts.borrow().counts {
             if c.has_been_mapped {
-                stores.push(Expression::StoreLocalVariable {
-                    name: map_nr(nr),
-                    value: Box::new(Expression::PropertyReference(nr.clone())),
-                });
+                stores.insert(map_nr(nr), nr.clone());
             }
         }
-        stores.push(std::mem::take(expr));
-        *expr = Expression::CodeBlock(stores);
+        let mut exprs = stores
+            .into_iter()
+            .map(|(name, nr)| Expression::StoreLocalVariable {
+                name,
+                value: Box::new(Expression::PropertyReference(nr)),
+            })
+            .collect::<Vec<_>>();
+        exprs.push(std::mem::take(expr));
+        *expr = Expression::CodeBlock(exprs);
     }
 }
 
