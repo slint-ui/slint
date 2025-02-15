@@ -616,7 +616,7 @@ fn lower_geometry(
     ctx: &ExpressionLoweringCtx<'_>,
 ) -> super::Expression {
     let mut fields = BTreeMap::default();
-    let mut values = HashMap::with_capacity(4);
+    let mut values = BTreeMap::default();
     for (f, v) in [("x", &geom.x), ("y", &geom.y), ("width", &geom.width), ("height", &geom.height)]
     {
         fields.insert(f.into(), Type::LogicalLength);
