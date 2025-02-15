@@ -897,7 +897,7 @@ pub fn get_layout_info(
                     },
                 )
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<BTreeMap<_, _>>();
 
         for (nr, s) in constraints.for_each_restrictions(orientation) {
             values.insert(
@@ -1031,7 +1031,7 @@ pub fn make_struct(
     it: impl IntoIterator<Item = (&'static str, Type, llr_Expression)>,
 ) -> llr_Expression {
     let mut fields = BTreeMap::<SmolStr, Type>::new();
-    let mut values = HashMap::<SmolStr, llr_Expression>::new();
+    let mut values = BTreeMap::<SmolStr, llr_Expression>::new();
     for (name, ty, expr) in it {
         fields.insert(SmolStr::new(name), ty);
         values.insert(SmolStr::new(name), expr);

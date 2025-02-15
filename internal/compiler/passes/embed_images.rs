@@ -10,7 +10,7 @@ use crate::EmbedResourcesKind;
 use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -83,7 +83,7 @@ fn collect_image_urls_from_expression(
 fn embed_images_from_expression(
     e: &mut Expression,
     urls: &HashMap<SmolStr, Option<SmolStr>>,
-    global_embedded_resources: &RefCell<HashMap<SmolStr, EmbeddedResources>>,
+    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
     embed_files: EmbedResourcesKind,
     scale_factor: f64,
     diag: &mut BuildDiagnostics,
@@ -126,7 +126,7 @@ fn embed_images_from_expression(
 }
 
 fn embed_image(
-    global_embedded_resources: &RefCell<HashMap<SmolStr, EmbeddedResources>>,
+    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
     embed_files: EmbedResourcesKind,
     path: &str,
     _scale_factor: f64,
@@ -136,8 +136,8 @@ fn embed_image(
     let mut resources = global_embedded_resources.borrow_mut();
     let maybe_id = resources.len();
     let e = match resources.entry(path.into()) {
-        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-        std::collections::hash_map::Entry::Vacant(e) => {
+        std::collections::btree_map::Entry::Occupied(e) => e.into_mut(),
+        std::collections::btree_map::Entry::Vacant(e) => {
             // Check that the file exists, so that later we can unwrap safely in the generators, etc.
             if embed_files == EmbedResourcesKind::ListAllResources {
                 // Really do nothing with the image!

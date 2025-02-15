@@ -57,7 +57,7 @@ pub struct Document {
     /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
     /// disk on the build system
     pub embedded_file_resources:
-        RefCell<HashMap<SmolStr, crate::embedded_resources::EmbeddedResources>>,
+        RefCell<BTreeMap<SmolStr, crate::embedded_resources::EmbeddedResources>>,
 
     /// The list of used extra types used recursively.
     pub used_types: RefCell<UsedSubTypes>,

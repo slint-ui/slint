@@ -10,7 +10,7 @@ use crate::layout::Orientation;
 use core::num::NonZeroUsize;
 use itertools::Either;
 use smol_str::SmolStr;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -139,7 +139,7 @@ pub enum Expression {
     },
     Struct {
         ty: Rc<crate::langtype::Struct>,
-        values: HashMap<SmolStr, Expression>,
+        values: BTreeMap<SmolStr, Expression>,
     },
 
     EasingCurve(crate::expression_tree::EasingCurve),
