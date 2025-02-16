@@ -15,15 +15,21 @@ class MainWindow(slint.loader.memory.MainWindow):
     def __init__(self):
         super().__init__()
         initial_tiles = self.memory_tiles
-        tiles = ListModel(itertools.chain(
-            map(copy.copy, initial_tiles), map(copy.copy, initial_tiles)))
+        tiles = ListModel(
+            itertools.chain(
+                map(copy.copy, initial_tiles), map(copy.copy, initial_tiles)
+            )
+        )
         random.shuffle(tiles)
         self.memory_tiles = tiles
 
     @slint.callback
     def check_if_pair_solved(self):
-        flipped_tiles = [(index, copy.copy(tile)) for index, tile in enumerate(
-            self.memory_tiles) if tile.image_visible and not tile.solved]
+        flipped_tiles = [
+            (index, copy.copy(tile))
+            for index, tile in enumerate(self.memory_tiles)
+            if tile.image_visible and not tile.solved
+        ]
         if len(flipped_tiles) == 2:
             tile1_index, tile1 = flipped_tiles[0]
             tile2_index, tile2 = flipped_tiles[1]
