@@ -61,7 +61,6 @@ jobs:
             - name: Install uv
               uses: astral-sh/setup-uv@v5
             - name: Format Python
-              working-directory: api/python
               run: uv tool run ruff format
             - name: Suggest format changes
               uses: autofix-ci/action@551dded8c6cc8a1054039c8bc0b8b48c51dfc6ef
