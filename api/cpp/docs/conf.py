@@ -25,7 +25,7 @@ import json
 # The full version, including alpha/beta/rc tags
 version = "1.10.0"
 
-project = f'Slint {version} C++ API'
+project = f"Slint {version} C++ API"
 copyright = "SixtyFPS GmbH"
 author = "Slint Developers <info@slint.dev>"
 
@@ -36,8 +36,13 @@ cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["breathe", "myst_parser", "exhale",
-              "sphinx_markdown_tables", "sphinxcontrib.jquery"]
+extensions = [
+    "breathe",
+    "myst_parser",
+    "exhale",
+    "sphinx_markdown_tables",
+    "sphinxcontrib.jquery",
+]
 
 breathe_projects = {"Slint": "./docs/xml"}
 breathe_default_project = "Slint"
@@ -109,23 +114,32 @@ html_show_sourcelink = False
 
 html_logo = "https://slint.dev/logo/slint-logo-small-light.svg"
 
-myst_enable_extensions = [
-    "html_image", "colon_fence", "substitution"
-]
+myst_enable_extensions = ["html_image", "colon_fence", "substitution"]
 
 # Annotate h1/h2 elements with anchors
 myst_heading_anchors = 2
 
 myst_url_schemes = {
     "slint-reference": f"https://slint.dev/releases/{version}/docs/slint/{{{{path}}}}",
-    'http': None, 'https': None, 'mailto': None,
+    "http": None,
+    "https": None,
+    "mailto": None,
 }
 
 rst_epilog = ""
 
 myst_substitutions = {}
 
-with open(os.path.join(os.path.dirname(__file__), "..", "..", "internal", "core-macros", "link-data.json")) as link_data:
+with open(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "internal",
+        "core-macros",
+        "link-data.json",
+    )
+) as link_data:
     links = json.load(link_data)
 
 for key in links.keys():
@@ -134,6 +148,7 @@ for key in links.keys():
     myst_substitutions[f"slint_href_{key}"] = url
     rst_epilog += f".. |{key}| replace:: :code:`{key}`\n"
     rst_epilog += f".. _{key}: {url}\n"
+
 
 def setup(app):
     app.add_css_file("theme_tweak.css")
