@@ -3,11 +3,20 @@
 
 import { Button, LineEdit, HorizontalBox } from "std-widgets.slint";
 
+struct Test {
+    a-string: string,
+    a-int: int,
+}
+
 export component Counter inherits Window {
     in-out property <bool> test-value-bool: false;
-    in-out property <color> test-value-color: #ffff;
+    in-out property <color> test-value-color: #abcf;
     in-out property <int> test-value-int: 42;
     in-out property <string> test-value-string: "Initial Value";
+    in-out property <[Test]> test-array: [
+        { a-string: "String 1", a-int: 42 },
+        { a-string: "String 2", a-int: 43 },
+    ];
 
     private property <int> value: 0;
 

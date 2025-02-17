@@ -151,9 +151,9 @@ export component Spreadsheet inherits ScrollView {
         HorizontalLayout {
             RowMarker { }
 
-            for header in root.runtime-property.values: Cell {
+            for header in root.runtime-property.header: Cell {
                 is-header: true;
-                text: header.name;
+                text: header;
             }
         }
 

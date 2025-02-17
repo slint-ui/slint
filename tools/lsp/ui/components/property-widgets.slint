@@ -875,14 +875,14 @@ export component RuntimePropertyValueWidget inherits HorizontalLayout {
     private property <string> suffix_impl: (runtime_property.has-getter ? "R" : "") + (runtime-property.has-setter ? "W" : "");
     private property <string> suffix: suffix_impl == "" ? "" : " (" + suffix_impl + ")";
 
-    private property <bool> is-simple: runtime-property.values.length == 1 && !runtime-property.is-array && !runtime-property.prefer-json;
-    private property <bool> is-multi-value: runtime-property.values.length > 1 && !runtime-property.prefer-json;
+    private property <bool> is-simple: runtime-property.header.length == 1 && !runtime-property.is-array && !runtime-property.prefer-json;
+    private property <bool> is-multi-value: runtime-property.header.length > 1 && !runtime-property.prefer-json;
     private property <bool> show-json: runtime-property.prefer-json;
 
 
     private property <string> full-prop-name: self.runtime-property.name + self.suffix;
 
-    property <PropertyValue> value: root.runtime-property.values[0].value;
+    property <PropertyValue> value: root.runtime-property.array-values[0][0];
 
     if is-simple && value.kind == PropertyValueKind.code: CodeWidget {
         enabled: root.runtime-property.has-setter;

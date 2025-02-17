@@ -99,9 +99,9 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_set_string_binding(super::set_string_binding);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
 
-    // api.on_set_runtime_property();
-    // api.on_set_runtime_array_property();
+    api.on_set_runtime_property(set_runtime_property);
     api.on_set_runtime_json_properties(set_runtime_json_properties);
+    api.on_duplicate_runtime_property_value_table(duplicate_runtime_property_value_table);
 
     api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
     api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
@@ -830,7 +830,8 @@ struct ValueMapping {
     name_prefix: String,
     is_too_complex: bool,
     is_array: bool,
-    values: Vec<NamedPropertyValue>,
+    header: Vec<String>,
+    current_values: Vec<PropertyValue>,
     array_values: Vec<Vec<PropertyValue>>,
 }
 
@@ -845,29 +846,30 @@ fn map_value_and_type(
     eprintln!("### Mapping value {value:?} and type {ty:?}...");
 
     match ty {
-        Type::Float32 => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+        Type::Float32 => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 value_string: get_value::<f32>(value).to_string().into(),
                 code: get_code(value),
                 ..Default::default()
-            },
-        }),
-        Type::Int32 => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+            });
+        }
+
+        Type::Int32 => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Integer,
                 value_int: get_value::<i32>(value),
                 value_string: get_value::<i32>(value).to_string().into(),
                 code: get_code(value),
                 ..Default::default()
-            },
-        }),
-        Type::Duration => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+            });
+        }
+        Type::Duration => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 value_string: format!("{}{}", get_value::<f32>(value), Unit::Ms).into(),
@@ -876,35 +878,33 @@ fn map_value_and_type(
                 code: get_code(value),
                 default_selection: 1,
                 ..Default::default()
-            },
-        }),
+            });
+        }
         Type::PhysicalLength | Type::LogicalLength | Type::Rem => {
             // TODO: Is this correct? That unit is the Value anyway?!
-            mapping.values.push(NamedPropertyValue {
-                name: mapping.name_prefix.clone().into(),
-                value: PropertyValue {
-                    kind: PropertyValueKind::Float,
-                    value_float: get_value::<f32>(value),
-                    value_string: format!("{}{}", get_value::<f32>(value), Unit::Px).into(),
-                    visual_items: unit_model(&[
-                        Unit::Px,
-                        Unit::Cm,
-                        Unit::Mm,
-                        Unit::In,
-                        Unit::Pt,
-                        Unit::Phx,
-                        Unit::Rem,
-                    ]),
-                    value_int: 0,
-                    code: get_code(value),
-                    default_selection: 0,
-                    ..Default::default()
-                },
-            })
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: format!("{}{}", get_value::<f32>(value), Unit::Px).into(),
+                visual_items: unit_model(&[
+                    Unit::Px,
+                    Unit::Cm,
+                    Unit::Mm,
+                    Unit::In,
+                    Unit::Pt,
+                    Unit::Phx,
+                    Unit::Rem,
+                ]),
+                value_int: 0,
+                code: get_code(value),
+                default_selection: 0,
+                ..Default::default()
+            });
         }
-        Type::Angle => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+        Type::Angle => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 value_string: format!("{}{}", get_value::<f32>(value), Unit::Deg).into(),
@@ -913,11 +913,11 @@ fn map_value_and_type(
                 code: get_code(value),
                 default_selection: 0,
                 ..Default::default()
-            },
-        }),
-        Type::Percent => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+            });
+        }
+        Type::Percent => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 value_string: format!("{}{}", get_value::<f32>(value), Unit::Percent).into(),
@@ -926,17 +926,17 @@ fn map_value_and_type(
                 code: get_code(value),
                 default_selection: 0,
                 ..Default::default()
-            },
-        }),
-        Type::String => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+            });
+        }
+        Type::String => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::String,
                 value_string: get_value::<slint::SharedString>(value),
                 code: get_code(value),
                 ..Default::default()
-            },
-        }),
+            });
+        }
         Type::Color => {
             let color = get_value::<slint::Color>(value);
             let color_string = {
@@ -947,28 +947,26 @@ fn map_value_and_type(
 
                 format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
             };
-            mapping.values.push(NamedPropertyValue {
-                name: mapping.name_prefix.clone().into(),
-                value: PropertyValue {
-                    kind: PropertyValueKind::Color,
-                    value_brush: slint::Brush::SolidColor(color).into(),
-                    value_string: color_string.into(),
-                    code: get_code(value),
-                    ..Default::default()
-                },
-            })
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Color,
+                value_brush: slint::Brush::SolidColor(color).into(),
+                value_string: color_string.into(),
+                code: get_code(value),
+                ..Default::default()
+            });
         }
         Type::Image => todo!(),
-        Type::Bool => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+        Type::Bool => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Boolean,
                 value_bool: get_value::<bool>(value),
                 value_string: if get_value::<bool>(value) { "true".into() } else { "false".into() },
                 code: get_code(value),
                 ..Default::default()
-            },
-        }),
+            });
+        }
         Type::Model => todo!(),
         Type::PathData => todo!(),
         Type::Easing => todo!(),
@@ -982,7 +980,7 @@ fn map_value_and_type(
             mapping.is_array = true;
 
             if !mapping.is_too_complex {
-                mapping.values.extend_from_slice(&sm.values);
+                mapping.current_values.extend_from_slice(&sm.current_values);
 
                 let array_values = {
                     let model = get_value::<slint::ModelRc<slint_interpreter::Value>>(value);
@@ -991,7 +989,10 @@ fn map_value_and_type(
                         .map(|v| {
                             let mut sm = ValueMapping::default();
                             map_value_and_type(sty, &Some(v), &mut sm);
-                            sm.values.drain(..).map(|v| v.value).collect::<Vec<_>>()
+                            if mapping.header.is_empty() {
+                                mapping.header = sm.header;
+                            }
+                            sm.current_values
                         })
                         .collect()
                 };
@@ -999,7 +1000,6 @@ fn map_value_and_type(
             }
         }
         Type::Struct(s) => {
-            eprintln!("      Found a struct:");
             let value_struct = get_value::<slint_interpreter::Struct>(value);
 
             for (f, sty) in s.fields.iter() {
@@ -1009,39 +1009,41 @@ fn map_value_and_type(
                 } else {
                     format!("{}.{f}", mapping.name_prefix)
                 };
-                eprintln!("          {} recursion:", sm.name_prefix);
                 map_value_and_type(sty, &value_struct.get_field(f).cloned(), &mut sm);
 
-                mapping.values.extend_from_slice(&sm.values);
+                mapping.header.extend_from_slice(&sm.header);
+                mapping.current_values.extend_from_slice(&sm.current_values);
                 mapping.is_too_complex = mapping.is_too_complex || sm.is_too_complex || sm.is_array;
                 mapping.is_array = false;
             }
         }
         Type::Enumeration(enumeration) => todo!(),
         Type::UnitProduct(items) => todo!(),
-        _ => mapping.values.push(NamedPropertyValue {
-            name: mapping.name_prefix.clone().into(),
-            value: PropertyValue {
+        _ => {
+            mapping.header.push(mapping.name_prefix.clone().into());
+            mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Code,
                 value_string: "???".into(),
                 code: get_code(value),
                 ..Default::default()
-            },
-        }),
+            });
+        }
+    }
+
+    if mapping.array_values.is_empty() {
+        mapping.array_values = vec![std::mem::take(&mut mapping.current_values)];
     }
 
     // Back out when this got too complex and just put the JSON value in:
     if mapping.is_too_complex {
         eprintln!("      TOO COMPLEX!");
         mapping.is_array = false;
-        mapping.values = vec![NamedPropertyValue {
-            name: String::new().into(),
-            value: PropertyValue {
-                kind: PropertyValueKind::Code,
-                code: get_code(value),
-                ..Default::default()
-            },
-        }]
+        mapping.header = vec![String::new()];
+        mapping.array_values = vec![vec![PropertyValue {
+            kind: PropertyValueKind::Code,
+            code: get_code(value),
+            ..Default::default()
+        }]]
     }
 }
 
@@ -1057,8 +1059,12 @@ fn map_runtime_property(rp: &runtime_properties::RuntimeProperty) -> Option<Runt
     map_value_and_type(&rp.ty, &rp.value, &mut mapping);
 
     eprintln!("      >>> complete values for {}:", rp.name);
-    for np in &mapping.values {
-        eprintln!("            >>> {}: {:?}", np.name, np.value);
+    for rnp in &mapping.array_values {
+        eprintln!("          >>> New row:");
+
+        for crp in rnp.iter() {
+            eprintln!("              >>> {crp:?}");
+        }
     }
     eprintln!("      >>> complete values for {}: Done", rp.name);
 
@@ -1075,7 +1081,10 @@ fn map_runtime_property(rp: &runtime_properties::RuntimeProperty) -> Option<Runt
         has_setter,
         prefer_json: mapping.is_too_complex,
         is_array: mapping.is_array,
-        values: Rc::new(VecModel::from(mapping.values)).into(),
+        header: Rc::new(VecModel::from(
+            mapping.header.drain(..).map(|h| slint::SharedString::from(h)).collect::<Vec<_>>(),
+        ))
+        .into(),
         array_values,
     })
 }
@@ -1148,11 +1157,11 @@ pub fn ui_set_runtime_properties(
             {
                 return false;
             }
-            if o.values.row_count() != n.values.row_count() {
+            if o.header.row_count() != n.header.row_count() {
                 return false;
             }
-            for (ov, nv) in o.values.iter().zip(n.values.iter()) {
-                if ov.name != nv.name || !is_value_equal(&ov.value, &nv.value) {
+            for (oh, nh) in o.header.iter().zip(n.header.iter()) {
+                if oh != nh {
                     return false;
                 }
             }
@@ -1204,6 +1213,28 @@ pub fn ui_set_runtime_properties(
     }
 }
 
+fn set_runtime_property(
+    component: SharedString,
+    property_name: SharedString,
+    model: slint::ModelRc<slint::ModelRc<PropertyValue>>,
+) {
+    if model.row_count() == 0 {
+        eprintln!("No value given to set_runtime_property");
+        return;
+    }
+
+    let component = if component.is_empty() {
+        runtime_properties::RuntimeComponent::Main
+    } else {
+        runtime_properties::RuntimeComponent::Global(component.to_string())
+    };
+
+    // let property_value = property_value
+    //     .iter()
+    //     .map(|s| s.was_edited.then_some(|| s.edited_value.to_string()))
+    //     .collect::<Vec<_>>();
+}
+
 fn set_runtime_json_properties(
     component: SharedString,
     property_name: SharedString,
@@ -1225,6 +1256,19 @@ fn set_runtime_json_properties(
             eprintln!("ERROR setting property value: {e}");
         }
     }
+}
+
+fn duplicate_runtime_property_value_table(
+    model: slint::ModelRc<slint::ModelRc<PropertyValue>>,
+) -> slint::ModelRc<slint::ModelRc<PropertyValue>> {
+    let duplicate_model = model
+        .iter()
+        .map(|row| {
+            let duplicate_row = row.iter().map(|cell| cell.clone()).collect::<Vec<_>>();
+            Rc::new(slint::VecModel::from(duplicate_row)).into()
+        })
+        .collect::<Vec<slint::ModelRc<_>>>();
+    std::rc::Rc::new(slint::VecModel::from(duplicate_model)).into()
 }
 
 fn update_properties(
