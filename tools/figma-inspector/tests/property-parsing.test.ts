@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { getBorderRadius, rgbToHex, indentation } from "./property-parsing";
+import { getBorderRadius, rgbToHex, indentation } from "../backend/utils/property-parsing";
 import { expect, test } from "vitest";
 
-const testJson = require("../../figma_output.json");
+const testJson = require("./figma_output.json");
 
 // Json node ID for various tests.
 const testBorderRadius55px = "163:266";
