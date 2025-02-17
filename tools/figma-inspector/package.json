@@ -15,22 +15,19 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "format": "biome format",
-    "format:fix": "biome format --write"
+    "format:fix": "biome format --write",
+    "test": "vitest"
   },
   "dependencies": {
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
   },
   "devDependencies": {
-    "@types/react": "19.0.8",
-    "@types/react-dom": "19.0.3",
-    "@vitejs/plugin-react": "4.3.4",
     "@figma/plugin-typings": "1.107.0",
     "@types/node": "20.16.10",
     "cross-env": "7.0.3",
     "typescript": "5.7.3",
     "vite": "6.1.0",
     "vite-figma-plugin": "0.0.24",
-    "vite-plugin-singlefile": "2.1.0"
+    "vite-plugin-singlefile": "2.1.0",
+    "vitest": "3.0.5"
   }
 }

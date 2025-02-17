@@ -15,6 +15,8 @@ const itemsToKeep = [
     "stroke",
 ];
 
+export const indentation = "  ";
+
 type StyleObject = {
     [key: string]: string;
 };
@@ -58,23 +60,25 @@ function transformStyle(styleObj: StyleObject): string {
                 return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])};`;
             }
             if (key === "border-radius") {
-                const borderRadius = getBorderRadius();
+                const borderRadius = getBorderRadius(
+                    figma.currentPage.selection[0],
+                );
                 if (borderRadius !== null) {
                     return borderRadius;
                 }
             }
 
             if (value.includes("linear-gradient")) {
-                return `  ${finalKey}: @${finalValue};`;
+                return `${indentation}${finalKey}: @${finalValue};`;
             }
 
-            return `  ${finalKey}: ${finalValue};`;
+            return `${indentation}${finalKey}: ${finalValue};`;
         });
 
     return filteredEntries.length > 0 ? `${filteredEntries.join("\n")}` : "";
 }
 
-function rgbToHex({ r, g, b }) {
+export function rgbToHex({ r, g, b }) {
     const red = Math.round(r * 255);
     const green = Math.round(g * 255);
     const blue = Math.round(b * 255);
@@ -95,19 +99,20 @@ function getColor(node: SceneNode): string | null {
     return null;
 }
 
-function getBorderRadius(): string | null {
-    const node = figma.currentPage.selection[0];
-    console.log("node", node);
-
+export function getBorderRadius(node: SceneNode): string | null {
     if (!("cornerRadius" in node)) {
         return null;
     }
 
+    const roundRadius = (value: number) => {
+        return Number(value.toFixed(3));
+    };
+
     const cornerRadius = node.cornerRadius;
 
-    // Single border value
+    // Single values will be a number, multi border values will be a Symbol.
     if (typeof cornerRadius === "number") {
-        return `  border-radius: ${cornerRadius}px;`;
+        return `${indentation}border-radius: ${roundRadius(cornerRadius)}px;`;
     }
 
     // Multiple border values
@@ -126,7 +131,7 @@ function getBorderRadius(): string | null {
     );
 
     const radiusStrings = validCorners.map((corner, index) => {
-        return `  ${corner.slint}: ${node[corner.prop]}px;`;
+        return `${indentation}${corner.slint}: ${roundRadius(node[corner.prop])}px;`;
     });
 
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;

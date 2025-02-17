@@ -1,0 +1,9 @@
+{
+    "extends": ["../../biome.json"],
+    "formatter": {
+        "ignore": ["figma_output.json", ".tmp"]
+    },
+    "linter": {
+        "ignore": ["figma_output.json", ".tmp"]
+    }
+}
