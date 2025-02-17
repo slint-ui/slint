@@ -1125,18 +1125,13 @@ pub fn create_move_element_workspace_edit(
             let (path, selection_offset) = element.path_and_offset();
             return Some((edit, DropData { selection_offset, path }));
         } else {
-            let children = drop_info.target_element_node.children();
-            let child_index = {
-                let tmp =
-                    children.iter().position(|c| c == element).expect("We have the same parent");
-                if tmp == children.len() {
-                    usize::MAX
-                } else {
-                    tmp
-                }
+            let children = &drop_info.target_element_node.children();
+            let drop_index = if drop_info.child_index == usize::MAX {
+                children.len() - 1
+            } else {
+                drop_info.child_index
             };
-
-            if child_index == drop_info.child_index {
+            if children.get(drop_index).is_some_and(|c| c == element) {
                 // Dropped onto myself: Ignore the move
                 return None;
             }
