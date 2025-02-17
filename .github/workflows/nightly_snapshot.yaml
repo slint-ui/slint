@@ -318,6 +318,32 @@ jobs:
                   path: |
                       ${{ steps.publishToVSCM.outputs.vsixPath }}
 
+    build-figma-plugin:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
+              id: node-install
+            - uses: pnpm/action-setup@v4.1.0
+              with:
+                version: 10.3.0
+            - name: Run pnpm install
+              working-directory: tools/figma-inspector
+              run: pnpm install --frozen-lockfile
+            - name: Add build timestamp to readme
+              working-directory: tools/figma-inspector/public-zip
+              run: echo "Built on $(date '+%d-%m-%Y %H:%M:%S %Z')" >> readme.txt
+            - name: Build zip
+              working-directory: tools/figma-inspector
+              run: pnpm zip
+            - name: Archive zip
+              uses: actions/upload-artifact@v4
+              with:
+                  name: figma-plugin
+                  path: tools/figma-inspector/zip
+
     #  publish_tree_sitter:
     #    if: github.event.inputs.private != 'true'
     #    runs-on: ubuntu-22.04
