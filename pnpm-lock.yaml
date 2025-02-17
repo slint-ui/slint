@@ -202,11 +202,11 @@ importers:
         specifier: 20.16.10
         version: 20.16.10
       '@types/react':
-        specifier: 19.0.8
-        version: 19.0.8
+        specifier: 19.0.9
+        version: 19.0.9
       '@types/react-dom':
         specifier: 19.0.3
-        version: 19.0.3(@types/react@19.0.8)
+        version: 19.0.3(@types/react@19.0.9)
       '@vitejs/plugin-react':
         specifier: 4.3.4
         version: 4.3.4(vite@6.1.0(@types/node@20.16.10)(yaml@2.7.0))
@@ -1673,8 +1673,8 @@ packages:
     peerDependencies:
       '@types/react': ^19.0.0
 
-  '@types/react@19.0.8':
-    resolution: {integrity: sha512-9P/o1IGdfmQxrujGbIMDyYaaCykhLKc0NGCtYcECNUr9UAaDe4gwvV9bR6tvd5Br1SG0j+PBpbKr2UYY8CwqSw==}
+  '@types/react@19.0.9':
+    resolution: {integrity: sha512-FedNTYgmMwSZmD1Sru/W1gJKuiYCN/3SuBkmZkcxX+FpO5zL76B22A9YNfAKg4HQO3Neh/30AiynP6BELdU0qQ==}
 
   '@types/resolve-dir@0.0.0':
     resolution: {integrity: sha512-OuK0+SZ5RMR1nlLlsmDrHZJV58aLwXu2ET4tKZEkQzizSCpIotDmUz3RDlTA3VYW3XH8xaa/CjXvG/YJkOgHfA==}
@@ -6127,11 +6127,11 @@ snapshots:
     dependencies:
       prettier: 3.5.0
 
-  '@types/react-dom@19.0.3(@types/react@19.0.8)':
+  '@types/react-dom@19.0.3(@types/react@19.0.9)':
     dependencies:
-      '@types/react': 19.0.8
+      '@types/react': 19.0.9
 
-  '@types/react@19.0.8':
+  '@types/react@19.0.9':
     dependencies:
       csstype: 3.1.3
 
