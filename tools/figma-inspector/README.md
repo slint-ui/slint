@@ -13,7 +13,7 @@ You need to install the following components:
 * **[pnpm](https://www.pnpm.io/)**
 * **[Figma Desktop App](https://www.figma.com/downloads/)**
 
-You also **MUST** have a valid Figma developer subscription as the plugin works in the Dev mode 
+You also **MUST** have a valid Figma developer subscription as the plugin works in the Dev mode
 and/or Figma VS Code extension.
 
 To try it out locally type this in this directory:
@@ -27,7 +27,7 @@ pnpm build
 
 Then in Figma on an open file right click and select `Plugins > Development > Import Plugin From Manifest..` and point it at the `dist/manifest.json` file that has now been created inside this project.
 
-You should also ensure `Plugins > Development > Hot Reload Plugin` is ticked. 
+You should also ensure `Plugins > Development > Hot Reload Plugin` is ticked.
 
 To develop in hot reload mode:
 
@@ -50,7 +50,7 @@ To get an access Token in Figma go to the home screen. Then top right click the 
 You then need to get the file ID. Open figma.com, login and open the file. You will then have a url like
 `https://www.figma.com/design/njC6jSUbrYpqLRJ2dyV6NT/energy-test-file?node-id=113-2294&p=f&t=5IDwrGIFUnri3Z17-0`. The ID is the part of the URL after `/design/` so in this example `njC6jSUbrYpqLRJ2dyV6NT`.
 
-You can then use `curl` to download the JSON with 
+You can then use `curl` to download the JSON with
 
 ```sh
 curl -H 'X-Figma-Token: <YOUR_ACCESS_TOKEN>' \
