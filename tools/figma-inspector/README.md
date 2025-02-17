@@ -7,7 +7,7 @@
 
 Download the nightly snapshot [figma-plugin.zip](https://github.com/slint-ui/slint/releases/download/nightly/figma-plugin.zip).
 
-The prerequisites are either the Figma Desktop App or the Figma VSCode extension. 
+The prerequisites are either the Figma Desktop App or the Figma VSCode extension.
 A valid Figma subscription with at least 'Team Professional' is needed.
 
 In Figma Desktop or the VScode extension have a file open and right click on it. Select Plugins > Development > Import Plugin From Manifest.. and point it at the manifest.json file that you just unzipped.
