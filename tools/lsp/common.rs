@@ -106,7 +106,7 @@ pub struct ElementRcNode {
 
 impl std::cmp::PartialEq for ElementRcNode {
     fn eq(&self, other: &Self) -> bool {
-        self.path_and_offset() == other.path_and_offset()
+        self.path_and_offset() == other.path_and_offset() && self.debug_index == other.debug_index
     }
 }
 
