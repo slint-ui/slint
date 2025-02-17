@@ -104,11 +104,15 @@ export function getBorderRadius(node: SceneNode): string | null {
         return null;
     }
 
+    const roundRadius = (value: number) => {
+        return Number(value.toFixed(3));
+    };
+
     const cornerRadius = node.cornerRadius;
-    console.log("Corner radius", cornerRadius);
-    // Single border value
+
+    // Single values will be a number, multi border values will be a Symbol.
     if (typeof cornerRadius === "number") {
-        return `${indentation}border-radius: ${cornerRadius}px;`;
+        return `${indentation}border-radius: ${roundRadius(cornerRadius)}px;`;
     }
 
     // Multiple border values
@@ -127,7 +131,7 @@ export function getBorderRadius(node: SceneNode): string | null {
     );
 
     const radiusStrings = validCorners.map((corner, index) => {
-        return `${indentation}${corner.slint}: ${node[corner.prop]}px;`;
+        return `${indentation}${corner.slint}: ${roundRadius(node[corner.prop])}px;`;
     });
 
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;

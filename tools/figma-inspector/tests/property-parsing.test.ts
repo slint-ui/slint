@@ -88,6 +88,6 @@ test("Multiple border radius", () => {
     const jsonNode = findNodeById(testJson, testBorderRadiusMultiValue);
     const convertToApiJson = processCornerRadii(jsonNode);
     const snippet = getBorderRadius(convertToApiJson);
-    const expectedSnippet = `${indentation}border-top-left-radius: 50px;\n${indentation}border-top-right-radius: 28px;\n${indentation}border-bottom-right-radius: 30.343290328979492px;`;
+    const expectedSnippet = `${indentation}border-top-left-radius: 50px;\n${indentation}border-top-right-radius: 28px;\n${indentation}border-bottom-right-radius: 30.343px;`;
     expect(snippet).toBe(expectedSnippet);
 });
