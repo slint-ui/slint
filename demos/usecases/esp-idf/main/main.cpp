@@ -6,7 +6,6 @@
 #include "slint-esp.h"
 #include <ctime>
 #include <memory>
-#include "esp_log.h"
 
 #include <slint-platform.h>
 
@@ -27,22 +26,24 @@ extern "C" void app_main(void)
     bsp_i2c_init();
 
     /* Initialize display  */
-    esp_lcd_panel_handle_t panel_handle = NULL;
     bsp_lcd_handles_t handles {};
-
-    bsp_display_new_with_handles(nullptr, &handles);
+    const bsp_display_config_t
+            bsp_display_config = { .dsi_bus = {
+                                           .lane_bit_rate_mbps = BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS,
+                                   } };
+    bsp_display_new_with_handles(&bsp_display_config, &handles);
 
     esp_lcd_touch_handle_t touch_handle = NULL;
     const bsp_touch_config_t bsp_touch_cfg = {};
     bsp_touch_new(&bsp_touch_cfg, &touch_handle);
 
-    panel_handle = handles.panel;
-
     /* Set display brightness to 100% */
     bsp_display_backlight_on();
 
-    slint_esp_init(slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }), panel_handle,
-                   touch_handle);
+    slint_esp_init(SlintPlatformConfiguration {
+            .size = slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
+            .panel_handle = handles.panel,
+            .touch_handle = touch_handle });
 
     run();
 }
