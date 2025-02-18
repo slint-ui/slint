@@ -12,29 +12,74 @@ const rectangleProperties = [
     "border-color",
 ];
 
-const textProperties = [
-    "text",
-    "font-family",
-    "font-size",
-    "font-weight",
-];
+const textProperties = ["text", "font-family", "font-size", "font-weight"];
 
-export function rgbToHex(fill: {
-    opacity: number;
-    color: { r: number; g: number; b: number };
-}): string {
-    const {
-        color: { r, g, b },
-    } = fill;
-
+export function rgbToHex({
+    r,
+    g,
+    b,
+    a,
+}: { r: number; g: number; b: number; a: number }): string {
     const red = Math.round(r * 255);
     const green = Math.round(g * 255);
     const blue = Math.round(b * 255);
+    const alpha = Math.round(a * 255);
 
-    return (
-        "#" +
-        [red, green, blue].map((x) => x.toString(16).padStart(2, "0")).join("")
-    );
+    const values = a < 1 ? [red, green, blue, alpha] : [red, green, blue];
+    return "#" + values.map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+export function generateRadialGradient(fill: {
+    opacity: number;
+    gradientStops: Array<{
+        color: { r: number; g: number; b: number; a: number };
+        position: number;
+    }>;
+    gradientTransform: number[][];
+}): string {
+    if (!fill.gradientStops || fill.gradientStops.length < 2) {
+        return "";
+    }
+
+    const stops = fill.gradientStops
+        .map((stop) => {
+            const { r, g, b, a } = stop.color;
+            const hexColor = rgbToHex({ r, g, b, a });
+            const position = Math.round(stop.position * 100);
+
+            return `${hexColor} ${position}%`;
+        })
+        .join(", ");
+
+    return `@radial-gradient(circle, ${stops})`;
+}
+
+export function generateLinearGradient(fill: {
+    opacity: number;
+    gradientStops: Array<{
+        color: { r: number; g: number; b: number; a: number };
+        position: number;
+    }>;
+    gradientTransform: number[][];
+}): string {
+    if (!fill.gradientStops || fill.gradientStops.length < 2) {
+        return "";
+    }
+
+    const [a, b] = fill.gradientTransform[0];
+    const angle = (90 + Math.round(Math.atan2(b, a) * (180 / Math.PI))) % 360;
+
+    const stops = fill.gradientStops
+        .map((stop) => {
+            const { r, g, b, a } = stop.color;
+            const hexColor = rgbToHex({ r, g, b, a });
+            const position = Math.round(stop.position * 100);
+
+            return `${hexColor} ${position}%`;
+        })
+        .join(", ");
+
+    return `@linear-gradient(${angle}deg, ${stops})`;
 }
 
 function roundNumber(value: number): number | null {
@@ -84,26 +129,74 @@ export function getBorderRadius(node: SceneNode): string | null {
 
 export function getBorderWidthAndColor(sceneNode: SceneNode): string[] {
     const properties: string[] = [];
-    if (!("strokes" in sceneNode) || !Array.isArray(sceneNode.strokes) || sceneNode.strokes.length === 0) {
-                    return null;
+    if (
+        !("strokes" in sceneNode) ||
+        !Array.isArray(sceneNode.strokes) ||
+        sceneNode.strokes.length === 0
+    ) {
+        return null;
     }
-    if ("strokeWeight" in sceneNode && typeof sceneNode.strokeWeight === "number") {
+    if (
+        "strokeWeight" in sceneNode &&
+        typeof sceneNode.strokeWeight === "number"
+    ) {
         const borderWidth = roundNumber(sceneNode.strokeWeight);
         if (borderWidth) {
-            properties.push(
-                `${indentation}border-width: ${borderWidth}px;`,
-            );
+            properties.push(`${indentation}border-width: ${borderWidth}px;`);
         }
     }
-    const borderColor = rgbToHex(sceneNode.strokes[0]);
-    properties.push(
-        `${indentation}border-color: ${borderColor};`,
-    );
+    const borderColor = getBrush(sceneNode.strokes[0]);
+    properties.push(`${indentation}border-color: ${borderColor};`);
     return properties;
+}
+
+export function getBrush(fill: {
+    type: string;
+    opacity: number;
+    color?: { r: number; g: number; b: number };
+    gradientStops?: Array<{
+        color: { r: number; g: number; b: number; a: number };
+        position: number;
+    }>;
+    gradientTransform?: number[][];
+}): string {
+    console.log("fill", fill.type);
+    switch (fill.type) {
+        case "SOLID": {
+            return rgbToHex({ ...fill.color, a: fill.opacity });
+        }
+        case "GRADIENT_LINEAR": {
+            if (!fill.gradientStops) {
+                console.log("Missing gradient stops for linear gradient");
+                return "";
+            }
+            return generateLinearGradient({
+                opacity: fill.opacity,
+                gradientStops: fill.gradientStops,
+                gradientTransform: fill.gradientTransform,
+            });
+        }
+        case "GRADIENT_RADIAL": {
+            if (!fill.gradientStops) {
+                console.log("Missing gradient stops for radial gradient");
+                return "";
+            }
+            return generateRadialGradient({
+                opacity: fill.opacity,
+                gradientStops: fill.gradientStops,
+                gradientTransform: fill.gradientTransform,
+            });
+        }
+        default: {
+            console.log("Unknown fill type:", fill.type);
+            return "";
+        }
+    }
 }
 
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
     console.log("node ID:", sceneNode.id);
+    console.log("node", sceneNode);
     const nodeType = sceneNode.type;
 
     switch (nodeType) {
@@ -132,13 +225,17 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
             case "width":
                 const normalizedWidth = roundNumber(sceneNode.width);
                 if (normalizedWidth) {
-                    properties.push(`${indentation}width: ${normalizedWidth}px;`);
+                    properties.push(
+                        `${indentation}width: ${normalizedWidth}px;`,
+                    );
                 }
                 break;
             case "height":
                 const normalizedHeight = roundNumber(sceneNode.height);
                 if (normalizedHeight) {
-                    properties.push(`${indentation}height: ${normalizedHeight}px;`);
+                    properties.push(
+                        `${indentation}height: ${normalizedHeight}px;`,
+                    );
                 }
                 break;
             case "fill":
@@ -147,7 +244,7 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                     Array.isArray(sceneNode.fills) &&
                     sceneNode.fills.length > 0
                 ) {
-                    const hexColor = rgbToHex(sceneNode.fills[0]);
+                    const hexColor = getBrush(sceneNode.fills[0]);
                     properties.push(`${indentation}background: ${hexColor};`);
                 }
                 break;
@@ -184,9 +281,7 @@ export function generateTextSnippet(sceneNode: SceneNode): string {
             case "text":
                 if ("characters" in sceneNode) {
                     const characters = sceneNode.characters;
-                    properties.push(
-                        `${indentation}text: "${characters}";`,
-                    );
+                    properties.push(`${indentation}text: "${characters}";`);
                 }
                 break;
             case "font-family":
@@ -200,7 +295,10 @@ export function generateTextSnippet(sceneNode: SceneNode): string {
                 }
                 break;
             case "font-size":
-                if ("fontSize" in sceneNode && typeof sceneNode.fontSize === "number") {
+                if (
+                    "fontSize" in sceneNode &&
+                    typeof sceneNode.fontSize === "number"
+                ) {
                     const fontSize = roundNumber(sceneNode.fontSize);
                     if (fontSize) {
                         properties.push(
@@ -210,7 +308,10 @@ export function generateTextSnippet(sceneNode: SceneNode): string {
                 }
                 break;
             case "font-weight":
-                if ("fontWeight" in sceneNode && typeof sceneNode.fontWeight === "number") {
+                if (
+                    "fontWeight" in sceneNode &&
+                    typeof sceneNode.fontWeight === "number"
+                ) {
                     const fontWeight = sceneNode.fontWeight;
                     properties.push(
                         `${indentation}font-weight: ${fontWeight};`,
