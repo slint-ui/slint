@@ -1,19 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-const itemsToKeep = [
-    "color",
-    "font-family",
-    "font-size",
-    "font-weight",
-    "width",
-    "height",
-    "fill",
-    "opacity",
-    "border-radius",
-    "stroke-width",
-    "stroke",
-];
+// const itemsToKeep = [
+//     "color",
+//     "font-family",
+//     "font-size",
+//     "font-weight",
+//     "width",
+//     "height",
+//     "fill",
+//     "opacity",
+//     "border-radius",
+//     "stroke-width",
+//     "stroke",
+// ];
 
 export const indentation = "    ";
 
@@ -41,6 +41,8 @@ function roundNumber(value: number): number | null {
     }
     return Number(value.toFixed(3));
 }
+
+
 
 export function getBorderRadius(node: SceneNode): string | null {
     if (node === null || !("cornerRadius" in node) || node.cornerRadius === 0) {
@@ -105,8 +107,8 @@ const rectangleProperties = [
     "fill",
     "opacity",
     "border-radius",
-    // "stroke-width",
-    // "stroke",
+    "border-width",
+    "border-color"
 ];
 
 export function generateRectangleSnippet(sceneNode: SceneNode): string {
@@ -153,6 +155,23 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                 if (borderRadius !== null) {
                     properties.push(borderRadius);
                 }
+                break;
+            case "border-width":
+                if (!("strokes" in sceneNode) || !Array.isArray(sceneNode.strokes) || sceneNode.strokes.length === 0) {
+                    return null;
+                }
+                if ("strokeWeight" in sceneNode && typeof sceneNode.strokeWeight === "number") {
+                    const borderWidth = roundNumber(sceneNode.strokeWeight);
+                    if (borderWidth) {
+                        properties.push(
+                            `${indentation}border-width: ${borderWidth}px;`,
+                        );
+                    }
+                }
+                const borderColor = rgbToHex(sceneNode.strokes[0]);
+                properties.push(
+                    `${indentation}border-color: ${borderColor};`,
+                );
                 break;
         }
     });
