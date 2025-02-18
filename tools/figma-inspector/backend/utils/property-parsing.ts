@@ -23,6 +23,7 @@ type StyleObject = {
 
 export async function getSlintSnippet(): Promise<string> {
     console.info("ID:", figma.currentPage.selection[0].id);
+    generateSlintSnippet(figma.currentPage.selection[0]);
     const cssProperties = await figma.currentPage.selection[0].getCSSAsync();
     const slintProperties = transformStyle(cssProperties);
 
@@ -136,4 +137,25 @@ export function getBorderRadius(node: SceneNode): string | null {
     });
 
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
+}
+
+export function generateSlintSnippet(node: SceneNode): string | null {
+    // console.time("generateSlintSnippet");
+    // Determine the type of node
+    const nodeType = node.type;
+    console.info("Node type:", nodeType);
+
+    switch (nodeType) {
+        
+        case "FRAME": {
+            // Not handled. It's a type of layout node in Figma.
+            break;
+        }
+        default: {
+            console.log("Unknown node type:", nodeType);
+        }
+            
+    }
+    // console.timeEnd("generateSlintSnippet");
+    return null;
 }

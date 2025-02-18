@@ -5,6 +5,7 @@ import {
     getBorderRadius,
     rgbToHex,
     indentation,
+    generateSlintSnippet,
 } from "../backend/utils/property-parsing";
 import { expect, test } from "vitest";
 
@@ -13,6 +14,7 @@ const testJson = require("./figma_output.json");
 // Json node ID for various tests.
 const testBorderRadius55px = "163:266";
 const testBorderRadiusMultiValue = "163:267";
+const testFrameNode = "156:3609";
 
 function findNodeById(obj: any, targetId: string): any {
     if (Array.isArray(obj)) {
@@ -95,3 +97,11 @@ test("Multiple border radius", () => {
     const expectedSnippet = `${indentation}border-top-left-radius: 50px;\n${indentation}border-top-right-radius: 28px;\n${indentation}border-bottom-right-radius: 30.343px;`;
     expect(snippet).toBe(expectedSnippet);
 });
+
+
+test("FRAME node", () => {
+    const jsonNode = findNodeById(testJson, testFrameNode);
+    const snippet = generateSlintSnippet(jsonNode);
+    expect(snippet).toBe(null);
+});
+
