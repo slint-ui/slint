@@ -14,18 +14,20 @@ const rectangleProperties = [
 
 const textProperties = ["text", "font-family", "font-size", "font-weight"];
 
-export function rgbToHex({
-    r,
-    g,
-    b,
-    a,
-}: { r: number; g: number; b: number; a: number }): string {
-    const red = Math.round(r * 255);
-    const green = Math.round(g * 255);
-    const blue = Math.round(b * 255);
-    const alpha = Math.round(a * 255);
+export type RGBAColor = {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+};
 
-    const values = a < 1 ? [red, green, blue, alpha] : [red, green, blue];
+export function rgbToHex(rgba: RGBAColor): string {
+    const red = Math.round(rgba.r * 255);
+    const green = Math.round(rgba.g * 255);
+    const blue = Math.round(rgba.b * 255);
+    const alpha = Math.round(rgba.a * 255);
+
+    const values = rgba.a < 1 ? [red, green, blue, alpha] : [red, green, blue];
     return "#" + values.map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
@@ -56,10 +58,7 @@ export function generateRadialGradient(fill: {
 
 export function generateLinearGradient(fill: {
     opacity: number;
-    gradientStops: Array<{
-        color: { r: number; g: number; b: number; a: number };
-        position: number;
-    }>;
+    gradientStops: Array<{ color: RGBAColor; position: number }>;
     gradientTransform: number[][];
 }): string {
     if (!fill.gradientStops || fill.gradientStops.length < 2) {
