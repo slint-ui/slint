@@ -15,6 +15,7 @@ export component TestCase inherits Window {
     out property <bool> textedit-focused <=> edit.has_focus;
     callback edited <=> edit.edited;
     in-out property <string> text <=> edit.text;
+    in-out property <bool> read-only <=> edit.read-only;
     public function paste() {
         edit.paste();
     }
@@ -92,7 +93,11 @@ assert_eq!(instance.get_text(), "Xxx");
 instance.invoke_paste();
 assert_eq!(instance.get_text(), "XxxHello👋");
 
-
+let mut edit_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::edit");
+let edit = edit_search.next().unwrap();
+assert_eq!(edit.accessible_read_only(), Some(false));
+instance.set_read_only(true);
+assert_eq!(edit.accessible_read_only(), Some(true));
 ```
 
 */
