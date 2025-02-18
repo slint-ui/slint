@@ -54,13 +54,15 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(prop_name: str):  # type: ignore
-            def getter(self):  # type: ignore
-                return self.__instance__.get_global_property(global_name, prop_name)
+        def mk_setter_getter(prop_or_callback_name: str) -> property:
+            def getter(self: Component) -> Any:
+                return self.__instance__.get_global_property(
+                    global_name, prop_or_callback_name
+                )
 
-            def setter(self, value):  # type: ignore
-                return self.__instance__.set_global_property(
-                    global_name, prop_name, value
+            def setter(self: Component, value: Any) -> None:
+                self.__instance__.set_global_property(
+                    global_name, prop_or_callback_name, value
                 )
 
             return property(getter, setter)
@@ -73,18 +75,18 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(callback_name: str):  # type: ignore
-            def getter(self):  # type: ignore
+        def mk_setter_getter(prop_or_callback_name: str) -> property:
+            def getter(self: Component) -> typing.Callable[..., Any]:
                 def call(*args: Any) -> Any:
                     return self.__instance__.invoke_global(
-                        global_name, callback_name, *args
+                        global_name, prop_or_callback_name, *args
                     )
 
                 return call
 
-            def setter(self, value):  # type: ignore
-                return self.__instance__.set_global_callback(
-                    global_name, callback_name, value
+            def setter(self: Component, value: typing.Callable[..., Any]) -> None:
+                self.__instance__.set_global_callback(
+                    global_name, prop_or_callback_name, value
                 )
 
             return property(getter, setter)
@@ -97,8 +99,8 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
             logging.warning(f"Duplicated function {prop_name}")
             continue
 
-        def mk_getter(function_name: str):  # type: ignore
-            def getter(self):  # type: ignore
+        def mk_getter(function_name: str) -> property:
+            def getter(self: Component) -> typing.Callable[..., Any]:
                 def call(*args: Any) -> Any:
                     return self.__instance__.invoke_global(
                         global_name, function_name, *args
@@ -113,8 +115,10 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
     return type("SlintGlobalClassWrapper", (), properties_and_callbacks)
 
 
-def _build_class(compdef: native.ComponentDefinition):  # type: ignore
-    def cls_init(self: Any, **kwargs) -> Any:  # type: ignore
+def _build_class(
+    compdef: native.ComponentDefinition,
+) -> typing.Callable[..., Component]:
+    def cls_init(self: Component, **kwargs: Any) -> Any:
         self.__instance__ = compdef.create()
         for name, value in self.__class__.__dict__.items():
             if hasattr(value, "slint.callback"):
@@ -139,7 +143,7 @@ def _build_class(compdef: native.ComponentDefinition):  # type: ignore
         for prop, val in kwargs.items():
             setattr(self, prop, val)
 
-    properties_and_callbacks = {"__init__": cls_init}
+    properties_and_callbacks: dict[Any, Any] = {"__init__": cls_init}
 
     for prop_name in compdef.properties.keys():
         python_prop = _normalize_prop(prop_name)
@@ -147,12 +151,12 @@ def _build_class(compdef: native.ComponentDefinition):  # type: ignore
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(prop_name: str) -> Any:
-            def getter(self) -> Any:  # type: ignore
-                return self.__instance__.get_property(prop_name)
+        def mk_setter_getter(prop_or_callback_name: str) -> property:
+            def getter(self: Component) -> Any:
+                return self.__instance__.get_property(prop_or_callback_name)
 
-            def setter(self, value: Any) -> None:  # type: ignore
-                self.__instance__.set_property(prop_name, value)
+            def setter(self: Component, value: Any) -> None:
+                self.__instance__.set_property(prop_or_callback_name, value)
 
             return property(getter, setter)
 
@@ -164,15 +168,15 @@ def _build_class(compdef: native.ComponentDefinition):  # type: ignore
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def mk_setter_getter(callback_name: str) -> Any:  # type: ignore
-            def getter(self):  # type: ignore
+        def mk_setter_getter(prop_or_callback_name: str) -> property:
+            def getter(self: Component) -> typing.Callable[..., Any]:
                 def call(*args: Any) -> Any:
-                    return self.__instance__.invoke(callback_name, *args)
+                    return self.__instance__.invoke(prop_or_callback_name, *args)
 
                 return call
 
-            def setter(self, value: any):  # type: ignore
-                self.__instance__.set_callback(callback_name, value)
+            def setter(self: Component, value: typing.Callable[..., Any]) -> None:
+                self.__instance__.set_callback(prop_or_callback_name, value)
 
             return property(getter, setter)
 
@@ -184,8 +188,8 @@ def _build_class(compdef: native.ComponentDefinition):  # type: ignore
             logging.warning(f"Duplicated function {prop_name}")
             continue
 
-        def mk_getter(function_name: str):  # type: ignore
-            def getter(self) -> Any:  # type: ignore
+        def mk_getter(function_name: str) -> property:
+            def getter(self: Component) -> typing.Callable[..., Any]:
                 def call(*args: Any) -> Any:
                     return self.__instance__.invoke(function_name, *args)
 
@@ -198,8 +202,8 @@ def _build_class(compdef: native.ComponentDefinition):  # type: ignore
     for global_name in compdef.globals:
         global_class = _build_global_class(compdef, global_name)
 
-        def mk_global(global_class: typing.Callable[..., Any]):  # type: ignore
-            def global_getter(self) -> Any:  # type: ignore
+        def mk_global(global_class: typing.Callable[..., Any]) -> property:
+            def global_getter(self: Component) -> Any:
                 wrapper = global_class()
                 setattr(wrapper, "__instance__", self.__instance__)
                 return wrapper
