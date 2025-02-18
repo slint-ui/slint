@@ -1,7 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import pytest
 from slint import slint as native
 from slint.slint import ValueType
 
@@ -42,7 +41,7 @@ def test_basic_compiler() -> None:
     assert result.component_names == ["Test"]
     compdef = result.component("Test")
 
-    assert compdef != None
+    assert compdef is not None
 
     assert compdef.name == "Test"
 
@@ -63,19 +62,19 @@ def test_basic_compiler() -> None:
 
     assert compdef.globals == ["TestGlobal"]
 
-    assert compdef.global_properties("Garbage") == None
+    assert compdef.global_properties("Garbage") is None
     assert [
         (name, type) for name, type in compdef.global_properties("TestGlobal").items()
     ] == [("theglobalprop", ValueType.String)]
 
-    assert compdef.global_callbacks("Garbage") == None
+    assert compdef.global_callbacks("Garbage") is None
     assert compdef.global_callbacks("TestGlobal") == ["globallogic"]
 
-    assert compdef.global_functions("Garbage") == None
+    assert compdef.global_functions("Garbage") is None
     assert compdef.global_functions("TestGlobal") == ["globalfun"]
 
     instance = compdef.create()
-    assert instance != None
+    assert instance is not None
 
 
 def test_compiler_build_from_path() -> None:

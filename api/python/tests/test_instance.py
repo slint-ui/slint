@@ -3,7 +3,7 @@
 
 import pytest
 from slint import slint as native
-from slint.slint import ValueType, Image, Color, Brush
+from slint.slint import Image, Color, Brush
 import os
 
 
@@ -44,10 +44,10 @@ def test_property_access() -> None:
     """,
         os.path.join(os.path.dirname(__file__), "main.slint"),
     ).component("Test")
-    assert compdef != None
+    assert compdef is not None
 
     instance = compdef.create()
-    assert instance != None
+    assert instance is not None
 
     with pytest.raises(ValueError, match="no such property"):
         instance.set_property("nonexistent", 42)
@@ -70,24 +70,24 @@ def test_property_access() -> None:
     with pytest.raises(ValueError, match="wrong type"):
         instance.set_property("floatprop", "Blah")
 
-    assert instance.get_property("boolprop") == True
+    assert instance.get_property("boolprop")
     instance.set_property("boolprop", False)
-    assert instance.get_property("boolprop") == False
+    assert not instance.get_property("boolprop")
     with pytest.raises(ValueError, match="wrong type"):
         instance.set_property("boolprop", 0)
 
     structval = instance.get_property("structprop")
     assert isinstance(structval, native.PyStruct)
     assert structval.title == "builtin"
-    assert structval.finished == True
-    assert structval.dash_prop == True
+    assert structval.finished
+    assert structval.dash_prop
     instance.set_property(
         "structprop", {"title": "new", "finished": False, "dash_prop": False}
     )
     structval = instance.get_property("structprop")
     assert structval.title == "new"
-    assert structval.finished == False
-    assert structval.dash_prop == False
+    assert not structval.finished
+    assert not structval.dash_prop
 
     imageval = instance.get_property("imageprop")
     assert imageval.width == 320
@@ -159,10 +159,10 @@ def test_callbacks() -> None:
     """,
         "",
     ).component("Test")
-    assert compdef != None
+    assert compdef is not None
 
     instance = compdef.create()
-    assert instance != None
+    assert instance is not None
 
     assert instance.invoke("test-callback", "foo") == "local foo"
 

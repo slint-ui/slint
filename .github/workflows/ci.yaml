@@ -189,6 +189,9 @@ jobs:
             - name: Run mypy
               working-directory: api/python
               run: uv run mypy -p tests -p slint
+            - name: Run ruff linter
+              working-directory: api/python
+              run: uv tool run ruff check
 
     cpp_test_driver:
         env:

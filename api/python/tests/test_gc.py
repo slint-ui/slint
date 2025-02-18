@@ -19,10 +19,10 @@ def test_callback_gc() -> None:
     """,
         "",
     ).component("Test")
-    assert compdef != None
+    assert compdef is not None
 
     instance: native.ComponentInstance | None = compdef.create()
-    assert instance != None
+    assert instance is not None
 
     class Handler:
         def __init__(self, instance: native.ComponentInstance) -> None:
