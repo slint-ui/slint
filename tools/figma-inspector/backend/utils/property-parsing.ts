@@ -22,6 +22,7 @@ type StyleObject = {
 };
 
 export async function getSlintSnippet(): Promise<string> {
+    console.info("ID:", figma.currentPage.selection[0].id);
     const cssProperties = await figma.currentPage.selection[0].getCSSAsync();
     const slintProperties = transformStyle(cssProperties);
 
