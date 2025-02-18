@@ -37,7 +37,7 @@ assert(instance.get_test());
 auto img_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::img");
 assert_eq(img_search.size(), 1);
 auto img = img_search[0];
-assert_eq(*img.accessible_role(), slint::testing::AccessibleRole::Image);
+assert(*img.accessible_role() == slint::testing::AccessibleRole::Image);
 ```
 
 
