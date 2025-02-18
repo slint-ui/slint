@@ -225,10 +225,9 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 
             if (std::exchange(m_window->needs_redraw, false)) {
-                auto rotated =
-                        rotation == slint::platform::SoftwareRenderer::RenderingRotation::Rotate90
-                        || rotation
-                                == slint::platform::SoftwareRenderer::RenderingRotation::Rotate270;
+                using slint::platform::SoftwareRenderer;
+                auto rotated = rotation == SoftwareRenderer::RenderingRotation::Rotate90
+                        || rotation == SoftwareRenderer::RenderingRotation::Rotate270;
                 if (buffer1) {
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                     if (buffer2) {
@@ -236,14 +235,14 @@ void EspPlatform<PixelType>::run_event_loop()
                         xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
                     }
 #endif
-                    auto region = m_window->m_renderer.render(buffer1.value(),
-                                                              rotated ? size.height : size.width);
+                    auto stride = rotated ? size.height : size.width;
+                    auto region = m_window->m_renderer.render(buffer1.value(), stride);
 
                     if (byte_swap) {
                         for (auto [o, s] : region.rectangles()) {
                             for (int y = o.y; y < o.y + s.height; y++) {
                                 for (int x = o.x; x < o.x + s.width; x++) {
-                                    byte_swap_color(&buffer1.value()[y * size.width + x]);
+                                    byte_swap_color(&buffer1.value()[y * stride + x]);
                                 }
                             }
                         }
@@ -265,7 +264,7 @@ void EspPlatform<PixelType>::run_event_loop()
                             for (int y = o.y; y < o.y + s.height; y++) {
                                 esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width,
                                                           y + 1,
-                                                          buffer1->data() + y * size.width + o.x);
+                                                          buffer1->data() + y * stride + o.x);
                             }
                         }
                     }
