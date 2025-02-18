@@ -5,13 +5,11 @@ r"""
 .. include:: ../README.md
 """
 
-from importlib.machinery import ModuleSpec
 import os
 import sys
 from . import slint as native
 import types
 import logging
-import importlib
 import copy
 import typing
 from typing import Any

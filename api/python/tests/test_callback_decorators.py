@@ -1,11 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from slint import load_file, CompileError
+from slint import load_file
 import slint
 import os
 import pytest
-import typing
 
 
 def base_dir() -> str:

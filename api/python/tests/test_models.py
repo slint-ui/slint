@@ -33,10 +33,10 @@ def test_model_notify() -> None:
     """,
         "",
     ).component("App")
-    assert compdef != None
+    assert compdef is not None
 
     instance = compdef.create()
-    assert instance != None
+    assert instance is not None
 
     model = models.ListModel([100, 0])
 
@@ -64,10 +64,10 @@ def test_model_from_list() -> None:
     """,
         "",
     ).component("App")
-    assert compdef != None
+    assert compdef is not None
 
     instance = compdef.create()
-    assert instance != None
+    assert instance is not None
 
     model = instance.get_property("data")
     assert model.row_count() == 4
@@ -112,10 +112,10 @@ def test_rust_model_sequence() -> None:
     """,
         "",
     ).component("App")
-    assert compdef != None
+    assert compdef is not None
 
     instance = compdef.create()
-    assert instance != None
+    assert instance is not None
 
     model = instance.get_property("data")
 
@@ -143,10 +143,10 @@ def test_model_writeback() -> None:
     """,
         "",
     ).component("App")
-    assert compdef != None
+    assert compdef is not None
 
     instance = compdef.create()
-    assert instance != None
+    assert instance is not None
 
     model = models.ListModel([100, 0])
 

@@ -4,7 +4,6 @@
 import pytest
 from slint import load_file, CompileError
 import os
-from typing import cast
 
 
 def base_dir() -> str:
