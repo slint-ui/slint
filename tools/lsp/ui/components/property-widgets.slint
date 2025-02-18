@@ -295,6 +295,9 @@ component FloatWidget inherits VerticalLayout {
 }
 
 component StringWidget {
+    // FIXME: @ogoffart says the plural support is not working at this time, so
+    //        we do not offer it in the UI for the time being...
+
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
@@ -306,10 +309,12 @@ component StringWidget {
     callback set-string-binding(text: string, is-translated: bool);
 
     function tsb() -> bool {
-        return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
+        // return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
+        return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
     }
     function ssb() {
-        set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
+        // set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
+        set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
     }
     property <bool> open: false;
 
@@ -378,41 +383,41 @@ component StringWidget {
                         }
                     }
                 }
-                Row {
-                    Text {
-                        vertical-alignment: center;
-                        horizontal-alignment: right;
-                        text: "Plural";
-                    }
-                    tr-plural := ResettingLineEdit {
-                        enabled: root.enabled && tr-cb.checked;
-                        default-text: root.property-value.tr-plural;
-                        edited(text) => {
-                            self.can-compile = root.tsb();
-                        }
-                        accepted(text) => {
-                            root.ssb();
-                        }
-                    }
-                }
-                Row {
-                    Text {
-                        vertical-alignment: center;
-                        horizontal-alignment: right;
-                        text: "Expression";
-                    }
-                    tr-plural-expression := ResettingLineEdit {
-                        enabled: root.enabled && tr-cb.checked;
-                        default-text: root.property-value.tr-plural-expression;
-                        edited(text) => {
-                            self.can-compile = root.tsb();
-                            tr-plural.can-compile = self.can-compile;
-                        }
-                        accepted(text) => {
-                            root.ssb();
-                        }
-                    }
-                }
+                // Row {
+                //     Text {
+                //         vertical-alignment: center;
+                //         horizontal-alignment: right;
+                //         text: "Plural";
+                //     }
+                //     tr-plural := ResettingLineEdit {
+                //         enabled: root.enabled && tr-cb.checked;
+                //         default-text: root.property-value.tr-plural;
+                //         edited(text) => {
+                //             self.can-compile = root.tsb();
+                //         }
+                //         accepted(text) => {
+                //             root.ssb();
+                //         }
+                //     }
+                // }
+                // Row {
+                //     Text {
+                //         vertical-alignment: center;
+                //         horizontal-alignment: right;
+                //         text: "Expression";
+                //     }
+                //     tr-plural-expression := ResettingLineEdit {
+                //         enabled: root.enabled && tr-cb.checked;
+                //         default-text: root.property-value.tr-plural-expression;
+                //         edited(text) => {
+                //             self.can-compile = root.tsb();
+                //             tr-plural.can-compile = self.can-compile;
+                //         }
+                //         accepted(text) => {
+                //             root.ssb();
+                //         }
+                //     }
+                // }
             }
         }
     }
