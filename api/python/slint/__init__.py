@@ -22,6 +22,7 @@ Struct = native.PyStruct
 
 class CompileError(Exception):
     def __init__(self, message: str, diagnostics: list[native.PyDiagnostic]):
+        """@private"""
         self.message = message
         self.diagnostics = diagnostics
 
