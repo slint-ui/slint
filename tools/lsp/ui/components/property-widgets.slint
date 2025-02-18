@@ -654,13 +654,14 @@ component BooleanWidget inherits VerticalLayout {
         }
     }
 }
-
 component EditMultiValueWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
+    in property <RuntimeProperty> runtime-property;
 
     callback set-bool-binding(text: string);
+    callback edit-in-spreadsheet(runtime-property: RuntimeProperty);
 
     NameLabel {
         property-name: root.property-name;
@@ -669,7 +670,11 @@ component EditMultiValueWidget inherits VerticalLayout {
 
     Button {
         text: root.enabled ? @tr("Edit") : @tr("View");
+        clicked => {
+            edit-in-spreadsheet(runtime-property);
+        }
     }
+
 }
 
 component EditJsonWidget inherits VerticalLayout {
@@ -861,6 +866,7 @@ export component PropertyInformationWidget inherits HorizontalLayout {
 
 export component RuntimePropertyValueWidget inherits HorizontalLayout {
     in property <RuntimeProperty> runtime-property;
+    callback call-spreadsheet-from-edit(rp:RuntimeProperty);
 
     alignment: stretch;
 
@@ -915,6 +921,9 @@ export component RuntimePropertyValueWidget inherits HorizontalLayout {
         }
     }
     if is-multi-value: EditMultiValueWidget {
+        edit-in-spreadsheet(property-value) => {
+            call-spreadsheet-from-edit(root.runtime-property);
+        }
         enabled: root.runtime-property.has-setter;
         property-name: root.full-prop-name;
         property-value: value;

@@ -4,7 +4,6 @@
 import { Palette, Button, LineEdit, CheckBox, ScrollView, VerticalBox } from "std-widgets.slint";
 import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings, EditorFontSettings, EditorPalette } from "../components/styling.slint";
 import { Api, ColorData, ElementInformation, RuntimeComponent, RuntimeProperty, NamedPropertyValue, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
-import { RuntimePropertyValueWidget } from "../components/property-widgets.slint";
 import { PropertyValueWidget } from "property-widgets.slint";
 
 export struct CellData {
@@ -146,6 +145,7 @@ export component Spreadsheet inherits ScrollView {
     property <bool> edit-window-visible: false;
     private property <length> selection-x;
     private property <length> selection-y;
+    callback edit-in-spreadsheet(rp:RuntimeProperty);
 
     VerticalLayout {
         HorizontalLayout {

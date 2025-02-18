@@ -5,11 +5,13 @@ import { Palette, VerticalBox, ScrollView, Button }  from "std-widgets.slint";
 
 import { ExpandableGroup } from "../components/property-widgets.slint";
 
-import { Api, ColorData, ElementInformation, RuntimeComponent, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ColorData, ElementInformation, RuntimeComponent, RuntimeProperty, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
 import { GroupHeader } from "../components/group.slint";
 import { EditorSizeSettings, EditorSpaceSettings } from "../components/styling.slint";
 
 import { ExpandableGroup, RuntimePropertyValueWidget } from "../components/property-widgets.slint";
+import { SpreadsheetDialog } from "../components/spreadsheet-dialog.slint";
+import { Spreadsheet } from "../components/spreadsheet.slint";
 
 export component RuntimePropertyView inherits ScrollView{
 
@@ -17,6 +19,8 @@ export component RuntimePropertyView inherits ScrollView{
 
     property <length> key-width: self.width / 2.5;
     property <bool> element-loaded: root.runtime-components.length > 0;
+    property <bool> show-spreadsheet: false;
+    callback call-spreadsheet(rp:RuntimeProperty);
 
     content-layer := VerticalLayout {
         if !root.element-loaded: Text {
@@ -44,6 +48,11 @@ export component RuntimePropertyView inherits ScrollView{
 
                     for p in ep.properties: RuntimePropertyValueWidget {
                         runtime-property: p;
+                        call-spreadsheet-from-edit(runtime-property) => {
+                            debug("runtime properties:",runtime-property);
+                            root.show-spreadsheet = true;
+                            ss.runtime-property = runtime-property;
+                        }
                     }
 
                     Button {
@@ -56,10 +65,14 @@ export component RuntimePropertyView inherits ScrollView{
             }
         }
     }
-
+    
     Rectangle {
         x: 0;
         width: 1px;
         background: Palette.border;
     }
+    ss := SpreadsheetDialog {
+        visible: root.show-spreadsheet;
+    }
 }
+
