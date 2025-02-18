@@ -713,9 +713,8 @@ public:
     /// Rgb8Pixel.
     template<typename PixelType, typename Callback>
         requires requires(Callback callback) {
-                     callback(size_t(0), size_t(0), size_t(0),
-                              [&callback](std::span<PixelType>) {});
-                 }
+            callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<PixelType>) {});
+        }
     PhysicalRegion render_by_line(Callback process_line_callback) const
     {
         auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
