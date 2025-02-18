@@ -1,20 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// const itemsToKeep = [
-//     "color",
-//     "font-family",
-//     "font-size",
-//     "font-weight",
-//     "width",
-//     "height",
-//     "fill",
-//     "opacity",
-//     "border-radius",
-//     "stroke-width",
-//     "stroke",
-// ];
-
 export const indentation = "    ";
 
 export function rgbToHex(fill: {
@@ -80,6 +66,26 @@ export function getBorderRadius(node: SceneNode): string | null {
     });
 
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
+}
+
+export function getBorderWidthAndColor(sceneNode: SceneNode): string[] {
+    const properties: string[] = [];
+    if (!("strokes" in sceneNode) || !Array.isArray(sceneNode.strokes) || sceneNode.strokes.length === 0) {
+                    return null;
+    }
+    if ("strokeWeight" in sceneNode && typeof sceneNode.strokeWeight === "number") {
+        const borderWidth = roundNumber(sceneNode.strokeWeight);
+        if (borderWidth) {
+            properties.push(
+                `${indentation}border-width: ${borderWidth}px;`,
+            );
+        }
+    }
+    const borderColor = rgbToHex(sceneNode.strokes[0]);
+    properties.push(
+        `${indentation}border-color: ${borderColor};`,
+    );
+    return properties;
 }
 
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
@@ -157,21 +163,10 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                 }
                 break;
             case "border-width":
-                if (!("strokes" in sceneNode) || !Array.isArray(sceneNode.strokes) || sceneNode.strokes.length === 0) {
-                    return null;
+                const borderWidthAndColor = getBorderWidthAndColor(sceneNode);
+                if (borderWidthAndColor !== null) {
+                    properties.push(...borderWidthAndColor);
                 }
-                if ("strokeWeight" in sceneNode && typeof sceneNode.strokeWeight === "number") {
-                    const borderWidth = roundNumber(sceneNode.strokeWeight);
-                    if (borderWidth) {
-                        properties.push(
-                            `${indentation}border-width: ${borderWidth}px;`,
-                        );
-                    }
-                }
-                const borderColor = rgbToHex(sceneNode.strokes[0]);
-                properties.push(
-                    `${indentation}border-color: ${borderColor};`,
-                );
                 break;
         }
     });

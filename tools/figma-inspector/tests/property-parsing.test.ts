@@ -6,6 +6,7 @@ import {
     rgbToHex,
     indentation,
     generateSlintSnippet,
+    getBorderWidthAndColor,
 } from "../backend/utils/property-parsing";
 import { expect, test } from "vitest";
 
@@ -16,6 +17,7 @@ const testBorderRadius55px = "163:266";
 const testBorderRadiusMultiValue = "163:267";
 const testFrameNode = "156:3609";
 const testNoBorderRadius = "201:272";
+const testBorderWidthColor = "212:279";
 
 function findNodeById(obj: any, targetId: string): any {
     if (Array.isArray(obj)) {
@@ -113,4 +115,15 @@ test("FRAME node", () => {
     expect(jsonNode).not.toBeNull();
     const snippet = generateSlintSnippet(jsonNode);
     expect(snippet).toBe(null);
+});
+
+test("Border width and color", () => {
+    const jsonNode = findNodeById(testJson, testBorderWidthColor);
+    expect(jsonNode).not.toBeNull();
+    const snippet = getBorderWidthAndColor(jsonNode);
+    const expectedSnippet = [
+        `${indentation}border-width: 10.455px;`,
+        `${indentation}border-color: #5c53dc;`,
+    ];
+    expect(snippet).toStrictEqual(expectedSnippet);
 });
