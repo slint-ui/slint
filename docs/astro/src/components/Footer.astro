@@ -1,12 +1,11 @@
 ---
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import type { Props } from "@astrojs/starlight/props";
 import Default from "@astrojs/starlight/components/Footer.astro";
 const year = new Date().getFullYear();
 ---
 
-<Default {...Astro.props}><slot /></Default>
+<Default ><slot /></Default>
 
 <hr />
 

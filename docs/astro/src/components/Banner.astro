@@ -2,10 +2,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import Default from "@astrojs/starlight/components/Banner.astro";
-import type { Props } from "@astrojs/starlight/props";
 
 import VersionBanner from "./VersionBanner.astro";
 ---
 
-<VersionBanner {...Astro.props} />
-<Default {...Astro.props}><slot /></Default>
+<VersionBanner {...Astro.locals.starlightRoute} />
+<Default ><slot /></Default>
