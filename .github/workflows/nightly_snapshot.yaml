@@ -318,6 +318,32 @@ jobs:
                   path: |
                       ${{ steps.publishToVSCM.outputs.vsixPath }}
 
+    build-figma-plugin:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
+              id: node-install
+            - uses: pnpm/action-setup@v4.1.0
+              with:
+                version: 10.3.0
+            - name: Run pnpm install
+              working-directory: tools/figma-inspector
+              run: pnpm install --frozen-lockfile
+            - name: Add build timestamp to readme
+              working-directory: tools/figma-inspector/public-zip
+              run: echo "Built on $(date '+%d-%m-%Y %H:%M:%S %Z')" >> readme.txt
+            - name: Build zip
+              working-directory: tools/figma-inspector
+              run: pnpm zip
+            - name: Archive zip
+              uses: actions/upload-artifact@v4
+              with:
+                  name: figma-plugin
+                  path: tools/figma-inspector/zip
+
     #  publish_tree_sitter:
     #    if: github.event.inputs.private != 'true'
     #    runs-on: ubuntu-22.04
@@ -524,7 +550,7 @@ jobs:
 
     prepare_release:
         if: github.event.inputs.private != 'true'
-        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary]
+        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin]
         runs-on: ubuntu-22.04
         permissions:
             contents: write
@@ -549,6 +575,9 @@ jobs:
               with:
                   pattern: slint-lsp-*
                   merge-multiple: true
+            - uses: actions/download-artifact@v4
+              with:
+                  name: figma-plugin
             - name: Extract files
               run: |
                   ls -l
@@ -564,6 +593,7 @@ jobs:
                   mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-lsp-macos.tar.gz artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
+                  mv figma-plugin.zip artifacts/
             - uses: montudor/action-zip@v1
               with:
                   args: zip -r artifacts/slint-viewer-windows.zip slint-viewer
