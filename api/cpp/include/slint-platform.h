@@ -708,27 +708,38 @@ public:
     /// a line buffer (as std::span) and invoke the provided fourth parameter (render_fn) with it,
     /// to fill it with pixels. After the line buffer is filled with pixels, your implementation is
     /// free to flush that line to the screen for display.
-    template<typename Callback>
+    ///
+    /// The first template parameter (PixelType) must be specified and can be either Rgb565Pixel or
+    /// Rgb8Pixel.
+    template<typename PixelType, typename Callback>
         requires requires(Callback callback) {
-            callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<Rgb565Pixel>) {});
-        }
+                     callback(size_t(0), size_t(0), size_t(0),
+                              [&callback](std::span<PixelType>) {});
+                 }
     PhysicalRegion render_by_line(Callback process_line_callback) const
     {
-        auto r = cbindgen_private::slint_software_renderer_render_by_line_rgb565(
-                inner,
-                [](void *process_line_callback_ptr, uintptr_t line, uintptr_t line_start,
-                   uintptr_t line_end, void (*render_fn)(const void *, uint16_t *, std::size_t),
-                   const void *render_fn_data) {
-                    (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
-                            std::size_t(line), std::size_t(line_start), std::size_t(line_end),
-                            [render_fn, render_fn_data](std::span<Rgb565Pixel> line_span) {
-                                render_fn(render_fn_data,
-                                          reinterpret_cast<uint16_t *>(line_span.data()),
-                                          line_span.size());
-                            });
-                },
-                &process_line_callback);
-        return PhysicalRegion { r };
+        auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
+                                  uintptr_t line_start, uintptr_t line_end,
+                                  void (*render_fn)(const void *, PixelType *, std::size_t),
+                                  const void *render_fn_data) {
+            (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
+                    std::size_t(line), std::size_t(line_start), std::size_t(line_end),
+                    [render_fn, render_fn_data](std::span<PixelType> line_span) {
+                        render_fn(render_fn_data, line_span.data(), line_span.size());
+                    });
+        };
+
+        if constexpr (std::is_same_v<PixelType, Rgb565Pixel>) {
+            return PhysicalRegion { cbindgen_private::slint_software_renderer_render_by_line_rgb565(
+                    inner, process_line_fn, &process_line_callback) };
+        } else if constexpr (std::is_same_v<PixelType, Rgb8Pixel>) {
+            return PhysicalRegion { cbindgen_private::slint_software_renderer_render_by_line_rgb8(
+                    inner, process_line_fn, &process_line_callback) };
+        } else {
+            static_assert(std::is_same_v<PixelType, Rgba8Pixel>
+                                  || std::is_same_v<PixelType, Rgb565Pixel>,
+                          "Unsupported PixelType. It must be either Rgba8Pixel or Rgb565Pixel");
+        }
     }
 #    endif
 

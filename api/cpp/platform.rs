@@ -404,6 +404,70 @@ mod software_renderer {
     }
 
     #[cfg(feature = "experimental")]
+    struct LineByLineProcessor<TargetPixel> {
+        process_line_fn: extern "C" fn(
+            *mut core::ffi::c_void,
+            usize,
+            usize,
+            usize,
+            extern "C" fn(*const core::ffi::c_void, *mut TargetPixel, usize),
+            *const core::ffi::c_void,
+        ),
+        user_data: *mut core::ffi::c_void,
+    }
+
+    #[cfg(feature = "experimental")]
+    impl<TargetPixel: i_slint_core::software_renderer::TargetPixel>
+        i_slint_core::software_renderer::LineBufferProvider for LineByLineProcessor<TargetPixel>
+    {
+        type TargetPixel = TargetPixel;
+        fn process_line(
+            &mut self,
+            line: usize,
+            range: core::ops::Range<usize>,
+            render_fn: impl FnOnce(&mut [TargetPixel]),
+        ) {
+            self.cpp_process_line(line, range, render_fn);
+        }
+    }
+
+    #[cfg(feature = "experimental")]
+    impl<TargetPixel> LineByLineProcessor<TargetPixel> {
+        fn cpp_process_line<RenderFn: FnOnce(&mut [TargetPixel])>(
+            &mut self,
+            line: usize,
+            range: core::ops::Range<usize>,
+            render_fn: RenderFn,
+        ) {
+            let mut render_fn = Some(render_fn);
+            let render_fn_ptr = &mut render_fn as *mut Option<RenderFn> as *const core::ffi::c_void;
+
+            extern "C" fn cpp_render_line_callback<
+                TargetPixel,
+                RenderFn: FnOnce(&mut [TargetPixel]),
+            >(
+                render_fn_ptr: *const core::ffi::c_void,
+                line_start: *mut TargetPixel,
+                len: usize,
+            ) {
+                let line_slice = unsafe { core::slice::from_raw_parts_mut(line_start, len) };
+                let render_fn =
+                    unsafe { (*(render_fn_ptr as *mut Option<RenderFn>)).take().unwrap() };
+                render_fn(line_slice);
+            }
+
+            (self.process_line_fn)(
+                self.user_data,
+                line,
+                range.start,
+                range.end,
+                cpp_render_line_callback::<TargetPixel, RenderFn>,
+                render_fn_ptr,
+            );
+        }
+    }
+
+    #[cfg(feature = "experimental")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb565(
         r: SoftwareRendererOpaque,
@@ -412,74 +476,32 @@ mod software_renderer {
             usize,
             usize,
             usize,
-            extern "C" fn(*const core::ffi::c_void, *mut u16, usize),
+            extern "C" fn(*const core::ffi::c_void, *mut Rgb565Pixel, usize),
             *const core::ffi::c_void,
         ),
         user_data: *mut core::ffi::c_void,
     ) -> PhysicalRegion {
-        struct Rgb565Processor {
-            process_line_fn: extern "C" fn(
-                *mut core::ffi::c_void,
-                usize,
-                usize,
-                usize,
-                extern "C" fn(*const core::ffi::c_void, *mut u16, usize),
-                *const core::ffi::c_void,
-            ),
-            user_data: *mut core::ffi::c_void,
-        }
-
-        impl i_slint_core::software_renderer::LineBufferProvider for Rgb565Processor {
-            type TargetPixel = Rgb565Pixel;
-            fn process_line(
-                &mut self,
-                line: usize,
-                range: core::ops::Range<usize>,
-                render_fn: impl FnOnce(&mut [Rgb565Pixel]),
-            ) {
-                self.cpp_process_line(line, range, render_fn);
-            }
-        }
-
-        impl Rgb565Processor {
-            fn cpp_process_line<RenderFn: FnOnce(&mut [Rgb565Pixel])>(
-                &mut self,
-                line: usize,
-                range: core::ops::Range<usize>,
-                render_fn: RenderFn,
-            ) {
-                let mut render_fn = Some(render_fn);
-                let render_fn_ptr =
-                    &mut render_fn as *mut Option<RenderFn> as *const core::ffi::c_void;
-
-                extern "C" fn cpp_render_line_callback<RenderFn: FnOnce(&mut [Rgb565Pixel])>(
-                    render_fn_ptr: *const core::ffi::c_void,
-                    line_start: *mut u16,
-                    len: usize,
-                ) {
-                    let line_slice = unsafe {
-                        core::slice::from_raw_parts_mut(line_start as *mut Rgb565Pixel, len)
-                    };
-                    let render_fn =
-                        unsafe { (*(render_fn_ptr as *mut Option<RenderFn>)).take().unwrap() };
-                    render_fn(line_slice);
-                }
-
-                (self.process_line_fn)(
-                    self.user_data,
-                    line,
-                    range.start,
-                    range.end,
-                    cpp_render_line_callback::<RenderFn>,
-                    render_fn_ptr,
-                );
-            }
-        }
-
         let renderer = &*(r as *const SoftwareRenderer);
+        let processor = LineByLineProcessor { process_line_fn, user_data };
+        renderer.render_by_line(processor)
+    }
 
-        let processor = Rgb565Processor { process_line_fn, user_data };
-
+    #[cfg(feature = "experimental")]
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb8(
+        r: SoftwareRendererOpaque,
+        process_line_fn: extern "C" fn(
+            *mut core::ffi::c_void,
+            usize,
+            usize,
+            usize,
+            extern "C" fn(*const core::ffi::c_void, *mut Rgb8Pixel, usize),
+            *const core::ffi::c_void,
+        ),
+        user_data: *mut core::ffi::c_void,
+    ) -> PhysicalRegion {
+        let renderer = &*(r as *const SoftwareRenderer);
+        let processor = LineByLineProcessor { process_line_fn, user_data };
         renderer.render_by_line(processor)
     }
 
