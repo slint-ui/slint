@@ -35,13 +35,12 @@ export function rgbToHex(fill: {
     );
 }
 
-
 function roundNumber(value: number): number | null {
     if (value === 0) {
         return null;
     }
     return Number(value.toFixed(3));
-};
+}
 
 export function getBorderRadius(node: SceneNode): string | null {
     if (node === null || !("cornerRadius" in node) || node.cornerRadius === 0) {
@@ -118,13 +117,17 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
             case "width":
                 const normalizedWidth = roundNumber(sceneNode.width);
                 if (normalizedWidth) {
-                    properties.push(`${indentation}width: ${sceneNode.width}px;`);
+                    properties.push(
+                        `${indentation}width: ${sceneNode.width}px;`,
+                    );
                 }
                 break;
             case "height":
                 const normalizedHeight = roundNumber(sceneNode.height);
                 if (normalizedHeight) {
-                    properties.push(`${indentation}height: ${sceneNode.height}px;`);
+                    properties.push(
+                        `${indentation}height: ${sceneNode.height}px;`,
+                    );
                 }
                 break;
             case "fill":
@@ -135,13 +138,14 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                 ) {
                     const hexColor = rgbToHex(sceneNode.fills[0]);
                     properties.push(`${indentation}background: ${hexColor};`);
-
                 }
                 break;
             case "opacity":
                 if ("opacity" in sceneNode && sceneNode.opacity !== 1) {
                     const opacity = sceneNode.opacity;
-                    properties.push(`${indentation}opacity: ${opacity * 100}%;`);
+                    properties.push(
+                        `${indentation}opacity: ${opacity * 100}%;`,
+                    );
                 }
                 break;
             case "border-radius":
