@@ -7,6 +7,7 @@ import {
     indentation,
     generateSlintSnippet,
     getBorderWidthAndColor,
+    generateTextSnippet,
 } from "../backend/utils/property-parsing";
 import { expect, test } from "vitest";
 
@@ -18,6 +19,7 @@ const testBorderRadiusMultiValue = "163:267";
 const testFrameNode = "156:3609";
 const testNoBorderRadius = "201:272";
 const testBorderWidthColor = "212:279";
+const testText = "156:3612";
 
 function findNodeById(obj: any, targetId: string): any {
     if (Array.isArray(obj)) {
@@ -64,6 +66,23 @@ function processCornerRadii(json: any): any {
         };
     }
 
+    return json;
+}
+
+// Convert test JSON to match the API object.
+function processTextNode(json: any): any {
+    if (json.type === "TEXT" && json.style) {
+        return {
+            ...json,
+            characters: json.characters,
+            fontName: {
+                family: json.style.fontFamily,
+                style: json.style.fontStyle,
+            },
+            fontSize: json.style.fontSize,
+            fontWeight: json.style.fontWeight,
+        };
+    }
     return json;
 }
 
@@ -126,4 +145,13 @@ test("Border width and color", () => {
         `${indentation}border-color: #5c53dc;`,
     ];
     expect(snippet).toStrictEqual(expectedSnippet);
+});
+
+test("Text node", () => {
+    const jsonNode = findNodeById(testJson, testText);
+    expect(jsonNode).not.toBeNull();
+    const convertToApiJson = processTextNode(jsonNode);
+    const snippet = generateTextSnippet(convertToApiJson);
+    const expectedSnippet = `Text {\n${indentation}text: "Monthly";\n${indentation}font-family: "Roboto";\n${indentation}font-size: 12px;\n${indentation}font-weight: 400;\n}`;
+    expect(snippet).toBe(expectedSnippet);
 });

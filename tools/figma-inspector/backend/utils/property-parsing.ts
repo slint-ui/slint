@@ -2,6 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export const indentation = "    ";
+const rectangleProperties = [
+    "width",
+    "height",
+    "fill",
+    "opacity",
+    "border-radius",
+    "border-width",
+    "border-color",
+];
+
+const textProperties = [
+    "text",
+    "font-family",
+    "font-size",
+    "font-weight",
+];
 
 export function rgbToHex(fill: {
     opacity: number;
@@ -27,8 +43,6 @@ function roundNumber(value: number): number | null {
     }
     return Number(value.toFixed(3));
 }
-
-
 
 export function getBorderRadius(node: SceneNode): string | null {
     if (node === null || !("cornerRadius" in node) || node.cornerRadius === 0) {
@@ -100,22 +114,15 @@ export function generateSlintSnippet(sceneNode: SceneNode): string | null {
         case "RECTANGLE": {
             return generateRectangleSnippet(sceneNode);
         }
+        case "TEXT": {
+            return generateTextSnippet(sceneNode);
+        }
         default: {
             console.log("Unknown node type:", nodeType);
         }
     }
     return null;
 }
-
-const rectangleProperties = [
-    "width",
-    "height",
-    "fill",
-    "opacity",
-    "border-radius",
-    "border-width",
-    "border-color"
-];
 
 export function generateRectangleSnippet(sceneNode: SceneNode): string {
     const properties: string[] = [];
@@ -125,17 +132,13 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
             case "width":
                 const normalizedWidth = roundNumber(sceneNode.width);
                 if (normalizedWidth) {
-                    properties.push(
-                        `${indentation}width: ${sceneNode.width}px;`,
-                    );
+                    properties.push(`${indentation}width: ${normalizedWidth}px;`);
                 }
                 break;
             case "height":
                 const normalizedHeight = roundNumber(sceneNode.height);
                 if (normalizedHeight) {
-                    properties.push(
-                        `${indentation}height: ${sceneNode.height}px;`,
-                    );
+                    properties.push(`${indentation}height: ${normalizedHeight}px;`);
                 }
                 break;
             case "fill":
@@ -172,4 +175,50 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
     });
 
     return `Rectangle {\n${properties.join("\n")}\n}`;
+}
+
+export function generateTextSnippet(sceneNode: SceneNode): string {
+    const properties: string[] = [];
+    textProperties.forEach((property) => {
+        switch (property) {
+            case "text":
+                if ("characters" in sceneNode) {
+                    const characters = sceneNode.characters;
+                    properties.push(
+                        `${indentation}text: "${characters}";`,
+                    );
+                }
+                break;
+            case "font-family":
+                if ("fontName" in sceneNode) {
+                    const fontName = sceneNode.fontName;
+                    if (typeof fontName !== "symbol" && fontName) {
+                        properties.push(
+                            `${indentation}font-family: "${fontName.family}";`,
+                        );
+                    }
+                }
+                break;
+            case "font-size":
+                if ("fontSize" in sceneNode && typeof sceneNode.fontSize === "number") {
+                    const fontSize = roundNumber(sceneNode.fontSize);
+                    if (fontSize) {
+                        properties.push(
+                            `${indentation}font-size: ${fontSize}px;`,
+                        );
+                    }
+                }
+                break;
+            case "font-weight":
+                if ("fontWeight" in sceneNode && typeof sceneNode.fontWeight === "number") {
+                    const fontWeight = sceneNode.fontWeight;
+                    properties.push(
+                        `${indentation}font-weight: ${fontWeight};`,
+                    );
+                }
+                break;
+        }
+    });
+
+    return `Text {\n${properties.join("\n")}\n}`;
 }
