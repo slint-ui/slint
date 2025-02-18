@@ -93,12 +93,11 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_selected_element_delete(super::delete_selected_element);
 
     api.on_test_code_binding(super::test_code_binding);
-    api.on_test_string_binding(super::test_string_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
-    api.on_set_string_binding(super::set_string_binding);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
 
+    api.on_string_to_code(string_to_code);
     api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
     api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
     api.on_color_to_data(|c| {
@@ -388,6 +387,36 @@ fn extract_value_with_unit_impl(
     }
 
     None
+}
+
+fn convert_simple_string(input: slint::SharedString) -> String {
+    format!("\"{}\"", str::escape_debug(input.as_ref()))
+}
+
+fn string_to_code(
+    input: slint::SharedString,
+    is_translatable: bool,
+    tr_context: slint::SharedString,
+    tr_plural: slint::SharedString,
+    tr_plural_expression: slint::SharedString,
+) -> slint::SharedString {
+    let input = convert_simple_string(input);
+    if !is_translatable {
+        input
+    } else {
+        let context = if tr_context.is_empty() {
+            String::new()
+        } else {
+            format!("{} => ", convert_simple_string(tr_context))
+        };
+        let plural = if tr_plural.is_empty() {
+            String::new()
+        } else {
+            format!(" | {} % {}", convert_simple_string(tr_plural), tr_plural_expression)
+        };
+        format!("@tr({context}{input}{plural})")
+    }
+    .into()
 }
 
 fn string_to_color(text: &str) -> Option<slint::Color> {

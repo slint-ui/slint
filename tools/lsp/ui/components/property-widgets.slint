@@ -302,14 +302,14 @@ component StringWidget {
     callback code-action();
     callback reset-action();
 
-    callback test-string-binding(text: string, is-translatable: bool, tr-context: string, tr-plural: string, tr-plural-expression: string) -> bool;
-    callback set-string-binding(text: string, is-translatable: bool, tr-context: string, tr-plural: string, tr-plural-expression: string);
+    callback test-string-binding(text: string, is-translated: bool) -> bool;
+    callback set-string-binding(text: string, is-translated: bool);
 
     function tsb() -> bool {
-        return test-string-binding(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text);
+        return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
     }
     function ssb() {
-        set-string-binding(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text);
+        set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
     }
     property <bool> open: false;
 
@@ -668,6 +668,15 @@ export component PropertyValueWidget inherits HorizontalLayout {
     in property <bool> enabled;
     alignment: stretch;
 
+    function set-string-binding(text: string, is-translated: bool) {
+        set-code-binding(text);
+    
+    }
+    function test-string-binding(text: string, is-translated: bool) -> bool {
+        return (test-code-binding(text));
+    
+    }
+
     function set-code-binding(text: string) {
         Api.set-code-binding(
             element-information.source-uri,
@@ -780,31 +789,12 @@ export component PropertyValueWidget inherits HorizontalLayout {
             root.code-action();
         }
 
-        test-string-binding(text, is-translatable, tr-context, tr-plural, tr-plural-expression) => {
-            return Api.test-string-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.range.start,
-                property-information.name,
-                text,
-                is-translatable,
-                tr-context,
-                tr-plural,
-                tr-plural-expression,
-            );
+        test-string-binding(text, is-translated) => {
+            return (root.test-string-binding(text, is-translated));
         }
-        set-string-binding(text, is-translatable, tr-context, tr-plural, tr-plural-expression) => {
-            Api.set-string-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.range.start,
-                property-information.name,
-                text,
-                is-translatable,
-                tr-context,
-                tr-plural,
-                tr-plural-expression,
-            );
+
+        set-string-binding(text, is-translated) => {
+            root.set-string-binding(text, is-translated);
         }
     }
 }
