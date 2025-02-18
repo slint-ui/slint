@@ -338,6 +338,9 @@ jobs:
             - name: Build zip
               working-directory: tools/figma-inspector
               run: pnpm zip
+            - name: Prepare Figma plugin artifact
+              run: mv *.zip figma-plugin.zip
+              working-directory: tools/figma-inspector/zip
             - name: Archive zip
               uses: actions/upload-artifact@v4
               with:
