@@ -15,72 +15,16 @@ const itemsToKeep = [
     "stroke",
 ];
 
-export const indentation = "  ";
+export const indentation = "    ";
 
-type StyleObject = {
-    [key: string]: string;
-};
+export function rgbToHex(fill: {
+    opacity: number;
+    color: { r: number; g: number; b: number };
+}): string {
+    const {
+        color: { r, g, b },
+    } = fill;
 
-export async function getSlintSnippet(): Promise<string> {
-    console.info("ID:", figma.currentPage.selection[0].id);
-    generateSlintSnippet(figma.currentPage.selection[0]);
-    const cssProperties = await figma.currentPage.selection[0].getCSSAsync();
-    const slintProperties = transformStyle(cssProperties);
-
-    let elementName = "Rectangle";
-    const node = figma.currentPage.selection[0].type;
-    if (node === "TEXT") {
-        elementName = "Text";
-    }
-
-    return `${elementName} {\n${slintProperties}\n}`;
-}
-
-function transformStyle(styleObj: StyleObject): string {
-    const filteredEntries = Object.entries(styleObj)
-        .filter(([key]) => itemsToKeep.includes(key))
-        .map(([key, value]) => {
-            let finalKey = key;
-            let finalValue = value;
-
-            switch (key) {
-                case "fill":
-                    finalKey = "background";
-                    break;
-                case "stroke":
-                    finalKey = "border-color";
-                    break;
-                case "stroke-width":
-                    finalKey = "border-width";
-                    break;
-                case "font-family":
-                    finalValue = `"${value}"`;
-                    break;
-            }
-
-            if (key === "color") {
-                return `  ${finalKey}: ${getColor(figma.currentPage.selection[0])};`;
-            }
-            if (key === "border-radius") {
-                const borderRadius = getBorderRadius(
-                    figma.currentPage.selection[0],
-                );
-                if (borderRadius !== null) {
-                    return borderRadius;
-                }
-            }
-
-            if (value.includes("linear-gradient")) {
-                return `${indentation}${finalKey}: @${finalValue};`;
-            }
-
-            return `${indentation}${finalKey}: ${finalValue};`;
-        });
-
-    return filteredEntries.length > 0 ? `${filteredEntries.join("\n")}` : "";
-}
-
-export function rgbToHex({ r, g, b }) {
     const red = Math.round(r * 255);
     const green = Math.round(g * 255);
     const blue = Math.round(b * 255);
@@ -91,18 +35,16 @@ export function rgbToHex({ r, g, b }) {
     );
 }
 
-// Manually get the color for now as the CSS API returns figma variables which for now is not supported.
-function getColor(node: SceneNode): string | null {
-    if ("fills" in node && Array.isArray(node.fills) && node.fills.length > 0) {
-        const fillColor = node.fills[0].color;
-        return rgbToHex(fillColor);
-    }
 
-    return null;
-}
+function roundNumber(value: number): number | null {
+    if (value === 0) {
+        return null;
+    }
+    return Number(value.toFixed(3));
+};
 
 export function getBorderRadius(node: SceneNode): string | null {
-    if (!("cornerRadius" in node)) {
+    if (node === null || !("cornerRadius" in node) || node.cornerRadius === 0) {
         return null;
     }
 
@@ -112,8 +54,8 @@ export function getBorderRadius(node: SceneNode): string | null {
 
     const cornerRadius = node.cornerRadius;
 
-    // Single values will be a number, multi border values will be a Symbol.
     if (typeof cornerRadius === "number") {
+        // Single values will be a number, multi border values will be a Symbol.
         return `${indentation}border-radius: ${roundRadius(cornerRadius)}px;`;
     }
 
@@ -139,23 +81,77 @@ export function getBorderRadius(node: SceneNode): string | null {
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
 }
 
-export function generateSlintSnippet(node: SceneNode): string | null {
-    // console.time("generateSlintSnippet");
-    // Determine the type of node
-    const nodeType = node.type;
-    console.info("Node type:", nodeType);
+export function generateSlintSnippet(sceneNode: SceneNode): string | null {
+    console.log("node ID:", sceneNode.id);
+    const nodeType = sceneNode.type;
 
     switch (nodeType) {
-        
         case "FRAME": {
             // Not handled. It's a type of layout node in Figma.
             break;
         }
+        case "RECTANGLE": {
+            return generateRectangleSnippet(sceneNode);
+        }
         default: {
             console.log("Unknown node type:", nodeType);
         }
-            
     }
-    // console.timeEnd("generateSlintSnippet");
     return null;
+}
+
+const rectangleProperties = [
+    "width",
+    "height",
+    "fill",
+    "opacity",
+    "border-radius",
+    // "stroke-width",
+    // "stroke",
+];
+
+export function generateRectangleSnippet(sceneNode: SceneNode): string {
+    const properties: string[] = [];
+
+    rectangleProperties.forEach((property) => {
+        switch (property) {
+            case "width":
+                const normalizedWidth = roundNumber(sceneNode.width);
+                if (normalizedWidth) {
+                    properties.push(`${indentation}width: ${sceneNode.width}px;`);
+                }
+                break;
+            case "height":
+                const normalizedHeight = roundNumber(sceneNode.height);
+                if (normalizedHeight) {
+                    properties.push(`${indentation}height: ${sceneNode.height}px;`);
+                }
+                break;
+            case "fill":
+                if (
+                    "fills" in sceneNode &&
+                    Array.isArray(sceneNode.fills) &&
+                    sceneNode.fills.length > 0
+                ) {
+                    const hexColor = rgbToHex(sceneNode.fills[0]);
+                    properties.push(`${indentation}background: ${hexColor};`);
+
+                }
+                break;
+            case "opacity":
+                if ("opacity" in sceneNode && sceneNode.opacity !== 1) {
+                    const opacity = sceneNode.opacity;
+                    properties.push(`${indentation}opacity: ${opacity * 100}%;`);
+                }
+                break;
+            case "border-radius":
+                const borderRadius = getBorderRadius(sceneNode);
+                if (borderRadius !== null) {
+                    properties.push(borderRadius);
+                }
+                break;
+        }
+    });
+
+    return `Rectangle {\n${properties.join("\n")}\n}`;
 }

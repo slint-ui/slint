@@ -15,6 +15,7 @@ const testJson = require("./figma_output.json");
 const testBorderRadius55px = "163:266";
 const testBorderRadiusMultiValue = "163:267";
 const testFrameNode = "156:3609";
+const testNoBorderRadius = "201:272";
 
 function findNodeById(obj: any, targetId: string): any {
     if (Array.isArray(obj)) {
@@ -65,33 +66,44 @@ function processCornerRadii(json: any): any {
 }
 
 test("converts rgb to hex #ffffff", () => {
-    const color = rgbToHex({ r: 1, g: 1, b: 1 });
+    const color = rgbToHex({opacity: 1, color: { r: 1, g: 1, b: 1 }});
     expect(color).toBe("#ffffff");
 });
 
 test("converts rgb to hex floating #ffffff", () => {
-    const color = rgbToHex({ r: 1.0, g: 1.0, b: 1.0 });
+    const color = rgbToHex({opacity: 1, color: { r: 1.0, g: 1.0, b: 1.0 }});
     expect(color).toBe("#ffffff");
 });
 
+
 test("converts rgb to hex #000000", () => {
-    const color = rgbToHex({ r: 0, g: 0, b: 0 });
+    const color = rgbToHex({opacity: 1, color: { r: 0, g: 0, b: 0 }});
     expect(color).toBe("#000000");
 });
 
+
 test("converts rgb to hex floating #000000", () => {
-    const color = rgbToHex({ r: 0.0, g: 0.0, b: 0.0 });
+    const color = rgbToHex({opacity: 1, color: { r: 0.0, g: 0.0, b: 0.0 }});
     expect(color).toBe("#000000");
+});
+
+test(" No border radius", () => {
+    const jsonNode = findNodeById(testJson, testNoBorderRadius);
+    expect(jsonNode).not.toBeNull();
+    const snippet = getBorderRadius(jsonNode);
+    expect(snippet).toBe(null);
 });
 
 test("Single border radius", () => {
     const jsonNode = findNodeById(testJson, testBorderRadius55px);
+    expect(jsonNode).not.toBeNull();
     const snippet = getBorderRadius(jsonNode);
     expect(snippet).toBe(`${indentation}border-radius: 55px;`);
 });
 
 test("Multiple border radius", () => {
     const jsonNode = findNodeById(testJson, testBorderRadiusMultiValue);
+    expect(jsonNode).not.toBeNull();
     const convertToApiJson = processCornerRadii(jsonNode);
     const snippet = getBorderRadius(convertToApiJson);
     const expectedSnippet = `${indentation}border-top-left-radius: 50px;\n${indentation}border-top-right-radius: 28px;\n${indentation}border-bottom-right-radius: 30.343px;`;
@@ -101,6 +113,7 @@ test("Multiple border radius", () => {
 
 test("FRAME node", () => {
     const jsonNode = findNodeById(testJson, testFrameNode);
+    expect(jsonNode).not.toBeNull();
     const snippet = generateSlintSnippet(jsonNode);
     expect(snippet).toBe(null);
 });
