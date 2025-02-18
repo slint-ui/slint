@@ -16,6 +16,7 @@ component ScrollViewButton inherits TouchArea {
         width: parent.width;
         source: root.icon;
         colorize: FluentPalette.border;
+        accessible-role: none;
 
         animate colorize, opacity { duration: 150ms; }
         animate width, height { duration: 150ms; easing: ease-out; }

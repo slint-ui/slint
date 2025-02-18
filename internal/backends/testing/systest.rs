@@ -531,6 +531,7 @@ fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::Switch => proto::AccessibleRole::Switch,
         i_slint_core::items::AccessibleRole::ListItem => proto::AccessibleRole::ListItem,
         i_slint_core::items::AccessibleRole::TabPanel => proto::AccessibleRole::TabPanel,
+        i_slint_core::items::AccessibleRole::Image => proto::AccessibleRole::Image,
         _ => return None,
     })
 }
@@ -559,6 +560,7 @@ fn convert_from_proto_accessible_role(
         proto::AccessibleRole::Switch => i_slint_core::items::AccessibleRole::Switch,
         proto::AccessibleRole::ListItem => i_slint_core::items::AccessibleRole::ListItem,
         proto::AccessibleRole::TabPanel => i_slint_core::items::AccessibleRole::TabPanel,
+        proto::AccessibleRole::Image => i_slint_core::items::AccessibleRole::Image,
     })
 }
 

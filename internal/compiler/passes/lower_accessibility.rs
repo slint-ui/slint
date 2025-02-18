@@ -74,5 +74,13 @@ fn apply_builtin(e: &ElementRc) {
         e.borrow_mut().set_binding_if_not_set("accessible-label".into(), || {
             Expression::PropertyReference(text_prop)
         });
+    } else if bty.name == "Image" {
+        e.borrow_mut().set_binding_if_not_set("accessible-role".into(), || {
+            let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.AccessibleRole.clone());
+            Expression::EnumerationValue(EnumerationValue {
+                value: enum_ty.values.iter().position(|v| v == "image").unwrap(),
+                enumeration: enum_ty,
+            })
+        });
     }
 }

@@ -37,6 +37,7 @@ component TableViewColumn inherits Rectangle {
             width: 8px;
             y: (parent.height - self.height) / 2;
             source: root.sort-order == SortOrder.ascending ? Icons.chevron-down : Icons.chevron-up;
+            accessible-role: none;
 
             animate colorize { duration: 150ms; }
         }

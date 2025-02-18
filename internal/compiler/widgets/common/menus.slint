@@ -45,6 +45,7 @@ export component PopupMenuImpl inherits Window {
                     if entry.has-sub-menu : Image {
                         source: @image-url("../fluent/_arrow_forward.svg");
                         colorize: menu-text.color;
+                        accessible-role: none;
                     }
                 }
                 TouchArea {

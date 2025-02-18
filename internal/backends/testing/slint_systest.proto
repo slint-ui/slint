@@ -100,6 +100,7 @@ enum AccessibleRole {
     ListItem = 15;
     TabPanel = 16;
     Groupbox = 17;
+    Image = 18;
 }
 
 message ElementQueryInstruction {
