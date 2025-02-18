@@ -214,6 +214,7 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-item-selected", Type::Bool),
         ("accessible-item-index", Type::Int32),
         ("accessible-item-count", Type::Int32),
+        ("accessible-read-only", Type::Bool),
     ]
     .into_iter()
 }

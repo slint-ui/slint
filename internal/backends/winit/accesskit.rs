@@ -595,6 +595,13 @@ impl NodeCollection {
         }
 
         if item
+            .accessible_string_property(AccessibleStringProperty::ReadOnly)
+            .is_some_and(|x| x == "true")
+        {
+            node.set_read_only();
+        }
+
+        if item
             .accessible_string_property(AccessibleStringProperty::ItemSelectable)
             .is_some_and(|x| x == "true")
         {

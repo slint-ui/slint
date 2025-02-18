@@ -32,6 +32,7 @@ const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
 const CHECKABLE: u32 = VALUE_STEP + 1;
 const EXPANDABLE: u32 = CHECKABLE + 1;
 const EXPANDED: u32 = EXPANDABLE + 1;
+const READ_ONLY: u32 = EXPANDED + 1;
 
 pub struct AccessibleItemPropertiesTracker {
     obj: *mut c_void,
@@ -212,6 +213,7 @@ impl SlintAccessibleItemData {
                 item_rc.accessible_string_property(AccessibleStringProperty::Checked);
                 item_rc.accessible_string_property(AccessibleStringProperty::Expandable);
                 item_rc.accessible_string_property(AccessibleStringProperty::Expanded);
+                item_rc.accessible_string_property(AccessibleStringProperty::ReadOnly);
             }
         });
     }
@@ -273,6 +275,7 @@ cpp! {{
     const uint32_t CHECKABLE { VALUE_STEP + 1 };
     const uint32_t EXPANDABLE { CHECKABLE + 1 };
     const uint32_t EXPANDED { EXPANDABLE + 1 };
+    const uint32_t READ_ONLY { EXPANDED + 1 };
 
     // ------------------------------------------------------------------------------
     // Helper:
@@ -371,6 +374,7 @@ cpp! {{
                     CHECKABLE => item.accessible_string_property(AccessibleStringProperty::Checkable),
                     EXPANDABLE => item.accessible_string_property(AccessibleStringProperty::Expandable),
                     EXPANDED => item.accessible_string_property(AccessibleStringProperty::Expanded),
+                    READ_ONLY => item.accessible_string_property(AccessibleStringProperty::ReadOnly),
                     _ => None,
                 };
                 if let Some(string) = string {
@@ -638,6 +642,7 @@ cpp! {{
                     state.collapsed = 1;
                 }
             }
+            state.readOnly = (item_string_property(m_data, READ_ONLY) == "true") ? 1 : 0;
             return state; /* FIXME */
         }
 

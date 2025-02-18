@@ -28,6 +28,7 @@ export component TextEdit {
     accessible-enabled: root.enabled;
     accessible-value <=> text;
     accessible-placeholder-text: text == "" ? placeholder-text : "";
+    accessible-read-only: root.read-only;
 
     public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);
