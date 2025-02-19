@@ -44,6 +44,9 @@ Set the `SLINT_EMBED_RESOURCES` target property on your CMake target to one of t
 
 * `embed-files`: The raw files are embedded in the application binary.
 * `embed-for-software-renderer`: The files will be loaded by the Slint compiler, optimized for use with the software renderer and embedded in the application binary.
+* `embed-for-software-renderer-with-sdf`: Same as `embed-for-software-renderer`, but use [Signed Distance Fields (SDF)](https://en.wikipedia.org/wiki/Signed_distance_function) to render fonts.
+  This produces smaller binaries, but may result in slightly inferior visual output and slower rendering.
+  (Requires the `SLINT_FEATURE_SDF_FONTS` feature to be enabled.)
 * `as-absolute-path`: The paths of files are made absolute and will be used at run-time to load the resources from the file system. This is the default.
 
 This target property is initialised from the global `DEFAULT_SLINT_EMBED_RESOURCES` cache variable. Set it to configure the default for all CMake targets.

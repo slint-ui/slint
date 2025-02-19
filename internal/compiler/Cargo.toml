@@ -27,9 +27,10 @@ proc_macro_span = ["quote", "proc-macro2"]
 # Feature to print the diagnostics to the console
 display-diagnostics = ["codemap", "codemap-diagnostic"]
 
-# Enabled the support to render images and font in the binary
+# Enable the support to render images and font in the binary
 software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fontdb", "dep:rayon"]
-embed-glyphs-as-sdf = ["dep:fdsm", "dep:ttf-parser-fdsm", "dep:nalgebra", "dep:rayon"]
+# Enable support to embed the fonts as signed distance fields
+sdf-fonts = ["dep:fdsm", "dep:ttf-parser-fdsm", "dep:nalgebra", "dep:rayon"]
 
 # Translation bundler
 bundle-translations = ["dep:polib"]

@@ -20,6 +20,7 @@ path = "main.rs"
 [features]
 software-renderer = ["i-slint-compiler/software-renderer"]
 jemalloc = ["dep:tikv-jemallocator"]
+sdf-fonts = ["i-slint-compiler/sdf-fonts"]
 
 # Keep defaults in sync with defaults applied in api/cpp/CMakeLists.txt for slint-compiler
 default = ["software-renderer", "jemalloc"]

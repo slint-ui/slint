@@ -5,7 +5,7 @@
 set(DEFAULT_SLINT_EMBED_RESOURCES as-absolute-path CACHE STRING
     "The default resource embedding option to pass to the Slint compiler")
 set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
-    "as-absolute-path" "embed-files" "embed-for-software-renderer")
+    "as-absolute-path" "embed-files" "embed-for-software-renderer" "embed-for-software-renderer-and-sdf-fonts")
 ## This requires CMake 3.23 and does not work in 3.26 AFAICT.
 # define_property(TARGET PROPERTY SLINT_EMBED_RESOURCES
 #     INITIALIZE_FROM_VARIABLE DEFAULT_SLINT_EMBED_RESOURCES)

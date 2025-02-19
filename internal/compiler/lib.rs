@@ -95,6 +95,9 @@ pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
     pub embed_resources: EmbedResourcesKind,
+    /// Whether to use SDF when pre-rendering fonts.
+    #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+    pub use_sdf_fonts: bool,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
     /// The compiler will look in these paths for library imports.
@@ -224,6 +227,8 @@ impl CompilerConfiguration {
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(feature = "software-renderer")]
             font_cache: Default::default(),
+            #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+            use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
             translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
                 .ok()
