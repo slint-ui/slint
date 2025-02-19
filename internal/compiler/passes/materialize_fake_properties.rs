@@ -149,17 +149,33 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
         };
     }
 
-    let expr = match name {
-        "min-height" => layout_constraint_prop(elem, "min", Orientation::Vertical),
-        "min-width" => layout_constraint_prop(elem, "min", Orientation::Horizontal),
-        "max-height" => layout_constraint_prop(elem, "max", Orientation::Vertical),
-        "max-width" => layout_constraint_prop(elem, "max", Orientation::Horizontal),
-        "preferred-height" => layout_constraint_prop(elem, "preferred", Orientation::Vertical),
-        "preferred-width" => layout_constraint_prop(elem, "preferred", Orientation::Horizontal),
-        "horizontal-stretch" => layout_constraint_prop(elem, "stretch", Orientation::Horizontal),
-        "vertical-stretch" => layout_constraint_prop(elem, "stretch", Orientation::Vertical),
-        "opacity" => Expression::NumberLiteral(1., Unit::None),
-        "visible" => Expression::BoolLiteral(true),
+    let builtin_name = match elem.borrow().builtin_type() {
+        Some(b) => b.name.clone(),
+        None => SmolStr::default(),
+    };
+
+    let expr = match (name, builtin_name.as_str()) {
+        ("min-height", "Image") => Expression::NumberLiteral(0., Unit::Px),
+        ("min-width", "Image") => Expression::NumberLiteral(0., Unit::Px),
+        ("max-height", "Image") => Expression::NumberLiteral(f32::MAX as _, Unit::Px),
+        ("max-width", "Image") => Expression::NumberLiteral(f32::MAX as _, Unit::Px),
+        ("horizontal-stretch", "Image") => Expression::NumberLiteral(0., Unit::None),
+        ("vertical-stretch", "Image") => Expression::NumberLiteral(0., Unit::None),
+
+        ("min-height", _) => layout_constraint_prop(elem, "min", Orientation::Vertical),
+        ("min-width", _) => layout_constraint_prop(elem, "min", Orientation::Horizontal),
+        ("max-height", _) => layout_constraint_prop(elem, "max", Orientation::Vertical),
+        ("max-width", _) => layout_constraint_prop(elem, "max", Orientation::Horizontal),
+        ("horizontal-stretch", _) => {
+            layout_constraint_prop(elem, "stretch", Orientation::Horizontal)
+        }
+        ("vertical-stretch", _) => layout_constraint_prop(elem, "stretch", Orientation::Vertical),
+        ("preferred-height", _) => layout_constraint_prop(elem, "preferred", Orientation::Vertical),
+        ("preferred-width", _) => {
+            layout_constraint_prop(elem, "preferred", Orientation::Horizontal)
+        }
+        ("opacity", _) => Expression::NumberLiteral(1., Unit::None),
+        ("visible", _) => Expression::BoolLiteral(true),
         _ => return None,
     };
     Some(expr)
