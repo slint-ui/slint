@@ -25,18 +25,20 @@ pub fn lower_popups(
         component,
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
-            let is_popup = match &elem.borrow().base_type {
-                ElementType::Builtin(base_type) => base_type.name == "PopupWindow",
-                ElementType::Component(base_type) => base_type.inherits_popup_window.get(),
-                _ => false,
-            };
-
-            if is_popup {
+            if is_popup_window(elem) {
                 lower_popup_window(elem, parent_element.as_ref(), &window_type, diag);
             }
             Some(elem.clone())
         },
     )
+}
+
+pub fn is_popup_window(element: &ElementRc) -> bool {
+    match &element.borrow().base_type {
+        ElementType::Builtin(base_type) => base_type.name == "PopupWindow",
+        ElementType::Component(base_type) => base_type.inherits_popup_window.get(),
+        _ => false,
+    }
 }
 
 fn lower_popup_window(
