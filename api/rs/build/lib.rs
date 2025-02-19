@@ -199,7 +199,7 @@ impl CompilerConfiguration {
     /// using an alternative representation for fonts, trading off some rendering quality
     /// for a smaller binary footprint.
     /// Rendering is slower and may result in slightly inferior visual output.
-    /// Useful for systems with limited flash memory.
+    /// Use this on systems with limited flash memory.
     #[cfg(feature = "sdf-fonts")]
     #[must_use]
     pub fn with_sdf_fonts(self, enable: bool) -> Self {
