@@ -35,7 +35,7 @@ export component PropertyView {
 
         if root.element-loaded: ScrollView {
             preferred-height: groups.preferred-height;
-            groups := VerticalBox {
+            groups := VerticalLayout {
                 alignment: start;
 
                 for group in root.properties: eg := ExpandableGroup {
