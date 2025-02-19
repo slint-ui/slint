@@ -271,27 +271,24 @@ void EspPlatform<PixelType>::run_event_loop()
                     }
 #ifdef SLINT_FEATURE_EXPERIMENTAL
                 } else {
-                    std::unique_ptr<slint::platform::Rgb565Pixel, void (*)(void *)> lb(
-                            static_cast<slint::platform::Rgb565Pixel *>(
-                                    heap_caps_malloc((rotated ? size.height : size.width)
-                                                             * sizeof(slint::platform::Rgb565Pixel),
-                                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+                    std::unique_ptr<PixelType, void (*)(void *)> lb(
+                            static_cast<PixelType *>(heap_caps_malloc(
+                                    (rotated ? size.height : size.width) * sizeof(PixelType),
+                                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
                             heap_caps_free);
-                    m_window->m_renderer.render_by_line([this, &lb](std::size_t line_y,
-                                                                    std::size_t line_start,
-                                                                    std::size_t line_end,
-                                                                    auto &&render_fn) {
-                        std::span<slint::platform::Rgb565Pixel> view { lb.get(),
-                                                                       line_end - line_start };
-                        render_fn(view);
-                        if (byte_swap) {
-                            // Swap endianness to big endian
-                            std::for_each(view.begin(), view.end(),
-                                          [](auto &rgbpix) { byte_swap_color(&rgbpix); });
-                        }
-                        esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y, line_end,
-                                                  line_y + 1, lb.get());
-                    });
+                    m_window->m_renderer.render_by_line<PixelType>(
+                            [this, &lb](std::size_t line_y, std::size_t line_start,
+                                        std::size_t line_end, auto &&render_fn) {
+                                std::span<PixelType> view { lb.get(), line_end - line_start };
+                                render_fn(view);
+                                if (byte_swap) {
+                                    // Swap endianness to big endian
+                                    std::for_each(view.begin(), view.end(),
+                                                  [](auto &rgbpix) { byte_swap_color(&rgbpix); });
+                                }
+                                esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
+                                                          line_end, line_y + 1, lb.get());
+                            });
 #endif
                 }
             }
