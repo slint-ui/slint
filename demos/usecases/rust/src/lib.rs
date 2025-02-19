@@ -30,7 +30,7 @@ pub fn main() {
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-fn android_main(app: slint::android::AndroidApp) {
+fn android_main(_app: slint::android::AndroidApp) {
     app().unwrap().run().unwrap();
 }
 
