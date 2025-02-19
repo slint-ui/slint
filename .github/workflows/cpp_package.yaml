@@ -73,7 +73,7 @@ jobs:
               with:
                   cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                   cmakeListsTxtPath: CMakeLists.txt
-                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}"
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }} -DSLINT_FEATURE_SDF_FONTS=ON"
                   buildDirectory: ${{ runner.workspace }}/cppbuild
                   buildWithCMakeArgs: "--config Release"
             - name: cpack
@@ -253,7 +253,7 @@ jobs:
               with:
                 cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                 cmakeListsTxtPath: CMakeLists.txt
-                cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_BUILD_RUNTIME=OFF ${{ inputs.extra_cmake_flags }}"
+                cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_BUILD_RUNTIME=OFF ${{ inputs.extra_cmake_flags }} -DSLINT_FEATURE_SDF_FONTS=ON"
                 buildDirectory: ${{ runner.workspace }}/cppbuild
                 buildWithCMakeArgs: "--config Release"
             - name: cpack
