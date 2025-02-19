@@ -94,6 +94,8 @@ export component LineEditBase inherits Rectangle {
             vertical-alignment: center;
             single-line: true;
             color: root.text-color;
+            // Disable TextInput's built-in accessibility support as the widget takes care of that.
+            accessible-role: none;            
 
             cursor-position-changed(cursor-position) => {
                 if cursor-position.x + self.computed_x < root.margin {

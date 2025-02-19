@@ -91,6 +91,8 @@ export component TextEditBase inherits Rectangle {
                 selection-background-color: root.selection-background-color;
                 selection-foreground-color: root.selection-foreground-color;
                 page-height: scroll-view.visible-height;
+                // Disable TextInput's built-in accessibility support as the widget takes care of that.
+                accessible-role: none;
 
                 edited => {
                     root.edited(self.text);
