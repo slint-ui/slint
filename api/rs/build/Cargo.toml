@@ -19,6 +19,7 @@ path = "lib.rs"
 
 [features]
 default = []
+sdf-fonts = ["i-slint-compiler/sdf-fonts"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer", "bundle-translations"] }
@@ -26,3 +27,6 @@ i-slint-compiler = { workspace = true, features = ["default", "rust", "display-d
 spin_on = { workspace = true }
 toml_edit = { workspace = true }
 derive_more = { workspace = true, features = ["std", "error"] }
+
+[package.metadata.docs.rs]
+all-features = true

@@ -189,6 +189,24 @@ impl CompilerConfiguration {
         config.translation_path_bundle = Some(path.into());
         Self { config }
     }
+
+    /// Configures the compiler to use Signed Distance Field (SDF) encoding for fonts.
+    ///
+    /// This flag only takes effect when `embed_resources` is set to [`EmbedResourcesKind::EmbedForSoftwareRenderer`],
+    /// and requires the `sdf-fonts` cargo feature to be enabled.
+    ///
+    /// [SDF](https://en.wikipedia.org/wiki/Signed_distance_function) reduces the binary size by
+    /// using an alternative representation for fonts, trading off some rendering quality
+    /// for a smaller binary footprint.
+    /// Rendering is slower and may result in slightly inferior visual output.
+    /// Useful for systems with limited flash memory.
+    #[cfg(feature = "sdf-fonts")]
+    #[must_use]
+    pub fn with_sdf_fonts(self, enable: bool) -> Self {
+        let mut config = self.config;
+        config.use_sdf_fonts = enable;
+        Self { config }
+    }
 }
 
 /// Error returned by the `compile` function

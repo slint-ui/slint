@@ -263,7 +263,6 @@ pub async fn run_passes(
             embed_glyphs::embed_glyphs(
                 doc,
                 &type_loader.compiler_config,
-                type_loader.compiler_config.const_scale_factor,
                 font_pixel_sizes,
                 characters_seen,
                 std::iter::once(&*doc).chain(type_loader.all_documents()),

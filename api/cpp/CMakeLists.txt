@@ -25,6 +25,8 @@ option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ 
 add_feature_info(SLINT_FEATURE_COMPILER SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time")
 option(SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable that to only build the compiler)" ON)
 add_feature_info(SLINT_BUILD_RUNTIME SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable that to only build the compiler)")
+option(SLINT_FEATURE_SDF_FONTS "Enable support for pre-rendering fonts as Signed Distance Fields (for the software renderer)" OFF)
+add_feature_info(SLINT_FEATURE_SDF_FONTS SLINT_FEATURE_SDF_FONTS "Enable support for pre-rendering fonts as Signed Distance Fields (for the software renderer)")
 
 set(SLINT_COMPILER "" CACHE STRING "Path to the slint-compiler executable. When unset, it the compiler will be build as part of the build process. When set to 'download', the compiler will be downloaded from GitHub.")
 set(SLINT_LIBRARY_CARGO_FLAGS "" CACHE STRING
@@ -142,6 +144,9 @@ if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
         ON
     )
     list(APPEND slint_compiler_features "software-renderer")
+    if (SLINT_FEATURE_SDF_FONTS)
+        list(APPEND slint_compiler_features "sdf-fonts")
+    endif()
     # Enable jemalloc, except when cross-compiling. (#7463)
     if(NOT CMAKE_CROSSCOMPILING)
         list(APPEND slint_compiler_features "jemalloc")
