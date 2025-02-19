@@ -12,7 +12,13 @@ const rectangleProperties = [
     "border-color",
 ];
 
-const textProperties = ["text", "font-family", "font-size", "font-weight"];
+const textProperties = [
+    "text",
+    "fill",
+    "font-family",
+    "font-size",
+    "font-weight",
+];
 
 export type RGBAColor = {
     r: number;
@@ -144,8 +150,8 @@ export function getBorderWidthAndColor(sceneNode: SceneNode): string[] {
             properties.push(`${indentation}border-width: ${borderWidth}px;`);
         }
     }
-    const borderColor = getBrush(sceneNode.strokes[0]);
-    properties.push(`${indentation}border-color: ${borderColor};`);
+    const brush = getBrush(sceneNode.strokes[0]);
+    properties.push(`${indentation}border-color: ${brush};`);
     return properties;
 }
 
@@ -241,8 +247,8 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                     Array.isArray(sceneNode.fills) &&
                     sceneNode.fills.length > 0
                 ) {
-                    const hexColor = getBrush(sceneNode.fills[0]);
-                    properties.push(`${indentation}background: ${hexColor};`);
+                    const brush = getBrush(sceneNode.fills[0]);
+                    properties.push(`${indentation}background: ${brush};`);
                 }
                 break;
             case "opacity":
@@ -279,6 +285,16 @@ export function generateTextSnippet(sceneNode: SceneNode): string {
                 if ("characters" in sceneNode) {
                     const characters = sceneNode.characters;
                     properties.push(`${indentation}text: "${characters}";`);
+                }
+                break;
+            case "fill":
+                if (
+                    "fills" in sceneNode &&
+                    Array.isArray(sceneNode.fills) &&
+                    sceneNode.fills.length > 0
+                ) {
+                    const brush = getBrush(sceneNode.fills[0]);
+                    properties.push(`${indentation}color: ${brush};`);
                 }
                 break;
             case "font-family":

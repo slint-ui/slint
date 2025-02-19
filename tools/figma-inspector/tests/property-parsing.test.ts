@@ -152,6 +152,6 @@ test("Text node", () => {
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processTextNode(jsonNode);
     const snippet = generateTextSnippet(convertToApiJson);
-    const expectedSnippet = `Text {\n${indentation}text: "Monthly";\n${indentation}font-family: "Roboto";\n${indentation}font-size: 12px;\n${indentation}font-weight: 400;\n}`;
+    const expectedSnippet = `Text {\n${indentation}text: "Monthly";\n${indentation}color: #896fff;\n${indentation}font-family: "Roboto";\n${indentation}font-size: 12px;\n${indentation}font-weight: 400;\n}`;
     expect(snippet).toBe(expectedSnippet);
 });
