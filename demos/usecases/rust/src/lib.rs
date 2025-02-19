@@ -6,6 +6,14 @@ use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
 
+fn app() -> Result<App, slint::PlatformError> {
+    let app = App::new()?;
+
+    data::init(&app);
+
+    Ok(app)
+}
+
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     // This provides better error messages in debug mode.
@@ -13,12 +21,17 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let app = App::new().unwrap();
+    let app = app().unwrap();
 
     virtual_keyboard::init(&app);
-    data::init(&app);
 
     app.run().unwrap();
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+fn android_main(app: slint::android::AndroidApp) {
+    app().unwrap().run().unwrap();
 }
 
 mod virtual_keyboard {

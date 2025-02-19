@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 use slint_build::CompilerConfiguration;
+use std::env;
 
 fn main() {
+    let style =
+        if env::var("CARGO_CFG_TARGET_OS").unwrap() == "android" { "material" } else { "cosmic" }
+            .to_string();
+
     slint_build::compile_with_config(
         "../ui/app.slint",
-        CompilerConfiguration::new().with_style("cosmic".into()),
+        CompilerConfiguration::new().with_style(style),
     )
     .unwrap();
 }
