@@ -143,8 +143,9 @@ component CodeWidget inherits VerticalLayout {
 
 component ChildIndicator {
     out property <bool> open: false;
+    in property <bool> control-hover: false;
 
-    x: -1.0 * EditorSpaceSettings.group-indent * 2;
+    x: -1 * EditorSpaceSettings.group-indent / (3*2);
 
     Rectangle {
         width: 1cm;
@@ -153,7 +154,7 @@ component ChildIndicator {
             indicator := Image {
                 vertical-alignment: center;
                 colorize: Palette.foreground;
-                visible: expand.has-hover;
+                visible: expand.has-hover || root.control-hover;
                 source: Icons.chevron-down;
                 width: 16px;
                 height: 16px;
@@ -321,6 +322,7 @@ component StringWidget {
 
     childIndicator := ChildIndicator {
         y: content.y + EditorSpaceSettings.default-spacing / 2;
+        control-hover: text_rle.has-focus;
     }
 
     VerticalLayout {
@@ -479,6 +481,7 @@ component ColorWidget inherits Rectangle {
 
     childIndicator := ChildIndicator {
         y: content.y + EditorSpaceSettings.default-spacing / 2;
+        control-hover: rle.has-focus;
     }
 
     all := VerticalLayout {
@@ -493,7 +496,7 @@ component ColorWidget inherits Rectangle {
             spacing: EditorSpaceSettings.default-spacing;
             alignment: stretch;
 
-            ResettingLineEdit {
+            rle := ResettingLineEdit {
                 enabled: root.enabled;
                 default-text: root.current-color-data.text;
 
@@ -804,7 +807,7 @@ export component PropertyValueWidget inherits VerticalLayout {
     }
 }
 
-export component ExpandableGroup {
+export component ExpandableGroup  {
     in property <bool> enabled;
     in property <string> text;
     in property <length> panel-width;
@@ -814,7 +817,6 @@ export component ExpandableGroup {
     group-layer := Rectangle {
 
         content-layer := VerticalLayout {
-
             if text != "": Rectangle {
                 touch-area := TouchArea {
                     clicked => {
@@ -856,7 +858,7 @@ export component ExpandableGroup {
 
             Rectangle {
                 height: root.open ? self.preferred-height : 0px;
-
+                clip: true;
                 @children
             }
         }
