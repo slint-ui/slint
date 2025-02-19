@@ -159,7 +159,6 @@ export function getBrush(fill: {
     }>;
     gradientTransform?: number[][];
 }): string {
-    console.log("fill", fill.type);
     switch (fill.type) {
         case "SOLID": {
             return rgbToHex({ ...fill.color, a: fill.opacity });
@@ -195,7 +194,6 @@ export function getBrush(fill: {
 
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
     console.log("node ID:", sceneNode.id);
-    console.log("node", sceneNode);
     const nodeType = sceneNode.type;
 
     switch (nodeType) {
