@@ -356,14 +356,20 @@ mod software_renderer {
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_core::software_renderer::{
-        PhysicalRegion, PremultipliedRgbaColor, RenderingRotation, RepaintBufferType, Rgb565Pixel,
-        SoftwareRenderer, TargetPixelBuffer, Texture, TexturePixelFormat,
+        PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
     use i_slint_core::SharedVector;
 
+    #[cfg(feature = "experimental")]
+    use i_slint_core::software_renderer::{
+        PremultipliedRgbaColor, RenderingRotation, TargetPixelBuffer, Texture, TexturePixelFormat,
+    };
+
+    #[cfg(feature = "experimental")]
     type CppTargetPixelBufferUserData = *mut c_void;
 
     #[repr(C)]
+    #[cfg(feature = "experimental")]
     pub struct CppInternalTexture {
         pub bytes: *const u8,
         pub bytes_len: usize,
@@ -378,6 +384,7 @@ mod software_renderer {
     }
 
     #[repr(C)]
+    #[cfg(feature = "experimental")]
     pub struct CppRgb8TargetPixelBuffer {
         user_data: CppTargetPixelBufferUserData,
         line_slice: unsafe extern "C" fn(
@@ -412,6 +419,7 @@ mod software_renderer {
         ) -> bool,
     }
 
+    #[cfg(feature = "experimental")]
     impl TargetPixelBuffer for CppRgb8TargetPixelBuffer {
         type Pixel = Rgb8Pixel;
 
@@ -491,6 +499,7 @@ mod software_renderer {
         }
     }
 
+    #[cfg(feature = "experimental")]
     #[repr(C)]
     pub struct CppRgb565TargetPixelBuffer {
         user_data: CppTargetPixelBufferUserData,
@@ -526,6 +535,7 @@ mod software_renderer {
         ) -> bool,
     }
 
+    #[cfg(feature = "experimental")]
     impl TargetPixelBuffer for CppRgb565TargetPixelBuffer {
         type Pixel = Rgb565Pixel;
 
