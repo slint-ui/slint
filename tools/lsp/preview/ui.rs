@@ -1077,8 +1077,8 @@ pub fn ui_set_preview_data(
             properties.iter().filter_map(|rp| map_preview_data_property(rp)).collect::<Vec<_>>();
 
         (!properties.is_empty()).then(|| PropertyContainer {
-            component_name: container_name.into(),
-            component_id: container_id.into(),
+            container_name: container_name.into(),
+            container_id: container_id.into(),
             properties: Rc::new(slint::VecModel::from(properties)).into(),
         })
     }
@@ -1155,7 +1155,8 @@ pub fn ui_set_preview_data(
         }
 
         for (oc, nc) in old_model.iter().zip(new_model.iter()) {
-            if oc.component_name != nc.component_name
+            if oc.container_name != nc.container_name
+                || oc.container_id != nc.container_id
                 || oc.properties.row_count() != nc.properties.row_count()
             {
                 return m(new_model);
@@ -1228,12 +1229,12 @@ fn set_json_preview_data(
 ) {
     let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
 
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_string) else {
-        return false;
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_string.to_string()) else {
+        return;
     };
 
     if property_name.is_none() && !json.is_object() {
-        return false;
+        return;
     }
 
     if let Some(component_instance) = preview::component_instance() {
@@ -1241,7 +1242,7 @@ fn set_json_preview_data(
             &component_instance,
             to_property_container(container),
             property_name,
-            json_string.to_string(),
+            json,
         );
     };
 }

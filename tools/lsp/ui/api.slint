@@ -178,8 +178,8 @@ export struct PreviewData {
 
 /// Information on exported components and their properties
 export struct PropertyContainer {
-    component-name: string,
-    component-id: string,
+    container-name: string,
+    container-id: string,
     properties: [PreviewData],
 }
 
@@ -408,7 +408,7 @@ export global Api {
 
     in-out property <[PropertyContainer]> preview-data: [
         {
-            component-name: "Fruits",
+            container-name: "Fruits",
             properties: [
                 {
                     name: "AppleSetter",
@@ -437,7 +437,7 @@ export global Api {
             ]
         },
         {
-            component-name: "Vegetables",
+            container-name: "Vegetables",
             properties: [
                 {
                     name: "Cucumber",
