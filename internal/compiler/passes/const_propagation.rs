@@ -289,12 +289,16 @@ fn test() {
 /* ... */
 struct Hello { s: string, v: float }
 global G {
-    property <float> p : 3 * 2 + 15 ;
+    pure function complicated(a: float ) -> bool { if a > 5 { return true; }; if a < 1 { return true; }; uncomplicated() }
+    pure function uncomplicated( ) -> bool { false }
+    out property <float> p : 3 * 2 + 15 ;
     property <string> q: "foo " + 42;
-    out property <Hello> out: { s: q, v: p };
+    out property <float> w : -p / 2;
+    out property <Hello> out: { s: q, v: complicated(w + 15) ? -123 : p };
 }
 export component Foo {
-    out property<float> out: G.out.v;
+    out property<float> out1: G.w;
+    out property<float> out2: G.out.v;
 }
 "#
         .into(),
@@ -305,20 +309,17 @@ export component Foo {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-    let out_binding = doc
-        .inner_components
-        .last()
-        .unwrap()
-        .root_element
-        .borrow()
-        .bindings
-        .get("out")
-        .unwrap()
-        .borrow()
-        .expression
-        .clone();
-    match &out_binding {
-        Expression::NumberLiteral(n, _) => assert_eq!(*n, (3 * 2 + 15) as f64),
-        _ => panic!("not number {out_binding:?}"),
+    let expected_p = 3.0 * 2.0 + 15.0;
+    let expected_w = -expected_p / 2.0;
+    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
+    let out1_binding = bindings.get("out1").unwrap().borrow().expression.clone();
+    match &out1_binding {
+        Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_w),
+        _ => panic!("not number {out1_binding:?}"),
+    }
+    let out2_binding = bindings.get("out2").unwrap().borrow().expression.clone();
+    match &out2_binding {
+        Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_p),
+        _ => panic!("not number {out2_binding:?}"),
     }
 }
