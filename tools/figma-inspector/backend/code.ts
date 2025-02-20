@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { generateSlintSnippet } from "./utils/property-parsing.js";
-import { startVaraiableConversion } from "./utils/variable-convertor.js";
+import { startVariableConversion } from "./utils/variable-convertor.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }) => {
@@ -20,7 +20,7 @@ if (figma.editorType === "dev" && figma.mode === "codegen") {
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("preferenceschange", async ( message ) => {
         if (message.propertyName === "exportVariables") {
-            startVaraiableConversion();
+            startVariableConversion();
         }
     });
 }
