@@ -211,6 +211,9 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
             }
             PropertyReference::InParent { level, parent_reference } => {
                 for _ in 0..level.get() {
+                    if ctx.parent.is_none() {
+                        return write!(f, "<invalid parent reference>");
+                    }
                     ctx = ctx.parent.unwrap().ctx;
                 }
                 write!(f, "{}", Self(parent_reference, ctx))
