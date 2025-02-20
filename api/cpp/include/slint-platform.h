@@ -595,8 +595,8 @@ struct TargetPixelBuffer
     /// the texture if it's unclipped. Each pixel of the texture is to be blended with the given
     /// colorize color as well as the alpha value.
     virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height, int16_t span_y,
-                              const Texture &texture, uint32_t colorize, uint8_t alpha,
-                              int screen_rotation_degrees) = 0;
+                              const Texture &texture, const RgbaColor<uint8_t> &colorize,
+                              uint8_t alpha, int screen_rotation_degrees) = 0;
 };
 #    endif
 
@@ -786,8 +786,9 @@ public:
                             .source_offset_x = internal_texture->source_offset_x,
                             .source_offset_y = internal_texture->source_offset_y,
                         };
-                        return buffer->draw_texture(x, y, width, height, span_y, texture, colorize,
-                                                    alpha, screen_rotation_degrees);
+                        return buffer->draw_texture(x, y, width, height, span_y, texture,
+                                                    Color::from_argb_encoded(colorize), alpha,
+                                                    screen_rotation_degrees);
                     }
         };
         auto r =
@@ -838,8 +839,9 @@ public:
                             .source_offset_x = internal_texture->source_offset_x,
                             .source_offset_y = internal_texture->source_offset_y,
                         };
-                        return buffer->draw_texture(x, y, width, height, span_y, texture, colorize,
-                                                    alpha, screen_rotation_degrees);
+                        return buffer->draw_texture(x, y, width, height, span_y, texture,
+                                                    Color::from_argb_encoded(colorize), alpha,
+                                                    screen_rotation_degrees);
                     }
         };
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner,
