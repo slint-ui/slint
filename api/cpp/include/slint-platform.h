@@ -572,7 +572,7 @@ struct TargetPixelBuffer
                                 const RgbaColor<uint8_t> &premultiplied_color) = 0;
     virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height, int16_t span_y,
                               const Texture &texture, uint32_t colorize, uint8_t alpha,
-                              uint8_t rotation) = 0;
+                              int screen_rotation_degrees) = 0;
 };
 #    endif
 
@@ -747,7 +747,7 @@ public:
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
                        int16_t span_y, const cbindgen_private::CppInternalTexture *internal_texture,
-                       uint32_t colorize, uint8_t alpha, uint8_t rotation) {
+                       uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
                         Texture texture {
                             .bytes = std::span<const uint8_t> { internal_texture->bytes,
@@ -762,7 +762,7 @@ public:
                             .source_offset_y = internal_texture->source_offset_y,
                         };
                         return buffer->draw_texture(x, y, width, height, span_y, texture, colorize,
-                                                    alpha, rotation);
+                                                    alpha, screen_rotation_degrees);
                     }
         };
         auto r =
@@ -797,7 +797,7 @@ public:
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
                        int16_t span_y, const cbindgen_private::CppInternalTexture *internal_texture,
-                       uint32_t colorize, uint8_t alpha, uint8_t rotation) {
+                       uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
                         Texture texture {
                             .bytes = std::span<const uint8_t> { internal_texture->bytes,
@@ -812,7 +812,7 @@ public:
                             .source_offset_y = internal_texture->source_offset_y,
                         };
                         return buffer->draw_texture(x, y, width, height, span_y, texture, colorize,
-                                                    alpha, rotation);
+                                                    alpha, screen_rotation_degrees);
                     }
         };
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner,
