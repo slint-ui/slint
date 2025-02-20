@@ -98,6 +98,16 @@ fn simplify_expression(expr: &mut Expression) -> bool {
                 }
                 ('|', Expression::BoolLiteral(false), e) => Some(std::mem::take(e)),
                 ('|', e, Expression::BoolLiteral(false)) => Some(std::mem::take(e)),
+                ('>', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
+                    if un1 == un2 =>
+                {
+                    Some(Expression::BoolLiteral(*a > *b))
+                }
+                ('<', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
+                    if un1 == un2 =>
+                {
+                    Some(Expression::BoolLiteral(*a < *b))
+                }
                 _ => None,
             };
             if let Some(new) = new {
