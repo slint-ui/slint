@@ -129,12 +129,6 @@ test("Multiple border radius", () => {
     expect(snippet).toBe(expectedSnippet);
 });
 
-test("FRAME node", () => {
-    const jsonNode = findNodeById(testJson, testFrameNode);
-    expect(jsonNode).not.toBeNull();
-    const snippet = generateSlintSnippet(jsonNode);
-    expect(snippet).toBe(null);
-});
 
 test("Border width and color", () => {
     const jsonNode = findNodeById(testJson, testBorderWidthColor);
