@@ -984,6 +984,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Layer>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
+            ("Menu", rtti_for::<MenuItem>().1),
         ]
         .iter()
         .cloned(),

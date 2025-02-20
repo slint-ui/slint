@@ -95,8 +95,8 @@
     "MenuBar": {
         "href": "reference/window/window/#menubar"
     },
-    "MenuItem": {
-        "href": "reference/window/contextmenu/#menuitem"
+    "Menu": {
+        "href": "reference/window/contextmenuarea/#menu"
     },
     "Modules": {
         "href": "guide/language/coding/file/#modules"

@@ -1,0 +1,81 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: ContextMenuArea
+description: ContextMenuArea element api.
+---
+import SlintProperty from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
+
+Use the non-visual `ContextMenuArea` element to declare a context menu.
+
+The context menu is shown if the user right-clicks on the area covered by the `ContextMenuArea` element,
+or if the user presses the "Menu" key on their keyboard while a `FocusScope` within the `ContextMenuArea` has focus.
+Call the `show()` function on the `ContextMenuArea` element to programmatically show the context menu.
+
+The `ContextMenuArea` must contain one and only one `Menu` element as its child.
+Define the structure of the menu by placing `MenuItem` elements or other `Menu` inside that `Menu`.
+
+## Function
+
+### show(Point)
+
+Call this function to programmatically show the context menu at the given position relative to the `ContextMenuArea` element.
+
+## close()
+
+Close the context menu if it is currently open.
+
+## `Menu`
+
+The `Menu` element can be place in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
+It can contain `MenuItem` elements as children, or other `Menu` elements to represent submenus.
+
+### Properties of `Menu`
+
+#### title
+<SlintProperty propName="title" typeName="string" defaultValue='""'>
+This is the label of the menu as written in the menu bar or in the parent menu.
+</SlintProperty>
+
+## `MenuItem`
+
+A `MenuItem` represents a single menu entry. It can be placed as a child of a `Menu`.
+### Properties of `MenuItem`
+
+#### title
+<SlintProperty propName="title" typeName="string" defaultValue='""'>
+The label of the entry within the menu.
+</SlintProperty>
+
+### Callbacks of `MenuItem`
+
+#### activated()
+
+Invoked when the menu entry is activated.
+
+:::note{Note}
+This is only called if the menu entry doesn't have submenus.
+:::
+
+## Example
+
+```slint
+export component Example {
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: @tr("Cut");
+                activated => { debug("Cut"); }
+            }
+            MenuItem {
+                title: @tr("Copy");
+                activated => { debug("Copy"); }
+            }
+            MenuItem {
+                title: @tr("Paste");
+                activated => { debug("Paste"); }
+            }
+        }
+    }
+}
+```

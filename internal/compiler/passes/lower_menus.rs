@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passe lower the `MenuBar` and `ContextMenu` as well as all their contents
+//! Passe lower the `MenuBar` and `ContextMenuArea` as well as all their contents
 //!
 //! We can't have properties of type model because that is not binary compatible with C++,
 //! so all the code that handle model of MenuEntry need to be handle by code in the generated code
@@ -12,14 +12,17 @@
 //! ```slint
 //! Window {
 //!      menu-bar := MenuBar {
+//!        Menu {
+//!           title: "File";
 //!           MenuItem {
 //!             title: "A";
 //!             activated => { ... }
 //!           }
-//!           MenuItem {
+//!           Menu {
 //!               title: "B";
 //!               MenuItem { title: "C"; }
 //!           }
+//!        }
 //!      }
 //!      content := ...
 //! }
@@ -28,8 +31,11 @@
 //! ```slint
 //! Window {
 //!     menu-bar := VerticalLayout {
-//!        property <[MenuEntry]> entries : [ { id: "1", title: "A" }, { id: "2", title: "B", has-sub-menu: true } ];
-//!        callback sub-menu(entry: MenuEntry) => { if(entry.id == "2") { return [ { id: "3", title: "C" } ]; } else { return []; } }
+//!        property <[MenuEntry]> entries : [ { id: "0", title: "File", has-sub-menu: true } ];
+//!        callback sub-menu(entry: MenuEntry) => {
+//!            if(entry.id == "0") { return [ { id: "1", title: "A" }, { id: "2", title: "B", has-sub-menu: true } ]; }
+//!            else if(entry.id == "2") { return [ { id: "3", title: "C" } ]; } else { return []; }
+//!        }
 //!        callback activated() => { if (entry.id == "2") { ... } }
 //!        if !Builtin.supports_native_menu_bar() : MenuBarImpl {
 //!           entries: parent.entries
@@ -50,7 +56,7 @@
 //! ## ContextMenuInternal
 //!
 //! ```slint
-//! menu := ContextMenu {
+//! menu := ContextMenuInternal {
 //!     entries: [...]
 //!     sub-menu => ...
 //!     activated => ...
@@ -69,7 +75,7 @@
 //!    callback show(point) => { Builtin.show_context_menu(entries, sub-menu, activated, point) }
 //! }
 //!
-//! ## ContextMenu
+//! ## ContextMenuArea
 //!
 //! This is the same as ContextMenuInternal, but entries, sub-menu, and activated are generated
 //! from the MenuItem similar to MenuBar
@@ -115,7 +121,7 @@ pub async fn lower_menus(
             .global_type_registry
             .borrow()
             .lookup_builtin_element("ContextMenuInternal")
-            .expect("ContextMenu is a builtin type"),
+            .expect("ContextMenuInternal is a builtin type"),
         vertical_layout: type_loader
             .global_type_registry
             .borrow()
@@ -133,7 +139,7 @@ pub async fn lower_menus(
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "Window") {
                 has_menu |= process_window(elem, &useful_menu_component, diag);
             }
-            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenu" | "ContextMenuInternal")) {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal")) {
                 has_menu |= process_context_menu(elem, &useful_menu_component, diag);
             }
         })
@@ -161,7 +167,7 @@ pub async fn lower_menus(
         }
 
         recurse_elem_including_sub_components_no_borrow(&popup_menu_impl, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenu" | "ContextMenuInternal"))
+            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal"))
             {
                 process_context_menu(elem, &useful_menu_component, diag);
             }
@@ -178,33 +184,53 @@ fn process_context_menu(
     let is_internal = matches!(&context_menu_elem.borrow().base_type, ElementType::Builtin(b) if b.name == "ContextMenuInternal");
 
     let item_tree_root = if !is_internal {
-        // Lower MenuItem's into entries
-        let menu_item = context_menu_elem
+        // Lower Menu into entries
+        let menu_element_type = context_menu_elem
             .borrow()
             .base_type
             .as_builtin()
             .additional_accepted_child_types
-            .get("MenuItem")
-            .expect("ContextMenu should accept MenuItem")
+            .get("Menu")
+            .expect("ContextMenu should accept Menu")
             .clone()
             .into();
 
         context_menu_elem.borrow_mut().base_type = components.context_menu_internal.clone();
 
-        let mut items = vec![];
+        let mut menu_elem = None;
         context_menu_elem.borrow_mut().children.retain(|x| {
-            if x.borrow().base_type == menu_item {
-                items.push(x.clone());
+            if x.borrow().base_type == menu_element_type {
+                if menu_elem.is_some() {
+                    diag.push_error(
+                        "Only one Menu is allowed in a ContextMenu".into(),
+                        &*x.borrow(),
+                    );
+                } else {
+                    menu_elem = Some(x.clone());
+                }
                 false
             } else {
                 true
             }
         });
 
-        let item_tree_root = if !items.is_empty() {
-            lower_menu_items(context_menu_elem, items, components)
+        let item_tree_root = if let Some(menu_elem) = menu_elem {
+            if menu_elem.borrow().repeated.is_some() {
+                diag.push_error(
+                    "ContextMenuArea's root Menu cannot be in a conditional or repeated element"
+                        .into(),
+                    &*menu_elem.borrow(),
+                );
+            }
+
+            let children = std::mem::take(&mut menu_elem.borrow_mut().children);
+            lower_menu_items(context_menu_elem, children, components)
                 .map(|c| Expression::ElementReference(Rc::downgrade(&c.root_element)))
         } else {
+            diag.push_error(
+                "ContextMenuArea should have a Menu".into(),
+                &*context_menu_elem.borrow(),
+            );
             None
         };
 
@@ -252,7 +278,7 @@ fn process_context_menu(
         .bindings
         .insert(SmolStr::new_static(SHOW), RefCell::new(expr.into()));
     if let Some(old) = old {
-        diag.push_error("'show' is not a callback in ContextMenu".into(), &old.borrow().span);
+        diag.push_error("'show' is not a callback in ContextMenuArea".into(), &old.borrow().span);
     }
 
     true
@@ -420,7 +446,7 @@ fn process_window(
     true
 }
 
-/// Lower the MenuItem to either
+/// Lower the MenuItem's and Menu's to either
 ///  - `entries` and `activated` and `sub-menu` properties/callback, in which cases it returns None
 ///  - or a Component which is a tree of MenuItem, in which case returns the component that is within the enclosing component's menu_item_trees
 fn lower_menu_items(
@@ -550,7 +576,11 @@ fn generate_menu_entries(
 
     for item in menu_items {
         let mut borrow_mut = item.borrow_mut();
-        assert_eq!(borrow_mut.base_type.type_name(), Some("MenuItem"));
+        let base_name = borrow_mut.base_type.type_name().unwrap();
+        let is_sub_menu = base_name == "Menu";
+        if !is_sub_menu {
+            assert_eq!(base_name, "MenuItem");
+        }
 
         borrow_mut
             .enclosing_component
@@ -577,9 +607,10 @@ fn generate_menu_entries(
             state.activate.push((id_str.clone(), callback.into_inner().expression));
         }
 
-        let sub_entries =
-            generate_menu_entries(std::mem::take(&mut borrow_mut.children).into_iter(), state);
-        if !sub_entries.is_empty() {
+        if is_sub_menu {
+            let sub_entries =
+                generate_menu_entries(std::mem::take(&mut borrow_mut.children).into_iter(), state);
+
             state.sub_menu.push((
                 id_str,
                 Expression::Array { element_ty: state.menu_entry.clone(), values: sub_entries },

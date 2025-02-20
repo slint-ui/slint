@@ -11,7 +11,7 @@ export component TestCase inherits Window {
     in-out property <string> result;
 
     MenuBar {
-        MenuItem {
+        Menu {
             title: "File";
             MenuItem {
                 title: "New";
@@ -21,7 +21,7 @@ export component TestCase inherits Window {
                 title: "Open";
                 activated => { debug("Open"); }
             }
-            MenuItem {
+            Menu {
                 function open-recent(entry: string) {
                     result += entry;
                     debug(entry);
@@ -45,7 +45,7 @@ export component TestCase inherits Window {
                 activated => { debug("Save"); }
             }
         }
-        MenuItem {
+        Menu {
             title: "Edit";
             MenuItem {
                 title: "Copy";

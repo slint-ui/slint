@@ -139,22 +139,24 @@ export component TextEdit {
         border-width: 1px;
     }
 
-    ContextMenu {
-        MenuItem {
-            title: @tr("Cut");
-            activated => { text-input.cut(); }
-        }
-        MenuItem {
-            title: @tr("Copy");
-            activated => { text-input.copy(); }
-        }
-        MenuItem {
-            title: @tr("Paste");
-            activated => { text-input.paste(); }
-        }
-        MenuItem {
-            title: @tr("Select All");
-            activated => { text-input.select-all(); }
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: @tr("Cut");
+                activated => { text-input.cut(); }
+            }
+            MenuItem {
+                title: @tr("Copy");
+                activated => { text-input.copy(); }
+            }
+            MenuItem {
+                title: @tr("Paste");
+                activated => { text-input.paste(); }
+            }
+            MenuItem {
+                title: @tr("Select All");
+                activated => { text-input.select-all(); }
+            }
         }
 
         scroll-view := ScrollView {

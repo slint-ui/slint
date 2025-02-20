@@ -67,8 +67,7 @@ Place a single `MenuBar` element into a `Window` to declare a menu bar for the w
 There can only be one `MenuBar` element in a `Window` and it must not be in a `for` or a `if`.
 :::
 
-The `MenuBar` doesn't have properties, but it should contain <Link type="MenuItem" /> as children that represent top level entries in the menu bar.
-Nest `MenuItem` elements to declare sub-menus.
+The `MenuBar` doesn't have properties, but it should contain <Link type="Menu" /> as children that represent top level entries in the menu bar.
 
 Depending on the platform, the menu bar might be native or rendered by Slint.
 This means that for example, on macOS, the menu bar will be at the top of the screen.

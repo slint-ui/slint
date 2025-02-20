@@ -1227,7 +1227,7 @@ mod tests {
             component Foo inherits Window {
                 property <int> local-prop;
                 MenuBar {
-                    MenuItem {
+                    Menu {
                         property <int> local-prop2;
                         🔺
                     }
