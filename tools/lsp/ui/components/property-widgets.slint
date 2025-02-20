@@ -912,9 +912,10 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     property <PropertyValue> value: root.preview-data.array-values[0][0];
 
     if is-simple && value.kind == PropertyValueKind.code: CodeWidget {
-        enabled: root.preview-data.has-setter;
+        property-value: root.preview-data.array-values[0][0];
         property-name: root.preview-data.name;
-        property-value: value;
+        enabled: root.preview-data.has-setter;
+
         has-code-action: false;
 
         reset-action() => {
@@ -922,7 +923,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         }
     }
     if is-simple && value.kind != PropertyValueKind.code: PropertyValueWidget {
-        property-value <=> root.value;
+        property-value: root.preview-data.array-values[0][0];
         property-name: root.preview-data.name;
         enabled: root.preview-data.has-setter;
 
@@ -954,7 +955,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     if show-json: EditJsonWidget {
         enabled: root.preview-data.has-setter;
         property-name: root.preview-data.name;
-        property-value: value;
+        property-value: root.preview-data.array-values[0][0];
 
         set-code-binding(text) => {
             root.set-code-binding(text);
