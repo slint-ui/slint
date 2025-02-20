@@ -61,11 +61,6 @@ All notable changes to this project are documented in this file.
  - esp-idf: Deprecated old version of `slint_esp_init` and restore 1.6 behavior with regards to color swap
  - Fixed bundled translation without custom backend
 
-### Javascript
-
- - Fixed 100% CPU usage on Wayland by enforcing minimum event timeout (#7550)
-
-
 ### LSP and Tooling
 
  - live-preview: Fix loading the library path config
