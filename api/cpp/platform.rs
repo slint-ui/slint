@@ -403,7 +403,6 @@ mod software_renderer {
         renderer.render(buffer, pixel_stride)
     }
 
-    #[cfg(feature = "experimental")]
     struct LineByLineProcessor<TargetPixel> {
         process_line_fn: extern "C" fn(
             *mut core::ffi::c_void,
@@ -416,7 +415,6 @@ mod software_renderer {
         user_data: *mut core::ffi::c_void,
     }
 
-    #[cfg(feature = "experimental")]
     impl<TargetPixel: i_slint_core::software_renderer::TargetPixel>
         i_slint_core::software_renderer::LineBufferProvider for LineByLineProcessor<TargetPixel>
     {
@@ -431,7 +429,6 @@ mod software_renderer {
         }
     }
 
-    #[cfg(feature = "experimental")]
     impl<TargetPixel> LineByLineProcessor<TargetPixel> {
         fn cpp_process_line<RenderFn: FnOnce(&mut [TargetPixel])>(
             &mut self,
@@ -467,7 +464,6 @@ mod software_renderer {
         }
     }
 
-    #[cfg(feature = "experimental")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb565(
         r: SoftwareRendererOpaque,
@@ -486,7 +482,6 @@ mod software_renderer {
         renderer.render_by_line(processor)
     }
 
-    #[cfg(feature = "experimental")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb8(
         r: SoftwareRendererOpaque,
