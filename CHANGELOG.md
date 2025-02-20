@@ -8,58 +8,58 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Minimum Supported Rust Version (MSRV) is 1.82.
- - Fixed esc closing PopupWindow with the Qt backend (#7332)
- - Android: Fixed build with newer JDK
- - Skia renderer: added support for partial rendering, enabled by default for skia-software
- - Fixed panic when using gradient backgrounds with `Window`.
- - Software renderer: fixed changing the window background
- - Fixed panic when PopupWindow is opened while AccessKit is active
- - Implemented `forward-focus` on `PopupWindow` (#7529)
- - Qt backend: fixed crash at exit with Qt 5.8 (#7570)
- - Software renderer: Added a way to pre-render glyphs with signed distance field
+ - Android: Fixed build with newer JDK.
+ - Winit backend: Fixed panic when `PopupWindow` is opened while AccessKit is active.
+ - Skia renderer: Added support for partial rendering when using software rendering.
+ - Qt backend: Fixed crash at exit with Qt 5.8. (#7570)
+ - Qt backend: Fixed the Escape key not closing `PopupWindow`. (#7332)
+ - Software renderer: Fixed support for changing the `Window` background.
+ - Software renderer: Added support for pre-rendering glyphs with signed distance fields.
 
 ### Slint language
 
- - Elements of a `for` now only get re-created if the model is changed, not if it is only dirty (#7245)
- - Binding loop involving the condition of a `if` in a layout are now detected (#7126)
- - Added  `.is-empty` and `.character-count` accessor to string type
- - Added `ContextMenu` and `MenuBar`
- - Fixed change callback over unused properties (#7316)
+ - Elements of a `for` loop now only get re-created if the model is changed, not if it is only dirty. (#7245)
+ - Binding loops involving the condition of a `if` in a layout are now detected. (#7126)
+ - Added  `.is-empty` and `.character-count` accessor to the string type.
+ - Added `ContextMenu` and `MenuBar`.
+ - Fixed panic change callbacks used with unused properties. (#7316)
  - Added `Path::stroke-line-cap` property. (#4676)
- - special sub elements (Row, Tab, MenuItem) are now accepted in `@children`
- - Added `accessible-expandable`, `accessible-expanded` and `accessible-action-expand` properties and callback
- - Added `accessible-readonly` property
- - Added `AccessibleRole.image`
- - Made `forward-focus` in a `PopupWindow` to focus a widget when a popup is open
- - Added `TextInput::page-height` to support PageUp and PageDown shortcuts
+ - Special sub elements such as `Row`, `Tab` or `MenuItem` are now accepted in `@children`.
+ - Accessibility: Added `accessible-expandable`, `accessible-expanded`, and `accessible-readonly` properties and `accessible-action-expand` callback.
+ - Accessibility: Added `AccessibleRole.image` role.
+ - Made `forward-focus` in a `PopupWindow` to focus a widget when a popup is open. (#7529)
+ - Added `TextInput::page-height` to support PageUp and PageDown shortcuts.
+ - Fixed panic when using gradient backgrounds with `Window`.
 
 ### Widgets
 
- - Fixed ListView focus behavior (#7341)
- - Fixed positions of elements in a ListView with millions of item (3700)
- - ListView: adapt the viewport's width based on the minimum-width of delegate
- - Slider: Reac to Home and End keys
- - ComboBox: improved accessibility
- - ComboBox: don't change selected item on mouse wheel (unless it has focus) (#5929)
- - StandardTableView: Added missing properties from `ListView` (#7543)
- - LineEdit/TextEdit: Added a context menu with copy/paste/select all
+ - Fixed `StandardListView` not always getting the focus.
+ - Fixed panic when accessing "negative" items if there are hidden elements in the `ListView`.
+ - Fixed positions of elements in a `ListView` with millions of items. (3700)
+ - `ListView`: adapt the viewport's width based on the minimum-width of delegate.
+ - `Slider`: React to Home and End keys.
+ - `ComboBox`: Improved accessibility.
+ - `ComboBox`: Don't change selected item on mouse wheel, unless it has focus. (#5929)
+ - `StandardTableView`: Added missing properties from `ListView`. (#7543)
+ - `LineEdit`/`TextEdit`: Added a context menu with copy/paste/select all.
 
 ### Rust
+
  - Upgraded image crate to 0.25, added a new cargo feature
-   to enable all image formats. (that feature is enabled by default with
-   compat-1-2, added compat-1-10 to disable it)
- - Ignore pendentic and nursery clippy warning in generated code
+   to enable all image formats. This feature is enabled by default with
+   `compat-1-2`. Use `compat-1-10` to disable it.
+ - Ignore pedantic and nursery clippy warnings in generated code.
  - Fixed edition 2024 warnings in generated code.
- - Fixed Sync and Send bound on SharedVector, SharedString, and Weak
+ - Fixed `Sync` and `Send` bounds on `SharedVector`, `SharedString`, and `Weak`.
  - Removed the requirement that for `VecModel<T>::default()` `T` has to implement `Default`.
- - Implement `Default` for `BackendSelector`
+ - Implement `Default` for `BackendSelector`.
 
 ### C++
 
- - esp-idf: Added support for RGB8 rendering
- - esp-idf: Rename SlintPlatformConfiguration's color_swap_16 to byte_swap
- - esp-idf: Deprecated old version of `slint_esp_init` and restore 1.6 behavior with regards to color swap
- - Fixed bundled translation without custom backend
+ - esp-idf: Added support for RGB8 rendering.
+ - esp-idf: Rename `SlintPlatformConfiguration`'s `color_swap_16` to `byte_swap`.
+ - esp-idf: Deprecated old version of `slint_esp_init` and restored 1.6 behavior with regards to color swapping.
+ - Fixed bundled translation without custom backend.
 
 ### LSP and Tooling
 
