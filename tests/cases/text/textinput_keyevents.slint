@@ -5,6 +5,7 @@ export component TestCase inherits TextInput {
     out property <string> pressed-text;
     out property <string> released-text;
     out property <string> test-text: self.text;
+    in-out property <bool> text-read-only <=> self.read-only;
 
     width: 100phx;
     height: 100phx;
@@ -26,6 +27,7 @@ export component TestCase inherits TextInput {
 /*
 ```rust
 use slint::platform::{WindowEvent};
+use slint::SharedString;
 
 let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::KeyPressed { text: 'a'.into() });
@@ -57,6 +59,13 @@ instance.window().dispatch_event(WindowEvent::KeyReleased { text: 'c'.into() });
 assert_eq!(instance.get_pressed_text(), "ac");
 assert_eq!(instance.get_released_text(), "abc");
 assert_eq!(instance.get_test_text(), "b");
+
+let mut input_element_search = slint_testing::ElementHandle::find_by_element_type_name(&instance, "TextInput");
+let input_element = input_element_search.next().unwrap();
+assert_eq!(input_element.accessible_value(), Some(SharedString::from("b")));
+assert_eq!(input_element.accessible_read_only(), Some(false));
+instance.set_text_read_only(true);
+assert_eq!(input_element.accessible_read_only(), Some(true));
 
 ```
 

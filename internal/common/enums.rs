@@ -352,7 +352,7 @@ macro_rules! for_each_enums {
                 Combobox,
                 /// The element is a `GroupBox` or behaves like one.
                 Groupbox,
-                /// The element is an `Image` or behaves like one.
+                /// The element is an `Image` or behaves like one. This is automatically applied to `Image` elements.
                 Image,
                 /// The element is a `ListView` or behaves like one.
                 List,
@@ -366,7 +366,7 @@ macro_rules! for_each_enums {
                 TabList,
                 /// The element is a container for tab content.
                 TabPanel,
-                /// The role for a `Text` element. It's automatically applied.
+                /// The role for a `Text` element. This is automatically applied to `Text` elements.
                 Text,
                 /// The role for a `TableView` or behaves like one.
                 Table,
@@ -374,8 +374,8 @@ macro_rules! for_each_enums {
                 Tree,
                 /// The element is a `ProgressIndicator` or behaves like one.
                 ProgressIndicator,
-                /// The role for widget with editable text such as a
-                /// `LineEdit` or a `TextEdit`
+                /// The role for widget with editable text such as a `LineEdit` or a `TextEdit`.
+                /// This is automatically applied to `TextInput` elements.
                 TextInput,
                 /// The element is a `Switch` or behaves like one.
                 Switch,
