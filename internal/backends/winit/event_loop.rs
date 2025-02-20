@@ -276,6 +276,9 @@ pub struct EventLoopState {
 
     loop_error: Option<PlatformError>,
     current_resize_direction: Option<ResizeDirection>,
+
+    /// Set to true when pumping events for the shortest amount of time possible.
+    quit_loop_asap: bool,
 }
 
 impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
@@ -607,6 +610,10 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                 event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
             }
         }
+
+        if self.quit_loop_asap {
+            event_loop.set_control_flow(ControlFlow::Poll);
+        }
     }
 }
 
@@ -766,8 +773,12 @@ impl EventLoopState {
 
         let mut winit_loop = not_running_loop_instance.instance;
 
+        self.quit_loop_asap = timeout.map_or(false, |duration| duration.is_zero());
+
         let result = winit_loop
             .pump_app_events(timeout, &mut ActiveEventLoopSetterDuringEventProcessing(&mut self));
+
+        self.quit_loop_asap = false;
 
         *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
 
