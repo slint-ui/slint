@@ -551,25 +551,49 @@ struct Texture
     std::span<const uint8_t> bytes;
     /// The pixel format of the texture.
     TexturePixelFormat pixel_format;
+    /// The number of pixels per line.
     uint16_t pixel_stride;
+    /// The width of the texture in pixels.
     uint16_t width;
+    /// The height of the texture in pixels.
     uint16_t height;
+    /// The delta to apply to the source x coordinate between pixels when drawing the texture.
+    /// This is used when scaling the texture. The delta is specified in 8:8 fixed point format.
     uint16_t delta_x;
+    /// The delta to apply to the source y coordinate between pixels when drawing the texture.
+    /// This is used when scaling the texture. The delta is specified in 8:8 fixed point format.
     uint16_t delta_y;
+    /// The offset within the texture to start reading pixels from in the x direction. The
+    /// offset is specified in 8:8 fixed point format.
     uint16_t source_offset_x;
+    /// The offset within the texture to start reading pixels from in the y direction. The
+    /// offset is specified in 8:8 fixed point format.
     uint16_t source_offset_y;
 };
 
+/// Abstract base class for a target pixel buffer where certain drawing operations can be delegated.
+/// Use this to implement support for hardware accelerators such as DMA2D, PPA, or PXP on
+/// Microcontrollers.
 template<typename PixelType>
 struct TargetPixelBuffer
 {
     virtual ~TargetPixelBuffer() { }
 
+    /// Returns a span of pixels for the specified line number.
     virtual std::span<PixelType> line_slice(std::size_t line_number) = 0;
+    /// Returns the number of lines in the buffer. This is the height of the buffer in pixels.
     virtual std::size_t num_lines() = 0;
 
+    /// Fill a rectangle at the specified pixel coordinates with the given color. Return true
+    /// if the operation succeeded; false otherwise;
     virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
                                 const RgbaColor<uint8_t> &premultiplied_color) = 0;
+
+    /// Draw a portion of provided texture to the specified pixel coordinates. This may
+    /// be called multiple times for a given texture, for example when clipping. Typically
+    /// y is identicaly with span_y, but when clipping, span_y refers to the y coordinate of
+    /// the texture if it's unclipped. Each pixel of the texture is to be blended with the given
+    /// colorize color as well as the alpha value.
     virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height, int16_t span_y,
                               const Texture &texture, uint32_t colorize, uint8_t alpha,
                               int screen_rotation_degrees) = 0;
@@ -719,6 +743,7 @@ public:
     }
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
+    /// Renders into the given TargetPixelBuffer.
     PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer) const
     {
         cbindgen_private::CppRgb8TargetPixelBuffer buffer_wrapper {
@@ -769,6 +794,8 @@ public:
                 cbindgen_private::slint_software_renderer_render_accel_rgb8(inner, &buffer_wrapper);
         return PhysicalRegion { r };
     }
+
+    /// Renders into the given TargetPixelBuffer.
     PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer) const
     {
         cbindgen_private::CppRgb565TargetPixelBuffer buffer_wrapper {
