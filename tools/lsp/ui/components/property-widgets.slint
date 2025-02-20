@@ -91,6 +91,7 @@ component CodeWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
+    in property <bool> has-code-action: true;
 
     callback code-action();
     callback reset-action();
@@ -122,7 +123,7 @@ component CodeWidget inherits VerticalLayout {
             }
         }
 
-        CodeButton {
+        if root.has-code-action: CodeButton {
             enabled: root.enabled;
             clicked() => {
                 root.code-action();
@@ -702,6 +703,7 @@ export component PropertyValueWidget inherits VerticalLayout {
     in property <PropertyValue> property-value;
     in property <string> property-name;
     in property <bool> enabled;
+    in property <bool> has-code-action: true;
 
     callback set-bool-binding(value: bool);
     callback set-color-binding(text: string);
@@ -741,6 +743,7 @@ export component PropertyValueWidget inherits VerticalLayout {
         enabled <=> root.enabled;
         property-name: root.property-name;
         property-value: root.property-value;
+        has-code-action <=> root.has-code-action;
 
         reset-action() => {
             root.reset-action();
@@ -892,10 +895,6 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         self.set-code-binding(self.value.code);
     }
 
-    function code-action() {
-        // TODO!
-    }
-
     function set-code-binding(text: string) -> bool {
         root.value.was-edited = true;
         root.value.edited-value = text;
@@ -916,12 +915,10 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         enabled: root.preview-data.has-setter;
         property-name: root.preview-data.name;
         property-value: value;
+        has-code-action: false;
 
         reset-action() => {
             root.reset-action();
-        }
-        code-action() => {
-            root.code-action();
         }
     }
     if is-simple && value.kind != PropertyValueKind.code: PropertyValueWidget {
