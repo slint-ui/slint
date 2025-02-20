@@ -188,7 +188,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             if args_can_inline {
                 if let Some(inlined) = try_inline_function(function, arguments) {
                     *expr = inlined;
-                    true;
+                    return true;
                 }
             }
             false
