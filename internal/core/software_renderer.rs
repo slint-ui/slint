@@ -18,9 +18,7 @@ pub use self::minimal_software_window::MinimalSoftwareWindow;
 use self::scene::*;
 use crate::api::PlatformError;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use crate::graphics::{
-    BorderRadius, PixelFormat, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
-};
+use crate::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{
     CachedRenderingData, DirtyRegion, PartialRenderingState, RenderBorderRectangle, RenderImage,
     RenderRectangle,
@@ -368,6 +366,36 @@ fn region_line_ranges(
 mod private_api {
     use super::*;
 
+    pub use crate::graphics::TexturePixelFormat;
+
+    /// This structure describes the properties of a texture for blending with [`TargetPixelBuffer::draw_texture`].
+    #[allow(dead_code)]
+    #[non_exhaustive]
+    pub struct Texture<'a> {
+        /// A reference to the pixel bytes of the texture. These bytes are in the format specified by `pixel_format`.
+        pub bytes: &'a [u8],
+        /// The pixel format of the texture.
+        pub pixel_format: TexturePixelFormat,
+        /// The number of pixels per horizontal line of the texture.
+        pub pixel_stride: u16,
+        /// The width of the texture in pixels.
+        pub width: u16,
+        /// The height of the texture in pixels.
+        pub height: u16,
+        /// The delta to apply to the source x coordinate between pixels when drawing the texture.
+        /// This is used when scaling the texture. The delta is specified in 8:8 fixed point format.
+        pub delta_x: u16,
+        /// The delta to apply to the source y coordinate between pixels when drawing the texture.
+        /// This is used when scaling the texture. The delta is specified in 8:8 fixed point format.
+        pub delta_y: u16,
+        /// The offset within the texture to start reading pixels from in the x direction. The
+        /// offset is specified in 8:8 fixed point format.
+        pub source_offset_x: u16,
+        /// The offset within the texture to start reading pixels from in the y direction. The
+        /// offset is specified in 8:8 fixed point format.
+        pub source_offset_y: u16,
+    }
+
     /// This trait represents access to a buffer of pixels the software renderer can render into, as well
     /// as certain operations that the renderer will try to delegate to this trait. Implement these functions
     /// to delegate rendering further to hardware-provided 2D acceleration units, such as DMA2D or PXP.
@@ -405,15 +433,7 @@ mod private_api {
             _width: i16,
             _height: i16,
             _span_y: i16,
-            _src: *const u8,
-            _src_stride: u16,
-            _src_width: i16,
-            _src_height: i16,
-            _src_pixel_format: u8,
-            _src_dx: u16,
-            _src_dy: u16,
-            _src_off_x: u16,
-            _src_off_y: u16,
+            _src_texture: Texture<'_>,
             _colorize: u32,
             _alpha: u8,
             _rotation: u8,
@@ -424,7 +444,10 @@ mod private_api {
 }
 
 #[cfg(feature = "experimental")]
-pub use private_api::TargetPixelBuffer;
+pub use private_api::{TargetPixelBuffer, Texture, TexturePixelFormat};
+
+#[cfg(not(feature = "experimental"))]
+use private_api::TexturePixelFormat;
 
 struct TargetPixelSlice<'a, T> {
     data: &'a mut [T],
@@ -1261,15 +1284,17 @@ impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> RenderToBuffe
                 rect.size.width,
                 rect.size.height,
                 geometry.origin.y,
-                texture.data.as_ptr(),
-                texture.pixel_stride,
-                texture.source_size().width,
-                texture.source_size().height,
-                texture.format as u8,
-                texture.extra.dx.0,
-                texture.extra.dy.0,
-                texture.extra.off_x.0,
-                texture.extra.off_y.0,
+                private_api::Texture {
+                    bytes: texture.data,
+                    pixel_format: texture.format,
+                    pixel_stride: texture.pixel_stride,
+                    width: texture.source_size().width as u16,
+                    height: texture.source_size().height as u16,
+                    delta_x: texture.extra.dx.0,
+                    delta_y: texture.extra.dy.0,
+                    source_offset_x: texture.extra.off_x.0,
+                    source_offset_y: texture.extra.off_y.0,
+                },
                 texture.extra.colorize.as_argb_encoded(),
                 texture.extra.alpha,
                 texture.extra.rotation as u8,
@@ -1545,7 +1570,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     let bpp = t.format.bpp();
 
                     let color = if colorize.alpha() > 0 { colorize } else { t.color };
-                    let alpha = if colorize.alpha() > 0 || t.format == PixelFormat::AlphaMap {
+                    let alpha = if colorize.alpha() > 0 || t.format == TexturePixelFormat::AlphaMap
+                    {
                         color.alpha() as u16 * global_alpha_u16 / 255
                     } else {
                         global_alpha_u16
@@ -1719,7 +1745,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     SceneTexture {
                                         data,
                                         pixel_stride,
-                                        format: PixelFormat::AlphaMap,
+                                        format: TexturePixelFormat::AlphaMap,
                                         extra: SceneTextureExtra {
                                             colorize: color,
                                             // color already is mixed with global alpha
@@ -1750,7 +1776,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     SceneTexture {
                                         data,
                                         pixel_stride,
-                                        format: PixelFormat::SignedDistanceField,
+                                        format: TexturePixelFormat::SignedDistanceField,
                                         extra: SceneTextureExtra {
                                             colorize: color,
                                             // color already is mixed with global alpha

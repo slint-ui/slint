@@ -897,7 +897,7 @@ fn gen_platform(
         .with_after_include(
             r"
 namespace slint::platform { struct Rgb565Pixel; }
-namespace slint::cbindgen_private { struct WindowProperties; using slint::platform::Rgb565Pixel; }
+namespace slint::cbindgen_private { struct WindowProperties; using slint::platform::Rgb565Pixel; using slint::cbindgen_private::types::TexturePixelFormat; }
 ",
         )
         .generate()

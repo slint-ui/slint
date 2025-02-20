@@ -224,8 +224,8 @@ impl PartialEq for SharedImageBuffer {
 
 #[repr(u8)]
 #[derive(Clone, PartialEq, Debug, Copy)]
-/// The pixel format of a StaticTexture
-pub enum PixelFormat {
+/// The pixel format used for textures.
+pub enum TexturePixelFormat {
     /// red, green, blue. 24bits.
     Rgb,
     /// Red, green, blue, alpha. 32bits.
@@ -241,15 +241,15 @@ pub enum PixelFormat {
     SignedDistanceField,
 }
 
-impl PixelFormat {
+impl TexturePixelFormat {
     /// The number of bytes in a pixel
     pub fn bpp(self) -> usize {
         match self {
-            PixelFormat::Rgb => 3,
-            PixelFormat::Rgba => 4,
-            PixelFormat::RgbaPremultiplied => 4,
-            PixelFormat::AlphaMap => 1,
-            PixelFormat::SignedDistanceField => 1,
+            TexturePixelFormat::Rgb => 3,
+            TexturePixelFormat::Rgba => 4,
+            TexturePixelFormat::RgbaPremultiplied => 4,
+            TexturePixelFormat::AlphaMap => 1,
+            TexturePixelFormat::SignedDistanceField => 1,
         }
     }
 }
@@ -261,7 +261,7 @@ pub struct StaticTexture {
     /// The position and size of the texture within the image
     pub rect: IntRect,
     /// The pixel format of this texture
-    pub format: PixelFormat,
+    pub format: TexturePixelFormat,
     /// The color, for the alpha map ones
     pub color: crate::Color,
     /// index in the data array
@@ -435,7 +435,7 @@ impl ImageInner {
                         let slice = &mut slice[(rect.min_y() + y) * stride..][rect.x_range()];
                         let source = &ts.data[t.index + y * rect.width() * t.format.bpp()..];
                         match t.format {
-                            PixelFormat::Rgb => {
+                            TexturePixelFormat::Rgb => {
                                 let mut iter = source.chunks_exact(3).map(|p| Rgba8Pixel {
                                     r: p[0],
                                     g: p[1],
@@ -444,7 +444,7 @@ impl ImageInner {
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
-                            PixelFormat::RgbaPremultiplied => {
+                            TexturePixelFormat::RgbaPremultiplied => {
                                 let mut iter = source.chunks_exact(4).map(|p| Rgba8Pixel {
                                     r: p[0],
                                     g: p[1],
@@ -453,7 +453,7 @@ impl ImageInner {
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
-                            PixelFormat::Rgba => {
+                            TexturePixelFormat::Rgba => {
                                 let mut iter = source.chunks_exact(4).map(|p| {
                                     let a = p[3];
                                     Rgba8Pixel {
@@ -465,7 +465,7 @@ impl ImageInner {
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
-                            PixelFormat::AlphaMap => {
+                            TexturePixelFormat::AlphaMap => {
                                 let col = t.color.to_argb_u8();
                                 let mut iter = source.iter().map(|p| {
                                     let a = *p as u32 * col.alpha as u32;
@@ -478,7 +478,7 @@ impl ImageInner {
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
-                            PixelFormat::SignedDistanceField => {
+                            TexturePixelFormat::SignedDistanceField => {
                                 todo!("converting from a signed distance field to an image")
                             }
                         };
