@@ -389,10 +389,10 @@ mod private_api {
         /// This is used when scaling the texture. The delta is specified in 8:8 fixed point format.
         pub delta_y: u16,
         /// The offset within the texture to start reading pixels from in the x direction. The
-        /// offset is specified in 8:8 fixed point format.
+        /// offset is specified in 12:4 fixed point format.
         pub source_offset_x: u16,
         /// The offset within the texture to start reading pixels from in the y direction. The
-        /// offset is specified in 8:8 fixed point format.
+        /// offset is specified in 12:4 fixed point format.
         pub source_offset_y: u16,
     }
 
