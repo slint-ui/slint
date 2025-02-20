@@ -564,10 +564,10 @@ struct Texture
     /// This is used when scaling the texture. The delta is specified in 8:8 fixed point format.
     uint16_t delta_y;
     /// The offset within the texture to start reading pixels from in the x direction. The
-    /// offset is specified in 8:8 fixed point format.
+    /// offset is specified in 12:4 fixed point format.
     uint16_t source_offset_x;
     /// The offset within the texture to start reading pixels from in the y direction. The
-    /// offset is specified in 8:8 fixed point format.
+    /// offset is specified in 12:4 fixed point format.
     uint16_t source_offset_y;
 };
 
