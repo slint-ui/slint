@@ -16,7 +16,7 @@ use lsp_types::Url;
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
-use std::cell::{OnceCell, RefCell};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -126,9 +126,6 @@ struct PreviewState {
     workspace_edit_sent: bool,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
-    property_change_tracker: OnceCell<
-        std::pin::Pin<Box<i_slint_core::properties::PropertyTracker<PreviewDataDirtyHandler>>>,
-    >,
 }
 
 impl PreviewState {
@@ -935,40 +932,6 @@ fn extract_resources(
     result
 }
 
-struct PreviewDataDirtyHandler {}
-
-impl i_slint_core::properties::PropertyDirtyHandler for PreviewDataDirtyHandler {
-    fn notify(self: std::pin::Pin<&Self>) {
-        PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-
-            let preview_data = &track_preview_data(&mut preview_state);
-
-            if let Some(ui) = &preview_state.ui {
-                ui::ui_set_preview_data(ui, preview_data);
-            }
-        });
-    }
-}
-
-fn track_preview_data(
-    preview_state: &mut std::cell::RefMut<PreviewState>,
-) -> HashMap<preview_data::PropertyContainer, Vec<preview_data::PreviewData>> {
-    let Some(component_instance) = preview_state.component_instance() else {
-        return Default::default();
-    };
-
-    let mut tracker = preview_state.property_change_tracker.get_or_init(move || {
-        Box::pin(i_slint_core::properties::PropertyTracker::new_with_dirty_handler(
-            PreviewDataDirtyHandler {},
-        ))
-    });
-
-    tracker.borrow_mut().as_ref().evaluate_as_dependency_root(|| {
-        preview_data::query_preview_data_properties_and_callbacks(&component_instance)
-    })
-}
-
 fn finish_parsing(preview_url: &Url) {
     set_status_text("");
 
@@ -1039,12 +1002,17 @@ fn finish_parsing(preview_url: &Url) {
 
             preview_state.document_cache.borrow_mut().replace(Some(Rc::new(document_cache)));
 
-            let preview_data = track_preview_data(&mut preview_state);
+            let preview_data = preview_state
+                .component_instance()
+                .map(|component_instance| {
+                    preview_data::query_preview_data_properties_and_callbacks(&component_instance)
+                })
+                .unwrap_or_default();
 
             if let Some(ui) = &preview_state.ui {
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
-                ui::ui_set_preview_data(ui, &preview_data);
+                ui::ui_set_preview_data(ui, preview_data);
             }
         });
     }
