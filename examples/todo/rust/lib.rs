@@ -41,6 +41,12 @@ fn init() -> State {
         let todo_model = todo_model.clone();
         move |text| todo_model.push(TodoItem { checked: false, title: text })
     });
+    main_window.on_remove({
+        let todo_model = todo_model.clone();
+        move |index| {
+            todo_model.remove(index as usize);
+        }
+    });
     main_window.on_remove_done({
         let todo_model = todo_model.clone();
         move || {
