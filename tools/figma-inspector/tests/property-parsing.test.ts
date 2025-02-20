@@ -129,7 +129,6 @@ test("Multiple border radius", () => {
     expect(snippet).toBe(expectedSnippet);
 });
 
-
 test("Border width and color", () => {
     const jsonNode = findNodeById(testJson, testBorderWidthColor);
     expect(jsonNode).not.toBeNull();
