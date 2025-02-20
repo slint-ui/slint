@@ -49,13 +49,6 @@ struct EspPlatform : public slint::platform::Platform
           byte_swap(config.byte_swap),
           rotation(config.rotation)
     {
-#if !defined(SLINT_FEATURE_EXPERIMENTAL)
-        if (!buffer1 && !buffer2) {
-            ESP_LOGI(TAG,
-                     "FATAL: Line-by-line rendering requested for use with slint-esp is "
-                     "experimental and not enabled in this build.");
-        }
-#endif
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -268,7 +261,6 @@ void EspPlatform<PixelType>::run_event_loop()
                             }
                         }
                     }
-#ifdef SLINT_FEATURE_EXPERIMENTAL
                 } else {
                     std::unique_ptr<PixelType, void (*)(void *)> lb(
                             static_cast<PixelType *>(heap_caps_malloc(
@@ -288,7 +280,6 @@ void EspPlatform<PixelType>::run_event_loop()
                                 esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
                                                           line_end, line_y + 1, lb.get());
                             });
-#endif
                 }
             }
 

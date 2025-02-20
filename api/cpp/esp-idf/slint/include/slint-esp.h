@@ -21,9 +21,7 @@
  *                     allocated by the `esp_lcd` driver and set `buffer1` and `buffer2`.
  * * Line-by-line rendering: Set neither `buffer1` nor `buffer2` to instruct Slint to allocate
  *                           a buffer (with MALLOC_CAP_INTERNAL) big enough to hold one line,
- *                           render into it, and send it to the display. This is an experimental
- *                           feature that requires enabling the `SLINT_FEATURE_EXPERIMENTAL` CMake
- *                           option.
+ *                           render into it, and send it to the display.
  *
  *  Use single-buffering if you can allocate a buffer in a memory region that allows the esp_lcd
  *  driver to efficiently transfer to the display. Use double-buffering if your driver supports
