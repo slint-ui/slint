@@ -13,7 +13,7 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{preview_data, properties, SelectionNotification};
+use crate::preview::{self, preview_data, properties, SelectionNotification};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -79,7 +79,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
             PathBuf::from(path.to_string()),
-            crate::preview::TextSize::from(offset as u32),
+            preview::TextSize::from(offset as u32),
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,
         );
@@ -1182,20 +1182,22 @@ pub fn ui_set_preview_data(
     }
 }
 
+fn to_property_container(container: slint::SharedString) -> preview_data::PropertyContainer {
+    if container.is_empty() {
+        preview_data::PropertyContainer::Main
+    } else {
+        preview_data::PropertyContainer::Global(container.to_string())
+    }
+}
+
 fn set_preview_data(
-    component: SharedString,
+    container: SharedString,
     property_name: SharedString,
     model: slint::ModelRc<slint::ModelRc<PropertyValue>>,
 ) -> bool {
     if model.row_count() == 0 || property_name.is_empty() {
         return false;
     }
-
-    let component = if component.is_empty() {
-        preview_data::PropertyContainer::Main
-    } else {
-        preview_data::PropertyContainer::Global(component.to_string())
-    };
 
     let values = model
         .iter()
@@ -1206,23 +1208,42 @@ fn set_preview_data(
         })
         .collect::<Vec<_>>();
 
-    crate::preview::set_preview_data(component, property_name.to_string(), values).is_ok()
+    if let Some(component_instance) = preview::component_instance() {
+        preview_data::set_preview_data(
+            &component_instance,
+            to_property_container(container),
+            property_name.to_string(),
+            values,
+        )
+        .is_ok()
+    } else {
+        false
+    }
 }
 
 fn set_json_preview_data(
-    component: SharedString,
+    container: SharedString,
     property_name: SharedString,
     json_string: SharedString,
 ) {
-    let component = if component.is_empty() {
-        preview_data::PropertyContainer::Main
-    } else {
-        preview_data::PropertyContainer::Global(component.to_string())
-    };
     let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
 
-    let _ =
-        crate::preview::set_json_preview_data(component, property_name, json_string.to_string());
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_string) else {
+        return false;
+    };
+
+    if property_name.is_none() && !json.is_object() {
+        return false;
+    }
+
+    if let Some(component_instance) = preview::component_instance() {
+        let _ = preview_data::set_json_preview_data(
+            &component_instance,
+            to_property_container(container),
+            property_name,
+            json_string.to_string(),
+        );
+    };
 }
 
 fn update_properties(
