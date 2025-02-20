@@ -14,6 +14,7 @@ import {
     GridBox,
     StandardButton,
     Palette,
+    StyleMetrics,
 } from "std-widgets.slint";
 
 @rust-attr(derive(serde::Serialize, serde::Deserialize))
@@ -40,6 +41,7 @@ export component MainWindow inherits Window {
 
     callback todo-added(string);
     callback remove-done();
+    callback remove(index: int);
     callback popup_confirmed;
     callback show_confirm_popup;
     callback apply_sorting_and_filtering();
@@ -137,14 +139,33 @@ export component MainWindow inherits Window {
         }
 
         list-view := ListView {
-            for todo in root.todo-model: HorizontalLayout {
-                CheckBox {
-                    toggled => {
-                        todo.checked = self.checked;
+            for todo[index] in root.todo-model: cm := ContextMenuArea {
+                Menu {
+                    MenuItem {
+                        title: @tr("Remove");
+                        activated => { root.remove(index); }
                     }
-
-                    text: todo.title;
-                    checked: todo.checked;
+                    MenuItem {
+                        title: todo.checked ? @tr("Mark as not done") : @tr("Mark as done");
+                        activated => {
+                            todo.checked = !todo.checked;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    padding: StyleMetrics.layout-spacing / 2;
+                    spacing: StyleMetrics.layout-spacing;
+                    CheckBox {
+                        toggled => {
+                            todo.checked = self.checked;
+                        }
+                        checked: todo.checked;
+                        horizontal-stretch: 0;
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: todo.title;
+                    }
                 }
             }
         }
