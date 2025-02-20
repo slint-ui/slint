@@ -204,8 +204,7 @@ export function generateSlintSnippet(sceneNode: SceneNode): string | null {
 
     switch (nodeType) {
         case "FRAME": {
-            // Not handled. It's a type of layout node in Figma.
-            break;
+            return generateRectangleSnippet(sceneNode);
         }
         case "RECTANGLE": {
             return generateRectangleSnippet(sceneNode);

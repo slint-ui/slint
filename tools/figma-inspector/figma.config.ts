@@ -6,7 +6,7 @@ import { version } from "./package.json";
 
 export const manifest: PluginManifest = {
     name: "Figma to Slint",
-    id: "slint.figma.plugin",
+    id: "1474418299182276871",
     api: "1.0.0",
     main: "code.js",
     ui: "index.html",
