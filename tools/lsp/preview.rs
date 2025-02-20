@@ -969,35 +969,6 @@ fn track_preview_data(
     })
 }
 
-fn set_preview_data(
-    component: preview_data::PropertyContainer,
-    property_name: String,
-    values: Vec<Vec<String>>,
-) -> Result<(), String> {
-    let component_instance = component_instance().expect("No component instance fond");
-
-    preview_data::set_preview_data(&component_instance, component, property_name, values)
-}
-
-fn set_json_preview_data(
-    component: preview_data::PropertyContainer,
-    property_name: Option<String>,
-    json_string: String,
-) -> Result<(), Vec<String>> {
-    let component_instance = component_instance().expect("No component instance fond");
-
-    let json: serde_json::Value = serde_json::from_str(&json_string)
-        .map_err(|e| vec![format!("Could not parse JSON input: {e}")])?;
-
-    if property_name.is_none() && !json.is_object() {
-        return Err(vec![
-            "You need to pass in a JSON object when loading into a component or global".to_string(),
-        ]);
-    }
-
-    preview_data::set_json_preview_data(&component_instance, component, property_name, json)
-}
-
 fn finish_parsing(preview_url: &Url) {
     set_status_text("");
 
