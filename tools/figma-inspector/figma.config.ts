@@ -13,7 +13,14 @@ export const manifest: PluginManifest = {
     editorType: ["dev"],
     capabilities: ["codegen", "vscode"],
     codegenLanguages: [{ label: "Slint", value: "slint" }],
-    codegenPreferences: [],
+    codegenPreferences: [
+        {
+            "itemType": "action",
+            "propertyName": "exportVariables",
+            "label": "Export Variables",
+            "includedLanguages": ["slint"]
+        }
+    ],
     documentAccess: "dynamic-page",
     networkAccess: {
         allowedDomains: ["*"],
