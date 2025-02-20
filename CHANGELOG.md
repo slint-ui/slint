@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
  - Fixed panic when PopupWindow is opened while AccessKit is active
  - Implemented `forward-focus` on `PopupWindow` (#7529)
  - Qt backend: fixed crash at exit with Qt 5.8 (#7570)
+ - Software renderer: Added a way to pre-render glyphs with signed distance field
 
 ### Slint language
 
@@ -27,6 +28,8 @@ All notable changes to this project are documented in this file.
  - Added `Path::stroke-line-cap` property. (#4676)
  - special sub elements (Row, Tab, MenuItem) are now accepted in `@children`
  - Added `accessible-expandable`, `accessible-expanded` and `accessible-action-expand` properties and callback
+ - Added `accessible-readonly` property
+ - Added `AccessibleRole.image`
  - Made `forward-focus` in a `PopupWindow` to focus a widget when a popup is open
  - Added `TextInput::page-height` to support PageUp and PageDown shortcuts
 
@@ -68,6 +71,7 @@ All notable changes to this project are documented in this file.
  - live-preview: Fix loading the library path config
  - live-preview (macOS): Add a Window menu with keep the window on top
  - live-preview: selection popup no longer contains invisible or clipped items
+ - live-preview: fix editing of translated string.
  - LSP: no longer suggest private properties in auto-completion
  - LSP: add ability to rename properties and globals
  - Simple Figma inspector plugin
