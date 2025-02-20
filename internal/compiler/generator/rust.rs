@@ -65,12 +65,12 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         use crate::embedded_resources::PixelFormat::*;
         let tks = match self {
-            Rgb => quote!(sp::PixelFormat::Rgb),
-            Rgba => quote!(sp::PixelFormat::Rgba),
+            Rgb => quote!(sp::TexturePixelFormat::Rgb),
+            Rgba => quote!(sp::TexturePixelFormat::Rgba),
             RgbaPremultiplied => {
-                quote!(sp::PixelFormat::RgbaPremultiplied)
+                quote!(sp::TexturePixelFormat::RgbaPremultiplied)
             }
-            AlphaMap(_) => quote!(sp::PixelFormat::AlphaMap),
+            AlphaMap(_) => quote!(sp::TexturePixelFormat::AlphaMap),
         };
         tokens.extend(tks);
     }

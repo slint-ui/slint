@@ -539,6 +539,27 @@ struct Rgb565Pixel
 };
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
+
+using cbindgen_private::types::TexturePixelFormat;
+
+/// This structure describes the properties of a texture for blending with
+/// TargetPixelBuffer::draw_texture().
+struct Texture
+{
+    /// A reference to the pixel bytes of the texture. These bytes are in the format specified by
+    /// `pixel_format`.
+    std::span<const uint8_t> bytes;
+    /// The pixel format of the texture.
+    TexturePixelFormat pixel_format;
+    uint16_t pixel_stride;
+    uint16_t width;
+    uint16_t height;
+    uint16_t delta_x;
+    uint16_t delta_y;
+    uint16_t source_offset_x;
+    uint16_t source_offset_y;
+};
+
 template<typename PixelType>
 struct TargetPixelBuffer
 {
@@ -550,10 +571,8 @@ struct TargetPixelBuffer
     virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
                                 const RgbaColor<uint8_t> &premultiplied_color) = 0;
     virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height, int16_t span_y,
-                              const uint8_t *src, uint16_t src_stride, int16_t src_width,
-                              int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
-                              uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y,
-                              uint32_t colorize, uint8_t alpha, uint8_t rotation) = 0;
+                              const Texture &texture, uint32_t colorize, uint8_t alpha,
+                              uint8_t rotation) = 0;
 };
 #    endif
 
@@ -727,15 +746,23 @@ public:
                     },
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
-                       int16_t span_y, const uint8_t *src, uint16_t src_stride, int16_t src_width,
-                       int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
-                       uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y, uint32_t colorize,
-                       uint8_t alpha, uint8_t rotation) {
+                       int16_t span_y, const cbindgen_private::CppInternalTexture *internal_texture,
+                       uint32_t colorize, uint8_t alpha, uint8_t rotation) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
-                        return buffer->draw_texture(x, y, width, height, span_y, src, src_stride,
-                                                    src_width, src_height, src_pixel_format, src_dx,
-                                                    src_dy, src_off_x, src_off_y, colorize, alpha,
-                                                    rotation);
+                        Texture texture {
+                            .bytes = std::span<const uint8_t> { internal_texture->bytes,
+                                                                internal_texture->bytes_len },
+                            .pixel_format = internal_texture->pixel_format,
+                            .pixel_stride = internal_texture->pixel_stride,
+                            .width = internal_texture->width,
+                            .height = internal_texture->height,
+                            .delta_x = internal_texture->delta_x,
+                            .delta_y = internal_texture->delta_y,
+                            .source_offset_x = internal_texture->source_offset_x,
+                            .source_offset_y = internal_texture->source_offset_y,
+                        };
+                        return buffer->draw_texture(x, y, width, height, span_y, texture, colorize,
+                                                    alpha, rotation);
                     }
         };
         auto r =
@@ -769,15 +796,23 @@ public:
                     },
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
-                       int16_t span_y, const uint8_t *src, uint16_t src_stride, int16_t src_width,
-                       int16_t src_height, uint8_t src_pixel_format, uint16_t src_dx,
-                       uint16_t src_dy, uint16_t src_off_x, uint16_t src_off_y, uint32_t colorize,
-                       uint8_t alpha, uint8_t rotation) {
+                       int16_t span_y, const cbindgen_private::CppInternalTexture *internal_texture,
+                       uint32_t colorize, uint8_t alpha, uint8_t rotation) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
-                        return buffer->draw_texture(x, y, width, height, span_y, src, src_stride,
-                                                    src_width, src_height, src_pixel_format, src_dx,
-                                                    src_dy, src_off_x, src_off_y, colorize, alpha,
-                                                    rotation);
+                        Texture texture {
+                            .bytes = std::span<const uint8_t> { internal_texture->bytes,
+                                                                internal_texture->bytes_len },
+                            .pixel_format = internal_texture->pixel_format,
+                            .pixel_stride = internal_texture->pixel_stride,
+                            .width = internal_texture->width,
+                            .height = internal_texture->height,
+                            .delta_x = internal_texture->delta_x,
+                            .delta_y = internal_texture->delta_y,
+                            .source_offset_x = internal_texture->source_offset_x,
+                            .source_offset_y = internal_texture->source_offset_y,
+                        };
+                        return buffer->draw_texture(x, y, width, height, span_y, texture, colorize,
+                                                    alpha, rotation);
                     }
         };
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner,

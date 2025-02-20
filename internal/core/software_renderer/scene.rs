@@ -7,7 +7,7 @@ use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
-use crate::graphics::{PixelFormat, SharedImageBuffer};
+use crate::graphics::{SharedImageBuffer, TexturePixelFormat};
 use crate::lengths::{PointLengths as _, SizeLengths as _};
 use crate::Color;
 use alloc::rc::Rc;
@@ -284,7 +284,7 @@ pub enum SceneCommand {
 pub struct SceneTexture<'a> {
     /// This should have a size so that the entire slice is ((height - 1) * pixel_stride + width) * bpp
     pub data: &'a [u8],
-    pub format: PixelFormat,
+    pub format: TexturePixelFormat,
     /// number of pixels between two lines in the source
     pub pixel_stride: u16,
 
@@ -294,7 +294,7 @@ pub struct SceneTexture<'a> {
 impl SceneTexture<'_> {
     pub fn source_size(&self) -> PhysicalSize {
         let mut len = self.data.len();
-        if self.format == PixelFormat::SignedDistanceField {
+        if self.format == TexturePixelFormat::SignedDistanceField {
             len -= 1;
         } else {
             len /= self.format.bpp();
@@ -355,27 +355,27 @@ impl SharedBufferCommand {
             SharedBufferData::SharedImage(SharedImageBuffer::RGB8(b)) => SceneTexture {
                 data: &b.as_bytes()[start * 3..end * 3],
                 pixel_stride: stride as u16,
-                format: PixelFormat::Rgb,
+                format: TexturePixelFormat::Rgb,
                 extra: self.extra,
             },
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8(b)) => SceneTexture {
                 data: &b.as_bytes()[start * 4..end * 4],
                 pixel_stride: stride as u16,
-                format: PixelFormat::Rgba,
+                format: TexturePixelFormat::Rgba,
                 extra: self.extra,
             },
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8Premultiplied(b)) => {
                 SceneTexture {
                     data: &b.as_bytes()[start * 4..end * 4],
                     pixel_stride: stride as u16,
-                    format: PixelFormat::RgbaPremultiplied,
+                    format: TexturePixelFormat::RgbaPremultiplied,
                     extra: self.extra,
                 }
             }
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
                 data: &data[start..end],
                 pixel_stride: *width,
-                format: PixelFormat::AlphaMap,
+                format: TexturePixelFormat::AlphaMap,
                 extra: self.extra,
             },
         }

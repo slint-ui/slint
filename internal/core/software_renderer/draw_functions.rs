@@ -7,7 +7,7 @@
 //! on the line buffer
 
 use super::{Fixed, PhysicalLength, PhysicalRect};
-use crate::graphics::{PixelFormat, Rgb8Pixel};
+use crate::graphics::{Rgb8Pixel, TexturePixelFormat};
 use crate::lengths::{PointLengths, SizeLengths};
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
@@ -183,7 +183,7 @@ pub(super) fn draw_texture_line(
 
     fn fetch_blend_pixel(
         line_buffer: &mut [impl TargetPixel],
-        format: PixelFormat,
+        format: TexturePixelFormat,
         data: &[u8],
         alpha: u8,
         color: Color,
@@ -191,10 +191,10 @@ pub(super) fn draw_texture_line(
         mut pos: impl FnMut(usize) -> (usize, u8, u8),
     ) {
         match format {
-            PixelFormat::Rgb => {
+            TexturePixelFormat::Rgb => {
                 for pix in line_buffer {
                     let pos = pos(3).0;
-                    let p = &data[pos..pos + 3];
+                    let p: &[u8] = &data[pos..pos + 3];
                     if alpha == 0xff {
                         *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
                     } else {
@@ -204,7 +204,7 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
-            PixelFormat::Rgba => {
+            TexturePixelFormat::Rgba => {
                 if color.alpha() == 0 {
                     for pix in line_buffer {
                         let pos = pos(4).0;
@@ -231,7 +231,7 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
-            PixelFormat::RgbaPremultiplied => {
+            TexturePixelFormat::RgbaPremultiplied => {
                 if color.alpha() > 0 {
                     for pix in line_buffer {
                         let pos = pos(4).0;
@@ -267,7 +267,7 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
-            PixelFormat::AlphaMap => {
+            TexturePixelFormat::AlphaMap => {
                 for pix in line_buffer {
                     let pos = pos(1).0;
                     let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
@@ -279,7 +279,7 @@ pub(super) fn draw_texture_line(
                     pix.blend(c);
                 }
             }
-            PixelFormat::SignedDistanceField => {
+            TexturePixelFormat::SignedDistanceField => {
                 const RANGE: i32 = 6;
                 let factor = (362 * 256 / delta.0) * RANGE; // 362 ≃ 255 * sqrt(2)
                 for pix in line_buffer {
