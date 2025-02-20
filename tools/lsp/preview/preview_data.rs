@@ -67,6 +67,46 @@ impl PreviewData {
     }
 }
 
+pub fn get_preview_data(
+    component_instance: &ComponentInstance,
+    container: PropertyContainer,
+    property_name: String,
+) -> Option<PreviewData> {
+    fn find_preview_data(
+        property_name: &str,
+        mut it: impl Iterator<
+            Item = (
+                String,
+                (
+                    i_slint_compiler::langtype::Type,
+                    i_slint_compiler::object_tree::PropertyVisibility,
+                ),
+            ),
+        >,
+        value_query: &dyn Fn(&str) -> Option<slint_interpreter::Value>,
+    ) -> Option<PreviewData> {
+        it.find(|(name, (_, _))| name == property_name).map(|(name, (ty, visibility))| {
+            let value = value_query(&name);
+
+            PreviewData { name, ty, visibility, value }
+        })
+    }
+
+    let definition = &component_instance.definition();
+    match &container {
+        PropertyContainer::Main => {
+            find_preview_data(&property_name, &mut definition.properties_and_callbacks(), &|name| {
+                component_instance.get_property(name).ok()
+            })
+        }
+        PropertyContainer::Global(g) => find_preview_data(
+            &property_name,
+            &mut definition.global_properties_and_callbacks(g)?,
+            &|name| component_instance.get_global_property(g, name).ok(),
+        ),
+    }
+}
+
 pub fn query_preview_data_properties_and_callbacks(
     component_instance: &ComponentInstance,
 ) -> HashMap<PropertyContainer, Vec<PreviewData>> {
@@ -145,38 +185,6 @@ fn find_component_properties_and_callbacks<'a>(
                 .ok_or(format!("Global {g} does not exist"))?,
         )),
     }
-}
-
-pub fn set_preview_data(
-    component_instance: &ComponentInstance,
-    container: PropertyContainer,
-    property_name: String,
-    values: Vec<Vec<String>>,
-) -> Result<(), String> {
-    let definition = &component_instance.definition();
-
-    let (_, (ty, _)) = find_component_properties_and_callbacks(definition, &container)?
-        .find(|(name, (_, _))| name == &property_name)
-        .ok_or_else(|| {
-            format!("Property name {property_name} not found on component {container}")
-        })?;
-
-    if values.len() == 1 && values[0].len() == 1 {
-        let json_value: serde_json::Value = serde_json::from_str(&values[0][0])
-            .map_err(|e| format!("Failed to read value as JSON: {e}"))?;
-        let value = slint_interpreter::json::value_from_json(&ty, &json_value)?;
-
-        match &container {
-            PropertyContainer::Main => component_instance
-                .set_property(&property_name, value)
-                .map_err(|e| format!("Failed to set property: {e}"))?,
-            PropertyContainer::Global(g) => component_instance
-                .set_global_property(g, &property_name, value)
-                .map_err(|e| format!("Failed to set global property: {e}"))?,
-        }
-    }
-
-    Ok(())
 }
 
 pub fn set_json_preview_data(

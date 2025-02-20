@@ -166,14 +166,16 @@ export struct PropertyGroup {
     properties: [PropertyInformation],
 }
 
+export enum PreviewDataKind {
+    Value,
+    Json,
+}
+
 export struct PreviewData {
     name: string,
     has-getter: bool,
     has-setter: bool,
-    is-array: bool,
-    prefer-json: bool,
-    header: [string], // "Simple" values + table headers
-    array-values: [[PropertyValue]], // The "Table values"
+    kind: PreviewDataKind,
 }
 
 /// Information on exported components and their properties
@@ -406,54 +408,7 @@ export global Api {
 
     // ## preview data
 
-    in-out property <[PropertyContainer]> preview-data: [
-        {
-            container-name: "Fruits",
-            properties: [
-                {
-                    name: "AppleSetter",
-                    has-getter: false,
-                    has-setter: true,
-                    is-array: false,
-                    prefer-json: false,
-                    header: [ "" ],
-                    array-values: [[{
-                        kind: PropertyValueKind.boolean,
-                        value-bool: true,
-                    }]],
-                },
-                {
-                    name: "BananaGetter",
-                    has-getter: true,
-                    has-setter: true,
-                    is-array: false,
-                    prefer-json: true,
-                    header: [ "fruit" ],
-                    array-values: [[{
-                        kind: PropertyValueKind.code,
-                        code: "{\n   json: true\n}"
-                    }]]
-                },
-            ]
-        },
-        {
-            container-name: "Vegetables",
-            properties: [
-                {
-                    name: "Cucumber",
-                    has-getter: true,
-                    has-setter: true,
-                    is-array: false,
-                    prefer-json: false,
-                    header: [ "" ],
-                    array-values: [[{
-                        kind: PropertyValueKind.string,
-                        value-string: "a green banana",
-                     }]],
-                }
-            ]
-        },
-    ];
+    in-out property <[PropertyContainer]> preview-data;
 
     // # Callbacks
 
@@ -517,8 +472,9 @@ export global Api {
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
 
     // ## preview data
-    callback set-preview-data(component: string, name: string, raw-json-array-values: [[PropertyValue]]) -> bool;
-    callback set-json-preview-data(component: string, name: string, json-value: string);
+    pure callback get-property-value(component: string, name: string) -> PropertyValue;
+
+    callback set-json-preview-data(component: string, name: string, json-value: string) -> bool;
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;

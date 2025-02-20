@@ -3,7 +3,7 @@
 
 import { Button, CheckBox, ComboBox, LineEdit, Palette, Slider, TextEdit } from "std-widgets.slint";
 
-import { Api, ColorData, ElementInformation, PreviewData, PropertyContainer, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ColorData, ElementInformation, PreviewData, PreviewDataKind, PropertyContainer, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
 import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
 import { StateLayer } from "../components/state-layer.slint";
@@ -889,6 +889,12 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     in property <PreviewData> preview-data;
     in property <string> property-container-name;
 
+    private property <PropertyValue> value: Api.get-property-value(root.property-container-name, root.preview-data.name);
+
+    changed value => {
+        debug("\{self.property-container-name}.\{self.preview-data.name}: VALUE CHANGED TO \{self.value.code}");
+    }
+
     callback edit-in-spreadsheet(rp: PropertyContainer);
 
     function reset-action() {
@@ -896,32 +902,20 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     }
 
     function set-code-binding(text: string) -> bool {
-        root.value.was-edited = true;
-        root.value.edited-value = text;
-
-        root.array-values[0][0] = root.value;
-
-        return(Api.set-preview-data(root.property-container-name, root.preview-data.name, self.array-values));
+        return(Api.set-json-preview-data(root.property-container-name, root.preview-data.name, text));
     }
 
-    private property <bool> is-simple: preview-data.header.length == 1 && !preview-data.is-array && !preview-data.prefer-json;
-    private property <bool> show-json: preview-data.prefer-json;
-
-    private property <[[PropertyValue]]> array-values: preview-data.array-values;
-
-    property <PropertyValue> value: root.preview-data.array-values[0][0];
-
-    if is-simple && value.kind == PropertyValueKind.code: CodeWidget {
+    if root.preview-data.kind == PreviewDataKind.Value && value.kind == PropertyValueKind.code: CodeWidget {
         enabled: root.preview-data.has-setter;
         property-name: root.preview-data.name;
-        property-value: value;
+        property-value <=> root.value;
         has-code-action: false;
 
         reset-action() => {
             root.reset-action();
         }
     }
-    if is-simple && value.kind != PropertyValueKind.code: PropertyValueWidget {
+    if root.preview-data.kind == PreviewDataKind.Value && value.kind != PropertyValueKind.code: PropertyValueWidget {
         property-value <=> root.value;
         property-name: root.preview-data.name;
         enabled: root.preview-data.has-setter;
@@ -951,10 +945,10 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
             return(root.set-code-binding(is_translated ? "\"\{text}\"" : text));
         }
     }
-    if show-json: EditJsonWidget {
+    if root.preview-data.kind == PreviewDataKind.Json: EditJsonWidget {
         enabled: root.preview-data.has-setter;
         property-name: root.preview-data.name;
-        property-value: value;
+        property-value <=> root.value;
 
         set-code-binding(text) => {
             root.set-code-binding(text);
