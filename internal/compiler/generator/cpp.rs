@@ -942,7 +942,7 @@ fn embed_resource(
                 init: Some(format!(
                     "{{
                             .rect = {{ {r_x}, {r_y}, {r_w}, {r_h} }},
-                            .format = slint::cbindgen_private::types::PixelFormat::{format},
+                            .format = slint::cbindgen_private::types::TexturePixelFormat::{format},
                             .color = {color},
                             .index = 0,
                             }}"
