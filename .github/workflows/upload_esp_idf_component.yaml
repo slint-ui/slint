@@ -10,7 +10,7 @@ on:
                 type: boolean
                 default: false
                 required: false
-                description: "Release? Uploads to esp-idf component registry if true"
+                description: "Release? Uploads to esp-idf component registry as release if true; otherwise as slint/slint-nightly"
 
 jobs:
     upload_components:
@@ -18,7 +18,8 @@ jobs:
         container: espressif/idf:latest
         steps:
             - uses: actions/checkout@v4
-            - name: Extract Version
+            - run: sudo apt-get install yq
+            - name: Extract Version and determine name
               working-directory: api/cpp/esp-idf/slint
               id: version
               run: |
@@ -27,7 +28,15 @@ jobs:
                   echo "Version not found"
                   exit 1
                 fi
-                  echo "VERSION=$version" >> $GITHUB_OUTPUT
+                echo "VERSION=$version" >> $GITHUB_OUTPUT
+                if [ "$RELEASE_INPUT" != "true" ]; then
+                  echo "PKG_NAME=slint-nightly" >> $GITHUB_OUTPUT
+                  nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%m%d%H"`
+                  version="$version+nightly.$nightly_version_suffix"
+                  git show HEAD:./idf_component.yml | yq -y --arg nightly_version "${nightly_version}" '.version = $nightly_version' > idf_component.yml
+                else
+                  echo "PKG_NAME=slint" >> $GITHUB_OUTPUT
+                fi
             - name: Remove use of nightly version
               if: github.event.inputs.release == 'true'
               working-directory: api/cpp/esp-idf/slint
@@ -37,7 +46,7 @@ jobs:
               if: github.event.inputs.release == 'true'
               uses: espressif/upload-components-ci-action@v2
               with:
-                  name: "slint"
+                  name: ${{ steps.version.outputs.PKG_NAME }}
                   namespace: "slint"
                   api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
                   directories: "api/cpp/esp-idf/slint"
@@ -46,7 +55,7 @@ jobs:
               working-directory: "api/cpp/esp-idf/slint"
               run: |
                   . ${IDF_PATH}/export.sh
-                  compote component pack --name slint
+                  compote component pack --name ${{ steps.version.outputs.PKG_NAME }}
             - name: Archive component
               if: github.event.inputs.release != 'true'
               uses: actions/upload-artifact@v4
