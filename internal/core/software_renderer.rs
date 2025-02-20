@@ -80,7 +80,7 @@ impl RenderingRotation {
         matches!(self, Self::Rotate90 | Self::Rotate180)
     }
     /// Angle of the rotation in degrees
-    fn angle(self) -> f32 {
+    pub fn angle(self) -> f32 {
         match self {
             RenderingRotation::NoRotation => 0.,
             RenderingRotation::Rotate90 => 90.,
@@ -436,7 +436,7 @@ mod private_api {
             _src_texture: Texture<'_>,
             _colorize: u32,
             _alpha: u8,
-            _rotation: u8,
+            _rotation: RenderingRotation,
         ) -> bool {
             false
         }
@@ -1297,7 +1297,7 @@ impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> RenderToBuffe
                 },
                 texture.extra.colorize.as_argb_encoded(),
                 texture.extra.alpha,
-                texture.extra.rotation as u8,
+                texture.extra.rotation,
             ) {
                 let begin = rect.min_x();
                 let end = rect.max_x();

@@ -356,8 +356,8 @@ mod software_renderer {
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_core::software_renderer::{
-        PhysicalRegion, PremultipliedRgbaColor, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
-        TargetPixelBuffer, Texture, TexturePixelFormat,
+        PhysicalRegion, PremultipliedRgbaColor, RenderingRotation, RepaintBufferType, Rgb565Pixel,
+        SoftwareRenderer, TargetPixelBuffer, Texture, TexturePixelFormat,
     };
     use i_slint_core::SharedVector;
 
@@ -408,7 +408,7 @@ mod software_renderer {
             &CppInternalTexture,
             u32,
             u8,
-            u8,
+            i32,
         ) -> bool,
     }
 
@@ -461,7 +461,7 @@ mod software_renderer {
             texture: Texture<'_>,
             colorize: u32,
             alpha: u8,
-            rotation: u8,
+            rotation: RenderingRotation,
         ) -> bool {
             unsafe {
                 (self.draw_texture)(
@@ -485,7 +485,7 @@ mod software_renderer {
                     },
                     colorize,
                     alpha,
-                    rotation,
+                    rotation.angle() as i32,
                 )
             }
         }
@@ -522,7 +522,7 @@ mod software_renderer {
             &CppInternalTexture,
             u32,
             u8,
-            u8,
+            i32,
         ) -> bool,
     }
 
@@ -575,7 +575,7 @@ mod software_renderer {
             texture: Texture<'_>,
             colorize: u32,
             alpha: u8,
-            rotation: u8,
+            rotation: RenderingRotation,
         ) -> bool {
             unsafe {
                 (self.draw_texture)(
@@ -599,7 +599,7 @@ mod software_renderer {
                     },
                     colorize,
                     alpha,
-                    rotation,
+                    rotation.angle() as i32,
                 )
             }
         }
