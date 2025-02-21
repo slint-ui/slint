@@ -30,7 +30,7 @@ default = [
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 12
+## This feature is required to keep the compatibility with Slint 1.2
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
