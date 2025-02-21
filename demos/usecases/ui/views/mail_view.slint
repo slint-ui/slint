@@ -45,7 +45,7 @@ export global MailSideBarViewAdapter {
 
 export component MailSideBarView {
     in property <bool> break-layout;
-    
+
     horizontal-stretch: 0;
     min-width: 264px / 2;
 
@@ -109,7 +109,7 @@ export component MailSideBarDialog inherits ModalDialog {
         init => {
             self.x = 0;
         }
-    }    
+    }
 }
 
 export global MailBoxViewAdapter {
@@ -162,7 +162,7 @@ export component MailBoxView {
     in property <bool> break-layout;
 
     callback show-sidebar();
-    
+
     horizontal-stretch: 1;
 
     VerticalLayout {
@@ -178,7 +178,7 @@ export component MailBoxView {
                     root.show-sidebar();
                 }
             }
-    
+
             TitleText {
                 text: MailBoxViewAdapter.title;
                 min-height: 32px;
@@ -317,7 +317,7 @@ export component MailMessageView {
 
 export component MailView {
     in property <bool> break-layout;
-    
+
     HorizontalLayout {
         spacing: 16px;
 
