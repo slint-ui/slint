@@ -11,6 +11,7 @@ MyDiag1 := Dialog {
 }
 
 MyDiag2 := Dialog {
+//         ^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: reset; }
     StandardButton {
         kind: cancel;
@@ -54,7 +55,6 @@ MyDialog4 := Dialog {
 export Test := Rectangle {
     MyDiag1 {}
     MyDiag2 {}
-//  ^error{A Dialog must have a single child element that is not StandardButton}
     MyDiag3 {}
     MyDialog4 {}
 }
