@@ -24,29 +24,25 @@ export component PreviewDataView inherits ScrollView {
             vertical-alignment: center;
             vertical-stretch: 1;
         }
+        for ep in root.preview-data: ExpandableGroup {
+            enabled: root.enabled;
 
-        if root.element-loaded: component := VerticalBox {
-            alignment: start;
+            text: ep.container-name;
+            panel-width: root.width;
 
-            for ep in root.preview-data: ExpandableGroup {
-                enabled: root.enabled;
+            VerticalLayout {
+                spacing: EditorSpaceSettings.property-spacing;
+                padding-left: EditorSpaceSettings.group-indent;
+                padding-right: EditorSpaceSettings.group-indent;
+                padding-top: EditorSpaceSettings.default-padding;
+                padding-bottom: EditorSpaceSettings.default-padding;
 
-                text: ep.container-name;
-                panel-width: content-layer.width;
-
-                VerticalLayout {
-                    spacing: EditorSpaceSettings.property-spacing;
-                    padding-left: EditorSpaceSettings.group-indent;
-                    padding-right: EditorSpaceSettings.group-indent;
-                    padding-top: EditorSpaceSettings.default-padding;
-                    padding-bottom: EditorSpaceSettings.default-padding;
-
-                    for p in ep.properties: PreviewDataPropertyValueWidget {
-                        preview-data: p;
-                    }
+                for p in ep.properties: PreviewDataPropertyValueWidget {
+                    preview-data: p;
                 }
             }
         }
+        
     }
 
     Rectangle {
